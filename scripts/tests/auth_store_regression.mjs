@@ -39,7 +39,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
     getUserId: () => currentUserId, getAccessToken: () => accessToken,
     closeLocalDb: (id) => { closedDbUserIds.push(id); },
     resetAllDatabases: () => { resetAllDatabasesCount++; },
-    storage: { remove() {}, set() {}, get() { return null; } }, openExternalLink() { return true; },
+    storage: { remove() {}, set() {}, get() { return null; } }, getPlatform: () => 'web', openExternalLink() { return true; },
     prepareExternalLink: () => ({ navigate() {}, close() {} }),
     useUiStore: { getState: () => ui, setState: value => Object.assign(ui, value) },
     useDeckStore: { getState: () => ({
@@ -264,6 +264,7 @@ for (const detail of ['invalid_provider_proof', 'provider_proof_replayed']) {
   test(`Mini App falls back to bot confirmation when initData is rejected: ${detail}`, async () => {
     const f = fixture();
     f.context.window.Telegram = { WebApp: { initData: 'synthetic-old-proof' } };
+    f.context.getPlatform = () => 'telegram';
     const post = f.api.post;
     f.api.post = async (path, body) => {
       if (path === '/auth/v2/telegram/mini-app') throw { response: { status: 401, data: { detail } } };
@@ -297,4 +298,86 @@ test('temporary exchange failure retains the challenge but still respects its de
   await f.store.getState().checkPendingSession();
   assert.equal(f.store.getState().isPolling, false);
   assert.equal(f.timers.size, 0);
+});
+
+test('Telegram preflight is deduplicated and cannot poll or persist before activation', async () => {
+  const f = fixture();
+  let resolve;
+  const post = f.api.post;
+  f.api.post = (...args) => new Promise(done => { resolve = async () => done(await post(...args)); });
+  const first = f.store.getState().prepareTelegramChallenge();
+  assert.equal(f.store.getState().prepareTelegramChallenge(), first);
+  assert.equal(f.pending.size, 0);
+  assert.equal(f.timers.size, 0);
+  resolve();
+  const challenge = await first;
+  assert.equal((await f.store.getState().prepareTelegramChallenge()).id, challenge.id);
+  assert.equal(f.calls.length, 1);
+  assert.equal(f.store.getState().activatePreparedTelegram(challenge.id), true);
+  assert.equal(f.store.getState().activatePreparedTelegram(challenge.id), false);
+  assert.equal(f.pending.size, 1);
+  assert.equal(f.timers.size, 1);
+  assert.equal(f.calls.length, 1);
+});
+
+test('early Telegram click awaits the same preflight and disables async popup retries', async () => {
+  const f = fixture();
+  let resolve;
+  let opens = 0;
+  const post = f.api.post;
+  f.api.post = (...args) => new Promise(done => { resolve = async () => done(await post(...args)); });
+  f.context.prepareExternalLink = () => null;
+  f.context.openExternalLink = (url, popup, options) => {
+    opens++;
+    assert.equal(popup, null);
+    assert.equal(options.allowPopup, false);
+    assert.equal(options.sameTabFallback, true);
+    return true;
+  };
+  const preparation = f.store.getState().prepareTelegramChallenge();
+  const login = f.store.getState().startTelegramLinking();
+  assert.equal((await f.store.getState().startTelegramLinking()).success, false);
+  resolve();
+  await preparation;
+  assert.equal((await login).success, true);
+  assert.equal(opens, 1);
+  assert.equal(f.calls.length, 1);
+});
+
+for (const action of ['cancelPendingAuth', 'logout']) {
+  test(`${action} retires an in-flight Telegram preflight`, async () => {
+    const f = fixture();
+    let resolve;
+    const post = f.api.post;
+    f.api.post = (...args) => new Promise(done => { resolve = async () => done(await post(...args)); });
+    const preparation = f.store.getState().prepareTelegramChallenge();
+    f.store.getState()[action]();
+    resolve();
+    assert.equal(await preparation, null);
+    assert.equal(f.store.getState().preparedTelegramChallenge, null);
+    assert.equal(f.pending.size, 0);
+    assert.equal(f.timers.size, 0);
+  });
+}
+
+test('Telegram preflight cannot reuse an expired or differently purposed challenge', async () => {
+  const f = fixture();
+  const login = await f.store.getState().prepareTelegramChallenge();
+  assert.equal(f.store.getState().activatePreparedTelegram(login.id, 'link'), false);
+  f.store.setState({ preparedTelegramChallenge: { ...login, expiresAt: '2000-01-01T00:00:00Z' } });
+  assert.equal(f.store.getState().activatePreparedTelegram(login.id), false);
+  await f.store.getState().prepareTelegramChallenge('link');
+  assert.equal(f.calls.length, 2);
+  assert.equal(f.calls[1].body.purpose, 'link');
+  assert.equal(f.store.getState().activatePreparedTelegram('fixture', 'link'), true);
+  assert.equal(JSON.parse([...f.pending.values()][0]).purpose, 'link');
+});
+
+test('prepared Telegram recovery preserves the flag through exchange', async () => {
+  const f = fixture();
+  await f.store.getState().prepareTelegramChallenge();
+  assert.equal(f.store.getState().activatePreparedTelegram('fixture', 'login', true), true);
+  await f.store.getState().checkPendingSession();
+  assert.equal(f.ui.settingsTab, 'profile');
+  assert.equal(f.store.getState().preparedTelegramChallenge, null);
 });

@@ -1,0 +1,1061 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "B1-24-D08 · Je … desto und Folgesätze — Je … desto или je … umso?",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "B1-24-D08 · Je … desto или je … umso?",
+        "level": "B1",
+        "topic": "Je … desto und Folgesätze",
+        "description": "Освоение параллельного союза umso как равноправного синонима desto во второй части конструкции je … desto/umso",
+        "goal": "Научить ученика осознанно употреблять и распознавать оба варианта второй части сравнительной конструкции — desto и umso — без нарушения порядка слов и без ложного противопоставления их по смыслу.",
+        "learning_outcomes": [
+          "Распознавать полную взаимозаменяемость desto и umso в парной конструкции",
+          "Сохранять неизменный порядок слов при использовании umso (инверсия глагола)",
+          "Не разрывать сравнительные группы umso mehr/weniger + Nomen",
+          "Свободно перефразировать предложения, заменяя desto на umso и наоборот",
+          "Формулировать реплики в ситуациях поездок, транспорта и планирования времени"
+        ],
+        "estimated_time": "35–50 минут",
+        "recommendations": "Если ученик считает, что один вариант обязательно «сильнее» другого, повторить карточки 01–08 и 14. Если сбивается порядок слов — повторить 09–17 и D06. Если не строится целая фраза — D07. Следующая колода — D09 «Почему? Поэтому!», где изучается конкретное последствие с deshalb/deswegen/daher."
+      },
+      "pedagogy": {
+        "lesson_type": "practice",
+        "expected_result": "Ученик свободно использует umso наряду с desto, сохраняет идентичный порядок слов с инверсией во второй части и не приписывает союзам ложных различий в значении.",
+        "stages": [
+          {
+            "id": "umso_intro_equivalence",
+            "title": "Открытие эквивалентности desto и umso",
+            "goal": "Показать полную функциональную и смысловую эквивалентность desto и umso в парной конструкции",
+            "from_card": 1,
+            "to_card": 8,
+            "support": "high",
+            "expected_skill": "Взаимозаменять desto и umso без изменения структуры предложения"
+          },
+          {
+            "id": "word_order_with_umso",
+            "title": "Тот же порядок слов: глагольные позиции и сравнительные группы",
+            "goal": "Закрепить инверсию глагола во второй части с союзом umso",
+            "from_card": 9,
+            "to_card": 16,
+            "support": "high",
+            "expected_skill": "Ставить личный глагол сразу после umso + Komparativ"
+          },
+          {
+            "id": "noun_groups_and_integration",
+            "title": "Количественные группы umso mehr/weniger + Nomen",
+            "goal": "Освоить составные сравнительные группы с существительным при союзе umso",
+            "from_card": 17,
+            "to_card": 24,
+            "support": "medium",
+            "expected_skill": "Удерживать неделимость групп umso mehr/weniger + Nomen"
+          },
+          {
+            "id": "modals_and_accuracy",
+            "title": "Модальные глаголы, исключение ловушек и точные формы",
+            "goal": "Корректно строить модальные конструкции с umso и избегать ложных союзов (so)",
+            "from_card": 25,
+            "to_card": 32,
+            "support": "medium",
+            "expected_skill": "Ставить модальный глагол после umso-группы, смысловой инфинитив — в конец"
+          },
+          {
+            "id": "real_situations_transport",
+            "title": "Жизненные ситуации в поездках и на транспорте",
+            "goal": "Применять связку je … umso в диалогах о транспорте, расписании и дороге",
+            "from_card": 33,
+            "to_card": 40,
+            "support": "medium",
+            "expected_skill": "Использовать umso в спонтанных репликах о поездках"
+          },
+          {
+            "id": "autonomous_speech_and_dual_use",
+            "title": "Свободное применение обеих связок в речи и письме",
+            "goal": "Автономно и гибко строить параллельные фразы с desto и umso",
+            "from_card": 41,
+            "to_card": 48,
+            "support": "low",
+            "expected_skill": "Владеть обоими вариантами связки в равной степени"
+          }
+        ],
+        "competencies": [
+          {
+            "id": "umso_desto_equivalence",
+            "title": "Эквивалентность desto и umso",
+            "description": "Понимание полной синонимичности союзов desto и umso в сравнительной конструкции"
+          },
+          {
+            "id": "inversion_consistency",
+            "title": "Инвариантность инверсии",
+            "description": "Соблюдение порядка слов главного предложения (глагол на 2-м месте) вне зависимости от выбора desto или umso"
+          },
+          {
+            "id": "transport_context_application",
+            "title": "Применение в тематике транспорта",
+            "description": "Уверенное выражение зависимостей в контексте поездок, расписаний и билетов"
+          }
+        ],
+        "assessment_criteria": [
+          {
+            "id": "correct_connector_choice",
+            "title": "Точность выбора связки",
+            "description": "Безошибочное использование desto или umso во второй части"
+          },
+          {
+            "id": "syntax_stability",
+            "title": "Стабильность синтаксической схемы",
+            "description": "Неизменность позиции обоих глаголов при переходе с desto на umso"
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "review_equivalence",
+            "title": "Повторение взаимозаменяемости связок",
+            "when": "Если ученик ошибочно считает umso отличным по смыслу или грамматике от desto",
+            "reason": "Повторить карточки 01–08 и 14",
+            "competency_ids": [
+              "umso_desto_equivalence"
+            ]
+          },
+          {
+            "id": "review_inversion",
+            "title": "Повторение порядка слов",
+            "when": "Если после umso нарушается инверсия (*umso früher wir kommen an*)",
+            "reason": "Повторить карточки 09–17 и колоду D06",
+            "competency_ids": [
+              "inversion_consistency"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "cards": [
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Сравните две фразы о дороге домой."
+        }
+      ],
+      "data": {
+        "text": "**Je früher ich losfahre, desto früher komme ich an.**\n**Je früher ich losfahre, umso früher komme ich an.**\n\nОбе фразы абсолютно правильные и переводятся одинаково:\n«Чем раньше я выезжаю, тем раньше приезжаю».\n\nВ конструкции «чем …, тем …» слова **desto** и **umso** полностью взаимозаменяемы!\nПравило порядка слов не меняется ни на йоту:\n- В первой части глагол в конце: **je … losfahre**;\n- Во второй части глагол на втором месте: **desto / umso früher komme ich an**.\n\nНе нужно искать между ними искусственную разницу в значении."
+      },
+      "explanation": "losfahren — отправляться; ankommen — прибывать; desto и umso в этой конструкции являются полными синонимами."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Два пассажира говорят о поездке. Какие варианты грамматически правильны?",
+        "options": [
+          {
+            "text": "A и B: Je früher der Zug abfährt, desto/umso früher kommen wir an.",
+            "correct": true
+          },
+          {
+            "text": "Только A: Je früher der Zug abfährt, desto früher kommen wir an."
+          },
+          {
+            "text": "Только C: Je früher fährt der Zug ab, umso früher kommen wir an."
+          },
+          {
+            "text": "B и C: Je früher der Zug abfährt / fährt der Zug ab, umso früher kommen wir an."
+          }
+        ]
+      },
+      "explanation": "Варианты A и B грамматически верны: глагол abfährt стоит в конце je-части, а desto и umso равноправны. Вариант C ошибочен из-за преждевременного глагола fährt. der Zug — поезд; abfahren — отправляться."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите грамматически верное предложение с umso:",
+        "options": [
+          {
+            "text": "Je näher der Bahnhof ist, umso kürzer ist der Fußweg.",
+            "correct": true
+          },
+          {
+            "text": "Je näher ist der Bahnhof, umso kürzer ist der Fußweg."
+          },
+          {
+            "text": "Je näher der Bahnhof ist, umso kürzer der Fußweg ist."
+          }
+        ]
+      },
+      "explanation": "Je näher der Bahnhof ist, umso kürzer ist der Fußweg — в части с je глагол ist стоит в конце; во второй части глагол ist стоит сразу после группы umso kürzer. der Bahnhof — вокзал; der Fußweg — пеший путь."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение с umso: «Чем медленнее едет автобус, тем позже мы приедем»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "langsamer",
+          "der",
+          "Bus",
+          "fährt,",
+          "umso",
+          "später",
+          "kommen",
+          "wir",
+          "an."
+        ],
+        "translation": "Чем медленнее едет автобус, тем позже мы приедем."
+      },
+      "explanation": "fährt закрывает je-часть перед запятой; во второй части глагол kommen следует сразу за umso später, а отделяемая приставка an стоит в конце. langsam → langsamer — медленнее; spät → später — позже."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте допустимый синоним к desto во второй части."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je kürzer die Umsteigezeit ist, "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "umso"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " hektischer wird der Umstieg."
+          }
+        ]
+      },
+      "explanation": "umso — второй равноправный вариант для связки с je: Je kürzer die Umsteigezeit ist, umso hektischer wird der Umstieg. die Umsteigezeit — время на пересадку; hektisch — суетливый."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите вслух фразу с umso: «Чем раньше я выхожу из дома, тем спокойнее добираюсь до остановки» (опоры: früh → früher, das Haus verlassen, ruhig → ruhiger, zur Haltestelle gehen).",
+        "sample_answer": "Je früher ich das Haus verlasse, umso ruhiger gehe ich zur Haltestelle.",
+        "accepted_answers": [
+          "Je früher ich das Haus verlasse, umso ruhiger gehe ich zur Haltestelle.",
+          "Je früher ich das Haus verlasse, umso ruhiger gehe ich zur Haltestelle",
+          "Je früher ich das Haus verlasse, desto ruhiger gehe ich zur Haltestelle."
+        ]
+      },
+      "explanation": "verlasse стоит перед запятой в je-части; во второй части gehe стоит сразу после сравнительной группы umso ruhiger. die Haltestelle — остановка; verlassen — покидать."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов в предложении с umso."
+        },
+        {
+          "type": "source",
+          "text": "Je deutlicher sind die Ansagen, umso besser verstehen wir sie."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Je deutlicher sind die Ansagen, umso besser verstehen wir sie.»",
+        "sample_answer": "Je deutlicher die Ansagen sind, umso besser verstehen wir sie.",
+        "accepted_answers": [
+          "Je deutlicher die Ansagen sind, umso besser verstehen wir sie.",
+          "Je deutlicher die Ansagen sind, umso besser verstehen wir sie"
+        ]
+      },
+      "explanation": "В je-части глагол sind обязан стоять в конце придаточного: Je deutlicher die Ansagen sind, umso besser verstehen wir sie. die Ansage — объявление; deutlich — отчётливый."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Замените desto на umso, не меняя остальную грамматику."
+        },
+        {
+          "type": "source",
+          "text": "Je weniger Verkehr es gibt, desto schneller erreichen wir die Stadt."
+        }
+      ],
+      "data": {
+        "prompt": "Перепишите предложение, заменив desto на umso: «Je weniger Verkehr es gibt, desto schneller erreichen wir die Stadt.»",
+        "sample_answer": "Je weniger Verkehr es gibt, umso schneller erreichen wir die Stadt.",
+        "accepted_answers": [
+          "Je weniger Verkehr es gibt, umso schneller erreichen wir die Stadt.",
+          "Je weniger Verkehr es gibt, umso schneller erreichen wir die Stadt"
+        ]
+      },
+      "explanation": "Замена desto на umso абсолютно симметрична и не требует никаких перестроек порядка слов. der Verkehr — движение; erreichen — добираться."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Позиции глаголов остаются одинаковыми с desto и umso."
+        }
+      ],
+      "data": {
+        "text": "Сравните две фразы с модальным глаголом:\n\n**Je länger ich warten muss, desto ungeduldiger werde ich.**\n**Je länger ich warten muss, umso ungeduldiger werde ich.**\n\n1. **В je-части:** личный глагол **muss** стоит в конце после инфинитива **warten**.\n2. **Во второй части:** группа **desto / umso ungeduldiger** занимает 1-ю позицию, а сразу после неё стоит спрягаемый глагол **werde**.\n\nУ союза **umso** нет никакого «особого» или отличного порядка слов. Это полная копия правил для **desto**!"
+      },
+      "explanation": "ungeduldig — нетерпеливый; warten müssen — быть вынужденным ждать."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Как грамматически правильно построить предложение с umso?",
+        "options": [
+          {
+            "text": "Je schwerer der Koffer ist, umso langsamer gehe ich.",
+            "correct": true
+          },
+          {
+            "text": "Je schwerer ist der Koffer, umso langsamer gehe ich."
+          },
+          {
+            "text": "Je schwerer der Koffer ist, umso langsamer ich gehe."
+          }
+        ]
+      },
+      "explanation": "Je schwerer der Koffer ist, umso langsamer gehe ich — ist замыкает первую часть, а во второй части gehe стоит сразу после umso langsamer перед ich. der Koffer — чемодан; schwer → schwerer — тяжелее."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте два спрягаемых глагола: warten и werden."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je länger wir auf den Bus "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "warten"
+            ]
+          },
+          {
+            "type": "text",
+            "text": ", umso nervöser "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "werden"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " die Fahrgäste."
+          }
+        ]
+      },
+      "explanation": "warten замыкает первую часть перед запятой; werden стоит сразу после группы umso nervöser перед подлежащим die Fahrgäste. der Fahrgast — пассажир; nervös — нервный."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите по-немецки с umso: «Чем позже отправляется мой автобус, тем позже я прихожу на встречу» (abfahren, zum Termin kommen).",
+        "sample_answer": "Je später mein Bus abfährt, umso später komme ich zum Termin.",
+        "accepted_answers": [
+          "Je später mein Bus abfährt, umso später komme ich zum Termin.",
+          "Je später mein Bus abfährt, umso später komme ich zum Termin",
+          "Je später mein Bus abfährt, desto später komme ich zum Termin."
+        ]
+      },
+      "explanation": "abfährt стоит в конце je-части; komme ich следует сразу за сравнительной группой umso später. der Termin — встреча; abfahren — отправляться."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение с umso: «Чем дольше мы стоим в пробке, тем позже приезжаем»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "länger",
+          "wir",
+          "im",
+          "Stau",
+          "stehen,",
+          "umso",
+          "später",
+          "kommen",
+          "wir",
+          "an."
+        ],
+        "translation": "Чем дольше мы стоим в пробке, тем позже приезжаем."
+      },
+      "explanation": "stehen завершает первую часть; во второй части глагол kommen стоит после umso später перед wir, а приставка an — в конце. im Stau stehen — стоять в пробке."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Сравните: (1) «Je genauer ich den Fahrplan lese, desto besser plane ich die Fahrt.» и (2) «Je genauer ich den Fahrplan lese, umso besser plane ich die Fahrt.» Что изменилось?",
+        "options": [
+          {
+            "text": "Только слово-связка: смысл и порядок слов полностью сохранены.",
+            "correct": true
+          },
+          {
+            "text": "Изменился главный смысл: umso выражает большую уверенность, чем desto."
+          },
+          {
+            "text": "Изменилось грамматическое время высказывания."
+          }
+        ]
+      },
+      "explanation": "Обе фразы абсолютно тождественны по смыслу и грамматике: «Чем внимательнее я читаю расписание, тем лучше планирую поездку». Внутри конструкции desto и umso равноправны. der Fahrplan — расписание."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите с союзом umso: «Чем ближе станция метро, тем меньше времени я трачу на дорогу» (опоры: die U-Bahn-Station, nah → näher, weniger Zeit, für den Weg brauchen)."
+        }
+      ],
+      "data": {
+        "prompt": "Переведите с umso: «Чем ближе станция метро, тем меньше времени я трачу на дорогу».",
+        "sample_answer": "Je näher die U-Bahn-Station ist, umso weniger Zeit brauche ich für den Weg.",
+        "accepted_answers": [
+          "Je näher die U-Bahn-Station ist, umso weniger Zeit brauche ich für den Weg.",
+          "Je näher die U-Bahn-Station ist, umso weniger Zeit brauche ich für den Weg",
+          "Je naeher die U-Bahn-Station ist, umso weniger Zeit brauche ich für den Weg."
+        ]
+      },
+      "explanation": "Сравнительная группа umso weniger Zeit стоит целиком перед личным глаголом brauche: umso weniger Zeit brauche ich für den Weg. die U-Bahn-Station — станция метро."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов во второй части предложения с umso."
+        },
+        {
+          "type": "source",
+          "text": "Je voller der Bahnsteig ist, umso schwerer einen Platz finde ich."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Je voller der Bahnsteig ist, umso schwerer einen Platz finde ich.»",
+        "sample_answer": "Je voller der Bahnsteig ist, umso schwerer finde ich einen Platz.",
+        "accepted_answers": [
+          "Je voller der Bahnsteig ist, umso schwerer finde ich einen Platz.",
+          "Je voller der Bahnsteig ist, umso schwerer finde ich einen Platz",
+          "umso schwerer finde ich einen Platz.",
+          "umso schwerer finde ich einen Platz"
+        ]
+      },
+      "explanation": "umso schwerer — сравнительная группа; спрягаемый глагол finde обязан стоять сразу после неё перед ich: umso schwerer finde ich einen Platz. der Bahnsteig — платформа; einen Platz finden — найти место."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Составные сравнительные группы с союзом umso."
+        }
+      ],
+      "data": {
+        "text": "Сравните структуру второй части:\n\n1. **umso früher komme ich an** (наречие: раньше)\n2. **umso weniger Zeit brauche ich** (группа количества: меньше времени)\n3. **umso mehr Fahrkarten verkaufen wir** (группа количества: больше билетов)\n\nПосле **umso** может стоять не одно слово, а **целая сравнительная группа с существительным**.\nЛичный спрягаемый глагол (**verkaufen, brauche**) ставится строго **после всей группы целиком** перед подлежащим.\nЭто правило абсолютно одинаково для **desto** и для **umso**!"
+      },
+      "explanation": "die Fahrkarte — билет; verkaufen — продавать; группа umso mehr + Nomen неделима."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Постройте устно предложение с umso: «Чем чаще я езжу на велосипеде, тем меньше денег трачу на автобус» (mit dem Fahrrad fahren, Geld für den Bus ausgeben).",
+        "sample_answer": "Je öfter ich mit dem Fahrrad fahre, umso weniger Geld gebe ich für den Bus aus.",
+        "accepted_answers": [
+          "Je öfter ich mit dem Fahrrad fahre, umso weniger Geld gebe ich für den Bus aus.",
+          "Je öfter ich mit dem Fahrrad fahre, umso weniger Geld gebe ich für den Bus aus",
+          "Je öfter ich mit dem Rad fahre, umso weniger Geld gebe ich für den Bus aus."
+        ]
+      },
+      "explanation": "umso weniger Geld — неделимый блок, после него идёт глагол gebe, а отделяемая приставка aus — в конце: umso weniger Geld gebe ich für den Bus aus. mit dem Fahrrad fahren — ездить на велосипеде."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильный вариант: «Чем раньше я бронирую, тем больше дешёвых билетов нахожу».",
+        "options": [
+          {
+            "text": "Je früher ich buche, umso mehr günstige Tickets finde ich.",
+            "correct": true
+          },
+          {
+            "text": "Je früher ich buche, umso mehr finde günstige Tickets ich."
+          },
+          {
+            "text": "Je früher buche ich, umso mehr günstige Tickets finde ich."
+          }
+        ]
+      },
+      "explanation": "Вся группа umso mehr günstige Tickets стоит перед спрягаемым глаголом finde: Je früher ich buche, umso mehr günstige Tickets finde ich. buchen — бронировать; günstig — недорогой."
+    },
+    {
+      "type": "match",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соедините начала с подходящими окончаниями предложений с umso."
+        }
+      ],
+      "data": {
+        "pairs": [
+          {
+            "left": "Je kürzer die Fahrt dauert, …",
+            "right": "umso weniger Zeit verbringen wir unterwegs."
+          },
+          {
+            "left": "Je länger wir auf dem Bahnsteig warten, …",
+            "right": "umso ungeduldiger werden wir."
+          },
+          {
+            "left": "Je früher wir die Tickets kaufen, …",
+            "right": "umso mehr Auswahl haben wir oft."
+          }
+        ]
+      },
+      "explanation": "В каждом окончании спрягаемый глагол стоит сразу после начальной группы umso + Komparativ (+ Nomen): verbringen, werden, haben. unterwegs — в пути; die Auswahl — выбор."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите всё предложение: «Чем реже нам приходится пересаживаться, тем спокойнее мы приезжаем»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "seltener",
+          "wir",
+          "umsteigen",
+          "müssen,",
+          "umso",
+          "entspannter",
+          "kommen",
+          "wir",
+          "an."
+        ],
+        "translation": "Чем реже нам приходится пересаживаться, тем спокойнее мы приезжаем."
+      },
+      "explanation": "müssen стоит в конце je-части после инфинитива umsteigen; во второй части kommen стоит сразу после umso entspannter, а an — в конце. umsteigen — пересаживаться; entspannt — спокойный."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Какие формулировки предложения «Чем быстрее мы едем, тем меньше длится поездка» грамматически верны?",
+        "options": [
+          {
+            "text": "A и B: Je schneller wir fahren, umso/desto kürzer dauert die Reise.",
+            "correct": true
+          },
+          {
+            "text": "Только A: Je schneller wir fahren, umso kürzer dauert die Reise."
+          },
+          {
+            "text": "Только C: Je schneller wir fahren, umso kürzer die Reise dauert."
+          },
+          {
+            "text": "B и C: Je schneller wir fahren, desto kürzer dauert / umso kürzer die Reise dauert."
+          }
+        ]
+      },
+      "explanation": "Оба варианта A и B верны, так как desto и umso абсолютно равноправны. В C порядок слов нарушен (dauert в конце). die Reise — поездка; dauern — длиться."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте сравнительную форму и порядок слов со смыслом «чем больше велодорожек, тем безопаснее ездят велосипедисты»."
+        },
+        {
+          "type": "source",
+          "text": "Je viel Radwege es gibt, umso sicherer Radfahrer fahren."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте предложение: «Je viel Radwege es gibt, umso sicherer Radfahrer fahren.»",
+        "sample_answer": "Je mehr Radwege es gibt, umso sicherer fahren Radfahrer.",
+        "accepted_answers": [
+          "Je mehr Radwege es gibt, umso sicherer fahren Radfahrer.",
+          "Je mehr Radwege es gibt, umso sicherer fahren Radfahrer"
+        ]
+      },
+      "explanation": "viel меняется на mehr (je mehr Radwege), а глагол fahren встаёт сразу после группы umso sicherer: umso sicherer fahren Radfahrer. der Radweg — велодорожка; der Radfahrer — велосипедист."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите вслух с umso: «Чем больше у меня времени на пересадку, тем спокойнее я себя чувствую» (mehr Zeit zum Umsteigen, ruhig → ruhiger, sich fühlen).",
+        "sample_answer": "Je mehr Zeit ich zum Umsteigen habe, umso ruhiger fühle ich mich.",
+        "accepted_answers": [
+          "Je mehr Zeit ich zum Umsteigen habe, umso ruhiger fühle ich mich.",
+          "Je mehr Zeit ich zum Umsteigen habe, umso ruhiger fühle ich mich"
+        ]
+      },
+      "explanation": "habe замыкает часть с je; во второй части после umso ruhiger сразу идёт глагол fühle: umso ruhiger fühle ich mich. Zeit zum Umsteigen — время на пересадку; sich fühlen — чувствовать себя."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Не путайте союз umso с новым правилом."
+        }
+      ],
+      "data": {
+        "text": "Сравните две фразы:\n\n**Je dichter der Verkehr wird, desto langsamer fahren wir.**\n**Je dichter der Verkehr wird, umso langsamer fahren wir.**\n\nОба предложения переводятся одинаково: «Чем плотнее становится движение, тем медленнее мы едем».\n\n**umso — это не другая грамматика.**\nОно просто заменяет слово `desto` во второй части той же самой конструкции.\nНельзя из-за замены на `umso` переставлять глагол в конец или убирать сравнительную степень!"
+      },
+      "explanation": "dicht — плотный; dichter Verkehr — плотное движение."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Какие предложения грамматически верны для мысли «Чем раньше мы стартуем, тем раньше достигаем цели»?",
+        "options": [
+          {
+            "text": "A и B: Je früher wir starten, desto/umso früher erreichen wir das Ziel.",
+            "correct": true
+          },
+          {
+            "text": "Только A: Je früher wir starten, desto früher erreichen wir das Ziel."
+          },
+          {
+            "text": "Только C: Je früher wir starten, so früher erreichen wir das Ziel."
+          },
+          {
+            "text": "Все три варианта A, B и C верны."
+          }
+        ]
+      },
+      "explanation": "В этой парной конструкции допустимы только desto или umso, просто слово so недопустимо (вариант C неверен). starten — отправляться; das Ziel erreichen — достигать цели."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте союз umso на место пропуска."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je näher die Abfahrtszeit rückt, "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "umso"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " nervöser werde ich."
+          }
+        ]
+      },
+      "explanation": "umso занимает позицию перед сравнительной формой nervöser во второй части: umso nervöser werde ich. die Abfahrtszeit — время отправления; näher rücken — приближаться."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите всё предложение: «Чем раньше мы выезжаем, тем дольше можем сделать остановку в пути»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "früher",
+          "wir",
+          "losfahren,",
+          "umso",
+          "länger",
+          "können",
+          "wir",
+          "unterwegs",
+          "eine",
+          "Pause",
+          "machen."
+        ],
+        "translation": "Чем раньше мы выезжаем, тем дольше можем сделать остановку в пути."
+      },
+      "explanation": "losfahren стоит в конце je-части; во второй части können идёт сразу после umso länger, а смысловой инфинитив machen — в конце. eine Pause machen — делать перерыв."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте вторую часть предложения, оставив союз umso."
+        },
+        {
+          "type": "source",
+          "text": "Je früher die Reisenden einsteigen, umso schneller wir können abfahren."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Je früher die Reisenden einsteigen, umso schneller wir können abfahren.»",
+        "sample_answer": "Je früher die Reisenden einsteigen, umso schneller können wir abfahren.",
+        "accepted_answers": [
+          "Je früher die Reisenden einsteigen, umso schneller können wir abfahren.",
+          "Je früher die Reisenden einsteigen, umso schneller können wir abfahren",
+          "umso schneller können wir abfahren.",
+          "umso schneller können wir abfahren"
+        ]
+      },
+      "explanation": "Спрягаемый модальный глагол können обязан стоять сразу после umso schneller перед wir: umso schneller können wir abfahren. die Reisenden — пассажиры; einsteigen — садиться; abfahren — отправляться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Произнесите с umso: «Чем раньше мы узнаем номер платформы, тем спокойнее можем ждать» (die Gleisnummer erfahren, ruhiger warten können).",
+        "sample_answer": "Je früher wir die Gleisnummer erfahren, umso ruhiger können wir warten.",
+        "accepted_answers": [
+          "Je früher wir die Gleisnummer erfahren, umso ruhiger können wir warten.",
+          "Je früher wir die Gleisnummer erfahren, umso ruhiger können wir warten"
+        ]
+      },
+      "explanation": "erfahren стоит в конце je-части; во второй части können следует за umso ruhiger, а warten — в конце. die Gleisnummer — номер пути/платформы; erfahren — узнавать."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Впишите сравнительные степени от nah и schnell в предложение с umso."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "näher"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " die Bushaltestelle ist, umso "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "schneller"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " bin ich dort."
+          }
+        ]
+      },
+      "explanation": "nah → näher; schnell → schneller: Je näher die Bushaltestelle ist, umso schneller bin ich dort. die Bushaltestelle — автобусная остановка; dort — там."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Замените desto на umso и перепишите всю фразу без других изменений."
+        },
+        {
+          "type": "source",
+          "text": "Je später wir den Bahnhof verlassen, desto später kommen wir nach Hause."
+        }
+      ],
+      "data": {
+        "prompt": "Замените desto на umso: «Je später wir den Bahnhof verlassen, desto später kommen wir nach Hause.»",
+        "sample_answer": "Je später wir den Bahnhof verlassen, umso später kommen wir nach Hause.",
+        "accepted_answers": [
+          "Je später wir den Bahnhof verlassen, umso später kommen wir nach Hause.",
+          "Je später wir den Bahnhof verlassen, umso später kommen wir nach Hause"
+        ]
+      },
+      "explanation": "Замена desto на umso сохраняет абсолютно все позиции слов: Je später wir den Bahnhof verlassen, umso später kommen wir nach Hause. den Bahnhof verlassen — покидать вокзал."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выбирайте грамматику по смыслу, а не по созвучию."
+        }
+      ],
+      "data": {
+        "text": "Сравните две разные ситуации:\n\n1. **Взаимосвязь двух шкал (je … desto / umso):**\n`Je öfter ich den Bus nehme, umso besser kenne ich die Strecke.`\n(Чем чаще я езжу на автобусе, тем лучше знаю маршрут).\n\n2. **Факт и прямое следствие (deshalb / deswegen):**\n`Der Bus fällt heute aus. Deshalb fahre ich mit dem Rad.`\n(Автобус сегодня отменён. Поэтому я еду на велосипеде).\n\nВ первой ситуации сравниваются **две меняющиеся величины** (частота и знание). Во второй ситуации — **одно конкретное событие и его результат**.\nСлово `umso` не превращает предложение в конструкцию причины или следствия!"
+      },
+      "explanation": "die Strecke — маршрут; ausfallen — отменяться; deshalb — поэтому (тема колоды D09)."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Переведите на немецкий язык с umso: «Чем точнее расписание, тем легче я могу планировать поездку» (genau, leicht, die Fahrt planen können).",
+        "sample_answer": "Je genauer der Fahrplan ist, umso leichter kann ich die Fahrt planen.",
+        "accepted_answers": [
+          "Je genauer der Fahrplan ist, umso leichter kann ich die Fahrt planen.",
+          "Je genauer der Fahrplan ist, umso leichter kann ich die Fahrt planen"
+        ]
+      },
+      "explanation": "ist закрывает je-часть; kann следует сразу за umso leichter, а инфинитив planen — в конце предложения. der Fahrplan — расписание; planen — планировать."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Какой вариант верно выражает смысл «Чем дальше мы едем на такси, тем дороже становится поездка»?",
+        "options": [
+          {
+            "text": "Je weiter wir mit dem Taxi fahren, umso teurer wird die Fahrt.",
+            "correct": true
+          },
+          {
+            "text": "Je weiter wir mit dem Taxi fahren, umso teuer wird die Fahrt."
+          },
+          {
+            "text": "Je weiter fahren wir mit dem Taxi, umso teurer wird die Fahrt."
+          }
+        ]
+      },
+      "explanation": "Во второй части обязательно требуется сравнительная степень: teuer → teurer (вариант B неверен из-за начальной формы teuer). В варианте C нарушен порядок слов в первой части. weiter — дальше; teuer → teurer — дороже."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Постройте два варианта мысли «Чем чаще я езжу этим маршрутом, тем лучше ориентируюсь»: первый с desto, второй с umso (sich auskennen).",
+        "sample_answer": "Je öfter ich diese Strecke fahre, desto besser kenne ich mich aus. Je öfter ich diese Strecke fahre, umso besser kenne ich mich aus.",
+        "accepted_answers": [
+          "Je öfter ich diese Strecke fahre, desto besser kenne ich mich aus. Je öfter ich diese Strecke fahre, umso besser kenne ich mich aus.",
+          "Je öfter ich diese Strecke fahre, desto besser kenne ich mich aus.",
+          "Je öfter ich diese Strecke fahre, umso besser kenne ich mich aus."
+        ]
+      },
+      "explanation": "В обеих фразах глагол fahre стоит в конце je-части, а kenne ich mich aus — сразу после desto/umso besser. sich auskennen — ориентироваться; die Strecke — маршрут."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Опишите зависимость с umso: вы заранее ищете билеты и находите больше подходящих вариантов (Fahrkarten suchen, passende Angebote finden).",
+        "sample_answer": "Je früher ich Fahrkarten suche, umso mehr passende Angebote finde ich.",
+        "accepted_answers": [
+          "Je früher ich Fahrkarten suche, umso mehr passende Angebote finde ich.",
+          "Je früher ich Fahrkarten suche, umso mehr passende Angebote finde ich",
+          "Je früher ich Tickets buche, umso mehr günstige Angebote finde ich."
+        ]
+      },
+      "explanation": "suche в конце придаточного; во второй части группа umso mehr passende Angebote стоит целиком перед finde ich. das Angebot — предложение; passend — подходящий."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите всё предложение из слов: «Чем позже я отправляюсь, тем плотнее становится движение»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "später",
+          "ich",
+          "aufbreche,",
+          "umso",
+          "dichter",
+          "wird",
+          "der",
+          "Verkehr."
+        ],
+        "translation": "Чем позже я отправляюсь, тем плотнее становится движение."
+      },
+      "explanation": "aufbreche стоит в конце je-части со слитно написанной приставкой; во второй части wird стоит сразу после umso dichter перед der Verkehr. aufbrechen — отправляться в путь."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Переведите с союзом umso: «Чем дольше мы ждём на улице, тем холоднее нам становится» (опора: uns wird kalt).",
+        "sample_answer": "Je länger wir draußen warten, umso kälter wird uns.",
+        "accepted_answers": [
+          "Je länger wir draußen warten, umso kälter wird uns.",
+          "Je länger wir draußen warten, umso kälter wird uns",
+          "Je laenger wir draussen warten, umso kaelter wird uns."
+        ]
+      },
+      "explanation": "warten в конце je-части; во второй части после umso kälter сразу стоит спрягаемый глагол wird: umso kälter wird uns. draußen — на улице; uns wird kalt — нам становится холодно."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "source",
+          "text": "Warum schaust du so oft in die Fahrplan-App?"
+        }
+      ],
+      "data": {
+        "prompt": "Ответьте на вопрос «Warum schaust du so oft in die Fahrplan-App?» с umso: «чем чаще я проверяю расписание, тем лучше знаю время отправления» (den Fahrplan prüfen, die Abfahrtszeiten kennen).",
+        "sample_answer": "Je öfter ich den Fahrplan prüfe, umso besser kenne ich die Abfahrtszeiten.",
+        "accepted_answers": [
+          "Je öfter ich den Fahrplan prüfe, umso besser kenne ich die Abfahrtszeiten.",
+          "Je öfter ich den Fahrplan prüfe, umso besser kenne ich die Abfahrtszeiten"
+        ]
+      },
+      "explanation": "prüfe замыкает первую часть; kenne стоит сразу после umso besser перед ich: Je öfter ich den Fahrplan prüfe, umso besser kenne ich die Abfahrtszeiten. die Abfahrtszeit — время отправления."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Быстрый контроль перед самостоятельным составлением фразы."
+        }
+      ],
+      "data": {
+        "text": "Формула проверки:\n`Je ___ … [глагол в конце], desto/umso ___ [глагол] [подлежащее] …`\n\nПроверьте четыре пункта:\n1. Действительно ли меняются **две величины**?\n2. Стоит ли после **je** сравнительная группа?\n3. Замыкает ли спрягаемый глагол первую часть **перед запятой**?\n4. Стоит ли спрягаемый глагол второй части **сразу после desto или umso + сравнительная группа**?\n\nВыбор между `desto` и `umso` остаётся за вами: оба варианта полностью равноправны!"
+      },
+      "explanation": "die Veränderung — изменение; die Reihenfolge — порядок слов."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Договоритесь о поездке: произнесите две фразы «Чем раньше выедем, тем больше времени будет на отдых»: сначала с desto, затем с umso (losfahren, Zeit zum Ausruhen haben).",
+        "sample_answer": "Je früher wir losfahren, desto mehr Zeit haben wir zum Ausruhen. Je früher wir losfahren, umso mehr Zeit haben wir zum Ausruhen.",
+        "accepted_answers": [
+          "Je früher wir losfahren, desto mehr Zeit haben wir zum Ausruhen. Je früher wir losfahren, umso mehr Zeit haben wir zum Ausruhen.",
+          "Je früher wir losfahren, desto mehr Zeit haben wir zum Ausruhen.",
+          "Je früher wir losfahren, umso mehr Zeit haben wir zum Ausruhen."
+        ]
+      },
+      "explanation": "losfahren в конце первой части; haben стоит сразу после группы mehr Zeit в обеих фразах: desto / umso mehr Zeit haben wir zum Ausruhen. zum Ausruhen — для отдыха."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Опишите свой обычный путь на работу или учёбу: составьте собственное предложение в формате «Je … umso …» (например: чем раньше еду, тем меньше пробок).",
+        "sample_answer": "Je früher ich zur Arbeit fahre, umso weniger Verkehr habe ich unterwegs.",
+        "accepted_answers": [
+          "Je früher ich zur Arbeit fahre, umso weniger Verkehr habe ich unterwegs.",
+          "Je früher ich zur Arbeit fahre, umso weniger Verkehr habe ich unterwegs",
+          "Je früher ich losfahre, umso schneller komme ich an."
+        ]
+      },
+      "explanation": "fahre замыкает часть с je; во второй части после umso weniger Verkehr сразу идёт глагол habe ich: umso weniger Verkehr habe ich unterwegs. unterwegs — в пути."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Найдите и исправьте две ошибки в предложении."
+        },
+        {
+          "type": "source",
+          "text": "Je schnell die S-Bahn fährt, umso früher wir kommen an."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте две ошибки: «Je schnell die S-Bahn fährt, umso früher wir kommen an.»",
+        "sample_answer": "Je schneller die S-Bahn fährt, umso früher kommen wir an.",
+        "accepted_answers": [
+          "Je schneller die S-Bahn fährt, umso früher kommen wir an.",
+          "Je schneller die S-Bahn fährt, umso früher kommen wir an"
+        ]
+      },
+      "explanation": "1) Нужна сравнительная степень: schnell → schneller; 2) После umso früher глагол обязан стоять перед подлежащим: kommen wir an. die S-Bahn — городская электричка."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Напишите короткое сообщение другу, почему билеты стоит купить заранее: используйте связку je … umso («чем раньше бронируем билеты, тем больше выбор»).",
+        "sample_answer": "Je früher wir die Tickets buchen, umso größer ist meistens die Auswahl.",
+        "accepted_answers": [
+          "Je früher wir die Tickets buchen, umso größer ist meistens die Auswahl.",
+          "Je früher wir die Tickets buchen, umso größer ist meistens die Auswahl",
+          "Je früher wir buchen, umso größer ist die Auswahl."
+        ]
+      },
+      "explanation": "buchen замыкает je-часть; во второй части ist steht сразу после umso größer перед подлежащим die Auswahl. meistens — обычно; die Auswahl — выбор."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "source",
+          "text": "Warum möchtest du so früh am Bahnhof sein?"
+        }
+      ],
+      "data": {
+        "prompt": "Ответьте на вопрос «Warum möchtest du so früh am Bahnhof sein?» одной фразой с umso: «Чем раньше я буду на вокзале, тем спокойнее смогу ждать» (am Bahnhof sein, ruhiger warten können).",
+        "sample_answer": "Je früher ich am Bahnhof bin, umso ruhiger kann ich warten.",
+        "accepted_answers": [
+          "Je früher ich am Bahnhof bin, umso ruhiger kann ich warten.",
+          "Je früher ich am Bahnhof bin, umso ruhiger kann ich warten"
+        ]
+      },
+      "explanation": "bin закрывает je-часть; во второй части kann стоит сразу после umso ruhiger, а инфинитив warten — в конце. am Bahnhof sein — быть на вокзале."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Какие варианты предложения «Чем дольше длится поездка, тем сильнее мы устаём» грамматически правильны?",
+        "options": [
+          {
+            "text": "A и B: Je länger die Fahrt dauert, umso/desto müder werden wir.",
+            "correct": true
+          },
+          {
+            "text": "A и C: Je länger die Fahrt dauert, umso müder werden wir / umso müder wir werden."
+          },
+          {
+            "text": "B и D: Je länger die Fahrt dauert, desto müder werden wir / Je länger dauert die Fahrt, desto müder werden wir."
+          },
+          {
+            "text": "Только B: Je länger die Fahrt dauert, desto müder werden wir."
+          }
+        ]
+      },
+      "explanation": "A и B грамматически верны (desto и umso равноправны). В C порядок слов главной части неверен (wir werden вместо werden wir); в D нарушен порядок слов в je-части (dauert die Fahrt вместо die Fahrt dauert). müde → müder — более усталый."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Произнесите устно два собственных предложения о дороге или времени встречи: одно с je … desto, второе с je … umso.",
+        "sample_answer": "Je früher ich zum Bahnhof gehe, desto mehr Zeit habe ich vor der Abfahrt. Je besser ich meine Reise plane, umso weniger Stress habe ich unterwegs.",
+        "accepted_answers": [
+          "Je früher ich zum Bahnhof gehe, desto mehr Zeit habe ich vor der Abfahrt. Je besser ich meine Reise plane, umso weniger Stress habe ich unterwegs.",
+          "Je früher ich zum Bahnhof gehe, desto mehr Zeit habe ich vor der Abfahrt.",
+          "Je besser ich meine Reise plane, umso weniger Stress habe ich unterwegs."
+        ]
+      },
+      "explanation": "В обеих фразах соблюдены законы конструкции: личный глагол в конце je-части (gehe, plane) и сразу после desto/umso-группы во второй части (habe ich). vor der Abfahrt — до отправления; die Reise planen — планировать поездку."
+    }
+  ]
+}

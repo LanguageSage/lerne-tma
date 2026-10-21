@@ -3,7 +3,7 @@ import { tr } from '../i18n/locale';
 import api from '../services/api';
 import { getAccessToken, getUserProfile, saveUserProfile, saveAuthSession, clearAuthSession, getUserId, storage } from '../utils/auth';
 import { closeLocalDb, resetAllDatabases } from '../services/localDb';
-import { openExternalLink, prepareExternalLink } from '../utils/platform';
+import { getPlatform, openExternalLink, prepareExternalLink } from '../utils/platform';
 import { useUiStore } from './useUiStore';
 import { useDeckStore } from './useDeckStore';
 
@@ -13,6 +13,14 @@ let listenersReady = false;
 let exchangeInFlight = false;
 let restoration = null;
 let authGeneration = 0;
+let telegramPreparation = null;
+const challengeIsFresh = (challenge, purpose, margin = 0) => challenge?.purpose === purpose
+  && Date.parse(challenge.expiresAt) > Date.now() + margin;
+const requestChallenge = async (provider, purpose) => {
+  const { data } = await api.post('/auth/v2/challenges', { provider, purpose });
+  return { id: data.challenge_id, secret: data.secret, provider, purpose,
+    expiresAt: data.expires_at, authUrl: data.authorization_url };
+};
 const stopPolling = () => {
   if (pollTimer) clearInterval(pollTimer);
   pollTimer = null;
@@ -29,6 +37,7 @@ const clearPending = () => {
 };
 const authMessage = (error, fallback) => {
   const messages = {
+    provider_not_configured: tr('Этот способ входа пока не настроен. Используйте email и пароль.'),
     reauthentication_required: tr('Войдите заново через привязанный Telegram или Google и повторите в течение 5 минут.'),
     invalid_credentials: tr('Неверный email или пароль.'),
     identity_conflict: tr('Этот способ входа уже принадлежит другому аккаунту. Аккаунты не объединены.'),
@@ -56,6 +65,41 @@ export const useAuthStore = create((set, get) => ({
   // URL opened for the current pending challenge; shown as a fallback link
   // in AuthRequiredModal when the browser blocked the automatic popup.
   authUrl: null,
+  // Preflight stays in memory; only an explicit click persists/starts polling it.
+  preparedTelegramChallenge: null,
+
+  prepareTelegramChallenge: (purpose = 'login') => {
+    if (getPlatform() !== 'web' || get().isPolling || pendingAuth()) return Promise.resolve(null);
+    const cached = get().preparedTelegramChallenge;
+    if (challengeIsFresh(cached, purpose, 10000)) return Promise.resolve(cached);
+    if (telegramPreparation?.purpose === purpose) return telegramPreparation.promise;
+    set({ preparedTelegramChallenge: null });
+    const generation = authGeneration;
+    const preparation = { purpose };
+    telegramPreparation = preparation;
+    preparation.promise = requestChallenge('telegram', purpose).then(challenge => {
+      if (telegramPreparation !== preparation || generation !== authGeneration) return null;
+      set({ preparedTelegramChallenge: challenge });
+      return challenge;
+    }).finally(() => {
+      if (telegramPreparation === preparation) telegramPreparation = null;
+    });
+    return preparation.promise;
+  },
+
+  waitForChallenge: (pending) => {
+    savePending(pending);
+    set({ isPolling: true, authError: null, authUrl: pending.authUrl });
+    get().beginPolling();
+  },
+
+  activatePreparedTelegram: (id, purpose = 'login', recovery = false) => {
+    const challenge = get().preparedTelegramChallenge;
+    if (get().isStarting || get().isPolling || challenge?.id !== id || !challengeIsFresh(challenge, purpose)) return false;
+    // Synchronous: the anchor's default navigation follows this click handler.
+    get().waitForChallenge({ ...challenge, recovery });
+    return true;
+  },
 
   restoreSession: () => {
     if (restoration) return restoration;
@@ -120,6 +164,8 @@ export const useAuthStore = create((set, get) => ({
 
   finishLogin: async (tokens, { recovery = false, suggestTelegram = false } = {}) => {
     const generation = ++authGeneration;
+    telegramPreparation = null;
+    set({ preparedTelegramChallenge: null });
     const prevUserId = getUserId();
     saveAuthSession(tokens);
     const response = await api.get('/auth/v2/me');
@@ -174,16 +220,18 @@ export const useAuthStore = create((set, get) => ({
           return { success: Boolean(profile) };
         }
       }
-      const response = await api.post('/auth/v2/challenges', { provider, purpose });
+      const challenge = provider === 'telegram' && getPlatform() === 'web'
+        ? await get().prepareTelegramChallenge(purpose)
+        : await requestChallenge(provider, purpose);
       if (generation !== authGeneration) { preparedWindow?.close?.(); return { success: false }; }
-      const authUrl = response.data.authorization_url;
-      const pending = { id: response.data.challenge_id, secret: response.data.secret, provider, purpose,
-        expiresAt: response.data.expires_at, recovery, authUrl };
-      savePending(pending);
-      // Save URL so the modal can show a manual link if the popup was blocked.
-      set({ isPolling: true, authError: null, authUrl });
-      get().beginPolling();
-      if (!openExternalLink(authUrl, preparedWindow)) {
+      if (!challenge || !challengeIsFresh(challenge, purpose)) {
+        preparedWindow?.close?.();
+        return { success: false };
+      }
+      get().waitForChallenge({ ...challenge, recovery });
+      // Never retry window.open after a request. A blocked/closed reservation
+      // navigates this tab; sessionStorage preserves the exchange on return.
+      if (!await openExternalLink(challenge.authUrl, preparedWindow, { allowPopup: false, sameTabFallback: true })) {
         set({ authError: tr('Окно входа не открылось. Нажмите ссылку ниже, подтвердите вход и вернитесь в приложение.') });
       }
       if (directMiniApp) get().setAuthModalOpen(true);
@@ -206,9 +254,11 @@ export const useAuthStore = create((set, get) => ({
   linkProvider: (provider) => get().startProvider(provider, 'link'),
   startPasswordRecovery: (provider = 'telegram') => get().startProvider(provider, 'login', true),
   cancelPendingAuth: () => {
+    authGeneration++;
+    telegramPreparation = null;
     clearPending();
     stopPolling();
-    set({ isPolling: false, authError: null, authUrl: null });
+    set({ isPolling: false, authError: null, authUrl: null, preparedTelegramChallenge: null });
   },
 
   loginWithEmailPassword: async (email, password, register = false) => {
@@ -253,7 +303,7 @@ export const useAuthStore = create((set, get) => ({
     if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
       clearPending();
       stopPolling();
-      set({ isPolling: false, authError: tr('Время подтверждения истекло. Начните вход ещё раз.'), authUrl: null });
+      set({ isPolling: false, authError: tr('Время подтверждения истекло. Начните вход ещё раз.'), authUrl: null, preparedTelegramChallenge: null });
       return false;
     }
     exchangeInFlight = true;
@@ -264,7 +314,7 @@ export const useAuthStore = create((set, get) => ({
         clearPending();
         stopPolling();
         await get().refreshAuthMethods();
-        set({ isPolling: false, authModalOpen: false, showTelegramPrompt: false, authUrl: null });
+        set({ isPolling: false, authModalOpen: false, showTelegramPrompt: false, authUrl: null, preparedTelegramChallenge: null });
         useUiStore.getState().setIsAuthModalOpen(false);
         useUiStore.getState().showToast(tr('Способ входа привязан.'), 'success');
       } else {
@@ -278,7 +328,7 @@ export const useAuthStore = create((set, get) => ({
       if (detail === 'invalid_challenge' || !error.response || error.response.status >= 500) return false;
       clearPending();
       stopPolling();
-      set({ isPolling: false, authUrl: null });
+      set({ isPolling: false, authUrl: null, preparedTelegramChallenge: null });
       const message = authMessage(error, tr('Не удалось завершить вход.'));
       set({ authError: message });
       useUiStore.getState().showToast(message, 'error');
@@ -297,6 +347,7 @@ export const useAuthStore = create((set, get) => ({
   loginWithCode: async () => ({ success: false, error: tr('Вход по коду больше не поддерживается.') }),
   logout: () => {
     authGeneration++;
+    telegramPreparation = null;
     const currentUserId = getUserId();
     useDeckStore.getState().resetDeckStore?.();
     if (currentUserId) {
@@ -307,7 +358,7 @@ export const useAuthStore = create((set, get) => ({
     storage.set('lerne_force_guest', 'true');
     clearPending();
     stopPolling();
-    set({ userProfile: null, isPolling: false, authMethods: null, passwordSettings: null, showTelegramPrompt: false, authUrl: null });
+    set({ userProfile: null, isPolling: false, authMethods: null, passwordSettings: null, showTelegramPrompt: false, authUrl: null, preparedTelegramChallenge: null });
     useUiStore.setState({ userProfile: null });
   },
   initListeners: () => {
@@ -329,6 +380,8 @@ export const useAuthStore = create((set, get) => ({
       if (event.key === 'lerne_auth_v2_session' && previous === profile?.user_id) return;
       if (previous !== profile?.user_id) {
         authGeneration++;
+        telegramPreparation = null;
+        set({ preparedTelegramChallenge: null });
         useDeckStore.getState().resetDeckStore?.();
         if (previous) closeLocalDb(previous);
       }

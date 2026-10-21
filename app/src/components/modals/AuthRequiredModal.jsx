@@ -13,9 +13,25 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
   const [emailLoading, setEmailLoading] = useState(false);
   const [recovery, setRecovery] = useState(false);
   const dialog = useRef(null);
-  const { isPolling, isStarting, authError, authUrl, startTelegramLinking, startGoogleLogin, checkPendingSession,
-    loginWithEmailPassword, showTelegramPrompt, linkProvider, startPasswordRecovery, cancelPendingAuth } = useAuthStore();
+  const { isPolling, isStarting, authError, authUrl, preparedTelegramChallenge, prepareTelegramChallenge,
+    activatePreparedTelegram, startProvider, startGoogleLogin, checkPendingSession,
+    loginWithEmailPassword, showTelegramPrompt, startPasswordRecovery, cancelPendingAuth } = useAuthStore();
   const busy = emailLoading || isStarting || isPolling;
+  const telegramPurpose = showTelegramPrompt ? 'link' : 'login';
+  const webTelegram = getPlatform() === 'web';
+  const telegramChallenge = preparedTelegramChallenge?.purpose === telegramPurpose ? preparedTelegramChallenge : null;
+  useEffect(() => {
+    if (!isOpen || !webTelegram || busy) return;
+    // Keep the URL fresh while the dialog waits for a gesture. StrictMode and
+    // fast clicks share the store's single in-flight preflight request.
+    const prepare = () => { prepareTelegramChallenge(telegramPurpose).catch(() => {}); };
+    if (!telegramChallenge || Date.parse(telegramChallenge.expiresAt) <= Date.now() + 10000) {
+      prepare();
+      return;
+    }
+    const timer = setTimeout(prepare, Date.parse(telegramChallenge.expiresAt) - Date.now() - 10000);
+    return () => clearTimeout(timer);
+  }, [isOpen, webTelegram, busy, telegramPurpose, telegramChallenge, prepareTelegramChallenge]);
   useEffect(() => {
     if (!isOpen) return;
     const previous = document.activeElement;
@@ -33,7 +49,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
   const onKeyDown = (event) => {
     if (event.key === 'Escape') close();
     if (event.key !== 'Tab') return;
-    const controls = [...dialog.current.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]')];
+    const controls = [...dialog.current.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href]:not([aria-disabled="true"])')];
     const first = controls[0], last = controls.at(-1);
     if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog.current)) {
       event.preventDefault(); last?.focus();
@@ -44,6 +60,18 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
   if (!isOpen) return null;
   const buttonStyle = { width: '100%', padding: '13px', borderRadius: 14, fontWeight: 650,
     display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 10 };
+  const onTelegramLink = (event) => {
+    if (event.type === 'auxclick' && event.button !== 1) return;
+    const current = useAuthStore.getState();
+    if (busy || current.isStarting || current.isPolling) {
+      event.preventDefault();
+      return;
+    }
+    if (!activatePreparedTelegram(telegramChallenge.id, telegramPurpose, recovery)) {
+      event.preventDefault();
+      startProvider('telegram', telegramPurpose, recovery);
+    }
+  };
   const emailSubmit = async (register) => {
     setEmailLoading(true);
     const result = await loginWithEmailPassword(email, password, register);
@@ -74,7 +102,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
             useAuthStore.setState({ authError: null });
             if (getPlatform() !== 'web') {
               event.preventDefault();
-              openExternalLink(authUrl);
+              openExternalLink(authUrl, null, { allowPopup: false, sameTabFallback: true });
             }
           }}
           style={{ display: 'block', marginTop: 6, padding: '10px 14px', borderRadius: 10, textAlign: 'center',
@@ -82,7 +110,15 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
           {tr('Окно не открылось? Нажмите здесь ↗')}
         </a>}
         <div style={{ display: 'grid', gap: 10, marginTop: 18 }}>
-          <button className="btn btn-primary" disabled={busy} onClick={() => showTelegramPrompt ? linkProvider('telegram') : recovery ? startPasswordRecovery('telegram') : startTelegramLinking()} style={buttonStyle}><Send size={18} />{showTelegramPrompt ? tr('Добавить Telegram') : tr('Войти через Telegram')}</button>
+          {webTelegram && telegramChallenge ? <a className="btn btn-primary auth-telegram" href={telegramChallenge.authUrl}
+            target="_blank" rel="noopener noreferrer" aria-disabled={busy} tabIndex={busy ? -1 : 0}
+            onClick={onTelegramLink} onAuxClick={onTelegramLink}
+            style={{ ...buttonStyle, boxSizing: 'border-box', textDecoration: 'none', opacity: busy ? .5 : 1 }}>
+            <Send size={18} />{showTelegramPrompt ? tr('Добавить Telegram') : tr('Войти через Telegram')}
+          </a> : <button className="btn btn-primary auth-telegram" disabled={busy}
+            onClick={() => startProvider('telegram', telegramPurpose, recovery)} style={buttonStyle}>
+            <Send size={18} />{showTelegramPrompt ? tr('Добавить Telegram') : tr('Войти через Telegram')}
+          </button>}
           {!showTelegramPrompt && <button className="btn btn-secondary" disabled={busy} onClick={() => recovery ? startPasswordRecovery('google') : startGoogleLogin()} style={{ ...buttonStyle, borderColor: 'rgba(255,255,255,.22)' }}><b style={{ fontSize: '1.1rem' }}>G</b>{tr('Войти через Google')}</button>}
           {isPolling && <button className="btn btn-secondary" onClick={checkPendingSession} style={buttonStyle}>{tr('Я подтвердил, продолжить')}</button>}
         </div>

@@ -1,0 +1,1065 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "B1-24-D09 · Je … desto und Folgesätze — Почему? Поэтому!",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "B1-24-D09 · Почему? Поэтому!",
+        "level": "B1",
+        "topic": "Je … desto und Folgesätze",
+        "description": "Выражение логического следствия конкретного факта с помощью наречных союзов deshalb, deswegen и daher (порядок слов V2)",
+        "goal": "Научить ученика выражать прямое последствие единичного факта с помощью союзов deshalb, deswegen, daher, сохраняя порядок слов главного предложения (личный глагол на 2-м месте), и отличать эту структуру от коррелятивных предложений пропорциональности (je … desto).",
+        "learning_outcomes": [
+          "Различать логику следствия конкретного факта (deshalb/deswegen/daher) и пропорциональную зависимость (je … desto)",
+          "Ставить спрягаемый глагол сразу после начального союза deshalb/deswegen/daher (инверсия V2)",
+          "Корректно использовать модальные глаголы и отделяемые приставки в предложениях следствия",
+          "Распознавать взаимозаменяемость наречных союзов deshalb, deswegen и daher",
+          "Строить фразы с позицией deshalb в середине предложения (после глагола)",
+          "Формулировать сервисные сообщения и обращения по поводу жилья, ремонта и счетов"
+        ],
+        "estimated_time": "35–50 минут",
+        "recommendations": "При ошибках инверсии (Deshalb ich...) повторить карточки 01–08, 13, 23, 31–35. При смешении с придаточными причины повторить контраст с weil (карточки 25–27). При смешении «поэтому» со связкой «чем... тем...» вернуться к карточкам 01, 05, 28, 47 и колодам D07–D08. Следующая колода — D10 (sodass и so … dass)."
+      },
+      "pedagogy": {
+        "lesson_type": "practice",
+        "expected_result": "Ученик безошибочно формулирует следствия конкретных событий с союзами deshalb, deswegen и daher, соблюдая порядок слов V2 (глагол на 2-м месте), и не путает выражение единичного результата с пропорциональными конструкциями je … desto.",
+        "stages": [
+          {
+            "id": "deshalb_basics",
+            "title": "Конкретное следствие и базовый порядок с deshalb",
+            "goal": "Освоить логику прямого следствия факта и позицию личного глагола сразу после deshalb",
+            "from_card": 1,
+            "to_card": 8,
+            "support": "high",
+            "expected_skill": "Ставить спрягаемый глагол на 2-е место после начального deshalb"
+          },
+          {
+            "id": "deswegen_and_verb_types",
+            "title": "Союз deswegen, модальные глаголы и отделяемые приставки",
+            "goal": "Освоить синонимичный союз deswegen и сложные глагольные структуры (модальные глаголы, приставки)",
+            "from_card": 9,
+            "to_card": 16,
+            "support": "high",
+            "expected_skill": "Использовать deswegen с модальными глаголами и глаголами с отделяемыми приставками"
+          },
+          {
+            "id": "daher_and_formal_requests",
+            "title": "Союз daher и деловые/сервисные обращения",
+            "goal": "Освоить союз daher в контексте официальных писем, счетов и обращений в управляющую компанию",
+            "from_card": 17,
+            "to_card": 24,
+            "support": "medium",
+            "expected_skill": "Применять daher в деловых формулировках с сохранением порядка V2"
+          },
+          {
+            "id": "contrast_weil_and_je_desto",
+            "title": "Контраст с weil (причина) и je … desto (пропорция)",
+            "goal": "Научиться четко разграничивать следствие (deshalb), причину (weil) и пропорцию (je … desto)",
+            "from_card": 25,
+            "to_card": 32,
+            "support": "medium",
+            "expected_skill": "Выбирать правильную конструкцию в зависимости от коммуникативной задачи"
+          },
+          {
+            "id": "mid_sentence_position",
+            "title": "Позиция маркера следствия в середине предложения",
+            "goal": "Освоить размещение deshalb/deswegen внутри предложения при подлежащем на 1-м месте",
+            "from_card": 33,
+            "to_card": 40,
+            "support": "medium",
+            "expected_skill": "Строить фразы типа 'Ich rufe deshalb den Hausmeister an' с сохранением V2"
+          },
+          {
+            "id": "autonomous_production_service",
+            "title": "Самостоятельные обращения и связная речь без подсказок",
+            "goal": "Свободно выражать причину и следствие в бытовых ситуациях и сервисной переписке",
+            "from_card": 41,
+            "to_card": 48,
+            "support": "low",
+            "expected_skill": "Самостоятельно формулировать полные связки факт → следствие"
+          }
+        ],
+        "competencies": [
+          {
+            "id": "consequence_v2_order",
+            "title": "Порядок слов V2 при выражении следствия",
+            "description": "Постановка спрягаемого глагола на 2-е место сразу после союзов deshalb, deswegen, daher"
+          },
+          {
+            "id": "cause_vs_proportion_distinction",
+            "title": "Различение следствия и пропорции",
+            "description": "Четкое разграничение единичного факта со следствием (deshalb) и шкалы двух признаков (je … desto)"
+          },
+          {
+            "id": "service_communication_skills",
+            "title": "Коммуникация в сфере жилья и услуг",
+            "description": "Умение сформулировать проблему (неисправность, счет, доставка) и запросить действие"
+          }
+        ],
+        "assessment_criteria": [
+          {
+            "id": "inversion_accuracy",
+            "title": "Точность инверсии",
+            "description": "Отсутствие порядка слов прямой последовательности (*Deshalb ich rufe an*) после союзов следствия"
+          },
+          {
+            "id": "connector_context_match",
+            "title": "Соответствие связки контексту",
+            "description": "Использование союзов следствия для фактов и отказ от них в контекстах сравнения шкал"
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "review_v2_word_order",
+            "title": "Повторение инверсии после deshalb",
+            "when": "Если глагол ставится после подлежащего (*Deshalb ich kann*)",
+            "reason": "Повторить карточки 01–08 и 13",
+            "competency_ids": [
+              "consequence_v2_order"
+            ]
+          },
+          {
+            "id": "review_construction_contrast",
+            "title": "Повторение различий deshalb и je … desto",
+            "when": "Если путаются конкретный результат и пропорциональная зависимость",
+            "reason": "Повторить карточки 01, 05, 28, 47 и колоду D07",
+            "competency_ids": [
+              "cause_vs_proportion_distinction"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "cards": [
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Сравните две разные языковые задачи."
+        }
+      ],
+      "data": {
+        "text": "1. **Пропорциональная зависимость (je … desto):**\n`Je kälter es wird, desto mehr heizen wir.`\n(Чем холоднее становится, тем больше мы топим).\nЗдесь две величины меняются вместе по шкале.\n\n2. **Конкретный факт и его следствие (deshalb):**\n`Die Heizung ist ausgefallen. Deshalb ist es in der Wohnung kalt.`\n(Отопление вышло из строя. Поэтому в квартире холодно).\nЗдесь сообщается об **одном конкретном событии и его результате**.\n\nВо второй ситуации мы строим **два главных предложения**:\n`[Die Heizung ist ausgefallen.] [Deshalb IST es in der Wohnung kalt.]`\nПосле начального слова **Deshalb** сразу на 2-м месте стоит спрягаемый глагол **ist**!"
+      },
+      "explanation": "ausfallen — выходить из строя; die Heizung — отопление; deshalb выражает следствие конкретного факта."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Соседи говорят: «Бойлер сломался. Поэтому у нас нет горячей воды». Выберите грамматически правильную фразу.",
+        "options": [
+          {
+            "text": "Der Boiler ist kaputt. Deshalb haben wir kein warmes Wasser.",
+            "correct": true
+          },
+          {
+            "text": "Der Boiler ist kaputt. Deshalb wir haben kein warmes Wasser."
+          },
+          {
+            "text": "Der Boiler ist kaputt. Deshalb kein warmes Wasser haben wir."
+          }
+        ]
+      },
+      "explanation": "Deshalb занимает 1-ю позицию в главном предложении, поэтому личный глагол haben стоит на 2-м месте перед подлежащим wir: Deshalb haben wir kein warmes Wasser. der Boiler — бойлер; warmes Wasser — горячая вода."
+    },
+    {
+      "type": "match",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соедините три конкретные причины с их логическими последствиями."
+        }
+      ],
+      "data": {
+        "pairs": [
+          {
+            "left": "Die Glühbirne ist durchgebrannt.",
+            "right": "Deswegen ist es im Flur dunkel."
+          },
+          {
+            "left": "Der Briefkasten ist voll.",
+            "right": "Daher passt keine weitere Post hinein."
+          },
+          {
+            "left": "Das Schloss an der Haustür klemmt.",
+            "right": "Deshalb lässt sich die Tür nur schwer öffnen."
+          }
+        ]
+      },
+      "explanation": "Лампочка перегорела → темно в коридоре; ящик полон → не влезает почта; замок заедает → дверь трудно открыть. Во всех трёх случаях после Deshalb/Deswegen/Daher личный глагол стоит на 2-м месте. durchbrennen — перегорать; klemmen — заедать."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите второе предложение из слов: «Лифт сломан. Поэтому нам приходится идти по лестнице»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Der",
+          "Aufzug",
+          "ist",
+          "kaputt.",
+          "Deshalb",
+          "müssen",
+          "wir",
+          "die",
+          "Treppe",
+          "nehmen."
+        ],
+        "translation": "Лифт сломан. Поэтому нам приходится идти по лестнице."
+      },
+      "explanation": "Схема второго предложения: Deshalb (1) → müssen (2) → wir (подлежащее) … nehmen (инфинитив в конце). der Aufzug — лифт; die Treppe nehmen — идти по лестнице."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Домофон сейчас не работает, и курьер не может дозвониться. Какая конструкция подходит к этому единичному случаю?",
+        "options": [
+          {
+            "text": "Die Gegensprechanlage funktioniert nicht. Deshalb kann der Kurier niemanden erreichen.",
+            "correct": true
+          },
+          {
+            "text": "Je mehr die Gegensprechanlage funktioniert, desto weniger kann der Kurier niemanden erreichen."
+          },
+          {
+            "text": "Die Gegensprechanlage funktioniert nicht. Deshalb der Kurier kann niemanden erreichen."
+          }
+        ]
+      },
+      "explanation": "Для конкретного единичного факта и его результата используется deshalb с инверсией глагола (kann der Kurier). Конструкция je … desto здесь неуместна, так как нет меняющейся шкалы. die Gegensprechanlage — домофон; erreichen — дозвониться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно объясните знакомому: батарея в спальне не греет, поэтому там холодно (der Heizkörper, nicht warm werden, deshalb, kalt sein).",
+        "sample_answer": "Der Heizkörper im Schlafzimmer wird nicht warm. Deshalb ist es dort kalt.",
+        "accepted_answers": [
+          "Der Heizkörper im Schlafzimmer wird nicht warm. Deshalb ist es dort kalt.",
+          "Der Heizkörper im Schlafzimmer wird nicht warm. Deshalb ist es dort kalt",
+          "Der Heizkörper wird nicht warm. Deshalb ist es kalt.",
+          "Der Heizkörper funktioniert nicht. Deshalb ist es in der Wohnung kalt."
+        ]
+      },
+      "explanation": "После Deshalb на 2-м месте стоит глагол ist: Deshalb ist es dort kalt. der Heizkörper — радиатор; das Schlafzimmer — спальня."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте форму глагола anrufen для местоимения ich."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Der Wasserhahn tropft. Deshalb "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "rufe"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ich den Hausmeister an."
+          }
+        ]
+      },
+      "explanation": "После Deshalb спрягаемая форма rufe занимает 2-е место, а отделяемая приставка an уходит в самый конец предложения. der Wasserhahn — кран; der Hausmeister — смотритель дома."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "В доме отключили электричество. Как грамматически правильно сказать «Поэтому свет не работает»?",
+        "options": [
+          {
+            "text": "Deshalb funktioniert das Licht nicht.",
+            "correct": true
+          },
+          {
+            "text": "Deshalb das Licht funktioniert nicht."
+          },
+          {
+            "text": "Deshalb nicht funktioniert das Licht."
+          }
+        ]
+      },
+      "explanation": "Когда Deshalb открывает главное предложение, личный глагол занимает строго 2-е место перед подлежащим: Deshalb funktioniert das Licht nicht. das Licht — свет; funktionieren — работать."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Сравните союзы deshalb и deswegen."
+        }
+      ],
+      "data": {
+        "text": "Два сообщения о ремонте:\n\n`Der Handwerker ist krank. Deshalb kommt er heute nicht.`\n`Der Handwerker ist krank. Deswegen kommt er heute nicht.`\n\nОбе фразы означают одно и то же: **мастер заболел, поэтому сегодня не придёт**.\n\nСлова **deshalb** и **deswegen** в подавляющем большинстве бытовых и рабочих ситуаций **полностью взаимозаменяемы**.\nОни оба требуют порядка слов V2:\n`[Deswegen] + [kommt] (глагол) + [er] (подлежащее) ...`\n\nНе нужно искать между ними надуманную разницу в значении."
+      },
+      "explanation": "der Handwerker — мастер; krank sein — болеть; deswegen и deshalb абсолютно синонимичны."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Во второй фразе уже дан порядок слов с инверсией: «Die Steckdose ist locker. (пропуск) benutzen wir sie nicht.» Какие слова подходят в пропуск?",
+        "options": [
+          {
+            "text": "A и B: Deshalb / Deswegen",
+            "correct": true
+          },
+          {
+            "text": "Только A: Deshalb"
+          },
+          {
+            "text": "Только C: Weil"
+          },
+          {
+            "text": "Все три варианта A, B и C подходят."
+          }
+        ]
+      },
+      "explanation": "И Deshalb, и Deswegen вводят главное предложение с инверсией (benutzen wir). Союз weil сюда не подходит, так как требует порядка придаточного предложения с глаголом в конце (*weil wir sie nicht benutzen*). die Steckdose — розетка; locker — разболтанная."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Перепишите второе предложение с deswegen, не меняя остальную структуру."
+        },
+        {
+          "type": "source",
+          "text": "Die Post ist noch nicht angekommen. Deshalb frage ich beim Zustelldienst nach."
+        }
+      ],
+      "data": {
+        "prompt": "Замените deshalb на deswegen: «Die Post ist noch nicht angekommen. Deshalb frage ich beim Zustelldienst nach.»",
+        "sample_answer": "Die Post ist noch nicht angekommen. Deswegen frage ich beim Zustelldienst nach.",
+        "accepted_answers": [
+          "Die Post ist noch nicht angekommen. Deswegen frage ich beim Zustelldienst nach.",
+          "Die Post ist noch nicht angekommen. Deswegen frage ich beim Zustelldienst nach",
+          "Deswegen frage ich beim Zustelldienst nach.",
+          "Deswegen frage ich beim Zustelldienst nach"
+        ]
+      },
+      "explanation": "Замена deshalb на deswegen не меняет порядка слов: личный глагол frage остаётся на 2-м месте. nachfragen — уточнять; der Zustelldienst — служба доставки."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно объясните соседу: рольставни не поднимаются, поэтому вы не можете полностью открыть окно (der Rollladen, nicht hochgehen, deswegen, das Fenster nicht ganz öffnen können).",
+        "sample_answer": "Der Rollladen geht nicht hoch. Deswegen kann ich das Fenster nicht ganz öffnen.",
+        "accepted_answers": [
+          "Der Rollladen geht nicht hoch. Deswegen kann ich das Fenster nicht ganz öffnen.",
+          "Der Rollladen geht nicht hoch. Deswegen kann ich das Fenster nicht ganz öffnen",
+          "Der Rollladen ist kaputt. Deswegen kann ich das Fenster nicht öffnen."
+        ]
+      },
+      "explanation": "После Deswegen личный модальный глагол kann стоит на 2-м месте, затем подлежащее ich, а инфинитив öffnen — в конце предложения. der Rollladen — рольставни; ganz — полностью."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте нарушение порядка слов во втором предложении."
+        },
+        {
+          "type": "source",
+          "text": "Die Waschmaschine verliert Wasser. Deswegen ich kann sie nicht benutzen."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Die Waschmaschine verliert Wasser. Deswegen ich kann sie nicht benutzen.»",
+        "sample_answer": "Die Waschmaschine verliert Wasser. Deswegen kann ich sie nicht benutzen.",
+        "accepted_answers": [
+          "Die Waschmaschine verliert Wasser. Deswegen kann ich sie nicht benutzen.",
+          "Die Waschmaschine verliert Wasser. Deswegen kann ich sie nicht benutzen",
+          "Deswegen kann ich sie nicht benutzen.",
+          "Deswegen kann ich sie nicht benutzen"
+        ]
+      },
+      "explanation": "После Deswegen личный глагол обязан стоять на 2-м месте перед подлежащим ich: Deswegen kann ich sie nicht benutzen. Wasser verlieren — протекать."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите оба предложения из слов: «В ванной засорён слив. Поэтому вода не стекает»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Im",
+          "Bad",
+          "ist",
+          "der",
+          "Abfluss",
+          "verstopft.",
+          "Deswegen",
+          "läuft",
+          "das",
+          "Wasser",
+          "nicht",
+          "ab."
+        ],
+        "translation": "В ванной засорён слив. Поэтому вода не стекает."
+      },
+      "explanation": "läuft занимает 2-е место сразу после Deswegen, а отделяемая приставка ab стоит в конце предложения. der Abfluss — слив; verstopft — засорённый; ablaufen — стекать."
+    },
+    {
+      "type": "match",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соедините проблему с разумным последующим действием."
+        }
+      ],
+      "data": {
+        "pairs": [
+          {
+            "left": "Die Mülltonne ist schon voll.",
+            "right": "Daher passen keine weiteren Abfälle hinein."
+          },
+          {
+            "left": "Der Brief mit der Rechnung fehlt.",
+            "right": "Deshalb frage ich nach einer Kopie."
+          },
+          {
+            "left": "Der Heizkörper macht laute Geräusche.",
+            "right": "Deswegen melde ich das der Hausverwaltung."
+          }
+        ]
+      },
+      "explanation": "Каждая пара выражает конкретную причину и следствие с правильной инверсией глагола (passen, frage, melde). die Mülltonne — контейнер; die Hausverwaltung — управляющая компания."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте глагол können в нужной форме для der Paketbote."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Die Klingel ist kaputt. Deswegen "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "kann"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " der Paketbote nicht klingeln."
+          }
+        ]
+      },
+      "explanation": "Для der Paketbote (3-е лицо ед. ч.) форма глагола können — kann. Она занимает 2-е место после Deswegen: Deswegen kann der Paketbote nicht klingeln. die Klingel — звонок."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Союз daher — стилистический оттенок и грамматика."
+        }
+      ],
+      "data": {
+        "text": "Три варианта оформления одного официального обращения:\n\n`Die Rechnung ist fehlerhaft. Deshalb bitte ich um eine Korrektur.`\n`Die Rechnung ist fehlerhaft. Deswegen bitte ich um eine Korrektur.`\n`Die Rechnung ist fehlerhaft. Daher bitte ich um eine Korrektur.`\n\n**Deshalb**, **deswegen** и **daher** выражают одно и то же: «поэтому / по этой причине».\n\nСлово **daher** часто используется в деловой, письменной или сервисной коммуникации (запросы, рекламации, заявления).\nОднако порядок слов абсолютно тот же:\n`[Daher] + [bitte] (глагол) + [ich] (подлежащее) ...`\nГлагол всегда занимает строго второе место!"
+      },
+      "explanation": "fehlerhaft — ошибочный; um eine Korrektur bitten — просить об исправлении; daher типично для деловой переписки."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите устно поставщику услуг: в счёте ошибка, поэтому вы просите проверить сумму (die Rechnung, ein Fehler, daher, den Betrag überprüfen).",
+        "sample_answer": "In der Rechnung ist ein Fehler. Daher bitte ich Sie, den Betrag zu überprüfen.",
+        "accepted_answers": [
+          "In der Rechnung ist ein Fehler. Daher bitte ich Sie, den Betrag zu überprüfen.",
+          "In der Rechnung ist ein Fehler. Daher bitte ich Sie, den Betrag zu überprüfen",
+          "Die Rechnung ist fehlerhaft. Daher bitte ich um eine Überprüfung des Betrags.",
+          "In der Rechnung ist ein Fehler. Deshalb bitte ich Sie, den Betrag zu überprüfen."
+        ]
+      },
+      "explanation": "После Daher на 2-м месте стоит глагол bitte, затем подлежащее ich: Daher bitte ich Sie... der Betrag — сумма; überprüfen — проверять."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите обращение из слов: «Счётчик воды показывает необычно высокие значения. Поэтому мы просим провести проверку»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Der",
+          "Wasserzähler",
+          "zeigt",
+          "ungewöhnlich",
+          "hohe",
+          "Werte.",
+          "Daher",
+          "bitten",
+          "wir",
+          "um",
+          "eine",
+          "Überprüfung."
+        ],
+        "translation": "Счётчик воды показывает необычно высокие значения. Поэтому мы просим провести проверку."
+      },
+      "explanation": "Во втором предложении личный глагол bitten стоит сразу после Daher перед wir. der Wasserzähler — счётчик воды; die Überprüfung — проверка."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Как правильно закончить служебное сообщение: «Der Termin ist heute nicht möglich. …»?",
+        "options": [
+          {
+            "text": "Daher müssen wir einen neuen Termin vereinbaren.",
+            "correct": true
+          },
+          {
+            "text": "Daher wir müssen einen neuen Termin vereinbaren."
+          },
+          {
+            "text": "Daher einen neuen Termin müssen wir vereinbaren."
+          }
+        ]
+      },
+      "explanation": "Сразу после начального Daher обязан стоять спрягаемый модальный глагол müssen, затем подлежащее wir, а инфинитив vereinbaren — в конце. einen Termin vereinbaren — согласовать встречу."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте форму глагола müssen для местоимения wir."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Die Reparatur dauert länger als geplant. Daher "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "müssen"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " wir einen neuen Termin vereinbaren."
+          }
+        ]
+      },
+      "explanation": "müssen стоит на 2-м месте после Daher перед подлежащим wir: Daher müssen wir einen neuen Termin vereinbaren. länger als geplant — дольше запланированного."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите два предложения с союзом daher: «Вода не нагревается. Поэтому я обращаюсь в службу поддержки» (опоры: Das Wasser wird nicht warm; sich an den Kundendienst wenden)."
+        }
+      ],
+      "data": {
+        "prompt": "Переведите: «Вода не нагревается. Поэтому я обращаюсь в службу поддержки».",
+        "sample_answer": "Das Wasser wird nicht warm. Daher wende ich mich an den Kundendienst.",
+        "accepted_answers": [
+          "Das Wasser wird nicht warm. Daher wende ich mich an den Kundendienst.",
+          "Das Wasser wird nicht warm. Daher wende ich mich an den Kundendienst",
+          "Das Wasser wird nicht warm. Deshalb wende ich mich an den Kundendienst."
+        ]
+      },
+      "explanation": "wende стоит на 2-м месте после Daher, возвратное местоимение mich следует за подлежащим ich: Daher wende ich mich an den Kundendienst. der Kundendienst — служба поддержки клиентов."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку порядка слов в письме."
+        },
+        {
+          "type": "source",
+          "text": "Das Fenster lässt sich nicht schließen. Daher ich bitte um einen Reparaturtermin."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Das Fenster lässt sich nicht schließen. Daher ich bitte um einen Reparaturtermin.»",
+        "sample_answer": "Das Fenster lässt sich nicht schließen. Daher bitte ich um einen Reparaturtermin.",
+        "accepted_answers": [
+          "Das Fenster lässt sich nicht schließen. Daher bitte ich um einen Reparaturtermin.",
+          "Das Fenster lässt sich nicht schließen. Daher bitte ich um einen Reparaturtermin",
+          "Daher bitte ich um einen Reparaturtermin.",
+          "Daher bitte ich um einen Reparaturtermin"
+        ]
+      },
+      "explanation": "После Daher спрягаемый глагол bitte обязан стоять на 2-м месте перед ich: Daher bitte ich um einen Reparaturtermin. sich schließen lassen — закрываться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Сообщите управляющей компании устно: в подъезде не горит свет, поэтому вы просите о ремонте (im Treppenhaus, kein Licht brennen, daher, um eine Reparatur bitten).",
+        "sample_answer": "Im Treppenhaus brennt kein Licht. Daher bitte ich um eine Reparatur.",
+        "accepted_answers": [
+          "Im Treppenhaus brennt kein Licht. Daher bitte ich um eine Reparatur.",
+          "Im Treppenhaus brennt kein Licht. Daher bitte ich um eine Reparatur",
+          "Im Treppenhaus gibt es kein Licht. Deshalb bitte ich um eine Reparatur."
+        ]
+      },
+      "explanation": "Daher bitte ich um eine Reparatur — личный глагол bitte занимает 2-ю позицию. das Treppenhaus — лестничная клетка, подъезд; brennen — гореть."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Различие ролей: weil объясняет причину, deshalb сообщает следствие."
+        }
+      ],
+      "data": {
+        "text": "Два способа описать одну и ту же бытовую ситуацию:\n\n1. **Сложноподчинённое предложение с союзом weil (причина):**\n`Ich melde den Schaden, weil die Wand feucht ist.`\n(Я сообщаю о повреждении, потому что стена влажная).\nСоюз **weil** начинает придаточную часть, спрягаемый глагол **ist** уходит в самый конец!\n\n2. **Два главных предложения со словом deshalb (следствие):**\n`Die Wand ist feucht. Deshalb melde ich den Schaden.`\n(Стена влажная. Поэтому я сообщаю о повреждении).\nСлово **deshalb** начинает главное предложение, спрягаемый глагол **melde** стоит на втором месте!\n\nНе путайте порядок слов: после `weil` глагол в конце, после `deshalb` — сразу на 2-м месте."
+      },
+      "explanation": "der Schaden — повреждение; feucht — влажный; weil требует глагола в конце, а deshalb — на втором месте."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Окна плохо закрываются, поэтому в спальне сквозняк. Какое предложение построено правильно?",
+        "options": [
+          {
+            "text": "Die Fenster schließen nicht richtig. Deshalb zieht es im Schlafzimmer.",
+            "correct": true
+          },
+          {
+            "text": "Die Fenster schließen nicht richtig. Deshalb es zieht im Schlafzimmer."
+          },
+          {
+            "text": "Die Fenster schließen nicht richtig. Weil zieht es im Schlafzimmer."
+          }
+        ]
+      },
+      "explanation": "В главном предложении после Deshalb спрягаемый глагол zieht обязан стоять на 2-м месте перед безличным es: Deshalb zieht es im Schlafzimmer. es zieht — сквозит."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Перестройте мысль «Ich lüfte das Zimmer, weil die Luft stickig ist» в два главных предложения со словом deshalb."
+        }
+      ],
+      "data": {
+        "prompt": "Перепишите через deshalb: «Ich lüfte das Zimmer, weil die Luft stickig ist.»",
+        "sample_answer": "Die Luft im Zimmer ist stickig. Deshalb lüfte ich das Zimmer.",
+        "accepted_answers": [
+          "Die Luft im Zimmer ist stickig. Deshalb lüfte ich das Zimmer.",
+          "Die Luft im Zimmer ist stickig. Deshalb lüfte ich das Zimmer",
+          "Die Luft ist stickig. Deshalb lüfte ich das Zimmer.",
+          "Die Luft ist stickig. Deshalb lüfte ich das Zimmer"
+        ]
+      },
+      "explanation": "Сначала констатируется причина (Die Luft ist stickig), затем результат со словом Deshalb и глаголом на 2-м месте (Deshalb lüfte ich das Zimmer). stickig — душный; lüften — проветривать."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "В квартире сейчас не работает интернет. Какой вариант сообщает конкретное последствие без неуместного сравнения?",
+        "options": [
+          {
+            "text": "Der Router ist offline. Deswegen haben wir kein Internet.",
+            "correct": true
+          },
+          {
+            "text": "Je mehr der Router offline ist, desto weniger haben wir Internet."
+          },
+          {
+            "text": "Der Router ist offline. Deswegen wir haben kein Internet."
+          }
+        ]
+      },
+      "explanation": "Единичный сбой роутера порождает конкретное следствие с союзом Deswegen и глаголом haben на 2-м месте. Вариант с je...desto грамматически и логически абсурден в данной ситуации. der Router — роутер."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите оба предложения из слов: «Расчёт коммунальных услуг отсутствует. Поэтому я запрашиваю копию»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Die",
+          "Nebenkostenabrechnung",
+          "fehlt.",
+          "Deswegen",
+          "fordere",
+          "ich",
+          "eine",
+          "Kopie",
+          "an."
+        ],
+        "translation": "Расчёт коммунальных услуг отсутствует. Поэтому я запрашиваю копию."
+      },
+      "explanation": "fordere стоит на 2-м месте после Deswegen, а отделяемая приставка an завершает предложение. die Nebenkostenabrechnung — расчёт коммунальных расходов; anfordern — запрашивать."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно сообщите: под кухонной раковиной течёт труба, поэтому вы ставите ведро и вызываете мастера (unter der Küchenspüle, ein Rohr undicht sein, deshalb, einen Eimer darunter stellen, den Handwerker anrufen).",
+        "sample_answer": "Unter der Küchenspüle ist ein Rohr undicht. Deshalb stelle ich einen Eimer darunter und rufe den Handwerker an.",
+        "accepted_answers": [
+          "Unter der Küchenspüle ist ein Rohr undicht. Deshalb stelle ich einen Eimer darunter und rufe den Handwerker an.",
+          "Unter der Küchenspüle ist ein Rohr undicht. Deshalb stelle ich einen Eimer darunter und rufe den Handwerker an",
+          "Unter der Spüle tropft das Rohr. Deshalb rufe ich den Handwerker an."
+        ]
+      },
+      "explanation": "После Deshalb глагол stelle стоит на 2-м месте: Deshalb stelle ich... die Küchenspüle — кухонная мойка; undicht — протекающий; der Eimer — ведро."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов во втором предложении."
+        },
+        {
+          "type": "source",
+          "text": "Die Warmwasseranlage ist ausgefallen. Deshalb ich kann nicht warm duschen."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Die Warmwasseranlage ist ausgefallen. Deshalb ich kann nicht warm duschen.»",
+        "sample_answer": "Die Warmwasseranlage ist ausgefallen. Deshalb kann ich nicht warm duschen.",
+        "accepted_answers": [
+          "Die Warmwasseranlage ist ausgefallen. Deshalb kann ich nicht warm duschen.",
+          "Die Warmwasseranlage ist ausgefallen. Deshalb kann ich nicht warm duschen",
+          "Deshalb kann ich nicht warm duschen.",
+          "Deshalb kann ich nicht warm duschen"
+        ]
+      },
+      "explanation": "Спрягаемый модальный глагол kann обязан стоять сразу после Deshalb: Deshalb kann ich nicht warm duschen. die Warmwasseranlage — система горячего водоснабжения."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Продолжите мысль «Die Tür schließt nicht mehr richtig. …» правильным предложением со словом Daher:",
+        "options": [
+          {
+            "text": "Daher muss ein Fachmann das Schloss prüfen.",
+            "correct": true
+          },
+          {
+            "text": "Daher ein Fachmann muss das Schloss prüfen."
+          },
+          {
+            "text": "Daher ein Fachmann das Schloss prüfen muss."
+          }
+        ]
+      },
+      "explanation": "Личный модальный глагол muss стоит сразу после Daher на 2-м месте, подлежащее ein Fachmann — за ним, а инфинитив prüfen — в самом конце предложения. der Fachmann — специалист; das Schloss — замок."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Слово deshalb может стоять не только в самом начале предложения."
+        }
+      ],
+      "data": {
+        "text": "Сравните два абсолютно правильных предложения:\n\n1. `Deshalb melde ich den Schaden heute.`\n(Поэтому я сообщаю о повреждении сегодня).\nЗдесь **Deshalb** занимает 1-ю позицию, поэтому глагол **melde** стоит сразу после него на 2-м месте.\n\n2. `Ich melde den Schaden deshalb heute.`\n(Я сообщаю о повреждении поэтому сегодня).\nЗдесь на 1-м месте стоит подлежащее **Ich**, глагол **melde** стоит на своём законном 2-м месте, а слово **deshalb** находится в середине предложения (в так называемом среднем поле Satzmittelfeld).\n\n**Важное правило:** в немецком языке фиксировано положение **личного глагола на 2-м месте**, а не слова deshalb!"
+      },
+      "explanation": "Позиция слова deshalb может варьироваться, закон V2 для спрягаемого глагола остаётся незыблемым."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите два грамматически правильных способа сказать «Поэтому мы перенесли встречу»:",
+        "options": [
+          {
+            "text": "A и B: Deshalb haben wir den Termin verschoben. / Wir haben deshalb den Termin verschoben.",
+            "correct": true
+          },
+          {
+            "text": "A и C: Deshalb haben wir den Termin verschoben. / Wir deshalb haben den Termin verschoben."
+          },
+          {
+            "text": "Только A: Deshalb haben wir den Termin verschoben."
+          },
+          {
+            "text": "B и C: Wir haben deshalb den Termin verschoben. / Wir deshalb haben den Termin verschoben."
+          }
+        ]
+      },
+      "explanation": "В варианте A слово Deshalb стоит на 1-м месте, глагол haben — на 2-м. В варианте B на 1-м месте стоит Wir, глагол haben — на 2-м, а deshalb — внутри предложения. Вариант C грубо нарушает правило V2. verschieben — переносить."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите второе предложение так, чтобы слово deshalb стояло в середине предложения."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Der",
+          "Handwerker",
+          "kommt",
+          "erst",
+          "morgen.",
+          "Wir",
+          "können",
+          "die",
+          "Reparatur",
+          "deshalb",
+          "heute",
+          "nicht",
+          "abschließen."
+        ],
+        "translation": "Мастер придёт только завтра. Поэтому мы не можем закончить ремонт сегодня."
+      },
+      "explanation": "Начало второго предложения — Wir (1), затем модальный глагол können (2). Слово deshalb находится внутри предложения, инфинитив abschließen — в конце. erst morgen — только завтра; abschließen — завершать."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно объясните: письмо от управляющей компании не пришло, поэтому вы уточняете информацию. Условие: слово deshalb должно стоять внутри второго предложения (не на первом месте!).",
+        "sample_answer": "Der Brief von der Hausverwaltung ist nicht angekommen. Ich frage deshalb bei der Hausverwaltung nach.",
+        "accepted_answers": [
+          "Der Brief von der Hausverwaltung ist nicht angekommen. Ich frage deshalb bei der Hausverwaltung nach.",
+          "Der Brief von der Hausverwaltung ist nicht angekommen. Ich frage deshalb bei der Hausverwaltung nach",
+          "Der Brief ist nicht angekommen. Ich frage deshalb nach."
+        ]
+      },
+      "explanation": "Ich (1) frage (2) deshalb bei der Hausverwaltung nach: спрягаемый глагол остаётся на 2-м месте, отделяемая приставка nach — в конце. nachfragen — переспрашивать, уточнять."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Составьте два предложения с deswegen: на почтовом ящике старая фамилия, поэтому некоторые письма не доходят."
+        }
+      ],
+      "data": {
+        "prompt": "Напишите два предложения с deswegen: «Auf dem Briefkasten steht noch der alte Name. …»",
+        "sample_answer": "Auf dem Briefkasten steht noch der alte Name. Deswegen kommen manche Briefe nicht an.",
+        "accepted_answers": [
+          "Auf dem Briefkasten steht noch der alte Name. Deswegen kommen manche Briefe nicht an.",
+          "Auf dem Briefkasten steht noch der alte Name. Deswegen kommen manche Briefe nicht an",
+          "Auf dem Briefkasten steht der alte Name. Deswegen kommen die Briefe nicht an."
+        ]
+      },
+      "explanation": "После Deswegen глагол kommen занимает 2-е место перед подлежащим manche Briefe, а приставка an — в конце. der Briefkasten — почтовый ящик; ankommen — доходить."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите второе предложение со словом deshalb в середине."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Die",
+          "Ersatzteile",
+          "sind",
+          "noch",
+          "nicht",
+          "da.",
+          "Wir",
+          "können",
+          "die",
+          "Arbeit",
+          "deshalb",
+          "nicht",
+          "beenden."
+        ],
+        "translation": "Запчасти ещё не доставлены. Поэтому мы не можем закончить работу."
+      },
+      "explanation": "Wir (1) können (2) die Arbeit deshalb nicht beenden (Infinitiv am Ende). die Ersatzteile — запчасти; beenden — завершать."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Переведите на немецкий язык с одним из союзов следствия: «Дверной замок заедает. Поэтому я прошу назначить время ремонта» (das Türschloss klemmen, um einen Termin für die Reparatur bitten).",
+        "sample_answer": "Das Türschloss klemmt. Deshalb bitte ich um einen Termin für die Reparatur.",
+        "accepted_answers": [
+          "Das Türschloss klemmt. Deshalb bitte ich um einen Termin für die Reparatur.",
+          "Das Türschloss klemmt. Deshalb bitte ich um einen Termin für die Reparatur",
+          "Das Türschloss klemmt. Deswegen bitte ich um einen Termin für die Reparatur.",
+          "Das Türschloss klemmt. Daher bitte ich um einen Termin für die Reparatur."
+        ]
+      },
+      "explanation": "klemmt завершает факт; после начального Deshalb/Deswegen/Daher спрягаемый глагол bitte стоит на 2-м месте. das Türschloss — дверной замок; klemmen — заедать."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Найдите и исправьте грамматическую ошибку во втором предложении."
+        },
+        {
+          "type": "source",
+          "text": "Der Abfluss ist verstopft. Deshalb das Wasser läuft nicht ab."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Der Abfluss ist verstopft. Deshalb das Wasser läuft nicht ab.»",
+        "sample_answer": "Der Abfluss ist verstopft. Deshalb läuft das Wasser nicht ab.",
+        "accepted_answers": [
+          "Der Abfluss ist verstopft. Deshalb läuft das Wasser nicht ab.",
+          "Der Abfluss ist verstopft. Deshalb läuft das Wasser nicht ab",
+          "Deshalb läuft das Wasser nicht ab.",
+          "Deshalb läuft das Wasser nicht ab"
+        ]
+      },
+      "explanation": "После начального слова Deshalb спрягаемый глагол läuft обязан стоять на 2-м месте перед подлежащим das Wasser: Deshalb läuft das Wasser nicht ab. ablaufen — стекать."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Короткая памятка перед самостоятельной речью."
+        }
+      ],
+      "data": {
+        "text": "Три шага для формулирования следствия в бытовых и сервисных ситуациях:\n\n1. Назовите **конкретную причину / проблему**:\n`Der Vertrag enthält einen Fehler.` (В договоре ошибка).\n\n2. Назовите **последствие и свяжите его**:\n`Deshalb bitte ich um eine Korrektur.` (Поэтому прошу об исправлении).\n\n3. Проверьте **позицию спрягаемого глагола**:\n- Либо в начале: `Deshalb | bitte | ich ...`\n- Либо внутри: `Ich | bitte | deshalb ...`\n\nСлова `deshalb`, `deswegen`, `daher` взаимозаменяемы. Если же вы хотите связать две меняющиеся шкалы («чем... тем...»), используйте связку `je … desto/umso`!"
+      },
+      "explanation": "der Vertrag — договор; die Korrektur — исправление."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Сотрудник службы спрашивает: «Почему вам нужна проверка счёта?» Дайте устный ответ из двух предложений со словом daher (ошибка в счёте → прошу о проверке).",
+        "sample_answer": "In der Rechnung ist ein Fehler. Daher möchte ich Sie um eine Überprüfung bitten.",
+        "accepted_answers": [
+          "In der Rechnung ist ein Fehler. Daher möchte ich Sie um eine Überprüfung bitten.",
+          "In der Rechnung ist ein Fehler. Daher möchte ich Sie um eine Überprüfung bitten",
+          "Die Rechnung enthält einen Fehler. Daher bitte ich um eine Überprüfung.",
+          "In der Rechnung ist ein Fehler. Daher bitte ich um eine Überprüfung."
+        ]
+      },
+      "explanation": "Daher möchte ich Sie um eine Überprüfung bitten — глагол möchte стоит на 2-м месте сразу после Daher. auffallen — замечаться; die Überprüfung — проверка."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Напишите короткое сообщение владельцу жилья из двух предложений: на кухне капает кран, поэтому нужен ремонт (der Wasserhahn in der Küche tropft; deshalb / deswegen / daher).",
+        "sample_answer": "Der Wasserhahn in der Küche tropft. Deshalb brauche ich einen Termin für die Reparatur.",
+        "accepted_answers": [
+          "Der Wasserhahn in der Küche tropft. Deshalb brauche ich einen Termin für die Reparatur.",
+          "Der Wasserhahn in der Küche tropft. Deshalb brauche ich einen Termin für die Reparatur",
+          "Der Wasserhahn in der Küche tropft. Deswegen brauche ich einen Reparaturtermin.",
+          "Der Wasserhahn in der Küche tropft. Daher brauche ich einen Termin für die Reparatur."
+        ]
+      },
+      "explanation": "После Deshalb/Deswegen/Daher глагол brauche стоит строго на 2-м месте перед ich. tropfen — капать; die Reparatur — ремонт."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Напишите две фразы провайдеру: «Со вчерашнего дня интернет не работает. Поэтому я не могу работать из дома» (seit gestern, nicht funktionieren, daher / deshalb / deswegen, von zu Hause aus arbeiten können).",
+        "sample_answer": "Seit gestern funktioniert der Internetanschluss nicht. Daher kann ich nicht von zu Hause aus arbeiten.",
+        "accepted_answers": [
+          "Seit gestern funktioniert der Internetanschluss nicht. Daher kann ich nicht von zu Hause aus arbeiten.",
+          "Seit gestern funktioniert der Internetanschluss nicht. Daher kann ich nicht von zu Hause aus arbeiten",
+          "Seit gestern funktioniert das Internet nicht. Deshalb kann ich nicht von zu Hause arbeiten."
+        ]
+      },
+      "explanation": "Daher kann ich nicht von zu Hause aus arbeiten — модальный глагол kann стоит на 2-м месте, инфинитив arbeiten — в конце. der Internetanschluss — подключение к интернету."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку порядка слов во втором предложении."
+        },
+        {
+          "type": "source",
+          "text": "Die Klingel funktioniert nicht. Deswegen der Paketbote hat das Paket nicht abgegeben."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Die Klingel funktioniert nicht. Deswegen der Paketbote hat das Paket nicht abgegeben.»",
+        "sample_answer": "Die Klingel funktioniert nicht. Deswegen hat der Paketbote das Paket nicht abgegeben.",
+        "accepted_answers": [
+          "Die Klingel funktioniert nicht. Deswegen hat der Paketbote das Paket nicht abgegeben.",
+          "Die Klingel funktioniert nicht. Deswegen hat der Paketbote das Paket nicht abgegeben",
+          "Deswegen hat der Paketbote das Paket nicht abgegeben.",
+          "Deswegen hat der Paketbote das Paket nicht abgegeben"
+        ]
+      },
+      "explanation": "Спрягаемый вспомогательный глагол hat обязан стоять сразу после Deswegen на 2-м месте перед подлежащим der Paketbote: Deswegen hat der Paketbote das Paket nicht abgegeben. abgeben — вручать."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Напишите два предложения в управляющую компанию: «В коридоре слишком темно. Поэтому нужна дополнительная лампа» (im Flur, zu dunkel, deshalb / daher / deswegen, eine zusätzliche Lampe brauchen).",
+        "sample_answer": "Im Flur ist es zu dunkel. Deshalb brauchen wir eine zusätzliche Lampe.",
+        "accepted_answers": [
+          "Im Flur ist es zu dunkel. Deshalb brauchen wir eine zusätzliche Lampe.",
+          "Im Flur ist es zu dunkel. Deshalb brauchen wir eine zusätzliche Lampe",
+          "Im Flur ist es zu dunkel. Daher brauchen wir eine zusätzliche Lampe.",
+          "Im Flur ist es zu dunkel. Deswegen brauchen wir eine zusätzliche Lampe."
+        ]
+      },
+      "explanation": "brauch(en) steht auf Position 2 nach Deshalb/Daher/Deswegen: Deshalb brauchen wir eine zusätzliche Lampe. zusätzlich — дополнительный; zu dunkel — слишком темно."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Запишите оба предложения в правильной грамматической конструкции: (1) «Чем дольше мы ждём мастера, тем сильнее волнуемся» (пропорция); (2) «Мастер отменил встречу. Поэтому мы назначаем новую» (следствие факта).",
+        "sample_answer": "1. Je länger wir auf den Handwerker warten, desto nervöser werden wir. 2. Der Handwerker hat den Termin abgesagt. Deshalb vereinbaren wir einen neuen Termin.",
+        "accepted_answers": [
+          "Je länger wir auf den Handwerker warten, desto nervöser werden wir. Der Handwerker hat den Termin abgesagt. Deshalb vereinbaren wir einen neuen Termin.",
+          "1. Je länger wir auf den Handwerker warten, desto nervöser werden wir. 2. Der Handwerker hat den Termin abgesagt. Deshalb vereinbaren wir einen neuen Termin.",
+          "Je länger wir auf den Handwerker warten, desto nervöser werden wir."
+        ]
+      },
+      "explanation": "1 — шкала пропорциональности (je … desto с глаголом warten в конце и werden на 2-м месте). 2 — конкретный факт и следствие (deshalb с глаголом vereinbaren на 2-м месте). absagen — отменять; vereinbaren — согласовывать."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Придумайте устно два предложения о любой бытовой проблеме: сначала событие-причина, затем последствие с deshalb, deswegen или daher (без банка слов).",
+        "sample_answer": "Im Badezimmer ist die Lampe kaputt. Deshalb ist es dort dunkel.",
+        "accepted_answers": [
+          "Im Badezimmer ist die Lampe kaputt. Deshalb ist es dort dunkel.",
+          "Im Badezimmer ist die Lampe kaputt. Deshalb ist es dort dunkel",
+          "Die Heizung funktioniert nicht. Deswegen ist es kalt.",
+          "Der Aufzug ist kaputt. Daher nehme ich die Treppe."
+        ]
+      },
+      "explanation": "Проверка: (1) названа конкретная причина, (2) названо последствие, (3) после начального союза следствия глагол стоит на 2-м месте (ist es, nehme ich). kaputt — сломанный."
+    }
+  ]
+}

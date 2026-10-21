@@ -179,9 +179,10 @@ export const hideBackButton = () => {
  * blocked by the browser's popup protection.
  */
 export const prepareExternalLink = () => {
+  let popup = null;
   try {
     if (getPlatform() !== 'web') return null;
-    const popup = window.open('', '_blank');
+    popup = window.open('', '_blank');
     if (!popup) return null;
     // Write loading content immediately so the browser keeps the popup alive
     // while the async challenge request is in flight.
@@ -195,13 +196,15 @@ export const prepareExternalLink = () => {
       );
       popup.document.close();
     } catch { /* cross-origin guard */ }
+    popup.opener = null;
     return popup;
   } catch {
+    try { popup?.close?.(); } catch { /* already closed */ }
     return null;
   }
 };
 
-export const openExternalLink = (url, preparedWindow = null) => {
+export const openExternalLink = async (url, preparedWindow = null, { allowPopup = true, sameTabFallback = false } = {}) => {
   try {
     // Inside Telegram client:
     if (isTelegram()) {
@@ -216,11 +219,11 @@ export const openExternalLink = (url, preparedWindow = null) => {
       }
     }
     if (window.Capacitor?.Plugins?.Browser?.open) {
-      window.Capacitor.Plugins.Browser.open({ url });
+      await window.Capacitor.Plugins.Browser.open({ url });
       return true;
     }
   } catch {
-    // Fallback to window.open
+    // The browser fallback below also handles a failed native bridge.
   }
   try {
     if (preparedWindow && !preparedWindow.closed) {
@@ -228,15 +231,23 @@ export const openExternalLink = (url, preparedWindow = null) => {
       preparedWindow.location.href = url;
       return true;
     }
-    // If a popup blocker prevented the prepared window, try opening directly.
-    // If that too is blocked, the AuthRequiredModal shows a manual link (authUrl).
     // Detach the opener ourselves: window.open(..., 'noopener') returns null
     // even on success, which cannot be used to detect popup blocking.
-    const popup = window.open(url, '_blank');
-    if (popup) popup.opener = null;
-    return Boolean(popup);
+    if (allowPopup) {
+      const popup = window.open(url, '_blank');
+      if (popup) {
+        popup.opener = null;
+        return true;
+      }
+    }
   } catch {
-    // Popup is blocked — AuthRequiredModal's authUrl link is the fallback.
+    try { preparedWindow?.close?.(); } catch { /* already closed */ }
+  }
+  if (sameTabFallback) {
+    try {
+      window.location.assign(url);
+      return true;
+    } catch { /* restricted WebView/navigation: leave the manual link available */ }
   }
   return false;
 };

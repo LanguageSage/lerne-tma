@@ -1,0 +1,825 @@
+# B1-24 · Чем …, тем … и выражение следствий
+## Колода 08 · Je … desto или je … umso?
+
+**Уровень:** B1  
+**Тема (единый ::topic всей серии):** `Je … desto und Folgesätze`  
+**Этап:** первый методический проход; синтаксис Lerne дорабатывается на втором проходе.  
+**Объём:** 48 карточек: 42 практические, 6 объяснений `@theory`; 8 речевых заданий без штрафа при пропуске.  
+**Лексическая область:** поездки, городской транспорт, расписание, время отправления, дорога, пересадка, билеты.
+
+## Педагогический паспорт
+
+**Название, тема, уровень.** «08 · Je … desto или je … umso?», B1, тема `Je … desto und Folgesätze`.
+
+**Цель.** Научить замечать и осознанно употреблять **два грамматически допустимых варианта** второй части сравнительной конструкции — `desto` и `umso` — без ложного противопоставления их по значению и без нарушения порядка слов. Главный новый шаг после D07 — гибко заменять связку при сохранении всей структуры, а не повторно учиться связывать две части с нуля.
+
+**Ожидаемые навыки.** Ученик распознаёт оба варианта в чтении и диалоге; понимает их обычную взаимозаменяемость; сохраняет глагол в конце je-части и личный глагол после сравнительной группы во второй; не разрывает `mehr/weniger + существительное`; корректирует ошибки; использует оба варианта в репликах о времени и поездках. Различие `umso` в других, непарных выражениях этой колодой **не изучается**.
+
+**Учебный маршрут.** 01–08 — открытие эквивалентности и лёгкая замена; 09–16 — тот же порядок слов, сравнительные группы и глаголы; 17–24 — количественные сравнительные группы и самостоятельное соединение; 25–32 — модальные глаголы, исключение ловушек и точные формы; 33–40 — жизненные ситуации и уменьшение подсказок; 41–48 — свободное применение, две связки и краткая самостоятельная речь.
+
+**Уровень поддержки.** Постепенно от выбора с ясной формулировкой «один/два ответа» и слов-банка к переводу, исправлению ошибок, коротким диалогам и свободным фразам. Карточки 01, 09, 17, 25, 33, 41 — отдельная объясняющая теория `@theory`, не тест. В речи (06, 12, 18, 24, 30, 36, 42, 48) можно выбрать «не могу говорить» без штрафа; голосовой результат не подменяет самостоятельную проверку грамматики.
+
+**Критерии освоения.** Не менее 80% правильных ответов в закрытых упражнениях, отсутствие систематической ошибки с местом личного глагола, как минимум две грамматически корректные самостоятельные фразы с разными связками. Для свободной практики засчитываются и иные естественные, грамматически правильные формулировки, не только образец. Просмотр теории сам по себе не равен освоению.
+
+**Рекомендации.** Если ученик считает, что один вариант обязательно «сильнее» другого, вернуться к 01–08 и 14. Если сбивается порядок слов — повторить 09–17 и D06. Если не строится целая фраза — D07; D03–D05 пока отсутствуют в папке. Дальше по плану — D09 «Почему? Поэтому!», где изучается **конкретное последствие** с `deshalb/deswegen/daher`, без смешения с парой `je … desto/umso`.
+
+**Методическая пометка.** Утверждения вроде «раньше выеду — меньше пробок» используются как иллюстрации личных наблюдений, а не как общие законы. Нельзя отмечать `desto` ошибкой только потому, что карточка тренирует `umso`, если это не условие конкретного задания. В некоторых вопросах есть **два верных ответа** — это указано на лицевой стороне.
+
+---
+
+## Карточки
+### 01 · @theory · Два варианта — один принцип
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сравни две фразы о дороге домой:
+
+**Je früher ich losfahre, desto früher komme ich an.**
+
+**Je früher ich losfahre, umso früher komme ich an.**
+
+**BACK**  
+Обе фразы правильные: **чем раньше я выезжаю, тем раньше приезжаю**. В конструкции «чем …, тем …» **desto** и **umso** обычно взаимозаменяемы. Правило порядка слов не меняется: **je … losfahre, desto/umso früher komme ich an**. Не нужно искать искусственную разницу в смысле.
+
+**CONTEXT / словарь**  
+losfahren — отправляться; ankommen — прибывать.
+
+---
+### 02 · ВЫБОР · ДВА ВЕРНЫХ · Поезд и время отправления
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Два пассажира говорят о поездке. Какие варианты грамматически правильны?
+
+A. `Je früher der Zug abfährt, desto früher kommen wir an.`
+B. `Je früher der Zug abfährt, umso früher kommen wir an.`
+C. `Je früher fährt der Zug ab, umso früher kommen wir an.`
+
+**BACK**  
+**A и B**. Чем раньше отправляется поезд, тем раньше мы приезжаем. Вариант C неверен: в части с **je** спрягаемый глагол **abfährt** должен стоять в конце. Слова **desto** и **umso** здесь равноправны.
+
+**CONTEXT / словарь**  
+der Zug — поезд; abfahren — отправляться.
+
+---
+### 03 · ВЫБОР · ПОРЯДОК СЛОВ · До вокзала пешком
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Выбери верное предложение с **umso**.
+
+A. `Je näher der Bahnhof ist, umso kürzer ist der Fußweg.`
+B. `Je näher ist der Bahnhof, umso kürzer ist der Fußweg.`
+C. `Je näher der Bahnhof ist, umso kürzer der Fußweg ist.`
+
+**BACK**  
+**A. Je näher der Bahnhof ist, umso kürzer ist der Fußweg.** — Чем ближе вокзал, тем короче путь пешком. В части с **je** глагол в конце; после группы **umso kürzer** идёт **ist**.
+
+**CONTEXT / словарь**  
+der Bahnhof — вокзал; der Fußweg — путь пешком.
+
+---
+### 04 · WORD BANK · Скорость автобуса
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери предложение именно с **umso**:
+
+«Чем медленнее едет автобус, тем позже мы приедем».
+
+`der Bus | fährt | je | langsamer | wir | an | umso | später | kommen`
+
+**BACK**  
+**Je langsamer der Bus fährt, umso später kommen wir an.** — Чем медленнее едет автобус, тем позже мы приедем. **fährt** закрывает je-часть; **kommen** следует за **umso später**, отделяемое **an** — в конце главной части.
+
+**CONTEXT / словарь**  
+langsam → langsamer — медленнее; spät → später — позже.
+
+---
+### 05 · ВВОД · ДВА ВАРИАНТА · Пересадка
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Заполни пропуск **вторым допустимым вариантом** для предложения с `desto`:
+
+`Je kürzer die Umsteigezeit ist, ___ hektischer wird der Umstieg.`
+
+Образец с первым вариантом: `..., desto hektischer wird der Umstieg.`
+
+**BACK**  
+**umso**. `Je kürzer die Umsteigezeit ist, umso hektischer wird der Umstieg.` — Чем меньше времени на пересадку, тем суетливее она становится. `desto` тоже правильно; задание просит именно его альтернативу.
+
+**CONTEXT / словарь**  
+die Umsteigezeit — время на пересадку; hektisch — суетливый.
+
+---
+### 06 · РЕЧЬ · Когда выйти из дома?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Скажи вслух фразу с **umso**: «Чем раньше я выхожу из дома, тем спокойнее добираюсь до остановки». Опоры: `früh → früher`, `das Haus verlassen`, `ruhig → ruhiger`, `zur Haltestelle gehen`. Если говорить неудобно, выбери «не могу говорить» без штрафа.
+
+**BACK**  
+**Je früher ich das Haus verlasse, umso ruhiger gehe ich zur Haltestelle.** — Чем раньше я выхожу из дома, тем спокойнее иду к остановке. Допустим и **desto ruhiger**, но здесь тренируем **umso**. Проверь **verlasse** перед запятой и **gehe** после **umso ruhiger**.
+
+**CONTEXT / словарь**  
+die Haltestelle — остановка; verlassen — покидать.
+
+---
+### 07 · ИСПРАВЬ ОШИБКУ · Объявления на станции
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь порядок слов:
+
+`Je deutlicher sind die Ansagen, umso besser verstehen wir sie.`
+
+**BACK**  
+**Je deutlicher die Ansagen sind, umso besser verstehen wir sie.** — Чем отчётливее объявления, тем лучше мы их понимаем. Исправляем только je-часть: **sind** в её конец. Вторая часть уже построена верно.
+
+**CONTEXT / словарь**  
+die Ansage — объявление; deutlich — отчётливый.
+
+---
+### 08 · ПЕРЕФОРМУЛИРОВКА · Время на дорогу
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Замени только **desto** на допустимый синоним, не меняя остальную грамматику:
+
+`Je weniger Verkehr es gibt, desto schneller erreichen wir die Stadt.`
+
+**BACK**  
+**Je weniger Verkehr es gibt, umso schneller erreichen wir die Stadt.** — Чем меньше движения на дороге, тем быстрее мы добираемся до города. Замена **desto → umso** не перестраивает предложение.
+
+**CONTEXT / словарь**  
+der Verkehr — дорожное движение; erreichen — достигать, добираться.
+
+---
+### 09 · @theory · Глаголы остаются на местах
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Наблюдение:
+
+`Je länger ich warten muss, desto ungeduldiger werde ich.`
+`Je länger ich warten muss, umso ungeduldiger werde ich.`
+
+**BACK**  
+**В je-части:** личный глагол **muss** идёт в конец, перед ним стоит инфинитив **warten**. **Во второй части:** группа `desto/umso ungeduldiger` занимает первое место, затем **werde**. У **umso** нет отдельного «особого» порядка слов.
+
+**CONTEXT / словарь**  
+ungeduldig — нетерпеливый; warten müssen — быть вынужденным ждать.
+
+---
+### 10 · ВЫБОР · Багаж на пересадке
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Как грамматически правильно?
+
+A. `Je schwerer der Koffer ist, umso langsamer gehe ich.`
+B. `Je schwerer ist der Koffer, umso langsamer gehe ich.`
+C. `Je schwerer der Koffer ist, umso langsamer ich gehe.`
+
+**BACK**  
+**A. Je schwerer der Koffer ist, umso langsamer gehe ich.** — Чем тяжелее чемодан, тем медленнее я иду. Вторая часть: **umso langsamer | gehe | ich**.
+
+**CONTEXT / словарь**  
+der Koffer — чемодан; schwer → schwerer — тяжелее.
+
+---
+### 11 · ВВОД · ДВА ГЛАГОЛА · Длительность ожидания
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Вставь два спрягаемых глагола:
+
+`Je länger wir auf den Bus ___ (warten), umso nervöser ___ (werden) die Fahrgäste.`
+
+**BACK**  
+**warten; werden**. `Je länger wir auf den Bus warten, umso nervöser werden die Fahrgäste.` — Чем дольше мы ждём автобус, тем нервнее становятся пассажиры. Глагол **warten** замыкает первую часть, **werden** — сразу после **umso nervöser**.
+
+**CONTEXT / словарь**  
+der Fahrgast, die Fahrgäste — пассажир(ы); nervös — нервный.
+
+---
+### 12 · РЕЧЬ · Опоздание на встречу
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Скажи по-немецки с **umso**: «Чем позже отправляется мой автобус, тем позже я прихожу на встречу». Без текстового банка. Если не можешь говорить — открой ответ без штрафа.
+
+**BACK**  
+**Je später mein Bus abfährt, umso später komme ich zum Termin.** — Чем позже отправляется мой автобус, тем позже я прихожу на встречу. **abfährt** закрывает придаточную часть; **komme ich** следует за сравнительной группой.
+
+**CONTEXT / словарь**  
+der Termin — назначенная встреча; zum Termin kommen — приходить на встречу.
+
+---
+### 13 · ПАЗЛ · Пробки утром
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери предложение с **umso** из двух групп:
+
+`im Stau stehen | wir | je | länger`
+`wir | umso | ankommen | später`
+
+**BACK**  
+**Je länger wir im Stau stehen, umso später kommen wir an.** — Чем дольше мы стоим в пробке, тем позже приезжаем. В части `umso später` личный **kommen** идёт перед подлежащим **wir**, а приставка **an** в конце.
+
+**CONTEXT / словарь**  
+der Stau — пробка; im Stau stehen — стоять в пробке.
+
+---
+### 14 · ВЫБОР · ОДИНАКОВЫЙ СМЫСЛ · Проверяем эквивалентность
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сравни фразы:
+
+1. `Je genauer ich den Fahrplan lese, desto besser plane ich die Fahrt.`
+2. `Je genauer ich den Fahrplan lese, umso besser plane ich die Fahrt.`
+
+Что изменилось?
+A. Главное значение.
+B. Только слово-связка, смысл и порядок слов сохранены.
+C. Грамматическое время.
+
+**BACK**  
+**B.** Обе фразы означают: «Чем внимательнее я читаю расписание, тем лучше планирую поездку». Внутри конструкции **desto** и **umso** выполняют одну и ту же функцию.
+
+**CONTEXT / словарь**  
+der Fahrplan — расписание; genau lesen — внимательно читать.
+
+---
+### 15 · ПЕРЕВОД · Ближе к метро
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи с обязательным **umso**: «Чем ближе станция метро, тем меньше времени я трачу на дорогу». Опоры: `die U-Bahn-Station`, `nah → näher`, `weniger Zeit`, `für den Weg brauchen`.
+
+**BACK**  
+**Je näher die U-Bahn-Station ist, umso weniger Zeit brauche ich für den Weg.** — Чем ближе станция метро, тем меньше времени мне требуется на дорогу. Сравнительная группа **umso weniger Zeit** стоит целиком перед **brauche**.
+
+**CONTEXT / словарь**  
+die U-Bahn-Station — станция метро; Zeit brauchen — нуждаться во времени.
+
+---
+### 16 · НАЙДИ ОШИБКУ · Платформа
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь фразу. Нужно **umso**, но она содержит неправильный порядок слов:
+
+`Je voller der Bahnsteig ist, umso schwerer einen Platz finde ich.`
+
+**BACK**  
+**Je voller der Bahnsteig ist, umso schwerer finde ich einen Platz.** — Чем более заполнена платформа, тем труднее мне найти место. Здесь **umso schwerer** — обстоятельство степени; личный глагол **finde** должен идти сразу после него. `einen Platz` не входит в эту сравнительную группу.
+
+**CONTEXT / словарь**  
+der Bahnsteig — платформа; einen Platz finden — найти место.
+
+---
+### 17 · @theory · Целый блок сравнительной степени
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сравни:
+
+`umso früher komme ich an`
+`umso weniger Zeit brauche ich`
+`umso mehr Fahrkarten verkaufen wir`
+
+**BACK**  
+После **umso** стоит сравнительная группа, а не обязательно одно слово. Если сравниваем **количество билетов**, вся группа `umso mehr Fahrkarten` занимает начало главной части. Следом идёт спрягаемый глагол **verkaufen**. То же правило действует с **desto**.
+
+**CONTEXT / словарь**  
+die Fahrkarte — билет; verkaufen — продавать.
+
+---
+### 18 · РЕЧЬ · Расходы на дорогу
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно построй целое предложение с **umso**: «Чем чаще я езжу на велосипеде, тем меньше денег трачу на автобус». Используй `mit dem Fahrrad fahren`, `Geld für den Bus ausgeben`. Без обязательного голосового ответа: «не могу говорить» — без штрафа.
+
+**BACK**  
+**Je öfter ich mit dem Fahrrad fahre, umso weniger Geld gebe ich für den Bus aus.** — Чем чаще я езжу на велосипеде, тем меньше денег трачу на автобус. `umso weniger Geld` — цельная группа, после неё **gebe**, отделяемое **aus** в конце.
+
+**CONTEXT / словарь**  
+mit dem Fahrrad fahren — ездить на велосипеде; Geld ausgeben — тратить деньги.
+
+---
+### 19 · ВЫБОР · СМЫСЛОВОЙ БЛОК · Билеты онлайн
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Выбери правильное построение: «Чем раньше я бронирую, тем больше дешёвых билетов нахожу».
+
+A. `Je früher ich buche, umso mehr günstige Tickets finde ich.`
+B. `Je früher ich buche, umso mehr finde günstige Tickets ich.`
+C. `Je früher buche ich, umso mehr günstige Tickets finde ich.`
+
+**BACK**  
+**A. Je früher ich buche, umso mehr günstige Tickets finde ich.** — Чем раньше я бронирую, тем больше недорогих билетов нахожу. Группа `umso mehr günstige Tickets` целиком стоит перед глаголом.
+
+**CONTEXT / словарь**  
+buchen — бронировать; günstig — недорогой.
+
+---
+### 20 · MATCH · СОЕДИНИ · Отправление и комфорт
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Соедини начала (1–3) с подходящими окончаниями (A–C), чтобы сохранить логику двух изменений.
+
+1. `Je kürzer die Fahrt dauert, …`
+2. `Je länger wir auf dem Bahnsteig warten, …`
+3. `Je früher wir die Tickets kaufen, …`
+
+A. `umso ungeduldiger werden wir.`
+B. `umso weniger Zeit verbringen wir unterwegs.`
+C. `umso mehr Auswahl haben wir oft.`
+
+**BACK**  
+**1–B; 2–A; 3–C.**
+1. Чем короче поездка, тем меньше времени проводим в пути.
+2. Чем дольше ждём на платформе, тем нетерпеливее становимся.
+3. Чем раньше покупаем билеты, тем больше у нас часто бывает выбор.
+В каждом окончании после начальной группы **umso + сравнительная форма** стоит личный глагол.
+
+**CONTEXT / словарь**  
+unterwegs — в пути; die Auswahl — выбор.
+
+---
+### 21 · WORD BANK · Меньше пересадок
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери полностью:
+
+`Je | wir | umsteigen | müssen | seltener | umso | entspannter | kommen | wir | an`
+
+**BACK**  
+**Je seltener wir umsteigen müssen, umso entspannter kommen wir an.** — Чем реже нам приходится пересаживаться, тем спокойнее мы приезжаем. Перед запятой **müssen** в конце, после **umso entspannter** — **kommen**.
+
+**CONTEXT / словарь**  
+umsteigen — пересаживаться; entspannt — расслабленный, спокойный.
+
+---
+### 22 · ВЫБОР · ВАРИАНТЫ · Время в пути
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какие формулировки верны?
+
+A. `Je schneller wir fahren, umso kürzer dauert die Reise.`
+B. `Je schneller wir fahren, desto kürzer dauert die Reise.`
+C. `Je schneller wir fahren, umso kürzer die Reise dauert.`
+
+**BACK**  
+**A и B.** — Чем быстрее мы едем, тем меньше длится поездка. В C личный **dauert** ошибочно перенесён в конец главной части. Замена `umso ↔ desto` это правило не меняет.
+
+**CONTEXT / словарь**  
+die Reise — поездка, путешествие; dauern — длиться.
+
+---
+### 23 · ИСПРАВЬ ОШИБКУ · Велосипедная дорожка
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь сравнительную форму и порядок слов:
+
+`Je viel Radwege es gibt, umso sicherer Radfahrer fahren.`
+
+Подсказка: «чем больше велодорожек, тем безопаснее ездят велосипедисты».
+
+**BACK**  
+**Je mehr Radwege es gibt, umso sicherer fahren Radfahrer.** — Чем больше велодорожек, тем безопаснее ездят велосипедисты. `viel → mehr`, а **fahren** занимает место сразу за **umso sicherer**.
+
+**CONTEXT / словарь**  
+der Radweg — велодорожка; der Radfahrer — велосипедист.
+
+---
+### 24 · РЕЧЬ · Время на пересадку
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Скажи вслух с **umso**: «Чем больше у меня времени на пересадку, тем спокойнее я себя чувствую». Опоры: `mehr Zeit zum Umsteigen`, `ruhig → ruhiger`, `sich fühlen`. Если говорить неудобно, пропусти речь без штрафа.
+
+**BACK**  
+**Je mehr Zeit ich zum Umsteigen habe, umso ruhiger fühle ich mich.** — Чем больше у меня времени на пересадку, тем спокойнее я себя чувствую. **habe** — в конце части с `je`; **fühle** следует за `umso ruhiger`.
+
+**CONTEXT / словарь**  
+Zeit zum Umsteigen — время на пересадку; sich fühlen — чувствовать себя.
+
+---
+### 25 · @theory · Не путай «umso» с новым правилом
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Вижу два предложения:
+
+`Je dichter der Verkehr wird, desto langsamer fahren wir.`
+`Je dichter der Verkehr wird, umso langsamer fahren wir.`
+
+**BACK**  
+Оба предложения означают: «Чем плотнее становится движение, тем медленнее мы едем». **umso — не другая грамматика**. Оно заменяет `desto` во второй части той же конструкции. Нельзя из-за замены переставлять глагол или отбрасывать сравнительную степень.
+
+**CONTEXT / словарь**  
+dicht — плотный; dichter Verkehr — интенсивное движение.
+
+---
+### 26 · ВЫБОР · ДВА ПРАВИЛЬНЫХ · Время отправления
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какие предложения грамматически верны?
+
+A. `Je früher wir starten, desto früher erreichen wir das Ziel.`
+B. `Je früher wir starten, umso früher erreichen wir das Ziel.`
+C. `Je früher wir starten, so früher erreichen wir das Ziel.`
+
+**BACK**  
+**A и B.** — Чем раньше мы стартуем, тем раньше достигаем цели. В этой стандартной парной конструкции используем **desto** или **umso**, не просто `so`.
+
+**CONTEXT / словарь**  
+starten — отправляться; das Ziel erreichen — достигать цели.
+
+---
+### 27 · ВВОД · КОННЕКТОР · Опасение пропустить поезд
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Заполни пропуск словом **umso**, чтобы заменить `desto`:
+
+`Je näher die Abfahrtszeit rückt, ___ nervöser werde ich.`
+
+**BACK**  
+**umso**. `Je näher die Abfahrtszeit rückt, umso nervöser werde ich.` — Чем ближе время отправления, тем сильнее я нервничаю. При **desto** фраза была бы такой же правильной.
+
+**CONTEXT / словарь**  
+die Abfahrtszeit — время отправления; näher rücken — приближаться.
+
+---
+### 28 · ПАЗЛ · МОДАЛЬНЫЙ ГЛАГОЛ · Запас времени
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери обе части:
+
+`je | früher | wir | losfahren`
+`umso | länger | können | wir | unterwegs | eine Pause machen`
+
+**BACK**  
+**Je früher wir losfahren, umso länger können wir unterwegs eine Pause machen.** — Чем раньше мы выезжаем, тем дольше можем сделать остановку в пути. **können** сразу после сравнительной группы, **machen** — в конце второй части.
+
+**CONTEXT / словарь**  
+unterwegs — по пути; eine Pause machen — делать перерыв.
+
+---
+### 29 · ИСПРАВЬ ОШИБКУ · Объявление диспетчера
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь вторую часть, оставив **umso**:
+
+`Je früher die Reisenden einsteigen, umso schneller wir können abfahren.`
+
+**BACK**  
+**Je früher die Reisenden einsteigen, umso schneller können wir abfahren.** — Чем раньше пассажиры садятся, тем быстрее мы можем отправиться. Спрягаемый **können** стоит сразу после `umso schneller`; инфинитив **abfahren** остаётся в конце.
+
+**CONTEXT / словарь**  
+die Reisenden — путешествующие, пассажиры; einsteigen — садиться (в транспорт).
+
+---
+### 30 · РЕЧЬ · На какой платформе поезд?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Тебе нужно объяснить другу: «Чем раньше мы узнаем номер платформы, тем спокойнее можем ждать». Произнеси с **umso**. Используй `die Gleisnummer erfahren`, `ruhiger warten können`. Если не можешь говорить, открой образец без штрафа.
+
+**BACK**  
+**Je früher wir die Gleisnummer erfahren, umso ruhiger können wir warten.** — Чем раньше узнаем номер пути, тем спокойнее можем ждать. `erfahren` завершает часть с **je**, `können` следует за **umso ruhiger**.
+
+**CONTEXT / словарь**  
+die Gleisnummer — номер пути; erfahren — узнавать.
+
+---
+### 31 · ФОРМА СЛОВА · Ближе и быстрее
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Впиши сравнительные формы в предложение с **umso**:
+
+`Je ___ (nah) die Bushaltestelle ist, umso ___ (schnell) bin ich dort.`
+
+**BACK**  
+**näher; schneller.** `Je näher die Bushaltestelle ist, umso schneller bin ich dort.` — Чем ближе автобусная остановка, тем быстрее я туда добираюсь. `nah → näher`; `schnell → schneller`.
+
+**CONTEXT / словарь**  
+die Bushaltestelle — автобусная остановка; dort — там.
+
+---
+### 32 · ПЕРЕФОРМУЛИРОВКА · С того же вокзала
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Замени **desto** на **umso** и перепиши всю фразу без других изменений:
+
+`Je später wir den Bahnhof verlassen, desto позже kommen wir nach Hause.`
+
+**BACK**  
+**Je später wir den Bahnhof verlassen, umso später kommen wir nach Hause.** — Чем позже мы покидаем вокзал, тем позже приходим домой. `verlassen` в конце je-части, `kommen` после сравнительной группы.
+
+**CONTEXT / словарь**  
+nach Hause — домой; den Bahnhof verlassen — покинуть вокзал.
+
+---
+### 33 · @theory · Выбирай грамматику по смыслу, не по звучанию
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ситуация 1: `Je öfter ich den Bus nehme, umso besser kenne ich die Strecke.`
+
+Ситуация 2: `Der Bus fällt heute aus. Deshalb fahre ich mit dem Rad.`
+
+**BACK**  
+Ситуация 1 говорит о **двух изменениях**: чем чаще пользуюсь автобусом, тем лучше узнаю маршрут. Ситуация 2 — **одно событие и результат**: автобус сегодня отменили, поэтому еду на велосипеде. Здесь тренируем `je … desto/umso`, а связки конкретного следствия подробно пройдём в D09. `umso` не превращает конструкцию в «потому что».
+
+**CONTEXT / словарь**  
+die Strecke — маршрут; ausfallen — отменяться (о рейсе).
+
+---
+### 34 · ПЕРЕВОД БЕЗ БАНКА · Расписание движения
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи на немецкий с **umso**: «Чем точнее расписание, тем легче я могу планировать поездку».
+
+**BACK**  
+**Je genauer der Fahrplan ist, umso leichter kann ich die Fahrt planen.** — Чем точнее расписание, тем легче я могу планировать поездку. **ist** закрывает je-часть; **kann** следует за `umso leichter`, инфинитив **planen** в конце.
+
+**CONTEXT / словарь**  
+genau → genauer — точнее; planen — планировать.
+
+---
+### 35 · ВЫБОР · НАЙДИ СВОЙСТВО · Такси и стоимость
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какой смысл выражен правильно? Цель: «Чем дальше едем на такси, тем дороже становится поездка».
+
+A. `Je weiter wir mit dem Taxi fahren, umso teurer wird die Fahrt.`
+B. `Je weiter wir mit dem Taxi fahren, umso teuer wird die Fahrt.`
+C. `Je weiter fahren wir mit dem Taxi, umso teurer wird die Fahrt.`
+
+**BACK**  
+**A. Je weiter wir mit dem Taxi fahren, umso teurer wird die Fahrt.** — Чем дальше мы едем на такси, тем дороже становится поездка. Требуется сравнительная степень: `teuer → teurer`.
+
+**CONTEXT / словарь**  
+weiter — дальше; teuer → teurer — дороже.
+
+---
+### 36 · РЕЧЬ · Маршрут на велосипеде
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно: «Чем чаще я езжу этим маршрутом, тем лучше ориентируюсь». Построй два правильных предложения: первое с **desto**, второе с **umso**. Если сейчас не говоришь, прочитай примеры без штрафа.
+
+**BACK**  
+**Je öfter ich diese Strecke fahre, desto besser kenne ich mich aus.**
+**Je öfter ich diese Strecke fahre, umso besser kenne ich mich aus.**
+Чем чаще я еду этим маршрутом, тем лучше в нём ориентируюсь. Меняется только связка; личный **kenne** остаётся после сравнительной группы.
+
+**CONTEXT / словарь**  
+sich auskennen — разбираться, ориентироваться; die Strecke — маршрут.
+
+---
+### 37 · FREE TEXT · Билет и бюджет
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Без банка слов опиши зависимость: ты заранее покупаешь билеты и находишь больше подходящих вариантов. Построй одно предложение с **umso**. Разрешены разные естественные формулировки.
+
+**BACK**  
+**Пример:** `Je früher ich Fahrkarten suche, umso mehr passende Angebote finde ich.` — Чем раньше я ищу билеты, тем больше подходящих предложений нахожу. Другие ответы допустимы, если есть два сравниваемых изменения, je-часть и правильная вторая часть.
+
+**CONTEXT / словарь**  
+das Angebot — предложение; passend — подходящий.
+
+---
+### 38 · ПАЗЛ · МЕНЬШЕ ОПОР · Утренний маршрут
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Восстанови две половины. Подсказаны только важные слова:
+
+`je | später | ich | aufbrechen`
+`umso | dichter | der Verkehr | werden`
+
+**BACK**  
+**Je später ich aufbreche, umso dichter wird der Verkehr.** — Чем позже я отправляюсь, тем плотнее становится движение. Правильные формы: **aufbreche**, **wird**. Если ученик пишет логичный другой контекст, оцени грамматику отдельно от утверждения о движении.
+
+**CONTEXT / словарь**  
+aufbrechen — отправляться в путь; der Verkehr — движение.
+
+---
+### 39 · ПЕРЕВОД · НОВЫЕ СЛОВА · Ожидание на морозе
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи с **umso**: «Чем дольше мы ждём на улице, тем холоднее нам становится». Опора: `kalt → kälter` и `uns wird kalt`.
+
+**BACK**  
+**Je länger wir draußen warten, umso kälter wird uns.** — Чем дольше мы ждём на улице, тем холоднее нам становится. `umso kälter` — сравнительная группа, за ней сразу стоит личный глагол `wird`.
+
+**CONTEXT / словарь**  
+draußen — снаружи, на улице; uns wird kalt — нам становится холодно.
+
+---
+### 40 · ДИАЛОГ · ЗАВЕРШИ РЕПЛИКУ · Приложение с расписанием
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собеседник: `Warum schaust du so oft in die Fahrplan-App?`
+
+Ты: скажи по-немецки с **umso**, что чем чаще проверяешь расписание, тем лучше знаешь время отправления.
+
+**BACK**  
+**Je öfter ich den Fahrplan prüfe, umso besser kenne ich die Abfahrtszeiten.** — Чем чаще я проверяю расписание, тем лучше знаю время отправления. Контроль: `prüfe` в конце je-части; `kenne` сразу после `umso besser`.
+
+**CONTEXT / словарь**  
+die Fahrplan-App — приложение с расписанием; prüfen — проверять.
+
+---
+### 41 · @theory · Проверка перед свободным ответом
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Быстрый контроль перед самостоятельной фразой:
+
+`Je ___ … [глагол], desto/umso ___ [глагол] …`
+
+**BACK**  
+Проверь четыре вещи: (1) **две величины действительно меняются**; (2) после **je** есть сравнительная группа; (3) **личный глагол первой части в конце**; (4) после `desto/umso + сравнительная группа` идёт **личный глагол главной части**. Связка может быть любой из двух. Пример: `Je länger ich fahre, umso müder werde ich.`
+
+**CONTEXT / словарь**  
+die Veränderung — изменение; die Reihenfolge — порядок.
+
+---
+### 42 · РЕЧЬ · РЕАЛЬНАЯ СИТУАЦИЯ · Договориться о поездке
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты разговариваешь с другом о времени выезда. Скажи две фразы с разными связками: «Чем раньше выедем, тем больше времени будет на отдых». Сначала **desto**, затем **umso**. Если не можешь говорить, пропусти речь без штрафа.
+
+**BACK**  
+**Je früher wir losfahren, desto mehr Zeit haben wir zum Ausruhen.**
+**Je früher wir losfahren, umso mehr Zeit haben wir zum Ausruhen.**
+Чем раньше выедем, тем больше времени будет для отдыха. Вторая часть: группа **mehr Zeit** целиком перед **haben**.
+
+**CONTEXT / словарь**  
+ausruhen — отдыхать; zum Ausruhen — для отдыха.
+
+---
+### 43 · FREE TEXT · Моя дорога
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Опиши **свой обычный путь** на учёбу, работу или в магазин: придумай собственную зависимость в формате `je … umso …`. Никакого набора слов. В ответе минимум одно полное предложение.
+
+**BACK**  
+**Возможный ответ:** `Je früher ich zur Arbeit fahre, umso weniger Verkehr habe ich unterwegs.` — Чем раньше еду на работу, тем меньше движения по дороге. Это лишь пример: самостоятельный осмысленный ответ с верным порядком слов принимается.
+
+**CONTEXT / словарь**  
+unterwegs — в пути; zur Arbeit fahren — ехать на работу.
+
+---
+### 44 · ОБНАРУЖЬ ДВЕ ОШИБКИ · Уехать на электричке
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь **две** ошибки:
+
+`Je schnell die S-Bahn fährt, umso früher wir kommen an.`
+
+**BACK**  
+**Je schneller die S-Bahn fährt, umso früher kommen wir an.** — Чем быстрее едет электричка, тем раньше мы приезжаем. 1) `schnell → schneller`; 2) после `umso früher` нужно **kommen wir**, приставка **an** в конце.
+
+**CONTEXT / словарь**  
+die S-Bahn — городская электричка.
+
+---
+### 45 · КРАТКОЕ СООБЩЕНИЕ · Предложение группе
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши одно предложение другу в чат: объясни, почему стоит купить билеты заранее. Используй **je … umso** и две степени изменения, а не простое «потому что».
+
+**BACK**  
+**Пример:** `Je früher wir die Tickets buchen, umso größer ist meistens die Auswahl.` — Чем раньше мы бронируем билеты, тем больше обычно выбор. Можно сформулировать иначе. Главное — реальные сравниваемые изменения и грамматически верные обе части.
+
+**CONTEXT / словарь**  
+meistens — чаще всего; die Auswahl — выбор.
+
+---
+### 46 · ВВОД · МИНИ-ДИАЛОГ · Встреча у вокзала
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сосед спрашивает: `Warum möchtest du so früh am Bahnhof sein?`
+
+Ответь одной фразой с **umso**: «Чем раньше я буду на вокзале, тем спокойнее смогу ждать». Используй `am Bahnhof sein` и `ruhiger warten können`.
+
+**BACK**  
+**Je früher ich am Bahnhof bin, umso ruhiger kann ich warten.** — Чем раньше я буду на вокзале, тем спокойнее смогу ждать. `bin` закрывает je-часть, `kann` стоит сразу после `umso ruhiger`. В настоящем времени немецкого здесь выражается будущее значение.
+
+**CONTEXT / словарь**  
+am Bahnhof sein — быть на вокзале; warten können — иметь возможность ждать.
+
+---
+### 47 · СМЕШАННЫЙ КОНТРОЛЬ · Три варианта
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Выбери **все** грамматически правильные варианты:
+
+A. `Je länger die Fahrt dauert, umso müder werden wir.`
+B. `Je länger die Fahrt dauert, desto müder werden wir.`
+C. `Je länger die Fahrt dauert, umso müder wir werden.`
+D. `Je länger dauert die Fahrt, desto müder werden wir.`
+
+**BACK**  
+**A и B.** — Чем дольше длится поездка, тем сильнее мы устаём. В C порядок главной части неверен; в D — придаточной. Если всё ещё путаются места глаголов, вернись к карточкам 09, 17 и 41.
+
+**CONTEXT / словарь**  
+müde → müder — усталый → более усталый.
+
+---
+### 48 · РЕЧЬ · ЗАКРЕПЛЕНИЕ · Планируем дорогу самостоятельно
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Представь: тебе нужно приехать на важную встречу. Устно произнеси **два собственных предложения** о дороге или времени: одно с `je … desto`, второе с `je … umso`. Объясни по-русски, какие две величины связаны в каждом. Без подсказок. «Не могу говорить» — без штрафа.
+
+**BACK**  
+**Возможные ответы:**
+1. `Je früher ich zum Bahnhof gehe, desto mehr Zeit habe ich vor der Abfahrt.` — Чем раньше иду на вокзал, тем больше времени у меня до отправления.
+2. `Je besser ich meine Reise plane, umso weniger Stress habe ich unterwegs.` — Чем лучше планирую поездку, тем меньше стресса в пути.
+Ученик вправе дать **другие верные фразы**; проверяем смысл, сравнение и оба глагола.
+
+**CONTEXT / словарь**  
+vor der Abfahrt — до отправления; die Reise planen — планировать поездку.
+
+---

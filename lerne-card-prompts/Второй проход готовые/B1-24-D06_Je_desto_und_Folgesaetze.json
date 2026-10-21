@@ -1,0 +1,1086 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "B1-24-D06 · Je … desto und Folgesätze — Вторая половина: desto",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "B1-24-D06 · Вторая половина: desto",
+        "level": "B1",
+        "topic": "Je … desto und Folgesätze",
+        "description": "Построение второй (главной) части конструкции je … desto с инверсией глагола сразу после сравнительной группы",
+        "goal": "Научить ученика автоматически ставить личную форму глагола сразу после всей начальной группы с desto и правильно продолжать фразу (desto schneller lerne ich, desto mehr Zeit habe ich, desto sicherer kann ich sprechen).",
+        "learning_outcomes": [
+          "Распознавать начальную сравнительную группу desto + Komparativ (+ Nomen)",
+          "Ставить спрягаемый глагол сразу после сравнительной группы desto",
+          "Правильно размещать подлежащее после личного глагола в desto-части",
+          "Не разрывать составные группы desto mehr/weniger + Nomen",
+          "Использовать модальные глаголы (desto besser kann ich arbeiten) с инфинитивом в конце"
+        ],
+        "estimated_time": "35–50 минут",
+        "recommendations": "Если путается инверсия — повторить карточки 01–08 и 19–24. Если не распознаётся личный глагол — 09–16. Если ошибаетесь в группе mehr/weniger + Nomen — 25–32. Если глагол ошибочно переносится в конец — 33–40. Следующий этап — D07 «Связываем две мысли»."
+      },
+      "pedagogy": {
+        "lesson_type": "practice",
+        "expected_result": "Ученик безошибочно ставит личный глагол на второе место (сразу после desto + Komparativ), сохраняет неделимость групп desto mehr/weniger + Nomen и корректно строит конструкции с модальными глаголами.",
+        "stages": [
+          {
+            "id": "desto_v2_basics",
+            "title": "Порядок слов: глагол сразу после desto-группы",
+            "goal": "Освоить позицию спрягаемого глагола сразу после группы desto + Komparativ",
+            "from_card": 1,
+            "to_card": 8,
+            "support": "high",
+            "expected_skill": "Ставить личный глагол сразу после сравнительной группы с desto"
+          },
+          {
+            "id": "compound_desto_groups",
+            "title": "Составная группа desto mehr/weniger + Nomen и согласование лиц",
+            "goal": "Освоить группы desto mehr/weniger + Nomen как неделимый начальный блок",
+            "from_card": 9,
+            "to_card": 16,
+            "support": "high",
+            "expected_skill": "Ставить личный глагол после всей группы desto mehr/weniger + Nomen"
+          },
+          {
+            "id": "modal_verbs_desto",
+            "title": "Модальные глаголы во второй части",
+            "goal": "Строить конструкции с модальным глаголом (kann/muss) на втором месте и инфинитивом в конце",
+            "from_card": 17,
+            "to_card": 24,
+            "support": "medium",
+            "expected_skill": "Ставить модальный глагол сразу после desto-группы, а смысловой инфинитив — в конец"
+          },
+          {
+            "id": "extended_practice",
+            "title": "Целостность группы desto mehr + Nomen и расширенная практика",
+            "goal": "Закрепить неделимость группы desto mehr + существительное в различных рабочих контекстах",
+            "from_card": 25,
+            "to_card": 32,
+            "support": "medium",
+            "expected_skill": "Свободно оперировать группами desto mehr Zeit, desto weniger Fehler"
+          },
+          {
+            "id": "fast_check_correction",
+            "title": "Алгоритм быстрой проверки и исправление ошибок",
+            "goal": "Применять алгоритм самопроверки и устранять ошибки порядка слов во второй части",
+            "from_card": 33,
+            "to_card": 40,
+            "support": "medium",
+            "expected_skill": "Быстро находить и исправлять ошибки инверсии в desto-части"
+          },
+          {
+            "id": "autonomous_speech_and_translation",
+            "title": "Самостоятельный перенос в речь и контекст работы",
+            "goal": "Автоматически формулировать корректные desto-части в речевых ситуациях и переводе",
+            "from_card": 41,
+            "to_card": 48,
+            "support": "low",
+            "expected_skill": "Самостоятельно и без подсказок строить вторую часть связки"
+          }
+        ],
+        "competencies": [
+          {
+            "id": "desto_inversion",
+            "title": "Инверсия в desto-части",
+            "description": "Постановка спрягаемого глагола непосредственно после начальной группы с desto"
+          },
+          {
+            "id": "desto_noun_integrity",
+            "title": "Неделимость групп с существительным",
+            "description": "Сохранение целостности конструкции desto mehr/weniger + Nomen перед глаголом"
+          },
+          {
+            "id": "desto_modal_structure",
+            "title": "Рамочная конструкция с модальным глаголом",
+            "description": "desto + Komparativ + Modalverb + Subjekt + ... + Infinitiv"
+          }
+        ],
+        "assessment_criteria": [
+          {
+            "id": "desto_verb_placement",
+            "title": "Позиция глагола после desto-группы",
+            "description": "Отсутствие прямого порядка слов (*desto schneller ich lerne*) во второй части"
+          },
+          {
+            "id": "subject_verb_agreement",
+            "title": "Согласование глагола с подлежащим",
+            "description": "Правильные личные окончания глаголов при инверсии (arbeite ich, werdet ihr, verstehst du)"
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "review_inversion",
+            "title": "Повторение инверсии после desto",
+            "when": "Если глагол ставится после подлежащего (*desto schneller ich lerne*)",
+            "reason": "Повторить карточки 01–08 и 19–24",
+            "competency_ids": [
+              "desto_inversion"
+            ]
+          },
+          {
+            "id": "review_noun_groups",
+            "title": "Повторение составных групп",
+            "when": "Если глагол разрывает группу desto mehr + Nomen",
+            "reason": "Повторить карточки 25–32",
+            "competency_ids": [
+              "desto_noun_integrity"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "cards": [
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Две части — два разных места для глагола."
+        }
+      ],
+      "data": {
+        "text": "**Je länger ich lerne, desto sicherer spreche ich.**\nЧем дольше я учусь, тем увереннее говорю.\n\nВ первой части `lerne` стоит в конце.\nВо второй части начальный блок — **desto sicherer**; сразу после него идёт спрягаемый глагол **spreche**, а затем подлежащее **ich**.\n\nМодель второй части:\n**desto + сравнительная группа + ЛИЧНЫЙ ГЛАГОЛ + подлежащее + остальные слова.**\n\nНе говорите `desto sicherer ich spreche`: во второй части действует порядок слов главного предложения с инверсией!"
+      },
+      "explanation": "Объяснение: сперва видеть группу целиком, затем искать личный глагол."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Продолжите предложение: «Je öfter ich wiederhole, …»",
+        "options": [
+          {
+            "text": "desto schneller merke ich mir die Wörter.",
+            "correct": true
+          },
+          {
+            "text": "desto schneller ich merke mir die Wörter."
+          },
+          {
+            "text": "desto schneller merke mir ich die Wörter."
+          }
+        ]
+      },
+      "explanation": "desto schneller merke ich mir die Wörter — desto schneller занимает первую позицию; далее спрягаемый глагол merke, затем подлежащее ich. sich etwas merken — запоминать."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте подходящую личную форму глагола arbeiten."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je klarer die Aufgabe ist, desto schneller "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "arbeite"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ich."
+          }
+        ]
+      },
+      "explanation": "После сравнительной группы desto schneller сразу идёт спрягаемый глагол в форме 1-го лица: arbeite ich. die Aufgabe — задание; arbeiten — работать."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Найдите и исправьте ошибку порядка слов во второй части."
+        },
+        {
+          "type": "source",
+          "text": "Je mehr ich übe, desto leichter ich verstehe die Grammatik."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте вторую часть предложения: «Je mehr ich übe, desto leichter ich verstehe die Grammatik.»",
+        "sample_answer": "desto leichter verstehe ich die Grammatik.",
+        "accepted_answers": [
+          "desto leichter verstehe ich die Grammatik.",
+          "desto leichter verstehe ich die Grammatik",
+          "Je mehr ich übe, desto leichter verstehe ich die Grammatik.",
+          "Je mehr ich übe, desto leichter verstehe ich die Grammatik"
+        ]
+      },
+      "explanation": "После сравнительной группы desto leichter личный глагол verstehe идёт перед подлежащим ich: desto leichter verstehe ich die Grammatik. die Grammatik verstehen — понимать грамматику."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильное продолжение: «Je besser der Kurs ist, …»",
+        "options": [
+          {
+            "text": "desto motivierter bin ich.",
+            "correct": true
+          },
+          {
+            "text": "desto motivierter ich bin."
+          },
+          {
+            "text": "desto motivierter bin ich bin."
+          }
+        ]
+      },
+      "explanation": "Спрягаемый глагол bin занимает позицию сразу после начальной группы desto motivierter: desto motivierter bin ich. motiviert — мотивированный."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите вслух только вторую часть к «Je mehr ich lese, …» (опора: desto / schneller / lerne / ich).",
+        "sample_answer": "desto schneller lerne ich.",
+        "accepted_answers": [
+          "desto schneller lerne ich.",
+          "desto schneller lerne ich",
+          "Desto schneller lerne ich.",
+          "Desto schneller lerne ich",
+          "Je mehr ich lese, desto schneller lerne ich.",
+          "Je mehr ich lese, desto schneller lerne ich"
+        ]
+      },
+      "explanation": "Desto schneller lerne ich — после desto schneller сразу спрягаемый глагол lerne, затем подлежащее ich. lesen — читать; lernen — учиться."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть предложения к «Je ruhiger das Büro ist, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "besser",
+          "kann",
+          "ich",
+          "mich",
+          "konzentrieren."
+        ],
+        "translation": "тем лучше я могу сосредоточиться."
+      },
+      "explanation": "После группы desto besser ставим спрягаемый модальный глагол kann, затем ich mich, а смысловой инфинитив konzentrieren остаётся в конце. sich konzentrieren — сосредотачиваться."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите грамматически верное продолжение фразы: «Je früher die Besprechung beginnt, …»",
+        "options": [
+          {
+            "text": "desto mehr Zeit haben wir danach.",
+            "correct": true
+          },
+          {
+            "text": "desto haben wir mehr Zeit danach."
+          },
+          {
+            "text": "desto mehr Zeit wir haben danach."
+          }
+        ]
+      },
+      "explanation": "Начальная сравнительная группа — desto mehr Zeit. Спрягаемый глагол haben стоит сразу после неё: desto mehr Zeit haben wir danach. die Besprechung — совещание; danach — после этого."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Почему глагол steht не сразу после desto?"
+        }
+      ],
+      "data": {
+        "text": "**Je früher ich anfange, desto mehr Zeit habe ich.**\nЧем раньше я начинаю, тем больше времени у меня есть.\n\nСлова **desto mehr Zeit** образуют **одну составную начальную группу**:\n`desto + сравнительное слово количества (mehr/weniger) + существительное`.\n\nГлагол **habe** идёт после **всей группы целиком**:\n`[desto mehr Zeit] + habe + ich`.\n\nНельзя разрывать эту группу: вариант `desto habe ich mehr Zeit` грамматически неверен."
+      },
+      "explanation": "Составная группа: desto + Komparativ/mehr/weniger + Nomen является единым первым членом предложения."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Впишите форму werden для местоимения ihr."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je öfter ihr gemeinsam übt, desto sicherer "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "werdet"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ihr."
+          }
+        ]
+      },
+      "explanation": "Для местоимения ihr спрягаемая форма — werdet. Она стоит сразу после desto sicherer: desto sicherer werdet ihr. gemeinsam — вместе; sicher → sicherer — увереннее."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильный порядок слов во второй части: «Je früher die Schicht endet, …»",
+        "options": [
+          {
+            "text": "desto früher gehen wir nach Hause.",
+            "correct": true
+          },
+          {
+            "text": "desto früher wir gehen nach Hause."
+          }
+        ]
+      },
+      "explanation": "Спрягаемый глагол gehen стоит непосредственно после сравнительной группы desto früher: desto früher gehen wir nach Hause. die Schicht — смена; enden — заканчиваться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите вторую часть к «Je besser wir zusammenarbeiten, …» (опора: desto / schneller / lösen / wir / Probleme).",
+        "sample_answer": "desto schneller lösen wir Probleme.",
+        "accepted_answers": [
+          "desto schneller lösen wir Probleme.",
+          "desto schneller lösen wir Probleme",
+          "Desto schneller lösen wir Probleme.",
+          "Desto schneller lösen wir Probleme",
+          "Je besser wir zusammenarbeiten, desto schneller lösen wir Probleme.",
+          "Je besser wir zusammenarbeiten, desto schneller lösen wir Probleme"
+        ]
+      },
+      "explanation": "Desto schneller lösen wir Probleme — после desto быстрее сразу идёт глагол lösen, затем wir: desto schneller lösen wir Probleme. zusammenarbeiten — сотрудничать; Probleme lösen — решать проблемы."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите верное продолжение предложения: «Je mehr du nachfragst, …»",
+        "options": [
+          {
+            "text": "desto besser verstehst du die Anleitung.",
+            "correct": true
+          },
+          {
+            "text": "desto besser verstehen du die Anleitung."
+          },
+          {
+            "text": "desto besser du verstehst die Anleitung."
+          }
+        ]
+      },
+      "explanation": "verstehst — личная форма для du, и она стоит сразу после desto besser перед du: desto besser verstehst du die Anleitung. nachfragen — переспрашивать; die Anleitung — инструкция."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте форму глагола machen для местоимения wir."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je besser wir uns vorbereiten, desto weniger Fehler "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "machen"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " wir."
+          }
+        ]
+      },
+      "explanation": "desto weniger Fehler — вся начальная группа количества, сразу после неё следует личный глагол machen wir: desto weniger Fehler machen wir. der Fehler — ошибка; sich vorbereiten — готовиться."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к предложению «Je sorgfältiger wir arbeiten, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "weniger",
+          "Fehler",
+          "entstehen."
+        ],
+        "translation": "тем меньше ошибок возникает."
+      },
+      "explanation": "weniger Fehler здесь само подлежащее («меньше ошибок»), поэтому после сравнительной группы сразу идёт глагол entstehen: desto weniger Fehler entstehen. sorgfältig — тщательный; entstehen — возникать."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильный вариант продолжения фразы: «Je deutlicher die Chefin spricht, …»",
+        "options": [
+          {
+            "text": "desto besser versteht das Team die Aufgabe.",
+            "correct": true
+          },
+          {
+            "text": "desto besser das Team versteht die Aufgabe."
+          },
+          {
+            "text": "desto besser verstehen das Team die Aufgabe."
+          }
+        ]
+      },
+      "explanation": "das Team — грамматически единственное число (3-е лицо: versteht). Глагол стоит сразу после desto besser: desto besser versteht das Team die Aufgabe. deutlich — отчётливо, ясно; die Chefin — руководительница."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Модальные глаголы во второй части конструкции."
+        }
+      ],
+      "data": {
+        "text": "**Je genauer ich die Regeln kenne, desto sicherer kann ich arbeiten.**\nЧем точнее я знаю правила, тем увереннее могу работать.\n\nЕсли в главной части есть модальный глагол:\n1. Спрягаемая модальная форма (**kann / muss / will / soll**) ставится **сразу после сравнительной группы desto**.\n2. Подлежащее (**ich**, **wir**...) идёт сразу за модальным глаголом.\n3. Смысловой инфинитив (**arbeiten**) уходит в **самый конец** предложения.\n\nСхема:\n**desto + Komparativ | Modalverb | Subjekt … | Infinitiv.**\n\nНе переносите модальный глагол в конец по образцу придаточного предложения!"
+      },
+      "explanation": "Инверсия модального глагола во второй части: модальный глагол занимает 2-ю позицию, инфинитив — последнюю."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно продолжите фразу «Je mehr Beispiele der Lehrer zeigt, …» (опора: desto / leichter / können / wir / die Regel / verstehen).",
+        "sample_answer": "desto leichter können wir die Regel verstehen.",
+        "accepted_answers": [
+          "desto leichter können wir die Regel verstehen.",
+          "desto leichter können wir die Regel verstehen",
+          "Desto leichter können wir die Regel verstehen.",
+          "Desto leichter können wir die Regel verstehen",
+          "Je mehr Beispiele der Lehrer zeigt, desto leichter können wir die Regel verstehen.",
+          "Je mehr Beispiele der Lehrer zeigt, desto leichter können wir die Regel verstehen"
+        ]
+      },
+      "explanation": "Desto leichter können wir die Regel verstehen — модальный глагол können идёт сразу после desto leichter, а смысловой инфинитив verstehen — в конце. das Beispiel — пример; die Regel — правило."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к предложению «Je mehr Erfahrung ich sammle, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "selbstständiger",
+          "kann",
+          "ich",
+          "arbeiten."
+        ],
+        "translation": "тем самостоятельнее я могу работать."
+      },
+      "explanation": "kann стоит сразу после desto selbstständiger, подлежащее ich — за ним, инфинитив arbeiten — в конце. die Erfahrung — опыт; selbstständig — самостоятельный."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте глагол können в нужной форме для местоимения du."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je besser du die Maschine kennst, desto schneller "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "kannst"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " du den Fehler finden."
+          }
+        ]
+      },
+      "explanation": "Для местоимения du форма глагола können — kannst. Она занимает позицию сразу после desto schneller: desto schneller kannst du den Fehler finden. die Maschine — машина, станок; den Fehler finden — найти неисправность."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите верное продолжение предложения: «Je mehr wir planen, …»",
+        "options": [
+          {
+            "text": "desto weniger müssen wir improvisieren.",
+            "correct": true
+          },
+          {
+            "text": "desto weniger wir müssen improvisieren."
+          },
+          {
+            "text": "desto weniger müssen improvisieren wir."
+          }
+        ]
+      },
+      "explanation": "müssen — спрягаемый модальный глагол, он стоит сразу после сравнительной группы desto weniger, затем wir, а инфинитив improvisieren — в конце: desto weniger müssen wir improvisieren."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку порядка слов только во второй части."
+        },
+        {
+          "type": "source",
+          "text": "Je besser wir üben, desto besser wir können präsentieren."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте вторую часть: «Je besser wir üben, desto besser wir können präsentieren.»",
+        "sample_answer": "desto besser können wir präsentieren.",
+        "accepted_answers": [
+          "desto besser können wir präsentieren.",
+          "desto besser können wir präsentieren",
+          "Je besser wir üben, desto besser können wir präsentieren.",
+          "Je besser wir üben, desto besser können wir präsentieren"
+        ]
+      },
+      "explanation": "können — спрягаемый глагол, он должен стоять перед wir сразу после группы desto besser: desto besser können wir präsentieren. präsentieren — презентовать, выступать."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к фразе «Je gründlicher ich mich vorbereite, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "ruhiger",
+          "kann",
+          "ich",
+          "mit",
+          "dem",
+          "Kunden",
+          "sprechen."
+        ],
+        "translation": "тем спокойнее я могу говорить с клиентом."
+      },
+      "explanation": "Спрягаемый kann идёт сразу после desto ruhiger, инфинитив sprechen — в конце: desto ruhiger kann ich mit dem Kunden sprechen. gründlich — основательно; der Kunde — клиент."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Произнесите вторую часть к «Je klarer mein Tagesplan ist, …» (опора: desto / weniger / Stress / habe / ich).",
+        "sample_answer": "desto weniger Stress habe ich.",
+        "accepted_answers": [
+          "desto weniger Stress habe ich.",
+          "desto weniger Stress habe ich",
+          "Desto weniger Stress habe ich.",
+          "Desto weniger Stress habe ich",
+          "Je klarer mein Tagesplan ist, desto weniger Stress habe ich.",
+          "Je klarer mein Tagesplan ist, desto weniger Stress habe ich"
+        ]
+      },
+      "explanation": "Desto weniger Stress habe ich — desto weniger Stress образует неделимый блок перед спрягаемым глаголом habe. der Tagesplan — план на день; der Stress — стресс."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Не разрывайте группу «desto mehr / weniger + существительное»."
+        }
+      ],
+      "data": {
+        "text": "Сравните две правильные начальные группы:\n\n1. **desto besser verstehe ich** — тем лучше я понимаю (наречие).\n2. **desto mehr Informationen bekomme ich** — тем больше информации я получаю (группа количества с существительным).\n\nОбе группы целиком ставятся **перед** личным глаголом:\n`[desto mehr Informationen] + bekomme (глагол) + ich (подлежащее)`.\n\nСуществительное `Informationen` относится к сравнительному слову `mehr` и не может быть оторвано от него!"
+      },
+      "explanation": "die Information, Pl. Informationen — информация; группу desto mehr + Nomen нельзя разрывать глаголом."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильный порядок слов для мысли «тем больше информации я получаю»: «Je mehr Fragen ich stelle, …»",
+        "options": [
+          {
+            "text": "desto mehr Informationen bekomme ich.",
+            "correct": true
+          },
+          {
+            "text": "desto mehr bekomme Informationen ich."
+          },
+          {
+            "text": "desto mehr Informationen ich bekomme."
+          }
+        ]
+      },
+      "explanation": "Сначала идёт вся группа desto mehr Informationen, затем спрягаемый глагол bekomme и подлежащее ich: desto mehr Informationen bekomme ich. eine Frage stellen — задавать вопрос; bekommen — получать."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте форму глагола haben для местоимения ich."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je früher ich das Projekt beginne, desto mehr Zeit "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "habe"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ich für Änderungen."
+          }
+        ]
+      },
+      "explanation": "Блок desto mehr Zeit стоит целиком перед спрягаемым глаголом habe: desto mehr Zeit habe ich für Änderungen. die Änderung — изменение, доработка."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к предложению «Je freundlicher wir beraten, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "weniger",
+          "Beschwerden",
+          "bekommen",
+          "wir."
+        ],
+        "translation": "тем меньше жалоб мы получаем."
+      },
+      "explanation": "desto weniger Beschwerden — единая группа в начале предложения, после неё спрягаемый глагол bekommen и подлежащее wir. beraten — консультировать; die Beschwerde — жалоба."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку во второй части: верните существительное Zeit в начальную сравнительную группу."
+        },
+        {
+          "type": "source",
+          "text": "Je besser wir organisiert sind, desto mehr haben wir Zeit für Kunden."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте вторую часть со смыслом «тем больше времени у нас есть для клиентов»: «Je besser wir organisiert sind, desto mehr haben wir Zeit für Kunden.»",
+        "sample_answer": "desto mehr Zeit haben wir für Kunden.",
+        "accepted_answers": [
+          "desto mehr Zeit haben wir für Kunden.",
+          "desto mehr Zeit haben wir für Kunden",
+          "Je besser wir organisiert sind, desto mehr Zeit haben wir für Kunden.",
+          "Je besser wir organisiert sind, desto mehr Zeit haben wir für Kunden"
+        ]
+      },
+      "explanation": "Слово Zeit относится к mehr и должно стоять в начальной группе перед haben: desto mehr Zeit haben wir für Kunden. organisiert sein — быть организованным."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Произнесите вторую часть к фразе «Je mehr Probeaufgaben ich löse, …» (опора: desto / weniger / Angst / habe / ich).",
+        "sample_answer": "desto weniger Angst habe ich.",
+        "accepted_answers": [
+          "desto weniger Angst habe ich.",
+          "desto weniger Angst habe ich",
+          "Desto weniger Angst habe ich.",
+          "Desto weniger Angst habe ich",
+          "Je mehr Probeaufgaben ich löse, desto weniger Angst habe ich.",
+          "Je mehr Probeaufgaben ich löse, desto weniger Angst habe ich"
+        ]
+      },
+      "explanation": "Desto weniger Angst habe ich — desto weniger Angst ставится целиком перед глаголом habe. die Probeaufgabe — пробное задание; Angst haben — бояться."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильное завершение фразы: «Je zuverlässiger du arbeitest, …»",
+        "options": [
+          {
+            "text": "desto mehr Vertrauen bekommst du.",
+            "correct": true
+          },
+          {
+            "text": "desto mehr Vertrauen du bekommst."
+          },
+          {
+            "text": "desto bekommen du mehr Vertrauen."
+          }
+        ]
+      },
+      "explanation": "Спрягаемый глагол bekommst стоит сразу после группы desto mehr Vertrauen перед du: desto mehr Vertrauen bekommst du. zuverlässig — надёжный; das Vertrauen — доверие."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте форму глагола schaffen (справляться, успевать) для местоимения wir."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je weniger Unterbrechungen es gibt, desto mehr Aufgaben "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "schaffen"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " wir."
+          }
+        ]
+      },
+      "explanation": "desto mehr Aufgaben стоит целиком перед schaffen wir: desto mehr Aufgaben schaffen wir. die Unterbrechung — прерывание, отвлечение; etwas schaffen — справиться, успеть."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Алгоритм проверки готовой второй части за одну секунду."
+        }
+      ],
+      "data": {
+        "text": "Алгоритм самопроверки:\n\n1. **Найдите группу desto + Komparativ** (`desto schneller`, `desto mehr Erfahrung`).\n2. **Сразу после неё найдите личный глагол** (`lerne`, `habe`, `kann`, `werde`).\n3. Если глагол модальный, проверьте, ушёл ли **инфинитив в конец**: `desto schneller **kann** ich **arbeiten**`.\n\nПример:\n**Je mehr ich trainiere, desto sicherer werde ich.**\n`desto sicherer` (группа) → `werde` (глагол) → `ich` (подлежащее)."
+      },
+      "explanation": "Чёткий чек-лист самопроверки: группа с desto → спрягаемый глагол → подлежащее."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку порядка слов во второй части."
+        },
+        {
+          "type": "source",
+          "text": "Je mehr ich vor der Gruppe spreche, desto sicherer ich werde."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте вторую часть предложения: «Je mehr ich vor der Gruppe spreche, desto sicherer ich werde.»",
+        "sample_answer": "desto sicherer werde ich.",
+        "accepted_answers": [
+          "desto sicherer werde ich.",
+          "desto sicherer werde ich",
+          "Je mehr ich vor der Gruppe spreche, desto sicherer werde ich.",
+          "Je mehr ich vor der Gruppe spreche, desto sicherer werde ich"
+        ]
+      },
+      "explanation": "Вторая часть — главное предложение с инверсией: глагол werde стоит сразу после desto sicherer: desto sicherer werde ich. vor der Gruppe sprechen — говорить перед аудиторией."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к фразе «Je öfter ich mit Kollegen rede, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "wohler",
+          "fühle",
+          "ich",
+          "mich."
+        ],
+        "translation": "тем комфортнее я себя чувствую."
+      },
+      "explanation": "Спрягаемый глагол fühle идёт сразу после desto wohler, а возвратное mich — после ich: desto wohler fühle ich mich. sich wohlfühlen — чувствовать себя комфортно."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно продолжите «Je genauer die Anleitung ist, …» со смыслом «тем меньше вопросов у меня возникает» (опора: desto / weniger / Fragen / habe / ich).",
+        "sample_answer": "desto weniger Fragen habe ich.",
+        "accepted_answers": [
+          "desto weniger Fragen habe ich.",
+          "desto weniger Fragen habe ich",
+          "Desto weniger Fragen habe ich.",
+          "Desto weniger Fragen habe ich",
+          "Je genauer die Anleitung ist, desto weniger Fragen habe ich.",
+          "Je genauer die Anleitung ist, desto weniger Fragen habe ich"
+        ]
+      },
+      "explanation": "Desto weniger Fragen habe ich — группа desto weniger Fragen остаётся неделимой перед habe. genau — точный; die Frage — вопрос."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "К фразе «Je besser wir zusammenarbeiten, …» допишите по-немецки: «тем лучше работает наша команда» (слова: besser / funktionieren / unser Team)."
+        }
+      ],
+      "data": {
+        "prompt": "Допишите вторую часть к «Je besser wir zusammenarbeiten, …»: «тем лучше работает наша команда».",
+        "sample_answer": "desto besser funktioniert unser Team.",
+        "accepted_answers": [
+          "desto besser funktioniert unser Team.",
+          "desto besser funktioniert unser Team",
+          "Je besser wir zusammenarbeiten, desto besser funktioniert unser Team.",
+          "Je besser wir zusammenarbeiten, desto besser funktioniert unser Team"
+        ]
+      },
+      "explanation": "unser Team — 3-е лицо ед. числа (funktioniert). Глагол стоит сразу после desto besser: desto besser funktioniert unser Team. funktionieren — слаженно работать."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку порядка слов во второй части с модальным глаголом."
+        },
+        {
+          "type": "source",
+          "text": "Je besser der Zeitplan ist, desto pünktlicher wir können anfangen."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте вторую часть предложения: «Je besser der Zeitplan ist, desto pünktlicher wir können anfangen.»",
+        "sample_answer": "desto pünktlicher können wir anfangen.",
+        "accepted_answers": [
+          "desto pünktlicher können wir anfangen.",
+          "desto pünktlicher können wir anfangen",
+          "Je besser der Zeitplan ist, desto pünktlicher können wir anfangen.",
+          "Je besser der Zeitplan ist, desto pünktlicher können wir anfangen"
+        ]
+      },
+      "explanation": "Личный модальный глагол können идёт сразу после desto pünktlicher, а anfangen — в конце: desto pünktlicher können wir anfangen. der Zeitplan — расписание, график; pünktlich — вовремя."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильный вариант продолжения фразы: «Je konkreter die Rückmeldung ist, …»",
+        "options": [
+          {
+            "text": "desto leichter kann ich mich verbessern.",
+            "correct": true
+          },
+          {
+            "text": "desto leichter ich kann mich verbessern."
+          },
+          {
+            "text": "desto leichter verbessern kann ich mich."
+          }
+        ]
+      },
+      "explanation": "Спрягаемый модальный глагол kann стоит сразу после desto leichter, а смысловой инфинитив verbessern — в конце: desto leichter kann ich mich verbessern. die Rückmeldung — обратная связь; sich verbessern — улучшаться."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к предложению «Je mehr Aufgaben ich selbst löse, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "unabhängiger",
+          "werde",
+          "ich."
+        ],
+        "translation": "тем независимее я становлюсь."
+      },
+      "explanation": "Спрягаемый глагол werde стоит сразу после desto unabhängiger, а подлежащее ich — за ним: desto unabhängiger werde ich. unabhängig — независимый; selbst — самостоятельно."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Самостоятельное построение второй части с готовой первой."
+        }
+      ],
+      "data": {
+        "text": "В колоде D06 **первая часть дана для контекста**.\nВаша задача — безошибочно построить **вторую часть после запятой**:\n\n**Je besser ich die Aufgabe verstehe, desto schneller kann ich sie erledigen.**\n(Чем лучше я понимаю задачу, тем быстрее могу её выполнить).\n\nЗапомните порядок действий:\n1. Начните с `desto + Komparativ` (`desto schneller`, `desto ruhiger`).\n2. Сразу поставьте личный глагол (`kann`, `habe`, `werde`, `spreche`).\n3. Поставьте подлежащее (`ich`, `wir`).\n4. Если есть второй глагол (инфинитив), отправьте его в самый конец (`erledigen`)."
+      },
+      "explanation": "erledigen — выполнять, завершать дела. Полные двусторонние связки будут создаваться в D07."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно закончите фразу «Je länger ich Deutsch lerne, …» словами «тем увереннее я говорю».",
+        "sample_answer": "desto sicherer spreche ich.",
+        "accepted_answers": [
+          "desto sicherer spreche ich.",
+          "desto sicherer spreche ich",
+          "Desto sicherer spreche ich.",
+          "Desto sicherer spreche ich",
+          "desto sicherer kann ich sprechen.",
+          "desto sicherer kann ich sprechen",
+          "Je länger ich Deutsch lerne, desto sicherer spreche ich.",
+          "Je länger ich Deutsch lerne, desto sicherer spreche ich"
+        ]
+      },
+      "explanation": "Desto sicherer spreche ich (или desto sicherer kann ich sprechen) — после desto sicherer сразу идёт спрягаемый глагол spreche или kann. sicher → sicherer — увереннее; sprechen — говорить."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "К фразе «Je früher ich mit der Arbeit anfange, …» переведите вторую часть: «тем больше времени у меня остаётся на отдых» (слова: mehr Zeit / habe ich / zum Ausruhen)."
+        }
+      ],
+      "data": {
+        "prompt": "Переведите вторую часть: «тем больше времени у меня остаётся на отдых».",
+        "sample_answer": "desto mehr Zeit habe ich zum Ausruhen.",
+        "accepted_answers": [
+          "desto mehr Zeit habe ich zum Ausruhen.",
+          "desto mehr Zeit habe ich zum Ausruhen",
+          "Je früher ich mit der Arbeit anfange, desto mehr Zeit habe ich zum Ausruhen.",
+          "Je früher ich mit der Arbeit anfange, desto mehr Zeit habe ich zum Ausruhen"
+        ]
+      },
+      "explanation": "Вся группа desto mehr Zeit стоит перед спрягаемым глаголом habe: desto mehr Zeit habe ich zum Ausruhen. sich ausruhen — отдыхать; zum Ausruhen — для отдыха."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте форму глагола verstehen для местоимения ich."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je mehr ich meine Kollegen um Hilfe bitte, desto besser "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "verstehe"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ich die Abläufe."
+          }
+        ]
+      },
+      "explanation": "Для местоимения ich личная форма — verstehe. Она следует сразу за desto besser: desto besser verstehe ich die Abläufe. der Ablauf — процесс, рабочий порядок; um Hilfe bitten — просить о помощи."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите правильный вариант второй части к «Je besser ich meine Aufgaben kenne, …»:",
+        "options": [
+          {
+            "text": "desto selbstständiger kann ich arbeiten.",
+            "correct": true
+          },
+          {
+            "text": "desto selbstständiger ich kann arbeiten."
+          }
+        ]
+      },
+      "explanation": "Спрягаемый модальный глагол kann стоит сразу после desto selbstständiger перед ich, а смысловой инфинитив arbeiten — в конце. die Aufgabe — задача; selbstständig — самостоятельно."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите вторую часть к предложению «Je mehr Fortbildungen ich besuche, …»"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "desto",
+          "bessere",
+          "berufliche",
+          "Chancen",
+          "habe",
+          "ich."
+        ],
+        "translation": "тем лучше мои профессиональные возможности."
+      },
+      "explanation": "desto bessere berufliche Chancen — единая группа в роли дополнения во множественном числе перед спрягаемым глаголом habe: desto bessere berufliche Chancen habe ich. die Fortbildung — повышение квалификации; die Chance — шанс, возможность."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "К предложению «Je besser ich mich auf das Vorstellungsgespräch vorbereite, …» переведите вторую часть: «тем спокойнее я могу отвечать на вопросы» (слова: ruhiger / auf Fragen antworten / können)."
+        }
+      ],
+      "data": {
+        "prompt": "Переведите вторую часть: «тем спокойнее я могу отвечать на вопросы».",
+        "sample_answer": "desto ruhiger kann ich auf Fragen antworten.",
+        "accepted_answers": [
+          "desto ruhiger kann ich auf Fragen antworten.",
+          "desto ruhiger kann ich auf Fragen antworten",
+          "Je besser ich mich auf das Vorstellungsgespräch vorbereite, desto ruhiger kann ich auf Fragen antworten.",
+          "Je besser ich mich auf das Vorstellungsgespräch vorbereite, desto ruhiger kann ich auf Fragen antworten"
+        ]
+      },
+      "explanation": "Модальный глагол kann стоит сразу после desto ruhiger, инфинитив antworten — в самом конце: desto ruhiger kann ich auf Fragen antworten. das Vorstellungsgespräch — собеседование."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Закончите вслух фразу «Je mehr ich praktisch übe, …» словами «тем лучше я могу работать».",
+        "sample_answer": "desto besser kann ich arbeiten.",
+        "accepted_answers": [
+          "desto besser kann ich arbeiten.",
+          "desto besser kann ich arbeiten",
+          "Desto besser kann ich arbeiten.",
+          "Desto besser kann ich arbeiten",
+          "Je mehr ich praktisch übe, desto besser kann ich arbeiten.",
+          "Je mehr ich praktisch übe, desto besser kann ich arbeiten"
+        ]
+      },
+      "explanation": "Desto besser kann ich arbeiten — desto besser (группа) → kann (личный глагол) → ich (подлежащее) → arbeiten (инфинитив в конце). praktisch üben — практиковаться."
+    }
+  ]
+}

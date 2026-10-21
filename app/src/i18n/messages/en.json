@@ -46,6 +46,7 @@
   "Сохранить email и пароль": "Save email and password",
   "Вход выполнен. Ваши колоды и прогресс доступны.": "Signed in. Your decks and progress are available.",
   "Не удалось начать вход. Попробуйте ещё раз.": "Could not start sign-in. Please try again.",
+  "Этот способ входа пока не настроен. Используйте email и пароль.": "This sign-in method is not configured yet. Use email and password.",
   "Не удалось выполнить вход по email.": "Could not sign in with email.",
   "Email и пароль сохранены как способ входа.": "Email and password saved as a sign-in method.",
   "Не удалось сохранить пароль. Проверьте данные и подключение.": "Could not save the password. Check your details and connection.",

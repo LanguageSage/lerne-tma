@@ -50,7 +50,7 @@ test('fresh browser with 401 offers login instead of reporting an empty account'
   await expect(page.getByText('У вас пока нет колод', { exact: true })).toHaveCount(0);
   await page.locator('.empty-decks-state').getByRole('button', { name: 'Войти в аккаунт', exact: true }).click();
   await expect(page.getByRole('dialog', { name: 'Вход в аккаунт', exact: true })).toBeVisible();
-  await expect(page.getByRole('button', { name: 'Войти через Telegram', exact: true })).toBeVisible();
+  await expect(page.locator('.auth-telegram')).toBeVisible();
   await page.getByRole('button', { name: 'Позже', exact: true }).click();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   for (const locale of ['ru', 'en', 'uk']) {

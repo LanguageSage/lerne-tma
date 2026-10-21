@@ -8,6 +8,7 @@
     "test:frontend": "npm --prefix app test && node --import ./scripts/tests/no-network.mjs --test scripts/tests/*regression.mjs scripts/tests/autoplay_sequence.mjs scripts/tests/test_user_settings_sync.mjs scripts/tests/test_card_scroll_restoration.mjs",
     "test:backend": "python scripts/test_backend.py",
     "test:browser": "playwright test --project=critical",
+    "test:auth:chrome": "playwright test --project=auth-chrome",
     "cap": "cap",
     "cap:sync": "cap sync android",
     "cap:open": "cap open android",

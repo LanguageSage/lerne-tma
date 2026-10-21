@@ -49,6 +49,7 @@ npm run check
 | `npm run test:backend` | Явный список `SUITES` в `scripts/test_backend.py`, каждый файл в отдельном процессе |
 | `python scripts/test_backend.py scripts/tests/test_critical_http.py` | Один разрешённый backend suite с той же изоляцией |
 | `npm run test:browser` | Playwright project `critical`: guest-entry, card-editor, study-finished, offline |
+| `npm run test:auth:chrome` | Отдельный project `auth-chrome`: установленный Google Chrome с включённой popup protection; нативная Telegram-ссылка, раннее нажатие, автоматический fallback заблокированной вкладки, polling/reload/expiry, Google и Mini App; API и провайдеры изолированы |
 | `npm test` | Три группы поведенческих тестов, с остановкой после первой ошибки |
 | `npm --prefix app run lint` | Полный ESLint приложения |
 | `npm --prefix app run build` | Сборка Vite; не проверка типов и не проверка поведения |

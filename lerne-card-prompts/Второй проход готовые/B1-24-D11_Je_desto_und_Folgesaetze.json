@@ -1,0 +1,1188 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "B1-24-D11 · Je … desto und Folgesätze — Выбираем точную конструкцию",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "B1-24-D11 · Выбираем точную конструкцию",
+        "level": "B1",
+        "topic": "Je … desto und Folgesätze",
+        "description": "Смешанный выбор и корректное употребление всех изученных моделей следствия и пропорциональности: (1) зависимость двух шкал через je … desto/umso, (2) единичный факт и результат через deshalb/deswegen/daher, (3) нейтральное следствие через sodass / so dass, (4) акцент на степени через so + признак …, dass. Закрепление позиций спрягаемого глагола в немецких сложных предложениях на материале тем экологии, энергосбережения и городской среды.",
+        "goal": "Научить ученика сначала определять коммуникативное намерение, а затем грамматически корректно выбирать и строить: (1) зависимость двух степеней через je … desto/umso, (2) конкретный факт → результат через deshalb/deswegen/daher, (3) нейтральное следствие через sodass или so dass, (4) подчёркнутую степень через so + признак …, dass.",
+        "learning_outcomes": [
+          "Различать сравнение степеней (je … desto) и следствие единичного факта (deshalb/sodass)",
+          "Выделять смысловой акцент интенсивности признака с помощью рамки so … dass",
+          "Соблюдать порядок слов придаточного предложения (спрягаемый глагол в конце) в je-части и после dass/sodass",
+          "Применять порядок слов V2 (инверсию) после наречных союзов deshalb, deswegen, daher",
+          "Распознавать ситуации, допускающие более одного грамматически верного способа выражения мысли",
+          "Формулировать устные и письменные высказывания на темы экологии, раздельного сбора отходов и энергосбережения"
+        ],
+        "estimated_time": "35–50 минут",
+        "recommendations": "При ошибках с первой половиной je вернуться к D07; при desto — к D06; при deshalb/deswegen/daher — к D09; при so … dass/sodass — к D10. Следующая колода D12 — «Говорим и объясняем по-B1»."
+      },
+      "pedagogy": {
+        "lesson_type": "practice",
+        "expected_result": "Ученик различает сравнение степеней и единичный факт; узнаёт смысловой акцент «настолько»; проверяет личный глагол в обеих частях je … desto; ставит личный глагол после начального deshalb/deswegen/daher и в конец после sodass/dass; исправляет ошибки, переводит и формулирует сообщения разных типов на практические темы; признаёт ситуации с несколькими допустимыми формулировками.",
+        "stages": [
+          {
+            "id": "intent_and_choice_basics",
+            "title": "Выбор по смысловому намерению с поддержкой",
+            "goal": "Научиться определять коммуникативную задачу (тенденция, результат, степень) и выбирать подходящую модель",
+            "from_card": 1,
+            "to_card": 8,
+            "support": "high",
+            "expected_skill": "Соотносить коммуникативное намерение с правильной синтаксической конструкцией"
+          },
+          {
+            "id": "word_order_contrasts",
+            "title": "Контрасты порядка слов и реконструкция",
+            "goal": "Закрепить правила позиции личного глагола для каждой конструкции и собирать предложения",
+            "from_card": 9,
+            "to_card": 16,
+            "support": "high",
+            "expected_skill": "Контролировать место глагола во всех четырёх моделях (V2 против Verb-Ende)"
+          },
+          {
+            "id": "trend_vs_single_result",
+            "title": "Зависимость против результата и множественные формулировки",
+            "goal": "Разграничивать параллельные изменения и единичные факты, видеть допустимость синонимичных вариантов",
+            "from_card": 17,
+            "to_card": 24,
+            "support": "medium",
+            "expected_skill": "Не путать изменяющуюся шкалу с единичным результатом и распознавать эквивалентные фразы"
+          },
+          {
+            "id": "mixed_error_detection",
+            "title": "Поиск смешанных ошибок и перефразирование",
+            "goal": "Диагностировать и исправлять ошибки во всех типах предложений, перестраивать фразы между моделями",
+            "from_card": 25,
+            "to_card": 32,
+            "support": "medium",
+            "expected_skill": "Находить ошибки порядка слов и перефразировать следствия между deshalb, sodass и so ... dass"
+          },
+          {
+            "id": "practical_ecology_context",
+            "title": "Реальные ситуации об экологии и энергии",
+            "goal": "Применять весь спектр конструкций в связных практических контекстах с минимальными опорами",
+            "from_card": 33,
+            "to_card": 40,
+            "support": "medium",
+            "expected_skill": "Использовать изученные конструкции при обсуждении расхода ресурсов и бытовых неполадок"
+          },
+          {
+            "id": "autonomous_production_mastery",
+            "title": "Самостоятельные сообщения, мини-выступление и самопроверка",
+            "goal": "Свободно и спонтанно применять нужную конструкцию в устной речи и переписке без внешних подсказок",
+            "from_card": 41,
+            "to_card": 48,
+            "support": "low",
+            "expected_skill": "Самостоятельно формулировать мысли тремя разными способами и контролировать грамматику"
+          }
+        ],
+        "competencies": [
+          {
+            "id": "communicative_intent_matching",
+            "title": "Выбор конструкции по коммуникативной цели",
+            "description": "Точный выбор между шкалой пропорции (je ... desto), единичным фактом (deshalb/sodass) и степенью (so ... dass)"
+          },
+          {
+            "id": "word_order_flexibility",
+            "title": "Гибкое переключение порядка слов",
+            "description": "Безошибочное применение порядка V2 (deshalb) и порядка Verb-Ende (je, dass, sodass)"
+          },
+          {
+            "id": "environmental_discourse_b1",
+            "title": "Речевые навыки по теме экологии и ресурсов",
+            "description": "Умение рассуждать об энергосбережении, раздельном сборе отходов и коммунальных услугах"
+          }
+        ],
+        "assessment_criteria": [
+          {
+            "id": "syntax_accuracy_per_connector",
+            "title": "Точность позиции глагола",
+            "description": "Отсутствие смешения порядка слов главного и придаточного предложений"
+          },
+          {
+            "id": "semantic_distinction_accuracy",
+            "title": "Точность различения шкал и фактов",
+            "description": "Использование je ... desto только для взаимосвязанных изменений"
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "review_je_desto_rules",
+            "title": "Повторение je ... desto",
+            "when": "Если возникают ошибки с порядком слов в пропорциональных конструкциях",
+            "reason": "Повторить карточки 08, 13, 21, 26, 31, 37 и колоды D06–D08",
+            "competency_ids": [
+              "communicative_intent_matching",
+              "word_order_flexibility"
+            ]
+          },
+          {
+            "id": "review_consequence_rules",
+            "title": "Повторение союзов следствия",
+            "when": "Если путаются позиции глагола после deshalb и sodass",
+            "reason": "Повторить карточки 04, 05, 10, 11, 20, 22 и колоды D09–D10",
+            "competency_ids": [
+              "word_order_flexibility"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "cards": [
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Один сюжет — три разные задачи"
+        }
+      ],
+      "data": {
+        "text": "# Один сюжет — три разные задачи\n\nПредставь три высказывания об электричестве. Сравни, что говорящий хочет передать:\n\n1. **Je länger das Licht brennt, desto mehr Strom verbraucht es.**\n2. **Das Licht brennt noch. Deshalb schalte ich es aus.**\n3. **Das Licht ist so hell, dass es mich blendet.**\n\n### Разбор смысловых задач:\n* **1 — зависимость изменений (шкалы):** чем дольше горит свет, тем больше потребление электричества.\n* **2 — конкретный факт → решение:** свет ещё горит, поэтому я его выключаю.\n* **3 — степень признака → следствие:** свет настолько яркий, что слепит.\n\nДля нейтрального результата подходит и **sodass**:\n* *Das Licht blendet mich, sodass ich die Lampe anders einstelle.* (Свет слепит меня, так что я иначе настраиваю лампу).\n\n**Главный принцип:** сначала определяем **смысловое намерение**, а затем выбираем синтаксическую модель.\n\n**Словарь:**\n* Strom verbrauchen — потреблять электричество\n* blenden — слепить\n* einstellen — настраивать"
+      }
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите вариант, выражающий зависимость двух величин:"
+        }
+      ],
+      "data": {
+        "prompt": "Ученик хочет сказать: «Чем ниже температура на улице, тем больше энергии требуется для отопления» — описать общую тенденцию, а не разовый факт. Какой вариант выражает эту мысль?",
+        "options": [
+          {
+            "text": "Je kälter es draußen ist, desto mehr Energie brauchen wir zum Heizen.",
+            "correct": true
+          },
+          {
+            "text": "Es ist draußen kalt. Deshalb brauchen wir Energie zum Heizen.",
+            "correct": false
+          },
+          {
+            "text": "Es ist so kalt, dass wir die Heizung einschalten.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A выражает сравнение двух изменяющихся величин через je … desto. Варианты B и C грамматически верны, но описывают конкретный факт с решением (deshalb) и степень холода (so kalt, dass), а не параллельное изменение двух параметров."
+    },
+    {
+      "type": "match",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соотнесите коммуникативное намерение с языковой моделью:"
+        }
+      ],
+      "data": {
+        "pairs": [
+          {
+            "left": "Сравнить две изменяющиеся величины",
+            "right": "je …, desto …"
+          },
+          {
+            "left": "Назвать результат конкретной неисправности",
+            "right": "Deshalb …"
+          },
+          {
+            "left": "Подчеркнуть, насколько сильный запах",
+            "right": "so stark …, dass …"
+          }
+        ]
+      },
+      "explanation": "1 — je ... desto описывает параллельные изменения шкал. 2 — Deshalb связывает конкретный факт с действием/результатом. 3 — so stark ... dass выделяет степень признака."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите оба предложения из слов:"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Die",
+          "Ladestation",
+          "ist",
+          "besetzt.",
+          "Deshalb",
+          "wartet",
+          "der",
+          "Fahrer."
+        ],
+        "translation": "Зарядная станция занята. Поэтому водитель ждёт."
+      },
+      "explanation": "Die Ladestation ist besetzt. Deshalb wartet der Fahrer. Наречный союз Deshalb занимает 1-е место во втором главном предложении, спрягаемый глагол wartet — 2-е место (инверсия V2)."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте союз со значением нейтрального следствия («так что»):"
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Die Solaranlage liefert heute wenig Strom, "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "sodass",
+              "so dass"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " wir zusätzlich Strom aus dem Netz brauchen."
+          }
+        ]
+      },
+      "explanation": "Die Solaranlage liefert heute wenig Strom, sodass wir zusätzlich Strom aus dem Netz brauchen. Союз sodass (или so dass) вводит придаточное следствия, глагол brauchen стоит на последнем месте."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно объясните соседу: «На кухне течёт кран, поэтому я перекрываю воду»."
+        },
+        {
+          "type": "example",
+          "text": "Используйте союз deshalb. Опора: der Wasserhahn / tropfen / das Wasser abstellen. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Der Wasserhahn in der Küche tropft. Deshalb stelle ich das Wasser ab.",
+        "sample_answer": "Der Wasserhahn in der Küche tropft. Deshalb stelle ich das Wasser ab.",
+        "accepted_answers": [
+          "Der Wasserhahn in der Küche tropft. Deshalb stelle ich das Wasser ab.",
+          "Der Wasserhahn tropft. Deshalb stelle ich das Wasser ab.",
+          "In der Küche tropft der Wasserhahn. Deshalb stelle ich das Wasser ab."
+        ]
+      },
+      "explanation": "Der Wasserhahn in der Küche tropft. Deshalb stelle ich das Wasser ab. После Deshalb спрягаемый глагол stelle стоит сразу на 2-м месте, а отделяемая приставка ab — в конце."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите вариант, который точно передаёт акцент на степени:"
+        }
+      ],
+      "data": {
+        "prompt": "Вы хотите сообщить именно: «Лампа настолько яркая, что читать рядом с ней неприятно». Какой вариант лучше сохраняет выделенный смысл?",
+        "options": [
+          {
+            "text": "Die Lampe ist so hell, dass das Lesen daneben unangenehm ist.",
+            "correct": true
+          },
+          {
+            "text": "Die Lampe ist hell, sodass das Lesen daneben unangenehm ist.",
+            "correct": false
+          },
+          {
+            "text": "Die Lampe ist so hell, dass das Lesen daneben ist unangenehm.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A точно подчёркивает степень яркости через рамку so hell, dass ... Вариант B нейтрально сообщает о результате без усиления признака. Вариант C ошибочен из-за нарушения порядка слов (глагол ist обязан быть в конце придаточного)."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов во второй части предложения:"
+        }
+      ],
+      "data": {
+        "prompt": "Je mehr wir Strom sparen, desto niedriger unsere Rechnung wird.",
+        "sample_answer": "Je mehr wir Strom sparen, desto niedriger wird unsere Rechnung.",
+        "accepted_answers": [
+          "Je mehr wir Strom sparen, desto niedriger wird unsere Rechnung.",
+          "Je mehr Strom wir sparen, desto niedriger wird unsere Rechnung."
+        ]
+      },
+      "explanation": "Je mehr wir Strom sparen, desto niedriger wird unsere Rechnung. Во второй части после сравнительной группы desto niedriger личный глагол wird занимает вторую позицию, а затем идёт подлежащее."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Проверка места глагола в четырёх схемах"
+        }
+      ],
+      "data": {
+        "text": "# Проверка места глагола\n\nЧетыре правильные схемы в одной сводке:\n\n1. **Je ... [глагол в конце], desto + группа [глагол сразу] ...**\n   * *Пример:* Je wärmer es wird, desto weniger heizen wir.\n2. **Deshalb [глагол] + подлежащее ...**\n   * *Пример:* Es ist warm. Deshalb heizen wir weniger.\n3. **..., sodass ... [глагол в конце].**\n   * *Пример:* Das Haus ist gut gedämmt, sodass wir weniger heizen.\n4. **so + признак ..., dass ... [глагол в конце].**\n   * *Пример:* Es ist so warm, dass wir nicht heizen.\n\n### Запомни различия:\n* **Je-часть** — придаточное (глагол в конце).\n* **Desto-часть** — главное предложение (глагол сразу после сравнительной группы).\n* **Deshalb / Deswegen / Daher** — наречные союзы в главном предложении (инверсия V2, глагол на 2-м месте).\n* **Sodass / dass** — подчинительные союзы (глагол на самом последнем месте).\n\n**Словарь:**\n* die Heizung — отопление\n* weniger heizen — отапливать меньше"
+      }
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку в порядке слов после deshalb:"
+        }
+      ],
+      "data": {
+        "prompt": "Das Licht im Treppenhaus ist aus. Deshalb wir benutzen eine Taschenlampe.",
+        "sample_answer": "Das Licht im Treppenhaus ist aus. Deshalb benutzen wir eine Taschenlampe.",
+        "accepted_answers": [
+          "Das Licht im Treppenhaus ist aus. Deshalb benutzen wir eine Taschenlampe.",
+          "Das Licht im Treppenhaus ist aus, deshalb benutzen wir eine Taschenlampe."
+        ]
+      },
+      "explanation": "Das Licht im Treppenhaus ist aus. Deshalb benutzen wir eine Taschenlampe. Начальное Deshalb занимает первое место, спрягаемый глагол benutzen — второе (инверсия). Порядок «Deshalb wir benutzen» ошибочен."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов в придаточном, не меняя союз:"
+        }
+      ],
+      "data": {
+        "prompt": "Der Wind ist stark, sodass die Anlage produziert weniger Strom.",
+        "sample_answer": "Der Wind ist stark, sodass die Anlage weniger Strom produziert.",
+        "accepted_answers": [
+          "Der Wind ist stark, sodass die Anlage weniger Strom produziert.",
+          "Der Wind ist stark, so dass die Anlage weniger Strom produziert."
+        ]
+      },
+      "explanation": "Der Wind ist stark, sodass die Anlage weniger Strom produziert. После союза sodass спрягаемый глагол produziert обязан стоять в самом конце придаточного предложения."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Скажите вслух: «Этот прибор потребляет настолько мало электричества, что счёт почти не меняется»."
+        },
+        {
+          "type": "example",
+          "text": "Используйте конструкцию so wenig …, dass. Опора: das Gerät / wenig Strom verbrauchen / die Rechnung / sich kaum ändern. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Das Gerät verbraucht so wenig Strom, dass sich die Rechnung kaum ändert.",
+        "sample_answer": "Das Gerät verbraucht so wenig Strom, dass sich die Rechnung kaum ändert.",
+        "accepted_answers": [
+          "Das Gerät verbraucht so wenig Strom, dass sich die Rechnung kaum ändert.",
+          "Das Gerät verbraucht so wenig Energie, dass sich die Rechnung kaum ändert."
+        ]
+      },
+      "explanation": "Das Gerät verbraucht so wenig Strom, dass sich die Rechnung kaum ändert. Конструкция so wenig Strom задаёт степень потребления, а глагол ändert замыкает придаточное с dass."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение из слов: «Чем теплее на улице, тем меньше нам приходится отапливать»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "wärmer",
+          "es",
+          "draußen",
+          "wird,",
+          "desto",
+          "weniger",
+          "müssen",
+          "wir",
+          "heizen."
+        ],
+        "translation": "Чем теплее становится на улице, тем меньше нам приходится отапливать помещение."
+      },
+      "explanation": "Je wärmer es draußen wird, desto weniger müssen wir heizen. В придаточном с je глагол wird стоит в конце. Во второй части после desto weniger сразу идёт спрягаемый модальный глагол müssen."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Поставьте глагол verbrauchen в правильную личную форму Präsens:"
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Wir schalten die Geräte nach Feierabend aus, sodass niemand unnötig Strom "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "verbraucht"
+            ]
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      "explanation": "Wir schalten die Geräte nach Feierabend aus, sodass niemand unnötig Strom verbraucht. Подлежащее niemand требует форму 3-го лица ед. ч. (verbraucht), стоящую в конце придаточного следствия."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Проанализируйте два предложения. Какое из них ошибочно по грамматике?"
+        }
+      ],
+      "data": {
+        "prompt": "Дана ситуация: на остановке темно, поэтому люди пользуются фонариками. (А) Die Haltestelle ist dunkel. Deshalb benutzen die Leute ihre Handy-Taschenlampen. (Б) Die Haltestelle ist dunkel, sodass die Leute ihre Handy-Taschenlampen benutzen. Какая фраза неверна?",
+        "options": [
+          {
+            "text": "Ни одна: обе фразы грамматически безупречны.",
+            "correct": true
+          },
+          {
+            "text": "Только фраза А ошибочна.",
+            "correct": false
+          },
+          {
+            "text": "Только фраза Б ошибочна.",
+            "correct": false
+          },
+          {
+            "text": "Обе фразы ошибочны.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Оба варианта грамматически правильны: А использует два главных предложения с наречным союзом Deshalb (инверсия V2: Deshalb benutzen...), а Б — сложноподчинённое предложение со связкой sodass (глагол benutzen в конце)."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите двумя предложениями: «Сегодня солнечно. Поэтому мы используем солнечную энергию»."
+        },
+        {
+          "type": "example",
+          "text": "Обязательное слово: daher. Подсказки: heute / sonnig / Solarenergie nutzen."
+        }
+      ],
+      "data": {
+        "prompt": "Heute ist es sonnig. Daher nutzen wir Solarenergie.",
+        "sample_answer": "Heute ist es sonnig. Daher nutzen wir Solarenergie.",
+        "accepted_answers": [
+          "Heute ist es sonnig. Daher nutzen wir Solarenergie.",
+          "Es ist heute sonnig. Daher nutzen wir Solarenergie."
+        ]
+      },
+      "explanation": "Heute ist es sonnig. Daher nutzen wir Solarenergie. Союз daher начинает второе главное предложение, спрягаемый глагол nutzen занимает вторую позицию."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Тенденция против разового последствия"
+        }
+      ],
+      "data": {
+        "text": "# Тенденция ≠ разовое последствие\n\nСравните два высказывания:\n\n* **Je mehr Verpackung wir vermeiden, desto weniger Müll entsteht.**\n* **Die Mülltonne ist voll. Deshalb bringen wir die Tüte später weg.**\n\n### Разбор:\n* **Первая фраза** описывает **параллельную динамику (шкалу)**: чем больше упаковки мы избегаем, тем меньше мусора появляется. При изменении первого фактора пропорционально меняется второй.\n* **Вторая фраза** описывает **конкретный единичный факт и последующее действие**: бак полон, поэтому мешок вынесут позже.\n\n### Критерий проверки:\nЕсли в мысли есть соотношение «больше/меньше/чаще/реже → пропорциональное изменение», используем **je … desto**.\nЕсли произошло единичное событие X, повлёкшее действие Y, используем **deshalb / deswegen / daher** или **sodass**.\n\n**Словарь:**\n* die Verpackung — упаковка\n* vermeiden — избегать\n* entstehen — возникать\n* die Mülltonne — мусорный бак"
+      }
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно скажите: «Чем точнее мы сортируем отходы, тем меньше ошибок делаем»."
+        },
+        {
+          "type": "example",
+          "text": "Используйте конструкцию je … desto. Опора: genauer / Abfälle trennen / weniger Fehler machen. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Je genauer wir die Abfälle trennen, desto weniger Fehler machen wir.",
+        "sample_answer": "Je genauer wir die Abfälle trennen, desto weniger Fehler machen wir.",
+        "accepted_answers": [
+          "Je genauer wir die Abfälle trennen, desto weniger Fehler machen wir.",
+          "Je genauer wir den Müll trennen, desto weniger Fehler machen wir."
+        ]
+      },
+      "explanation": "Je genauer wir die Abfälle trennen, desto weniger Fehler machen wir. В первой части trennen стоит в конце, во второй части после desto weniger Fehler сразу идёт спрягаемый глагол machen."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите грамматически верный нейтральный результат в одном предложении:"
+        }
+      ],
+      "data": {
+        "prompt": "После сильного дождя бочка для воды переполнилась. Нужно нейтрально сообщить о результате в одном сложноподчинённом предложении.",
+        "options": [
+          {
+            "text": "Es hat stark geregnet, sodass die Regentonne übergelaufen ist.",
+            "correct": true
+          },
+          {
+            "text": "Je stärker es geregnet hat, desto voller die Regentonne wurde.",
+            "correct": false
+          },
+          {
+            "text": "Es hat stark geregnet, sodass die Regentonne ist übergelaufen.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A верно использует союз sodass с глаголом в конце (... übergelaufen ist). Вариант B описывает сравнительную шкалу и содержит ошибку порядка слов. Вариант C нарушает порядок слов после sodass."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Поставьте модальный глагол müssen в форму Präsens (wir):"
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Die Papiertonne ist voll. Deswegen "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "müssen"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " wir bis morgen warten."
+          }
+        ]
+      },
+      "explanation": "Die Papiertonne ist voll. Deswegen müssen wir bis morgen warten. Союз deswegen требует сразу после себя спрягаемый глагол müssen (V2), а инфинитив warten стоит в конце."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение из слов: «Чем сильнее идёт дождь, тем больше воды собирается в бочке»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "stärker",
+          "es",
+          "regnet,",
+          "desto",
+          "mehr",
+          "Wasser",
+          "sammelt",
+          "sich",
+          "in",
+          "der",
+          "Tonne."
+        ],
+        "translation": "Чем сильнее идёт дождь, тем больше воды собирается в бочке."
+      },
+      "explanation": "Je stärker es regnet, desto mehr Wasser sammelt sich in der Tonne. После je stärker сказуемое regnet стоит в конце. Во второй части после группы desto mehr Wasser сразу стоит личный глагол sammelt."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку в союзе («воздух настолько сухой, что растения высыхают»):"
+        }
+      ],
+      "data": {
+        "prompt": "Die Luft ist so trocken, sodass die Pflanzen schnell austrocknen.",
+        "sample_answer": "Die Luft ist so trocken, dass die Pflanzen schnell austrocknen.",
+        "accepted_answers": [
+          "Die Luft ist so trocken, dass die Pflanzen schnell austrocknen.",
+          "Die Luft ist trocken, sodass die Pflanzen schnell austrocknen."
+        ]
+      },
+      "explanation": "Die Luft ist so trocken, dass die Pflanzen schnell austrocknen. При наличии усилительного so перед прилагательным trocken используется союз dass, а не смешанная форма sodass."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Проанализируйте варианты и выберите верное утверждение:"
+        }
+      ],
+      "data": {
+        "prompt": "Ситуация: ветка упала на дорожку, поэтому проход закрыт. (A) Ein Ast liegt auf dem Weg. Deshalb ist der Weg vorübergehend gesperrt. (B) Ein Ast liegt auf dem Weg, sodass der Weg vorübergehend gesperrt ist. (C) Ein Ast liegt auf dem Weg. Deshalb der Weg ist vorübergehend gesperrt. Какие варианты грамматически верны?",
+        "options": [
+          {
+            "text": "Варианты A и B верны: они передают один факт разными синтаксическими средствами.",
+            "correct": true
+          },
+          {
+            "text": "Только вариант A верен.",
+            "correct": false
+          },
+          {
+            "text": "Только вариант B верен.",
+            "correct": false
+          },
+          {
+            "text": "Вариант C верен, так как после Deshalb возможен прямой порядок слов.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Варианты A и B оба грамматически безупречны: в A личный глагол ist стоит на 2-м месте после Deshalb, в B — на последнем месте придаточного с sodass. Вариант C ошибочен из-за порядка слов."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно скажите одним предложением с sodass: «В парке больше урн, так что посетителям легче выбрасывать мусор»."
+        },
+        {
+          "type": "example",
+          "text": "Опора: Es gibt jetzt mehr Mülleimer / Besucher / Müll leichter entsorgen können. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Im Park gibt es jetzt mehr Mülleimer, sodass die Besucher ihren Müll leichter entsorgen können.",
+        "sample_answer": "Im Park gibt es jetzt mehr Mülleimer, sodass die Besucher ihren Müll leichter entsorgen können.",
+        "accepted_answers": [
+          "Im Park gibt es jetzt mehr Mülleimer, sodass die Besucher ihren Müll leichter entsorgen können.",
+          "Es gibt jetzt mehr Mülleimer, sodass die Besucher den Müll leichter entsorgen können."
+        ]
+      },
+      "explanation": "Im Park gibt es jetzt mehr Mülleimer, sodass die Besucher ihren Müll leichter entsorgen могут. Союз sodass вводит придаточное следствия, модальный глагол können стоит в конце после инфинитива entsorgen."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Несколько правильных путей к одному результату"
+        }
+      ],
+      "data": {
+        "text": "# Несколько правильных путей к одному результату\n\nСравните три фразы о засухе:\n\n1. **Es regnet seit Wochen kaum. Deshalb ist der Boden sehr trocken.**\n2. **Es regnet seit Wochen kaum, sodass der Boden sehr trocken ist.**\n3. **Der Boden ist so trocken, dass viele Pflanzen Wasser brauchen.**\n\n### Методический вывод:\n* Предложения 1 и 2 выражают **одно и то же последствие факта**, отличаясь лишь синтаксисом (два главных предложения с `Deshalb` vs. сложноподчинённое с `sodass`).\n* Предложение 3 переносит **акцент на степень сухости** (`so trocken, dass ...`).\n\nНе существует правила, обязывающего использовать только один союз. Выбор зависит от фокуса высказывания и синтаксического контекста."
+      }
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов в первой части предложения (je-часть):"
+        }
+      ],
+      "data": {
+        "prompt": "Je seltener läuft die Pumpe, desto weniger Strom verbraucht sie.",
+        "sample_answer": "Je seltener die Pumpe läuft, desto weniger Strom verbraucht sie.",
+        "accepted_answers": [
+          "Je seltener die Pumpe läuft, desto weniger Strom verbraucht sie."
+        ]
+      },
+      "explanation": "Je seltener die Pumpe läuft, desto weniger Strom verbraucht sie. В части с je (придаточное предложение) спрягаемый глагол läuft обязан стоять в самом конце."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов в придаточном предложении с dass:"
+        }
+      ],
+      "data": {
+        "prompt": "Die Straße ist so dunkel, dass wir sehen die Markierung kaum.",
+        "sample_answer": "Die Straße ist so dunkel, dass wir die Markierung kaum sehen.",
+        "accepted_answers": [
+          "Die Straße ist so dunkel, dass wir die Markierung kaum sehen."
+        ]
+      },
+      "explanation": "Die Straße ist so dunkel, dass wir die Markierung kaum sehen. В придаточном предложении после союза dass спрягаемый глагол sehen ставится на последнее место."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите вариант, который точно передаёт акцент на степени шума:"
+        }
+      ],
+      "data": {
+        "prompt": "Нужно подчеркнуть сильный шум ветряной установки: «она настолько шумит, что соседи не могут спать». Какой вариант точнее?",
+        "options": [
+          {
+            "text": "Die Anlage ist so laut, dass die Nachbarn nicht schlafen können.",
+            "correct": true
+          },
+          {
+            "text": "Die Anlage ist laut, sodass die Nachbarn nicht schlafen können.",
+            "correct": false
+          },
+          {
+            "text": "Die Anlage ist so laut, dass die Nachbarn können nicht schlafen.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A точно передаёт акцент на степени признака через so laut, dass ... Вариант B нейтрально сообщает о следствии. Вариант C ошибочен, так как глагол können стоит не на последнем месте."
+    },
+    {
+      "type": "match",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соедините ошибочную фразу с её грамматически верным исправлением:"
+        }
+      ],
+      "data": {
+        "pairs": [
+          {
+            "left": "Deshalb die Gemeinde baut neue Radwege.",
+            "right": "Deshalb baut die Gemeinde neue Radwege."
+          },
+          {
+            "left": "Je häufiger wir recyceln, desto weniger wird Müll es geben.",
+            "right": "… desto weniger Müll wird es geben."
+          },
+          {
+            "left": "Es ist so kalt, dass die Rohre können einfrieren.",
+            "right": "… dass die Rohre einfrieren können."
+          }
+        ]
+      },
+      "explanation": "1 — после Deshalb спрягаемый глагол baut стоит на втором месте (V2). 2 — сравнительная группа desto weniger Müll не разделяется глаголом wird. 3 — после dass модальный блок einfrieren können завершает придаточное."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Сформулируйте устно два варианта мысли: «Фильтр загрязнён. Поэтому вода течёт медленно» (1 — с deswegen, 2 — с sodass)."
+        },
+        {
+          "type": "example",
+          "text": "Опора: der Filter / verschmutzt / das Wasser / langsam fließen. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "1. Der Filter ist verschmutzt. Deswegen fließt das Wasser langsam. 2. Der Filter ist verschmutzt, sodass das Wasser langsam fließt.",
+        "sample_answer": "1. Der Filter ist verschmutzt. Deswegen fließt das Wasser langsam. 2. Der Filter ist verschmutzt, sodass das Wasser langsam fließt.",
+        "accepted_answers": [
+          "1. Der Filter ist verschmutzt. Deswegen fließt das Wasser langsam. 2. Der Filter ist verschmutzt, sodass das Wasser langsam fließt.",
+          "Der Filter ist verschmutzt. Deswegen fließt das Wasser langsam. Der Filter ist verschmutzt, sodass das Wasser langsam fließt."
+        ]
+      },
+      "explanation": "В варианте 1 глагол fließt стоит сразу после deswegen (V2). В варианте 2 глагол fließt завершает придаточное предложение после sodass."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите на немецкий язык с помощью модели je … desto: «Чем чаще люди ездят на велосипедах, тем меньше машин бывает на этой улице»."
+        }
+      ],
+      "data": {
+        "prompt": "Je häufiger die Leute mit dem Fahrrad fahren, desto weniger Autos gibt es auf dieser Straße.",
+        "sample_answer": "Je häufiger die Leute mit dem Fahrrad fahren, desto weniger Autos gibt es auf dieser Straße.",
+        "accepted_answers": [
+          "Je häufiger die Leute mit dem Fahrrad fahren, desto weniger Autos gibt es auf dieser Straße.",
+          "Je öfter die Leute mit dem Fahrrad fahren, desto weniger Autos gibt es auf dieser Straße."
+        ]
+      },
+      "explanation": "Je häufiger die Leute mit dem Fahrrad fahren, desto weniger Autos gibt es auf dieser Straße. В je-части глагол fahren стоит в конце; во второй части после desto weniger Autos сразу следует глагол gibt."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Перефразируйте два предложения в одно сложное со связкой sodass:"
+        }
+      ],
+      "data": {
+        "prompt": "Der Akku ist leer. Deshalb startet das Gerät nicht.",
+        "sample_answer": "Der Akku ist leer, sodass das Gerät nicht startet.",
+        "accepted_answers": [
+          "Der Akku ist leer, sodass das Gerät nicht startet.",
+          "Der Akku ist leer, so dass das Gerät nicht startet."
+        ]
+      },
+      "explanation": "Der Akku ist leer, sodass das Gerät nicht startet. При объединении с помощью союза sodass спрягаемый глагол startet перемещается на последнее место придаточного предложения."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Внутренняя проверка в три вопроса"
+        }
+      ],
+      "data": {
+        "text": "# Внутренняя проверка в три вопроса\n\nПеред тем как построить фразу, задайте себе три вопроса:\n\n1. **Две величины изменяются параллельно?**\n   * Используйте **je … desto / umso**.\n   * *Пример:* Je besser das Fenster isoliert ist, desto weniger Wärme geht verloren.\n2. **Нужно назвать нейтральный результат факта?**\n   * Используйте **deshalb / deswegen / daher** (V2) или **sodass** (Verb-Ende).\n   * *Пример:* Das Fenster ist offen. Deshalb wird es kalt. / Das Fenster ist offen, sodass es kalt wird.\n3. **Нужно подчеркнуть интенсивность признака («настолько ... что»)?**\n   * Используйте **so + признак …, dass**.\n   * *Пример:* Es ist so kalt, dass wir die Heizung einschalten.\n\nВ каждом случае обязательно проверьте позицию личного глагола!"
+      }
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите вариант, точно передающий параллельное изменение величин:"
+        }
+      ],
+      "data": {
+        "prompt": "Какой вариант точнее выражает соотношение: «Чем больше электричества мы используем, тем выше становится счёт»?",
+        "options": [
+          {
+            "text": "Je mehr Strom wir verbrauchen, desto höher wird die Rechnung.",
+            "correct": true
+          },
+          {
+            "text": "Wir verbrauchen Strom. Deshalb wird die Rechnung hoch.",
+            "correct": false
+          },
+          {
+            "text": "Wir verbrauchen so viel Strom, dass die Rechnung hoch wird.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A точно отражает пропорциональную зависимость двух параметров (je mehr Strom ... desto höher wird ...). Варианты B и C описывают единичный факт или степень, но не параллельное нарастание двух шкал."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите на немецкий язык (второе предложение начните с Deshalb): «Счётчик не показывает расход. Поэтому я сообщаю об этом поставщику»."
+        }
+      ],
+      "data": {
+        "prompt": "Der Zähler zeigt den Verbrauch nicht an. Deshalb informiere ich den Anbieter darüber.",
+        "sample_answer": "Der Zähler zeigt den Verbrauch nicht an. Deshalb informiere ich den Anbieter darüber.",
+        "accepted_answers": [
+          "Der Zähler zeigt den Verbrauch nicht an. Deshalb informiere ich den Anbieter darüber.",
+          "Der Zähler zeigt den Verbrauch nicht an. Deshalb informiere ich den Anbieter."
+        ]
+      },
+      "explanation": "Der Zähler zeigt den Verbrauch nicht an. Deshalb informiere ich den Anbieter darüber. В первом предложении отделяемая приставка an стоит в конце; во втором глагол informiere занимает 2-е место сразу после Deshalb."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно сформулируйте две разные мысли: (1) тенденцию с je … desto (чем короче душ, тем меньше воды); (2) решение с deshalb (кран течёт, поэтому вызываю мастера)."
+        },
+        {
+          "type": "example",
+          "text": "Опоры: kurz duschen, Wasser verbrauchen, tropfen, den Handwerker rufen. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Je kürzer ich dusche, desto weniger Wasser verbrauche ich. Der Wasserhahn tropft. Deshalb rufe ich einen Handwerker.",
+        "sample_answer": "Je kürzer ich dusche, desto weniger Wasser verbrauche ich. Der Wasserhahn tropft. Deshalb rufe ich einen Handwerker.",
+        "accepted_answers": [
+          "Je kürzer ich dusche, desto weniger Wasser verbrauche ich. Der Wasserhahn tropft. Deshalb rufe ich einen Handwerker.",
+          "Je kürzer man duscht, desto weniger Wasser verbraucht man. Der Wasserhahn tropft, deshalb rufe ich einen Handwerker."
+        ]
+      },
+      "explanation": "В первой фразе je kürzer ... verbrauche ich передаёт зависимость двух шкал. Во второй фразе Deshalb rufe ich ... выражает решение конкретной бытовой проблемы."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение из слов: «Чем лучше утеплена крыша, тем меньше тепла теряет дом»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "besser",
+          "das",
+          "Dach",
+          "gedämmt",
+          "ist,",
+          "desto",
+          "weniger",
+          "Wärme",
+          "verliert",
+          "das",
+          "Haus."
+        ],
+        "translation": "Чем лучше утеплена крыша, тем меньше тепла теряет дом."
+      },
+      "explanation": "Je besser das Dach gedämmt ist, desto weniger Wärme verliert das Haus. В части с je личный глагол ist стоит в конце; во второй части после desto weniger Wärme сразу следует глагол verliert."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Напишите соседу два коротких предложения: «Вечером лестница плохо освещена. Поэтому на ступенях трудно что-либо увидеть» (используйте daher)."
+        }
+      ],
+      "data": {
+        "prompt": "Am Abend ist das Treppenhaus schlecht beleuchtet. Daher kann man die Stufen kaum sehen.",
+        "sample_answer": "Am Abend ist das Treppenhaus schlecht beleuchtet. Daher kann man die Stufen kaum sehen.",
+        "accepted_answers": [
+          "Am Abend ist das Treppenhaus schlecht beleuchtet. Daher kann man die Stufen kaum sehen.",
+          "Das Treppenhaus ist schlecht beleuchtet. Daher kann man die Stufen kaum sehen."
+        ]
+      },
+      "explanation": "Am Abend ist das Treppenhaus schlecht beleuchtet. Daher kann man die Stufen kaum sehen. Союз daher занимает 1-е место во втором предложении, модальный глагол kann — 2-е место, а инфинитив sehen стоит в конце."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибки порядка слов во всех трёх предложениях:\n1. Je weniger Wasser wir verschwenden, desto niedriger der Verbrauch wird.\n2. Der Behälter ist voll. Deshalb wir ihn leeren.\n3. Der Behälter ist so schwer, dass wir können ihn nicht tragen."
+        }
+      ],
+      "data": {
+        "prompt": "1. Je weniger Wasser wir verschwenden, desto niedriger der Verbrauch wird. 2. Der Behälter ist voll. Deshalb wir ihn leeren. 3. Der Behälter ist so schwer, dass wir können ihn nicht tragen.",
+        "sample_answer": "1. Je weniger Wasser wir verschwenden, desto niedriger wird der Verbrauch. 2. Der Behälter ist voll. Deshalb leeren wir ihn. 3. Der Behälter ist so schwer, dass wir ihn nicht tragen können.",
+        "accepted_answers": [
+          "1. Je weniger Wasser wir verschwenden, desto niedriger wird der Verbrauch. 2. Der Behälter ist voll. Deshalb leeren wir ihn. 3. Der Behälter ist so schwer, dass wir ihn nicht tragen können.",
+          "Je weniger Wasser wir verschwenden, desto niedriger wird der Verbrauch. Der Behälter ist voll. Deshalb leeren wir ihn. Der Behälter ist so schwer, dass wir ihn nicht tragen können."
+        ]
+      },
+      "explanation": "1 — после desto niedriger глагол wird занимает 2-е место. 2 — после Deshalb глагол leeren занимает 2-е место. 3 — после dass модальный блок ihn nicht tragen können замыкает придаточное."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Прочитайте предложение и определите его грамматическое значение:"
+        }
+      ],
+      "data": {
+        "prompt": "Что прямо выражает конструкция: «Im Hof stehen jetzt zusätzliche Müllcontainer, sodass die Bewohner ihren Müll leichter trennen können»?",
+        "options": [
+          {
+            "text": "Нейтральный результат установки дополнительных контейнеров.",
+            "correct": true
+          },
+          {
+            "text": "Сравнение двух количественных изменений («чем …, тем …»).",
+            "correct": false
+          },
+          {
+            "text": "Подчёркивание высокой степени свойства («настолько большие контейнеры, что …»).",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Союз sodass вводит придаточное нейтрального следствия факта. Здесь нет сравнения изменяющихся величин (je ... desto) или рамки степени свойства (so ... dass)."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Чек-лист для проверки свободной фразы"
+        }
+      ],
+      "data": {
+        "text": "# Как проверять свободную фразу\n\nПеред тем как сказать или написать фразу, используйте чек-лист:\n\n1. **Какова цель высказывания?**\n   * Динамическая пропорция? → `je … desto`.\n   * Логический вывод из факта? → `deshalb / deswegen / daher`.\n   * Простое последствие факта? → `sodass`.\n   * Чрезмерная интенсивность признака? → `so … dass`.\n2. **Где стоит спрягаемый глагол?**\n   * В придаточных (после `je`, `sodass`, `dass`) — в самом конце.\n   * В главных предложениях (после `desto + группа`, после `deshalb`) — на 2-м месте.\n3. **Поставлена ли запятая?** Запятая обязательна между частями сложного предложения.\n4. **Помните:** если ситуация допускает несколько верных формулировок, выбирайте ту, которая точнее передаёт нужный вам коммуникативный акцент."
+      }
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно выскажите три разные мысли: (1) тенденцию с je … desto; (2) решение с deshalb; (3) последствие с sodass."
+        },
+        {
+          "type": "example",
+          "text": "Тема: отопление и сбережение тепла в доме. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Je kälter es draußen wird, desto mehr müssen wir heizen. Ein Fenster ist noch offen. Deshalb schließe ich es. Wir prüfen die Dichtungen, sodass weniger kalte Luft hereinkommt.",
+        "sample_answer": "Je kälter es draußen wird, desto mehr müssen wir heizen. Ein Fenster ist noch offen. Deshalb schließe ich es. Wir prüfen die Dichtungen, sodass weniger kalte Luft hereinkommt.",
+        "accepted_answers": [
+          "Je kälter es draußen wird, desto mehr müssen wir heizen. Ein Fenster ist noch offen. Deshalb schließe ich es. Wir prüfen die Dichtungen, sodass weniger kalte Luft hereinkommt."
+        ]
+      },
+      "explanation": "Образец объединяет три разные коммуникативные задачи: 1) шкала тенденции (je kälter ... desto mehr müssen wir heizen); 2) реакция на факт (Deshalb schließe ich es); 3) нейтральное следствие (sodass weniger kalte Luft hereinkommt)."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Поставьте глаголы lassen и entstehen в правильную форму Präsens:"
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je mehr Menschen die Geräte reparieren "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "lassen"
+            ]
+          },
+          {
+            "type": "text",
+            "text": ", desto weniger Elektroschrott "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "entsteht"
+            ]
+          },
+          {
+            "type": "text",
+            "text": "."
+          }
+        ]
+      },
+      "explanation": "Je mehr Menschen die Geräte reparieren lassen, desto weniger Elektroschrott entsteht. В je-части глагол lassen стоит в конце. Во второй части глагол entsteht занимает позицию сразу после группы desto weniger Elektroschrott."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Напишите короткое сообщение (2-3 предложения) в управляющую компанию: контейнер для пластика полон, мусор некуда складывать; попросите проверить ситуацию (используйте deshalb / deswegen / daher)."
+        }
+      ],
+      "data": {
+        "prompt": "Der Container für Kunststoff ist voll. Deshalb können wir den Plastikmüll im Moment nicht richtig entsorgen. Könnten Sie die Situation bitte prüfen?",
+        "sample_answer": "Der Container für Kunststoff ist voll. Deshalb können wir den Plastikmüll im Moment nicht richtig entsorgen. Könnten Sie die Situation bitte prüfen?",
+        "accepted_answers": [
+          "Der Container für Kunststoff ist voll. Deshalb können wir den Plastikmüll im Moment nicht richtig entsorgen. Könnten Sie die Situation bitte prüfen?",
+          "Der Plastikcontainer ist voll. Deswegen können wir den Müll nicht entsorgen. Bitte prüfen Sie das."
+        ]
+      },
+      "explanation": "Сообщение логично связывает факт и следствие с помощью Deshalb/Deswegen (V2: können wir...) и формулирует вежливую просьбу."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Перепишите предложение с акцентом на степень («настолько темно, что...»), используя конструкцию so … dass:"
+        }
+      ],
+      "data": {
+        "prompt": "Der Raum ist dunkel, sodass wir die Zahlen auf dem Zähler nicht erkennen.",
+        "sample_answer": "Der Raum ist so dunkel, dass wir die Zahlen auf dem Zähler nicht erkennen.",
+        "accepted_answers": [
+          "Der Raum ist so dunkel, dass wir die Zahlen auf dem Zähler nicht erkennen."
+        ]
+      },
+      "explanation": "Der Raum ist so dunkel, dass wir die Zahlen auf dem Zähler nicht erkennen. Конструкция so dunkel, dass смещает акцент с нейтральной констатации следствия на чрезмерную степень темноты."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выразите мысль «Батарея устройства разряжена, поэтому прибор выключается» двумя способами:\n1. Два предложения с deswegen.\n2. Одно сложное предложение с sodass."
+        }
+      ],
+      "data": {
+        "prompt": "1. Der Akku ist leer. Deswegen schaltet sich das Gerät aus. 2. Der Akku ist leer, sodass sich das Gerät ausschaltet.",
+        "sample_answer": "1. Der Akku ist leer. Deswegen schaltet sich das Gerät aus. 2. Der Akku ist leer, sodass sich das Gerät ausschaltet.",
+        "accepted_answers": [
+          "1. Der Akku ist leer. Deswegen schaltet sich das Gerät aus. 2. Der Akku ist leer, sodass sich das Gerät ausschaltet.",
+          "Der Akku ist leer. Deswegen schaltet sich das Gerät aus. Der Akku ist leer, sodass sich das Gerät ausschaltet."
+        ]
+      },
+      "explanation": "В варианте 1 глагол schaltet стоит на 2-м месте после Deswegen, а приставка aus — в конце. В варианте 2 глагол ausschaltet пишется слитно и стоит в конце придаточного после sodass."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Укажите все грамматически правильные предложения о бытовом энергосбережении:"
+        }
+      ],
+      "data": {
+        "prompt": "Даны предложения: (A) Je kürzer die Lampe brennt, desto weniger Strom verbraucht sie. (B) Das Gerät ist defekt. Daher wir tauschen es aus. (C) Das Fenster ist so undicht, dass kalte Luft hereinkommt. (D) Der Sensor funktioniert nicht, sodass das Licht bleibt an. Какие из них грамматически верны?",
+        "options": [
+          {
+            "text": "Предложения A и C верны.",
+            "correct": true
+          },
+          {
+            "text": "Только предложение A верно.",
+            "correct": false
+          },
+          {
+            "text": "Только предложение C верно.",
+            "correct": false
+          },
+          {
+            "text": "Предложения B и D верны.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "A верно (brennt в конце je-части, verbraucht после desto-группы). C верно (so undicht, dass с глаголом hereinkommt в конце). B ошибочно (после Daher нужна инверсия: Daher tauschen wir es aus). D ошибочно (после sodass глагол должен быть в конце: ..., sodass das Licht anbleibt)."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно сформулируйте три фразы на тему воды, отходов или тепла: (1) тенденцию с je … desto; (2) конкретное следствие с deshalb/deswegen/daher; (3) последствие с sodass или степень с so … dass."
+        },
+        {
+          "type": "example",
+          "text": "Без готовых опор. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Je kürzer ich dusche, desto weniger Wasser verbrauche ich. Der Wasserhahn tropft. Deshalb lasse ich ihn reparieren. Ich schließe den Hahn richtig, sodass kein Wasser mehr tropft.",
+        "sample_answer": "Je kürzer ich dusche, desto weniger Wasser verbrauche ich. Der Wasserhahn tropft. Deshalb lasse ich ihn reparieren. Ich schließe den Hahn richtig, sodass kein Wasser mehr tropft.",
+        "accepted_answers": [
+          "Je kürzer ich dusche, desto weniger Wasser verbrauche ich. Der Wasserhahn tropft. Deshalb lasse ich ihn reparieren. Ich schließe den Hahn richtig, sodass kein Wasser mehr tropft."
+        ]
+      },
+      "explanation": "Пример демонстрирует три различные целевые модели следствия с безупречным порядком слов в каждой из них."
+    }
+  ]
+}

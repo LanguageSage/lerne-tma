@@ -1,0 +1,635 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "B1-24-D13 · Je … desto und Folgesätze — Вспомнить за 10 минут",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "B1-24-D13 · Вспомнить за 10 минут",
+        "level": "B1",
+        "topic": "Je … desto und Folgesätze",
+        "description": "Экспресс-восстановление всей системы средств выражения следствия и пропорциональности за 10 минут: (1) зависимость двух шкал je … desto/umso, (2) конкретное следствие факта deshalb/deswegen/daher, (3) нейтральный результат sodass / so dass, (4) степень признака so … dass. Компактное повторение глагольных позиций перед итоговым контролем.",
+        "goal": "Быстро вернуть в активную память всю систему темы после перерыва без прохождения длинных тренировок: четыре смысловые задачи, правила порядка слов (V2 и Verb-Ende), типичные ошибки и базовое речевое воспроизведение.",
+        "learning_outcomes": [
+          "Быстро распознавать четыре типа коммуникативных задач следствия и пропорциональности",
+          "Безошибочно удерживать позиции личного глагола в главных и придаточных частях",
+          "Различать синонимичные варианты союзов (desto / umso; deshalb / deswegen / daher; sodass / so dass)",
+          "Исправлять типичные ошибки порядка слов в сжатые сроки",
+          "Активизировать изученные конструкции в коротких устных и письменных высказываниях"
+        ],
+        "estimated_time": "10–15 минут",
+        "recommendations": "Ошибки с je -> D05/D07; с desto -> D06/D07; umso -> D08; Deshalb -> D09; sodass/dass -> D10; выбор намерения -> D11; речь -> D12. Следующая колода D14 — независимый итоговый контроль."
+      },
+      "pedagogy": {
+        "lesson_type": "review",
+        "expected_result": "Ученик быстро восстанавливает навыки темы; различает четыре коммуникативные модели; соблюдает порядок слов главного (V2) и придаточного (Verb-Ende) предложений; формулирует базовые устные высказывания без задержек.",
+        "stages": [
+          {
+            "id": "revisit_je_desto",
+            "title": "Восстановление je … desto/umso и обеих позиций глаголов",
+            "goal": "Освежить в памяти сравнительные рамки пропорции и удержание глаголов в je- и desto-частях",
+            "from_card": 1,
+            "to_card": 8,
+            "support": "high",
+            "expected_skill": "Строить фразы с je ... desto/umso без нарушения рамок"
+          },
+          {
+            "id": "revisit_deshalb_v2",
+            "title": "deshalb/deswegen/daher и порядок слов главного предложения",
+            "goal": "Повторить инверсию V2 после наречных союзов следствия и их позицию внутри предложения",
+            "from_card": 9,
+            "to_card": 14,
+            "support": "high",
+            "expected_skill": "Ставить личный глагол сразу после союзов deshalb, deswegen, daher"
+          },
+          {
+            "id": "revisit_sodass_so_dass",
+            "title": "sodass, so … dass и конечная позиция глагола",
+            "goal": "Вспомнить различие нейтрального результата и степени признака, а также позицию глагола в конце",
+            "from_card": 15,
+            "to_card": 20,
+            "support": "medium",
+            "expected_skill": "Различать sodass и so ... dass, ставя личный глагол в конец придаточного"
+          },
+          {
+            "id": "rapid_mixed_integration",
+            "title": "Смешанная практика и экспресс-вывод в речь",
+            "goal": "Быстро применить все изученные модели в едином блоке и проверить готовность к контролю",
+            "from_card": 21,
+            "to_card": 24,
+            "support": "low",
+            "expected_skill": "Спонтанно выбирать модель и формулировать связные реплики без подсказок"
+          }
+        ],
+        "competencies": [
+          {
+            "id": "rapid_intent_recognition",
+            "title": "Экспресс-распознавание намерения",
+            "description": "Мгновенное соотнесение коммуникативной цели с одной из четырёх моделей следствия/пропорциональности"
+          },
+          {
+            "id": "dual_verb_positioning",
+            "title": "Контроль позиций глагола (V2 против Verb-Ende)",
+            "description": "Чёткое разграничение порядка слов главного предложения после deshalb и порядка придаточного после dass/sodass/je"
+          },
+          {
+            "id": "active_recall_fluency",
+            "title": "Беглость активного вспоминания",
+            "description": "Быстрое извлечение грамматических структур из памяти без долгих пауз"
+          }
+        ],
+        "assessment_criteria": [
+          {
+            "id": "quick_syntax_accuracy",
+            "title": "Точность синтаксиса при быстром воспроизведении",
+            "description": "Отсутствие грубых ошибок порядка слов в коротких контрольных упражнениях"
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "targeted_deck_review",
+            "title": "Адресное повторение тем",
+            "when": "При выявлении пробелов в конкретном типе конструкций",
+            "reason": "Перейти к соответствующей колоде D06–D12",
+            "competency_ids": [
+              "rapid_intent_recognition",
+              "dual_verb_positioning"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "cards": [
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Четыре вопроса к мысли: экспресс-памятка"
+        }
+      ],
+      "data": {
+        "text": "# Четыре вопроса к мысли\n\nВспомни карту выбора средств выражения следствия и зависимости:\n\n1. **Что меняется вместе? (две шкалы)**\n   * **je … desto / umso**:\n   * *Je öfter ich übe, desto leichter wird es.* (Чем чаще тренируюсь, тем легче становится).\n2. **Что произошло и к чему это привело? (конкретный результат)**\n   * **deshalb / deswegen / daher**:\n   * *Der Bus fällt aus. Deshalb gehe ich zu Fuß.* (Автобус отменён. Поэтому я иду пешком).\n3. **Каков нейтральный результат факта? (придаточное следствия)**\n   * **sodass / so dass**:\n   * *Es regnet, sodass wir drinnen bleiben.* (Идёт дождь, так что мы остаёмся внутри).\n4. **Насколько сильным было свойство? (степень признака)**\n   * **so + признак …, dass**:\n   * *Es ist so kalt, dass wir die Fenster schließen.* (Настолько холодно, что мы закрываем окна).\n\n### Порядок глаголов:\n* В `je … desto` — в первой части глагол в конце, во второй сразу после сравнительной группы.\n* После `deshalb` — спрягаемый глагол на 2-м месте (инверсия V2).\n* После `sodass` и `dass` — спрягаемый глагол в самом конце придаточного.\n\n**Словарь:**\n* ausfallen — отменяться\n* drinnen — внутри"
+      }
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите фразу с зависимостью двух изменяющихся величин:"
+        }
+      ],
+      "data": {
+        "prompt": "Выберите высказывание, описывающее пропорциональную зависимость двух процессов, а не единичное последствие:",
+        "options": [
+          {
+            "text": "Je früher ich aufstehe, desto mehr Zeit habe ich.",
+            "correct": true
+          },
+          {
+            "text": "Ich stehe früh auf. Deshalb habe ich Zeit.",
+            "correct": false
+          },
+          {
+            "text": "Ich stehe so früh auf, dass ich noch müde bin.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A выражает параллельную зависимость двух шкал через je … desto (чем раньше встаю, тем больше времени). Вариант B называет конкретный результат (deshalb), а вариант C подчёркивает степень признака (so früh, dass)."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Поставьте прилагательные viel и gut в форму Komparativ:"
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "mehr"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ich lese, desto "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "besser"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " verstehe ich den Text."
+          }
+        ]
+      },
+      "explanation": "Je mehr ich lese, desto besser verstehe ich den Text. Сравнительные формы от viel — mehr, от gut — besser (неправильные формы)."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов в первой половине предложения (je-часть):"
+        }
+      ],
+      "data": {
+        "prompt": "Je öfter ich gehe zum Kurs, desto besser verstehe ich die Grammatik.",
+        "sample_answer": "Je öfter ich zum Kurs gehe, desto besser verstehe ich die Grammatik.",
+        "accepted_answers": [
+          "Je öfter ich zum Kurs gehe, desto besser verstehe ich die Grammatik."
+        ]
+      },
+      "explanation": "Je öfter ich zum Kurs gehe, desto besser verstehe ich die Grammatik. Часть с союзом je является придаточным предложением, поэтому спрягаемый глагол gehe обязан стоять в самом конце."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите грамматически верное продолжение предложения:"
+        }
+      ],
+      "data": {
+        "prompt": "Какое продолжение верно передаёт мысль: «Чем дольше длится занятие, тем больше примеров мы получаем»?\nJe länger der Unterricht dauert, …",
+        "options": [
+          {
+            "text": "desto mehr Beispiele bekommen wir.",
+            "correct": true
+          },
+          {
+            "text": "desto mehr bekommen wir Beispiele.",
+            "correct": false
+          },
+          {
+            "text": "desto mehr Beispiele wir bekommen.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A верен: сравнительная группа desto mehr Beispiele представляет собой единый член предложения, сразу за которым следует спрягаемый глагол bekommen (порядок V2). Разрывать группу (вариант B) или ставить глагол в конец (вариант C) ошибочно."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Скажите вслух одним предложением: «Чем лучше я готовлюсь, тем спокойнее говорю»."
+        },
+        {
+          "type": "example",
+          "text": "Опоры: sich vorbereiten, ruhig sprechen. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Je besser ich mich vorbereite, desto ruhiger spreche ich.",
+        "sample_answer": "Je besser ich mich vorbereite, desto ruhiger spreche ich.",
+        "accepted_answers": [
+          "Je besser ich mich vorbereite, desto ruhiger spreche ich.",
+          "Je besser ich mich vorbereite, umso ruhiger spreche ich."
+        ]
+      },
+      "explanation": "Je besser ich mich vorbereite, desto ruhiger spreche ich. В придаточном с je глагол vorbereite стоит в конце; во второй части глагол spreche стоит сразу после группы desto ruhiger."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Замените союз desto на равноценный синоним, не меняя остальные слова:"
+        }
+      ],
+      "data": {
+        "prompt": "Je früher der Zug abfährt, desto früher kommen wir an.",
+        "sample_answer": "Je früher der Zug abfährt, umso früher kommen wir an.",
+        "accepted_answers": [
+          "Je früher der Zug abfährt, umso früher kommen wir an."
+        ]
+      },
+      "explanation": "Je früher der Zug abfährt, umso früher kommen wir an. Союзы desto и umso в парных конструкциях пропорциональности абсолютно равнозначны и взаимозаменяемы."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов во второй половине предложения:"
+        }
+      ],
+      "data": {
+        "prompt": "Je mehr ich übe, desto schneller ich lerne.",
+        "sample_answer": "Je mehr ich übe, desto schneller lerne ich.",
+        "accepted_answers": [
+          "Je mehr ich übe, desto schneller lerne ich."
+        ]
+      },
+      "explanation": "Je mehr ich übe, desto schneller lerne ich. Во второй части предложения группа desto schneller занимает 1-е место, а спрягаемый глагол lerne обязан занимать 2-е место перед подлежащим ich."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Поэтому — это главное предложение (инверсия V2)"
+        }
+      ],
+      "data": {
+        "text": "# Поэтому — это главное предложение\n\nНаречные союзы **deshalb**, **deswegen**, **daher** выражают следствие из названного ранее факта:\n* *Der Termin wurde verschoben. Deshalb muss ich neu planen.*\n  *(Встречу перенесли. Поэтому мне нужно перепланировать).* \n\n### Главное правило порядка слов:\nКогда `Deshalb` (или `Deswegen`, `Daher`) начинает предложение, сразу после него стоит **спрягаемый глагол** (позиция 2, инверсия):\n* ✓ `Deshalb **muss** ich ...`\n* ❌ `Deshalb ich muss ...`\n\nЭто не подчинительные союзы (как `weil`), поэтому глагол не уходит в конец, а занимает 2-е место главного предложения.\n\n**Словарь:**\n* verschieben — переносить срок\n* neu planen — планировать заново"
+      }
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Выберите грамматически верное продолжение предложения со значением «поэтому»:"
+        }
+      ],
+      "data": {
+        "prompt": "Сломался телефон, поэтому я не могу позвонить. Какое продолжение грамматически корректно?\nMein Handy ist kaputt. …",
+        "options": [
+          {
+            "text": "Deshalb kann ich nicht anrufen.",
+            "correct": true
+          },
+          {
+            "text": "Deshalb ich kann nicht anrufen.",
+            "correct": false
+          },
+          {
+            "text": "Deshalb ich nicht anrufen kann.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Вариант A верен: после союза Deshalb спрягаемый модальный глагол kann занимает 2-е место, подлежащее ich — 3-е, а смысловой инфинитив anrufen — в конце (V2). Варианты B и C нарушают порядок слов."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Замените союз Deshalb на Deswegen без других изменений:"
+        }
+      ],
+      "data": {
+        "prompt": "Der Schlüssel fehlt. Deshalb kann ich die Tür nicht öffnen.",
+        "sample_answer": "Der Schlüssel fehlt. Deswegen kann ich die Tür nicht öffnen.",
+        "accepted_answers": [
+          "Der Schlüssel fehlt. Deswegen kann ich die Tür nicht öffnen."
+        ]
+      },
+      "explanation": "Der Schlüssel fehlt. Deswegen kann ich die Tür nicht öffnen. Союзы Deshalb и Deswegen синонимичны и требуют одинакового порядка слов с инверсией глагола kann на 2-м месте."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Устно скажите: «Лифт сломан. Поэтому нам нужно идти по лестнице» (используйте daher)."
+        },
+        {
+          "type": "example",
+          "text": "Опоры: der Aufzug / kaputt / die Treppe nehmen. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Der Aufzug ist kaputt. Daher müssen wir die Treppe nehmen.",
+        "sample_answer": "Der Aufzug ist kaputt. Daher müssen wir die Treppe nehmen.",
+        "accepted_answers": [
+          "Der Aufzug ist kaputt. Daher müssen wir die Treppe nehmen."
+        ]
+      },
+      "explanation": "Der Aufzug ist kaputt. Daher müssen wir die Treppe nehmen. После наречного союза Daher спрягаемый глагол müssen стоит сразу на 2-м месте."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Проанализируйте варианты позиции слова deshalb:"
+        }
+      ],
+      "data": {
+        "prompt": "Какие варианты сохраняют правильный порядок слов и смысл «Поэтому я позвоню завтра»? (A) Deshalb rufe ich morgen an. (B) Ich rufe deshalb morgen an. (C) Deshalb ich rufe morgen an.",
+        "options": [
+          {
+            "text": "Варианты A и B верны: слово deshalb может стоять как на первом месте, так и в середине предложения.",
+            "correct": true
+          },
+          {
+            "text": "Только вариант A верен.",
+            "correct": false
+          },
+          {
+            "text": "Только вариант B верен.",
+            "correct": false
+          },
+          {
+            "text": "Вариант C верен.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Варианты A и B оба грамматически безупречны: личный глагол rufe занимает 2-ю позицию и в A (после начального Deshalb), и в B (после подлежащего Ich, когда deshalb находится в середине предложения). Вариант C ошибочен."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите оба предложения из слов: «Дверь заперта. Поэтому мы не можем войти»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Die",
+          "Tür",
+          "ist",
+          "abgeschlossen.",
+          "Deswegen",
+          "können",
+          "wir",
+          "nicht",
+          "hinein."
+        ],
+        "translation": "Дверь заперта. Поэтому мы не можем войти."
+      },
+      "explanation": "Die Tür ist abgeschlossen. Deswegen können wir nicht hinein. После Deswegen спрягаемый модальный глагол können стоит сразу на 2-м месте."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Вставьте союз со значением «так что», не меняя порядок слов:"
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Die Straße ist gesperrt, "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "sodass",
+              "so dass"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " der Bus einen Umweg fahren muss."
+          }
+        ]
+      },
+      "explanation": "Die Straße ist gesperrt, sodass der Bus einen Umweg fahren muss. Союз sodass (или so dass) вводит придаточное следствия, в котором спрягаемый модальный глагол muss стоит в самом конце."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите придаточную часть со значением степени: «Текст был настолько мелким, что я едва мог его прочитать»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Der",
+          "Text",
+          "war",
+          "so",
+          "klein,",
+          "dass",
+          "ich",
+          "ihn",
+          "kaum",
+          "lesen",
+          "konnte."
+        ],
+        "translation": "Текст был настолько мелким, что я едва мог его прочитать."
+      },
+      "explanation": "Der Text war so klein, dass ich ihn kaum lesen konnte. Конструкция so klein, dass подчеркивает степень признака, личный глагол konnte завершает придаточное предложение."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Не путай два вида «so»"
+        }
+      ],
+      "data": {
+        "text": "# Не путай два вида «so»\n\nСравните два разных типа связи:\n\n1. **Акцент на степени признака (`so + признак …, dass`):**\n   * *Das Fenster ist so schmutzig, dass ich kaum hinaussehen kann.*\n   * *(Окно настолько грязное, что я едва могу видеть сквозь него).*\n   * Слово **so** усиливает качество (грязное), а придаточное с **dass** показывает последствие этой степени.\n\n2. **Нейтральное следствие факта (`sodass / so dass`):**\n   * *Das Fenster ist schmutzig, sodass ich es putze.*\n   * *(Окно грязное, так что я его мою).*\n   * Здесь **sodass** — единый союз следствия, начинающий придаточное.\n\nВ обоих случаях спрягаемый глагол придаточного предложения стоит **на самом последнем месте**.\n\n**Словарь:**\n* schmutzig — грязный\n* putzen — мыть, чистить\n* hinaussehen — смотреть наружу"
+      }
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Скажите вслух с акцентом на степень: «Музыка настолько громкая, что я не могу учиться»."
+        },
+        {
+          "type": "example",
+          "text": "Опоры: die Musik / laut / lernen können. Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Die Musik ist so laut, dass ich nicht lernen kann.",
+        "sample_answer": "Die Musik ist so laut, dass ich nicht lernen kann.",
+        "accepted_answers": [
+          "Die Musik ist so laut, dass ich nicht lernen kann."
+        ]
+      },
+      "explanation": "Die Musik ist so laut, dass ich nicht lernen kann. Рамка so laut, dass выделяет степень громкости, а модальный глагол kann завершает придаточную часть."
+    },
+    {
+      "type": "quiz",
+      "info": [
+        {
+          "type": "task",
+          "text": "Проанализируйте варианты выражения следствия «Окна открыты, поэтому в комнате прохладно»:"
+        }
+      ],
+      "data": {
+        "prompt": "Дана ситуация: окна открыты, поэтому в комнате прохладно. Какие варианты грамматически правильны? (A) Die Fenster sind offen. Deshalb ist es im Zimmer kühl. (B) Die Fenster sind offen, sodass es im Zimmer kühl ist. (C) Die Fenster sind offen, sodass ist es im Zimmer kühl.",
+        "options": [
+          {
+            "text": "Варианты A и B верны: A выражает следствие через главное предложение с Deshalb, а B — через придаточное с sodass.",
+            "correct": true
+          },
+          {
+            "text": "Только вариант A верен.",
+            "correct": false
+          },
+          {
+            "text": "Только вариант B верен.",
+            "correct": false
+          },
+          {
+            "text": "Вариант C верен.",
+            "correct": false
+          }
+        ]
+      },
+      "explanation": "Варианты A и B оба грамматически безупречны: в A личный глагол ist занимает 2-е место после Deshalb, а в B — последнее место придаточного после sodass. Вариант C ошибочен, так как глагол ist поставлен слишком рано."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте порядок слов в придаточной части предложения:"
+        }
+      ],
+      "data": {
+        "prompt": "Das Paket kam spät, sodass ich musste lange warten.",
+        "sample_answer": "Das Paket kam spät, sodass ich lange warten musste.",
+        "accepted_answers": [
+          "Das Paket kam spät, sodass ich lange warten musste."
+        ]
+      },
+      "explanation": "Das Paket kam spät, sodass ich lange warten musste. После подчинительного союза sodass спрягаемый модальный глагол musste обязан стоять в самом конце предложения после инфинитива warten."
+    },
+    {
+      "type": "match",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соотнесите коммуникативное намерение с подходящим примером:"
+        }
+      ],
+      "data": {
+        "pairs": [
+          {
+            "left": "Два параллельных изменения",
+            "right": "Je mehr ich trage, desto müder werde ich."
+          },
+          {
+            "left": "Одно событие: поэтому я действую",
+            "right": "Der Laden ist zu. Deshalb komme ich morgen wieder."
+          },
+          {
+            "left": "Выделить степень признака",
+            "right": "Die Tasche ist so schwer, dass ich Hilfe brauche."
+          }
+        ]
+      },
+      "explanation": "1 — Je mehr ... desto müder выражает пропорцию шкал. 2 — Deshalb связывает закрытие магазина с решением прийти завтра. 3 — so schwer, dass подчеркивает крайнюю тяжесть сумки."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите на немецкий язык: «Чем меньше времени я провожу с телефоном, тем больше времени у меня на чтение»."
+        }
+      ],
+      "data": {
+        "prompt": "Je weniger Zeit ich am Handy verbringe, desto mehr Zeit habe ich zum Lesen.",
+        "sample_answer": "Je weniger Zeit ich am Handy verbringe, desto mehr Zeit habe ich zum Lesen.",
+        "accepted_answers": [
+          "Je weniger Zeit ich am Handy verbringe, desto mehr Zeit habe ich zum Lesen.",
+          "Je weniger Zeit ich mit dem Handy verbringe, desto mehr Zeit habe ich zum Lesen."
+        ]
+      },
+      "explanation": "Je weniger Zeit ich am Handy verbringe, desto mehr Zeit habe ich zum Lesen. Группы je weniger Zeit и desto mehr Zeit не разрываются, глагол verbringe замыкает первую часть, а habe стоит сразу после второй сравнительной группы."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Занятие на курсах отменено. Напишите две короткие фразы: что произошло и что вы будете делать (используйте deshalb или sodass)."
+        }
+      ],
+      "data": {
+        "prompt": "Der Kurs fällt heute aus. Deshalb lerne ich zu Hause.",
+        "sample_answer": "Der Kurs fällt heute aus. Deshalb lerne ich zu Hause.",
+        "accepted_answers": [
+          "Der Kurs fällt heute aus. Deshalb lerne ich zu Hause.",
+          "Der Kurs fällt heute aus, sodass ich zu Hause lernen kann.",
+          "Der Kurs fällt aus. Deswegen lerne ich zu Hause."
+        ]
+      },
+      "explanation": "Оба варианта верны при условии соблюдения порядка слов: инверсии V2 после Deshalb (Deshalb lerne ich...) либо глагола в конце после sodass (..., sodass ich ... lernen kann)."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Произнесите две связанные фразы: первая — je … desto (что меняется от практики языка), вторая — deshalb (какое решение вы принимаете)."
+        },
+        {
+          "type": "example",
+          "text": "Доступна опция «не могу говорить» без штрафа."
+        }
+      ],
+      "data": {
+        "prompt": "Je öfter ich Deutsch spreche, desto sicherer werde ich. Deshalb übe ich jeden Tag.",
+        "sample_answer": "Je öfter ich Deutsch spreche, desto sicherer werde ich. Deshalb übe ich jeden Tag.",
+        "accepted_answers": [
+          "Je öfter ich Deutsch spreche, desto sicherer werde ich. Deshalb übe ich jeden Tag.",
+          "Je mehr ich Deutsch übe, desto besser spreche ich. Deshalb lerne ich jeden Tag."
+        ]
+      },
+      "explanation": "Высказывание объединяет динамическую шкалу прогресса (je öfter ... desto sicherer werde ich) и практическое следствие с инверсией (Deshalb übe ich jeden Tag)."
+    }
+  ]
+}

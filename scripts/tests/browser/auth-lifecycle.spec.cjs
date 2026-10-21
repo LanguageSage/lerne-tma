@@ -1,8 +1,14 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
+
+test.use({ launchOptions: { args: ['--enable-automation'], ignoreDefaultArgs: ['--disable-popup-blocking'] } });
 
 // Isolated browser/provider/transport boundaries. No real accounts or backend.
-async function setup(page, context, { miniApp = false, rejectProof = false, blocked = false } = {}) {
-  const state = { authenticated: false, confirmed: false, miniCalls: 0, refreshes: 0, expired: false, errors: [] };
+async function setup(page, context, { miniApp = false, rejectProof = false, blocked = false, holdChallenge = false, autoConfirm = true } = {}) {
+  const state = { authenticated: false, confirmed: false, miniCalls: 0, refreshes: 0, expired: false, errors: [], challenges: [], exchanges: [], opens: [] };
+  let releaseChallenge;
+  const challengeGate = holdChallenge ? new Promise(resolve => { releaseChallenge = resolve; }) : Promise.resolve();
+  state.releaseChallenge = releaseChallenge;
+  await page.exposeFunction('fixtureOpen', () => state.opens.push('open'));
   page.on('pageerror', error => state.errors.push(error.message));
   await context.addInitScript(({ miniApp, blocked }) => {
     if (!localStorage.getItem('auth_fixture_seeded')) {
@@ -11,7 +17,8 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
         lerne_tut_seen_welcome: 'true', auth_fixture_seeded: 'true' })) localStorage.setItem(key, value);
       if (!miniApp) localStorage.setItem('lerne_force_guest', 'true');
     }
-    if (blocked) window.open = () => null;
+    const open = window.open.bind(window);
+    window.open = (...args) => { window.fixtureOpen?.(); return blocked ? null : open(...args); };
     if (miniApp) window.Telegram = { WebApp: { initData: 'synthetic-proof', initDataUnsafe: { user: { id: 101 } },
       ready() {}, expand() {}, disableClosingConfirmation() {},
       openTelegramLink(url) { window.fixtureTelegramUrl = url; },
@@ -21,7 +28,7 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
     const url = new URL(route.request().url());
     if (['127.0.0.1', 'localhost'].includes(url.hostname)) return route.continue();
     if (['t.me', 'accounts.google.com'].includes(url.hostname)) {
-      state.confirmed = true;
+      if (autoConfirm) state.confirmed = true;
       return route.fulfill({ contentType: 'text/html', body: '<p>Fixture provider confirmed</p>' });
     }
     return route.abort();
@@ -33,11 +40,14 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
     const fail = (status, detail) => route.fulfill({ status, json: { detail } });
     if (pathname === '/api/auth/v2/challenges') {
       const provider = request.postDataJSON().provider;
+      state.challenges.push(request.postDataJSON());
+      await challengeGate;
       return route.fulfill({ json: { challenge_id: 'fixture', secret: 's'.repeat(43),
         expires_at: new Date(Date.now() + 300000).toISOString(),
         authorization_url: provider === 'telegram' ? 'https://t.me/fixture_bot?start=auth_fixture' : 'https://accounts.google.com/fixture' } });
     }
     if (pathname.endsWith('/exchange')) {
+      state.exchanges.push(request.postDataJSON());
       if (!state.confirmed) return fail(401, 'invalid_challenge');
       state.authenticated = true;
       return route.fulfill({ json: tokens });
@@ -69,14 +79,21 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
 }
 
 for (const provider of ['Telegram', 'Google']) {
-  test(`${provider} opens reserved browser tab and session survives reload with expired access`, async ({ page, context }) => {
+  test(`${provider} opens once and session survives reload with expired access`, async ({ page, context }) => {
     const state = await setup(page, context);
     await page.locator('.user-signin-button').click();
     const [popup] = await Promise.all([
       context.waitForEvent('page'),
-      page.getByRole('button', { name: new RegExp(`Войти через ${provider}$`) }).click(),
+      (provider === 'Telegram' ? page.getByRole('link', { name: 'Войти через Telegram', exact: true })
+        : page.getByRole('button', { name: /Войти через Google$/ })).click(),
     ]);
     await expect(popup.getByText('Fixture provider confirmed')).toBeVisible();
+    expect(await popup.evaluate(() => window.opener === null)).toBe(true);
+    expect(context.pages()).toHaveLength(2);
+    if (provider === 'Telegram') {
+      expect(state.opens).toHaveLength(0);
+      expect(state.challenges).toEqual([{ provider: 'telegram', purpose: 'login' }]);
+    }
     await page.bringToFront();
     await expect(page.getByRole('dialog')).toHaveCount(0);
     await expect(page.locator('.user-name')).toHaveText('Learner');
@@ -89,19 +106,112 @@ for (const provider of ['Telegram', 'Google']) {
   });
 }
 
-test('blocked popup exposes usable link, survives reload, and allows timeout/retry', async ({ page, context }, testInfo) => {
+test('Chrome popup policy blocks an unsolicited script popup', async ({ page, context }) => {
+  await setup(page, context);
+  // Playwright evaluate grants a gesture; CDP can exercise the actual policy
+  // without granting user activation to this script.
+  const cdp = await context.newCDPSession(page);
+  const command = await cdp.send('Browser.getBrowserCommandLine');
+  expect(command.arguments).not.toContain('--disable-popup-blocking');
+  // Setup/navigation may leave transient activation in automated Chrome.
+  // Wait for its real expiry before checking a delayed script invocation.
+  await expect.poll(async () => (await cdp.send('Runtime.evaluate', {
+    expression: 'navigator.userActivation.isActive', returnByValue: true, userGesture: false,
+  })).result.value, { timeout: 10000 }).toBe(false);
+  const { result } = await cdp.send('Runtime.evaluate', {
+    expression: "window.open('about:blank', '_blank') === null", returnByValue: true, userGesture: false,
+  });
+  expect(result.value).toBe(true);
+  expect(context.pages()).toHaveLength(1);
+});
+
+test('native Telegram link works with window.open blocked, including keyboard and mobile layout', async ({ page, context }, testInfo) => {
   const state = await setup(page, context, { blocked: true });
   await page.locator('.user-signin-button').click();
-  await page.getByRole('button', { name: 'Войти через Telegram', exact: true }).click();
-  await expect(page.getByRole('alert')).toContainText('Окно входа не открылось');
-  const link = page.getByRole('link', { name: 'Окно не открылось? Нажмите здесь ↗' });
+  const telegram = page.getByRole('link', { name: 'Войти через Telegram', exact: true });
+  await expect(telegram).toHaveAttribute('href', 'https://t.me/fixture_bot?start=auth_fixture');
+  for (const locale of ['ru', 'en']) {
+    await page.evaluate(async language => (await import('/src/i18n/locale.js')).setInterfaceLanguage(language), locale);
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await expect(page.locator('a.auth-telegram')).toBeVisible();
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`native-${locale}-${width}.png`), fullPage: true });
+    }
+  }
+  const pendingBefore = await page.evaluate(() => sessionStorage.getItem('lerne_auth_v2_pending'));
+  expect(pendingBefore).toBeNull(); // Preflight alone cannot start a login/polling.
+  await page.locator('a.auth-telegram').focus();
+  const popupPromise = context.waitForEvent('page');
+  await page.keyboard.press('Enter');
+  const popup = await popupPromise;
+  await expect(popup.getByText('Fixture provider confirmed')).toBeVisible();
+  await page.bringToFront();
+  await expect(page.locator('.user-name')).toHaveText('Learner');
+  expect(state.opens).toHaveLength(0);
+  expect(state.challenges).toHaveLength(1);
+  expect(context.pages()).toHaveLength(2);
+  expect(state.errors).toEqual([]);
+});
+
+for (const blocked of [false, true]) {
+  test(`early click shares preflight and ${blocked ? 'blocked popup navigates current tab and restores' : 'uses one reserved tab'}`, async ({ page, context }) => {
+    const state = await setup(page, context, { blocked, holdChallenge: true });
+    await page.locator('.user-signin-button').click();
+    await expect.poll(() => state.challenges.length).toBe(1);
+    await page.getByRole('button', { name: 'Войти через Telegram', exact: true }).click();
+    await expect.poll(() => state.opens.length).toBe(1);
+    expect(context.pages()).toHaveLength(blocked ? 1 : 2);
+    state.releaseChallenge();
+    const providerPage = blocked ? page : context.pages().find(candidate => candidate !== page);
+    await expect(providerPage.getByText('Fixture provider confirmed')).toBeVisible();
+    if (blocked) {
+      // The original pending challenge is saved before leaving; return/reload
+      // exchanges it without a second POST /challenges or another window.open.
+      expect(await page.evaluate(() => sessionStorage.getItem('lerne_auth_v2_pending'))).toBeNull();
+      await page.goBack();
+    } else {
+      await page.bringToFront();
+    }
+    await expect(page.locator('.user-name')).toHaveText('Learner');
+    expect(state.exchanges.at(-1)).toEqual({ secret: 's'.repeat(43) });
+    expect(state.challenges).toHaveLength(1);
+    expect(state.opens).toHaveLength(1);
+    expect(context.pages()).toHaveLength(blocked ? 1 : 2);
+    expect(state.errors).toEqual([]);
+  });
+}
+
+test('rapid repeat clicks do not open more tabs or challenges', async ({ page, context }) => {
+  const state = await setup(page, context, { autoConfirm: false });
+  await page.locator('.user-signin-button').click();
+  const telegram = page.getByRole('link', { name: 'Войти через Telegram', exact: true });
+  await expect(telegram).toBeVisible();
+  await telegram.dblclick();
+  await expect.poll(() => context.pages().length).toBe(2);
+  expect(state.challenges).toHaveLength(1);
+  expect(state.opens).toHaveLength(0);
+  state.confirmed = true;
+  await page.getByRole('button', { name: 'Я подтвердил, продолжить' }).click();
+  await expect(page.locator('.user-name')).toHaveText('Learner');
+});
+
+test('pending native login exposes last-resort link, survives reload and expires', async ({ page, context }, testInfo) => {
+  const state = await setup(page, context, { autoConfirm: false });
+  await page.locator('.user-signin-button').click();
+  const popupPromise = context.waitForEvent('page');
+  await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
+  const firstPopup = await popupPromise;
+  await expect(firstPopup.getByText('Fixture provider confirmed')).toBeVisible();
+  await firstPopup.close();
+  const link = page.getByRole('dialog').locator('a:not(.auth-telegram)');
   await expect(link).toHaveAttribute('href', /https:\/\/t\.me\//);
   for (const locale of ['ru', 'en']) {
     await page.evaluate(async language => (await import('/src/i18n/locale.js')).setInterfaceLanguage(language), locale);
     for (const width of [320, 375, 430, 768, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-      await expect(page.getByRole('link')).toBeVisible();
+      await expect(link).toBeVisible();
       await page.screenshot({ path: testInfo.outputPath(`blocked-${locale}-${width}.png`), fullPage: true });
     }
   }
@@ -116,12 +226,17 @@ test('blocked popup exposes usable link, survives reload, and allows timeout/ret
   });
   await page.getByRole('button', { name: 'Я подтвердил, продолжить' }).click();
   await expect(page.getByRole('alert')).toContainText('Время подтверждения истекло');
-  await expect(page.getByRole('button', { name: 'Войти через Telegram', exact: true })).toBeEnabled();
-  await page.getByRole('button', { name: 'Войти через Telegram', exact: true }).click();
-  const popupPromise = context.waitForEvent('page');
+  await expect(page.getByRole('link', { name: 'Войти через Telegram', exact: true })).toBeVisible();
+  const retryPopupPromise = context.waitForEvent('page');
+  await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
+  const retryPopup = await retryPopupPromise;
+  await expect(retryPopup.getByText('Fixture provider confirmed')).toBeVisible();
+  await retryPopup.close();
+  const manualPopupPromise = context.waitForEvent('page');
   await link.click(); // Native anchor navigation works even if window.open is blocked.
-  const popup = await popupPromise;
+  const popup = await manualPopupPromise;
   await expect(popup.getByText('Fixture provider confirmed')).toBeVisible();
+  state.confirmed = true;
   await page.bringToFront();
   await expect(page.getByRole('dialog')).toHaveCount(0);
   expect(state.errors).toEqual([]);

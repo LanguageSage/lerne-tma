@@ -1,0 +1,849 @@
+# B1-24 · Чем …, тем … и выражение следствий
+## Колода 06 · Вторая половина: desto
+
+**Уровень:** B1  
+**Тема / единый `::topic`:** `Je … desto und Folgesätze`  
+**Формат:** методический первый проход, `.md`; типы заданий условные, техническую разметку уточняют на втором проходе.  
+**Объём:** 48 карточек: 6 кратких `@theory`, 42 практические.  
+**Главный навык:** правильно составлять **вторую** часть связи `je …, desto …`: начальная группа `desto + Komparativ` (иногда с существительным) → спрягаемый глагол → подлежащее / остальные члены.  
+**Контексты и новые слова:** работа, коллеги, смены, организация рабочего дня, курсы и подготовка к экзамену.  
+**Педагогическая граница:** первая `je`-часть почти всегда дана; не проверять полное самостоятельное построение обеих частей (это задача D07). Слова `deshalb`, `sodass` здесь не тренировать.
+
+## Педагогический паспорт
+
+**Название, уровень, тема.** B1-24-D06 «Вторая половина: desto», уровень B1, `Je … desto und Folgesätze`.
+
+**Цель.** Ученик научится автоматически ставить личную форму глагола сразу после **всей начальной группы** с `desto` и затем продолжать фразу грамматически правильно: `desto schneller **lerne ich**`, `desto mehr Zeit **habe ich**`, `desto sicherer **kann ich sprechen**`.
+
+**Ожидаемые навыки.** Распознать начало второй части, отличить позицию сказуемого от ошибочного `desto besser ich lerne`, выбирать согласованную личную форму, собирать предложение из слов, исправлять реальные ошибки, произносить готовую вторую часть, применять модель к профессиональным ситуациям и учёбе.
+
+**Маршрут.** (1) Узнать порядок слов; (2) выбрать личный глагол; (3) собрать короткую вторую часть; (4) учесть длинную группу `desto mehr + Nomen`; (5) построить с модальным глаголом; (6) исправить ошибку и частично ответить без опоры.
+
+**Поддержка.** Карточки 01–16 — явные образцы и выбор; 17–32 — подсказки из слов и короткий ввод; 33–40 — коррекция ошибок и минимальные опоры; 41–48 — самостоятельное составление **только второй части** с данными словами. Восемь устных карточек (каждая шестая) предусматривают вариант «не могу говорить», без штрафа: можно прочитать образец глазами и повторить позднее.
+
+**Критерии освоения.** Не менее 80% правильных ответов в заданиях 33–48 без дополнительных подсказок; верный порядок слов в 4 из 5 последних письменных самостоятельных заданий; ученик может объяснить «после `desto schneller` сразу `arbeite`, затем `ich`» и произнести хотя бы 3 коротких вторых части. Эти критерии проверяются по прохождению, а не по созданию колоды.
+
+**Рекомендации.** Путается инверсия — вернуться к 01–08, 19–24; не распознаёт глагол — 09–16; ошибается с `mehr/weniger + Nomen` — 25–32; переносит глагол в конец — 33–40. Следующий этап — D07 «Связываем две мысли»: самостоятельное построение целого предложения.
+
+**Важная модель для ученика:**  
+`Je länger ich übe, | desto schneller **lerne ich**.`  
+`Je besser die Erklärung ist, | desto leichter **verstehe ich** sie.`  
+`Je früher ich beginne, | desto mehr Zeit **habe ich**.`  
+В части с `je` личный глагол в конце; **в части с `desto` — сразу после всей начальной сравнительной группы**. Когда есть модальный глагол, на этом месте стоит именно он: `desto besser **kann ich** arbeiten`.
+
+---
+
+## Карточки
+
+### 01 · @theory · Модель второй половины
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Две части — два разных места для глагола.
+
+**BACK**  
+**Je länger ich lerne, desto sicherer spreche ich.**  
+Чем дольше я учусь, тем увереннее говорю.
+
+В первой части `lerne` стоит в конце. Во второй начальный блок — **desto sicherer**; сразу после него идёт **spreche**, потом **ich**. Не говори `desto sicherer ich spreche` в значении главной части.
+
+**CONTEXT:** Объяснение: сперва видеть группу целиком, затем искать личный глагол.
+
+---
+
+### 02 · ВЫБОР · Сразу после desto
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Продолжи: `Je öfter ich wiederhole, …`  
+A. `desto schneller merke ich mir die Wörter.`  
+B. `desto schneller ich merke mir die Wörter.`  
+C. `desto schneller merke mir ich die Wörter.`
+
+**BACK**  
+**A.** `Je öfter ich wiederhole, desto schneller merke ich mir die Wörter.`  
+Чем чаще я повторяю, тем быстрее запоминаю слова. `desto schneller` занимает первую позицию; далее спрягаемый `merke`, затем `ich`.
+
+**CONTEXT:** merken — запоминать (здесь: sich etwas merken).
+
+---
+
+### 03 · ВВОД · Найди глагол
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je klarer die Aufgabe ist, desto schneller ___ ich.`  
+Вставь подходящую личную форму глагола `arbeiten`.
+
+**BACK**  
+**arbeite**.  
+`Je klarer die Aufgabe ist, desto schneller arbeite ich.` — Чем понятнее задание, тем быстрее я работаю. После `desto schneller` сразу идёт `arbeite`.
+
+**CONTEXT:** die Aufgabe — задание.
+
+---
+
+### 04 · ПОИСК ОШИБКИ · Где ich?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Найди и исправь ошибку во второй части:  
+`Je mehr ich übe, desto leichter ich verstehe die Grammatik.`
+
+**BACK**  
+`Je mehr ich übe, **desto leichter verstehe ich** die Grammatik.`  
+После сравнительной группы `desto leichter` личный глагол `verstehe` идёт **перед** `ich`.
+
+**CONTEXT:** Фокус только на второй части, первую не изменяем.
+
+---
+
+### 05 · ВЫБОР · Два близких варианта
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je besser der Kurs ist, …`  
+A. `desto motivierter bin ich.`  
+B. `desto motivierter ich bin.`  
+C. `desto motivierter bin ich bin.`
+
+**BACK**  
+**A.** `Je besser der Kurs ist, desto motivierter bin ich.` — Чем лучше курс, тем я мотивированнее. `bin` занимает вторую позицию во второй части.
+
+**CONTEXT:** motiviert — мотивированный.
+
+---
+
+### 06 · РЕЧЬ · Сказать вслух
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Скажи вслух **только вторую часть**:  
+`Je mehr ich lese, …`  
+Опора: `desto / schneller / lerne / ich`.  
+Если сейчас не можешь говорить, выбери «не могу говорить» и просто прочитай готовый вариант после открытия.
+
+**BACK**  
+**Desto schneller lerne ich.**  
+Полностью: `Je mehr ich lese, desto schneller lerne ich.` — Чем больше читаю, тем быстрее учусь. Произнеси с маленькой паузой после запятой.
+
+**CONTEXT:** Речь добровольная; отсутствие голоса не считать грамматической ошибкой.
+
+---
+
+### 07 · ПАЗЛ · Начальная группа + глагол
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je ruhiger das Büro ist, …`  
+Собери вторую часть из слов: `ich | kann | desto | mich | besser | konzentrieren`.
+
+**BACK**  
+**desto besser kann ich mich konzentrieren.**  
+Чем тише в офисе, тем лучше я могу сосредоточиться. После группы `desto besser` ставим **kann**, а `konzentrieren` остаётся в конце.
+
+**CONTEXT:** sich konzentrieren — сосредотачиваться; лёгкое знакомство с модальным `kann`.
+
+---
+
+### 08 · ВЫБОР · Группа целиком
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je früher die Besprechung beginnt, …`  
+A. `desto mehr Zeit haben wir danach.`  
+B. `desto haben wir mehr Zeit danach.`  
+C. `desto mehr Zeit wir haben danach.`
+
+**BACK**  
+**A.** `Je früher die Besprechung beginnt, desto mehr Zeit haben wir danach.`  
+Чем раньше начинается совещание, тем больше времени у нас остаётся после него. Начальная группа — **desto mehr Zeit**, а не одно слово `desto`.
+
+**CONTEXT:** die Besprechung — совещание; danach — после этого.
+
+---
+
+### 09 · @theory · Составная группа
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Почему здесь `habe` идёт не сразу после `desto`?
+
+**BACK**  
+`Je früher ich anfange, desto **mehr Zeit** habe ich.`  
+Чем раньше я начинаю, тем больше времени у меня есть.
+
+Слова **desto mehr Zeit** образуют **одну начальную группу**: `desto + сравнительное количество + существительное`. Глагол `habe` в главной части идёт после **всей группы**. Не разрывай её.
+
+**CONTEXT:** Ключ к дальнейшим заданиям с `mehr`, `weniger` и существительными.
+
+---
+
+### 10 · ВВОД · Меняем лицо
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je öfter ihr gemeinsam übt, desto sicherer ___ ihr.`  
+Впиши форму `werden`.
+
+**BACK**  
+**werdet**.  
+`Je öfter ihr gemeinsam übt, desto sicherer werdet ihr.` — Чем чаще вы тренируетесь вместе, тем увереннее становитесь. После `desto sicherer` спрягаемый глагол стоит перед подлежащим `ihr`.
+
+**CONTEXT:** gemeinsam — вместе.
+
+---
+
+### 11 · СРАВНЕНИЕ · Рабочая смена
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Выбери правильный порядок:  
+A. `desto früher gehen wir nach Hause.`  
+B. `desto früher wir gehen nach Hause.`  
+Первая часть уже есть: `Je früher die Schicht endet, …`
+
+**BACK**  
+**A.** `Je früher die Schicht endet, desto früher gehen wir nach Hause.`  
+Чем раньше заканчивается смена, тем раньше мы идём домой. `gehen` стоит непосредственно после `desto früher`.
+
+**CONTEXT:** die Schicht — смена; enden — заканчиваться.
+
+---
+
+### 12 · РЕЧЬ · Работа в команде
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Скажи вторую часть к `Je besser wir zusammenarbeiten, …`  
+Опора: `desto / schneller / lösen / wir / Probleme`.  
+Можно выбрать «не могу говорить» без штрафа.
+
+**BACK**  
+**Desto schneller lösen wir Probleme.**  
+`Je besser wir zusammenarbeiten, desto schneller lösen wir Probleme.` — Чем лучше мы сотрудничаем, тем быстрее решаем проблемы. После `desto schneller` сразу `lösen`, потом `wir`.
+
+**CONTEXT:** zusammenarbeiten — сотрудничать; lösen — решать.
+
+---
+
+### 13 · ВЫБОР · Du и форма глагола
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr du nachfragst, …`  
+A. `desto besser verstehst du die Anleitung.`  
+B. `desto besser verstehen du die Anleitung.`  
+C. `desto besser du verstehst die Anleitung.`
+
+**BACK**  
+**A.** `Je mehr du nachfragst, desto besser verstehst du die Anleitung.` — Чем больше ты уточняешь, тем лучше понимаешь инструкцию. `verstehst` — форма для `du`, и она стоит перед `du`.
+
+**CONTEXT:** nachfragen — переспросить, уточнить; die Anleitung — инструкция.
+
+---
+
+### 14 · ВВОД · Wir и глагол
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je besser wir uns vorbereiten, desto weniger Fehler ___ wir.`  
+Вставь форму `machen`.
+
+**BACK**  
+**machen**.  
+`Je besser wir uns vorbereiten, desto weniger Fehler machen wir.` — Чем лучше мы готовимся, тем меньше ошибок совершаем. `desto weniger Fehler` — вся начальная группа, после неё `machen wir`.
+
+**CONTEXT:** sich vorbereiten — готовиться; der Fehler — ошибка.
+
+---
+
+### 15 · ПАЗЛ · Стоимость ошибок
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je sorgfältiger wir arbeiten, …`  
+Собери: `entstehen | desto | weniger | Fehler`.
+
+**BACK**  
+**desto weniger Fehler entstehen.**  
+`Je sorgfältiger wir arbeiten, desto weniger Fehler entstehen.` — Чем внимательнее мы работаем, тем меньше ошибок возникает. `weniger Fehler` здесь само подлежащее; после сравнительной группы идёт глагол `entstehen` и предложение уже полное.
+
+**CONTEXT:** sorgfältig — тщательный, внимательный; entstehen — возникать. Важно: не нужно искусственно добавлять `wir`.
+
+---
+
+### 16 · ВЫБОР · Das Team
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je deutlicher die Chefin spricht, …`  
+A. `desto besser versteht das Team die Aufgabe.`  
+B. `desto besser das Team versteht die Aufgabe.`  
+C. `desto besser verstehen das Team die Aufgabe.`
+
+**BACK**  
+**A.** `Je deutlicher die Chefin spricht, desto besser versteht das Team die Aufgabe.` — Чем яснее говорит руководительница, тем лучше команда понимает задачу. `das Team` — единственное число: `versteht`.
+
+**CONTEXT:** deutlich — отчётливо, ясно; die Chefin — руководительница.
+
+---
+
+### 17 · @theory · Модальные глаголы
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Где место глагола, если в ответе два глагола?
+
+**BACK**  
+`Je genauer ich die Regeln kenne, desto sicherer **kann** ich arbeiten.`  
+Чем точнее я знаю правила, тем увереннее могу работать.
+
+Личная форма `kann` идёт **сразу после `desto sicherer`**. Смысловой инфинитив `arbeiten` уходит в конец. Схема: `desto + Komparativ | kann/muss/will | подлежащее … | Infinitiv`.
+
+**CONTEXT:** Не переносить модальный глагол в конец по образцу придаточного `je`.
+
+---
+
+### 18 · РЕЧЬ · На занятии
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно продолжи: `Je mehr Beispiele der Lehrer zeigt, …`  
+Опора: `desto / leichter / können / wir / die Regel / verstehen`.  
+Если не можешь говорить, прочитай ответ молча; штрафа нет.
+
+**BACK**  
+**Desto leichter können wir die Regel verstehen.**  
+Чем больше примеров показывает преподаватель, тем легче мы можем понять правило. За `desto leichter` следует `können`, а `verstehen` в конце.
+
+**CONTEXT:** das Beispiel — пример; die Regel — правило.
+
+---
+
+### 19 · ПАЗЛ · Профессиональное обучение
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr Erfahrung ich sammle, …`  
+Собери: `ich | kann | selbstständiger | desto | arbeiten`.
+
+**BACK**  
+**desto selbstständiger kann ich arbeiten.**  
+`Je mehr Erfahrung ich sammle, desto selbstständiger kann ich arbeiten.` — Чем больше опыта я получаю, тем самостоятельнее могу работать. `kann` после `desto selbstständiger`.
+
+**CONTEXT:** die Erfahrung — опыт; selbstständig — самостоятельно.
+
+---
+
+### 20 · ВВОД · Модальная форма
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je besser du die Maschine kennst, desto schneller ___ du den Fehler finden.`  
+Вставь `können` в нужной форме.
+
+**BACK**  
+**kannst**.  
+`Je besser du die Maschine kennst, desto schneller kannst du den Fehler finden.` — Чем лучше ты знаешь машину, тем быстрее можешь найти неисправность. На второй позиции `kannst`, инфинитив `finden` в конце.
+
+**CONTEXT:** die Maschine — машина, механизм; den Fehler finden — найти неисправность.
+
+---
+
+### 21 · ВЫБОР · Длинная вторая часть
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr wir planen, …`  
+A. `desto weniger müssen wir improvisieren.`  
+B. `desto weniger wir müssen improvisieren.`  
+C. `desto weniger müssen improvisieren wir.`
+
+**BACK**  
+**A.** `Je mehr wir planen, desto weniger müssen wir improvisieren.` — Чем больше мы планируем, тем меньше нам приходится импровизировать. `müssen` — личный глагол и стоит сразу после сравнительной группы `desto weniger`.
+
+**CONTEXT:** improvisieren — импровизировать.
+
+---
+
+### 22 · ПОИСК ОШИБКИ · Can we?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь **только вторую часть**:  
+`Je besser wir üben, desto besser wir können präsentieren.`
+
+**BACK**  
+`Je besser wir üben, **desto besser können wir präsentieren**.`  
+Чем лучше мы тренируемся, тем лучше можем выступать. `können` — спрягаемый глагол, после группы `desto besser` стоит он, а не `wir`.
+
+**CONTEXT:** präsentieren — представлять материал, выступать.
+
+---
+
+### 23 · ПАЗЛ · Встреча с клиентом
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je gründlicher ich mich vorbereite, …`  
+Собери: `desto | ruhiger | kann | ich | mit dem Kunden | sprechen`.
+
+**BACK**  
+**desto ruhiger kann ich mit dem Kunden sprechen.**  
+Чем основательнее я готовлюсь, тем спокойнее могу говорить с клиентом. `kann` после `desto ruhiger`, инфинитив `sprechen` в конце.
+
+**CONTEXT:** gründlich — основательно; der Kunde — клиент.
+
+---
+
+### 24 · РЕЧЬ · Меньше стресса
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Произнеси вторую часть к: `Je klarer mein Tagesplan ist, …`  
+Опора: `desto / weniger / Stress / habe / ich`.  
+«Не могу говорить» — без штрафа.
+
+**BACK**  
+**Desto weniger Stress habe ich.**  
+`Je klarer mein Tagesplan ist, desto weniger Stress habe ich.` — Чем понятнее мой план на день, тем меньше у меня стресса. `desto weniger Stress` — единый блок перед `habe`.
+
+**CONTEXT:** der Tagesplan — план на день; der Stress — стресс.
+
+---
+
+### 25 · @theory · Не разрывай группу «desto mehr …»
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сравни две правильные начальные группы.
+
+**BACK**  
+`desto **besser** verstehe ich` — тем лучше я понимаю.  
+`desto **mehr Informationen** bekomme ich` — тем больше информации я получаю.
+
+Обе группы целиком ставятся **перед** личным глаголом. В `desto mehr Informationen bekomme ich` слово `Informationen` относится к количеству и не может переехать после `bekomme` без перестройки смысла.
+
+**CONTEXT:** die Information, Pl. Informationen — информация / сведения.
+
+---
+
+### 26 · ВЫБОР · Дополнительные сведения
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr Fragen ich stelle, …`  
+A. `desto mehr Informationen bekomme ich.`  
+B. `desto mehr bekomme Informationen ich.`  
+C. `desto mehr Informationen ich bekomme.`
+
+**BACK**  
+**A.** `Je mehr Fragen ich stelle, desto mehr Informationen bekomme ich.` — Чем больше вопросов я задаю, тем больше информации получаю. Сначала вся группа `desto mehr Informationen`, затем `bekomme ich`.
+
+**CONTEXT:** eine Frage stellen — задавать вопрос; bekommen — получать.
+
+---
+
+### 27 · ВВОД · Количество времени
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je früher ich das Projekt beginne, desto mehr Zeit ___ ich für Änderungen.`  
+Вставь форму `haben`.
+
+**BACK**  
+**habe**.  
+`Je früher ich das Projekt beginne, desto mehr Zeit habe ich für Änderungen.` — Чем раньше я начинаю проект, тем больше времени остаётся на изменения. Блок `desto mehr Zeit` стоит перед `habe`.
+
+**CONTEXT:** die Änderung — изменение, правка.
+
+---
+
+### 28 · ПАЗЛ · Меньше жалоб
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je freundlicher wir beraten, …`  
+Собери: `bekommen | wir | desto | weniger | Beschwerden`.
+
+**BACK**  
+**desto weniger Beschwerden bekommen wir.**  
+`Je freundlicher wir beraten, desto weniger Beschwerden bekommen wir.` — Чем дружелюбнее мы консультируем, тем меньше жалоб получаем. `desto weniger Beschwerden` — вся начальная группа.
+
+**CONTEXT:** beraten — консультировать; die Beschwerde — жалоба.
+
+---
+
+### 29 · ПОИСК ОШИБКИ · Поставить слово на место
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Что неправильно во второй части?  
+`Je besser wir organisiert sind, desto mehr haben wir Zeit für Kunden.`  
+Целевой смысл: «тем больше времени у нас есть для клиентов».
+
+**BACK**  
+Исправление для данного смысла: `Je besser wir organisiert sind, **desto mehr Zeit haben wir** für Kunden.`  
+Не оставляй `Zeit` за `haben`: именно **количество времени** (`mehr Zeit`) мы сравниваем. В исходном варианте `mehr` могло бы означать «больше чего-то» с другим продолжением, но для заданного смысла правильна вся группа `desto mehr Zeit`.
+
+**CONTEXT:** organisiert sein — быть организованным.
+
+---
+
+### 30 · РЕЧЬ · Подготовка к экзамену
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Произнеси: `Je mehr Probeaufgaben ich löse, …`  
+Опора: `desto / weniger / Angst / habe / ich`.  
+Если говорить сейчас неудобно, просмотри образец без штрафа.
+
+**BACK**  
+**Desto weniger Angst habe ich.**  
+`Je mehr Probeaufgaben ich löse, desto weniger Angst habe ich.` — Чем больше пробных заданий я решаю, тем меньше боюсь. `desto weniger Angst` перед `habe`.
+
+**CONTEXT:** die Probeaufgabe — пробное задание; Angst haben — бояться.
+
+---
+
+### 31 · ВЫБОР · Кого благодарят?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je zuverlässiger du arbeitest, …`  
+A. `desto mehr Vertrauen bekommst du.`  
+B. `desto mehr Vertrauen du bekommst.`  
+C. `desto bekommen du mehr Vertrauen.`
+
+**BACK**  
+**A.** `Je zuverlässiger du arbeitest, desto mehr Vertrauen bekommst du.` — Чем надёжнее ты работаешь, тем больше доверия получаешь. `bekommst` после группы `desto mehr Vertrauen`.
+
+**CONTEXT:** zuverlässig — надёжный; das Vertrauen — доверие.
+
+---
+
+### 32 · ВВОД · Успевать больше
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je weniger Unterbrechungen es gibt, desto mehr Aufgaben ___ wir.`  
+Нужная форма `schaffen` — справляться, успевать.
+
+**BACK**  
+**schaffen**.  
+`Je weniger Unterbrechungen es gibt, desto mehr Aufgaben schaffen wir.` — Чем меньше перерывов и отвлечений, тем больше заданий мы успеваем выполнить. `desto mehr Aufgaben` стоит целиком перед `schaffen wir`.
+
+**CONTEXT:** die Unterbrechung — прерывание; etwas schaffen — справиться, успеть.
+
+---
+
+### 33 · @theory · Проверка на одну секунду
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Алгоритм проверки готовой второй части.
+
+**BACK**  
+1. Найди группу **desto + Komparativ** (`desto schneller` / `desto mehr Erfahrung`).  
+2. Сразу после неё найди **личный глагол** (`lerne`, `habe`, `kann`).  
+3. Если глагол модальный, найди инфинитив в конце: `desto schneller **kann** ich **arbeiten**`.
+
+`Je mehr ich trainiere, desto sicherer **werde** ich.` — Чем больше тренируюсь, тем увереннее становлюсь.
+
+**CONTEXT:** С этого места подсказок меньше: ученик применяет алгоритм сам.
+
+---
+
+### 34 · ПОИСК ОШИБКИ · Где werde?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь: `Je mehr ich vor der Gruppe spreche, desto sicherer ich werde.`
+
+**BACK**  
+`Je mehr ich vor der Gruppe spreche, **desto sicherer werde ich**.`  
+Чем больше выступаю перед группой, тем увереннее становлюсь. Вторая часть — главное предложение, поэтому `werde` после начальной группы, а не в конце.
+
+**CONTEXT:** vor der Gruppe sprechen — говорить перед группой.
+
+---
+
+### 35 · ПАЗЛ · Навык общения
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je öfter ich mit Kollegen rede, …`  
+Собери вторую часть: `ich | mich | fühle | desto | wohler`.
+
+**BACK**  
+**desto wohler fühle ich mich.**  
+`Je öfter ich mit Kollegen rede, desto wohler fühle ich mich.` — Чем чаще я общаюсь с коллегами, тем комфортнее себя чувствую. `fühle` идёт после `desto wohler`, а возвратное `mich` — после подлежащего.
+
+**CONTEXT:** sich wohlfühlen — чувствовать себя комфортно; wohler — комфортнее.
+
+---
+
+### 36 · РЕЧЬ · Четкая инструкция
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно продолжи `Je genauer die Anleitung ist, …`  
+Скажи: «тем меньше вопросов у меня возникает».  
+Опоры: `desto / weniger / Fragen / habe / ich`. Если говорить нельзя, открой образец без штрафа.
+
+**BACK**  
+**Desto weniger Fragen habe ich.**  
+`Je genauer die Anleitung ist, desto weniger Fragen habe ich.` — Чем точнее инструкция, тем меньше у меня вопросов. Сохраняй `weniger Fragen` вместе.
+
+**CONTEXT:** genau — точный; die Frage — вопрос.
+
+---
+
+### 37 · ПЕРЕВОД · Только вторая часть
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+К фразе `Je besser wir zusammenarbeiten, …` допиши по-немецки:  
+«тем лучше работает наша команда».  
+Используй: `besser / funktionieren / unser Team`.
+
+**BACK**  
+**desto besser funktioniert unser Team.**  
+`Je besser wir zusammenarbeiten, desto besser funktioniert unser Team.` — Чем лучше мы сотрудничаем, тем лучше работает наша команда. `unser Team` — ед. число, значит `funktioniert`.
+
+**CONTEXT:** funktionieren — функционировать, слаженно работать.
+
+---
+
+### 38 · ПОИСК ОШИБКИ · Предлог и глагол
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь порядок во второй части:  
+`Je besser der Zeitplan ist, desto pünktlicher wir können anfangen.`
+
+**BACK**  
+`Je besser der Zeitplan ist, **desto pünktlicher können wir anfangen**.`  
+Чем лучше расписание, тем пунктуальнее мы можем начать. Личный глагол `können` идёт сразу после `desto pünktlicher`, инфинитив `anfangen` — в конце.
+
+**CONTEXT:** der Zeitplan — график, план времени; pünktlich — вовремя.
+
+---
+
+### 39 · ВЫБОР · Хорошая обратная связь
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je konkreter die Rückmeldung ist, …`  
+A. `desto leichter kann ich mich verbessern.`  
+B. `desto leichter ich kann mich verbessern.`  
+C. `desto leichter verbessern kann ich mich.`
+
+**BACK**  
+**A.** `Je konkreter die Rückmeldung ist, desto leichter kann ich mich verbessern.` — Чем конкретнее обратная связь, тем легче я могу улучшаться. `kann` после `desto leichter`; инфинитив `verbessern` в конце.
+
+**CONTEXT:** die Rückmeldung — обратная связь; sich verbessern — улучшаться.
+
+---
+
+### 40 · ПАЗЛ · Работать самостоятельно
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr Aufgaben ich selbst löse, …`  
+Собери: `werde | desto | unabhängiger | ich`.
+
+**BACK**  
+**desto unabhängiger werde ich.**  
+`Je mehr Aufgaben ich selbst löse, desto unabhängiger werde ich.` — Чем больше заданий я решаю самостоятельно, тем независимее становлюсь. `werde` стоит после `desto unabhängiger`.
+
+**CONTEXT:** unabhängig — независимый; selbst — самостоятельно.
+
+---
+
+### 41 · @theory · Без подсказок, но с рамкой
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты уже умеешь строить вторую половину. Что не нужно делать пока?
+
+**BACK**  
+В D06 **первая часть дана**. Твоя задача — построить самостоятельный ответ **после запятой**:  
+`Je besser ich die Aufgabe verstehe, **desto schneller kann ich sie erledigen**.`  
+Чем лучше я понимаю задание, тем быстрее могу его выполнить.
+
+Для ответа достаточно устойчивого порядка во второй части. Полную фразу из двух новых мыслей будем создавать в D07.
+
+**CONTEXT:** erledigen — выполнять, завершать (дело, задание).
+
+---
+
+### 42 · РЕЧЬ · Самостоятельно, коротко
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно закончи `Je länger ich Deutsch lerne, …` словами «тем увереннее я говорю».  
+Без готового порядка слов; при необходимости можно выбрать «не могу говорить».
+
+**BACK**  
+**Desto sicherer spreche ich.**  
+`Je länger ich Deutsch lerne, desto sicherer spreche ich.` — Чем дольше изучаю немецкий, тем увереннее говорю. После `desto sicherer` следует `spreche`.
+
+**CONTEXT:** Принимается семантически равное `desto sicherer kann ich sprechen`, если модальный глагол поставлен правильно.
+
+---
+
+### 43 · ПЕРЕВОД · Мой рабочий день
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je früher ich mit der Arbeit anfange, …`  
+Переведи вторую часть: «тем больше времени у меня остаётся на отдых».  
+Слова: `mehr Zeit / habe ich / zum Ausruhen`.
+
+**BACK**  
+**desto mehr Zeit habe ich zum Ausruhen.**  
+Чем раньше я начинаю работать, тем больше у меня времени на отдых. Всю группу `desto mehr Zeit` оставляем перед `habe`.
+
+**CONTEXT:** sich ausruhen — отдыхать; zum Ausruhen — для отдыха.
+
+---
+
+### 44 · ВВОД · Разговор с коллегами
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr ich meine Kollegen um Hilfe bitte, desto besser ___ ich die Abläufe.`  
+Вставь `verstehen` в форме `ich`.
+
+**BACK**  
+**verstehe**.  
+`Je mehr ich meine Kollegen um Hilfe bitte, desto besser verstehe ich die Abläufe.` — Чем чаще я прошу коллег о помощи, тем лучше понимаю рабочие процессы. Сразу за `desto besser` идёт `verstehe`.
+
+**CONTEXT:** der Ablauf — процесс, порядок действий; um Hilfe bitten — просить о помощи.
+
+---
+
+### 45 · ПОИСК ОШИБКИ · Две глагольные позиции
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Из двух вторых частей выбери правильную и объясни, где стоит личный глагол:  
+A. `desto selbstständiger ich kann arbeiten.`  
+B. `desto selbstständiger kann ich arbeiten.`  
+Первая часть: `Je besser ich meine Aufgaben kenne, …`
+
+**BACK**  
+**B.** `Je besser ich meine Aufgaben kenne, desto selbstständiger kann ich arbeiten.`  
+Чем лучше я знаю свои обязанности, тем самостоятельнее могу работать. Спрягаемое `kann` стоит после всей группы `desto selbstständiger`, а `arbeiten` — в конце.
+
+**CONTEXT:** die Aufgabe — задача, обязанность; selbstständig — самостоятельно.
+
+---
+
+### 46 · ПАЗЛ · Повышение квалификации
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je mehr Fortbildungen ich besuche, …`  
+Собери вторую часть из слов: `berufliche | habe | Chancen | desto | bessere | ich`.
+
+**BACK**  
+**desto bessere berufliche Chancen habe ich.**  
+`Je mehr Fortbildungen ich besuche, desto bessere berufliche Chancen habe ich.` — Чем больше курсов повышения квалификации я посещаю, тем лучше мои профессиональные возможности. В начальном блоке есть существительное во множественном числе, поэтому сравнительное прилагательное получает окончание: `bessere Chancen`.
+
+**CONTEXT:** die Fortbildung — повышение квалификации; die Chance — возможность. Форма `bessere` — небольшая дополнительная сложность, не главный объект оценки этой колоды.
+
+---
+
+### 47 · ПЕРЕВОД · Подготовка к собеседованию
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+`Je besser ich mich auf das Vorstellungsgespräch vorbereite, …`  
+Переведи: «тем спокойнее я могу отвечать на вопросы».  
+Опорная лексика: `ruhiger / auf Fragen antworten / können`.
+
+**BACK**  
+**desto ruhiger kann ich auf Fragen antworten.**  
+Чем лучше я готовлюсь к собеседованию, тем спокойнее могу отвечать на вопросы. `kann` стоит непосредственно после `desto ruhiger`, `antworten` в конце.
+
+**CONTEXT:** das Vorstellungsgespräch — собеседование; auf Fragen antworten — отвечать на вопросы.
+
+---
+
+### 48 · РЕЧЬ · Контрольный финал
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты проходишь профессиональные курсы. Закончи вслух:  
+`Je mehr ich praktisch übe, …`  
+Скажи: «тем лучше я могу работать». Не смотри на подсказку порядка. Если говорить нельзя, открой ответ и повтори позже — без штрафа.
+
+**BACK**  
+**Desto besser kann ich arbeiten.**  
+`Je mehr ich praktisch übe, desto besser kann ich arbeiten.` — Чем больше я практикуюсь, тем лучше могу работать.
+
+Самопроверка: `desto besser` — начальная группа; `kann` — личный глагол; `ich` — подлежащее; `arbeiten` — инфинитив в конце. Если этот порядок устойчив, переходи к D07.
+
+**CONTEXT:** Устный итог не дублирует полный экзамен темы; проверяет только целевой навык D06.
+
+---
+
+## Методическая самопроверка колоды
+
+- Всего **48** карточек, из них **6 @theory** (01, 09, 17, 25, 33, 41) и **42 практические**.
+- Речь — **каждая шестая карточка**: 06, 12, 18, 24, 30, 36, 42, 48; с вариантом «не могу говорить», без штрафа.
+- Разнообразие механик: выбор, ввод, пазл, исправление, сравнение, перевод, устное завершение.
+- Лексический центр — **работа и обучение**, без перегруза одновременной новой грамматикой.
+- Главная трудность добавлена одна: **порядок слов в части `desto`**; готовая `je`-часть служит контекстом.
+- Задания не пытаются заменить D07, D13 или D14.

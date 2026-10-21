@@ -1,0 +1,933 @@
+# B1-24 · Чем …, тем … и выражение следствий
+## Колода 14 · Проверка без подсказок
+
+**Уровень:** B1  
+**Единый `::topic` серии:** `Je … desto und Folgesätze`  
+**Этап:** первый методический проход; структура карточек служит исходным материалом для второго технического прохода.  
+**Объём:** 48 контрольных карточек, **без `@theory` внутри экзамена**; 40 письменных/выборных и 8 устных.  
+**Контекст:** новые жизненные ситуации: городские учреждения, школа, библиотека, мероприятия, поездки, ремонт, волонтёрство, работа, здоровье и городская инфраструктура.
+
+## Педагогический паспорт
+
+**Название, уровень и тема.** «14 · Проверка без подсказок», B1; `Je … desto und Folgesätze`.
+
+**Цель.** Проверить, может ли ученик **без предварительного повторения правила и без грамматической опоры в задании** самостоятельно определить коммуникативное намерение, выбрать и правильно построить конструкцию `je … desto/umso`, `deshalb/deswegen/daher`, `sodass/so dass` либо `so + признак …, dass` в новых ситуациях. Это **итоговая диагностика**, не дополнительная обучающая колода.
+
+**Ожидаемые навыки.** Узнать зависимость двух меняющихся величин; сообщить единичное следствие; различить нейтральный результат и выделенную степень; удержать личный глагол в конце придаточной части с `je/sodass/dass`, после сравнительной группы `desto/umso` и на второй позиции после `deshalb`; использовать правильные сравнительные степени; исправить ошибки; написать осмысленное сообщение, краткую жалобу и мнение; объяснить ситуацию вслух.
+
+**Маршрут оценки.** 01–08: установить смысловую задачу; 09–16: без подсказки проверить порядок слов; 17–24: самостоятельно построить и преобразовать фразы; 25–32: смешанные новые контексты и диагностика; 33–40: короткие сообщения и объяснения; 41–48: независимый перенос в речь и письмо. Порядок сложности в целом нарастает, но модели намеренно перемешаны: ученик не должен угадывать союз по номеру блока.
+
+**Поддержка и режим.** На `FRONT` нет таблиц, слов-банков для свободных ответов, теоретических памяток и готового образца конструкции. Небольшая смысловая формулировка и варианты ответов допустимы только для проверяемого задания с выбором. Ключ, русский перевод, причина правильности и словарь помещены **только в `BACK`/`CONTEXT` и недоступны до попытки**. Ни одной карточки `@theory`: теоретическое повторение предусмотрено в D13, а здесь оно исказило бы диагностику. Если ответов может быть несколько, это явно указано; оценка продуктивных ответов смысловая, а не посимвольная.
+
+**Устная речь.** Карточки 06, 12, 18, 24, 30, 36, 42, 48 — устные. Предусмотреть «не могу говорить» без штрафа. Пропуск не засчитывать как успешное произнесение; при невозможности речи фиксировать «не проверено» отдельно от письменного результата. Не давать образец до попытки.
+
+**Критерии освоения.** **40 письменных задач**: каждая оценивается 0/1 при проверке с учётом допустимых естественных перефразировок; ориентир 32/40 (80%), *если* в свободных задачах нет систематических ошибок порядка слов и смыслового выбора. В письменных комплексных заданиях успех означает исполнение всех названных пунктов и грамматически правильные целевые конструкции. **8 речевых задач отдельно**: диагностировать, удалось ли передать смысл и сохранить структуру, не включать пропуски в знаменатель письменного результата. Фактическая оценка возможна только после ответов ученика; сама колода не подтверждает уровень B1 и не является официальным экзаменом.
+
+**Диагностика и дальнейшие шаги.** Ошибки в `je` и Komparativ → D03–D05 **после их создания** и D07; в `desto/umso` → D06–D08; после `deshalb/deswegen/daher` → D09; после `sodass/dass` → D10; смысловой выбор → D11; связные письма и речь → D12; быстрое восстановление перед повторной попыткой → D13. **D03–D05 пока отсутствуют** и не считаются подготовленными. У D14 нет дополнительного нового грамматического материала: цель — независимая проверка, после неё закрывать тему только при готовности всех запланированных колод и втором проходе.
+
+**Методические оговорки.** В парной сравнительной конструкции `desto/umso` обычно равноправны; `deshalb/deswegen/daher` часто взаимозаменяемы; союз допустимо писать `sodass` или `so dass`. Не объявлять альтернативную корректную фразу ошибочной только за иную лексику или союз, если намерение сохранено. Там, где требуется именно `desto` или `daher`, это указано в задании как *условие*, а не грамматическая уникальность варианта. В примерах причинные связи заданы контекстом ситуации, а не претендуют на научный закон.
+
+---
+
+## Карточки · независимый контроль
+
+### 01 · ВЫБОР · Два изменения
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+В отчёте сказано: «Чем дольше открыт музей, тем больше посетителей он принимает». Какая формулировка выражает **зависимость двух величин**?
+
+A. Je länger das Museum geöffnet ist, desto mehr Besucher kommen.
+B. Das Museum ist lange geöffnet. Deshalb kommen Besucher.
+C. Das Museum ist so lange geöffnet, dass noch Besucher kommen.
+
+**BACK**  
+**A.** *Je länger das Museum geöffnet ist, desto mehr Besucher kommen.* — Чем дольше открыт музей, тем больше приходит посетителей. В B конкретное следствие; в C — степень и её результат. В A глагол **ist** в конце je-части, а **kommen** — после `desto mehr Besucher`.
+
+**CONTEXT / словарь**  
+das Museum — музей; geöffnet — открытый; der Besucher — посетитель
+
+---
+
+### 02 · ВЫБОР · Пропала запись
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Электронная запись на консультацию исчезла, и человек снова записывается. Выбери фразу, которая передаёт **конкретное последствие** и содержит правильный порядок слов.
+
+A. Der Termin ist verschwunden. Deshalb buche ich einen neuen.
+B. Der Termin ist verschwunden. Deshalb ich buche einen neuen.
+C. Je mehr der Termin verschwindet, desto mehr buche ich einen neuen.
+
+**BACK**  
+**A.** *Der Termin ist verschwunden. Deshalb buche ich einen neuen.* — Запись исчезла. Поэтому я бронирую новую. `Deshalb` стоит в начале главного предложения и занимает первую позицию; **buche** — вторую.
+
+**CONTEXT / словарь**  
+der Termin — запись на приём/встреча; buchen — бронировать; verschwinden — исчезать
+
+---
+
+### 03 · ВЫБОР · Результат дождя
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Организатор сообщает о факте: «Начался дождь, так что концерт перенесли в зал». Выбери фразу с **придаточным результата**.
+
+A. Es hat angefangen zu regnen, sodass das Konzert in den Saal verlegt wurde.
+B. Es hat angefangen zu regnen, deshalb das Konzert wurde in den Saal verlegt.
+C. Es hat angefangen zu regnen, sodass wurde das Konzert in den Saal verlegt.
+
+**BACK**  
+**A.** *Es hat angefangen zu regnen, sodass das Konzert in den Saal verlegt wurde.* — Начался дождь, так что концерт перенесли в зал. После `sodass` спрягаемое **wurde** находится в конце. B/C нарушают порядок слов.
+
+**CONTEXT / словарь**  
+verlegen — переносить (мероприятие); der Saal — зал; das Konzert — концерт
+
+---
+
+### 04 · ВЫБОР · Очень тесно
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты хочешь выделить **степень**: «В зале было настолько тесно, что люди стояли у двери». Выбери предложение с нужным акцентом.
+
+A. Der Raum war so voll, dass die Leute an der Tür standen.
+B. Der Raum war voll, sodass die Leute an der Tür standen.
+C. Der Raum war so voll, dass standen die Leute an der Tür.
+
+**BACK**  
+**A.** *Der Raum war so voll, dass die Leute an der Tür standen.* — Зал был настолько переполнен, что люди стояли у двери. B описывает тот же возможный результат, но не подчёркивает **насколько**; C нарушает порядок слов после `dass`.
+
+**CONTEXT / словарь**  
+voll — заполненный; an der Tür — у двери; der Raum — помещение
+
+---
+
+### 05 · MATCH · Определи коммуникативное намерение
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Соотнеси четыре сообщения с их смысловой задачей.
+
+1. `Je länger das Freibad geöffnet ist, desto mehr Besucher können kommen.`
+2. `Die Brücke ist gesperrt. Deshalb fahren wir einen Umweg.`
+3. `Der Wind ist so stark, dass wir das Fenster schließen.`
+4. `Die Sitzung dauert länger, sodass ich meinen Anschluss verpasse.`
+
+A. Конкретное последствие в новой главной части.
+B. Две меняющиеся величины.
+C. Выделенная степень признака.
+D. Нейтральное последствие в придаточной части.
+
+**BACK**  
+**1–B; 2–A; 3–C; 4–D.**
+
+1. Чем дольше открыт бассейн, тем больше людей могут его посетить.
+2. Мост закрыт, поэтому мы едем в объезд.
+3. Ветер настолько сильный, что мы закрываем окно.
+4. Заседание длится дольше, так что я пропускаю пересадку.
+
+Различие определяется целью сообщения, а не наличием причины как таковой.
+
+**CONTEXT / словарь**  
+das Freibad — открытый бассейн; gesperrt — перекрытый; der Umweg — объезд; der Anschluss — пересадка
+
+---
+
+### 06 · РЕЧЬ · Проблема с библиотечной карточкой
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Объясни устно сотруднику библиотеки на немецком: твоя библиотечная карточка больше не действует, поэтому ты не можешь взять книгу. **Два полных предложения**, вежливо и по делу.
+
+Если говорить сейчас невозможно, выбери «не могу говорить» — без штрафа; устная компетенция остаётся непроверенной.
+
+**BACK**  
+**Пример:** *Mein Bibliotheksausweis ist nicht mehr gültig. Deshalb kann ich das Buch nicht ausleihen.* — Мой читательский билет больше недействителен. Поэтому я не могу взять книгу. **Почему верно:** конкретная проблема → следствие; после **Deshalb** стоит модальный **kann**, а инфинитив **ausleihen** — в конце. Иные корректные формулировки засчитываются.
+
+**CONTEXT / словарь**  
+der Bibliotheksausweis — читательский билет; gültig — действительный; ausleihen — брать напрокат/в библиотеке
+
+---
+
+### 07 · ВЫБОР · ДВА ВЕРНЫХ · Замена одной связки
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какие **два** варианта грамматически правильны и означают «Чем ближе остановка, тем короче путь»?
+
+A. Je näher die Haltestelle ist, desto kürzer ist der Weg.
+B. Je näher die Haltestelle ist, umso kürzer ist der Weg.
+C. Je näher ist die Haltestelle, umso kürzer der Weg ist.
+
+**BACK**  
+**A и B.** *Je näher die Haltestelle ist, desto/umso kürzer ist der Weg.* — Чем ближе остановка, тем короче путь. В обеих частях правильный порядок слов. **Desto** и **umso** здесь можно менять.
+
+**CONTEXT / словарь**  
+die Haltestelle — остановка; nah → näher — близко → ближе; kurz → kürzer — короткий → короче
+
+---
+
+### 08 · ВВОД · Одна связка результата
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Заверши предложение **словом `daher`** без изменения остальной части:
+
+`Der Eingang ist heute geschlossen. ___ benutzen wir die Seitentür.`
+
+**BACK**  
+**Daher.** *Der Eingang ist heute geschlossen. Daher benutzen wir die Seitentür.* — Сегодня вход закрыт. Поэтому мы пользуемся боковой дверью. Слова `deshalb/deswegen` также были бы грамматически возможны, но условие задания требует именно `daher`. **benutzen** — вторая позиция.
+
+**CONTEXT / словарь**  
+der Eingang — вход; die Seitentür — боковая дверь; benutzen — пользоваться
+
+---
+
+### 09 · ИСПРАВЛЕНИЕ · Je-часть
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь единственную грамматическую ошибку:
+
+`Je mehr ich lerne neue Wörter, desto leichter lese ich Texte.`
+
+**BACK**  
+**Je mehr neue Wörter ich lerne, desto leichter lese ich Texte.** — Чем больше новых слов я учу, тем легче читаю тексты. В je-части спрягаемый глагол **lerne** ставится в конце.
+
+**CONTEXT / словарь**  
+neue Wörter lernen — учить новые слова; der Text — текст
+
+---
+
+### 10 · ИСПРАВЛЕНИЕ · После deswegen
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь порядок слов, не меняя смысла:
+
+`Das Rathaus ist schon geschlossen. Deswegen wir kommen morgen wieder.`
+
+**BACK**  
+**Das Rathaus ist schon geschlossen. Deswegen kommen wir morgen wieder.** — Ратуша уже закрыта. Поэтому мы придём снова завтра. `Deswegen` в начале второй главной части → **kommen** сразу за ним.
+
+**CONTEXT / словарь**  
+das Rathaus — ратуша/мэрия; wiederkommen — возвращаться
+
+---
+
+### 11 · ИСПРАВЛЕНИЕ · Придаточная часть
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь вторую часть предложения:
+
+`Die Veranstaltung endet spät, sodass ich verpasse den letzten Bus.`
+
+**BACK**  
+**Die Veranstaltung endet spät, sodass ich den letzten Bus verpasse.** — Мероприятие заканчивается поздно, так что я пропускаю последний автобус. В придаточном с **sodass** спрягаемый **verpasse** идёт в конец.
+
+**CONTEXT / словарь**  
+die Veranstaltung — мероприятие; verpassen — пропускать (автобус, встречу)
+
+---
+
+### 12 · РЕЧЬ · Две величины
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно скажи одним немецким предложением: «Чем больше людей пользуются велосипедом, тем меньше машин стоит в пробке». Смысл — **зависимость двух изменений**.
+
+Если не можешь говорить, выбери «не могу говорить» без штрафа.
+
+**BACK**  
+**Пример:** *Je mehr Menschen mit dem Fahrrad fahren, desto weniger Autos stehen im Stau.* — Чем больше людей ездит на велосипеде, тем меньше автомобилей стоит в пробке. Можно сказать **umso** вместо **desto**. Глаголы **fahren** и **stehen** стоят в правильных позициях.
+
+**CONTEXT / словарь**  
+mit dem Fahrrad fahren — ездить на велосипеде; im Stau stehen — стоять в пробке
+
+---
+
+### 13 · ПАЗЛ · Собери две части
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Из данных фрагментов собери одно правильное предложение о тренировках. Не добавляй слов.
+
+`umso besser | ich | meine Aufgaben | je regelmäßiger | erledige | trainiere | ich`
+
+**BACK**  
+**Je regelmäßiger ich trainiere, umso besser erledige ich meine Aufgaben.** — Чем регулярнее я тренируюсь, тем лучше выполняю задания. Je-часть заканчивается **trainiere**; после сравнительной группы **umso besser** следует **erledige**.
+
+**CONTEXT / словарь**  
+regelmäßig → regelmäßiger — регулярно → регулярнее; erledigen — выполнять
+
+---
+
+### 14 · ИСПРАВЛЕНИЕ · Степень и dass
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Найди и исправь одну ошибку:
+
+`Die Präsentation war so unübersichtlich, dass niemand konnte den Plan verstehen.`
+
+**BACK**  
+**Die Präsentation war so unübersichtlich, dass niemand den Plan verstehen konnte.** — Презентация была настолько непонятной, что никто не мог понять план. После **dass** личный модальный глагол **konnte** идёт в конец за инфинитивом.
+
+**CONTEXT / словарь**  
+die Präsentation — презентация; unübersichtlich — запутанный, трудный для восприятия
+
+---
+
+### 15 · ВЫБОР · ТРИ ВЕРНЫХ · Три способа сказать «поэтому»
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какие **три** предложения грамматически правильны?
+
+A. Der Aufzug wird gewartet. Deshalb nehmen wir die Treppe.
+B. Der Aufzug wird gewartet. Deswegen nehmen wir die Treppe.
+C. Der Aufzug wird gewartet. Daher nehmen wir die Treppe.
+D. Der Aufzug wird gewartet. Deshalb wir nehmen die Treppe.
+
+**BACK**  
+**A, B, C.** — Лифт обслуживают, поэтому мы пользуемся лестницей. `deshalb/deswegen/daher` обычно близки по смыслу и в начале второй главной части требуют спрягаемый глагол на второй позиции. D — неверный порядок слов.
+
+**CONTEXT / словарь**  
+gewartet werden — проходить техническое обслуживание; die Treppe nehmen — идти по лестнице
+
+---
+
+### 16 · ВВОД · С модальным глаголом
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Заполни единственный пропуск нужной формой глагола:
+
+`Die Straße ist vereist, sodass die Fahrer langsam fahren ___ (müssen).`
+
+**BACK**  
+**müssen.** *Die Straße ist vereist, sodass die Fahrer langsam fahren müssen.* — Дорога покрыта льдом, так что водителям приходится ехать медленно. После `sodass` модальный глагол завершает придаточную часть.
+
+**CONTEXT / словарь**  
+vereist — покрытый льдом; der Fahrer — водитель
+
+---
+
+### 17 · ПЕРЕВОД · Договориться легче
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи на немецкий **одним предложением**, выразив зависимость:
+
+«Чем яснее инструкции, тем меньше ошибок мы делаем».
+
+**BACK**  
+**Пример:** *Je klarer die Anweisungen sind, desto weniger Fehler machen wir.* — Чем яснее инструкции, тем меньше ошибок мы делаем. Возможен **umso**. Je-часть заканчивается **sind**, во второй после **desto weniger Fehler** стоит **machen**.
+
+**CONTEXT / словарь**  
+die Anweisung — инструкция; klar → klarer — понятный → понятнее; der Fehler — ошибка
+
+---
+
+### 18 · РЕЧЬ · Опоздание на встречу
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты опоздал на встречу, потому что автобус задержался. Устно **сообщи о задержке автобуса и её конкретном следствии** двумя короткими фразами на немецком.
+
+При невозможности говорить выбери «не могу говорить» без штрафа.
+
+**BACK**  
+**Пример:** *Der Bus hatte Verspätung. Deswegen bin ich zu spät zum Treffen gekommen.* — Автобус задержался. Поэтому я опоздал на встречу. Верно также `deshalb/daher`. После **Deswegen** в начале главной части спрягаемый **bin** — второй, причастие — в конце.
+
+**CONTEXT / словарь**  
+Verspätung haben — опаздывать; das Treffen — встреча; zu spät kommen — опаздывать
+
+---
+
+### 19 · ПЕРЕВОД · Потерянный ключ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи **двумя предложениями**: «Я потерял ключ. Поэтому я позвонил соседке».
+
+**BACK**  
+**Пример:** *Ich habe meinen Schlüssel verloren. Deshalb habe ich meine Nachbarin angerufen.* — Я потерял ключ. Поэтому позвонил соседке. После `deshalb` спрягаемый глагол **habe** стоит вторым. `deswegen/daher` тоже верны.
+
+**CONTEXT / словарь**  
+den Schlüssel verlieren — терять ключ; die Nachbarin — соседка; anrufen — звонить
+
+---
+
+### 20 · ПАЗЛ · Так сильно, что…
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери предложение из фрагментов; используй все один раз:
+
+`dass | war | wir | im Zelt | der Regen | so stark | nicht schlafen konnten`
+
+**BACK**  
+**Der Regen war so stark, dass wir im Zelt nicht schlafen konnten.** — Дождь был настолько сильным, что мы не могли спать в палатке. Пара **so stark …, dass** выделяет степень; в придаточной **konnten** в конце.
+
+**CONTEXT / словарь**  
+das Zelt — палатка; der Regen — дождь; stark — сильный
+
+---
+
+### 21 · ПРЕОБРАЗОВАНИЕ · Из двух частей в одну
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переделай в **одно предложение с `sodass`**. Смысл не изменяй:
+
+`Der Kurs fällt heute aus. Deshalb bleiben wir zu Hause.`
+
+**BACK**  
+**Der Kurs fällt heute aus, sodass wir zu Hause bleiben.** — Занятие сегодня отменено, поэтому мы остаёмся дома. Теперь `bleiben` ставится в конец придаточной части. `so dass` — допустимый вариант написания того же союза.
+
+**CONTEXT / словарь**  
+ausfallen — отменяться; zu Hause bleiben — оставаться дома
+
+---
+
+### 22 · ВЫБОР · Причина или следствие
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты хочешь сообщить «Дверь была закрыта, так что мы ждали снаружи» именно через придаточное результата. Выбери **один** вариант.
+
+A. Die Tür war geschlossen, sodass wir draußen warten mussten.
+B. Die Tür war geschlossen, weil wir draußen warten mussten.
+C. Die Tür war geschlossen, sodass mussten wir draußen warten.
+
+**BACK**  
+**A.** *Die Tür war geschlossen, sodass wir draußen warten mussten.* — Дверь была закрыта, так что нам пришлось ждать снаружи. **weil** в B означало бы, что дверь была закрыта *потому что* мы ждали снаружи, — смысл другой. C нарушает конец придаточной.
+
+**CONTEXT / словарь**  
+geschlossen — закрытый; draußen — снаружи; warten müssen — быть вынужденным ждать
+
+---
+
+### 23 · ИСПРАВЛЕНИЕ · Две ошибки в одной фразе
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь **обе** грамматические ошибки, сохранив `je … desto`:
+
+`Je schneller fährt der Bus, desto früher wir kommen an.`
+
+**BACK**  
+**Je schneller der Bus fährt, desto früher kommen wir an.** — Чем быстрее едет автобус, тем раньше мы прибываем. Ошибка 1: в je-части глагол **fährt** завершает часть. Ошибка 2: после **desto früher** сразу **kommen**, затем **wir**, отделяемая приставка **an** — в конце.
+
+**CONTEXT / словарь**  
+der Bus — автобус; ankommen — прибывать; schnell → schneller — быстрый → быстрее
+
+---
+
+### 24 · РЕЧЬ · Настолько холодно
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Опиши устно одну ситуацию: «В аудитории было настолько холодно, что мы сидели в куртках». Обязательно подчеркни **степень холода**. Одно немецкое предложение.
+
+Если не можешь говорить, выбери «не могу говорить» без штрафа.
+
+**BACK**  
+**Пример:** *Im Unterrichtsraum war es so kalt, dass wir unsere Jacken anbehielten.* — В аудитории было настолько холодно, что мы не снимали куртки. Можно также: *..., dass wir in Jacken saßen.* После **dass** глагол в конце. Оба образца допустимы.
+
+**CONTEXT / словарь**  
+der Unterrichtsraum — аудитория; die Jacke — куртка; anbehalten — оставлять на себе (одежду)
+
+---
+
+### 25 · ВВОД · Сравнительная степень без подсказки
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Заполни **два** пропуска правильными сравнительными формами `viel` и `wenig`:
+
+`Je ___ Jugendliche beim Projekt mitmachen, desto ___ Arbeit bleibt für die Einzelnen.`
+
+**BACK**  
+**mehr; weniger.** *Je mehr Jugendliche beim Projekt mitmachen, desto weniger Arbeit bleibt für die Einzelnen.* — Чем больше молодых людей участвует в проекте, тем меньше работы остаётся каждому. `viel → mehr`, `wenig → weniger`. `mitmachen` — в конце первой части, `bleibt` — после второй сравнительной группы.
+
+**CONTEXT / словарь**  
+die Jugendlichen — молодые люди; bei einem Projekt mitmachen — участвовать в проекте; der Einzelne — каждый в отдельности
+
+---
+
+### 26 · КЛАССИФИКАЦИЯ · Четыре разные задачи
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Определи тип **каждого** сообщения. Запиши для 1–4: `З` (зависимость), `П` (поэтому), `Р` (результат в придаточном), `С` (степень).
+
+1. `Der Laptop ist so langsam, dass die Datei nicht rechtzeitig geöffnet wird.`
+2. `Je häufiger wir Dateien sichern, desto geringer ist das Risiko.`
+3. `Der Server ist heute nicht erreichbar. Deshalb verschieben wir die Besprechung.`
+4. `Die Verbindung ist unterbrochen, sodass niemand die Daten senden kann.`
+
+**BACK**  
+**1–С; 2–З; 3–П; 4–Р.**
+
+1. Ноутбук настолько медленный, что файл не открывается вовремя.
+2. Чем чаще делаем резервные копии, тем ниже риск.
+3. Сервер недоступен, поэтому переносим совещание.
+4. Соединение прервано, так что никто не может отправить данные.
+
+Это диагностика понимания смысла, без выбора из грамматически неправильных слов.
+
+**CONTEXT / словарь**  
+die Datei — файл; sichern — сохранять резервную копию; der Server — сервер; unterbrochen — прерванный
+
+---
+
+### 27 · ВЫБОР · ДВА ВЕРНЫХ · Участники и место
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какие **два** предложения корректно выражают «Чем больше участников, тем больше места нам нужно»?
+
+A. Je mehr Teilnehmer kommen, desto mehr Platz brauchen wir.
+B. Je mehr Teilnehmer kommen, umso mehr Platz brauchen wir.
+C. Je mehr kommen Teilnehmer, desto mehr Platz brauchen wir.
+
+**BACK**  
+**A и B.** *Je mehr Teilnehmer kommen, desto/umso mehr Platz brauchen wir.* — Чем больше участников приходит, тем больше места нам нужно. Объект сравнения — **mehr Platz**, поэтому группу не разрываем в этих ответах. В C ошибочен порядок слов в je-части: личный глагол должен стоять в конце.
+
+**CONTEXT / словарь**  
+der Teilnehmer — участник; der Platz — место/пространство; brauchen — нуждаться
+
+---
+
+### 28 · ПЕРЕВОД · Насколько далеко
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи **одним предложением** с выделенной степенью: «Аптека была настолько далеко, что мы поехали на автобусе».
+
+**BACK**  
+**Пример:** *Die Apotheke war so weit weg, dass wir mit dem Bus gefahren sind.* — Аптека была настолько далеко, что мы поехали на автобусе. Выделенная степень — **so weit weg**; после **dass** финальная глагольная группа **gefahren sind**.
+
+**CONTEXT / словарь**  
+die Apotheke — аптека; weit weg — далеко; mit dem Bus fahren — ехать автобусом
+
+---
+
+### 29 · ИСПРАВЛЕНИЕ · Порядок с sodass
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь предложение; **союз `sodass` оставь**:
+
+`Die Fähre hat Verspätung, sodass verpassen viele Reisende ihren Anschluss.`
+
+**BACK**  
+**Die Fähre hat Verspätung, sodass viele Reisende ihren Anschluss verpassen.** — Паром задерживается, так что многие пассажиры пропускают пересадку. Сразу после `sodass` идёт подлежащее **viele Reisende**; **verpassen** — в конце придаточного.
+
+**CONTEXT / словарь**  
+die Fähre — паром; der Reisende — пассажир/путешественник; der Anschluss — пересадка
+
+---
+
+### 30 · РЕЧЬ · Смена рабочего времени
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно сообщи коллеге на немецком: «Завтра мой рабочий день начинается раньше. Поэтому я выхожу из дома раньше». Две связанные фразы; форму последствия выбери самостоятельно.
+
+Если не можешь говорить, выбери «не могу говорить» без штрафа.
+
+**BACK**  
+**Пример:** *Morgen beginnt meine Schicht früher. Deshalb gehe ich auch früher von zu Hause los.* — Завтра моя смена начинается раньше. Поэтому я тоже выхожу из дома раньше. `Deswegen/Daher` тоже возможны. В начале главной части: **Deshalb gehe ich**, а не **Deshalb ich gehe**.
+
+**CONTEXT / словарь**  
+die Schicht — смена; früher — раньше; losgehen — отправляться/выходить
+
+---
+
+### 31 · ИСПРАВЛЕНИЕ · Сравнительная степень
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь **две формы** в предложении. Порядок слов уже правильный:
+
+`Je guter das Wetter ist, desto viel Zeit verbringen wir draußen.`
+
+**BACK**  
+**Je besser das Wetter ist, desto mehr Zeit verbringen wir draußen.** — Чем лучше погода, тем больше времени мы проводим на улице. Сравнительные степени: **gut → besser** и **viel → mehr**. Позиции глаголов **ist** и **verbringen** уже корректны.
+
+**CONTEXT / словарь**  
+das Wetter — погода; draußen — на улице; verbringen — проводить (время)
+
+---
+
+### 32 · MATCH · Смысл и форма без прямых подсказок
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Соедини смысл задачи 1–4 с **наиболее точным** немецким предложением A–D.
+
+1. Сравнить: чем лучше план, тем меньше путаницы.
+2. Сообщить: компьютер выключен, поэтому работаем на бумаге.
+3. Указать: стало темно, так что фонари включили.
+4. Подчеркнуть: было настолько громко, что мы не слышали объявления.
+
+A. `Es wurde dunkel, sodass die Lampen eingeschaltet wurden.`
+B. `Der Computer ist aus. Deshalb arbeiten wir auf Papier.`
+C. `Es war so laut, dass wir die Durchsage nicht hörten.`
+D. `Je klarer der Plan ist, desto weniger Missverständnisse gibt es.`
+
+**BACK**  
+**1–D; 2–B; 3–A; 4–C.** Все четыре модели грамматически правильны, но каждая подчёркивает **другую смысловую задачу**. Перевод: чем понятнее план, тем меньше недоразумений; компьютер выключен, поэтому работаем на бумаге; стемнело, так что лампы включили; было настолько громко, что мы не слышали объявления.
+
+**CONTEXT / словарь**  
+das Missverständnis — недоразумение; die Durchsage — объявление по громкой связи; ausschalten — выключать
+
+---
+
+### 33 · СООБЩЕНИЕ · Перенос встречи
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши **два предложения** коллеге: городская электричка не ходит; поэтому ты приедешь на работу позже. Не используй русские слова. Сообщение должно звучать естественно.
+
+**BACK**  
+**Пример:** *Die S-Bahn fährt heute nicht. Deshalb komme ich später zur Arbeit.* — Городская электричка сегодня не ходит. Поэтому я приду на работу позже. Можно `deswegen/daher`. Порядок во второй главной части: **Deshalb komme ich**. Засчитывается другая вежливая и грамматически правильная формулировка с тем же сообщением.
+
+**CONTEXT / словарь**  
+die S-Bahn — городская электричка; später — позже; zur Arbeit kommen — приходить на работу
+
+---
+
+### 34 · КОРОТКИЙ ТЕКСТ · Служба поддержки
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты обращаешься в службу поддержки: приложение работает настолько медленно, что запись не удаётся завершить. Напиши **одно полное предложение** с выделенной степенью и правильным порядком слов.
+
+**BACK**  
+**Пример:** *Die App funktioniert so langsam, dass ich die Anmeldung nicht abschließen kann.* — Приложение работает настолько медленно, что я не могу завершить регистрацию. **so langsam … dass** выделяет степень. В конце придаточной части личный модальный **kann**.
+
+**CONTEXT / словарь**  
+die Anmeldung — регистрация/запись; abschließen — завершать; die App — приложение
+
+---
+
+### 35 · ПИСЬМО · ФРАГМЕНТ · Отсутствие на курсе
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши **две связанные немецкие фразы** для короткого письма преподавателю: заболел, поэтому сегодня не сможешь прийти на занятия. Не нужно полное письмо, только основное сообщение; используй подходящую конструкцию следствия.
+
+**BACK**  
+**Пример:** *Ich bin krank. Deshalb kann ich heute nicht zum Unterricht kommen.* — Я заболел/болен. Поэтому сегодня не могу прийти на занятие. Вежливый вариант: *Leider bin ich krank, sodass ich heute nicht am Unterricht teilnehmen kann.* Допускаются обе модели, если следствие передано и порядок слов правильный.
+
+**CONTEXT / словарь**  
+leider — к сожалению; am Unterricht teilnehmen — принимать участие в занятии
+
+---
+
+### 36 · РЕЧЬ · Пропущенный приём в Bürgerbüro
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Представь разговор у стойки Bürgerbüro. Ты не смог прийти на назначенную встречу, **поэтому** хочешь назначить новую. Объясни это устно **двумя фразами и одной вежливой просьбой**.
+
+Если не можешь говорить, выбери «не могу говорить» без штрафа.
+
+**BACK**  
+**Пример:** *Ich konnte meinen Termin leider nicht wahrnehmen. Deshalb möchte ich einen neuen Termin vereinbaren. Könnten Sie mir bitte helfen?* — К сожалению, я не смог прийти на назначенный приём. Поэтому хочу назначить новый. Не могли бы вы мне помочь? Для оценки важны факт, последствие и вежливая просьба; **Deshalb möchte ich** — правильная последовательность.
+
+**CONTEXT / словарь**  
+einen Termin wahrnehmen — прийти на назначенный приём; vereinbaren — договариваться; die Bitte — просьба
+
+---
+
+### 37 · ОПИСАНИЕ СИТУАЦИИ · Урок в помещении
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Дана ситуация (это **текстовое описание**, а не реальная фотография): в учебном классе много людей; несколько студентов стоят у задней стены. Напиши **одно предложение** с акцентом на степень тесноты и результат. Не добавляй деталей, которых нет в описании.
+
+**BACK**  
+**Пример:** *Der Klassenraum ist so voll, dass einige Teilnehmer hinten stehen müssen.* — В классе настолько тесно, что нескольким участникам приходится стоять сзади. Оценивать по явным деталям описания и модели **so voll …, dass**. Не считать наблюдением то, чего в условии нет.
+
+**CONTEXT / словарь**  
+der Klassenraum — классная комната; hinten — сзади; die Teilnehmer — участники
+
+---
+
+### 38 · ПЕРЕПИСКА · Соседу о ремонте
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши короткое сообщение соседу, **2–3 немецких предложения**: работы в подъезде затянулись; поэтому в подъезде пока шумно; извинись за неудобства. Не нужно вписывать дату или обещать то, чего ты не знаешь.
+
+**BACK**  
+**Пример:** *Die Arbeiten im Treppenhaus dauern länger als geplant. Deshalb ist es dort noch laut. Entschuldigung für die Unannehmlichkeiten.* — Работы в подъезде идут дольше запланированного. Поэтому там ещё шумно. Извините за неудобства. Грамматическая цель: конкретное следствие с V2. Другие вежливые эквиваленты допустимы.
+
+**CONTEXT / словарь**  
+das Treppenhaus — лестничная клетка/подъезд; länger als geplant — дольше запланированного; die Unannehmlichkeiten — неудобства
+
+---
+
+### 39 · ИСПРАВЛЕНИЕ · СМЕШАННОЕ · Три предложения — три ошибки
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь **все три** предложения. В каждом только **одна** грамматическая ошибка целевой темы.
+
+1. `Je besser wir planen, desto weniger Zeit wir brauchen.` (смысл: чем лучше планируем, тем меньше времени нужно)
+2. `Der Raum ist voll. Deswegen die Gäste warten draußen.`
+3. `Die Straße ist so schmal, dass die Autos können nicht wenden.`
+
+**BACK**  
+**1. Je besser wir planen, desto weniger Zeit brauchen wir.** — После начальной группы **desto weniger Zeit** спрягаемый глагол **brauchen** должен идти сразу, перед **wir**.
+**2. Der Raum ist voll. Deswegen warten die Gäste draußen.** — После `deswegen` сразу личный **warten**.
+**3. Die Straße ist so schmal, dass die Autos nicht wenden können.** — В придаточном `dass` модальный **können** завершает часть.
+
+Перевод: чем лучше планируем, тем меньше времени требуется; зал полон, поэтому гости ждут снаружи; улица настолько узкая, что машины не могут развернуться.
+
+**CONTEXT / словарь**  
+schmal — узкий; wenden — разворачиваться; die Gäste — гости
+
+---
+
+### 40 · ВЫБОР · ДВА ВЕРНЫХ · Проверь варианты so dass
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Какие **два** предложения правильно передают нейтральное последствие «Снег идёт сильно, так что видимость плохая»?
+
+A. Es schneit stark, sodass die Sicht schlecht ist.
+B. Es schneit stark, so dass die Sicht schlecht ist.
+C. Es schneit stark, so die Sicht schlecht ist, dass.
+
+**BACK**  
+**A и B.** *Es schneit stark, sodass/so dass die Sicht schlecht ist.* — Снег идёт сильно, так что видимость плохая. `sodass` и `so dass` — оба допустимые написания союза. В варианте C структура не образует корректный придаточный союз результата. Не путать союз с рамкой степени `so stark, dass …` (это тоже возможно, но другая формулировка).
+
+**CONTEXT / словарь**  
+schneien — идти (о снеге); die Sicht — видимость; schlecht — плохой
+
+---
+
+### 41 · СВОБОДНЫЙ ТЕКСТ · Три намерения — три формы
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши **три отдельные немецкие фразы** на тему «подготовка к экзамену». Передай:
+
+1. Две изменяющиеся величины: больше повторений → больше уверенности.
+2. Конкретный факт и результат: завтра экзамен → сегодня повторяешь.
+3. Степень и результат: задание настолько сложное → нужна помощь.
+
+Не используй готовые предложения из предыдущих карточек.
+
+**BACK**  
+**Один из возможных вариантов:**
+1. *Je öfter ich wiederhole, desto sicherer fühle ich mich.* — Чем чаще повторяю, тем увереннее себя чувствую.
+2. *Morgen habe ich eine Prüfung. Deshalb lerne ich heute noch.* — Завтра у меня экзамен. Поэтому сегодня я ещё занимаюсь.
+3. *Die Aufgabe ist so schwierig, dass ich Hilfe brauche.* — Задание настолько сложное, что мне нужна помощь.
+
+**Оценка:** выполнены все три намерения, личные глаголы стоят правильно, предложения понятны; другие естественные ответы засчитываются.
+
+**CONTEXT / словарь**  
+wiederholen — повторять; sich sicher fühlen — чувствовать себя уверенно; die Prüfung — экзамен
+
+---
+
+### 42 · РЕЧЬ · СМЕШАННОЕ · Маленькая история
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Расскажи устно **3–4 немецкими предложениями** о подготовке поездки: чем раньше начинаешь планировать, тем проще выбор; билет подорожал, поэтому ты ищешь другой; поезд задержан, так что приходится менять план. Используй минимум **две разные конструкции**, которые точнее всего передают смысл.
+
+«Не могу говорить» допускается без штрафа; ответ тогда останется непроверенным.
+
+**BACK**  
+**Пример:** *Je früher ich die Reise plane, desto leichter fällt mir die Auswahl. Das Ticket ist teurer geworden. Deshalb suche ich eine andere Verbindung. Der Zug hat Verspätung, sodass ich meinen Plan ändern muss.* — Чем раньше планирую поездку, тем легче мне выбирать. Билет подорожал, поэтому ищу другой маршрут. Поезд задерживается, так что приходится менять план.
+
+В примере четыре немецких предложения, что соответствует задаче; при естественном объединении смысловых частей возможен вариант с тремя. Проверять структуру, а не количество слов.
+
+**CONTEXT / словарь**  
+die Auswahl — выбор; die Verbindung — маршрут/соединение; teurer geworden — подорожал
+
+---
+
+### 43 · ПЕРЕВОД · СЛОЖНЫЙ · Два сравнения
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи **одним** сложным предложением:
+
+«Чем дольше продолжается собрание, тем меньше времени остаётся на обсуждение вопросов».
+
+**BACK**  
+**Пример:** *Je länger die Sitzung dauert, desto weniger Zeit bleibt für die Fragen.* — Чем дольше длится заседание, тем меньше времени остаётся на вопросы. Более точно «на обсуждение вопросов»: *..., desto weniger Zeit bleibt für die Besprechung der Fragen.* Разные лексически естественные варианты допустимы. **dauert** в конце je-части, **bleibt** после `desto weniger Zeit`.
+
+**CONTEXT / словарь**  
+die Sitzung — собрание; die Besprechung — обсуждение; dauern — длиться
+
+---
+
+### 44 · СООБЩЕНИЕ · ЖИЛЬЁ · Письмо в управляющую компанию
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши **короткое немецкое письмо (4–6 предложений)** в Hausverwaltung: дверь в подвал не закрывается; поэтому туда могут заходить посторонние; попроси проверить замок и сообщить о возможном сроке ремонта. Включи приветствие и завершение. Не добавляй вымышленных аварий или юридических заявлений.
+
+**BACK**  
+**Пример:**
+*Sehr geehrte Damen und Herren,*
+
+*die Tür zum Keller lässt sich nicht richtig schließen. Deshalb können möglicherweise fremde Personen hineingelangen. Könnten Sie bitte das Schloss überprüfen lassen? Bitte teilen Sie mir mit, wann eine Reparatur möglich ist.*
+
+*Mit freundlichen Grüßen*
+
+— Уважаемые дамы и господа! Дверь в подвал плохо закрывается. Поэтому туда могут попасть посторонние. Не могли бы вы организовать проверку замка? Сообщите, пожалуйста, когда возможен ремонт. С уважением.
+
+**Критерий:** проблема → возможное следствие без категоричных утверждений → конкретная вежливая просьба → оформление письма; корректный V2 после `Deshalb`.
+
+**CONTEXT / словарь**  
+die Hausverwaltung — управляющая компания; der Keller — подвал; das Schloss — замок; möglicherweise — возможно
+
+---
+
+### 45 · АНАЛИЗ ОТВЕТА · Не всякое отличие — ошибка
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ученик написал:
+
+`Je besser wir zusammenarbeiten, umso schneller lösen wir das Problem.`
+
+Проверяющий пометил **umso** как ошибку и потребовал **desto**. Справедливо ли это? Ответь коротко **по-русски или по-немецки** и оцени сам порядок слов.
+
+**BACK**  
+**Нет, несправедливо.** *Je besser wir zusammenarbeiten, umso schneller lösen wir das Problem.* — Чем лучше мы сотрудничаем, тем быстрее решаем проблему. `umso` равноправно `desto` в данной парной конструкции. **zusammenarbeiten** правильно завершает je-часть; **lösen** следует за `umso schneller`. Зачесть аргумент и верную проверку обоих глаголов.
+
+**CONTEXT / словарь**  
+zusammenarbeiten — сотрудничать; ein Problem lösen — решать проблему; gerecht — справедливый
+
+---
+
+### 46 · ФОРУМ · МНЕНИЕ · Бесплатные городские курсы
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Напиши **4–5 немецких предложений** для форума: стоит ли городу проводить бесплатные языковые встречи? Дай своё мнение, одну зависимость «чем … тем …» и хотя бы **одно конкретное следствие** через любой подходящий способ. Аргументация должна быть понятна, не просто набор союзов.
+
+**BACK**  
+**Пример:** *Ich finde kostenlose Sprachentreffen sinnvoll. Je öfter Menschen miteinander sprechen, desto sicherer werden sie. Viele haben im Alltag wenig Gelegenheit dazu. Deshalb sollte die Stadt solche Treffen anbieten. So können sich neue Nachbarn besser kennenlernen.* — Я считаю бесплатные языковые встречи полезными. Чем чаще люди говорят друг с другом, тем увереннее становятся. У многих мало таких возможностей в повседневной жизни. Поэтому городу стоит организовывать встречи. Так новые соседи могут лучше знакомиться. Проверять смысл, обязательные две разные конструкции и естественность. Варианты с другими аргументами допустимы.
+
+**CONTEXT / словарь**  
+das Sprachentreffen — языковая встреча; sinnvoll — разумный, полезный; die Gelegenheit — возможность
+
+---
+
+### 47 · КЛАССИФИКАЦИЯ · ФИНАЛ · Четыре задачи
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Для каждой ситуации **выбери наиболее точный тип конструкции** (запиши 1–4 буквы без готовых немецких предложений):
+
+1. «Чем дольше работает прибор, тем сильнее он нагревается» — общая тенденция.
+2. «Прибор отключился, поэтому измерение прервано» — конкретный факт.
+3. «Прибор был настолько горячим, что его нельзя было трогать» — выделенная степень.
+4. «Прибор выключили, так что шум прекратился» — нейтральное последствие.
+
+A — `so … dass`; B — `deshalb/deswegen/daher`; C — `je … desto/umso`; D — `sodass`.
+
+**BACK**  
+**1–C; 2–B; 3–A; 4–D.**
+
+Возможные формулировки:
+1. *Je länger das Gerät läuft, desto wärmer wird es.*
+2. *Das Gerät ist ausgefallen. Deshalb wurde die Messung unterbrochen.*
+3. *Das Gerät war so heiß, dass man es nicht anfassen konnte.*
+4. *Das Gerät wurde ausgeschaltet, sodass der Lärm aufhörte.*
+
+Проверка смысла: сравнение, единичный факт, выделенная степень, результат в придаточной части. В свободной речи некоторые факты можно передать и другими корректными моделями.
+
+**CONTEXT / словарь**  
+das Gerät — устройство; die Messung — измерение; anfassen — трогать; aufhören — прекращаться
+
+---
+
+### 48 · РЕЧЬ · ИТОГ · Твоя собственная ситуация
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Финальная устная задача. Расскажи **30–45 секунд** о знакомой бытовой ситуации или придумай правдоподобную: что меняется постепенно, что произошло однажды, какое было следствие и почему это важно. Построй минимум **три целевых конструкции из двух разных групп**; говори естественно, не перечисляй союзы.
+
+Если сейчас говорить не можешь, нажми «не могу говорить»: это **не штраф**, но результат устной проверки остаётся открытым.
+
+**BACK**  
+**Один из примеров (не единственный):** *Je öfter ich die neuen Wörter benutze, desto leichter merke ich sie mir. Gestern hatte ich wenig Zeit. Deshalb habe ich nur kurz gelernt. Die Übung war so interessant, dass ich trotzdem weitermachen wollte.* — Чем чаще использую новые слова, тем легче их запоминаю. Вчера у меня было мало времени. Поэтому я занимался недолго. Упражнение было настолько интересным, что я всё равно хотел продолжать.
+
+**Рубрика:** (а) минимум две разные группы конструкций; (б) три осмысленные фразы; (в) правильные позиции личных глаголов; (г) понятная последовательность мысли. Другой сюжет полностью допустим. Пропуск — «не проверено», не ошибка.
+
+**CONTEXT / словарь**  
+sich etwas merken — запоминать что-то; trotzdem — несмотря на это; weitermachen — продолжать
+
+---
+
+## Маршрутизация результата (не карточка)
+
+**Для интерфейса оценки:** 40 письменных заданий (включая выбор и свободный текст); устные 06/12/18/24/30/36/42/48 — отдельный показатель, без штрафа при выборе «не могу говорить». Точный результат не ставить до прохождения. Не суммировать просмотр ключей как верный ответ. Длинные письменные ответы оценивать семантически: соблюдение заданных смысловых элементов + правильная целевая структура + понятность немецкой фразы. При наличии нескольких естественных формулировок засчитывать равнозначные. В многопунктовой письменной карточке 1 балл — все обязательные части выполнены; иначе 0 и адресная подсказка после проверки.
+
+**Слабое место → повтор:** сравнительная степень / je-часть → D03–D05, когда они будут созданы, а пока D07; `desto/umso` → D06–D08; `deshalb/deswegen/daher` → D09; `sodass`, `so … dass`, конец глагола → D10; выбор по смыслу → D11; коммуникация → D12; быстрая разминка через время → D13.
+
+**Статус серии после создания D14:** первый методический проход D14 подготовлен, но **D03–D05 ещё отсутствуют**. Второй технический проход, импорт и проверка приложения не проведены.

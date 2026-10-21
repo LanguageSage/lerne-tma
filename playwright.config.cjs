@@ -14,6 +14,8 @@ module.exports = defineConfig({
       grepInvert: /two separate devices exchange real HTTP/ },
     { name: 'extended', testMatch: /.*\.spec\.cjs$/,
       testIgnore: /(?:guest-entry|card-editor|study-finished|offline)\.spec\.cjs$/ },
+    { name: 'auth-chrome', testMatch: /auth-lifecycle\.spec\.cjs$/,
+      use: { channel: 'chrome' } },
   ],
   use: { baseURL: 'http://127.0.0.1:5199', headless: true,
     serviceWorkers: 'block', trace: 'retain-on-failure' },

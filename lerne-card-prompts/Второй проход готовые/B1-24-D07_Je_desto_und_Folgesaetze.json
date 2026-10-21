@@ -1,0 +1,1043 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "B1-24-D07 · Je … desto und Folgesätze — Связываем две мысли",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "B1-24-D07 · Связываем две мысли",
+        "level": "B1",
+        "topic": "Je … desto und Folgesätze",
+        "description": "Построение целых двусторонних предложений конструкции je … desto с координацией порядка слов в обеих частях",
+        "goal": "Научить ученика самостоятельно формулировать полные сложные предложения с конструкцией je … desto, связывая два взаимозависимых признака, ставя глагол в конец je-части и соблюдая инверсию в desto-части.",
+        "learning_outcomes": [
+          "Выделять два взаимосвязанных признака и подбирать соответствующие формы Komparativ",
+          "Соблюдать порядок слов придаточного предложения в первой части (глагол в конце перед запятой)",
+          "Соблюдать порядок слов главного предложения с инверсией во второй части (глагол сразу после desto + Komparativ)",
+          "Корректно строить полные связки с модальными, отделяемыми и возвратными глаголами",
+          "Формулировать спонтанные речевые высказывания о здоровье, сне, отдыхе и привычках"
+        ],
+        "estimated_time": "35–50 минут",
+        "recommendations": "При ошибках в сравнительных формах повторить D04 и примеры D01–D02. При ошибках порядка слов в первой части — вернуться к D05. При нарушениях инверсии во второй части — повторить D06. При трудностях согласования обеих частей — повторить карточки 01–16 данной колоды D07. Следующая колода — D08 «Je … desto или je … umso?»."
+      },
+      "pedagogy": {
+        "lesson_type": "practice",
+        "expected_result": "Ученик уверенно соединяет две взаимозависимые мысли в единое сложное предложение je … desto, безошибочно располагая личные глаголы в конце первой части и на втором месте во второй части.",
+        "stages": [
+          {
+            "id": "full_sentence_basics",
+            "title": "Сборка полного предложения при сильной поддержке",
+            "goal": "Освоить координацию порядка слов в обеих частях на базовых моделях",
+            "from_card": 1,
+            "to_card": 8,
+            "support": "high",
+            "expected_skill": "Строить полное предложение je … desto с правильной позицией обоих глаголов"
+          },
+          {
+            "id": "complex_noun_groups_persons",
+            "title": "Составные сравнительные группы и смена лиц",
+            "goal": "Научиться сохранять группы с существительным и согласовывать разные лица глаголов",
+            "from_card": 9,
+            "to_card": 16,
+            "support": "high",
+            "expected_skill": "Использовать составные группы (je mehr Wasser, desto weniger Durst) без разрыва"
+          },
+          {
+            "id": "opposite_trends_and_modals",
+            "title": "Разнонаправленные зависимости, модальные и возвратные глаголы",
+            "goal": "Строить предложения с разнонаправленным изменением признаков и сложными предикатами",
+            "from_card": 17,
+            "to_card": 24,
+            "support": "medium",
+            "expected_skill": "Корректно располагать модальные и возвратные глаголы в обеих частях"
+          },
+          {
+            "id": "error_detection_and_translation",
+            "title": "Обнаружение ошибок в обеих частях и свободный перевод",
+            "goal": "Находить и исправлять ошибки порядка слов и переводить связки без опоры на слова-банк",
+            "from_card": 25,
+            "to_card": 32,
+            "support": "medium",
+            "expected_skill": "Диагностировать типичные ошибки порядка слов и точно переводить предложения"
+          },
+          {
+            "id": "dialogue_and_situations",
+            "title": "Диалогические реплики и жизненные контексты",
+            "goal": "Применять конструкцию je … desto в контексте повседневного диалога и привычек",
+            "from_card": 33,
+            "to_card": 40,
+            "support": "medium",
+            "expected_skill": "Формулировать реплики в мини-диалогах о здоровье, питании и отдыхе"
+          },
+          {
+            "id": "autonomous_speech_and_production",
+            "title": "Самостоятельное речевое и письменное применение",
+            "goal": "Автономно продуцировать связные предложения je … desto в устной и письменной речи",
+            "from_card": 41,
+            "to_card": 48,
+            "support": "low",
+            "expected_skill": "Свободно выражать любые парные зависимости без вспомогательных шаблонов"
+          }
+        ],
+        "competencies": [
+          {
+            "id": "full_sentence_coordination",
+            "title": "Координация обеих частей конструкции",
+            "description": "Синхронное удержание глагола в конце je-части и инверсии в desto-части"
+          },
+          {
+            "id": "two_variable_scaling",
+            "title": "Выражение зависимости двух признаков",
+            "description": "Правильный подбор сравнительных степеней прилагательных и наречий для обеих шкал"
+          },
+          {
+            "id": "complex_predicate_integration",
+            "title": "Интеграция модальных и возвратных глаголов",
+            "description": "Корректное размещение возвратных местоимений (sich) и модальных рамок в обеих частях"
+          }
+        ],
+        "assessment_criteria": [
+          {
+            "id": "verb_positions_accuracy",
+            "title": "Точность позиций обоих глаголов",
+            "description": "Личный глагол первой части строго в конце перед запятой; личный глагол второй части — сразу после desto-группы"
+          },
+          {
+            "id": "comparative_form_accuracy",
+            "title": "Точность сравнительных форм",
+            "description": "Корректное образование форм Komparativ (regelmäßiger, fitter, früher, ruhiger, mehr, weniger)"
+          }
+        ],
+        "review_recommendations": [
+          {
+            "id": "review_both_verbs",
+            "title": "Повторение позиций глаголов",
+            "when": "Если глагол ставится на неверную позицию хотя бы в одной из частей",
+            "reason": "Повторить карточки 01–16 данной колоды D07",
+            "competency_ids": [
+              "full_sentence_coordination"
+            ]
+          },
+          {
+            "id": "review_je_part",
+            "title": "Повторение первой части je",
+            "when": "Если спрягаемый глагол не ставится в конец придаточного",
+            "reason": "Повторить колоду D05",
+            "competency_ids": [
+              "full_sentence_coordination"
+            ]
+          },
+          {
+            "id": "review_desto_part",
+            "title": "Повторение второй части desto",
+            "when": "Если во второй части нарушается инверсия (*desto fitter ich fühle mich*)",
+            "reason": "Повторить колоду D06",
+            "competency_ids": [
+              "full_sentence_coordination"
+            ]
+          }
+        ]
+      }
+    }
+  },
+  "cards": [
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Две мысли превращаются в одно предложение."
+        }
+      ],
+      "data": {
+        "text": "Раньше мы отдельно строили половины. Теперь соединяем **два изменения** в одну фразу:\n\n**Je regelmäßiger ich mich bewege, desto fitter fühle ich mich.**\nЧем регулярнее я двигаюсь, тем лучше моя физическая форма / тем бодрее я себя чувствую.\n\n1. В первой части (**je regelmäßiger ich mich bewege**) спрягаемый глагол **bewege** стоит **в конце** перед запятой.\n2. Во второй части (**desto fitter fühle ich mich**) после начальной группы **desto fitter** сразу стоит личный глагол **fühle**, а затем подлежащее **ich**.\n3. Между частями обязательно ставится **запятая**.\n\nЗдесь речь идёт о зависимости двух степеней, а не об однократном действии."
+      },
+      "explanation": "sich bewegen — двигаться; fit — в хорошей физической форме."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Соедините два изменения: «больше движения → больше энергии». Какое предложение верно?",
+        "options": [
+          {
+            "text": "Je mehr ich mich bewege, desto mehr Energie habe ich.",
+            "correct": true
+          },
+          {
+            "text": "Je mehr bewege ich mich, desto mehr Energie habe ich."
+          },
+          {
+            "text": "Je mehr ich mich bewege, desto mehr Energie ich habe."
+          }
+        ]
+      },
+      "explanation": "Je mehr ich mich bewege, desto mehr Energie habe ich — в je-части глагол bewege стоит в конце, а после группы desto mehr Energie сразу следует спрягаемый глагол habe. die Energie — энергия."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение из двух мыслей: «Чем больше воды я пью, тем меньше испытываю жажду». (Ich trinke genug Wasser. Ich habe weniger Durst.)"
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "mehr",
+          "Wasser",
+          "ich",
+          "trinke,",
+          "desto",
+          "weniger",
+          "Durst",
+          "habe",
+          "ich."
+        ],
+        "translation": "Чем больше воды я пью, тем меньше испытываю жажду."
+      },
+      "explanation": "Одна шкала растёт (mehr Wasser), другая уменьшается (weniger Durst). В je-части trinke стоит в конце, а после desto weniger Durst сразу идёт глагол habe. der Durst — жажда."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите всё предложение из фрагментов: «Чем раньше я ложусь спать, тем спокойнее сплю»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "früher",
+          "ich",
+          "ins",
+          "Bett",
+          "gehe,",
+          "desto",
+          "ruhiger",
+          "schlafe",
+          "ich."
+        ],
+        "translation": "Чем раньше я ложусь спать, тем спокойнее сплю."
+      },
+      "explanation": "gehe завершает первую придаточную часть перед запятой; во второй части после сравнительной группы desto ruhiger сразу стоит личный глагол schlafe. ins Bett gehen — ложиться спать."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Восстановите два личных глагола: machen и sein."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je öfter ich Pausen "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "mache"
+            ]
+          },
+          {
+            "type": "text",
+            "text": ", desto konzentrierter "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "bin"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " ich."
+          }
+        ]
+      },
+      "explanation": "mache — в конце je-части перед запятой; bin — сразу за начальной группой desto konzentrierter. die Pause — перерыв; konzentriert — сосредоточенный."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Устно свяжите две мысли: «Я ем меньше сладкого. Я чувствую себя лучше» (подсказка: weniger Süßigkeiten essen → sich besser fühlen).",
+        "sample_answer": "Je weniger Süßigkeiten ich esse, desto besser fühle ich mich.",
+        "accepted_answers": [
+          "Je weniger Süßigkeiten ich esse, desto besser fühle ich mich.",
+          "Je weniger Süßigkeiten ich esse, desto besser fühle ich mich",
+          "Je weniger Süssigkeiten ich esse, desto besser fühle ich mich.",
+          "Je weniger Süssigkeiten ich esse, desto besser fühle ich mich"
+        ]
+      },
+      "explanation": "Je weniger Süßigkeiten ich esse, desto besser fühle ich mich — esse замыкает первую часть, а fühle стоит сразу после desto besser. die Süßigkeiten — сладости; sich fühlen — чувствовать себя."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Найдите и исправьте ошибку порядка слов во второй части предложения."
+        },
+        {
+          "type": "source",
+          "text": "Je länger ich trainiere, desto stärker ich werde."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте предложение: «Je länger ich trainiere, desto stärker ich werde.»",
+        "sample_answer": "Je länger ich trainiere, desto stärker werde ich.",
+        "accepted_answers": [
+          "Je länger ich trainiere, desto stärker werde ich.",
+          "Je länger ich trainiere, desto stärker werde ich",
+          "desto stärker werde ich.",
+          "desto stärker werde ich"
+        ]
+      },
+      "explanation": "trainiere правильно стоит в конце je-части; во второй части глагол werde должен стоять сразу после desto stärker: desto stärker werde ich. trainieren — тренироваться; stark → stärker — сильнее."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите на немецкий язык: «Чем чаще я гуляю, тем лучше моё настроение» (опоры: spazieren gehen, oft → öfter, die Laune → besser)."
+        }
+      ],
+      "data": {
+        "prompt": "Переведите: «Чем чаще я гуляю, тем лучше моё настроение».",
+        "sample_answer": "Je öfter ich spazieren gehe, desto besser ist meine Laune.",
+        "accepted_answers": [
+          "Je öfter ich spazieren gehe, desto besser ist meine Laune.",
+          "Je öfter ich spazieren gehe, desto besser ist meine Laune"
+        ]
+      },
+      "explanation": "Во фразе spazieren gehe спрягаемое gehe завершает je-часть; во второй части после desto besser сразу стоит глагол ist: desto besser ist meine Laune. spazieren gehen — гулять; die Laune — настроение."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Не разрывайте составные сравнительные группы."
+        }
+      ],
+      "data": {
+        "text": "Сравните:\n\n**Je weniger Zeit ich am Bildschirm verbringe, desto mehr Zeit habe ich für Freunde.**\nЧем меньше времени я провожу перед экраном, тем больше времени у меня для друзей.\n\nГруппы **je weniger Zeit** и **desto mehr Zeit** — неделимые смысловые блоки.\nНельзя автоматически ставить глагол сразу после `desto mehr`, если мы сравниваем **количество времени**!\n\nСхема самоконтроля:\n`je + [сравнительная группа] + … + ЛИЧНЫЙ ГЛАГОЛ, desto + [сравнительная группа] + ЛИЧНЫЙ ГЛАГОЛ + подлежащее …`"
+      },
+      "explanation": "am Bildschirm — перед экраном; Zeit verbringen — проводить время."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Как лучше выразить мысль: «Чем больше овощей мы едим, тем больше витаминов получаем»?",
+        "options": [
+          {
+            "text": "Je mehr Gemüse wir essen, desto mehr Vitamine bekommen wir.",
+            "correct": true
+          },
+          {
+            "text": "Je mehr wir Gemüse essen, desto mehr bekommen Vitamine wir."
+          },
+          {
+            "text": "Je mehr Gemüse wir essen, desto mehr Vitamine wir bekommen."
+          }
+        ]
+      },
+      "explanation": "Группы mehr Gemüse и mehr Vitamine неделимы и стоят в начале своих частей. essen завершает je-часть, а bekommen стоит сразу после группы desto mehr Vitamine. das Gemüse — овощи; die Vitamine — витамины."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите всё предложение из слов: «Чем больше отдыха я себе позволяю, тем быстрее восстанавливаюсь»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "mehr",
+          "Ruhe",
+          "ich",
+          "mir",
+          "gönne,",
+          "desto",
+          "schneller",
+          "erhole",
+          "ich",
+          "mich."
+        ],
+        "translation": "Чем больше отдыха я себе позволяю, тем быстрее восстанавливаюсь."
+      },
+      "explanation": "gönne завершает первую часть; во второй части после desto schneller сразу стоит спрягаемый глагол erhole, затем ich mich. sich Ruhe gönnen — позволять себе отдых; sich erholen — восстанавливаться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Объясните другу зависимость: «Чем меньше я вечером смотрю в телефон, тем раньше засыпаю» (опора: weniger aufs Handy schauen → früher einschlafen).",
+        "sample_answer": "Je weniger ich abends aufs Handy schaue, desto früher schlafe ich ein.",
+        "accepted_answers": [
+          "Je weniger ich abends aufs Handy schaue, desto früher schlafe ich ein.",
+          "Je weniger ich abends aufs Handy schaue, desto früher schlafe ich ein",
+          "Je weniger ich am Abend aufs Handy schaue, desto früher schlafe ich ein.",
+          "Je weniger ich am Abend aufs Handy schaue, desto früher schlafe ich ein"
+        ]
+      },
+      "explanation": "schaue стоит в конце je-части; во второй части после desto früher идёт schlafe ich, а отделяемая приставка ein остаётся в конце: desto früher schlafe ich ein. einschlafen — засыпать."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Заполните две сравнительные формы и пропущенный личный глагол: viel, verbringen, gut."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "mehr"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " Zeit du draußen "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "verbringst"
+            ]
+          },
+          {
+            "type": "text",
+            "text": ", desto "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "besser"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " fühlst du dich."
+          }
+        ]
+      },
+      "explanation": "viel → mehr; verbringst — форма 2-го лица ед. ч. в конце je-части; gut → besser перед глаголом fühlst. draußen — на свежем воздухе; sich fühlen — чувствовать себя."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение по смыслу: «Чем регулярнее мы проветриваем, тем свежее воздух»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "regelmäßiger",
+          "wir",
+          "lüften,",
+          "desto",
+          "frischer",
+          "ist",
+          "die",
+          "Luft."
+        ],
+        "translation": "Чем регулярнее мы проветриваем, тем свежее воздух."
+      },
+      "explanation": "Две сравнительные степени: regelmäßiger и frischer. lüften стоит в конце первой части, а ist — сразу после desto frischer. lüften — проветривать; die Luft — воздух."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Объедините два наблюдения в закономерность: «Du bist weniger gestresst. Du kannst dich besser konzentrieren» (опоры: weniger Stress haben → sich besser konzentrieren können)."
+        }
+      ],
+      "data": {
+        "prompt": "Сформулируйте предложение с je … desto: «Чем меньше у тебя стресса, тем лучше ты можешь сосредоточиться».",
+        "sample_answer": "Je weniger Stress du hast, desto besser kannst du dich konzentrieren.",
+        "accepted_answers": [
+          "Je weniger Stress du hast, desto besser kannst du dich konzentrieren.",
+          "Je weniger Stress du hast, desto besser kannst du dich konzentrieren"
+        ]
+      },
+      "explanation": "hast завершает je-часть; во второй части после desto besser стоит модальный глагол kannst, а инфинитив konzentrieren — в конце. sich konzentrieren können — мочь сосредоточиться."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Переведите целиком: «Чем больше мой завтрак, тем меньше я хочу есть к обеду» (опоры: das Frühstück, groß → größer, Hunger haben, mittags)."
+        }
+      ],
+      "data": {
+        "prompt": "Переведите: «Чем больше мой завтрак, тем меньше я хочу есть к обеду».",
+        "sample_answer": "Je größer mein Frühstück ist, desto weniger Hunger habe ich mittags.",
+        "accepted_answers": [
+          "Je größer mein Frühstück ist, desto weniger Hunger habe ich mittags.",
+          "Je größer mein Frühstück ist, desto weniger Hunger habe ich mittags",
+          "Je groesser mein Frühstück ist, desto weniger Hunger habe ich mittags."
+        ]
+      },
+      "explanation": "В je-части ist стоит в конце; во второй части после desto weniger Hunger сразу следует глагол habe: desto weniger Hunger habe ich mittags. das Frühstück — завтрак; Hunger haben — хотеть есть."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Две части конструкции могут изменяться в противоположных направлениях."
+        }
+      ],
+      "data": {
+        "text": "Конструкция не обязательно связывает рост с ростом (mehr → mehr). Возможна и противоположная связь:\n\n1. **Рост → Уменьшение:**\n**Je mehr ich mich ausruhe, desto weniger müde bin ich.**\nЧем больше я отдыхаю, тем менее уставшим себя чувствую.\n\n2. **Уменьшение → Уменьшение:**\n**Je seltener ich spät esse, desto seltener habe ich nachts Bauchschmerzen.**\nЧем реже я ем поздно, тем реже у меня ночью болит живот.\n\nВсегда проверяйте реальный смысл и направление зависимости, подбирая `mehr`, `weniger`, `öfter` или `seltener`."
+      },
+      "explanation": "sich ausruhen — отдыхать; Bauchschmerzen haben — иметь боли в животе."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Скажите устно о привычке: «Чем больше я хожу пешком, тем реже пользуюсь лифтом» (опоры: zu Fuß gehen, den Aufzug benutzen, seltener).",
+        "sample_answer": "Je mehr ich zu Fuß gehe, desto seltener benutze ich den Aufzug.",
+        "accepted_answers": [
+          "Je mehr ich zu Fuß gehe, desto seltener benutze ich den Aufzug.",
+          "Je mehr ich zu Fuß gehe, desto seltener benutze ich den Aufzug",
+          "Je mehr ich zu Fuss gehe, desto seltener benutze ich den Aufzug."
+        ]
+      },
+      "explanation": "gehe замыкает je-часть; во второй части после desto seltener сразу идёт глагол benutze: desto seltener benutze ich den Aufzug. zu Fuß gehen — ходить пешком; der Aufzug — лифт."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте нарушенный порядок слов во второй части предложения."
+        },
+        {
+          "type": "source",
+          "text": "Je weniger du schläfst, desto schneller du wirst müde."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Je weniger du schläfst, desto schneller du wirst müde.»",
+        "sample_answer": "Je weniger du schläfst, desto schneller wirst du müde.",
+        "accepted_answers": [
+          "Je weniger du schläfst, desto schneller wirst du müde.",
+          "Je weniger du schläfst, desto schneller wirst du müde",
+          "desto schneller wirst du müde.",
+          "desto schneller wirst du müde"
+        ]
+      },
+      "explanation": "Глагол schläfst уже стоит правильно в конце je-части; во второй части глагол wirst должен стоять перед du сразу после desto schneller: desto schneller wirst du müde. müde werden — уставать."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите всё предложение из слов: «Чем чаще мы расслабляемся, тем спокойнее можем спать»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "öfter",
+          "wir",
+          "uns",
+          "entspannen,",
+          "desto",
+          "ruhiger",
+          "können",
+          "wir",
+          "schlafen."
+        ],
+        "translation": "Чем чаще мы расслабляемся, тем спокойнее можем спать."
+      },
+      "explanation": "В первой части entspannen стоит в конце; во второй части модальный глагол können идёт на втором месте после desto ruhiger, а инфинитив schlafen — в конце. sich entspannen — расслабляться."
+    },
+    {
+      "type": "trainer",
+      "info": [
+        {
+          "type": "task",
+          "text": "Закончите мысль двумя формами глаголов: dauern и sollen (в форме вежливого совета Konjunktiv II: solltest)."
+        }
+      ],
+      "data": {
+        "parts": [
+          {
+            "type": "text",
+            "text": "Je länger die Beschwerden "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "dauern"
+            ]
+          },
+          {
+            "type": "text",
+            "text": ", desto früher "
+          },
+          {
+            "type": "input",
+            "answers": [
+              "solltest"
+            ]
+          },
+          {
+            "type": "text",
+            "text": " du zum Arzt gehen."
+          }
+        ]
+      },
+      "explanation": "dauern согласовано с множественным числом die Beschwerden и стоит в конце придаточной; solltest выражает совет и стоит сразу после desto früher. die Beschwerden — жалобы, симптомы."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Перестройте две фразы «Ich atme langsamer. Ich werde ruhiger.» в закономерность «чем медленнее дышу, тем спокойнее становлюсь»."
+        }
+      ],
+      "data": {
+        "prompt": "Сформулируйте предложение с je … desto из фраз «Ich atme langsamer. Ich werde ruhiger.»",
+        "sample_answer": "Je langsamer ich atme, desto ruhiger werde ich.",
+        "accepted_answers": [
+          "Je langsamer ich atme, desto ruhiger werde ich.",
+          "Je langsamer ich atme, desto ruhiger werde ich"
+        ]
+      },
+      "explanation": "atme завершает первую часть; во второй части после desto ruhiger сразу идёт глагол werde ich: Je langsamer ich atme, desto ruhiger werde ich. atmen — дышать; ruhig → ruhiger — спокойнее."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Что точнее и грамматически верно передаёт мысль «Чем больше свободного времени, тем чаще я готовлю дома»?",
+        "options": [
+          {
+            "text": "Je mehr Freizeit ich habe, desto öfter koche ich zu Hause.",
+            "correct": true
+          },
+          {
+            "text": "Je mehr Freizeit habe ich, desto öfter koche ich zu Hause."
+          },
+          {
+            "text": "Je mehr Freizeit ich habe, desto öfter ich zu Hause koche."
+          }
+        ]
+      },
+      "explanation": "habe стоит в конце je-части; koche стоит сразу после desto öfter перед ich: Je mehr Freizeit ich habe, desto öfter koche ich zu Hause. die Freizeit — свободное время; zu Hause — дома."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Сформулируйте вслух: «Чем регулярнее я ложусь спать в одно и то же время, тем легче просыпаюсь» (опоры: regelmäßig → regelmäßiger, zur gleichen Zeit ins Bett gehen, leichter aufwachen).",
+        "sample_answer": "Je regelmäßiger ich zur gleichen Zeit ins Bett gehe, desto leichter wache ich auf.",
+        "accepted_answers": [
+          "Je regelmäßiger ich zur gleichen Zeit ins Bett gehe, desto leichter wache ich auf.",
+          "Je regelmäßiger ich zur gleichen Zeit ins Bett gehe, desto leichter wache ich auf",
+          "Je regelmaessiger ich zur gleichen Zeit ins Bett gehe, desto leichter wache ich auf."
+        ]
+      },
+      "explanation": "gehe замыкает je-часть; во второй части после desto leichter стоит wache ich, а отделяемая приставка auf замыкает предложение: desto leichter wache ich auf. aufwachen — просыпаться."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Самопроверка целого сложного предложения за пять секунд."
+        }
+      ],
+      "data": {
+        "text": "Когда вы построили полное предложение с **je … desto**, проверьте три ключевых пункта:\n\n1. **Смысл:** действительно ли две величины меняются взаимосвязанно?\n2. **Первая часть (je):** стоит ли личный спрягаемый глагол **в самом конце** перед запятой?\n3. **Вторая часть (desto):** стоит ли личный спрягаемый глагол **сразу после всей начальной сравнительной группы** перед подлежащим?\n\nПример эталонной структуры:\n**Je gesünder ich esse, desto besser fühle ich mich.**\n(Чем здоровее я питаюсь, тем лучше себя чувствую)."
+      },
+      "explanation": "gesund → gesünder — здоровее; sich fühlen — чувствовать себя."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Найдите и исправьте ошибку порядка слов в первой части предложения."
+        },
+        {
+          "type": "source",
+          "text": "Je öfter ich mache Sport, desto besser schlafe ich."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте предложение: «Je öfter ich mache Sport, desto besser schlafe ich.»",
+        "sample_answer": "Je öfter ich Sport mache, desto besser schlafe ich.",
+        "accepted_answers": [
+          "Je öfter ich Sport mache, desto besser schlafe ich.",
+          "Je öfter ich Sport mache, desto besser schlafe ich"
+        ]
+      },
+      "explanation": "Ошибка была только в первой части: глагол mache должен стоять в конце придаточной je-части: Je öfter ich Sport mache, desto besser schlafe ich. Sport machen — заниматься спортом."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибки порядка слов в первой и во второй частях предложения."
+        },
+        {
+          "type": "source",
+          "text": "Je später esse ich, desto schlechter ich schlafe."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибки в предложении: «Je später esse ich, desto schlechter ich schlafe.»",
+        "sample_answer": "Je später ich esse, desto schlechter schlafe ich.",
+        "accepted_answers": [
+          "Je später ich esse, desto schlechter schlafe ich.",
+          "Je später ich esse, desto schlechter schlafe ich",
+          "Je spaeter ich esse, desto schlechter schlafe ich."
+        ]
+      },
+      "explanation": "В первой части esse должно стоять в конце: je später ich esse; во второй части глагол schlafe должен стоять сразу после desto schlechter: desto schlechter schlafe ich. spät → später — позже; schlecht → schlechter — хуже."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Человек написал: «Je mehr Zeit ich im Park verbringe, desto entspannter ich bin.» Какое главное исправление требуется во второй части?",
+        "options": [
+          {
+            "text": "desto entspannter bin ich",
+            "correct": true
+          },
+          {
+            "text": "je entspannter bin ich"
+          },
+          {
+            "text": "desto ich entspannter bin"
+          }
+        ]
+      },
+      "explanation": "После сравнительной группы desto entspannter должен сразу стоять спрягаемый глагол bin перед ich: desto entspannter bin ich. der Park — парк; entspannt — расслабленный."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Переведите всё предложение: «Чем меньше шума ночью, тем глубже я сплю».",
+        "sample_answer": "Je weniger Lärm es nachts gibt, desto tiefer schlafe ich.",
+        "accepted_answers": [
+          "Je weniger Lärm es nachts gibt, desto tiefer schlafe ich.",
+          "Je weniger Lärm es nachts gibt, desto tiefer schlafe ich",
+          "Je weniger Laerm es nachts gibt, desto tiefer schlafe ich."
+        ]
+      },
+      "explanation": "После группы je weniger Lärm глагол gibt стоит в конце придаточной; во второй части schlafe стоит сразу после desto tiefer. der Lärm — шум; tief schlafen — крепко спать."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Опишите устно в двух фразах свой опыт: (1) «Чем больше я отдыхаю, тем спокойнее становлюсь»; (2) «Чем меньше я спешу, тем меньше делаю ошибок».",
+        "sample_answer": "1. Je mehr ich mich ausruhe, desto ruhiger werde ich. 2. Je weniger ich mich beeile, desto weniger Fehler mache ich.",
+        "accepted_answers": [
+          "Je mehr ich mich ausruhe, desto ruhiger werde ich. Je weniger ich mich beeile, desto weniger Fehler mache ich.",
+          "1. Je mehr ich mich ausruhe, desto ruhiger werde ich. 2. Je weniger ich mich beeile, desto weniger Fehler mache ich.",
+          "Je mehr ich mich ausruhe, desto ruhiger werde ich.",
+          "Je weniger ich mich beeile, desto weniger Fehler mache ich."
+        ]
+      },
+      "explanation": "1: ausruhe в конце, werde после desto ruhiger; 2: beeile в конце, mache после desto weniger Fehler. sich ausruhen — отдыхать; sich beeilen — торопиться; der Fehler — ошибка."
+    },
+    {
+      "type": "puzzle",
+      "info": [
+        {
+          "type": "task",
+          "text": "Соберите предложение из слов: «Чем чаще я двигаюсь, тем более уравновешенным себя чувствую»."
+        }
+      ],
+      "data": {
+        "tokens": [
+          "Je",
+          "öfter",
+          "ich",
+          "mich",
+          "bewege,",
+          "desto",
+          "ausgeglichener",
+          "bin",
+          "ich."
+        ],
+        "translation": "Чем чаще я двигаюсь, тем более уравновешенным я становлюсь."
+      },
+      "explanation": "bewege замыкает первую часть вместе с возвратным mich; во второй части после desto ausgeglichener сразу идёт спрягаемый глагол bin перед ich. ausgeglichen — уравновешенный."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Передайте закономерность на немецком: «Чем больше времени я уделяю себе, тем меньше устаю».",
+        "sample_answer": "Je mehr Zeit ich mir für mich nehme, desto weniger müde werde ich.",
+        "accepted_answers": [
+          "Je mehr Zeit ich mir für mich nehme, desto weniger müde werde ich.",
+          "Je mehr Zeit ich mir für mich nehme, desto weniger müde werde ich",
+          "Je mehr Zeit ich mir nehme, desto weniger müde werde ich.",
+          "Je mehr Zeit ich mir selbst gönne, desto weniger erschöpft fühle ich mich."
+        ]
+      },
+      "explanation": "nehme стоит в конце je-части; во второй части после desto weniger müde стоит werde ich: Je mehr Zeit ich mir für mich nehme, desto weniger müde werde ich. sich Zeit nehmen — уделять себе время; müde werden — уставать."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Свободные ответы и вариативность формулировок."
+        }
+      ],
+      "data": {
+        "text": "Одну и ту же закономерность в реальной речи можно выразить несколькими способами без нарушения грамматического правила:\n\n1. **Je länger ich spazieren gehe, desto ruhiger werde ich.**\n(Чем дольше я гуляю, тем спокойнее становлюсь).\n\n2. **Je mehr Zeit ich draußen verbringe, desto besser fühle ich mich.**\n(Чем больше времени я провожу на улице, тем лучше себя чувствую).\n\nПри свободной речи проверяйте в первую очередь:\n- точность передачи логической взаимосвязи;\n- грамматические позиции личных глаголов (конец в je-части, 2-е место в desto-части)."
+      },
+      "explanation": "draußen — на свежем воздухе; spazieren gehen — гулять; Zeit verbringen — проводить время."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "source",
+          "text": "Du bist in letzter Zeit viel ruhiger!"
+        }
+      ],
+      "data": {
+        "prompt": "Ответьте на реплику «Du bist in letzter Zeit viel ruhiger!» предложением с je … desto со смыслом «чем чаще я делаю короткие перерывы, тем лучше себя чувствую».",
+        "sample_answer": "Je öfter ich kurze Pausen mache, desto besser fühle ich mich.",
+        "accepted_answers": [
+          "Je öfter ich kurze Pausen mache, desto besser fühle ich mich.",
+          "Je öfter ich kurze Pausen mache, desto besser fühle ich mich",
+          "Je öfter ich Pausen mache, desto besser fühle ich mich."
+        ]
+      },
+      "explanation": "mache в конце придаточной; fühle сразу после desto besser перед ich mich: Je öfter ich kurze Pausen mache, desto besser fühle ich mich. in letzter Zeit — в последнее время; die Pause — перерыв."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Опишите закономерность «чем меньше вещей меня отвлекает, тем лучше я могу сосредоточиться» (слова: ablenken, sich konzentrieren können).",
+        "sample_answer": "Je weniger Dinge mich ablenken, desto besser kann ich mich konzentrieren.",
+        "accepted_answers": [
+          "Je weniger Dinge mich ablenken, desto besser kann ich mich konzentrieren.",
+          "Je weniger Dinge mich ablenken, desto besser kann ich mich konzentrieren",
+          "Je seltener ich abgelenkt werde, desto besser kann ich mich konzentrieren."
+        ]
+      },
+      "explanation": "ablenken стоит в конце je-части; во второй части kann стоит сразу после desto besser, а инфинитив konzentrieren — в конце. ablenken — отвлекать; sich konzentrieren — сосредоточиться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Объясните другу вслух, почему вы стали ходить в бассейн: «Чем чаще я плаваю, тем бодрее себя чувствую» (schwimmen, fitter / mehr Energie).",
+        "sample_answer": "Je öfter ich schwimme, desto fitter fühle ich mich.",
+        "accepted_answers": [
+          "Je öfter ich schwimme, desto fitter fühle ich mich.",
+          "Je öfter ich schwimme, desto fitter fühle ich mich",
+          "Je öfter ich schwimme, desto mehr Energie habe ich.",
+          "Je öfter ich schwimme, desto mehr Energie habe ich"
+        ]
+      },
+      "explanation": "schwimme в конце je-части; во второй части после desto fitter стоит fühle ich mich: Je öfter ich schwimme, desto fitter fühle ich mich. schwimmen — плавать; fit — бодрый, в хорошей форме."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "source",
+          "text": "Ich gehe immer seltener spät ins Bett. Ich bin morgens immer weniger müde."
+        }
+      ],
+      "data": {
+        "prompt": "Объедините два предложения в зависимость «чем реже я поздно ложусь спать, тем меньше устаю по утрам»: «Je seltener …»",
+        "sample_answer": "Je seltener ich spät ins Bett gehe, desto weniger müde bin ich morgens.",
+        "accepted_answers": [
+          "Je seltener ich spät ins Bett gehe, desto weniger müde bin ich morgens.",
+          "Je seltener ich spät ins Bett gehe, desto weniger müde bin ich morgens",
+          "Je seltener ich spät ins Bett gehe, desto weniger bin ich morgens müde."
+        ]
+      },
+      "explanation": "gehe замыкает je-часть; во второй части после desto weniger müde стоит глагол bin перед ich morgens. morgens — по утрам; seltener — реже."
+    },
+    {
+      "type": "free_text",
+      "info": [
+        {
+          "type": "task",
+          "text": "Исправьте ошибку порядка слов во второй части предложения."
+        },
+        {
+          "type": "source",
+          "text": "Je mehr ich im Garten arbeite, desto müder ich werde."
+        }
+      ],
+      "data": {
+        "prompt": "Исправьте ошибку: «Je mehr ich im Garten arbeite, desto müder ich werde.»",
+        "sample_answer": "Je mehr ich im Garten arbeite, desto müder werde ich.",
+        "accepted_answers": [
+          "Je mehr ich im Garten arbeite, desto müder werde ich.",
+          "Je mehr ich im Garten arbeite, desto müder werde ich",
+          "desto müder werde ich.",
+          "desto müder werde ich"
+        ]
+      },
+      "explanation": "После сравнительной группы desto müder глагол werde обязан стоять перед подлежащим ich: desto müder werde ich. im Garten arbeiten — работать в саду; müde → müder — более усталый."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Переведите: «Чем меньше времени я сижу без движения, тем лучше чувствуют себя мои ноги» (используйте still sitzen и es geht meinen Beinen besser).",
+        "sample_answer": "Je weniger Zeit ich still sitze, desto besser geht es meinen Beinen.",
+        "accepted_answers": [
+          "Je weniger Zeit ich still sitze, desto besser geht es meinen Beinen.",
+          "Je weniger Zeit ich still sitze, desto besser geht es meinen Beinen"
+        ]
+      },
+      "explanation": "sitze в конце первой части; во второй части после desto besser сразу стоит глагол geht: desto besser geht es meinen Beinen. still sitzen — сидеть неподвижно; das Bein — нога."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Составьте две полные фразы: (1) «Чем чаще я готовлю сам, тем лучше знаю ингредиенты»; (2) «Чем реже я перекусываю между делом, тем отчётливее чувствую голод перед едой».",
+        "sample_answer": "1. Je öfter ich selbst koche, desto besser kenne ich die Zutaten. 2. Je seltener ich zwischendurch esse, desto deutlicher spüre ich vor dem Essen meinen Hunger.",
+        "accepted_answers": [
+          "Je öfter ich selbst koche, desto besser kenne ich die Zutaten. Je seltener ich zwischendurch esse, desto deutlicher spüre ich vor dem Essen meinen Hunger.",
+          "1. Je öfter ich selbst koche, desto besser kenne ich die Zutaten. 2. Je seltener ich zwischendurch esse, desto deutlicher spüre ich vor dem Essen meinen Hunger.",
+          "Je öfter ich selbst koche, desto besser kenne ich die Zutaten."
+        ]
+      },
+      "explanation": "1: koche в конце, kenne после desto besser; 2: esse в конце, spüre после desto deutlicher. die Zutat — ингредиент; zwischendurch — между приёмами пищи; spüren — чувствовать."
+    },
+    {
+      "type": "theory",
+      "info": [
+        {
+          "type": "task",
+          "text": "Последний ориентир перед свободным составлением предложений."
+        }
+      ],
+      "data": {
+        "text": "Теперь вы формулируете предложения полностью самостоятельно. Контролируйте:\n\n1. `Je + сравнительная степень / mehr / weniger + … + спрягаемый глагол в конце` перед запятой.\n2. Запятая между частями.\n3. `desto + сравнительная степень / mehr / weniger + спрягаемый глагол + подлежащее …` во второй части.\n\nПример:\n**Je öfter ich eine Pause mache, desto klarer denke ich.**\n(Чем чаще я делаю перерыв, тем яснее мыслю)."
+      },
+      "explanation": "klar denken — ясно мыслить; die Pause machen — делать перерыв."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Расскажите устно об одной своей реальной привычке с конструкцией je … desto (сон, отдых или спорт).",
+        "sample_answer": "Je länger ich draußen spazieren gehe, desto entspannter fühle ich mich.",
+        "accepted_answers": [
+          "Je länger ich draußen spazieren gehe, desto entspannter fühle ich mich.",
+          "Je länger ich draußen spazieren gehe, desto entspannter fühle ich mich",
+          "Je mehr ich Sport mache, desto besser schlafe ich.",
+          "Je früher ich aufstehe, desto mehr Zeit habe ich."
+        ]
+      },
+      "explanation": "gehe в конце первой части, fühle после desto entspannter: Je länger ich draußen spazieren gehe, desto entspannter fühle ich mich. draußen — на улице; sich entspannen — расслабляться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Сформулируйте закономерность из смысла «Когда моя комната чище, мне легче расслабиться»: «Чем чище…, тем легче…».",
+        "sample_answer": "Je sauberer mein Zimmer ist, desto leichter kann ich mich entspannen.",
+        "accepted_answers": [
+          "Je sauberer mein Zimmer ist, desto leichter kann ich mich entspannen.",
+          "Je sauberer mein Zimmer ist, desto leichter kann ich mich entspannen"
+        ]
+      },
+      "explanation": "ist стоит в конце je-части; во второй части kann стоит сразу после desto leichter, а инфинитив entspannen — в конце: Je sauberer mein Zimmer ist, desto leichter kann ich mich entspannen. sauber — чистый; sich entspannen — расслабляться."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Напишите две строки другу о новой вечерней привычке: сначала факт («Ich gehe jetzt abends spazieren»), затем закономерность с je … desto («чем дольше гуляю, тем легче потом засыпаю»).",
+        "sample_answer": "Ich gehe jetzt abends spazieren. Je länger ich spazieren gehe, desto leichter schlafe ich später ein.",
+        "accepted_answers": [
+          "Ich gehe jetzt abends spazieren. Je länger ich spazieren gehe, desto leichter schlafe ich später ein.",
+          "Je länger ich spazieren gehe, desto leichter schlafe ich später ein.",
+          "Je länger ich spazieren gehe, desto leichter schlafe ich später ein"
+        ]
+      },
+      "explanation": "gehe в конце je-части; schlafe после desto leichter, а приставка ein — в конце предложения: Je länger ich spazieren gehe, desto leichter schlafe ich später ein. einschlafen — засыпать."
+    },
+    {
+      "type": "quiz",
+      "data": {
+        "prompt": "Выберите предложение, в котором правильно выражена взаимосвязь «чем меньше двигаюсь, тем более скованным себя чувствую»:",
+        "options": [
+          {
+            "text": "Je weniger ich mich bewege, desto steifer fühle ich mich.",
+            "correct": true
+          },
+          {
+            "text": "Je weniger bewege ich mich, desto steifer fühle ich mich."
+          },
+          {
+            "text": "Je weniger ich mich bewege, desto ich fühle mich steifer."
+          }
+        ]
+      },
+      "explanation": "bewege стоит в конце первой части; во второй части глагол fühle стоит сразу после группы desto steifer: Je weniger ich mich bewege, desto steifer fühle ich mich. steif — скованный, негибкий."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Составьте два предложения с je … desto: одно о полезной привычке (например, о воде), другое о мешающей привычке (например, поздно ложиться спать).",
+        "sample_answer": "1. Je mehr Wasser ich trinke, desto weniger Durst habe ich. 2. Je später ich abends ins Bett gehe, desto müder bin ich morgens.",
+        "accepted_answers": [
+          "Je mehr Wasser ich trinke, desto weniger Durst habe ich. Je später ich abends ins Bett gehe, desto müder bin ich morgens.",
+          "1. Je mehr Wasser ich trinke, desto weniger Durst habe ich. 2. Je später ich abends ins Bett gehe, desto müder bin ich morgens.",
+          "Je mehr Wasser ich trinke, desto weniger Durst habe ich."
+        ]
+      },
+      "explanation": "В обеих фразах личный глагол первой части стоит в конце (trinke, gehe), а во второй части — сразу после группы desto (habe ich, bin ich). der Durst — жажда; müde — усталый."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Переведите полное предложение: «Чем чаще я повторяю новые слова, тем легче мне их запоминать» (wiederholen, sich etwas merken können).",
+        "sample_answer": "Je öfter ich neue Wörter wiederhole, desto leichter kann ich sie mir merken.",
+        "accepted_answers": [
+          "Je öfter ich neue Wörter wiederhole, desto leichter kann ich sie mir merken.",
+          "Je öfter ich neue Wörter wiederhole, desto leichter kann ich sie mir merken"
+        ]
+      },
+      "explanation": "wiederhole в конце je-части; во второй части kann стоит сразу после desto leichter, а инфинитив merken — в конце: desto leichter kann ich sie mir merken. sich etwas merken — запоминать что-либо."
+    },
+    {
+      "type": "free_text",
+      "data": {
+        "prompt": "Ответьте другу устно двумя мыслями: «Что помогает тебе лучше себя чувствовать каждый день?» (скажите две фразы: о ходьбе пешком и об отдыхе).",
+        "sample_answer": "Je öfter ich zu Fuß gehe, desto mehr Energie habe ich. Je mehr Ruhe ich mir gönne, desto entspannter fühle ich mich.",
+        "accepted_answers": [
+          "Je öfter ich zu Fuß gehe, desto mehr Energie habe ich. Je mehr Ruhe ich mir gönne, desto entspannter fühle ich mich.",
+          "Je öfter ich zu Fuß gehe, desto mehr Energie habe ich.",
+          "Je mehr Ruhe ich mir gönne, desto entspannter fühle ich mich."
+        ]
+      },
+      "explanation": "gehe в конце, habe после desto mehr Energie; gönne в конце, fühle после desto entspannter: Je öfter ich zu Fuß gehe, desto mehr Energie habe ich. Je mehr Ruhe ich mir gönne, desto entspannter fühle ich mich. die Bewegung — движение; die Erholung — отдых."
+    }
+  ]
+}

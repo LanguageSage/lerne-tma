@@ -1,0 +1,911 @@
+# B1-24 · Чем …, тем … и выражение следствий
+## Колода 07 · Связываем две мысли
+
+**Уровень:** B1  
+**Тема (единый ::topic всей серии):** `Je … desto und Folgesätze`  
+**Этап:** первый методический проход. Это учебный материал; техническую разметку импорта и Preview выполняют на втором проходе.  
+**Карточки:** 48 (42 практические и 6 теоретических `@theory`). Восемь карточек содержат устную практику с вариантом «не могу говорить» без штрафа.  
+**Основной контекст и новая лексика:** самочувствие, сон, отдых, повседневные привычки и физическая активность.
+
+## Педагогический паспорт колоды
+
+**Название, тема, уровень.** «07 · Связываем две мысли», B1; `Je … desto und Folgesätze`.
+
+**Цель.** Перейти от умения строить только `je`- и только `desto`-части к самостоятельному созданию **целого** предложения по двум связанным изменениям. Проверяется не одно слово на своём месте, а понимание зависимости, сравнительная степень, глагол в конце первой части и инверсия после сравнительной группы во второй.
+
+**Ожидаемые навыки.** Ученик сможет: выделить два изменяющихся параметра в жизненной ситуации; выбрать `mehr/weniger`, `öfter/seltener`, `besser/schlechter` и другие сравнительные формы; соединить две мысли через запятую; правильно разместить спрягаемые глаголы, в том числе при модальном глаголе и отделяемом префиксе; исправить типичные ошибки; построить минимум два предложения без слова-банка и сказать их вслух.
+
+**Учебный маршрут.** Карточки 01–08 — собрать целое предложение при сильной поддержке; 09–16 — расширить сравнительные группы и лица глагола; 17–24 — противоположные направления изменения, модальные и возвратные глаголы; 25–32 — обнаружить и исправить ошибки, затем перевести без банка слов; 33–40 — диалоги и ситуации повседневной жизни; 41–48 — самостоятельная речь и письменное применение. Основная новая трудность по отношению к D06 — **соединять обе части самостоятельно**.
+
+**Поддержка.** От выбора и слова-банка к конструированию без опор. Теория — отдельные небольшие карточки `@theory` на позициях 01, 09, 17, 25, 33, 41. Устные задания — 06, 12, 18, 24, 30, 36, 42, 48. В каждой практике есть ключ, русский перевод и объяснение именно того, что проверялось. Свободные варианты не должны считаться неверными лишь из-за несовпадения формулировки с образцом.
+
+**Критерии освоения.** Ученик на новых примерах (а) строит полные грамматически верные фразы, (б) объясняет, что увеличивается или уменьшается, (в) верно располагает оба личных глагола. Ориентир: не менее 80% управляемых заданий; не менее двух самостоятельных осмысленных предложений без слова-банка; в устной практике допустим пропуск без штрафа и отдельное повторение. Фактический результат определяется после прохождения, а не содержанием паспорта.
+
+**Если возникают ошибки.** При неверных сравнительных словах вернуться к будущей/предусмотренной D04 и примерам D01–D02; при `je + глагол` — пройти D05 после её создания; при порядке второй части — повторить D06; при ошибках в **соединении** — повторить 01–16 данной D07. Далее по плану — D08 «Je … desto или je … umso?». D03–D05 в текущем каталоге пока отсутствуют, поэтому задания начинаются с дополнительных опор.
+
+**Методическая граница.** Здесь не вводим подробно `umso`, `deshalb`, `sodass` и `so … dass`: соответствующие самостоятельные колоды следуют позже. Не отождествляем наличие корреляции в высказывании с доказанной медицинской причинно-следственной связью: бытовые фразы иллюстрируют грамматику, а не медицинские рекомендации.
+
+---
+
+## Карточки
+### 01 · @theory
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Две мысли превращаются в одно предложение
+
+**BACK**  
+Раньше мы отдельно строили половины. Теперь соединяем **два изменения** в одну фразу.
+
+**Je regelmäßiger ich mich bewege, desto fitter fühle ich mich.** — Чем регулярнее я двигаюсь, тем лучше моя физическая форма / тем бодрее я себя чувствую.
+
+**Je regelmäßiger ich mich bewege**: спрягаемый глагол **bewege** в конце. **desto fitter fühle ich mich**: после начальной группы **desto fitter** сразу стоит **fühle**. Между частями запятая.
+
+Здесь речь о зависимости степеней, а не об одном событии. Карточка — объяснение, не проверка.
+
+**CONTEXT / словарь**  
+sich bewegen — двигаться; fit — в хорошей физической форме.
+
+---
+
+### 02 · ВЫБОР
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Соедини два изменения: больше движения → больше энергии. Какое предложение верно?
+
+A. Je mehr ich mich bewege, desto mehr Energie habe ich.
+B. Je mehr bewege ich mich, desto mehr Energie habe ich.
+C. Je mehr ich mich bewege, desto mehr Energie ich habe.
+
+**BACK**  
+**A. Je mehr ich mich bewege, desto mehr Energie habe ich.** — Чем больше я двигаюсь, тем больше у меня энергии. В je-части **bewege** на конце; после **desto mehr Energie** идёт **habe**.
+
+**CONTEXT / словарь**  
+die Energie — энергия.
+
+---
+
+### 03 · WORD BANK
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Две идеи: *Ich trinke genug Wasser. Ich habe weniger Durst.* Вырази зависимость «чем больше воды, тем меньше жажды».
+
+Слова: `je | mehr | Wasser | ich | trinke | desto | weniger | Durst | habe | ich`
+
+**BACK**  
+**Je mehr Wasser ich trinke, desto weniger Durst habe ich.** — Чем больше воды я пью, тем меньше испытываю жажду. Одна шкала растёт (**mehr Wasser**), другая уменьшается (**weniger Durst**).
+
+**CONTEXT / словарь**  
+der Durst — жажда; Wasser trinken — пить воду.
+
+---
+
+### 04 · ПАЗЛ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери **всё** предложение из фрагментов.
+
+`desto ruhiger schlafe ich | je früher ich ins Bett gehe`
+
+Поставь запятую и нужные заглавные буквы.
+
+**BACK**  
+**Je früher ich ins Bett gehe, desto ruhiger schlafe ich.** — Чем раньше я ложусь спать, тем спокойнее сплю. **gehe** завершает первую часть, **schlafe** стоит после **desto ruhiger**.
+
+**CONTEXT / словарь**  
+ins Bett gehen — ложиться спать; ruhig — спокойно.
+
+---
+
+### 05 · ВВОД
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Восстанови **два** личных глагола.
+
+`Je öfter ich Pausen ___ (machen), desto konzentrierter ___ (sein) ich.`
+
+**BACK**  
+**Je öfter ich Pausen mache, desto konzentrierter bin ich.** — Чем чаще я делаю перерывы, тем лучше сосредоточен. **mache** в конце je-части, **bin** сразу за **desto konzentrierter**.
+
+**CONTEXT / словарь**  
+die Pause — перерыв; konzentriert — сосредоточенный.
+
+---
+
+### 06 · РЕЧЬ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно свяжи две мысли: «Я меньше ем сладкого. Я чувствую себя лучше».
+
+Подсказки: `weniger Süßigkeiten essen → sich besser fühlen`. Построй полную фразу с `je … desto`.
+
+Если сейчас не можешь говорить, открой образец без штрафа.
+
+**BACK**  
+**Je weniger Süßigkeiten ich esse, desto besser fühle ich mich.** — Чем меньше сладостей я ем, тем лучше себя чувствую. Скажи фразу ещё раз, выделив голосом **weniger** и **besser**.
+
+**CONTEXT / словарь**  
+die Süßigkeiten (Pl.) — сладости; sich fühlen — чувствовать себя.
+
+---
+
+### 07 · НАЙДИ ОШИБКУ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Два глагола перепутали свои места. Исправь целое предложение:
+
+`Je länger ich trainiere, desto stärker ich werde.`
+
+**BACK**  
+**Je länger ich trainiere, desto stärker werde ich.** — Чем дольше я тренируюсь, тем сильнее становлюсь. `trainiere` уже правильно стоит в конце je-части; поменять надо **ich werde → werde ich** во второй части.
+
+**CONTEXT / словарь**  
+trainieren — тренироваться; stark → stärker — сильный → сильнее.
+
+---
+
+### 08 · ПЕРЕВОД С ОПОРАМИ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи: «Чем чаще я гуляю, тем лучше моё настроение».
+
+Опоры: `spazieren gehen`, `oft → öfter`, `die Laune → besser`.
+
+**BACK**  
+**Je öfter ich spazieren gehe, desto besser ist meine Laune.** — Чем чаще я гуляю, тем лучше моё настроение. Во фразе `spazieren gehe` спрягаемое **gehe** завершает je-часть.
+
+**CONTEXT / словарь**  
+spazieren gehen — гулять; die Laune — настроение.
+
+---
+
+### 09 · @theory
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Не разрывай сравнительные группы
+
+**BACK**  
+Сравни:
+
+**Je weniger Zeit ich am Bildschirm verbringe, desto mehr Zeit habe ich für Freunde.** — Чем меньше времени я провожу перед экраном, тем больше времени у меня для друзей.
+
+**je weniger Zeit** и **desto mehr Zeit** — целые смысловые группы. Нельзя автоматически ставить глагол сразу после `desto mehr`, если сравниваем именно **количество времени**.
+
+Контроль: `je … [личный глагол в конце], desto + группа … [личный глагол] + подлежащее`.
+
+**CONTEXT / словарь**  
+am Bildschirm — у экрана; verbringen — проводить (время).
+
+---
+
+### 10 · ВЫБОР
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Как лучше выразить: «Чем больше овощей мы едим, тем больше витаминов получаем»?
+
+A. Je mehr Gemüse wir essen, desto mehr Vitamine bekommen wir.
+B. Je mehr wir Gemüse essen, desto mehr bekommen Vitamine wir.
+C. Je mehr Gemüse wir essen, desto mehr Vitamine wir bekommen.
+
+**BACK**  
+**A. Je mehr Gemüse wir essen, desto mehr Vitamine bekommen wir.** — Чем больше овощей мы едим, тем больше витаминов получаем. Группы **mehr Gemüse** / **mehr Vitamine** сохраняем целыми.
+
+**CONTEXT / словарь**  
+das Gemüse — овощи (собират.); die Vitamine — витамины.
+
+---
+
+### 11 · ПАЗЛ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Соедини две половины, восстановив порядок слов из набора:
+
+`desto / schneller / erhole / ich / mich`
+`je / mehr / Ruhe / ich / mir / gönne`
+
+**BACK**  
+**Je mehr Ruhe ich mir gönne, desto schneller erhole ich mich.** — Чем больше отдыха я себе позволяю, тем быстрее восстанавливаюсь. Во второй части после **desto schneller** сразу **erhole**.
+
+**CONTEXT / словарь**  
+sich Ruhe gönnen — позволять себе отдых; sich erholen — восстанавливаться.
+
+---
+
+### 12 · РЕЧЬ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Объясни другу, почему ты уменьшаешь вечернее время с телефоном. Используй: `weniger aufs Handy schauen → früher einschlafen`.
+
+Произнеси полное предложение с `je … desto`. Нет возможности говорить — смотри образец без штрафа.
+
+**BACK**  
+**Je weniger ich abends aufs Handy schaue, desto früher schlafe ich ein.** — Чем меньше я вечером смотрю в телефон, тем раньше засыпаю. Отделяемая приставка **ein** остаётся в конце главной части.
+
+**CONTEXT / словарь**  
+abends — по вечерам; einschlafen — засыпать.
+
+---
+
+### 13 · ВВОД
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Заполни две сравнительные формы и пропущенный личный глагол:
+
+`Je ___ (viel) Zeit du draußen ___ (verbringen), desto ___ (gut) fühlst du dich.`
+
+**BACK**  
+**Je mehr Zeit du draußen verbringst, desto besser fühlst du dich.** — Чем больше времени ты проводишь на улице, тем лучше себя чувствуешь. `verbringst` — в конце первой части; `fühlst` — после группы `desto besser`.
+
+**CONTEXT / словарь**  
+draußen — на улице; Zeit verbringen — проводить время.
+
+---
+
+### 14 · WORD BANK
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери по смыслу и грамматике: «Чем регулярнее мы проветриваем, тем свежее воздух».
+
+Слова: `wir | lüften | je | regelmäßiger | desto | frischer | ist | die Luft`
+
+**BACK**  
+**Je regelmäßiger wir lüften, desto frischer ist die Luft.** — Чем регулярнее мы проветриваем, тем свежее воздух. Две сравнительные степени: **regelmäßiger** и **frischer**.
+
+**CONTEXT / словарь**  
+lüften — проветривать; die Luft — воздух.
+
+---
+
+### 15 · ИЗ ДВУХ ФАКТОВ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Есть два наблюдения: `Du bist weniger gestresst. Du kannst dich besser konzentrieren.`
+
+Вырази связанную закономерность с опорами `weniger Stress haben → sich besser konzentrieren können`.
+
+**BACK**  
+**Je weniger Stress du hast, desto besser kannst du dich konzentrieren.** — Чем меньше у тебя стресса, тем лучше можешь сосредоточиться. Модальный **kannst** стоит после `desto besser`, инфинитив **konzentrieren** — в конце.
+
+**CONTEXT / словарь**  
+sich konzentrieren können — мочь сосредоточиться.
+
+---
+
+### 16 · ПЕРЕВОД
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи целиком: «Чем больше мой завтрак, тем меньше я хочу есть к обеду».
+
+Опоры: `das Frühstück`, `groß → größer`, `Hunger haben`, `mittags`.
+
+**BACK**  
+**Je größer mein Frühstück ist, desto weniger Hunger habe ich mittags.** — Чем больше мой завтрак, тем меньше я хочу есть к обеду. В je-части **ist** в конце; во второй после `desto weniger Hunger` сразу **habe**.
+
+**CONTEXT / словарь**  
+das Frühstück — завтрак; mittags — в обед; Hunger haben — испытывать голод.
+
+---
+
+### 17 · @theory
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Две части могут двигаться в разные стороны
+
+**BACK**  
+Не обязательно **mehr → mehr**. Возможна противоположная связь:
+
+**Je mehr ich mich ausruhe, desto weniger müde bin ich.** — Чем больше я отдыхаю, тем меньше устаю / тем менее уставшим себя чувствую.
+
+Или две уменьшающиеся степени:
+
+**Je seltener ich spät esse, desto seltener habe ich nachts Bauchschmerzen.** — Чем реже я ем поздно, тем реже у меня ночью болит живот.
+
+Проверь именно смысл зависимости, а не только форму `je/desto`.
+
+**CONTEXT / словарь**  
+sich ausruhen — отдыхать; Bauchschmerzen haben — испытывать боль в животе.
+
+---
+
+### 18 · РЕЧЬ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Говори о привычке: «Чем больше я хожу пешком, тем реже пользуюсь лифтом».
+
+Опоры: `zu Fuß gehen`, `den Aufzug benutzen`, `seltener`. Произнеси полную фразу. Если не можешь говорить — пример без штрафа.
+
+**BACK**  
+**Je mehr ich zu Fuß gehe, desto seltener benutze ich den Aufzug.** — Чем больше я хожу пешком, тем реже пользуюсь лифтом. Первая часть описывает количество ходьбы, вторая — частоту поездок на лифте.
+
+**CONTEXT / словарь**  
+zu Fuß — пешком; der Aufzug — лифт; benutzen — пользоваться.
+
+---
+
+### 19 · ПОИСК ОШИБКИ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь нарушенный порядок слов во второй части:
+
+`Je weniger du schläfst, desto schneller du wirst müde.`
+
+**BACK**  
+**Je weniger du schläfst, desto schneller wirst du müde.** — Чем меньше ты спишь, тем быстрее устаёшь. Глагол **schläfst** уже на месте; неверно только **du wirst**, должно быть **wirst du**. Не исправляй правильную первую часть.
+
+**CONTEXT / словарь**  
+müde werden — уставать; schnell → schneller — быстрее.
+
+---
+
+### 20 · WORD BANK
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Восстанови две части без готового предложения.
+
+`öfter | wir | uns | entspannen | je` / `ruhiger | können | schlafen | wir | desto`
+
+**BACK**  
+**Je öfter wir uns entspannen, desto ruhiger können wir schlafen.** — Чем чаще мы расслабляемся, тем спокойнее можем спать. В первой части **entspannen** в конце, во второй **können** на втором месте, **schlafen** в конце.
+
+**CONTEXT / словарь**  
+sich entspannen — расслабляться.
+
+---
+
+### 21 · ВВОД
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Закончи мысль двумя формами глаголов:
+
+`Je länger die Beschwerden ___ (dauern), desto früher ___ (sollen) du zum Arzt gehen.`
+
+**BACK**  
+**Je länger die Beschwerden dauern, desto früher solltest du zum Arzt gehen.** — Чем дольше продолжаются жалобы (симптомы), тем раньше тебе стоило бы обратиться к врачу. **solltest** — вежливый совет, а не обязательная констатация. Не выдаём его за медицинский диагноз.
+
+**CONTEXT / словарь**  
+die Beschwerden (Pl.) — жалобы, симптомы; zum Arzt gehen — идти к врачу.
+
+---
+
+### 22 · ТРАНСФОРМАЦИЯ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Две фразы: `Ich atme langsamer. Ich werde ruhiger.`
+
+Перестрой в закономерность «чем медленнее дышу, тем спокойнее становлюсь» без подсказки порядка слов.
+
+**BACK**  
+**Je langsamer ich atme, desto ruhiger werde ich.** — Чем медленнее я дышу, тем спокойнее становлюсь. Нужны два сравнительных слова и два правильных положения глаголов.
+
+**CONTEXT / словарь**  
+atmen — дышать; ruhig → ruhiger — спокойнее.
+
+---
+
+### 23 · ВЫБОР
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Что точнее передаёт два связанных изменения «Чем больше свободного времени, тем чаще я готовлю дома»?
+
+A. Je mehr Freizeit ich habe, desto öfter koche ich zu Hause.
+B. Je mehr Freizeit habe ich, desto öfter koche ich zu Hause.
+C. Je mehr Freizeit ich habe, desto öfter ich zu Hause koche.
+
+**BACK**  
+**A. Je mehr Freizeit ich habe, desto öfter koche ich zu Hause.** — Чем больше у меня свободного времени, тем чаще я готовлю дома. **habe** в конце je-части; **koche** после `desto öfter`.
+
+**CONTEXT / словарь**  
+die Freizeit — свободное время; zu Hause — дома.
+
+---
+
+### 24 · РЕЧЬ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Мини-ситуация: тебе легче просыпаться, когда ты регулярно ложишься спать в одно время. Сформулируй «Чем регулярнее я ложусь спать в одно и то же время, тем легче просыпаюсь».
+
+Опоры: `regelmäßig → regelmäßiger`, `zur gleichen Zeit ins Bett gehen`, `leichter aufwachen`. Не можешь говорить — смотри образец без штрафа.
+
+**BACK**  
+**Je regelmäßiger ich zur gleichen Zeit ins Bett gehe, desto leichter wache ich auf.** — Чем регулярнее я ложусь спать в одно и то же время, тем легче просыпаюсь. Приставка **auf** стоит в конце второй части.
+
+**CONTEXT / словарь**  
+zur gleichen Zeit — в одно и то же время; aufwachen — просыпаться.
+
+---
+
+### 25 · @theory
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Самопроверка целого предложения за пять секунд
+
+**BACK**  
+Когда собрал `je … desto`, проверь три вещи по порядку:
+
+1. **Смысл:** две величины меняются вместе?  
+2. **Первая часть:** спрягаемый глагол в конце?  
+3. **Вторая часть:** за начальной сравнительной группой сразу стоит спрягаемый глагол?
+
+**Je gesünder ich esse, desto besser fühle ich mich.** — Чем здоровее я питаюсь, тем лучше себя чувствую.
+
+Эта памятка — теория, не карточка-тест.
+
+**CONTEXT / словарь**  
+gesund → gesünder — здоровее; sich fühlen — чувствовать себя.
+
+---
+
+### 26 · ПОИСК ОШИБКИ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Найди и исправь **ошибку первой части**:
+
+`Je öfter ich mache Sport, desto besser schlafe ich.`
+
+**BACK**  
+**Je öfter ich Sport mache, desto besser schlafe ich.** — Чем чаще я занимаюсь спортом, тем лучше сплю. Ошибка только в первой части: **mache** должен быть в конце `je`-части.
+
+**CONTEXT / словарь**  
+Sport machen — заниматься спортом.
+
+---
+
+### 27 · ПОИСК ОШИБКИ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Исправь **первую и вторую** части:
+
+`Je später esse ich, desto schlechter ich schlafe.`
+
+**BACK**  
+**Je später ich esse, desto schlechter schlafe ich.** — Чем позже я ем, тем хуже сплю. В первой части **esse** — в конце; во второй **schlafe** — сразу после `desto schlechter`.
+
+**CONTEXT / словарь**  
+spät → später — позже; schlecht → schlechter — хуже.
+
+---
+
+### 28 · ВЫБОР — ПОЧЕМУ?
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Человек написал: `Je mehr Zeit ich im Park verbringe, desto entspannter ich bin.`
+
+Что главное исправление?
+
+A. `desto entspannter bin ich`
+B. `je entspannter bin ich`
+C. `desto ich entspannter bin`
+
+**BACK**  
+**A.** `Je mehr Zeit ich im Park verbringe, desto entspannter bin ich.` — Чем больше времени провожу в парке, тем более расслабленным себя чувствую. Начальная группа `desto entspannter`, потом **bin**, далее **ich**.
+
+**CONTEXT / словарь**  
+der Park — парк; entspannt — расслабленный.
+
+---
+
+### 29 · ПЕРЕВОД БЕЗ БАНКА
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи **всё предложение**: «Чем меньше шума ночью, тем глубже я сплю».
+
+**BACK**  
+**Je weniger Lärm es nachts gibt, desto tiefer schlafe ich.** — Чем меньше шума ночью, тем крепче (буквально: глубже) я сплю. После `je weniger Lärm` глагол **gibt** стоит в конце; **schlafe** после `desto tiefer`.
+
+**CONTEXT / словарь**  
+der Lärm — шум; tief schlafen — крепко спать.
+
+---
+
+### 30 · РЕЧЬ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+В двух фразах опиши свой опыт: 1) «Чем больше я отдыхаю, тем спокойнее становлюсь»; 2) «Чем меньше я спешу, тем меньше делаю ошибок». Без слова-банка.
+
+Можно выбрать одну фразу, если говорить тяжело; «не могу говорить» — без штрафа.
+
+**BACK**  
+Возможный ответ 1: **Je mehr ich mich ausruhe, desto ruhiger werde ich.** — Чем больше отдыхаю, тем спокойнее становлюсь.
+
+Возможный ответ 2: **Je weniger ich mich beeile, desto weniger Fehler mache ich.** — Чем меньше спешу, тем меньше ошибок делаю.
+
+**CONTEXT / словарь**  
+sich beeilen — спешить; der Fehler — ошибка.
+
+---
+
+### 31 · ПАЗЛ — ДВЕ ЧАСТИ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Собери одно предложение из фрагментов:
+
+`ich | bin | desto | ausgeglichener`
+`mich | je | öfter | ich | bewege`
+
+**BACK**  
+**Je öfter ich mich bewege, desto ausgeglichener bin ich.** — Чем чаще я двигаюсь, тем более уравновешенным себя чувствую. Не забудь возвратное **mich** в первой части.
+
+**CONTEXT / словарь**  
+ausgeglichen — уравновешенный.
+
+---
+
+### 32 · СМЫСЛ → ФРАЗА
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ситуация: у тебя есть немного времени на себя, и ты хочешь меньше уставать. Передай закономерность: «Чем больше времени я уделяю себе, тем меньше устаю». Без немецкой подсказки.
+
+**BACK**  
+**Je mehr Zeit ich mir für mich nehme, desto weniger müde werde ich.** — Чем больше времени я выделяю для себя, тем меньше устаю. Альтернатива: **Je mehr Zeit ich mir selbst gönne, desto weniger erschöpft fühle ich mich.** Возможны разные естественные формулировки при том же смысле.
+
+**CONTEXT / словарь**  
+sich Zeit nehmen — выделять себе время; erschöpft — измотанный.
+
+---
+
+### 33 · @theory
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Почему свободный ответ не всегда совпадает с образцом
+
+**BACK**  
+Одну зависимость можно выразить несколькими способами, не меняя правило:
+
+**Je länger ich spazieren gehe, desto ruhiger werde ich.** — Чем дольше я гуляю, тем спокойнее становлюсь.
+
+**Je mehr Zeit ich draußen verbringe, desto besser fühle ich mich.** — Чем больше времени провожу на улице, тем лучше себя чувствую.
+
+При свободной речи проверяй сначала **понятность смысла и порядок глаголов**, а не буквальное совпадение с ключом. Эти примеры близки, но не полностью одинаковы по смыслу.
+
+**CONTEXT / словарь**  
+draußen — снаружи, на свежем воздухе; spazieren gehen — гулять.
+
+---
+
+### 34 · МИНИ-ДИАЛОГ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сосед говорит: `Du bist in letzter Zeit viel ruhiger!` — «Ты в последнее время намного спокойнее!»
+
+Ответь одним полным предложением с `je … desto`: ты стал чаще делать перерывы и лучше себя чувствуешь.
+
+**BACK**  
+**Je öfter ich kurze Pausen mache, desto besser fühle ich mich.** — Чем чаще я делаю короткие перерывы, тем лучше себя чувствую. Достаточно связать частоту перерывов и самочувствие; идеальное совпадение слов необязательно.
+
+**CONTEXT / словарь**  
+in letzter Zeit — в последнее время; die Pause — перерыв.
+
+---
+
+### 35 · ДВА ВАРИАНТА
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Опиши «чем меньше вещей меня отвлекает, тем лучше я концентрируюсь».
+
+Проверь оба глагола. Допускаются разные немецкие варианты.
+
+**BACK**  
+**Je weniger Dinge mich ablenken, desto besser kann ich mich konzentrieren.** — Чем меньше вещей меня отвлекает, тем лучше я могу сосредоточиться.
+
+Другой вариант: **Je seltener ich abgelenkt werde, desto besser kann ich mich konzentrieren.** — Чем реже меня отвлекают, тем лучше я могу сосредоточиться.
+
+**CONTEXT / словарь**  
+ablenken — отвлекать; das Ding — вещь; sich konzentrieren — сосредоточиться.
+
+---
+
+### 36 · РЕЧЬ — РЕАЛЬНАЯ СИТУАЦИЯ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Представь, что друг спрашивает: «Почему ты теперь ходишь в бассейн?» Объясни зависимость: чаще плавать → чувствовать себя бодрее. Полное предложение без подсказки слов.
+
+Если не можешь произнести, просмотри ключ без штрафа.
+
+**BACK**  
+Пример: **Je öfter ich schwimme, desto fitter fühle ich mich.** — Чем чаще я плаваю, тем бодрее / лучше физически себя чувствую. Допустим также вариант **desto mehr Energie habe ich** («тем больше у меня энергии»), если он точно передаёт замысел.
+
+**CONTEXT / словарь**  
+schwimmen — плавать; das Schwimmbad — бассейн.
+
+---
+
+### 37 · ПЕРЕФОРМУЛИРУЙ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Из двух коротких предложений сделай одну зависимость:
+
+`Ich gehe immer seltener spät ins Bett. Ich bin morgens immer weniger müde.`
+
+Сохрани смысл «чем реже поздно ложусь, тем меньше устаю по утрам».
+
+**BACK**  
+**Je seltener ich spät ins Bett gehe, desto weniger müde bin ich morgens.** — Чем реже я поздно ложусь спать, тем менее уставшим бываю утром. `seltener` и `weniger müde` выражают две уменьшающиеся степени.
+
+**CONTEXT / словарь**  
+morgens — по утрам; seltener — реже.
+
+---
+
+### 38 · ПОИСК ОШИБКИ В ДИАЛОГЕ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ученик сказал: `Je mehr ich im Garten arbeite, desto müder ich werde.`
+
+Исправь предложение и назови только одно нарушенное правило.
+
+**BACK**  
+**Je mehr ich im Garten arbeite, desto müder werde ich.** — Чем больше работаю в саду, тем сильнее устаю. После **desto müder** должен стоять глагол **werde**, а затем **ich**.
+
+**CONTEXT / словарь**  
+im Garten arbeiten — работать в саду; müde → müder — усталый → более усталый.
+
+---
+
+### 39 · СВОБОДНЫЙ ПЕРЕВОД
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи: «Чем меньше времени я сижу без движения, тем лучше чувствуют себя мои ноги».
+
+Можно выразить вторую часть через `es geht meinen Beinen besser` (моим ногам лучше).
+
+**BACK**  
+**Je weniger Zeit ich still sitze, desto besser geht es meinen Beinen.** — Чем меньше времени я сижу без движения, тем лучше моим ногам. Вторая часть: начальная группа **desto besser**, затем глагол **geht**, после — **es meinen Beinen**.
+
+**CONTEXT / словарь**  
+still sitzen — сидеть неподвижно; das Bein — нога.
+
+---
+
+### 40 · ДВЕ ЗАВИСИМОСТИ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Составь **две разные** полные фразы: 1) чаще готовлю сам → лучше знаю продукты; 2) меньше перекусываю → лучше ощущаю голод перед основным приёмом пищи. Важно сохранить смысл и порядок слов; образцы на обороте — лишь один вариант.
+
+**BACK**  
+1. **Je öfter ich selbst koche, desto besser kenne ich die Zutaten.** — Чем чаще готовлю сам, тем лучше знаю ингредиенты.
+
+2. **Je seltener ich zwischendurch esse, desto deutlicher spüre ich vor dem Essen meinen Hunger.** — Чем реже я перекусываю, тем отчётливее чувствую голод перед едой.
+
+**CONTEXT / словарь**  
+die Zutat — ингредиент; zwischendurch — между делом, между приёмами пищи; spüren — чувствовать.
+
+---
+
+### 41 · @theory
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Последний ориентир перед свободными заданиями
+
+**BACK**  
+Теперь работай почти без опор. Ты сам выбираешь, **что** меняется в первой части и **что** меняется во второй. Контролируй:
+
+- `Je + сравнительная группа + … + спрягаемый глагол в конце`;  
+- `desto + сравнительная группа + спрягаемый глагол + …`;  
+- реальную связь двух изменений.
+
+Пример: **Je öfter ich eine Pause mache, desto klarer denke ich.** — Чем чаще делаю перерывы, тем яснее мыслю.
+
+Это напоминание `@theory`. Дальше — самостоятельное применение.
+
+**CONTEXT / словарь**  
+klar denken — ясно мыслить.
+
+---
+
+### 42 · РЕЧЬ — ЛИЧНЫЙ ОПЫТ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Расскажи устно **одну реальную привычку** с `je … desto`. Нужны две меняющиеся величины и оба глагола на своих местах. Темы на выбор: сон, отдых или физическая активность.
+
+Если сейчас говорить нельзя, можно открыть образец без штрафа.
+
+**BACK**  
+Пример: **Je länger ich draußen spazieren gehe, desto entspannter fühle ich mich.** — Чем дольше я гуляю на улице, тем более расслабленным себя чувствую. Твой собственный грамматически правильный пример тоже подходит.
+
+**CONTEXT / словарь**  
+die Gewohnheit — привычка; sich entspannen — расслабляться.
+
+---
+
+### 43 · КОНСТРУКТОР БЕЗ СЛОВ-БАНКА
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Сделай из смысла самостоятельное предложение: «Когда моя комната чище, мне легче расслабиться». Передай не единичное «когда», а закономерность «чем чище…, тем легче…».
+
+**BACK**  
+**Je sauberer mein Zimmer ist, desto leichter kann ich mich entspannen.** — Чем чище моя комната, тем легче я могу расслабиться. В je-части **ist** в конце, во второй **kann** за `desto leichter`, **entspannen** в конце.
+
+**CONTEXT / словарь**  
+sauber — чистый; das Zimmer — комната.
+
+---
+
+### 44 · ЖИЗНЕННОЕ СООБЩЕНИЕ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Ты пишешь другу короткое сообщение о новой привычке. Составь две строки на немецком: первое предложение — факт, второе — закономерность с `je … desto`. Тема: гуляю вечером и легче засыпаю.
+
+**BACK**  
+Пример: **Ich gehe jetzt abends spazieren. Je länger ich spazieren gehe, desto leichter schlafe ich später ein.** — Теперь я гуляю по вечерам. Чем дольше я гуляю, тем легче потом засыпаю. Разные личные примеры допустимы.
+
+**CONTEXT / словарь**  
+jetzt — теперь; später — позже; einschlafen — засыпать.
+
+---
+
+### 45 · ВЫБОР — ПРОВЕРЬ СМЫСЛ И ФОРМУ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Выбери предложение, в котором правильно выражена взаимосвязь.
+
+A. Je weniger ich mich bewege, desto steifer fühle ich mich.
+B. Je weniger bewege ich mich, desto steifer fühle ich mich.
+C. Je weniger ich mich bewege, desto ich fühle mich steifer.
+
+**BACK**  
+**A. Je weniger ich mich bewege, desto steifer fühle ich mich.** — Чем меньше я двигаюсь, тем более скованным себя чувствую. `bewege` — в конце первой части; `fühle` — после сравнительного блока второй.
+
+**CONTEXT / словарь**  
+steif — скованный, негибкий.
+
+---
+
+### 46 · СВОБОДНАЯ ПРАКТИКА
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Составь **два** собственных предложения с `je … desto` без готовых немецких слов: одно о полезной привычке, другое о привычке, которая мешает. Для каждой фразы назови две связанные степени изменения.
+
+**BACK**  
+Возможные ответы:
+
+1. **Je mehr ich Wasser trinke, desto weniger Durst habe ich.** — Чем больше пью воды, тем меньше испытываю жажду.
+2. **Je später ich abends ins Bett gehe, desto müder bin ich morgens.** — Чем позже ложусь спать, тем более уставший утром.
+
+Другие естественные и грамматически верные примеры засчитываются.
+
+**CONTEXT / словарь**  
+die nützliche Gewohnheit — полезная привычка; eine Gewohnheit ändern — изменить привычку.
+
+---
+
+### 47 · ПЕРЕВОД БЕЗ ОПОР
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Переведи полное предложение: «Чем чаще я повторяю новые слова, тем легче мне их запоминать».
+
+Не меняй `je … desto` на простое «поэтому».
+
+**BACK**  
+**Je öfter ich neue Wörter wiederhole, desto leichter kann ich sie mir merken.** — Чем чаще повторяю новые слова, тем легче мне их запомнить. В первой части **wiederhole** в конце; во второй **kann** после `desto leichter`; инфинитив **merken** в конце.
+
+**CONTEXT / словарь**  
+wiederholen — повторять; sich etwas merken — запоминать что-либо.
+
+---
+
+### 48 · РЕЧЬ — ФИНАЛЬНОЕ ПРИМЕНЕНИЕ
+::level B1  
+::topic Je … desto und Folgesätze
+
+**FRONT**  
+Устно ответь другу двумя связанными мыслями: «Что помогает тебе лучше чувствовать себя каждый день?»
+
+Скажи **две разные полные фразы** с `je … desto`: одну о движении, другую о восстановлении или отдыхе. Никакого набора слов. Можно выбрать собственные примеры.
+
+Если сейчас говорить невозможно, просмотри образцы без штрафа.
+
+**BACK**  
+Возможный ответ:
+
+**Je öfter ich zu Fuß gehe, desto mehr Energie habe ich.** — Чем чаще я хожу пешком, тем больше у меня энергии.
+
+**Je mehr Ruhe ich mir gönne, desto entspannter fühle ich mich.** — Чем больше отдыхаю, тем расслабленнее себя чувствую.
+
+Главное — смысл двух изменений, форма сравнительных слов и правильное место личных глаголов.
+
+**CONTEXT / словарь**  
+die Erholung — восстановление, отдых; die Bewegung — движение.
+
+---
+
+## Методическая самопроверка перед вторым проходом
+
+- [x] 48 карточек; шесть `@theory` — объяснение, не интерактив.
+- [x] 42 практических карточки с ключами, объяснениями и переводом.
+- [x] Устная практика каждая шестая карточка; «не могу говорить» — без штрафа.
+- [x] Упражнения постепенно убирают опоры, завершаются самостоятельной речью.
+- [x] Новая лексика — здоровье и повседневные привычки; грамматический фокус — полное `je … desto`.
+- [ ] Второй проход: проверка синтаксиса/паспортов/Preview, языковая QA и импорт в приложение.
