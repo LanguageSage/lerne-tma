@@ -1,8 +1,35 @@
 # Supabase: аудит и устранение публичного доступа
 
-Дата: 20 октября 2026. Production: `wdopyuulhiykrextyvnt`, PostgreSQL 17.6.
-Статус: исправление подготовлено и проверено локально; production НЕ изменён.
-Для применения SQL, отзыва сессий и deployment требуется отдельное подтверждение.
+Первичный аудит: 20 октября 2026. Production: `wdopyuulhiykrextyvnt`, PostgreSQL 17.6.
+Статус: миграция БД применена 21 октября 2026 после отдельного разрешения
+пользователя и его подтверждения готовности резервной копии.
+Deployment исправления API и отзыв сессий пока НЕ выполнены и требуют отдельного разрешения.
+
+## Production: результат применения 21 октября 2026
+
+- Применён неизменённый SQL из коммита `b36cdc8` через Supabase apply_migration.
+  Запись истории: `20261021061653`, `lerne_lock_server_only_public_20261020`.
+  Время: 08:16 Europe/Budapest (06:16 UTC).
+- Перед применением повторно подтверждено исходное состояние: 39 таблиц,
+  15 без RLS, 0 public policies/functions, все объекты принадлежат postgres.
+  Активные подключения Supavisor используют postgres/NOSUPERUSER/BYPASSRLS.
+- После COMMIT: 39/39 public таблиц с RLS; `audit.sql` вернул **0 нарушений**.
+  У anon/authenticated нет USAGE public, CRUD на таблицы или USAGE sequences.
+  У postgres/service_role сохранился доступ ко всем 39 таблицам и 27 sequences.
+- В READ ONLY транзакции под реальными SET LOCAL ROLE выполнено 312 проверок
+  отказа для anon/authenticated: SELECT LIMIT 0 и EXPLAIN INSERT/UPDATE/DELETE
+  на каждой таблице. Записи не выполнялись, sequences не продвигались.
+  Под postgres/service_role прошли 78 SELECT LIMIT 0, без выгрузки записей.
+  Серверные права записи подтверждены каталогом; production CRUD/end-to-end
+  через пользовательский интерфейс после применения не выполнялся.
+- Snapshot исходных ACL/RLS/defaults сохранён: версия `20261020`, 910 rollback
+  statements в закрытой `lerne_security.migration_snapshot`.
+- Supabase security advisors: ERROR отсутствуют; осталось 40 INFO
+  «RLS enabled no policy» (39 public таблиц + закрытая таблица snapshot).
+  Это ожидаемое состояние серверных таблиц, разрешающие policies не добавлялись.
+- Пользовательские записи, сессии и секреты целевыми UPDATE/DELETE не изменялись;
+  containment, ротация секретов и deployment не запускались. Код защиты API от
+  X-User-ID находится в main/b36cdc8 и всё ещё требует отдельного deployment.
 
 ## Фактический доступ приложения
 
@@ -212,13 +239,14 @@ Snapshot сверять и сохранять перед откатом; при 
 | Оставшееся frontend-падение | `auth_store_regression.mjs`: `unconfigured provider failure presents clear message without generic fallback`; старый generic текст вместо сообщения provider_not_configured. Test и `useAuthStore.js` совпадают с HEAD, не изменялись этой задачей |
 | ESLint / Vite build | PASS; сборка с существующими предупреждениями о chunks/dynamic imports |
 | Python compile / diff | PASS для изменённых файлов; прежний trailing blank line в пользовательском `lerne-card-prompts-v2/AGENTS.md` не изменён |
-| Production read-only gate | Ожидаемо FAIL до применения: 15 RLS disabled, 130 object privilege, 676 effective column privilege, 2 schema access, 24 creator default, 1 implicit function default; column findings здесь включают table-level grants |
+| Production read-only gate, 20 октября до применения | FAIL: 15 RLS disabled, 130 object privilege, 676 effective column privilege, 2 schema access, 24 creator default, 1 implicit function default; column findings здесь включают table-level grants |
+| Production read-only gate, 21 октября после применения | PASS: 0 нарушений; 312 проверок отказа публичным ролям и 78 серверных чтений |
 
 Полные frontend/browser gates остаются красными из-за указанных падений вне изменённых путей;
 это не объявляется успешным полным `npm run check`. GitHub CI ещё не запускался.
 Локальные тесты используют только
 синтетические аккаунты/подписанный Telegram fixture, без обращения к провайдерам.
-Production миграция, отзыв сессий, ротация и deployment НЕ выполнялись.
+Production миграция выполнена 21 октября; отзыв сессий, ротация и deployment НЕ выполнялись.
 Полноценный browser → live FastAPI → production DB smoke не выполнялся.
 Отдельный least-privilege SQL login вместо postgres/BYPASSRLS — дальнейшая работа:
 текущая серверная роль требует безошибочных permissions на каждом API-маршруте.
