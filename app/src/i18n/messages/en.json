@@ -1886,5 +1886,19 @@
   "Диктовать": "Dictate",
   "Остановить диктовку": "Stop dictation",
   "Слушаю… Говорите на языке задания.": "Listening… Speak in the language of the task.",
-  "Можно исправить текст перед проверкой.": "You can edit the text before checking."
+  "Можно исправить текст перед проверкой.": "You can edit the text before checking.",
+  "Отправить": "Submit",
+  "Завершаем распознавание…": "Finishing recognition…",
+  "Распознавание приостановлено браузером. Нажмите «Продолжить».": "Recognition paused by the browser. Press Continue.",
+  "Диагностика Free Text (администратор)": "Free Text diagnostics (administrator)",
+  "Фактический запрос и результат проверки": "Actual request and evaluation result",
+  "Локальная проверка: ИИ не вызывался.": "Local evaluation: AI was not called.",
+  "Сервис проверки не успел ответить.": "The evaluation service timed out.",
+  "Сервис проверки не настроен. Обратитесь к администратору.": "Evaluation is not configured. Contact the administrator.",
+  "Нет доступа к сервису проверки.": "Access to evaluation was denied.",
+  "Сервис проверки временно перегружен.": "The evaluation service is temporarily busy.",
+  "Проверьте настройки задания с преподавателем.": "Check the exercise settings with your teacher.",
+  "ИИ не смог дать надёжную оценку. Ответ сохранён.": "AI could not evaluate reliably. Your answer is preserved.",
+  "Сервис проверки вернул ошибку. Ответ сохранён.": "Evaluation failed. Your answer is preserved.",
+  "ИИ не вызывался.": "AI was not called."
 }

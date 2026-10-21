@@ -27,6 +27,16 @@ TTS — [media](media.md); feedback lifecycle — [study](study.md); persistence
 6. Детерминированные правила пробуют exact/typo; затем bounded AI fallback возвращает валидированный verdict или unavailable.
 7. Verdict идёт в существующий study lifecycle; Attempt сохраняется при grade через Knowledge capture.
 
+## Free Text: надёжность и диагностика
+
+- `answer_evaluation.configured_ai` проверяет провайдера, непустую модель и ключи без вывода секретов; Ollama использует сохранённый `OLLAMA_URL`. Неизвестный провайдер или неподходящая Google-модель не подменяются молча.
+- Evaluation включает JSON mode провайдера, temperature=0 и 4096 выходных токенов. Максимум два transport-вызова: 25 секунд каждый, общий дедлайн 55 секунд, клиент 65 секунд. Вложенные transport/key retries отключены. Один повтор разрешён для невалидного JSON/schema либо timeout/network/429/5xx (с короткой задержкой); authentication/invalid_model/policy/low_confidence автоматически не повторяются.
+- Confidence обязателен в ответе ИИ; порог `.85` сохранён. Допустим только полный JSON-объект, включая полностью ограждённый Markdown JSON; частичные ответы не восстанавливаются. Проверяются согласованность verdict/accepted, policy, evaluator и утечка эталона в отказной подсказке, включая короткие ответы и изменения пунктуации.
+- `unavailable` несёт безопасный `error_code=evaluator.<reason>` без raw provider errors. Клиент сохраняет ответ, не меняет учебные счётчики/историю ошибок и разрешает повтор того же текста. Configuration/timeout/auth/rate-limit/uncertainty имеют понятные сообщения.
+- Опциональный `diagnostics:true` в том же `/ai/evaluate-answer` проверяется через серверный `is_admin` до загрузки контекста. UI использует существующий backend-authoritative `useSettingsStore.isAdmin`. Полные запросы доступны только администратору: фактический system prompt каждой попытки, user JSON, выбранные provider/model, точный provider payload и эффективная модель, финальный результат. URL/headers/ключи/raw errors не собираются. Локальный verdict честно имеет `ai_called:false` и пустые requests; при ошибке конфигурации также нет выдуманного промпта. Диагностика хранится отдельно от savedState/evidence и не синхронизируется.
+- Legacy и V2 используют прежний server-owned context/policy; V2 предварительно компилируется штатным `to_legacy_document`. Новых таблиц, миграций и каналов прогресса нет.
+- Регрессии: `tests/test_answer_evaluation.py`, `answerEvaluationService.test.js`, `freeTextEvaluationState.test.js`, `freeTextLifecycle.test.js`, browser `free-text-dictation.spec.cjs`, `free-text-evaluation.spec.cjs`, `speech-followup.spec.cjs`. Ограничения и ручная проверка: [Free Text reliability](../../docs/FREE_TEXT_RELIABILITY.md).
+
 ## Одиночный разбор существующего Quiz
 
 - В CardEditor у Quiz генерацию заменяет «Разбор теста» (`quiz_analysis`); панель действий находится между FRONT и BACK. «Выполнить просьбу» расположена рядом с «Дополнительно» и для Quiz использует `custom_directive`, сохраняя FRONT. Генерация в CardCreator и остальные типы сохраняют прежние действия.

@@ -1,13 +1,14 @@
 import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PenLine, Eye, Check, LoaderCircle, Mic, Square } from 'lucide-react';
+import { PenLine, Eye, Check, LoaderCircle, Mic, Pause, Play } from 'lucide-react';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
+import { useSettingsStore } from '../../store/useSettingsStore.js';
 import './StudyCardFreeText.css';
 
 export const StudyCardFreeText = React.memo(({
@@ -20,12 +21,18 @@ export const StudyCardFreeText = React.memo(({
   const [prevKey, setPrevKey] = useState(currentKey);
   const [userInput, setUserInput] = useState(savedState?.userInput || '');
   const [showExample, setShowExample] = useState(savedState?.showExample || false);
-  const { state, submit, evidence } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey);
+  const isAdmin = useSettingsStore(s => s.isAdmin);
+  const [diagnosticsEnabled, setDiagnosticsEnabled] = useState(false);
+  const { state, submit, evidence, diagnostics } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey,
+    null, isAdmin && diagnosticsEnabled);
   const reported = useRef(Boolean(savedState?.isCompleted));
+  const submitting = useRef(false);
   const dictationBase = useRef('');
-  const { isListening, speechError, start, cancel } = useSpeechRecognition({
+  const { isListening, isPaused, isStopping, speechError, start, stop, pause, resume, cancel } = useSpeechRecognition({
     resetKey: `${card?.id}:${currentKey}`,
     language: card?.target_language,
+    silenceTimeoutMs: null,
+    autoRestart: true,
     onTranscript: text => {
       if (text) setUserInput([dictationBase.current.trimEnd(), text].filter(Boolean).join(' ').slice(0, 4000));
     },
@@ -39,6 +46,7 @@ export const StudyCardFreeText = React.memo(({
 
   useEffect(() => {
     reported.current = Boolean(savedState?.isCompleted);
+    submitting.current = false;
   }, [currentKey, savedState?.isCompleted]);
 
   const { result, loading } = state;
@@ -65,9 +73,18 @@ export const StudyCardFreeText = React.memo(({
 
   const handleSubmit = async event => {
     event.preventDefault();
-    if (isListening || loading || isCompleted || isExhausted) return;
-    cancel();
-    const outcome = await submit(userInput);
+    if (submitting.current || isStopping || loading || isCompleted || isExhausted) return;
+    submitting.current = true;
+    let answer = userInput;
+    if (isListening || isPaused) {
+      const transcript = await stop();
+      // Navigation or editing while flushing cancels the pending submission.
+      if (transcript == null) { submitting.current = false; return; }
+      answer = [dictationBase.current.trimEnd(), transcript].filter(Boolean).join(' ').slice(0, 4000);
+      setUserInput(answer);
+    }
+    const outcome = await submit(answer);
+    submitting.current = false;
     if (!outcome) return;
     if (assessmentMode && outcome.result.verdict !== 'unavailable') {
       reported.current = true;
@@ -111,16 +128,17 @@ export const StudyCardFreeText = React.memo(({
       />
       {!isCompleted && !isExhausted && <button type="button"
         className="btn btn-secondary free-text-action free-text-dictate" aria-pressed={isListening}
-        disabled={loading}
+        disabled={loading || isStopping}
         onClick={() => {
-          if (isListening) cancel();
+          if (isListening) void pause();
+          else if (isPaused) resume();
           else { dictationBase.current = userInput; start(); }
         }}>
-        {isListening ? <Square size={16} /> : <Mic size={16} />}
-        {isListening ? tr('Остановить диктовку') : tr('Диктовать')}
+        {isListening ? <Pause size={16} /> : isPaused ? <Play size={16} /> : <Mic size={16} />}
+        {isListening ? tr('Пауза') : isPaused ? tr('Продолжить') : tr('Диктовать')}
       </button>}
       <p id={`dictation-help-${card.id}`} className="free-text-dictation-help" role="status">
-        {speechError || (isListening ? tr('Слушаю… Говорите на языке задания.') : tr('Можно исправить текст перед проверкой.'))}
+        {speechError || (isStopping ? tr('Завершаем распознавание…') : isListening ? tr('Слушаю… Говорите на языке задания.') : tr('Можно исправить текст перед проверкой.'))}
       </p>
       {result && (
         <div id={`answer-feedback-${card.id}`} className={`free-text-feedback ${isCompleted ? 'is-success' : ''}`}
@@ -130,7 +148,10 @@ export const StudyCardFreeText = React.memo(({
             <p><Check size={16} />{result.error_type === 'typo' ? tr('Верно. Небольшая опечатка.') : tr('Верно. Небольшая неточность в написании.')}</p>
             {result.corrected_answer && <p className="free-text-correction">{result.corrected_answer}</p>}
           </>}
-          {result.verdict === 'unavailable' && <p>{tr('Не удалось проверить ответ. Попробуйте ещё раз — попытка не засчитана.')}</p>}
+          {result.verdict === 'unavailable' && <>
+            <p>{tr('Не удалось проверить ответ. Попробуйте ещё раз — попытка не засчитана.')}</p>
+            <p>{tr(failureMessage(result.error_code))} {result.error_code && <code>{result.error_code}</code>}</p>
+          </>}
           {['needs_retry', 'incorrect'].includes(result.verdict) && <>
             <p>{result.hint || tr('Проверьте смысл и полноту ответа. Попробуйте ещё раз.')}</p>
             {result.explanation && <p>{result.explanation}</p>}
@@ -138,10 +159,20 @@ export const StudyCardFreeText = React.memo(({
         </div>
       )}
       {!isCompleted && !isExhausted && <button type="submit" className="btn btn-primary free-text-action"
-        disabled={isListening || loading || !userInput.trim() || sameRejectedAnswer}>
+        disabled={isStopping || loading || (!isListening && (!userInput.trim() || sameRejectedAnswer))}>
         {loading && <LoaderCircle size={16} className="spin" />}
-        {loading ? tr('Проверяем ответ…') : result ? tr('Проверить ещё раз') : tr('Проверить ответ')}
+        {loading ? tr('Проверяем ответ…') : (isListening || isPaused) ? tr('Отправить') : result ? tr('Проверить ещё раз') : tr('Проверить ответ')}
       </button>}
+      {isAdmin && <div className="free-text-diagnostics">
+        <label><input type="checkbox" checked={diagnosticsEnabled} disabled={loading}
+          onChange={event => setDiagnosticsEnabled(event.target.checked)} />{tr('Диагностика Free Text (администратор)')}</label>
+        {diagnosticsEnabled && diagnostics && <details>
+          <summary>{tr('Фактический запрос и результат проверки')}</summary>
+          {!diagnostics.ai_called && <p>{tr(diagnostics.result?.verdict !== 'unavailable'
+            ? 'Локальная проверка: ИИ не вызывался.' : 'ИИ не вызывался.')}</p>}
+          <pre>{JSON.stringify(diagnostics, null, 2)}</pre>
+        </details>}
+      </div>}
       {canShowExample && exampleAnswer && <button type="button" className="btn free-text-action"
         onClick={() => { setShowExample(value => !value); triggerHaptic('light'); }}>
         <Eye size={16} />{showExample ? tr('Скрыть пример ответа') : tr('Показать пример ответа')}
@@ -155,3 +186,14 @@ export const StudyCardFreeText = React.memo(({
     </form>
   );
 });
+
+function failureMessage(code) {
+  const reason = code?.replace('evaluator.', '');
+  if (reason === 'timeout') return 'Сервис проверки не успел ответить.';
+  if (['missing_model', 'invalid_model', 'invalid_provider', 'missing_api_key', 'missing_configuration', 'configuration_error'].includes(reason)) return 'Сервис проверки не настроен. Обратитесь к администратору.';
+  if (reason === 'authentication' || reason === 'access_denied') return 'Нет доступа к сервису проверки.';
+  if (reason === 'rate_limited' || reason === 'provider_unavailable') return 'Сервис проверки временно перегружен.';
+  if (['missing_expected_answer', 'invalid_card'].includes(reason)) return 'Проверьте настройки задания с преподавателем.';
+  if (['low_confidence', 'policy_violation', 'model_unavailable'].includes(reason)) return 'ИИ не смог дать надёжную оценку. Ответ сохранён.';
+  return 'Сервис проверки вернул ошибку. Ответ сохранён.';
+}

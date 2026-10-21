@@ -50,5 +50,6 @@ class AnswerEvaluation(BaseModel):
         return self
 
 
-def unavailable(evaluator='ai'):
-    return AnswerEvaluation(verdict='unavailable', accepted=False, evaluator=evaluator, confidence=0.0)
+def unavailable(evaluator='ai', reason='provider_failure'):
+    return AnswerEvaluation(verdict='unavailable', accepted=False, evaluator=evaluator,
+                            confidence=0.0, error_code=f'evaluator.{reason}')

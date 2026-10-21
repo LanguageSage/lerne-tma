@@ -2,8 +2,9 @@ import { useEffect, useRef, useState } from 'react';
 import { createFreeTextEvaluationSession } from '../utils/freeTextEvaluationState.js';
 import { evaluateFreeTextAnswer } from '../services/answerEvaluationService.js';
 
-export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAnswer = null) {
+export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAnswer = null, diagnosticsEnabled = false) {
   const currentKey = reviewKey ?? cardId;
+  const [diagnosticState, setDiagnosticState] = useState(null);
   const [sessionState, setSessionState] = useState(() => {
     const session = createFreeTextEvaluationSession(savedState);
     return { key: currentKey, session, state: session.snapshot() };
@@ -33,7 +34,14 @@ export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAns
     const activeSession = effectiveSession;
     const activeKey = currentKey;
     // Resolve and invoke inside the session's error boundary, including the first submit.
-    const promise = activeSession.submit(answer, text => (evaluateAnswer ?? evaluateFreeTextAnswer)(cardId, text));
+    const promise = activeSession.submit(answer, async text => {
+      setDiagnosticState({ key: activeKey, data: null });
+      const response = await (evaluateAnswer ?? evaluateFreeTextAnswer)(cardId, text, { diagnostics: diagnosticsEnabled });
+      if (mounted.current && currentKeyRef.current === activeKey) {
+        setDiagnosticState({ key: activeKey, data: response.diagnostics ?? null });
+      }
+      return response;
+    });
     setSessionState(prev => prev.key === activeKey ? { ...prev, state: activeSession.snapshot() } : prev);
     const next = await promise;
     if (!mounted.current || !next) return null;
@@ -42,5 +50,6 @@ export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAns
     return { evidence: activeSession.evidence(), result: next.result };
   };
 
-  return { state: effectiveState, submit, evidence: effectiveSession.evidence() };
+  return { state: effectiveState, submit, evidence: effectiveSession.evidence(),
+    diagnostics: diagnosticState?.key === currentKey ? diagnosticState.data : null };
 }

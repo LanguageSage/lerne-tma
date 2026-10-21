@@ -22,22 +22,32 @@ class AnswerEvaluationRequest(BaseModel):
     card_id: int = Field(gt=0)
     answer: str = Field(min_length=1, max_length=4000)
     feedback_language: str = Field(default='ru', pattern=r'^(ru|uk|en)$')
+    diagnostics: bool = False
 
 
 class AnswerEvaluationResponse(BaseModel):
     result: AnswerEvaluation
     grading_policy: GradingPolicy
+    diagnostics: dict | None = None
 
 
 @router.post('/ai/evaluate-answer', response_model=AnswerEvaluationResponse)
 async def evaluate_free_text(request: AnswerEvaluationRequest, user_id: int = Depends(get_user_id)):
     from starlette.concurrency import run_in_threadpool
     from api.services.answer_evaluation import load_answer_context, evaluate_answer
+    from api.permissions import is_admin
 
+    # UI flags and localhost are never authority to disclose reference answers.
+    if request.diagnostics and not is_admin(user_id):
+        raise HTTPException(403, 'Admin only')
     context, policy = await run_in_threadpool(
         load_answer_context, request.card_id, user_id, request.feedback_language)
-    result = await evaluate_answer(context, policy, request.answer)
-    return {'result': result.model_dump(), 'grading_policy': policy.model_dump()}
+    diagnostics = {} if request.diagnostics else None
+    result = await evaluate_answer(context, policy, request.answer, diagnostics=diagnostics)
+    if diagnostics is not None:
+        diagnostics['result'] = result.model_dump()
+        diagnostics['grading_policy'] = policy.model_dump()
+    return {'result': result.model_dump(), 'grading_policy': policy.model_dump(), 'diagnostics': diagnostics}
 
 class PhraseRequest(BaseModel):
     phrase: str

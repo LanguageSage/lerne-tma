@@ -37,3 +37,7 @@
 .free-text-feedback svg { flex-shrink: 0; margin-top: 4px; }
 .free-text-correction, .free-text-example p { white-space: pre-wrap; }
 @media (prefers-reduced-motion: reduce) { .free-text-exercise .spin { animation: none; } }
+.free-text-diagnostics { width: 100%; max-width: 380px; font-size: .86rem; overflow-wrap: anywhere; }
+.free-text-diagnostics label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+.free-text-diagnostics summary { cursor: pointer; padding: 12px 0; }
+.free-text-diagnostics pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 480px; overflow: auto; }

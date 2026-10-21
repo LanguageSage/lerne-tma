@@ -22,6 +22,9 @@ class AIService:
         self.groq_url = "https://api.groq.com/openai/v1"
         self.request_attempts = 2
         self.key_attempts = None
+        self.request_timeout = None
+        self.json_output = False
+        self.last_failure_code = None
 
     @staticmethod
     def _parse_keys(raw_key):
@@ -61,6 +64,7 @@ class AIService:
 
     async def chat_completion(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         """Route with per-request sampling; None preserves each provider's generation defaults."""
+        self.last_failure_code = None
         keys_to_try = self._get_ordered_keys()
         if self.key_attempts is not None:
             keys_to_try = keys_to_try[:self.key_attempts]
@@ -119,8 +123,12 @@ class AIService:
         """Unified request handler with exponential backoff for 429 and 5xx errors."""
         max_retries = self.request_attempts
         base_delay = 2
+        if isinstance(getattr(self, 'diagnostic_requests', None), list) and json_data is not None:
+            # Exact provider payload only. Never capture URLs (Google key), headers or raw errors.
+            self.diagnostic_requests.append({'provider': self.provider,
+                'model': getattr(self, 'effective_model', None), 'payload': json_data})
 
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=timeout)) as session:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.request_timeout or timeout)) as session:
             for attempt in range(max_retries):
                 try:
                     start_time = time.time()
@@ -142,6 +150,11 @@ class AIService:
                         error_msg = error_data.get("error", {}).get("message", "Unknown error")
                         is_quota_issue = resp.status in (429, 403) or any(t in str(error_msg).lower() for t in ["quota", "resource_exhausted", "rate limit"])
 
+                        self.last_failure_code = (
+                            'rate_limited' if resp.status == 429 else
+                            'authentication' if resp.status in (401, 403) else
+                            'invalid_model' if resp.status == 404 else
+                            'provider_unavailable' if resp.status >= 500 else 'provider_rejected')
                         if resp.status == 429 or resp.status >= 500 or is_quota_issue:
                             wait_time = base_delay * (2 ** attempt) + random.uniform(0, 1)
 
@@ -169,12 +182,14 @@ class AIService:
                         return f"{provider_name} Error {resp.status}: {error_msg}", False
 
                 except asyncio.TimeoutError:
+                    self.last_failure_code = 'timeout'
                     logger.warning(f"{provider_name} Timeout (Attempt {attempt+1}/{max_retries})")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(base_delay * (attempt + 1))
                         continue
                     return f"{provider_name} Timeout: Request took too long", False
                 except Exception as e:
+                    self.last_failure_code = 'network'
                     logger.error(f"{provider_name} Connection Error (Attempt {attempt+1}): {type(e).__name__}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(base_delay)
@@ -191,12 +206,17 @@ class AIService:
 
         if ":" in model_name:
             model_name = model_name.split(":")[0]
+        self.effective_model = model_name
 
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
         payload = {
             "contents": [{"role": "user", "parts": [{"text": f"System: {system_prompt}\n\nUser: {user_message}"}]}],
             "generationConfig": {"temperature": 0.7 if temperature is None else temperature, "maxOutputTokens": max_output_tokens or 2048}
         }
+        if self.json_output:
+            payload['systemInstruction'] = {'parts': [{'text': system_prompt}]}
+            payload['contents'] = [{'role': 'user', 'parts': [{'text': user_message}]}]
+            payload['generationConfig']['responseMimeType'] = 'application/json'
 
         data, success = await self._make_request(url, json_data=payload, provider_name="Google")
         if not success:
@@ -204,14 +224,18 @@ class AIService:
 
         try:
             if data['candidates'][0].get('finishReason') == 'MAX_TOKENS':
+                self.last_failure_code = 'output_truncated'
                 return 'ИИ достиг ограничения выходных токенов', False
-            content = data["candidates"][0]["content"]["parts"][0]["text"]
+            content = ''.join(part.get('text', '') for part in data['candidates'][0]['content']['parts']
+                              if not part.get('thought'))
             return content, True
         except (KeyError, IndexError):
+            self.last_failure_code = 'provider_response'
             return "Parsing Error: Unexpected response format from Google", False
 
     async def _ollama_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         model_name = model.split("/", 1)[1] if "/" in model else model
+        self.effective_model = model_name
         url = f"{self.ollama_url}/api/chat"
         payload = {
             "model": model_name,
@@ -222,16 +246,20 @@ class AIService:
             payload["options"] = {"temperature": temperature}
         if max_output_tokens is not None:
             payload.setdefault("options", {})["num_predict"] = max_output_tokens
+        if self.json_output:
+            payload['format'] = 'json'
 
         data, success = await self._make_request(url, json_data=payload, timeout=45, provider_name="Ollama")
         if not success:
             return data, False
         if data.get('done_reason') == 'length':
+            self.last_failure_code = 'output_truncated'
             return 'ИИ достиг ограничения выходных токенов', False
         return data["message"]["content"], True
 
     async def _groq_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         model_name = model.split("/", 1)[1] if "/" in model else model
+        self.effective_model = model_name
         url = f"{self.groq_url}/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json"}
         payload = {
@@ -242,14 +270,18 @@ class AIService:
 
         if max_output_tokens is not None:
             payload["max_completion_tokens"] = max_output_tokens
+        if self.json_output:
+            payload['response_format'] = {'type': 'json_object'}
         data, success = await self._make_request(url, headers=headers, json_data=payload, provider_name="Groq")
         if not success:
             return data, False
         if data['choices'][0].get('finish_reason') == 'length':
+            self.last_failure_code = 'output_truncated'
             return 'ИИ достиг ограничения выходных токенов', False
         return data["choices"][0]["message"]["content"], True
 
     async def _openrouter_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
+        self.effective_model = model
         url = "https://openrouter.ai/api/v1/chat/completions"
         headers = {"Authorization": f"Bearer {self.api_key}", "Content-Type": "application/json", "X-Title": "Lerne TMA"}
         payload = {
@@ -261,10 +293,13 @@ class AIService:
 
         if max_output_tokens is not None:
             payload["max_tokens"] = max_output_tokens
+        if self.json_output:
+            payload['response_format'] = {'type': 'json_object'}
         data, success = await self._make_request(url, headers=headers, json_data=payload, timeout=45, provider_name="OpenRouter")
         if not success:
             return data, False
         if data['choices'][0].get('finish_reason') == 'length':
+            self.last_failure_code = 'output_truncated'
             return 'ИИ достиг ограничения выходных токенов', False
         return data["choices"][0]["message"]["content"], True
 

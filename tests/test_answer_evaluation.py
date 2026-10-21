@@ -225,7 +225,7 @@ class AIFallbackTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(result.verdict, 'unavailable')
         self.assertEqual(calls, 2)
         self.assertTrue(cancelled.is_set())
-        self.assertEqual(budgets, [20])
+        self.assertEqual(budgets, [55])
 
     async def test_obvious_results_never_configure_or_call_ai(self):
         def fail_factory():
@@ -301,6 +301,68 @@ class AIFallbackTests(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(json.loads(kwargs['user_message'])['user_answer'], attack)
 
 
+    async def test_confidence_is_required_even_when_contract_has_defaults(self):
+        client = AsyncMock()
+        raw = json.loads(ai_result())
+        del raw['confidence']
+        client.chat_completion.return_value = (json.dumps(raw), True)
+        result = await evaluate_with_ai(context(), GradingPolicy(), client, 'test')
+        self.assertEqual(result.error_code, 'evaluator.schema_validation')
+        self.assertEqual(client.chat_completion.await_count, 2)
+
+    async def test_transient_transport_retry_and_authentication_not_retried(self):
+        for reason in ['timeout', 'network', 'rate_limited', 'provider_unavailable', 'authentication', 'invalid_model']:
+            client = AsyncMock()
+            client.last_failure_code = reason
+            client.chat_completion.side_effect = [('private error with secret', False), (ai_result(), True)]
+            result = await evaluate_with_ai(context(), GradingPolicy(), client, 'test')
+            transient = reason in ['timeout', 'network', 'rate_limited', 'provider_unavailable']
+            self.assertEqual(result.verdict, 'correct' if transient else 'unavailable')
+            self.assertEqual(client.chat_completion.await_count, 2 if transient else 1)
+            if not transient:
+                self.assertEqual(result.error_code, 'evaluator.' + reason)
+
+    async def test_diagnostic_records_actual_retry_prompts_and_user_json(self):
+        from api.services.answer_ai import SYSTEM_PROMPT
+        client = AsyncMock()
+        client.provider = 'google'
+        client.chat_completion.side_effect = [('broken JSON', True), (ai_result(), True)]
+        diagnostics = {}
+        await evaluate_answer(context(), GradingPolicy(), 'Ich besitze einen Hund.',
+                              lambda: (client, 'gemini-test'), diagnostics=diagnostics)
+        self.assertTrue(diagnostics['ai_called'])
+        self.assertEqual(diagnostics['provider'], 'google')
+        self.assertEqual(diagnostics['requests'][0]['system_prompt'], SYSTEM_PROMPT)
+        for captured, actual in zip(diagnostics['requests'], client.chat_completion.call_args_list):
+            self.assertEqual(captured, actual.kwargs)
+            self.assertEqual(json.loads(captured['user_message'])['expected_answers'], [EXPECTED])
+        self.assertIn('invalid_json', diagnostics['requests'][1]['system_prompt'])
+
+    async def test_local_diagnostic_does_not_invent_prompt_or_configure_ai(self):
+        diagnostics = {}
+        factory = MagicMock(side_effect=AssertionError('must not configure AI'))
+        await evaluate_answer(context(), GradingPolicy(), EXPECTED, factory, diagnostics=diagnostics)
+        self.assertEqual(diagnostics, {'ai_called': False, 'provider': None, 'model': None, 'requests': []})
+        factory.assert_not_called()
+
+    async def test_semantic_policy_cannot_accept_different_answer(self):
+        client = AsyncMock()
+        client.chat_completion.return_value = (ai_result(), True)
+        result = await evaluate_answer(context(), GradingPolicy(semantic_equivalence=False),
+            'Ich besitze einen Hund.', lambda: (client, 'test'))
+        self.assertEqual(result.error_code, 'evaluator.policy_violation')
+
+
+    async def test_short_reference_or_punctuation_changes_never_leak_in_rejected_feedback(self):
+        client = AsyncMock()
+        for expected, feedback in [('Berlin.', 'Die Antwort ist Berlin!'),
+                                   (EXPECTED, 'Ich habe, einen Hund!')]:
+            client.chat_completion.return_value = (ai_result('needs_retry', 'grammar', hint=feedback), True)
+            result = await evaluate_with_ai(context(expected), GradingPolicy(), client, 'test')
+            self.assertEqual(result.error_code, 'evaluator.answer_revealed')
+            self.assertIsNone(result.hint)
+
+
 class ProviderSamplingTests(unittest.IsolatedAsyncioTestCase):
     async def test_evaluator_temperature_reaches_all_providers_without_changing_defaults(self):
         from api.ai_clients import AIService
@@ -352,6 +414,78 @@ class ProviderSamplingTests(unittest.IsolatedAsyncioTestCase):
         self.assertFalse(success)
         self.assertNotIn('private answer', ''.join(logs.output))
         self.assertNotIn('secret-key', ''.join(logs.output))
+
+
+    async def test_json_mode_and_limits_reach_provider_payload_and_diagnostics_exclude_secrets(self):
+        from api.ai_clients import AIService
+        response = {'candidates': [{'content': {'parts': [{'text': 'secret thought', 'thought': True}, {'text': 'ok'}]}}],
+                    'choices': [{'message': {'content': 'ok'}}], 'message': {'content': 'ok'}}
+        for provider in ['google', 'groq', 'openrouter', 'ollama']:
+            client = AIService(provider=provider, api_key='secret-key')
+            client.json_output = True
+            client._make_request = AsyncMock(return_value=(response, True))
+            self.assertEqual(await client.chat_completion('system', 'data', 'gemini-test', temperature=0,
+                max_output_tokens=4096), ('ok', True))
+            payload = client._make_request.call_args.kwargs['json_data']
+            if provider == 'google':
+                self.assertEqual(payload['generationConfig']['responseMimeType'], 'application/json')
+                self.assertEqual(payload['systemInstruction']['parts'][0]['text'], 'system')
+            elif provider == 'ollama':
+                self.assertEqual(payload['format'], 'json')
+            else:
+                self.assertEqual(payload['response_format'], {'type': 'json_object'})
+            self.assertNotIn('secret-key', json.dumps(payload))
+
+
+    async def test_http_status_reason_codes_do_not_return_provider_text_to_learner(self):
+        from api.ai_clients import AIService
+        for status, reason in [(401, 'authentication'), (403, 'authentication'), (404, 'invalid_model'),
+                               (429, 'rate_limited'), (503, 'provider_unavailable')]:
+            client = AIService(provider='google', api_key='private-key')
+            client.request_attempts = client.key_attempts = 1
+            client.request_timeout = 25
+            client.json_output = True
+            client.diagnostic_requests = []
+            response = AsyncMock()
+            response.status = status
+            response.json.return_value = {'error': {'message': 'private-provider-detail'}}
+            response_scope = MagicMock()
+            response_scope.__aenter__ = AsyncMock(return_value=response)
+            session = MagicMock()
+            session.request.return_value = response_scope
+            session_scope = MagicMock()
+            session_scope.__aenter__ = AsyncMock(return_value=session)
+            with patch('api.ai_clients.aiohttp.ClientSession', return_value=session_scope):
+                result = await evaluate_with_ai(context(), GradingPolicy(), client, 'gemini-test')
+            self.assertEqual(result.error_code, 'evaluator.' + reason)
+            self.assertNotIn('private', result.model_dump_json())
+            self.assertNotIn('private', json.dumps(client.diagnostic_requests))
+            self.assertEqual(session.request.call_count, 2 if status in (429, 503) else 1)
+
+    async def test_configured_evaluator_has_single_transports_and_validates_configuration(self):
+        from contextlib import nullcontext
+        from api import models
+        from api.services.answer_evaluation import configured_ai
+        with patch.object(models, 'tma_db') as database:
+            database.connection_context.return_value = nullcontext()
+            for config, reason in [(('unknown', 'key', 'model'), 'invalid_provider'),
+                                   (('google', 'key', '  '), 'missing_model'),
+                                   (('google', 'key', 'llama'), 'invalid_model'),
+                                   (('groq', ' ', 'llama'), 'missing_api_key')]:
+                with patch('api.ai_service.get_ai_config', return_value=config):
+                    with self.assertRaisesRegex(ValueError, reason):
+                        configured_ai()
+            with patch('api.ai_service.get_ai_config', return_value=('google', 'key', ' gemini-test ')):
+                client, model = configured_ai()
+            self.assertEqual(model, 'gemini-test')
+            self.assertEqual(client.request_attempts, 1)
+            self.assertEqual(client.key_attempts, 1)
+            self.assertEqual(client.request_timeout, 25)
+            self.assertTrue(client.json_output)
+            with patch('api.ai_service.get_ai_config', return_value=('ollama', None, 'llama3')), patch.object(
+                    models.TMASetting, 'get_or_none', return_value=MagicMock(value='http://192.0.2.1:11434')):
+                client, _ = configured_ai()
+            self.assertEqual(client.ollama_url, 'http://192.0.2.1:11434')
 
 
 class ContractTests(unittest.TestCase):
@@ -454,6 +588,24 @@ class ServerContextTests(unittest.TestCase):
         self.assertEqual(raised.exception.status_code, 422)
 
 
+    def test_v2_free_text_uses_the_same_server_owned_policy_and_context(self):
+        from api.services.structured_cards_legacy import to_legacy_document
+        compiled = to_legacy_document({'schema_version': 2, 'deck': {'name': 'V2'}, 'cards': [{
+            'type': 'free_text', 'info': [{'type': 'source', 'text': 'Welche Stadt?'}],
+            'data': {'prompt': 'Antworten Sie.', 'sample_answer': 'Berlin.',
+                     'accepted_answers': ['Hamburg.'], 'grading_policy': {'mode': 'controlled_text', 'max_retries': 2}}
+        }]})['cards'][0]
+        self.card.front_text = compiled['front']
+        self.card.back_text = compiled['back']
+        self.card.metadata = json.dumps(compiled['metadata'])
+        self.card.save()
+        ctx, policy = self.load()
+        self.assertEqual(ctx['expected_answers'], ['Berlin.', 'Hamburg.'])
+        self.assertIn('Welche Stadt?', ctx['task'])
+        self.assertEqual(policy.mode, 'controlled_text')
+        self.assertEqual(policy.max_retries, 2)
+
+
 class EndpointTests(unittest.IsolatedAsyncioTestCase):
     async def test_endpoint_contract_and_repeat_requests_do_not_write_attempts(self):
         from api.routers.ai import AnswerEvaluationRequest, evaluate_free_text, AnswerEvaluationResponse
@@ -463,6 +615,24 @@ class EndpointTests(unittest.IsolatedAsyncioTestCase):
             second = await evaluate_free_text(request, user_id=7)
         self.assertEqual(first, second)
         self.assertEqual(AnswerEvaluationResponse.model_validate(first).result.verdict, 'correct')
+
+
+    async def test_diagnostics_require_server_admin_before_context_or_ai(self):
+        from fastapi import HTTPException
+        from api.routers.ai import AnswerEvaluationRequest, evaluate_free_text
+        request = AnswerEvaluationRequest(card_id=1, answer=EXPECTED, diagnostics=True)
+        with patch('api.permissions.is_admin', return_value=False), patch(
+                'api.services.answer_evaluation.load_answer_context') as load:
+            with self.assertRaises(HTTPException) as raised:
+                await evaluate_free_text(request, user_id=7)
+            self.assertEqual(raised.exception.status_code, 403)
+            load.assert_not_called()
+        with patch('api.permissions.is_admin', return_value=True), patch(
+                'api.services.answer_evaluation.load_answer_context', return_value=(context(), GradingPolicy())):
+            result = await evaluate_free_text(request, user_id=7)
+        self.assertFalse(result['diagnostics']['ai_called'])
+        self.assertEqual(result['diagnostics']['requests'], [])
+        self.assertEqual(result['diagnostics']['result'], result['result'])
 
 
 if __name__ == '__main__':

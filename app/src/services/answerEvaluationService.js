@@ -5,13 +5,14 @@ import { isValidAnswerEvaluationResult } from '../utils/freeTextEvaluationState.
 
 const pending = new Map();
 
-export async function evaluateFreeTextAnswer(cardId, answer) {
+export async function evaluateFreeTextAnswer(cardId, answer, { diagnostics = false } = {}) {
   const language = getInterfaceLanguage();
-  const key = JSON.stringify([getUserId(), cardId, answer, language]);
+  const key = JSON.stringify([getUserId(), cardId, answer, language, diagnostics]);
   if (pending.has(key)) return pending.get(key);
   const request = api.post('/ai/evaluate-answer', {
     card_id: cardId, answer, feedback_language: language,
-  }).then(({ data }) => {
+    ...(diagnostics ? { diagnostics: true } : {}),
+  }, { timeout: 65000 }).then(({ data }) => {
     if (!isValidAnswerEvaluationResult(data?.result)) {
       throw new Error('Invalid answer evaluation response');
     }

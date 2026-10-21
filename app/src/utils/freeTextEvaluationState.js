@@ -44,8 +44,13 @@ export function createFreeTextEvaluationSession(initial = {}) {
             }] : state.errors,
           };
         }
-      } catch {
-        state = { ...state, result: { verdict: 'unavailable', accepted: false } };
+      } catch (error) {
+        const reason = error?.code === 'ECONNABORTED' ? 'timeout'
+          : error?.response?.status === 401 ? 'authentication'
+          : error?.response?.status === 403 ? 'access_denied'
+          : error?.response?.status === 422 ? 'invalid_card' : 'network';
+        state = { ...state, result: { verdict: 'unavailable', accepted: false,
+          error_code: `evaluator.${reason}` } };
       } finally {
         state = { ...state, loading: false };
       }

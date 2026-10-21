@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context, { recognition = 'supported', assessmentMode = false } = {}) {
+async function setup(page, context, { recognition = 'supported', assessmentMode = false, admin = false } = {}) {
   const errors = [];
   const answers = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -16,10 +16,16 @@ async function setup(page, context, { recognition = 'supported', assessmentMode 
         if (recognition === 'denied') this.onerror?.({ error: 'not-allowed' });
         else this.onstart?.();
       }
-      stop() { this.onend?.(); }
+      stop() {
+        if (window.finalOnStop) {
+          const result = [{ transcript: window.finalOnStop }]; result.isFinal = true;
+          setTimeout(() => { this.onresult?.({ results: [result] }); this.onend?.(); }, 100);
+        } else if (!window.omitSpeechEnd) this.onend?.();
+      }
       abort() { this.aborted = true; }
     };
-    window.webkitSpeechRecognition = undefined;
+    window.webkitSpeechRecognition = recognition === 'prefixed' ? window.SpeechRecognition : undefined;
+    if (recognition === 'prefixed') window.SpeechRecognition = undefined;
   }, recognition);
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
@@ -47,6 +53,8 @@ async function setup(page, context, { recognition = 'supported', assessmentMode 
     import ReactDOM from '/node_modules/.vite/deps/react-dom_client.js';
     import { StudyCardFreeText } from '/src/components/study/StudyCardFreeText.jsx';
     import { useDeckStore } from '/src/store/useDeckStore.js';
+    import { useSettingsStore } from '/src/store/useSettingsStore.js';
+    useSettingsStore.setState({ isAdmin: ${JSON.stringify(admin)} });
     import { applyPublishedDesignTokens } from '/src/design/designTokens.js';
     import { DEFAULT_DESIGN_CONFIG_V2 } from '/src/design/designConfig.js';
     import '/src/index.css';
@@ -79,7 +87,7 @@ async function speak(page, chunks) {
   await page.evaluate(chunks => window.testRecognition.onresult({ results: chunks.map(transcript => [{ transcript }]) }), chunks);
 }
 
-test('dictation updates the draft, stops on silence, permits correction and checks only on submit', async ({ page, context }) => {
+test('dictation survives long silence, pauses, resumes, permits correction and submits manually', async ({ page, context }) => {
   const { errors, answers } = await setup(page, context);
   const input = page.locator('textarea');
   const mic = page.locator('.free-text-dictate');
@@ -91,10 +99,12 @@ test('dictation updates the draft, stops on silence, permits correction and chec
   await speak(page, ['möchte']);
   await speak(page, ['möchte ich einkaufen', 'möchte ich einkaufen gehen.', 'gehen.']);
   await expect(input).toHaveValue('Am Samstag möchte ich einkaufen gehen.');
-  await expect(check).toBeDisabled();
-  await page.locator('form').evaluate(form => form.requestSubmit());
-  expect(answers).toHaveLength(0);
-  await expect(mic).toHaveAttribute('aria-pressed', 'false', { timeout: 5000 });
+  await expect(page.getByRole('button', { name: 'Отправить', exact: true })).toBeEnabled();
+  await page.clock.install();
+  await page.clock.runFor(60000);
+  await expect(mic).toHaveAttribute('aria-pressed', 'true');
+  await mic.click();
+  await expect(mic).toHaveText('Продолжить');
   expect(answers).toHaveLength(0);
   await expect(input).toBeEnabled();
   await mic.click();
@@ -173,7 +183,8 @@ test('recognition errors allow retry, cancel old timers and respect the answer l
   await mic.click();
   await expect(page.locator('.free-text-dictation-help')).toContainText('Слушаю');
   await page.evaluate(() => window.testRecognition.onerror({ error: 'no-speech' }));
-  await expect(mic).toHaveAttribute('aria-pressed', 'false');
+  await expect(mic).toHaveAttribute('aria-pressed', 'true');
+  await page.evaluate(() => window.testRecognition.onend());
   expect(answers).toHaveLength(0);
   expect(errors).toEqual([]);
 });
@@ -183,7 +194,7 @@ test('dictation keeps the assessment single-submit contract', async ({ page, con
   await page.locator('.free-text-dictate').click();
   await speak(page, ['Ich besuche meinen Freund.']);
   await page.locator('.free-text-dictate').click();
-  await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click();
   await expect(page.locator('textarea')).toBeDisabled();
   await expect(page.locator('.free-text-dictate')).toHaveCount(0);
   expect(answers).toHaveLength(1);
@@ -205,10 +216,142 @@ test('dictation controls wrap, keep touch targets and localize at study viewport
       await expect(page.locator('.free-text-prompt')).toHaveCSS('font-family', 'Georgia');
       await page.screenshot({ path: testInfo.outputPath('dictation-' + locale + '-' + width + '.png'), fullPage: true });
     }
+    await page.locator('textarea').fill('Am Samstag möchte ich einkaufen gehen.');
     await page.locator('.free-text-dictate').click();
     await page.screenshot({ path: testInfo.outputPath('listening-' + locale + '.png'), fullPage: true });
     await page.locator('.free-text-dictate').click();
   }
-  await expect(page.locator('.free-text-dictate')).toHaveText('Диктувати');
+  await expect(page.locator('.free-text-dictate')).toHaveText('Продовжити');
   expect(errors).toEqual([]);
+});
+
+for (const recognition of ['supported', 'prefixed']) {
+  test(recognition + ': browser end restarts safely, accumulates snapshots and bounds empty restart loops', async ({ page, context }) => {
+    const { answers, errors } = await setup(page, context, { recognition });
+    await page.clock.install();
+    const input = page.locator('textarea');
+    const mic = page.locator('.free-text-dictate');
+    await mic.click();
+    await speak(page, ['Ich möchte']);
+    await speak(page, ['Ich möchte Deutsch lernen.']);
+    await page.evaluate(() => { window.oldResult = window.testRecognition.onresult; window.testRecognition.onend(); });
+    await page.clock.runFor(300);
+    expect(await page.evaluate(() => window.recognitionStarts)).toBe(2);
+    // A mobile engine replays the preceding session, then revises the same result.
+    await speak(page, ['Ich möchte Deutsch lernen. Jeden Tag']);
+    await speak(page, ['Ich möchte Deutsch lernen. Jeden Tag eine Stunde.']);
+    await page.evaluate(() => window.oldResult({ results: [[{ transcript: 'stale' }]] }));
+    await expect(input).toHaveValue('Ich möchte Deutsch lernen. Jeden Tag eine Stunde.');
+    await page.evaluate(() => window.testRecognition.onend());
+    await page.clock.runFor(300);
+    await speak(page, ['Danach lese ich.']);
+    await expect(input).toHaveValue('Ich möchte Deutsch lernen. Jeden Tag eine Stunde. Danach lese ich.');
+    await mic.click();
+    await page.clock.runFor(60000);
+    const starts = await page.evaluate(() => window.recognitionStarts);
+    await expect(mic).toHaveText('Продолжить');
+    await mic.click();
+    for (let i = 0; i < 5; i++) {
+      await page.evaluate(() => window.testRecognition.onend());
+      await page.clock.runFor(4500);
+    }
+    await expect(mic).toHaveText('Продолжить');
+    await expect(page.locator('.free-text-dictation-help')).toContainText('приостановлено браузером');
+    const bounded = await page.evaluate(() => window.recognitionStarts);
+    await page.clock.runFor(60000);
+    expect(await page.evaluate(() => window.recognitionStarts)).toBe(bounded);
+    expect(bounded - starts).toBe(5);
+    expect(answers).toHaveLength(0);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('submit waits for final recognition, prevents duplicates and uses the final text', async ({ page, context }) => {
+  const { answers } = await setup(page, context);
+  await page.locator('textarea').fill('Am Samstag');
+  await page.locator('.free-text-dictate').click();
+  await speak(page, ['möchte ich']);
+  await page.evaluate(() => { window.finalOnStop = 'möchte ich Deutsch lernen.'; });
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await page.locator('form').evaluate(form => { form.requestSubmit(); form.requestSubmit(); });
+  await expect(page.getByText('Верно!', { exact: true })).toBeVisible();
+  expect(answers.map(answer => answer.answer)).toEqual(['Am Samstag möchte ich Deutsch lernen.']);
+  expect(await page.evaluate(() => window.savedDictation['review-1'].evaluationState.attemptCount)).toBe(1);
+});
+
+test('missing end uses bounded flush; navigation while flushing prevents stale submit', async ({ page, context }) => {
+  const { answers } = await setup(page, context);
+  await page.clock.install();
+  const mic = page.locator('.free-text-dictate');
+  await mic.click();
+  await speak(page, ['Mein Entwurf.']);
+  await page.evaluate(() => { window.omitSpeechEnd = true; });
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await page.evaluate(() => window.changeReview('review-2'));
+  await page.clock.runFor(3000);
+  expect(answers).toHaveLength(0);
+  await expect(page.locator('textarea')).toHaveValue('');
+  await mic.click();
+  await speak(page, ['Ein neuer Entwurf.']);
+  await page.getByRole('button', { name: 'Отправить', exact: true }).click();
+  await page.clock.runFor(2100);
+  await expect(page.getByText('Верно!', { exact: true })).toBeVisible();
+  expect(answers.map(answer => answer.answer)).toEqual(['Ein neuer Entwurf.']);
+});
+
+test('permission denial never restarts, including late end events', async ({ page, context }) => {
+  await setup(page, context);
+  await page.clock.install();
+  await page.locator('.free-text-dictate').click();
+  await page.evaluate(() => {
+    const end = window.testRecognition.onend;
+    window.testRecognition.onerror({ error: 'not-allowed' });
+    end();
+  });
+  await page.clock.runFor(120000);
+  expect(await page.evaluate(() => window.recognitionStarts)).toBe(1);
+  await expect(page.locator('.free-text-dictation-help')).toContainText('Нет доступа');
+});
+
+test('admin diagnostics shows the actual response only on request and never saves it with progress', async ({ page, context }) => {
+  await setup(page, context, { admin: true });
+  await page.route('**/api/ai/evaluate-answer', route => {
+    expect(route.request().postDataJSON().diagnostics).toBe(true);
+    return route.fulfill({ json: { result: { verdict: 'unavailable', accepted: false, error_code: 'evaluator.low_confidence' },
+      diagnostics: { ai_called: true, provider: 'google', model: 'gemini-test', requests: [
+        { system_prompt: 'ACTUAL SYSTEM', user_message: JSON.stringify({ expected_answers: ['PRIVATE REFERENCE'], user_answer: 'Entwurf' }) }
+      ], result: { verdict: 'unavailable' } } } });
+  });
+  await page.getByRole('checkbox').check();
+  await page.locator('textarea').fill('Entwurf');
+  await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
+  await page.getByText('Фактический запрос и результат проверки').click();
+  await expect(page.locator('.free-text-diagnostics pre')).toContainText('ACTUAL SYSTEM');
+  await expect(page.locator('.free-text-diagnostics pre')).toContainText('PRIVATE REFERENCE');
+  expect(await page.evaluate(() => JSON.stringify(window.savedDictation))).not.toContain('PRIVATE REFERENCE');
+  await page.evaluate(() => window.changeReview('review-2'));
+  await expect(page.locator('.free-text-diagnostics pre')).toHaveCount(0);
+});
+
+test('learner gets safe reason and retries without an educational attempt or diagnostic disclosure', async ({ page, context }) => {
+  const { answers } = await setup(page, context);
+  let calls = 0;
+  await page.route('**/api/ai/evaluate-answer', route => {
+    calls++;
+    expect(route.request().postDataJSON().diagnostics).toBeUndefined();
+    return route.fulfill({ json: { result: calls === 1 ? {
+      verdict: 'unavailable', accepted: false, error_code: 'evaluator.rate_limited',
+    } : { verdict: 'correct', accepted: true, evaluator: 'ai' } } });
+  });
+  await expect(page.getByRole('checkbox')).toHaveCount(0);
+  await page.locator('textarea').fill('Mein Entwurf.');
+  await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
+  await expect(page.locator('.free-text-feedback')).toContainText('временно перегружен');
+  expect(await page.evaluate(() => window.savedDictation['review-1'].evaluationState.attemptCount)).toBe(0);
+  await expect(page.getByRole('button', { name: 'Показать пример ответа' })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Проверить ещё раз', exact: true }).click();
+  await expect(page.getByText('Верно!', { exact: true })).toBeVisible();
+  expect(await page.evaluate(() => window.savedDictation['review-1'].evaluationState.attemptCount)).toBe(1);
+  expect(calls).toBe(2);
+  expect(answers).toHaveLength(0);
 });

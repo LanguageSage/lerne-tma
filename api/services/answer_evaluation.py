@@ -64,38 +64,67 @@ def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> t
         }, policy
 
 
-def configured_ai():
+def configured_ai(diagnostics=None):
     from api.ai_service import get_ai_config
     from api.ai_clients import AIService
     from api import models
     with models.tma_db.connection_context():
         provider, key, model = get_ai_config()
-    if not model or (not key and provider != 'ollama'):
-        return None
-    return AIService(provider=provider, api_key=key), model.strip()
+        if diagnostics is not None:
+            diagnostics.update(provider=provider, model=model)
+        url_rec = (models.TMASetting.get_or_none(models.TMASetting.key == 'OLLAMA_URL')
+                   if (provider or '').strip().lower() == 'ollama' else None)
+        ollama_url = url_rec.value.strip() if url_rec and url_rec.value else None
+    provider = (provider or '').strip().lower()
+    if provider not in ('google', 'groq', 'openrouter', 'ollama'):
+        raise ValueError('invalid_provider')
+    if not isinstance(model, str) or not model.strip():
+        raise ValueError('missing_model')
+    model = model.strip()
+    # Never silently send a different model (the generic Google client has a fallback).
+    if provider == 'google' and 'gemini' not in model.lower():
+        raise ValueError('invalid_model')
+    client = AIService(provider=provider, api_key=key, ollama_url=ollama_url)
+    if not client.api_keys and provider != 'ollama':
+        raise ValueError('missing_api_key')
+    # Evaluation owns the two attempts and their shared deadline; no nested retries.
+    client.request_attempts = client.key_attempts = 1
+    client.request_timeout = 25
+    client.json_output = True
+    return client, model
 
 
-async def evaluate_answer(context: dict, policy: GradingPolicy, answer: str, ai_factory=None):
+async def evaluate_answer(context: dict, policy: GradingPolicy, answer: str, ai_factory=None,
+                          diagnostics=None):
+    if diagnostics is not None:
+        diagnostics.update(ai_called=False, provider=None, model=None, requests=[])
     if policy.mode != 'open_text' and not any(v.strip() for v in context['expected_answers']):
         logger.warning('Answer evaluator unavailable: missing_expected_answer')
-        return unavailable('rules')
+        return unavailable('rules', 'missing_expected_answer')
     result = evaluate_deterministic(answer, context['expected_answers'], policy,
                                     context['target_language'])
     if result is not None:
         return result
-    if ai_factory is None:
-        ai_factory = configured_ai
     try:
-        configured = await run_in_threadpool(ai_factory)
+        if ai_factory is not None:
+            configured = await run_in_threadpool(ai_factory)
+        else:
+            configured = await run_in_threadpool(configured_ai, diagnostics)
+    except ValueError as exc:
+        reason = str(exc) if str(exc) in (
+            'invalid_provider', 'missing_model', 'invalid_model', 'missing_api_key') else 'configuration_error'
+        logger.warning('Answer evaluator unavailable: %s', reason)
+        return unavailable(reason=reason)
     except Exception:
         logger.warning('Answer evaluator unavailable: provider_failure')
-        return unavailable()
+        return unavailable(reason='configuration_error')
     if not configured:
         logger.warning('Answer evaluator unavailable: invalid_evaluator')
-        return unavailable()
+        return unavailable(reason='missing_configuration')
     try:
         client, model = configured
     except (TypeError, ValueError):
         logger.warning('Answer evaluator unavailable: invalid_evaluator')
-        return unavailable()
-    return await evaluate_with_ai({**context, 'user_answer': answer}, policy, client, model)
+        return unavailable(reason='missing_configuration')
+    return await evaluate_with_ai({**context, 'user_answer': answer}, policy, client, model,
+                                  diagnostics=diagnostics)
