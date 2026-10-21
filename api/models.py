@@ -1,5 +1,6 @@
 import os
 import logging
+from api.migrations import MigrationError
 import datetime
 from peewee import *
 from api.database import tma_db, lerne_db, initialize_database
@@ -33,6 +34,8 @@ def create_all_tables():
             logger.warning(f"DATABASE: Failed to create partial index: {e}")
         _tables_created = True
         logger.info("DATABASE: All tables created/verified.")
+    except MigrationError:
+        raise
     except Exception as e:
         logger.error(f"Error in create_all_tables: {e}")
 
@@ -526,5 +529,7 @@ try:
     
     if (should_run_migrations or is_local_env) and os.environ.get('LERNE_SKIP_SCHEMA_INIT') != '1':
         create_all_tables()
+except MigrationError:
+    raise
 except Exception as e:
     logger.error(f"CRITICAL: Database initialization failed: {e}")

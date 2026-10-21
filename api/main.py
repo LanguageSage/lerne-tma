@@ -18,6 +18,7 @@ from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
 
 from api import models, services
+from api.migrations import MigrationError
 
 from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, auth_v2, share, debug, trash, sync, folders, collaborative, lid, knowledge
 
@@ -39,6 +40,8 @@ try:
     models.initialize_database()
     models.create_all_tables()
     logger.info("DATABASE: Module-level initialization complete.")
+except MigrationError:
+    raise
 except Exception as _db_init_err:
     logger.error(f"DATABASE: Module-level initialization FAILED: {_db_init_err}")
 

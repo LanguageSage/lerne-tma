@@ -6,6 +6,7 @@
 
 | Симптом / термин | Подсистема | Документ |
 | --- | --- | --- |
+| SQL-миграции, история выполнения, rollback, ошибка применения | Database migrations | [migrations](subsystems/migrations.md) |
 | Редактор карточки, Simple/Raw, курсор, вставка команды, `::source`, `::task`, `::exercise` | Cards: editor / syntax | [cards](subsystems/cards.md) |
 | Разбор `@wordbank`, `@puzzle`, `@match`, `@quiz`, `@free`, `@theory`, `[[input]]`, `detect_card_type`, Structured Cards V2 | Cards: parsers / V2 authoring | [cards](subsystems/cards.md) |
 | Сохранение карточки, `card_content_service`, batch move/delete/copy, bulk-save, `import_id`, дубликаты | Cards: CRUD / batch | [cards](subsystems/cards.md) |

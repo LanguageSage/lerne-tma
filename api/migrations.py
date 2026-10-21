@@ -1,15 +1,15 @@
 """
 Migrations module: все SQL-миграции для существующих баз данных.
 При добавлении новой колонки/таблицы — просто добавляй строку в MIGRATIONS.
-Каждая миграция выполняется с обработкой ошибок, чтобы не падать если колонка уже есть.
+SQL и история фиксируются атомарно; любая ошибка прерывает запуск.
 """
 import logging
-from peewee import SqliteDatabase
+from peewee import PostgresqlDatabase, SqliteDatabase
 
 logger = logging.getLogger(__name__)
 
-# Auth migrations intentionally bypass the legacy best-effort runner below,
-# which marks failed statements as applied. They are never run on API startup.
+# Auth migrations have their own explicit transactional runner.
+# They are never run on API startup.
 AUTH_FOUNDATION_MIGRATION_ID = 76
 AUTH_CHALLENGE_MIGRATION_ID = 77
 AUTH_PASSWORD_MIGRATION_ID = 78
@@ -333,103 +333,66 @@ MIGRATIONS = [
 ]
 
 
+class MigrationError(RuntimeError):
+    """Migration SQL/history commit was not confirmed; startup must fail."""
+
+
 def run_migrations_fallback(tma_db, lerne_db):
-    """Резервный метод на случай проблем с таблицей истории миграций."""
-    db_map = {'tma': tma_db, 'lerne': lerne_db}
-    success = 0
-    skipped = 0
-    for mig_id, query, db_key in MIGRATIONS:
-        db = db_map.get(db_key)
-        if not db:
-            continue
-        try:
-            db.execute_sql(query)
-            success += 1
-        except Exception:
-            skipped += 1
-    logger.info(f"Fallback Migrations: {success} applied, {skipped} skipped.")
+    """Compatibility entry point; never execute migrations without history."""
+    return run_migrations(tma_db, lerne_db)
 
 
 def run_migrations(tma_db, lerne_db):
-    """Выполняет все накопленные миграции. Оптимизировано: проверяет историю миграций."""
-    db_map = {'tma': tma_db, 'lerne': lerne_db}
+    """Commit pending SQL and history together, or roll the entire batch back.
 
-    # 1. Создаем таблицу истории миграций, если её еще нет (в tma_db)
+    Both proxies must share one connection owner (as in api.database). Separate
+    databases cannot atomically commit SQL and the existing central history.
+    """
+    database = getattr(tma_db, 'obj', tma_db)
+    library = getattr(lerne_db, 'obj', lerne_db)
+    if not isinstance(database, (SqliteDatabase, PostgresqlDatabase)):
+        raise MigrationError('Unsupported migration database')
+    if library is not database:
+        raise MigrationError('Migration SQL and history require the same database instance')
+    if database.in_transaction():
+        raise MigrationError('Migration runner requires its own transaction')
+
+    options = {'lock_type': 'IMMEDIATE'} if isinstance(database, SqliteDatabase) else {}
+    step = 'migration history setup'
+    success = skipped = 0
     try:
-        tma_db.execute_sql("""
-            CREATE TABLE IF NOT EXISTS tma_migration_history (
+        with database.atomic(**options):
+            if isinstance(database, PostgresqlDatabase):
+                database.execute_sql("SET LOCAL lock_timeout = '5s'")
+                database.execute_sql('SELECT pg_advisory_xact_lock(76120901)')
+            database.execute_sql("""CREATE TABLE IF NOT EXISTS tma_migration_history (
                 migration_id INT PRIMARY KEY,
                 applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-    except Exception as e:
-        logger.error(f"Failed to create migration history table: {e}")
-        # В случае ошибки создаем резервный запуск без истории
-        return run_migrations_fallback(tma_db, lerne_db)
+            )""")
+            step = 'migration history read'
+            applied_ids = {row[0] for row in database.execute_sql(
+                'SELECT migration_id FROM tma_migration_history').fetchall()}
+            for mig_id, query, db_key in MIGRATIONS:
+                step = f'Migration {mig_id} ({db_key})'
+                if mig_id in applied_ids:
+                    skipped += 1
+                    continue
+                if db_key not in ('tma', 'lerne'):
+                    raise ValueError(f'Unknown migration database key: {db_key}')
+                database.execute_sql(query)
+                database.execute_sql(
+                    f'INSERT INTO tma_migration_history (migration_id) VALUES ({database.param})',
+                    (mig_id,))
+                applied_ids.add(mig_id)
+                success += 1
+            step = 'migration batch commit'
+    except Exception as exc:
+        logger.exception('%s failed; migration batch commit was not confirmed', step)
+        raise MigrationError(f'{step} failed; migration batch commit was not confirmed') from exc
 
-    # 2. Получаем список уже примененных миграций
-    try:
-        cursor = tma_db.execute_sql("SELECT migration_id FROM tma_migration_history")
-        applied_ids = {row[0] for row in cursor.fetchall()}
-    except Exception as e:
-        logger.error(f"Failed to fetch applied migrations: {e}")
-        applied_ids = set()
+    logger.info('Migrations check complete: %s newly applied, %s skipped.', success, skipped)
 
-    success = 0
-    skipped = 0
-    new_applied = []
-
-    for mig_id, query, db_key in MIGRATIONS:
-        if mig_id in applied_ids:
-            skipped += 1
-            continue
-
-        db = db_map.get(db_key)
-        if not db:
-            continue
-
-        try:
-            db.execute_sql(query)
-            success += 1
-            new_applied.append(mig_id)
-        except Exception as e:
-            err_msg = str(e).lower()
-            # Если миграция падает, потому что колонка/таблица уже есть, или это view в SQLite —
-            # мы считаем её выполненной и записываем в историю, чтобы больше не пытаться.
-            is_already_exists = (
-                "already exists" in err_msg or 
-                "duplicate column" in err_msg or 
-                "duplicate key" in err_msg or
-                "is_deleted" in err_msg or
-                "duplicate" in err_msg or
-                "cannot add a column to a view" in err_msg or
-                "no such column" in err_msg or
-                "view" in err_msg
-            )
-            if is_already_exists:
-                skipped += 1
-                new_applied.append(mig_id)
-            else:
-                logger.warning(f"Migration {mig_id} failed (continuing): {query}. Error: {e}")
-                # Мы всё равно помечаем её как примененную, чтобы не зависать на ней при каждом старте.
-                # Если разработчику нужно переприменить её, он может удалить строку из tma_migration_history.
-                new_applied.append(mig_id)
-
-        # Record migration history item immediately to prevent re-executing index/schema DDL on restarts
-        try:
-            tma_db.execute_sql(
-                "INSERT INTO tma_migration_history (migration_id) VALUES (%s) ON CONFLICT (migration_id) DO NOTHING",
-                (mig_id,)
-            )
-        except Exception:
-            try:
-                tma_db.execute_sql(f"INSERT OR IGNORE INTO tma_migration_history (migration_id) VALUES ({mig_id})")
-            except Exception:
-                pass
-
-    logger.info(f"Migrations check complete: {success} newly applied, {skipped} skipped.")
-
-    if isinstance(tma_db.obj, SqliteDatabase):
+    if isinstance(database, SqliteDatabase):
         try:
             # Пересоздаем представления, чтобы они подхватили новые колонки
             tma_db.execute_sql("DROP VIEW IF EXISTS tma_deck")
