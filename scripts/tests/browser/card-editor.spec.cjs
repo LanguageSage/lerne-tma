@@ -48,9 +48,8 @@ async function openEditor(page, context, front = null) {
   }, { front, deck });
   await expect(page.locator('.card-content-editor')).toBeVisible();
 }
-const advanced = page => page.getByRole('button', { name: 'Дополнительно: исходная разметка' });
 const raw = page => page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
-const simple = page => page.getByRole('button', { name: 'Обычный редактор' });
+const toggleAdvanced = page => page.getByRole('button', { name: 'Дополнительно', exact: true });
 
 const analysisQuiz = '::task\nWählen Sie die richtige Antwort.\n\n::exercise\nWomit fährt Anna?\n\nA) Mit dem Auto\n*B) Mit dem Bus\nC) Mit dem Zug';
 
@@ -182,11 +181,6 @@ test('B1-29-D02 compact quiz labels render in the editor and study card', async 
   await expect(page.locator('.quiz-option-item.correct')).toHaveCount(1);
 });
 
-async function add(page, name) {
-  await page.locator('.card-editor-add summary').click();
-  await page.locator('.card-editor-add').getByRole('button', { name, exact: true }).click();
-}
-
 test('simple creation uses the existing save API and has no technical cheatsheet', async ({ page, context }, testInfo) => {
   await openEditor(page, context);
   await expect(page.getByText('Тренажёр:', { exact: true })).toHaveCount(0);
@@ -203,40 +197,40 @@ test('simple creation uses the existing save API and has no technical cheatsheet
   expect((await saved).postDataJSON()).toMatchObject({ front: 'Hallo', back: 'Hello', card_type: 'standard' });
 });
 
-test('visual fields, mode roundtrip, cursor insertion and keyboard dismissal', async ({ page, context }) => {
-  await openEditor(page, context);
-  await page.getByRole('textbox', { name: 'Вопрос / лицевая сторона' }).fill('Wo?');
-  await add(page, 'Задание');
-  await page.getByRole('textbox', { name: 'Задание', exact: true }).fill('Wähle ');
-  await expect(page.getByRole('textbox', { name: 'Задание', exact: true })).toHaveValue('Wähle ');
-  await add(page, 'Варианты ответа');
-  await page.getByRole('textbox', { name: 'Вариант 1', exact: true }).fill('New York');
-  await add(page, 'Поле для ввода');
-  await page.getByRole('textbox', { name: 'Правильный ответ', exact: true }).fill('hier');
-  await advanced(page).click();
-  const value = await raw(page).inputValue();
-  expect(value).toContain('{*New York|Hamburg|München}[[hier]]');
-  await simple(page).click();
-  await advanced(page).click();
-  await expect(raw(page)).toHaveValue(value);
-  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(0, 0); });
-  await page.locator('.card-editor-commands').getByRole('button', { name: 'Пример', exact: true }).click();
-  await expect(raw(page)).toHaveValue('::example\n' + value);
-  await simple(page).click();
-  const summary = page.locator('.card-editor-add summary');
-  await summary.click();
-  await page.locator('.card-editor-add button').first().focus();
-  await page.keyboard.press('Escape');
-  await expect(page.locator('.card-editor-add')).not.toHaveAttribute('open', '');
-  await expect(summary).toBeFocused();
+test('visual fields, raw toggle, cursor insertion and menu dismissal', async ({ page, context }) => {
+  const source = '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich';
+  await openEditor(page, context, source);
+  const left = page.getByRole('textbox', { name: 'Левая сторона', exact: true });
+  await expect(left).toHaveCount(2);
+  await left.first().fill('Paris');
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveValue(source.replace('Berlin', 'Paris'));
+  await raw(page).fill('AA\nBB');
+  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 3); });
+  const more = page.locator('.card-editor-cluster-marker .card-editor-btn-more');
+  await more.click();
+  await page.locator('.card-editor-popover').getByRole('menuitem', { name: 'Пример', exact: true }).click();
+  await expect(raw(page)).toHaveValue('AA\n::example\nBB');
+  await expect(raw(page)).toBeFocused();
+  await more.focus();
+  await page.keyboard.press('Enter');
+  const summary = page.locator('.card-editor-popover').getByRole('menuitem', { name: 'Содержимое упражнения', exact: true });
+  await expect(summary).toBeVisible();
+  await raw(page).click();
+  await expect(summary).toHaveCount(0);
 });
 
 test('legacy and unknown raw source survives viewing, mode switches and save', async ({ page, context }) => {
   const source = '::future\r\nKEEP  EXACTLY\r\n@wordbank\r\n<<1>>';
+  const browserSource = source.replace(/\r\n/g, '\n');
   await openEditor(page, context, source);
-  await expect(page.getByText('Эта карточка содержит сложную разметку. Содержимое сохранено без изменений.')).toBeVisible();
-  await advanced(page).click();
-  await simple(page).click();
+  await expect(page.locator('.card-editor-readable')).toHaveText('KEEP  EXACTLY\n<<1>>');
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveValue(browserSource);
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveCount(0);
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveValue(browserSource);
   const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
   expect((await saved).postDataJSON().front).toBe(source);
@@ -249,34 +243,33 @@ test('responsive visual and raw editor in Russian and English', async ({ page, c
   for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await expect(page.getByRole('textbox', { name: 'Левая сторона' }).first()).toHaveValue('Berlin');
-    await page.locator('.card-editor-add summary').click();
+    await toggleAdvanced(page).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`visual-${width}.png`), fullPage: true });
-    await page.locator('.card-editor-add summary').click();
-    await advanced(page).click();
+    await toggleAdvanced(page).click();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`raw-${width}.png`), fullPage: true });
-    await simple(page).click();
+    await toggleAdvanced(page).click();
   }
   await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
-  await expect(page.getByRole('button', { name: 'Advanced: source markup' })).toBeVisible();
+  const englishToggle = page.getByRole('button', { name: 'Advanced', exact: true });
+  await expect(englishToggle).toBeVisible();
   await page.setViewportSize({ width: 320, height: 900 });
-  await page.locator('.card-editor-add summary').click();
+  await englishToggle.click();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.screenshot({ path: testInfo.outputPath('english-320.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
 
 
-test('raw changes, preference persistence and save failure retain the draft', async ({ page, context }) => {
+test('raw changes roundtrip and save failure retain the draft', async ({ page, context }) => {
   await openEditor(page, context, 'Hallo');
-  await advanced(page).click();
+  await toggleAdvanced(page).click();
   const source = '::task\nSchreibe.\n::exercise\n@free\nEin Satz.';
   await raw(page).fill(source);
-  await simple(page).click();
+  await toggleAdvanced(page).click();
   await expect(page.getByRole('textbox', { name: 'Свободный ответ', exact: true })).toHaveValue('Ein Satz.');
-  await advanced(page).click();
-  expect(await page.evaluate(() => localStorage.getItem('lerne.cardEditor.mode'))).toBe('advanced');
+  await toggleAdvanced(page).click();
   let fail = true;
   await page.route('**/api/cards/save', route => fail
     ? route.fulfill({ status: 400, json: { detail: 'Test save failure' } })
@@ -293,19 +286,16 @@ test('raw changes, preference persistence and save failure retain the draft', as
 });
 
 test('match pairs and puzzle content can be edited visually', async ({ page, context }) => {
-  await openEditor(page, context);
-  await add(page, 'Соединение пар');
+  await openEditor(page, context, '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich');
   await page.getByRole('textbox', { name: 'Левая сторона' }).first().fill('Paris');
   await page.getByRole('textbox', { name: 'Правая сторона' }).first().fill('France');
   await page.getByRole('button', { name: 'Добавить пару', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Левая сторона' })).toHaveCount(3);
-  await page.getByRole('button', { name: 'Удалить пару', exact: true }).last().click();
-  await advanced(page).click();
+  await expect(page.getByRole('textbox', { name: 'Левая сторона', exact: true })).toHaveCount(3);
+  await toggleAdvanced(page).click();
   expect(await raw(page).inputValue()).toContain('Paris => France');
-  await raw(page).fill('');
-  await simple(page).click();
-  await add(page, 'Собрать предложение');
+  await raw(page).fill('::exercise\n@puzzle\nIch wohne in Berlin.');
+  await toggleAdvanced(page).click();
   await page.getByRole('textbox', { name: 'Собрать предложение', exact: true }).fill('Ich wohne in Berlin.');
-  await advanced(page).click();
+  await toggleAdvanced(page).click();
   await expect(raw(page)).toHaveValue('::exercise\n@puzzle\nIch wohne in Berlin.');
 });
