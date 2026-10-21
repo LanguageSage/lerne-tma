@@ -91,6 +91,18 @@ class MaterialPermissionTests(unittest.TestCase):
                 self.assertEqual(response.status_code, 200 if uid in (101, 202) else 403, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).creator_id, 404)
 
+    def test_classify_requires_verified_session_before_classification(self):
+        self.client.app.dependency_overrides.clear()
+        with patch('api.services.classifier.classify_sentence_fast') as classify:
+            for headers in ({}, {'X-User-ID': '101'}, {'Authorization': 'Basic invalid'}):
+                with self.subTest(headers=headers):
+                    response = self.client.post('/api/cards/classify-batch', headers=headers,
+                                                json={'deck_id': self.deck.id})
+                    self.assertEqual(response.status_code, 401, response.text)
+                    self.assertEqual(response.headers['www-authenticate'], 'Bearer')
+        classify.assert_not_called()
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+
     def test_classify_mixed_ids_rejected_before_any_write(self):
         foreign = models.TMA_Card.create(deck=self.targets[404], front_text='Private', back_text='')
         with patch('api.services.classifier.classify_sentence_fast') as classify:

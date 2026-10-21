@@ -22,6 +22,7 @@ import { DeckMediaModal } from '../modals/DeckMediaModal';
 import { ImageEditorModal } from '../common/ImageEditorModal';
 import { navigateUp } from '../../utils/navigation';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
+import { networkApi } from '../../services/api';
 
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
@@ -205,20 +206,16 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     setIsDeckMenuOpen(false);
     showToast(tr("Обновление уровней колоды..."), 'info');
     try {
-      const response = await fetch('/api/cards/classify-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: currentDeck.id, target_language: currentDeck.target_language || 'de' })
+      const { data } = await networkApi.post('/cards/classify-batch', {
+        deck_id: currentDeck.id,
+        target_language: currentDeck.target_language || 'de'
       });
-      if (response.ok) {
-        const data = await response.json();
-        useDeckStore.getState().fetchDeckCards(currentDeck.id);
-        showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
-      } else {
-        showToast(tr("Ошибка при переклассификации"));
-      }
-    } catch {
-      showToast(tr("Ошибка сети при переклассификации"));
+      useDeckStore.getState().fetchDeckCards(currentDeck.id);
+      showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
+    } catch (error) {
+      showToast(error.response
+        ? tr("Ошибка при переклассификации")
+        : tr("Ошибка сети при переклассификации"), 'error');
     }
   };
 

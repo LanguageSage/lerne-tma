@@ -10,6 +10,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
 import { getSortedFolderTree } from '../../utils/deckUtils';
+import { networkApi } from '../../services/api';
 
 export const DeckCardItem = React.memo(({
   deck,
@@ -171,20 +172,16 @@ export const DeckCardItem = React.memo(({
     setIsMenuOpen(false);
     showToast(tr("Обновление уровней колоды..."), 'info');
     try {
-      const response = await fetch('/api/cards/classify-batch', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ deck_id: deck.id, target_language: deck.target_language || 'de' })
+      const { data } = await networkApi.post('/cards/classify-batch', {
+        deck_id: deck.id,
+        target_language: deck.target_language || 'de'
       });
-      if (response.ok) {
-        const data = await response.json();
-        if (fetchDeckCards) fetchDeckCards(deck.id);
-        showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
-      } else {
-        showToast(tr("Ошибка при переклассификации"));
-      }
-    } catch {
-      showToast(tr("Ошибка сети при переклассификации"));
+      if (fetchDeckCards) fetchDeckCards(deck.id);
+      showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
+    } catch (error) {
+      showToast(error.response
+        ? tr("Ошибка при переклассификации")
+        : tr("Ошибка сети при переклассификации"), 'error');
     }
   };
 
