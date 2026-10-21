@@ -1,4 +1,5 @@
 import { tr } from '../../i18n/locale';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getThemeDecks } from '../../utils/studyFlow';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
@@ -449,7 +450,7 @@ export const DeckGrid = ({
                             </div>
                             {c.back && (
                               <div className="back-min">
-                                {c.back}
+                                <MarkdownRenderer>{c.back}</MarkdownRenderer>
                               </div>
                             )}
                           </div>

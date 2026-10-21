@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Sparkles, RotateCcw, Eye, Check, X } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getTextShadow } from '../../utils/style';
 import { triggerHaptic } from '../../utils/platform';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
@@ -150,7 +151,7 @@ export const StudyCardPuzzle = React.memo(({
 
       {/* Target Translation Prompt */}
       {card.back && (
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', marginBottom: '16px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', minWidth: 0, marginBottom: '16px' }}>
           {!showTranslation ? (
             <button
               onClick={() => setShowTranslation(true)}
@@ -180,7 +181,7 @@ export const StudyCardPuzzle = React.memo(({
                 opacity: 0.95
               }}
             >
-              {card.back}
+              <MarkdownRenderer>{card.back}</MarkdownRenderer>
             </div>
           )}
         </div>

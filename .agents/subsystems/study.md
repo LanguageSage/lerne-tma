@@ -42,6 +42,8 @@
 
 ## Card footer and information
 
+`MarkdownRenderer` (`components/common/`) отображает только сохранённые `back`/`context`: ответ и контекст StudyCard, перевод Puzzle/Trainer, пример Free Text (back либо context) и ответ/контекст TrainerView. В reverse Markdown следует за физическим `back`; физический `front` сохраняет прежнее отображение. Перевод Trainer выводится целым блоком под заданием, чтобы сохранять таблицы, списки и абзацы; разбор и оценка упражнений не меняются. Стили наследуются от существующих контейнеров, прокрутка таблиц ограничена самим полем (включая flex-контейнер перевода Puzzle). Проверки: `scripts/tests/browser/card-markdown.spec.cjs` и существующие feedback suites.
+
 `StudyCard.jsx` renders one non-floating footer after either card side: a static CEFR badge, the existing exercise/flip controls and an accessible ⓘ disclosure. `StudyCardInfo.jsx` renders author, language, deck, CEFR explanation, source and available dates in the page flow. Coauthors remain an explicit UI placeholder pending a card-level attribution contract; do not derive them from deck collaborators. Missing dates/source/author display no-data text. Follow-up API/sync/attribution work is tracked in `project_docs/FUTURE_PLANS.md`. Geometry, disclosure, locales and exercise controls: `scripts/tests/browser/study-card-info.spec.cjs`.
 
 ## Common symptoms

@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Languages } from 'lucide-react';
 import { getCardStyle } from '../../utils/cardStyles';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
@@ -422,20 +423,13 @@ export const StudyCardTrainer = React.memo(({
     );
   });
 
-  // Render the full text with optional line-by-line / paragraph-by-paragraph translation
+  // Keep the translation intact so Markdown paragraphs, lists and tables can render.
   const renderExerciseContent = () => {
     const rawMasked = clozeData.maskedText || '';
     if (!rawMasked) return null;
 
     // Split front into lines (preserving paragraph structure)
     const frontRawLines = rawMasked.split('\n');
-    // Split back translation into non-empty lines
-    const backLines = backText
-      .split('\n')
-      .map(l => l.trim())
-      .filter(Boolean);
-
-    let backLinePointer = 0;
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
@@ -445,28 +439,19 @@ export const StudyCardTrainer = React.memo(({
             return <div key={`empty-${idx}`} style={{ height: '8px' }} />;
           }
 
-          const translationForLine = backLines[backLinePointer];
-          backLinePointer += 1;
-
           return (
             <div key={`line-${idx}`} style={{ width: '100%', marginBottom: 0 }}>
               <div style={{ lineHeight: 1.75 }}>
                 {renderSnippetWithGaps(line)}
               </div>
-              {showTranslation && translationForLine && (
-                <div className="trainer-line-trans">
-                  <Languages size={15} className="trainer-trans-icon" />
-                  <span>{translationForLine}</span>
-                </div>
-              )}
             </div>
           );
         })}
 
-        {showTranslation && backLinePointer < backLines.length && (
+        {showTranslation && hasBackText && (
           <div className="trainer-line-trans" style={{ marginTop: '6px' }}>
             <Languages size={15} className="trainer-trans-icon" />
-            <span>{backLines.slice(backLinePointer).join('\n')}</span>
+            <MarkdownRenderer>{backText}</MarkdownRenderer>
           </div>
         )}
       </div>

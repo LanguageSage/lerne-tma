@@ -3,7 +3,8 @@ const { writeFileSync, rmSync } = require('node:fs');
 const { resolve, basename } = require('node:path');
 
 // Serve this entry through Vite so its React imports use the application's module graph.
-const harnessPath = resolve(__dirname, '../../../app', `.study-card-info-harness-${process.pid}.jsx`);
+let harnessSequence = 0;
+let harnessPath;
 test.afterEach(() => rmSync(harnessPath, { force: true }));
 
 const card = {
@@ -16,6 +17,8 @@ const card = {
 };
 
 async function setup(page, context, initialCard = card) {
+  // Vite can retain a deleted module between tests; each fixture needs its own URL.
+  harnessPath = resolve(__dirname, '../../../app', `.study-card-info-harness-${process.pid}-${++harnessSequence}.jsx`);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
   const diagnostics = [];

@@ -11,6 +11,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { cleanBracketSyntax } from '../../utils/clozeParser';
 
 export const DraggableCardItem = React.memo(({
@@ -114,7 +115,7 @@ export const DraggableCardItem = React.memo(({
             className={`back-min ${isExpanded ? 'expanded' : ''}`}
             style={{ ...backTypographyStyle, ...clampStyle }}
           >
-            {stripMarkdown(cleanBracketSyntax(c.back || ''))}
+            <MarkdownRenderer>{c.back}</MarkdownRenderer>
           </div>
         )}
 

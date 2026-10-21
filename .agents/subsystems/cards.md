@@ -32,6 +32,8 @@
 
 ## Source of truth
 
+- Визуальное отображение `back` и `context` использует общий `app/src/components/common/MarkdownRenderer.jsx` (`react-markdown` + `remark-gfm`). CardForm сохраняет исходные textarea и показывает отдельные раскрываемые предпросмотры этих полей; список карточек отображает Markdown только в переводе. HTML пропускается, URL фильтрует react-markdown; таблицы прокручиваются внутри поля. `front`, его редактор/маркеры/парсеры, сохранённые данные и глобальный `stripMarkdown()` этим рендерером не изменяются. Регрессии: `scripts/tests/browser/card-markdown.spec.cjs` (семантика, HTML/JS, стили, raw save, список/редактор, 320–400 px и desktop).
+
 - Исходный текст формы — `cardData.front`; сохранённый текст — `TMA_Card.front_text` в `api/models.py` и запись Dexie.
 - Переключение Simple/Raw не должно пересобирать исходный текст; проекция не является отдельной копией карточки.
 - Официальные информационные маркеры распознаёт `exerciseContentParser.js`; кнопка «Подсказка» вставляет `::source`.

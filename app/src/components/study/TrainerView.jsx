@@ -9,6 +9,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAudio } from '../../hooks/useAudio';
 import { parseClozeData, cleanBracketSyntax } from '../../utils/clozeParser';
 import { stripMarkdown } from '../../utils/text';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
@@ -372,7 +373,7 @@ export const TrainerView = () => {
                       {detectExerciseType(currentCard) ? tr("Ответ / объяснение") : tr("Перевод")}
                     </div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', whiteSpace: 'pre-wrap', ...backCardStyle }}>
-                      {stripMarkdown(currentCard.back)}
+                      <MarkdownRenderer>{currentCard.back}</MarkdownRenderer>
                     </div>
                   </div>
 
@@ -392,7 +393,7 @@ export const TrainerView = () => {
                       whiteSpace: 'pre-wrap',
                       ...contextStyle
                     }}>
-                      {stripMarkdown(currentCard.context)}
+                      <MarkdownRenderer>{currentCard.context}</MarkdownRenderer>
                     </div>
                   )}
 

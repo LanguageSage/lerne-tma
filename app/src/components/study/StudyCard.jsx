@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useCallback, useId } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { RefreshCw, Eye, AlertTriangle, RotateCw, Info } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import './StudyCard.css';
 import { CardBackground } from '../common/CardBackground';
 import { useDeckStore } from '../../store/useDeckStore';
@@ -500,11 +501,11 @@ export const StudyCard = React.memo(({
                     <ExerciseInfoBlocks blocks={topBlocks} />
                   )}
                   <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
-                    <KaraokeText
+                    {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : <KaraokeText
                       text={cleanBracketSyntax(frontText)}
                       activeWordIndex={activeWordIndex}
                       style={cardStyle}
-                    />
+                    />}
                   </div>
                   {renderFrontAudioPlayer()}
                   {bottomBlocks.length > 0 && (
@@ -711,7 +712,7 @@ export const StudyCard = React.memo(({
                       <ExerciseInfoBlocks blocks={topBlocks} />
                     )}
                     <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...referenceStyle }}>
-                      {cleanBracketSyntax(frontText)}
+                      {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : cleanBracketSyntax(frontText)}
                     </div>
                     {bottomBlocks.length > 0 && (
                       <ExerciseInfoBlocks blocks={bottomBlocks} />
@@ -833,7 +834,7 @@ export const StudyCard = React.memo(({
                           return null;
                         })()}
                         <div id="tut-study-answer" className="text-back" style={{ whiteSpace: 'pre-wrap', ...backCardStyle }}>
-                          {backClean}
+                          {studyMode === 'reverse' ? backClean : <MarkdownRenderer>{rawBackText}</MarkdownRenderer>}
                         </div>
                       </div>
                     )}
@@ -856,7 +857,7 @@ export const StudyCard = React.memo(({
               {card.context && (
                 <div className="card-context-wrapper">
                   <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
-                    {stripMarkdown(card.context)}
+                    <MarkdownRenderer>{card.context}</MarkdownRenderer>
                   </div>
                 </div>
               )}

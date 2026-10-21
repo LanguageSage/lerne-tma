@@ -10,6 +10,7 @@ import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { useSettingsStore } from '../../store/useSettingsStore.js';
 import './StudyCardFreeText.css';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
 export const StudyCardFreeText = React.memo(({
   card, freeTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
@@ -178,7 +179,7 @@ export const StudyCardFreeText = React.memo(({
         <Eye size={16} />{showExample ? tr('Скрыть пример ответа') : tr('Показать пример ответа')}
       </button>}
       {showExample && canShowExample && <div className="free-text-example" style={contextStyle}>
-        <strong>{tr('Пример правильного ответа:')}</strong><p>{exampleAnswer}</p>
+        <strong>{tr('Пример правильного ответа:')}</strong><MarkdownRenderer>{exampleAnswer}</MarkdownRenderer>
       </div>}
       {isCompleted && isPureTrainerMode && <button type="button" className="btn btn-primary free-text-action" onClick={onNextCard}>
         {tr('Дальше →')}

@@ -1,4 +1,5 @@
 import { tr } from '../../i18n/locale';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -1101,7 +1102,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     </div>
                     {activeCard.back && (
                       <div className="back-min" style={{ ...backTypographyStyle, marginTop: '4px' }}>
-                        {activeCard.back}
+                        <MarkdownRenderer>{activeCard.back}</MarkdownRenderer>
                       </div>
                     )}
                   </div>

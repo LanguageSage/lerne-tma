@@ -4,6 +4,8 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { CardContentEditor } from './CardContentEditor';
+import { MarkdownRenderer } from './MarkdownRenderer';
+import { getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -35,11 +37,12 @@ export const CardForm = ({
 }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
+  const settings = useSettingsStore();
   const { 
     cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow, cardTextAlign,
     cardBgFront, cardBgBack,
     contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
-  } = useSettingsStore();
+  } = settings;
 
   const { loading, showToast } = useUiStore();
   const { uploadCreatorImage, uploadVideo } = useMediaUpload();
@@ -667,6 +670,11 @@ export const CardForm = ({
               })()}
             />
 
+            {cardData.back && <details className="card-form-secondary card-back-markdown-preview">
+              <summary>{tr('Предпросмотр')}</summary>
+              <MarkdownRenderer style={getBackCardStyle(settings)}>{cardData.back}</MarkdownRenderer>
+            </details>}
+
             <details className="card-form-secondary" open={cardData.context ? true : undefined}>
               <summary>{tr("Примеры и пояснения")}</summary>
             <textarea
@@ -695,6 +703,10 @@ export const CardForm = ({
               }}
               placeholder={t('creator.context', 'Примеры, грамматика...')}
             />
+            {cardData.context && <details className="card-form-secondary card-context-markdown-preview">
+              <summary>{tr('Предпросмотр')}</summary>
+              <MarkdownRenderer style={getContextStyle(settings)}>{cardData.context}</MarkdownRenderer>
+            </details>}
             </details>
           </div>
         </div>

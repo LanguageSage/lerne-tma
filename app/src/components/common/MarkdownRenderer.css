@@ -1,0 +1,67 @@
+.card-markdown {
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-wrap: anywhere;
+  white-space: normal;
+  font: inherit;
+  color: inherit;
+}
+
+.card-markdown :is(p, ul, ol, blockquote, pre, h1, h2, h3, h4, h5, h6) {
+  margin: 0.6em 0;
+  color: inherit;
+  font-family: inherit;
+}
+
+.card-markdown > :first-child { margin-top: 0; }
+.card-markdown > :last-child { margin-bottom: 0; }
+.card-markdown p { white-space: pre-wrap; }
+.card-markdown :is(ul, ol) { padding-inline-start: 1.5em; }
+.card-markdown li + li { margin-top: 0.2em; }
+.card-markdown :is(h1, h2, h3, h4, h5, h6) { line-height: 1.25; font-weight: bolder; }
+.card-markdown h1 { font-size: 1.4em; }
+.card-markdown h2 { font-size: 1.25em; }
+.card-markdown h3 { font-size: 1.15em; }
+.card-markdown :is(h4, h5, h6) { font-size: 1em; }
+.card-markdown strong { font-weight: bolder; }
+.card-markdown em { font-style: italic; }
+.card-markdown a { color: inherit; text-decoration: underline; }
+.card-markdown img { max-width: 100%; height: auto; }
+.card-markdown pre { overflow-x: auto; white-space: pre; }
+
+.card-markdown .markdown-table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  margin: 0.6em 0;
+  border: 1px solid currentColor;
+  border-radius: 6px;
+}
+
+.card-markdown .markdown-table-scroll:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 2px;
+}
+
+.card-markdown table {
+  width: 100%;
+  border-collapse: collapse;
+  font: inherit;
+  font-size: 0.9em;
+  color: inherit;
+  text-align: inherit;
+}
+
+.card-markdown :is(th, td) {
+  min-width: 7rem;
+  max-width: 24rem;
+  padding: 0.35em 0.5em;
+  border: 1px solid currentColor;
+  white-space: normal;
+  overflow-wrap: anywhere;
+  vertical-align: top;
+}
+
+.card-markdown th { font-weight: bolder; }
