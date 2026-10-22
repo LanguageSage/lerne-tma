@@ -261,6 +261,17 @@ def login_verified(proof: VerifiedIdentity) -> SessionTokens:
         return _issue_verified(proof, now)
 
 
+def login_local_test(secret: str) -> SessionTokens:
+    from api.local_runtime import is_local, local_config, LOCAL_USER_ID
+    if not is_local():
+        raise AuthError('local_login_unavailable', 404)
+    expected = local_config().get('login_secret', '')
+    if not expected or not secrets.compare_digest(secret, expected):
+        raise AuthError('invalid_credentials', 401)
+    with auth_transaction():
+        return _create_session(_account(LOCAL_USER_ID), utcnow(), authentication_method='local')
+
+
 def authenticate(access_token: str) -> Principal:
     with auth_transaction():
         session = _authenticated(access_token, utcnow())

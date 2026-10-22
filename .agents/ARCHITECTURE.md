@@ -7,6 +7,10 @@
 
 ## Слои приложения
 
+Изолированный LOCAL: `api/local_runtime.py` + `scripts/local_dev.py` выбирают только
+loopback PostgreSQL, хранят постоянные данные вне Git и используют отдельную
+browser-сессию/Dexie. Границы, entry points и проверки — [local-development](subsystems/local-development.md).
+
 | Слой | Точка входа | Ответственность |
 | --- | --- | --- |
 | React / Vite | `app/src/main.jsx`, `app/src/App.jsx` | Запуск клиента, экраны и модальные окна |

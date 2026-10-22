@@ -1,6 +1,8 @@
 import { getAudioUrl } from '../utils/media';
+import { IS_LOCAL } from '../utils/localMode.js';
 
 const getApiBaseUrl = () => {
+  if (IS_LOCAL) return '/api';
   if (import.meta.env.VITE_API_URL) return import.meta.env.VITE_API_URL;
   if (typeof window === 'undefined') return 'https://tma-amber.vercel.app/api';
 

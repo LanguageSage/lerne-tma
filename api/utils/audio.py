@@ -37,6 +37,9 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
         [{"word": "Hallo", "start": 0.05, "end": 0.42}, ...]
     где start/end — время в секундах от начала аудио.
     """
+    from api.local_runtime import is_local
+    if is_local():
+        raise RuntimeError('TTS is unavailable in LOCAL')
     clean_text = _prepare_tts_text(text)
     if not clean_text:
         raise ValueError("Text is empty after cleanup")

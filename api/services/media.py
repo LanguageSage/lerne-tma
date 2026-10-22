@@ -7,6 +7,7 @@ from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Ca
 from .. import srs
 from peewee import fn, JOIN
 from functools import lru_cache
+from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
 
@@ -113,6 +114,9 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
     """Формирует канонический URL для медиа-ресурсов."""
     if not path_str:
         return None
+    if is_local():
+        folder = 'audio' if media_type in ('audio', 'audio_back') else 'videos' if media_type in ('videos', 'video_front', 'video_back') else 'backgrounds' if media_type == 'backgrounds' else 'images'
+        return f'/api/media/{folder}/{os.path.basename(path_str.split("?")[0])}'
     clean_filename = os.path.basename(path_str.split('?')[0])
     if not clean_filename:
         return None
@@ -169,6 +173,8 @@ def is_user_auto_generate_audio_enabled(user_id: int) -> bool:
 
 
 async def ensure_card_audio(card, user_id: int):
+    if is_local():
+        return
     """Проверяет наличие озвучки для лицевой стороны карточки.
     Если файла озвучки нет в TMAMedia или он пустой/недействительный,
     генерирует новую озвучку через Edge TTS и сохраняет в БД.

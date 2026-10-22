@@ -3,6 +3,7 @@ import { getAccessToken, getAuthSession, saveAuthSession, clearAuthSession, getU
 import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb.js';
 import { offlineApi } from './offlineApi.js';
 import { API_BASE_URL } from './apiConfig.js';
+import { IS_LOCAL } from '../utils/localMode.js';
 
 const baseURL = API_BASE_URL;
 
@@ -13,6 +14,9 @@ const axiosInstance = axios.create({
 
 // The server supports both Bearer token and X-User-ID headers.
 axiosInstance.interceptors.request.use((config) => {
+  if (IS_LOCAL && (config.baseURL !== '/api' || !config.url?.startsWith('/') || config.url.startsWith('//'))) {
+    throw new Error('External API requests disabled in LOCAL');
+  }
   const url = config.url || '';
   if (/(?:\/ai\/|\/cards\/ai-)(?:enrich|generate)-batch/.test(url)) {
     config.timeout = 150000;

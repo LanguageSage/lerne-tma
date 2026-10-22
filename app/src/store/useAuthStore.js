@@ -6,8 +6,9 @@ import { closeLocalDb, resetAllDatabases } from '../services/localDb';
 import { getPlatform, openExternalLink, prepareExternalLink } from '../utils/platform';
 import { useUiStore } from './useUiStore';
 import { useDeckStore } from './useDeckStore';
+import { IS_LOCAL, localStorageKey } from '../utils/localMode.js';
 
-const PENDING_KEY = 'lerne_auth_v2_pending';
+const PENDING_KEY = localStorageKey('lerne_auth_v2_pending');
 let pollTimer = null;
 let listenersReady = false;
 let exchangeInFlight = false;
@@ -17,6 +18,7 @@ let telegramPreparation = null;
 const challengeIsFresh = (challenge, purpose, margin = 0) => challenge?.purpose === purpose
   && Date.parse(challenge.expiresAt) > Date.now() + margin;
 const requestChallenge = async (provider, purpose) => {
+  if (IS_LOCAL) throw new Error('Social login is unavailable in LOCAL');
   const { data } = await api.post('/auth/v2/challenges', { provider, purpose });
   return { id: data.challenge_id, secret: data.secret, provider, purpose,
     expiresAt: data.expires_at, authUrl: data.authorization_url };
@@ -110,6 +112,9 @@ export const useAuthStore = create((set, get) => ({
           const response = await api.get('/auth/v2/me');
           if (response.config?.headers?.Authorization && response.config.headers.Authorization !== `Bearer ${getAccessToken()}`) return;
           get().setUserProfile(response.data);
+        } else if (IS_LOCAL) {
+          const response = await api.post('/auth/local/login');
+          await get().finishLogin(response.data);
         } else if (window.Telegram?.WebApp?.initData && storage.get('lerne_force_guest') !== 'true') {
           // A pending bot/OAuth challenge owns this round trip, including reloads.
           if (!pendingAuth()) await get().startProvider('telegram');
@@ -196,6 +201,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   startProvider: async (provider, purpose = 'login', recovery = false) => {
+    if (IS_LOCAL) return { success: false, error: 'Social login is unavailable in LOCAL' };
     if (get().isStarting || get().isPolling) return { success: false };
     set({ isStarting: true, authError: null });
     const generation = authGeneration;
@@ -374,10 +380,10 @@ export const useAuthStore = create((set, get) => ({
     document.addEventListener('visibilitychange', resume);
     window.addEventListener('focus', resume);
     window.addEventListener('storage', event => {
-      if (event.key !== 'lerne_auth_v2_session' && event.key !== 'lerne_user_profile' && event.key !== null) return;
+      if (event.key !== localStorageKey('lerne_auth_v2_session') && event.key !== localStorageKey('lerne_user_profile') && event.key !== null) return;
       const previous = get().userProfile?.user_id;
       const profile = getAccessToken() ? getUserProfile() : null;
-      if (event.key === 'lerne_auth_v2_session' && previous === profile?.user_id) return;
+      if (event.key === localStorageKey('lerne_auth_v2_session') && previous === profile?.user_id) return;
       if (previous !== profile?.user_id) {
         authGeneration++;
         telegramPreparation = null;
