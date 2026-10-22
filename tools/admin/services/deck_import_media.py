@@ -105,6 +105,9 @@ def _mp3_header(data):
 
 
 def media_path(asset):
+    from api.local_runtime import is_local
+    if is_local():
+        return f"/api/media/{asset['folder']}/{asset['filename']}"
     # Cloud URLs are already supported by every existing audio/image consumer.
     base = os.environ.get('SUPABASE_URL', '').rstrip('/')
     stored = TMAMedia.select(fn.LENGTH(TMAMedia.content)).where(
@@ -115,6 +118,9 @@ def media_path(asset):
 
 
 def storage_configured():
+    from api.local_runtime import is_local
+    if is_local():
+        return True
     return bool(os.environ.get('SUPABASE_URL') and os.environ.get('SUPABASE_KEY'))
 
 
@@ -125,6 +131,23 @@ def media_exists(asset):
 
 def store_media(asset):
     """No blob reads, external GETs or retries. Immutable keys; never overwrite."""
+    from api.local_runtime import is_local, media_file
+    if is_local():
+        destination = media_file(asset['folder'], asset['filename'])
+        if not destination.is_file():
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            temporary = destination.with_name(destination.name + '.partial')
+            try:
+                with temporary.open('xb') as output:
+                    output.write(asset['data'])
+                    output.flush()
+                    os.fsync(output.fileno())
+                os.replace(temporary, destination)
+            finally:
+                temporary.unlink(missing_ok=True)
+        with tma_db.atomic():
+            TMAMedia.insert(filename=asset['filename'], folder=asset['folder'], content=None).on_conflict_ignore().execute()
+        return
     if media_exists(asset):
         return
     if asset['folder'] == 'audio' and not storage_configured():

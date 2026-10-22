@@ -14,6 +14,7 @@ from peewee import SqliteDatabase
 from PIL import Image
 
 from api import models
+from scripts.tests.test_local_dev import SyntheticDirectory
 from tools.admin import server
 from tools.admin.services import deck_import_media
 
@@ -431,3 +432,20 @@ class FolderImportTests(unittest.TestCase):
         self.assertTrue(deck_import_media.media_path(asset).startswith('/api/media/images/'))
         deck_import_media.store_media(asset)
         self.assertEqual(self.upload.call_count, 0)
+
+    def test_local_import_stores_images_and_audio_in_local_media_root(self):
+        from pathlib import Path
+        with SyntheticDirectory() as directory, patch.dict('os.environ', {'LERNE_MODE': 'LOCAL'}):
+            for name, content, role, folder in (
+                    ('image.png', image(), 'image', 'images'),
+                    ('audio.wav', audio(), 'audio_front', 'audio')):
+                with self.subTest(folder=folder):
+                    asset = deck_import_media.prepare_media(name, content, role)
+                    destination = Path(directory) / folder / asset['filename']
+                    with patch('api.local_runtime.media_file', return_value=destination) as path:
+                        self.assertTrue(deck_import_media.storage_configured())
+                        self.assertEqual(deck_import_media.media_path(asset), f"/api/media/{folder}/{asset['filename']}")
+                        deck_import_media.store_media(asset)
+                        path.assert_called_once_with(folder, asset['filename'])
+                        self.assertEqual(destination.read_bytes(), asset['data'])
+            self.assertEqual(self.upload.call_count, 0)
