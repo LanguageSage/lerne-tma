@@ -75,6 +75,17 @@ class SqlMigrationTests(unittest.TestCase):
         self.assertEqual(self.values(), [(1,), (2,)])
         self.assertEqual(self.history(), [(9001,), (9002,)])
 
+    def test_local_bootstrap_skips_model_columns_but_runs_other_migrations(self):
+        statements = [
+            (9001, 'ALTER TABLE migration_probe ADD COLUMN value INTEGER', 'tma'),
+            (9002, 'CREATE INDEX IF NOT EXISTS idx_migration_probe_value ON migration_probe(value)', 'lerne'),
+        ]
+        with patch.object(migrations, 'MIGRATIONS', statements):
+            migrations.run_local_bootstrap_migrations(self.proxy, self.proxy)
+        self.assertEqual(self.history(), [(9001,), (9002,)])
+        self.assertIn('idx_migration_probe_value',
+                      {index.name for index in self.db.get_indexes('migration_probe')})
+
     def test_sql_error_is_not_success_and_stops_later_sql(self):
         with self.assertRaises(RuntimeError):
             self.run_migrations([(9001, 'INSRT INTO migration_probe VALUES (1)', 'tma'),
@@ -213,7 +224,7 @@ class SqlMigrationTests(unittest.TestCase):
             connection = f'db = SqliteDatabase({str(self.path)!r})'
         else:
             connection = (f'db = PostgresqlDatabase({self.name!r}, host="127.0.0.1", '
-                          f'port={POSTGRES_PORT}, user="migration_test")')
+                          f'port={POSTGRES_PORT}, user="migration_test", connect_timeout=5)')
         code = f'''
 import os
 import sys

@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_offline_sync import database, models, sync, Request, TABLES, ROOT
 
-from api.local_runtime import DEFAULT_DATA_ROOT, external_path
+from local.runtime import DEFAULT_DATA_ROOT, external_path
 import os
 test_data = external_path(os.environ.get('LERNE_LOCAL_TEST_DATA_DIR', str(DEFAULT_DATA_ROOT / 'test-data')))
 test_data.mkdir(parents=True, exist_ok=True)

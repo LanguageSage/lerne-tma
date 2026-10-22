@@ -41,7 +41,7 @@ async def lifespan(app):
 # Also initialize at module level for Vercel serverless cold starts
 try:
     if is_local():
-        from scripts.local_dev import prepare
+        from local.dev import prepare
         prepare(local_config())
     else:
         models.initialize_database()
@@ -57,7 +57,7 @@ except Exception as _db_init_err:
 app = FastAPI(title="Lerne TMA API", lifespan=lifespan)
 
 if is_local():
-    from api.routers.local import router as local_router
+    from local.router import router as local_router
     from fastapi.responses import JSONResponse
     app.include_router(local_router, prefix='/api')
 

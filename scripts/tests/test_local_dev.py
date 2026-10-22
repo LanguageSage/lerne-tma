@@ -15,10 +15,12 @@ from fastapi.responses import RedirectResponse
 from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
-from api import models, local_runtime
+from api import models
+from local import runtime as local_runtime
 from api.auth import service
 from api.auth.errors import AuthError
-from api.routers import local, auth_v2, media, cards, study, folders, decks
+from local import router as local
+from api.routers import auth_v2, media, cards, study, folders, decks
 from scripts import local_dev
 
 URL = 'postgresql://lerne_local:synthetic@127.0.0.1:55432/lerne_tma_local'

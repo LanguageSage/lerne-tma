@@ -50,6 +50,16 @@ class Pg8000Database(PostgresqlDatabase):
 def _parse_db_url(url: str) -> dict:
     """Parses SUPABASE_DB_URL into connection parameters."""
     parsed = urlparse(url)
+    if (os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV')
+            or os.environ.get('ENVIRONMENT', '').lower() == 'production'):
+        import ipaddress
+        host = (parsed.hostname or '').lower().rstrip('.')
+        try:
+            loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            loopback = host == 'localhost' or host.endswith('.localhost')
+        if not host or loopback or parsed.path == '/lerne_tma_local':
+            raise RuntimeError('Production cannot connect to the LOCAL database')
     params = {
         'database': parsed.path.lstrip('/'),
         'user': parsed.username,

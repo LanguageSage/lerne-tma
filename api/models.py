@@ -12,15 +12,35 @@ logger = logging.getLogger(__name__)
 
 _tables_created = False
 
+def _is_empty_local_bootstrap(models_to_create):
+    """Only baseline a fresh, empty LOCAL schema; never infer over user data."""
+    tables = set(tma_db.get_tables())
+    expected = {model._meta.table_name for model in models_to_create}
+    setting_table = TMASetting._meta.table_name
+    history_table = 'tma_migration_history'
+    if tables - expected - {setting_table, history_table}:
+        return False
+    if history_table in tables and tma_db.execute_sql(
+            f'SELECT COUNT(*) FROM {history_table}').fetchone()[0]:
+        return False
+    if setting_table in tables:
+        rows = list(TMASetting.select(TMASetting.key, TMASetting.value).dicts())
+        if rows != [{'key': 'LOCAL_DATABASE_MARKER', 'value': 'lerne-local-v1'}]:
+            return False
+    for model in models_to_create:
+        table = model._meta.table_name
+        if table in tables and table != setting_table and model.select().count():
+            return False
+    return True
+
 def create_all_tables():
     """Создает все таблицы и запускает накопленные миграции (выполняется только 1 раз за запуск)."""
     global _tables_created
     if _tables_created:
         return
-    from api.migrations import run_migrations, run_knowledge_mastery_migration
+    from api.migrations import (run_migrations, run_local_bootstrap_migrations,
+                                run_knowledge_mastery_migration)
     try:
-        if not is_local():
-            run_migrations(tma_db, lerne_db)
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
@@ -28,10 +48,16 @@ def create_all_tables():
             TMA_Collaborator, TMAOfflineBatch,
             TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
         ]
+        local_bootstrap = is_local() and _is_empty_local_bootstrap(models_to_create)
+        if not is_local():
+            run_migrations(tma_db, lerne_db)
         tma_db.create_tables(models_to_create, safe=True)
         if is_local():
             # Bootstrap fresh tables before the existing ALTER migrations.
-            run_migrations(tma_db, lerne_db)
+            if local_bootstrap:
+                run_local_bootstrap_migrations(tma_db, lerne_db)
+            else:
+                run_migrations(tma_db, lerne_db)
             from api.migrations import run_auth_migrations
             run_auth_migrations(tma_db)
         run_knowledge_mastery_migration(tma_db)

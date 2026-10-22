@@ -4,6 +4,7 @@ Migrations module: все SQL-миграции для существующих �
 SQL и история фиксируются атомарно; любая ошибка прерывает запуск.
 """
 import logging
+import re
 from peewee import PostgresqlDatabase, SqliteDatabase
 
 logger = logging.getLogger(__name__)
@@ -227,6 +228,61 @@ def run_auth_migrations(database):
     finally:
         if owned_connection and not database.is_closed():
             database.close()
+
+
+def run_local_bootstrap_migrations(tma_database, lerne_database):
+    """Record the legacy migration baseline for a verified empty LOCAL schema.
+
+    LOCAL creates tables from the current Peewee models. Historical ADD COLUMN
+    migrations must therefore be skipped when those columns already exist, while
+    data/index/table migrations still run before their IDs are recorded.
+    """
+    tma = getattr(tma_database, 'obj', tma_database)
+    lerne = getattr(lerne_database, 'obj', lerne_database)
+    if tma is not lerne:
+        raise RuntimeError('LOCAL bootstrap requires one PostgreSQL database')
+    if not isinstance(tma, (PostgresqlDatabase, SqliteDatabase)):
+        raise RuntimeError('Unsupported LOCAL bootstrap database')
+
+    with tma.atomic():
+        if isinstance(tma, PostgresqlDatabase):
+            tma.execute_sql("SET LOCAL lock_timeout = '5s'")
+            tma.execute_sql("SET LOCAL statement_timeout = '60s'")
+            tma.execute_sql('SELECT pg_advisory_xact_lock(76120901)')
+        tma.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
+            migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        if tma.execute_sql('SELECT COUNT(*) FROM tma_migration_history').fetchone()[0]:
+            raise RuntimeError('LOCAL bootstrap migration history is not empty')
+
+        marker = tma.param
+        add_column = re.compile(
+            r'^\s*ALTER\s+TABLE\s+(\w+)\s+ADD\s+COLUMN\s+(?:IF\s+NOT\s+EXISTS\s+)?(\w+)',
+            re.IGNORECASE,
+        )
+        drop_not_null = re.compile(
+            r'^\s*ALTER\s+TABLE\s+(\w+)\s+ALTER\s+COLUMN\s+(\w+)\s+DROP\s+NOT\s+NULL',
+            re.IGNORECASE,
+        )
+        for migration_id, query, _database_key in MIGRATIONS:
+            already_in_model = False
+            match = add_column.match(query)
+            if match:
+                table, name = match.groups()
+                already_in_model = name in {column.name for column in tma.get_columns(table)}
+            else:
+                match = drop_not_null.match(query)
+                if match:
+                    table, name = match.groups()
+                    column = next((column for column in tma.get_columns(table)
+                                   if column.name == name), None)
+                    already_in_model = bool(column and column.null)
+            if not already_in_model:
+                tma.execute_sql(query)
+            tma.execute_sql(
+                f'INSERT INTO tma_migration_history (migration_id) VALUES ({marker})',
+                (migration_id,),
+            )
+        logger.info('LOCAL bootstrap migrations complete: %s recorded.', len(MIGRATIONS))
 
 # Список миграций с уникальными ID: (id, SQL-запрос, имя_базы_данных)
 # 'tma' — основная база (tma_db), 'lerne' — библиотека (lerne_db)

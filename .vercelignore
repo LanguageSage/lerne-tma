@@ -51,3 +51,19 @@ __pycache__/
 .agents/
 .vscode/
 .idea/
+
+# Isolated development runtime and private data
+local/
+compose.local.yaml
+playwright*.config.*
+requirements-test.txt
+data/
+postgres/
+.env
+.env.*
+**/.env
+**/.env.*
+**/local.json
+**/*.dump
+**/*.backup
+**/*.partial

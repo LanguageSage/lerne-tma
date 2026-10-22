@@ -3,12 +3,17 @@
   "builds": [
     {
       "src": "api/index.py",
-      "use": "@vercel/python"
+      "use": "@vercel/python",
+      "config": {
+        "excludeFiles": "{local/**,scripts/**,tools/**,data/**,postgres/**,backups/**,tests/**,**/*.dump,**/*.backup,**/*.partial,**/.env,**/.env.*,**/local.json}"
+      }
     },
     {
       "src": "app/package.json",
       "use": "@vercel/static-build",
-      "config": { "distDir": "dist" }
+      "config": {
+        "distDir": "dist"
+      }
     }
   ],
   "routes": [

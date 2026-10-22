@@ -203,3 +203,9 @@ playwright-report/
 
 
 
+
+# Code in local/ is versioned; accidental runtime artifacts are not.
+/local/data/
+/local/config/
+/local/postgres/
+/local/backups/

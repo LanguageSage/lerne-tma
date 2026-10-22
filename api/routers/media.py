@@ -52,6 +52,7 @@ def _save_local_media(folder, filename, content):
 
 
 def _local_media_response(folder, filename, request, media_type):
+    import mimetypes
     from fastapi.responses import FileResponse
     try:
         path = media_file(folder, filename)
@@ -59,7 +60,7 @@ def _local_media_response(folder, filename, request, media_type):
         raise HTTPException(404, detail='Media not found') from None
     if not path.is_file():
         raise HTTPException(404, detail='Local media not found')
-    return FileResponse(path, media_type=media_type)
+    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or media_type)
 
 
 def _normalize_tts_rate(value: str | None) -> str | None:
