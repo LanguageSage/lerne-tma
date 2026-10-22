@@ -574,7 +574,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
         return {"error": f"Ошибка пакетной генерации: {str(e)}"}
 
 
-async def classify_phrases_batch(phrases: list[str], target_language: str = "de") -> list[str]:
+async def classify_phrases_batch(phrases: list[str], target_language: str = "de", *, strict: bool = False) -> list[str]:
     """Classifies a list of phrases into CEFR levels (A1 - C2).
 
     For German (de):
@@ -627,6 +627,8 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
     # Step 2: AI for uncertain / unsupported-language phrases
     provider, ai_key, ai_model = get_ai_config()
     if not ai_model or not ai_model.strip():
+        if strict:
+            raise ValueError("CEFR AI model is not configured")
         for i in ai_indices:
             final_results[i] = local_fallback_results[i]
         logger.warning("classify_phrases_batch: No AI model configured, returning local low-confidence fallback for remaining.")
@@ -634,6 +636,10 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
 
     client     = AIService(provider=provider, api_key=ai_key)
     model_name = ai_model.strip()
+    if strict:
+        client.request_attempts = 1
+        client.key_attempts = 1
+        client.request_timeout = 18
 
     numbered_phrases = "\n".join([f"{i+1}. {p.strip()}" for i, p in enumerate(phrases_for_ai)])
 
@@ -660,10 +666,16 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
         if success and response:
             import json, re
             clean = response.strip()
+            if strict:
+                clean = re.sub(r'^```(?:json)?\s*|\s*```$', '', clean).strip()
+                if not isinstance(json.loads(clean), list):
+                    raise ValueError("Invalid CEFR AI result")
             match = re.search(r'\[\s*(.*?)\s*\]', clean, re.DOTALL)
             if match:
                 raw_arr    = json.loads(f"[{match.group(1)}]")
                 valid_lvls = {"A1", "A2", "B1", "B2", "C1", "C2"}
+                if strict and (len(raw_arr) != len(ai_indices) or any(not isinstance(v, str) or v.upper().strip() not in valid_lvls for v in raw_arr)):
+                    raise ValueError("Invalid CEFR AI result")
                 ai_levels  = [
                     (str(item).upper().strip() if str(item).upper().strip() in valid_lvls else "A1")
                     for item in raw_arr
@@ -677,6 +689,8 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
     except Exception as e:
         logger.error(f"Error in classify_phrases_batch (AI step): {e}")
 
+    if strict:
+        raise ValueError("CEFR AI classification failed")
     return final_results
 
 

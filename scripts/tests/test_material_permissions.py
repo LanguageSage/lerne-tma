@@ -1,5 +1,4 @@
 """Material permissions over disposable SQLite; run with scripts/test_backend.py."""
-import asyncio
 import os
 from pathlib import Path
 import unittest
@@ -126,17 +125,22 @@ class MaterialPermissionTests(unittest.TestCase):
                                      json={'card_ids': [self.card.id]})
                 self.assertEqual(response.status_code, 200 if uid in (101, 505) else 403, response.text)
 
-    def test_background_classification_rechecks_revoked_access(self):
-        async def revoke(*_args):
+    def test_classification_rechecks_revoked_access(self):
+        async def revoke(*_args, **_kwargs):
             models.TMA_Collaborator.delete().where(models.TMA_Collaborator.user_id == 202).execute()
             return ['B2']
         with patch.object(ai.ai_service, 'classify_phrases_batch', side_effect=revoke):
-            asyncio.run(ai._async_bg_classify_ai([{'id': self.card.id, 'front': 'Haus'}], 'de', 202))
+            response = self.call('POST', '/cards/classify-batch', 202,
+                                 json={'card_ids': [self.card.id], 'target_language': 'en'})
+        self.assertEqual(response.status_code, 403, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
 
-    def test_background_classification_accepts_editor(self):
+    def test_classification_accepts_editor(self):
         with patch.object(ai.ai_service, 'classify_phrases_batch', new=AsyncMock(return_value=['B2'])):
-            asyncio.run(ai._async_bg_classify_ai([{'id': self.card.id, 'front': 'Haus'}], 'de', 202))
+            response = self.call('POST', '/cards/classify-batch', 202,
+                                 json={'card_ids': [self.card.id], 'target_language': 'en'})
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertTrue(response.json()['complete'])
         self.assertIn('B2', models.TMA_Card.get_by_id(self.card.id).tags)
 
     def test_viewer_can_copy_readable_card_but_cannot_write_source(self):

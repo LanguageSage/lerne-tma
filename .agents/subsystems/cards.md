@@ -76,13 +76,14 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 
 ## Relevant tests
 
-- Переклассификация из `CardList` и `DeckCardItem` использует авторизованный
-  `networkApi.post('/cards/classify-batch', { deck_id, target_language })` из
-  `services/api.js` (refresh при 401, без offline fallback для серверной операции).
-  Успех обновляет список и показывает `updated_count`, HTTP/сетевой отказ — только
-  уведомление об ошибке. `scripts/tests/browser/card-reclassification.spec.cjs`
-  проверяет оба меню, Bearer/refresh, параметры, счётчик, обновление списка,
-  401/403 и повтор после сетевого сбоя на перехваченных API.
+- Переклассификация из `CardList` и `DeckCardItem` использует общий
+  `services/reclassificationService.js` и авторизованный `networkApi`.
+  UUID/номер пакета сохраняются до запроса; прогресс и ошибки видимы, повтор
+  команды продолжает обработку, включая reload страницы. Успех показывается
+  только после подтверждения всей операции сервером. Контракт и ограничения:
+  [Надёжность Vercel](../../docs/VERCEL_BACKGROUND_RELIABILITY.md).
+  `scripts/tests/browser/card-reclassification.spec.cjs` проверяет оба меню,
+  Bearer/refresh, прогресс/partial/retry/reload, 401/403 и локализацию.
 - `scripts/tests/test_material_permissions.py`: CRUD/batch permissions, чтение
   источника и запись назначения copy, сохранение creator_id/ника и запрет
   использовать авторство вместо доступа; [аудит 1.4](../../docs/MATERIAL_PERMISSIONS_AUDIT.md).
