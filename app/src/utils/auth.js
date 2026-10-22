@@ -1,9 +1,10 @@
 import { tr } from '../i18n/locale.js';
+import { IS_LOCAL, localStorageKey } from './localMode.js';
 
 const storage = {
-  get: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
-  set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* unavailable */ } },
-  remove: (key) => { try { localStorage.removeItem(key); } catch { /* unavailable */ } },
+  get: (key) => { try { return localStorage.getItem(localStorageKey(key)); } catch { return null; } },
+  set: (key, value) => { try { localStorage.setItem(localStorageKey(key), value); } catch { /* unavailable */ } },
+  remove: (key) => { try { localStorage.removeItem(localStorageKey(key)); } catch { /* unavailable */ } },
 };
 
 const SESSION_KEY = 'lerne_auth_v2_session';
@@ -15,7 +16,7 @@ let resetHandled = false;
 export const getAuthSession = () => {
   try {
     // Read shared storage on every request: another tab may rotate or clear it.
-    const value = localStorage.getItem(SESSION_KEY);
+    const value = localStorage.getItem(localStorageKey(SESSION_KEY));
     const parsed = value ? JSON.parse(value) : null;
     if (parsed?.access_token && parsed?.refresh_token) {
       memorySession = parsed;
@@ -83,6 +84,7 @@ export const getUserProfile = () => {
       const value = storage.get(PROFILE_KEY);
       return value ? JSON.parse(value) : null;
     }
+    if (IS_LOCAL) return null;
     if (storage.get('lerne_force_guest') === 'true') return null;
 
     // 1. Check URL (?user_id=123) for testing or switching accounts
@@ -183,12 +185,14 @@ export const resetUserSession = () => {
 
 export const cloudStorage = {
   get: (key) => new Promise((resolve) => {
+    if (IS_LOCAL) { resolve(null); return; }
     try {
       const cloud = window.Telegram?.WebApp?.CloudStorage;
       cloud?.getItem ? cloud.getItem(key, (error, value) => resolve(error ? null : value)) : resolve(null);
     } catch { resolve(null); }
   }),
   set: (key, value) => new Promise((resolve) => {
+    if (IS_LOCAL) { resolve(false); return; }
     try {
       const cloud = window.Telegram?.WebApp?.CloudStorage;
       cloud?.setItem ? cloud.setItem(key, String(value), (error) => resolve(!error)) : resolve(false);

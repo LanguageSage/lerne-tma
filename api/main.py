@@ -1,6 +1,9 @@
 import os
 import sys
 import logging
+from api.local_runtime import configure_local, is_local, local_config
+
+configure_local()
 
 
 # ВАЖНО: Добавляем корень проекта в пути поиска модулей
@@ -37,15 +40,43 @@ async def lifespan(app):
 
 # Also initialize at module level for Vercel serverless cold starts
 try:
-    models.initialize_database()
-    models.create_all_tables()
+    if is_local():
+        from scripts.local_dev import prepare
+        prepare(local_config())
+    else:
+        models.initialize_database()
+        models.create_all_tables()
     logger.info("DATABASE: Module-level initialization complete.")
 except MigrationError:
     raise
 except Exception as _db_init_err:
     logger.error(f"DATABASE: Module-level initialization FAILED: {_db_init_err}")
+    if is_local():
+        raise
 
 app = FastAPI(title="Lerne TMA API", lifespan=lifespan)
+
+if is_local():
+    from api.routers.local import router as local_router
+    from fastapi.responses import JSONResponse
+    app.include_router(local_router, prefix='/api')
+
+    @app.middleware('http')
+    async def local_services_guard(request, call_next):
+        if not request.client or request.client.host not in ('127.0.0.1', '::1'):
+            return JSONResponse({'detail': 'LOCAL accepts only loopback clients'}, status_code=403)
+        path = request.url.path
+        if (path.startswith(('/api/bot', '/api/webhook', '/api/auth/v2/challenges',
+                             '/api/auth/v2/google', '/api/auth/v2/telegram', '/api/auth/v2/lerne'))
+                or path.startswith('/api/ai') or '/ai-' in path
+                or path.startswith('/api/media/generate')):
+            return JSONResponse({'detail': 'External services are unavailable in LOCAL'}, status_code=503)
+        response = await call_next(request)
+        if response.status_code in (301, 302, 303, 307, 308):
+            location = response.headers.get('location', '')
+            if location.startswith(('http:', 'https:', '//')):
+                return JSONResponse({'detail': 'External redirects disabled in LOCAL'}, status_code=503)
+        return response
 
 # CORS
 cors_origins_env = os.environ.get("CORS_ORIGINS", "")
@@ -67,8 +98,8 @@ else:
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=allowed_origins,
-    allow_origin_regex=r"^(https?://.*\.vercel\.app|https?://localhost(:[0-9]+)?|capacitor://localhost|ionic://localhost)$",
+    allow_origins=['http://127.0.0.1:5173', 'http://localhost:5173'] if is_local() else allowed_origins,
+    allow_origin_regex=None if is_local() else r"^(https?://.*\.vercel\.app|https?://localhost(:[0-9]+)?|capacitor://localhost|ionic://localhost)$",
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -267,4 +298,4 @@ def health_check():
 
 if __name__ == "__main__":
     import uvicorn
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="127.0.0.1" if is_local() else "0.0.0.0", port=8001)

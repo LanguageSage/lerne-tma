@@ -9,7 +9,7 @@ import api from '../../services/api';
 import { isOfflineMode, db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { openExternalLink, closeApp } from '../../utils/platform';
-import { resetUserSession, getUserId } from '../../utils/auth';
+import { resetUserSession, getUserId, storage } from '../../utils/auth';
 
 export const ProfileTab = ({ userId }) => {
   useInterfaceLocale();
@@ -49,7 +49,7 @@ export const ProfileTab = ({ userId }) => {
       if (res.data.status === 'ok') {
         const updatedProfile = { ...(userProfile || {}), first_name: name, email: email, phone: phone };
         setUserProfile(updatedProfile);
-        localStorage.setItem('lerne_user_profile', JSON.stringify(updatedProfile));
+        storage.set('lerne_user_profile', JSON.stringify(updatedProfile));
         showToast(tr("Профиль обновлен!"), "success");
       }
     } catch {

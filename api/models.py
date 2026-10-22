@@ -4,6 +4,7 @@ from api.migrations import MigrationError
 import datetime
 from peewee import *
 from api.database import tma_db, lerne_db, initialize_database
+from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +19,8 @@ def create_all_tables():
         return
     from api.migrations import run_migrations, run_knowledge_mastery_migration
     try:
-        run_migrations(tma_db, lerne_db)
+        if not is_local():
+            run_migrations(tma_db, lerne_db)
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
             TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
@@ -27,6 +29,11 @@ def create_all_tables():
             TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
         ]
         tma_db.create_tables(models_to_create, safe=True)
+        if is_local():
+            # Bootstrap fresh tables before the existing ALTER migrations.
+            run_migrations(tma_db, lerne_db)
+            from api.migrations import run_auth_migrations
+            run_auth_migrations(tma_db)
         run_knowledge_mastery_migration(tma_db)
         try:
             tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
@@ -38,6 +45,8 @@ def create_all_tables():
         raise
     except Exception as e:
         logger.error(f"Error in create_all_tables: {e}")
+        if is_local():
+            raise
 
 class BaseModel(Model):
     class Meta:
@@ -527,9 +536,11 @@ try:
     should_run_migrations = os.environ.get("RUN_MIGRATIONS", "false").lower() in ("true", "1")
     is_local_env = not os.environ.get("VERCEL") or os.environ.get("FORCE_LOCAL_DB", "false").lower() == "true"
     
-    if (should_run_migrations or is_local_env) and os.environ.get('LERNE_SKIP_SCHEMA_INIT') != '1':
+    if not is_local() and (should_run_migrations or is_local_env) and os.environ.get('LERNE_SKIP_SCHEMA_INIT') != '1':
         create_all_tables()
 except MigrationError:
     raise
 except Exception as e:
     logger.error(f"CRITICAL: Database initialization failed: {e}")
+    if is_local():
+        raise

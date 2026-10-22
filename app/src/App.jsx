@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import './App.css';
+import { IS_LOCAL } from './utils/localMode.js';
 
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
@@ -286,6 +287,7 @@ function AppContent() {
 
   return (
     <div id="app-container" className="app-container">
+      {IS_LOCAL && <div className="local-mode-banner" role="status">LOCAL — тестовые данные</div>}
       <GuestBanner />
       
       {/* Active View */}

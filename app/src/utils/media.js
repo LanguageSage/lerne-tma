@@ -1,3 +1,5 @@
+import { IS_LOCAL } from './localMode.js';
+
 const SUPABASE_AUDIO_CDN = 'https://wdopyuulhiykrextyvnt.supabase.co/storage/v1/object/public/audio';
 
 /**
@@ -11,6 +13,7 @@ export const getAudioUrl = (pathOrUrl) => {
   const trimmed = pathOrUrl.trim();
   if (!trimmed) return '';
   if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed;
+  if (IS_LOCAL) return `/api/media/audio/${trimmed.split('?')[0].split(/[\\/]/).pop()}`;
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     if (trimmed.includes('/storage/v1/object/public/tma-audio/')) {

@@ -1,6 +1,7 @@
 import Dexie from 'dexie';
 import { Capacitor } from '@capacitor/core';
 import { getUserId } from '../utils/auth.js';
+import { IS_LOCAL } from '../utils/localMode.js';
 
 const databases = new Map();
 const preparations = new Map();
@@ -8,7 +9,7 @@ const preparations = new Map();
 export const getLocalDb = () => {
   const userId = String(getUserId());
   if (databases.has(userId)) return databases.get(userId);
-  const database = new Dexie(`LerneLocalDB_${userId}`);
+  const database = new Dexie(`${IS_LOCAL ? 'LerneTestDB' : 'LerneLocalDB'}_${userId}`);
   configureDatabase(database);
   databases.set(userId, database);
   return database;
@@ -50,6 +51,7 @@ export async function prepareLocalDb() {
 }
 
 async function migrateLegacy(database, userId) {
+  if (IS_LOCAL) return;
   if (await database.syncState.get('legacyImported')) return;
   if (await Dexie.exists('LerneLocalDB')) {
     const legacy = new Dexie('LerneLocalDB');
