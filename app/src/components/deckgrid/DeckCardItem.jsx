@@ -10,7 +10,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
 import { getSortedFolderTree } from '../../utils/deckUtils';
-import { networkApi } from '../../services/api';
+import { reclassifyDeck } from '../../services/reclassificationService.js';
 
 export const DeckCardItem = React.memo(({
   deck,
@@ -170,19 +170,7 @@ export const DeckCardItem = React.memo(({
   const handleReclassifyDeck = async (e) => {
     e.stopPropagation();
     setIsMenuOpen(false);
-    showToast(tr("Обновление уровней колоды..."), 'info');
-    try {
-      const { data } = await networkApi.post('/cards/classify-batch', {
-        deck_id: deck.id,
-        target_language: deck.target_language || 'de'
-      });
-      if (fetchDeckCards) fetchDeckCards(deck.id);
-      showToast(tr("✨ Уровни карточек обновлены! ({{p0}} шт.)", { p0: data.updated_count || 0 }), 'success');
-    } catch (error) {
-      showToast(error.response
-        ? tr("Ошибка при переклассификации")
-        : tr("Ошибка сети при переклассификации"), 'error');
-    }
+    await reclassifyDeck(deck, { showToast, refresh: fetchDeckCards });
   };
 
   const handlePin = async (e) => {

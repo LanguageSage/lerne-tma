@@ -80,7 +80,7 @@ rg -n 'load_answer_context|evaluate_answer|evaluate_deterministic' api/services/
 ## Relevant tests
 
 - `scripts/tests/test_material_permissions.py`: classify-batch проверяет всю
-  выборку через существующий collaborative resolver до записи; фоновый AI
+  выборку через существующий collaborative resolver до записи; awaited AI
   повторно проверяет текущую роль и удаление карточки после ожидания провайдера.
 
 - Batch: `scripts/tests/test_ai_batch_contract.py`, `scripts/tests/test_batch_ai_generation.py`, `app/src/utils/__tests__/batchAiResult.test.js`, `scripts/tests/browser/batch-ai.spec.cjs`.
@@ -99,3 +99,22 @@ rg -n 'load_answer_context|evaluate_answer|evaluate_deterministic' api/services/
 `load_answer_context` сохраняет в task все авторские `::task` и `::source` (Python parser называет source полем context), затем очищенный `@free` prompt. В диалоге реальная реплика часто находится только в source; оценивать один общий prompt недостаточно. BACK/accepted_answers/policy и проверка permissions остаются серверными. Regression на настоящей карточке 349555: `tests/test_answer_evaluation.py`.
 
 В task оценки также передаётся авторский card.context с критериями; это сохраняет смысл после перехода длинных ответов на @free. aiCardResult сохраняет существующий ручной перевод, заполняя только пустой. Assessment подавляет reveal и фиксирует первый объективный verdict; unavailable не считается попыткой.
+
+## Возобновляемая переклассификация CEFR
+
+`api/routers/ai.py` → `api/services/reclassification.py`: максимум 10 карточек
+и один awaited AI-вызов (20 секунд) за HTTP-запрос, без fire-and-forget.
+Существующая `TMAOfflineBatch` хранит snapshot ID, прогресс, lease и ответ под
+`classify:{user_id}:{operation_id}`. Карточки/прогресс коммитятся атомарно;
+повтор UUID/пакета не повторяет сохранённую работу. `strict=True` у
+`classify_phrases_batch` исключает подмену отказа AI уровнем A1 только для этого
+потока; остальные callers сохраняют прежний контракт. Права и актуальность
+карточки перепроверяются после ожидания. Клиент `reclassificationService.js`
+сохраняет UUID/пакет до запроса, показывает прогресс и продолжает тем же действием
+меню после ошибки/reload. Успех — только `complete=true`, `status=ok` и полный счётчик.
+
+Контракт, лимиты, оставшийся риск автоаудио и отдельная доработка:
+[Надёжность Vercel](../../docs/VERCEL_BACKGROUND_RELIABILITY.md).
+Регрессии: `scripts/tests/test_reclassification.py`,
+`app/src/services/__tests__/reclassificationService.test.js`,
+`scripts/tests/browser/card-reclassification.spec.cjs`.
