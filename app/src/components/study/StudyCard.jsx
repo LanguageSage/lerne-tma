@@ -1,6 +1,6 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect, useMemo, useCallback, useId } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useId, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { RefreshCw, Eye, AlertTriangle, RotateCw, Info } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
@@ -42,6 +42,7 @@ import { triggerHaptic } from '../../utils/platform';
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { StudyCardInfo } from './StudyCardInfo';
+import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 
 export const StudyCard = React.memo(({
   card,
@@ -64,7 +65,10 @@ export const StudyCard = React.memo(({
   renderRequiredAction,
   onAskQuestion,
   onSaveExplanation,
-  onNextCard
+  onNextCard,
+  onPreviousCard,
+  onNavigateNext,
+  controlsEnabled = true
 }) => {
   useInterfaceLocale();
   const reduceMotion = useReducedMotion();
@@ -73,6 +77,7 @@ export const StudyCard = React.memo(({
   const [aiExplanation, setAiExplanation] = useState(null);
   const [isInfoOpen, setIsInfoOpen] = useState(false);
   const infoId = useId();
+  const surfaceRef = useRef(null);
 
   useEffect(() => {
     setAiExplanation(null);
@@ -254,8 +259,14 @@ export const StudyCard = React.memo(({
   const blockAnswerReveal = exerciseType === 'free_text' && studyMode !== 'speak' && !isAutoplayActive
     && !canRevealFreeTextAnswer(exerciseStates[reviewKey]?.evaluationState);
   const onFlip = next => {
-    if (!next || !blockAnswerReveal) requestFlip(next);
+    if (!loading && !isAutoplayActive && (!next || !blockAnswerReveal)) requestFlip(next);
   };
+  useStudyCardControls({
+    surfaceRef,
+    reviewKey: `${reviewKey}:${card.front}:${studyMode}:${isFlipped}`,
+    enabled: controlsEnabled && !loading,
+    isFlipped, onFlip, onPrevious: onPreviousCard, onNext: onNavigateNext,
+  });
 
   // Quiz / Exam Data Parsing
   const quizData = useMemo(() => {
@@ -425,6 +436,7 @@ export const StudyCard = React.memo(({
     <AnimatePresence mode="sync" initial={false}>
       <motion.div
         id="tut-study-card"
+        ref={surfaceRef}
         key={`${card.id}-${card.front}-${historyIndex}`}
         initial={{ opacity: 0, y: reduceMotion ? 0 : 12, scale: reduceMotion ? 1 : 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
@@ -452,7 +464,7 @@ export const StudyCard = React.memo(({
           className="study-card-surface"
         >
         {!isFlipped ? (
-          <div className="card-inner card-front glass" onClick={() => { if (!loading) onFlip(true); }} style={{ cursor: 'pointer', ...flagStyle }}>
+          <div className="card-inner card-front glass" style={flagStyle}>
             <CardBackground styleType={resolvedBgFront} />
             <div className="card-face">
               
@@ -652,7 +664,7 @@ export const StudyCard = React.memo(({
             </div>
           </div>
         ) : (
-          <div className="card-inner card-back glass" onClick={() => { if (!loading) onFlip(false); }} style={{ cursor: 'pointer', ...flagStyle }}>
+          <div className="card-inner card-back glass" style={flagStyle}>
             <CardBackground styleType={resolvedBgBack} />
             <div className="card-face">
               {/* Leech Indicator */}
@@ -899,6 +911,10 @@ export const StudyCard = React.memo(({
               <Info size={20} aria-hidden="true" />
             </button>
           </div>
+          <p className="study-card-controls-hint">
+            <span className="study-card-keyboard-hint">{tr('Пробел — переворот · ←/→ — карточки')}<br /></span>
+            {tr('Свайпы по свободной области: ↑ ответ · ↓ вопрос · ←/→ карточки')}
+          </p>
           {isInfoOpen && <StudyCardInfo
             id={infoId}
             card={card}

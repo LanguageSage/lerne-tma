@@ -13,7 +13,9 @@ export const GeneralTab = ({ userId }) => {
     showLessonCompletion,
     setShowLessonCompletion,
     showCompletionCelebration,
-    setShowCompletionCelebration
+    setShowCompletionCelebration,
+    gradeSoundEnabled,
+    setGradeSoundEnabled
   } = useSettingsStore();
   const { t } = useTranslation();
 
@@ -27,6 +29,15 @@ export const GeneralTab = ({ userId }) => {
       className="settings-section"
     >
       <h3>{tr("Обучение")}</h3>
+      <div className="settings-row">
+        <span>{tr('Звук сохранения оценки')}</span>
+        <label className="switch">
+          <input type="checkbox" checked={gradeSoundEnabled}
+            aria-label={tr('Звук сохранения оценки')}
+            onChange={event => setGradeSoundEnabled(event.target.checked)} />
+          <span className="slider"></span>
+        </label>
+      </div>
       <div className="settings-row">
         <span>{t('settings.auto_reveal')}</span>
         <label className="switch">

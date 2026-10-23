@@ -190,6 +190,7 @@ export const StudyCardImage = React.memo(({
         <div
           onMouseDown={onResizeStart}
           onTouchStart={onResizeStart}
+          data-study-gesture-ignore
           title={tr("Потяни чтобы изменить высоту")}
           style={{
             height: '14px',

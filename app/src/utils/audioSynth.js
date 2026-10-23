@@ -1,3 +1,36 @@
+let gradeContext;
+
+// Unlock during the grading gesture; the acknowledgement may arrive much later.
+export const prepareGradeSound = () => {
+  try {
+    const AudioCtx = window.AudioContext || window.webkitAudioContext;
+    if (!AudioCtx) return;
+    if (!gradeContext || gradeContext.state === 'closed') gradeContext = new AudioCtx();
+    if (gradeContext.state === 'suspended') gradeContext.resume().catch(() => {});
+  } catch { /* Sound is optional; it must never affect grading. */ }
+};
+
+export const playGradeSavedSound = () => {
+  try {
+    if (!gradeContext || gradeContext.state !== 'running') return;
+    const ctx = gradeContext;
+    const now = ctx.currentTime;
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(740, now);
+    osc.frequency.setValueAtTime(988, now + 0.07);
+    gain.gain.setValueAtTime(0, now);
+    gain.gain.linearRampToValueAtTime(0.045, now + 0.012);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.16);
+    osc.connect(gain);
+    gain.connect(ctx.destination);
+    osc.onended = () => { osc.disconnect(); gain.disconnect(); };
+    osc.start(now);
+    osc.stop(now + 0.17);
+  } catch { /* Visual confirmation remains available without audio support. */ }
+};
+
 export const playSuccessSound = () => {
   try {
     const AudioCtx = window.AudioContext || window.webkitAudioContext;

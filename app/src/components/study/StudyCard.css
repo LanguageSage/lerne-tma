@@ -23,6 +23,17 @@
   width: 100%;
 }
 
+.study-card-controls-hint {
+  margin: 8px 12px 0;
+  color: #a7b4c8;
+  font-size: 0.7rem;
+  line-height: 1.5;
+  text-align: center;
+}
+@media (hover: none) and (pointer: coarse) {
+  .study-card-keyboard-hint { display: none; }
+}
+
 .study-card-surface {
   position: relative;
   backface-visibility: hidden;

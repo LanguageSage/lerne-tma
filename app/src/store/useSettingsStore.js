@@ -176,6 +176,7 @@ export const STUDY_STORAGE_MAP = {
   studyMode: 'lerne_study_mode',
   speechMatchThreshold: 'lerne_speech_match_threshold',
   speechFollowupEnabled: 'lerne_speech_followup_enabled',
+  gradeSoundEnabled: 'lerne_grade_sound_enabled',
   voiceBack: 'lerne_voice_back',
   randomEnabledModes: 'lerne_random_enabled_modes',
   srsExtendedGrades: 'lerne_srs_extended_grades',
@@ -273,6 +274,7 @@ const getInitialStudyState = () => ({
   studyMode: (storage.get('lerne_study_mode') && storage.get('lerne_study_mode') !== 'turbo') ? storage.get('lerne_study_mode') : 'classic',
   speechMatchThreshold: storage.get('lerne_speech_match_threshold') !== null ? Number(storage.get('lerne_speech_match_threshold')) : 75,
   speechFollowupEnabled: storage.get('lerne_speech_followup_enabled') === 'true',
+  gradeSoundEnabled: storage.get('lerne_grade_sound_enabled') !== 'false',
   voiceBack: storage.get('lerne_voice_back') || '',
   randomEnabledModes: storage.get('lerne_random_enabled_modes')
     ? JSON.parse(storage.get('lerne_random_enabled_modes')).filter(m => m !== 'turbo')
@@ -304,6 +306,12 @@ export const useSettingsStore = create((set, get) => {
   return {
     // --- Study Settings ---
     ...getInitialStudyState(),
+    setGradeSoundEnabled: (value) => {
+      const enabled = Boolean(value);
+      storage.set('lerne_grade_sound_enabled', enabled);
+      set({ gradeSoundEnabled: enabled });
+      debouncedSaveSettings(get);
+    },
     setPlayerCollapsed: (value) => {
       storage.set('lerne_player_collapsed', value);
       set({ playerCollapsed: value });

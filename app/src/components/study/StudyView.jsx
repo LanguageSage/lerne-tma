@@ -39,6 +39,7 @@ import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { getSpeechFollowupTarget } from '../../utils/speechFollowup.js';
 import { evaluateReviewResult, calculateSessionStats } from '../../utils/sessionStats.js';
 import { AssessmentView } from './AssessmentView.jsx';
+import { GradeConfirmation } from './GradeConfirmation.jsx';
 
 export const StudyView = (props) => {
   const assessment = useSessionStore(state => state.assessment);
@@ -575,6 +576,13 @@ ${targetCard.back}`;
   };
 
   const showGradeButtons = currentDeck?.id !== 'duplicates' && !isAutoplayActive;
+  const navigationIndex = isAutoplayActive && autoplay.autoplayCards?.length > 0
+    ? autoplay.autoplayCards.findIndex(c => String(c.id) === String(card?.id))
+    : currentDeck?.id === 'duplicates'
+      ? duplicateCards.findIndex(c => String(c.id) === String(card?.id))
+      : deckCards?.some(c => String(c.id) === String(card?.id))
+        ? deckCards.findIndex(c => String(c.id) === String(card?.id)) : historyIndex;
+  const canGoBack = navigationIndex > 0 || (autoplayState !== 'stopped' && autoplayLoop);
 
   const handleGrade = useCallback((grade, isExtended) => {
     if (!canGrade) return;
@@ -596,6 +604,7 @@ ${targetCard.back}`;
 
   return (
     <div className="view-study">
+      <GradeConfirmation />
       {showGradeButtons && (
         <GradeButtons 
           card={card} 
@@ -731,6 +740,9 @@ ${targetCard.back}`;
             <StudyCard
               card={card}
               isFlipped={isFlipped}
+              controlsEnabled={view === 'study' && !isImagePickerOpen}
+              onPreviousCard={canGoBack ? handleAutoplayAwareBack : undefined}
+              onNavigateNext={handleAutoplayAwareNext}
               onFlip={isAutoplayActive ? () => {} : setIsFlipped}
               loading={loading}
               historyIndex={historyIndex}
@@ -757,15 +769,7 @@ ${targetCard.back}`;
             />
 
             <StudyNavigation
-              historyIndex={
-                isAutoplayActive && autoplay.autoplayCards && autoplay.autoplayCards.length > 0
-                  ? autoplay.autoplayCards.findIndex(c => String(c.id) === String(card?.id))
-                  : currentDeck?.id === 'duplicates' 
-                  ? duplicateCards.findIndex(c => String(c.id) === String(card?.id)) 
-                  : (deckCards && deckCards.length > 0 && deckCards.findIndex(c => String(c.id) === String(card?.id)) !== -1)
-                  ? deckCards.findIndex(c => String(c.id) === String(card?.id))
-                  : historyIndex
-              }
+              historyIndex={navigationIndex}
               totalCards={
                 isAutoplayActive && autoplay.autoplayCards && autoplay.autoplayCards.length > 0
                   ? autoplay.autoplayCards.length

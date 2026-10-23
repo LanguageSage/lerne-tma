@@ -13,7 +13,17 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
   const gradingCollapsed = useSettingsStore((s) => s.gradingCollapsed);
   const setGradingCollapsed = useSettingsStore((s) => s.setGradingCollapsed);
   const containerRef = useRef(null);
+  const lastActivation = useRef(-Infinity);
   const hasCard = Boolean(card);
+  const activateGrade = (event, grade, extended) => {
+    // Touch double taps often both report detail=1, including after instant advance.
+    if (loading || event.detail > 1 || event.timeStamp - lastActivation.current < 350) return;
+    lastActivation.current = event.timeStamp;
+    onGrade(grade, extended);
+  };
+  const preventRepeat = event => {
+    if (event.repeat && (event.key === 'Enter' || event.key === ' ')) event.preventDefault();
+  };
 
   useEffect(() => {
     if (!hasCard) return;
@@ -66,7 +76,8 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
               key={grade}
               disabled={loading}
               className={`btn-grade btn-grade-ext grade-ext-${grade}`}
-              onClick={event => { if (event.detail <= 1) onGrade(grade, true); }}
+              onClick={event => activateGrade(event, grade, true)}
+              onKeyDown={preventRepeat}
               title={tr("Интервал: {{p0}}", { p0: val })}
             >
               <span className="grade-val">{val}</span>
@@ -93,7 +104,8 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
             key={grade}
             disabled={loading}
             className={`btn-grade ${className}`}
-            onClick={event => { if (event.detail <= 1) onGrade(grade, false); }}
+            onClick={event => activateGrade(event, grade, false)}
+            onKeyDown={preventRepeat}
           >
             <span className="grade-label">{label}</span>
             <span className="grade-val">{val}</span>
