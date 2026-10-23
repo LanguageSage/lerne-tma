@@ -27,6 +27,28 @@
 .free-text-exercise textarea:focus-visible { outline: 2px solid var(--design-ft-focus-border, currentColor); outline-offset: 4px; }
 .editable-text-exercise textarea { max-width: min(100%, 620px); min-height: 120px; }
 .editable-text-exercise .free-text-feedback { max-width: 620px; }
+.free-text-input-wrapper { display: contents; }
+.editable-text-field {
+  box-sizing: border-box;
+  width: 100%;
+  max-width: 620px;
+  min-width: 0;
+  padding: 12px;
+  border: 2px solid var(--design-ft-border, currentColor);
+  border-radius: var(--design-ft-radius, 12px);
+  text-align: left;
+}
+.editable-text-field:focus-within {
+  border-color: var(--design-ft-focus-border, currentColor);
+  outline: 2px solid var(--design-ft-focus-border, currentColor);
+  outline-offset: 3px;
+}
+.editable-text-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: .86rem; }
+.editable-text-toolbar label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.editable-text-toolbar svg, .editable-text-reset svg { flex-shrink: 0; }
+.editable-text-toolbar [role="status"] { opacity: .75; }
+.editable-text-field.is-modified .editable-text-toolbar [role="status"] { opacity: 1; font-weight: 700; }
+.editable-text-reset { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; max-width: 100%; white-space: normal; margin-top: 8px; }
 .free-text-action { width: 100%; max-width: 340px; min-height: 44px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; white-space: normal; }
 .free-text-dictate[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
 .free-text-dictate svg { flex-shrink: 0; }

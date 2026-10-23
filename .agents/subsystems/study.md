@@ -50,6 +50,34 @@
 
 ## Card footer and information
 
+### Editable Text (`@edit`)
+
+`exerciseContentParser` selects the standalone `@edit` block up to the next
+structural marker; `detectExerciseType` selects `editable_text` from content,
+then `ExerciseRenderer` passes `parseEditableTextData` to `StudyCardFreeText`.
+The marker is omitted from the input. The field starts with the full source,
+shows a pencil, focus frame, modified status and reset action. Reset restores
+only the draft; it never erases evaluation attempts. `StudyCard.exerciseStates`
+keeps drafts by review key across card navigation. The existing evaluation
+service receives the current full input; the server owns BACK and grading policy.
+The interactive surface excludes clicks, keyboard input and gestures from flips.
+
+Regression fixtures: `scripts/tests/browser/fixtures/editable-real-cards.json`
+is a read-only snapshot of all 65 active editable cards on 2026-10-23, including
+359618 in deck 7164 (B1-16-D05). `editable-corpus.spec.cjs` checks every card
+through StudyCard and draft navigation; `editable-text.spec.cjs` checks the
+real 359618 text with an isolated evaluation endpoint at 320/375/430/768/1280px.
+`free-text-dictation.spec.cjs` covers the shared component's `@free` path.
+
+Release diagnosis on 2026-10-23: public `tma-amber.vercel.app` served
+`/assets/index-B4xZgltD.js`; its detector included `@free` followed by `@puzzle`,
+with neither `@edit` nor `editable_text` in the loaded bundle/parser. Database
+359618 already had valid `::exercise\n@edit` and `card_type=editable_text`.
+HEAD ac344a5 had the new renderer but missing commas between the merged Editable
+Text and publication translations in both EN/UK JSON files, preventing a build.
+Those syntax errors are fixed. Deployment must publish the current source;
+changing stored card types or rewriting valid FRONT text does not fix an old UI.
+
 `MarkdownRenderer` (`components/common/`) отображает только сохранённые `back`/`context`: ответ и контекст StudyCard, перевод Puzzle/Trainer, пример Free Text (back либо context) и ответ/контекст TrainerView. В reverse Markdown следует за физическим `back`; физический `front` сохраняет прежнее отображение. Перевод Trainer выводится целым блоком под заданием, чтобы сохранять таблицы, списки и абзацы; разбор и оценка упражнений не меняются. Стили наследуются от существующих контейнеров, прокрутка таблиц ограничена самим полем (включая flex-контейнер перевода Puzzle). Проверки: `scripts/tests/browser/card-markdown.spec.cjs` и существующие feedback suites.
 
 `StudyCard.jsx` renders one non-floating footer after either card side: a static CEFR badge, the existing exercise/flip controls and an accessible ⓘ disclosure. `StudyCardInfo.jsx` renders author, language, deck, CEFR explanation, source and available dates in the page flow. Coauthors remain an explicit UI placeholder pending a card-level attribution contract; do not derive them from deck collaborators. Missing dates/source/author display no-data text. Follow-up API/sync/attribution work is tracked in `project_docs/FUTURE_PLANS.md`. Geometry, disclosure, locales and exercise controls: `scripts/tests/browser/study-card-info.spec.cjs`.

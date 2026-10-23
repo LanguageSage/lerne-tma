@@ -1,7 +1,7 @@
 import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { PenLine, Eye, Check, LoaderCircle, Mic, Pause, Play } from 'lucide-react';
+import { PenLine, Eye, Check, LoaderCircle, Mic, Pause, Play, RotateCcw } from 'lucide-react';
 import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
@@ -69,6 +69,7 @@ export const StudyCardFreeText = React.memo(({
 
   if (!card || (!freeTextData && !editableTextData)) return null;
   const isEditable = Boolean(editableTextData);
+  const isModified = isEditable && userInput !== editableTextData.sourceText;
   const exampleAnswer = freeTextData?.exampleAnswer;
   const canShowExample = !isEditable && !assessmentMode && !isCompleted && canRevealFreeTextAnswer(state);
   const sameRejectedAnswer = userInput === state.lastAnswer && result?.verdict !== 'unavailable';
@@ -118,18 +119,30 @@ export const StudyCardFreeText = React.memo(({
       onClick={event => event.stopPropagation()} onSubmit={handleSubmit} aria-busy={loading}>
       <div className="free-text-heading"><PenLine size={16} />{tr(isEditable ? 'Редактируемый текст' : 'Свободный ответ / Письмо')}</div>
       {isEditable
-        ? <p className="free-text-dictation-help">{tr('Исправьте текст прямо в поле и проверьте ответ.')}</p>
+        ? <p id={`edit-help-${card.id}`} className="free-text-dictation-help">{tr('Исправьте текст прямо в поле и проверьте ответ.')}</p>
         : <div className="text-front free-text-prompt" style={cardStyle}>{freeTextData.prompt}</div>}
       {renderAudioPlayer && <div className="free-text-audio">{renderAudioPlayer()}</div>}
-      <textarea
-        aria-label={tr(isEditable ? 'Исправленный текст' : 'Ваш ответ')}
-        value={userInput}
-        onChange={event => { cancel(); setUserInput(event.target.value); }}
-        placeholder={tr(isEditable ? 'Исправьте текст здесь...' : 'Напишите ваш ответ здесь...')}
-        disabled={isCompleted || isExhausted || loading}
-        maxLength={4000} rows={3} style={contextStyle}
-        aria-describedby={`${isEditable ? '' : `dictation-help-${card.id}`}${result ? ` answer-feedback-${card.id}` : ''}`.trim() || undefined}
-      />
+      <div className={isEditable ? `editable-text-field${isModified ? ' is-modified' : ''}` : 'free-text-input-wrapper'}>
+        {isEditable && <div className="editable-text-toolbar">
+          <label htmlFor={`edit-input-${card.id}`}><PenLine size={18} aria-hidden="true" />{tr('Исправленный текст')}</label>
+          <span role="status">{tr(isModified ? 'Текст изменён' : 'Исходный текст')}</span>
+        </div>}
+        <textarea
+          id={isEditable ? `edit-input-${card.id}` : undefined}
+          aria-label={tr(isEditable ? 'Исправленный текст' : 'Ваш ответ')}
+          value={userInput}
+          onChange={event => { cancel(); setUserInput(event.target.value); }}
+          placeholder={tr(isEditable ? 'Исправьте текст здесь...' : 'Напишите ваш ответ здесь...')}
+          disabled={isCompleted || isExhausted || loading}
+          maxLength={4000} rows={3} style={contextStyle}
+          aria-describedby={`${isEditable ? `edit-help-${card.id}` : `dictation-help-${card.id}`}${result ? ` answer-feedback-${card.id}` : ''}`.trim() || undefined}
+        />
+        {isEditable && <button type="button" className="btn btn-secondary editable-text-reset"
+          disabled={!isModified || isCompleted || isExhausted || loading}
+          onClick={() => { cancel(); setUserInput(editableTextData.sourceText); }}>
+          <RotateCcw size={16} aria-hidden="true" />{tr('Сбросить изменения')}
+        </button>}
+      </div>
       {!isEditable && !isCompleted && !isExhausted && <button type="button"
         className="btn btn-secondary free-text-action free-text-dictate" aria-pressed={isListening}
         disabled={loading || isStopping}

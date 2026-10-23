@@ -1,11 +1,13 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 
-const source = 'Ich trainiere regelmäßig, um ich stärker zu werden.';
-const correction = 'Ich trainiere regelmäßig, um stärker zu werden.';
-const card = { id: 1, deck_id: 1, position: 0, queue: 'new', card_type: 'editable_text',
-  front: `::task\nИсправьте ошибку.\n::exercise\n@edit\n${source}\n::source\nЯ тренируюсь регулярно, чтобы стать сильнее.`, back: correction };
+const realCards = require('./fixtures/editable-real-cards.json');
+const original = realCards.find(card => card.id === 359618);
+const source = original.front.split('@edit\n')[1];
+const correction = original.back;
+const card = { ...original, id: 1, deck_id: 1, position: 0, queue: 'new',
+  front: original.front + '\n::source\nПеревод для проверки границ.' };
 
-for (const width of [375, 1280]) {
+for (const width of [320, 375, 430, 768, 1280]) {
   test(`editable text correction at ${width}px`, async ({ page, context }, testInfo) => {
     await page.setViewportSize({ width, height: 844 });
     await context.addInitScript(() => {
@@ -41,8 +43,17 @@ for (const width of [375, 1280]) {
     await page.getByRole('button', { name: 'Начать занятие', exact: true }).click();
     const field = page.getByRole('textbox', { name: 'Исправленный текст' });
     await expect(field).toHaveValue(source);
+    await expect(page.locator('.card-front')).not.toContainText('@edit');
+    const reset = page.getByRole('button', { name: 'Сбросить изменения' });
+    await expect(reset).toBeDisabled();
+    await field.fill('Draft');
+    await expect(page.getByText('Текст изменён', { exact: true })).toBeVisible();
+    await field.press('Space');
+    await expect(field).toBeVisible();
+    await reset.click();
+    await expect(field).toHaveValue(source);
     await expect(page.locator('.editable-text-exercise')).not.toContainText(correction);
-    await expect(page.getByText('Я тренируюсь регулярно, чтобы стать сильнее.')).toBeVisible();
+    await expect(page.getByText('Перевод для проверки границ.')).toBeVisible();
     await field.fill(source + ' ');
     await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
     await expect(page.getByText('Проверьте, нужно ли подлежащее после um.')).toBeVisible();
