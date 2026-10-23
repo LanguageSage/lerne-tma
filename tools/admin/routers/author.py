@@ -13,6 +13,10 @@ preview через `tools.admin.services.structured_preview` не записыв
 
 import os
 import re
+import json
+import io
+from PIL import Image, UnidentifiedImageError
+from api.utils.image import optimize_image
 from urllib.parse import quote
 from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, HTTPException, UploadFile, File, Form, Query, Response, Request
@@ -26,6 +30,7 @@ router = APIRouter(prefix="/api/admin/author", tags=["author"])
 
 MAX_FILE_SIZE_BYTES = 10 * 1024 * 1024  # 10 MB
 ALLOWED_EXTENSIONS = {'.txt', '.md', '.text', '.json'}
+IMAGE_EXTENSIONS = {'.jpg', '.jpeg', '.png', '.webp', '.gif'}
 
 
 # ============================================================================
@@ -59,6 +64,7 @@ class PublishApplyRequest(BaseModel):
     user_id: Optional[int] = None
     passports: Optional[List[Dict[str, Any]]] = None
     passport_only: bool = False
+    image_links: Optional[List[Dict[str, Any]]] = None
 
 
 class UpdatePreviewRequest(BaseModel):
@@ -151,6 +157,8 @@ async def parse_content(request: Request):
     default_deck_name = None
     file_names: List[str] = []
     uploaded_documents = []
+    image_names = []
+    image_manifest = []
 
     content_type = request.headers.get("content-type", "")
     if "multipart/form-data" in content_type or "application/x-www-form-urlencoded" in content_type:
@@ -162,8 +170,26 @@ async def parse_content(request: Request):
         if uploaded_files:
             try:
                 for uploaded_file in uploaded_files:
-                    f_text = await _extract_text_from_upload(uploaded_file)
                     f_name = getattr(uploaded_file, "filename", "") or ""
+                    if os.path.splitext(f_name)[1].lower() in IMAGE_EXTENSIONS:
+                        image_names.append(f_name)
+                        await uploaded_file.close()
+                        continue
+                    f_text = await _extract_text_from_upload(uploaded_file)
+                    if f_name.lower().endswith('.images.json'):
+                        try:
+                            manifest = json.loads(f_text)
+                            entries = manifest['images']
+                            if not isinstance(entries, list) or any(
+                                not isinstance(e, dict) or not isinstance(e.get('deck'), str)
+                                or not isinstance(e.get('card'), (str, int))
+                                or not isinstance(e.get('file'), str) for e in entries):
+                                raise ValueError()
+                            image_manifest.extend(entries)
+                        except (ValueError, KeyError, TypeError):
+                            raise HTTPException(400, f'{f_name}: ожидается объект с массивом images (deck, card, file).')
+                        file_names.append(f_name)
+                        continue
                     if f_name:
                         file_names.append(f_name)
                     uploaded_documents.append((f_name, f_text))
@@ -194,6 +220,7 @@ async def parse_content(request: Request):
     document = (author_service.parse_uploaded_documents(uploaded_documents) if uploaded_documents
                 else author_service.parse_document(text, default_deck_id, default_deck_name))
     cards = document['cards']
+    image_links = author_service.resolve_import_images(cards, image_names, image_manifest)
     if not cards and not document['passports'] and not document['errors']:
         raise HTTPException(status_code=400, detail="В файле не найдено ни одной карточки или паспорта.")
     # Invalid passports remain reviewable, but cannot be published.
@@ -215,6 +242,7 @@ async def parse_content(request: Request):
         "syntax_issues": preview["syntax_issues"],
         "files": file_names,
         "cards": cards,
+        "image_links": image_links,
         "passports": document["passports"],
         "passport_errors": document["errors"],
         "document_errors": document["structure_errors"],
@@ -300,6 +328,59 @@ def preview_publish(payload: PublishPreviewRequest):
 
 @router.post("/publish")
 def apply_publish(payload: PublishApplyRequest):
+    return _apply_publish(payload)
+
+
+@router.post('/publish-images')
+async def apply_publish_images(request: Request):
+    """Publish reviewed images and cards in one database transaction."""
+    form = await request.form()
+    try:
+        try:
+            payload = PublishApplyRequest.model_validate_json(str(form['payload']))
+        except (KeyError, ValueError) as exc:
+            raise HTTPException(400, f'Некорректные данные публикации: {exc}')
+        files = [f for f in form.getlist('images') if hasattr(f, 'read')]
+        names = [f.filename or '' for f in files]
+        if len(names) != len(set(names)):
+            raise HTTPException(400, 'Повторяются имена файлов изображений.')
+        cards = payload.cards or []
+        links = author_service.resolve_import_images(cards, names)
+        if any(link['status'] != 'matched' for link in links):
+            raise HTTPException(400, 'Есть отсутствующие или неоднозначные связи изображений.')
+        if len(links) != len(payload.image_links or []) or any(
+            (link['card_number'], link['file']) !=
+            (review.get('card_number'), review.get('file'))
+            for link, review in zip(links, payload.image_links or [])):
+            raise HTTPException(400, 'Связи изображений изменились после предпросмотра.')
+        image_data = {}
+        for file in files:
+            if file.filename not in {link['file'] for link in links}:
+                continue
+            if os.path.splitext(file.filename or '')[1].lower() not in IMAGE_EXTENSIONS:
+                raise HTTPException(400, 'Недопустимый формат изображения.')
+            content = await file.read(MAX_FILE_SIZE_BYTES + 1)
+            if not content or len(content) > MAX_FILE_SIZE_BYTES:
+                raise HTTPException(400, f'{file.filename}: изображение пусто или превышает 10 МБ.')
+            try:
+                with Image.open(io.BytesIO(content)) as image:
+                    if image.format not in {'JPEG', 'PNG', 'WEBP', 'GIF'}:
+                        raise ValueError()
+                optimized = optimize_image(content)[0]
+                with Image.open(io.BytesIO(optimized)) as image:
+                    if image.format != 'WEBP':
+                        raise ValueError()
+                image_data[file.filename] = optimized
+            except (UnidentifiedImageError, OSError, ValueError):
+                raise HTTPException(400, f'{file.filename}: файл не является поддерживаемым изображением.')
+        for link in links:
+            cards[link['card_number'] - 1]['image_file'] = link['file']
+        return _apply_publish(payload, image_data)
+    finally:
+        await form.close()
+
+
+def _apply_publish(payload: PublishApplyRequest, image_data=None):
     """
     Публикует новый урок в базу данных:
     - Создает новую папку или использует существующую;
@@ -307,6 +388,9 @@ def apply_publish(payload: PublishApplyRequest):
     - Транзакционно сохраняет карточки.
     """
     cards, passports = _publish_document(payload)
+
+    if image_data is None and author_service.resolve_import_images(cards, []):
+        raise HTTPException(400, 'Для связанных изображений загрузите файлы и проверьте связи в предпросмотре.')
 
     if not cards and not payload.passport_only:
         raise HTTPException(status_code=400, detail="Нет карточек для публикации; для паспорта выберите passport_only.")
@@ -326,7 +410,8 @@ def apply_publish(payload: PublishApplyRequest):
             force_new_deck=payload.force_new_deck,
             user_id=payload.user_id,
             passports=passports,
-            passport_only=payload.passport_only
+            passport_only=payload.passport_only,
+            image_data=image_data
         )
         return {
             "status": "success",

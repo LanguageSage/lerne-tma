@@ -7,6 +7,9 @@ Runs against an isolated in-memory SQLite database using shared cache.
 import os
 import sys
 import unittest
+import io
+import json
+from PIL import Image
 from pathlib import Path
 from peewee import SqliteDatabase
 from fastapi.testclient import TestClient
@@ -31,7 +34,8 @@ TABLES = [
     models.TMAUser,
     models.TMA_Collaborator,
     models.TMAOfflineBatch,
-    models.TMAReviewHistory
+    models.TMAReviewHistory,
+    models.TMAMedia,
 ]
 
 
@@ -144,10 +148,88 @@ class TestAuthorRouter(unittest.TestCase):
     # ------------------------------------------------------------------------
 
     def test_invalid_file_extension(self):
-        files = {"file": ("image.png", b"fake binary data", "image/png")}
+        files = {"file": ("image.pdf", b"fake binary data", "application/pdf")}
         resp = self.client.post("/api/admin/author/parse", files=files)
         self.assertEqual(resp.status_code, 400)
         self.assertIn("Недопустимый формат файла", resp.json()["detail"])
+
+    def test_markdown_image_preview_and_publish(self):
+        picture = io.BytesIO()
+        Image.new('RGB', (8, 8), 'red').save(picture, format='PNG')
+        image_bytes = picture.getvalue()
+        text = '# Deck: Test Deck\nFRONT:\nQuestion ![diagram](assets/chart.png)\nBACK:\nAnswer'
+        files = [('files', ('lesson.md', text.encode(), 'text/markdown')),
+                 ('files', ('chart.png', image_bytes, 'image/png'))]
+        parsed = self.client.post('/api/admin/author/parse', files=files).json()
+        self.assertEqual(parsed['image_links'][0]['status'], 'matched')
+        self.assertEqual(parsed['image_links'][0]['file'], 'chart.png')
+        self.assertNotIn('![diagram]', parsed['cards'][0]['front'])
+        payload = {'cards': parsed['cards'], 'passports': [], 'image_links': parsed['image_links'],
+                   'target_folder_id': self.folder.id, 'user_id': 42}
+        response = self.client.post('/api/admin/author/publish-images',
+                                    data={'payload': json.dumps(payload)},
+                                    files={'images': ('chart.png', image_bytes, 'image/png')})
+        self.assertEqual(response.status_code, 200, response.text)
+        card = (models.TMA_Card.select().where(models.TMA_Card.front_text == 'Question').get())
+        self.assertTrue(card.image_path.startswith('images/author_'))
+        self.assertIsNotNone(models.TMAMedia.get_or_none(models.TMAMedia.filename == card.image_path.split('/')[-1]))
+
+    def test_invalid_image_does_not_publish(self):
+        cards = [{'number': 1, 'deck_name': 'Test Deck', 'front': 'Question',
+                  'back': 'Answer', 'image_ref': 'broken.png'}]
+        links = [{'card_number': 1, 'file': 'broken.png'}]
+        payload = {'cards': cards, 'passports': [], 'image_links': links,
+                   'target_folder_id': self.folder.id, 'user_id': 42}
+        response = self.client.post('/api/admin/author/publish-images',
+                                    data={'payload': json.dumps(payload)},
+                                    files={'images': ('broken.png', b'not an image', 'image/png')})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(models.TMA_Card.select().count(), 1)
+        self.assertEqual(models.TMAMedia.select().count(), 0)
+
+    def test_plain_publish_rejects_unresolved_image(self):
+        response = self.client.post('/api/admin/author/publish', json={
+            'cards': [{'number': 1, 'deck_name': 'Test Deck', 'front': 'Question',
+                       'back': 'Answer', 'image_ref': 'missing.png'}],
+            'target_folder_id': self.folder.id, 'user_id': 42})
+        self.assertEqual(response.status_code, 400)
+        self.assertEqual(models.TMA_Card.select().count(), 1)
+
+    def test_missing_and_ambiguous_image_links(self):
+        text = '# Deck: Test Deck\nFRONT:\nQuestion\nBACK:\nAnswer\nCONTEXT:\n::image chart.png'
+        files = [('files', ('lesson.md', text.encode(), 'text/markdown'))]
+        missing = self.client.post('/api/admin/author/parse', files=files).json()
+        self.assertEqual(missing['image_links'][0]['status'], 'missing')
+        files += [('files', ('a/chart.png', b'x', 'image/png')),
+                  ('files', ('b/chart.png', b'x', 'image/png'))]
+        ambiguous = self.client.post('/api/admin/author/parse', files=files).json()
+        self.assertEqual(ambiguous['image_links'][0]['status'], 'ambiguous')
+
+    def test_manifest_and_v2_image_links(self):
+        manifest = {'images': [{'deck': 'Test Deck', 'card': 'one', 'file': 'picture.png'}]}
+        v2 = {'schema_version': 2, 'deck': {'name': 'Test Deck'},
+              'cards': [{'id': 'one', 'type': 'standard',
+                         'data': {'prompt': 'Question', 'answer': 'Answer'}}]}
+        files = [('files', ('deck.json', json.dumps(v2).encode(), 'application/json')),
+                 ('files', ('deck.images.json', json.dumps(manifest).encode(), 'application/json')),
+                 ('files', ('picture.png', b'placeholder', 'image/png'))]
+        result = self.client.post('/api/admin/author/parse', files=files).json()
+        self.assertEqual(result['image_links'][0]['status'], 'matched')
+        self.assertEqual(result['cards'][0]['image_ref'], 'picture.png')
+        manifest['images'][0]['card'] = 'absent'
+        files[1] = ('files', ('deck.images.json', json.dumps(manifest).encode(), 'application/json'))
+        result = self.client.post('/api/admin/author/parse', files=files).json()
+        self.assertEqual(result['image_links'][0]['status'], 'missing')
+        self.assertIsNone(result['image_links'][0]['card_number'])
+
+    def test_v2_explicit_image_link(self):
+        v2 = {'schema_version': 2, 'deck': {'name': 'Test Deck'},
+              'cards': [{'type': 'standard', 'image': 'picture.png',
+                         'data': {'prompt': 'Question', 'answer': 'Answer'}}]}
+        files = [('files', ('deck.json', json.dumps(v2).encode(), 'application/json')),
+                 ('files', ('picture.png', b'placeholder', 'image/png'))]
+        result = self.client.post('/api/admin/author/parse', files=files).json()
+        self.assertEqual(result['image_links'][0]['status'], 'matched')
 
     def test_invalid_file_oversized(self):
         # 10 MB + 1 byte

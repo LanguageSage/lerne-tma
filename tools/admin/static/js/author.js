@@ -99,6 +99,7 @@ function renderAuthorV2Card(card) {
       break;
   }
   return html + authorV2Field('Объяснение после ответа', card.explanation)
+    + authorV2Field('Связанное изображение', card.image)
     + authorV2Field('Уровень карточки (если указан)', card.level) + authorV2Field('Темы карточки (если указаны)', card.topics);
 }
 
@@ -163,6 +164,7 @@ let authorState = {
     success: null
   }
 };
+let authorImageUrls = [];
 
 
 // ============================================================================
@@ -411,6 +413,8 @@ async function handleAuthorManualTextSubmit() {
 }
 
 async function runAuthorParse({ files, file, text }) {
+  authorImageUrls.forEach(URL.revokeObjectURL);
+  authorImageUrls = [];
   authorState.publish.isLoading = true;
   authorState.publish.error = null;
   authorState.publish.success = null;
@@ -505,6 +509,7 @@ function authorPublishPayload(result) {
   return {
     cards: result.cards,
     passports: result.passports || [],
+    image_links: result.image_links || [],
     passport_only: !!document.getElementById('author-passport-only')?.checked
   };
 }
@@ -518,6 +523,10 @@ async function runAuthorPublishPreview() {
 
   if ((result.passport_errors || []).length) {
     showToast('Исправьте и проверьте ошибки паспорта перед публикацией', 'error');
+    return;
+  }
+  if ((result.image_links || []).some(link => link.status !== 'matched')) {
+    showToast('Исправьте отсутствующие или неоднозначные связи изображений', 'error');
     return;
   }
   const payload = authorPublishPayload(result);
@@ -581,6 +590,10 @@ async function runAuthorPublish() {
     showToast('Исправьте и проверьте ошибки паспорта перед публикацией', 'error');
     return;
   }
+  if ((result.image_links || []).some(link => link.status !== 'matched')) {
+    showToast('Исправьте отсутствующие или неоднозначные связи изображений', 'error');
+    return;
+  }
   const payload = authorPublishPayload(result);
 
   if (authorState.publish.isNewFolder) {
@@ -606,11 +619,17 @@ async function runAuthorPublish() {
   renderAuthorPublishState();
 
   try {
-    const res = await fetch('/api/admin/author/publish', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(payload)
-    });
+    const imageFiles = authorState.publish.files.filter(file => /\.(jpe?g|png|webp|gif)$/i.test(file.name));
+    let request;
+    if (imageFiles.length) {
+      const form = new FormData();
+      form.append('payload', JSON.stringify(payload));
+      imageFiles.forEach(file => form.append('images', file));
+      request = { method: 'POST', body: form };
+    } else {
+      request = { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) };
+    }
+    const res = await fetch(imageFiles.length ? '/api/admin/author/publish-images' : '/api/admin/author/publish', request);
     const data = await res.json();
     if (!res.ok) throw new Error(data.detail || `Ошибка публикации (HTTP ${res.status})`);
 
@@ -636,6 +655,8 @@ async function runAuthorPublish() {
 }
 
 function resetAuthorPublish() {
+  authorImageUrls.forEach(URL.revokeObjectURL);
+  authorImageUrls = [];
   authorState.publish = {
     files: [],
     file: null,
@@ -743,6 +764,8 @@ function renderAuthorPublishState() {
   // Parsed Result View
   const parseResult = authorState.publish.parseResult;
   if (parseResult) {
+    authorImageUrls.forEach(URL.revokeObjectURL);
+    authorImageUrls = [];
     if (dropzoneWrap) dropzoneWrap.classList.add('hidden');
     if (resultWrap) resultWrap.classList.remove('hidden');
 
@@ -813,6 +836,28 @@ function renderAuthorPublishState() {
       } else {
         syntaxWrap.classList.add('hidden');
       }
+    }
+
+    const imageWrap = document.getElementById('author-publish-images-wrap');
+    if (imageWrap) {
+      const links = parseResult.image_links || [];
+      imageWrap.classList.toggle('hidden', !links.length);
+      imageWrap.innerHTML = links.length ? `<div class="glass p-4 rounded-xl border border-slate-700">
+        <h4 class="font-bold text-sm text-white mb-2">Связанные изображения · ${links.length}</h4>
+        <ul class="space-y-2">${links.map(link => {
+          const thumbnails = link.candidates.map(name => {
+            const file = authorState.publish.files.find(item => item.name === name);
+            if (!file) return '';
+            const url = URL.createObjectURL(file);
+            authorImageUrls.push(url);
+            return `<img src="${url}" alt="${escapeHtml(name)}" title="${escapeHtml(name)}" class="w-12 h-12 object-contain rounded bg-slate-900">`;
+          }).join('');
+          const label = link.status === 'matched' ? 'Найдено' : link.status === 'missing' ? 'Отсутствует' : 'Неоднозначная связь';
+          return `<li class="flex gap-3 items-center text-xs ${link.status === 'matched' ? 'text-emerald-200' : 'text-amber-200'}">
+            ${thumbnails ? `<span class="flex gap-1 shrink-0">${thumbnails}</span>` : ''}
+            <span><b>${label}</b> · ${escapeHtml(link.deck || 'Колода')} · ${link.card_number ? `карточка №${link.card_number}` : 'карточка не найдена или указана неоднозначно'}<br>
+            ${escapeHtml(link.references.join(', '))}${link.candidates.length ? ` → ${escapeHtml(link.candidates.join(', '))}` : ''}</span></li>`;
+        }).join('')}</ul></div>` : '';
     }
 
     // Decks Table
