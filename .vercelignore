@@ -25,6 +25,7 @@ scratch/
 api/scratch/
 test-results/
 playwright-report/
+.test-tmp/
 
 # Android mobile build & local build artifacts
 android/
@@ -49,6 +50,7 @@ __pycache__/
 .gemini/
 .agent/
 .agents/
+.codex/
 .vscode/
 .idea/
 
@@ -57,7 +59,9 @@ local/
 compose.local.yaml
 playwright*.config.*
 requirements-test.txt
-data/
+# Root runtime data only; keep app/src/data and classifier/data sources.
+/data/
+api/data/
 postgres/
 .env
 .env.*
@@ -67,3 +71,11 @@ postgres/
 **/*.dump
 **/*.backup
 **/*.partial
+
+# Local database files, including tracked test database leftovers
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*

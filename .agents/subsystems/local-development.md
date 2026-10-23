@@ -57,3 +57,13 @@ lerne_tma_local. Модели, миграции и импортёр остают
 - Проверки: `test_material_transfer.py`, `test_material_transfer_boundary.py`,
   `run_material_transfer_postgres.py` (новый временный native PG cluster),
   `browser/admin-transfer.spec.cjs` (8061, две SQLite, simulated bridge).
+
+## Граница деплоя Vercel
+
+В `.vercelignore` правило `/data/` исключает только runtime-данные в корне репозитория.
+Каталоги `app/src/data/`, `app/src/services/classifier/data/` и
+`api/services/classifier/data/` должны попадать в CLI-загрузку: это обязательные исходники.
+`api/data/`, `local/`, `tools/`, `scripts/`, приватные env/config-файлы, локальные БД,
+backups и временные артефакты остаются исключены. При изменении правил проверяйте
+состав загруженных исходников и Production-сборку: локальная сборка сама по себе
+не проверяет фильтрацию CLI.
