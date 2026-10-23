@@ -29,3 +29,31 @@ Offline entities принадлежат `LerneTestDB_<user_id>` и синхро�
 `local/` хранится в Git, исключён из Vercel целиком. API вне LOCAL не импортирует
 этот пакет и не читает local.json; production URL отвергает loopback и имя
 lerne_tma_local. Модели, миграции и импортёр остаются общими.
+
+## Управляемый перенос и публикация
+
+- Контракт, конфигурация и ограничения: [MATERIAL_TRANSFER](../../docs/MATERIAL_TRANSFER.md).
+- LOCAL admin `/api/admin/transfer/*` → `tools/admin/routers/material_transfer.py` →
+  отдельный `tools/admin/transfer_worker.py`. Очищенное окружение, внешний
+  `config/transfer.json`, проверенный LOCAL URL/marker, TLS и совпадающий Supabase
+  project_ref. Никаких migrations/startup init; облачная запись выключена без
+  явного серверного флага и подтверждения preview.
+- `/transfer/catalog`: серверный кеш 300 с с объединением запросов и cooldown 10 с
+  для ошибок; смена конфигурации/успешная запись инвалидируют кеш.
+- `/transfer/preview` возвращает 202; `/transfer/previews/{id}` читает только
+  локальное состояние фоновой проверки. Одинаковые проверки переиспользуются
+  300 с, ошибки — 10 с. Размер пакета проверяется до snapshots карточек.
+- `services/material_transfer.py`: проекции контента, прежний collaborative resolver,
+  ID ledger/версии/preview/jobs через существующий TMAOfflineBatch, atomic target
+  content + receipt и replay после потери ответа; source/target freshness.
+- `services/material_transfer_media.py` расширяет прежний deck_import_media:
+  source revisions, immutable SHA-256 assets, LOCAL media root/TMAMedia, конечный
+  перенос без автоматических повторов. Пользователи, SRS, grants и auth не копируются.
+- LOCAL API/admin сохраняют network guard. Только отдельный worker подключается
+  к явно указанной облачной цели. Переключать Peewee proxy в HTTP-процессе запрещено.
+- `local/router.py:/local/transfer-card/{id}` + `LocalPublishButton.jsx`: проверка
+  локального автора/permissions, сохранение редактора и существующий Dexie sync,
+  затем admin с выбранной карточкой. Сам переход ничего не публикует.
+- Проверки: `test_material_transfer.py`, `test_material_transfer_boundary.py`,
+  `run_material_transfer_postgres.py` (новый временный native PG cluster),
+  `browser/admin-transfer.spec.cjs` (8061, две SQLite, simulated bridge).

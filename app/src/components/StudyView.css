@@ -63,6 +63,16 @@
   text-overflow: ellipsis;
 }
 
+@media (max-width: 600px) {
+  .header-compact:has(.local-publish-button) { flex-wrap: wrap; }
+  .header-compact:has(.local-publish-button) .header-actions {
+    width: 100%; flex-shrink: 1; flex-wrap: wrap; gap: 4px; justify-content: flex-end;
+  }
+  .header-compact:has(.local-publish-button) .header-action-btn { min-width: 44px; min-height: 44px; }
+  .header-compact:has(.local-publish-button) .user-info { display: none; }
+  .study-top-collapsible:has(.local-publish-button):not(.is-hidden) { max-height: 600px; }
+}
+
 .audio-controls {
   display: flex;
   align-items: center;

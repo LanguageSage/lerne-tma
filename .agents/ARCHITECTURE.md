@@ -10,6 +10,9 @@
 Изолированный LOCAL: `api/local_runtime.py` + `scripts/local_dev.py` выбирают только
 loopback PostgreSQL, хранят постоянные данные вне Git и используют отдельную
 browser-сессию/Dexie. Границы, entry points и проверки — [local-development](subsystems/local-development.md).
+Управляемый перенос LOCAL↔Supabase выполняется отдельным opt-in worker админки;
+он использует существующие permissions/media/receipts, не меняя сетевой запрет
+LOCAL API и не перенося SRS. Контракт: [MATERIAL_TRANSFER](../docs/MATERIAL_TRANSFER.md).
 
 | Слой | Точка входа | Ответственность |
 | --- | --- | --- |

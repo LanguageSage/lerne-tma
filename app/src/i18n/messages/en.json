@@ -1918,4 +1918,8 @@
   "Исправьте текст здесь...": "Correct the text here...",
   "Полный исправленный текст": "Full corrected text",
   "Введите полный исправленный текст...": "Enter the full corrected text..."
+  "Опубликовать в Supabase": "Publish to Supabase",
+  "Сначала сохраните карточку.": "Save the card first.",
+  "Дождитесь завершения синхронизации.": "Wait for synchronization to finish.",
+  "Разрешите открытие вкладки административной консоли.": "Allow the admin console tab to open."
 }

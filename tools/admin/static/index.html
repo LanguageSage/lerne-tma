@@ -25,6 +25,13 @@
     #author-panel-v2 pre { white-space: pre-wrap; overflow-wrap: anywhere; font: inherit; }
     #author-panel-v2 summary, #author-panel-v2 button, #author-panel-v2 input { min-height: 44px; }
     #author-panel-v2 :focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+    #content-transfer { min-width: 0; overflow-wrap: anywhere; }
+    #content-transfer input:not([type=checkbox]), #content-transfer select { display: block; min-width: 0; width: 100%; padding: 10px; color: #e2e8f0; background: #0f172a; border: 1px solid #475569; border-radius: 8px; }
+    #content-transfer button, #content-transfer summary, #content-transfer label { min-height: 44px; }
+    #content-transfer :focus-visible { outline: 2px solid #818cf8; outline-offset: 3px; }
+    #content-transfer button:disabled { opacity: .45; cursor: not-allowed; }
+    #transfer-media-list, #transfer-diff pre { white-space: pre-wrap; overflow-wrap: anywhere; }
+    @media (max-width: 767px) { body:has(#content-transfer:not(.hidden)) > header { flex-wrap: wrap; } body:has(#content-transfer:not(.hidden)) > header nav { order: 3; width: 100%; } }
   </style>
 </head>
 <body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col">
@@ -52,6 +59,9 @@
       </button>
       <button onclick="switchTab('author')" id="tab-author" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
         <i data-lucide="pen-tool" class="w-3.5 h-3.5 text-violet-400"></i> <span>Автор уроков</span>
+      </button>
+      <button onclick="switchTab('transfer')" id="tab-transfer" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
+        <span>Перенос и публикация</span>
       </button>
       <button onclick="switchTab('ai')" id="tab-ai" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
         <i data-lucide="sparkles" class="w-3.5 h-3.5 text-amber-400"></i> <span>ИИ Перегенерация</span>
@@ -1528,6 +1538,46 @@
     </section>
 
     <!-- Tab 10: Author Content Workspace (Автор уроков) -->
+    <section id="content-transfer" class="space-y-6 hidden" aria-labelledby="transfer-heading">
+      <div class="glass rounded-2xl p-5 space-y-4">
+        <h1 id="transfer-heading" class="text-xl font-bold">Перенос и публикация</h1>
+        <p class="text-slate-400">Выберите материалы, проверьте изменения и подтвердите перенос. Переносятся содержание и медиа; личный прогресс сохраняется.</p>
+        <p id="transfer-config" role="status"></p>
+      <div id="transfer-status" role="status" aria-live="polite" class="text-slate-300"></div>
+        <div id="transfer-options" class="grid md:grid-cols-3 gap-4">
+          <label>Направление<select id="transfer-direction" class="form-input w-full"><option value="download">Supabase → LOCAL</option><option value="publish">LOCAL → Supabase</option></select></label>
+          <label>Материалы<select id="transfer-kind" class="form-input w-full"><option value="folder">Папки с вложенными материалами</option><option value="deck">Колоды</option><option value="card">Отдельные карточки</option></select></label>
+          <label>Обновление<select id="transfer-mode" class="form-input w-full"><option value="changed">Недостающие и изменённые</option><option value="missing">Только недостающие</option><option value="force">Принудительная замена выбранных</option></select></label>
+          <label>При совпадении<select id="transfer-conflict" class="form-input w-full"><option value="replace">Заменить</option><option value="skip">Пропустить</option><option value="new">Добавить карточку как новую</option></select></label>
+          <label>Медиа<select id="transfer-media" class="form-input w-full"><option value="changed">Недостающие и изменённые</option><option value="missing">Только недостающие</option><option value="force">Принудительная замена выбранных</option></select></label>
+          <label>Целевая папка<select id="transfer-destination" class="form-input w-full"><option value="">Корень библиотеки</option></select><button id="transfer-destination-more" type="button" class="hidden text-sm text-indigo-300">Ещё целевые папки</button></label>
+          <label class="flex items-center gap-2"><input id="transfer-accept" type="checkbox">Разрешить замену версии, изменённой с обеих сторон</label>
+          <label class="flex items-center gap-2"><input id="transfer-public" type="checkbox">Общедоступный авторский оригинал (папка, администратор)</label>
+        </div>
+        <div class="flex flex-wrap gap-3">
+          <label class="grow">Поиск<input id="transfer-search" class="form-input w-full" placeholder="Название или начало карточки"></label>
+          <button id="transfer-load" type="button" class="px-4 py-2 bg-slate-700 rounded-lg">Показать материалы</button>
+        </div>
+        <p id="transfer-selection" class="text-slate-400">Ничего не выбрано</p>
+        <button id="transfer-preview" type="button" class="px-4 py-2 bg-indigo-600 rounded-lg" disabled>1. Проверить перед копированием</button>
+        <p class="text-sm text-slate-400">Шаг 1: проверка выбранных материалов. Шаг 2: подтверждение и начало копирования. Для большой папки выберите вложенные папки или колоды — до 2000 карточек за один перенос.</p>
+        <fieldset><legend class="font-semibold mb-2">Выберите материалы</legend><div id="transfer-catalog" class="grid md:grid-cols-2 gap-2"></div></fieldset>
+        <button id="transfer-more" type="button" class="hidden px-4 py-2 bg-slate-700 rounded-lg">Ещё 50</button>
+      </div>
+      <progress id="transfer-progress" max="1" value="0" class="w-full hidden" aria-label="Прогресс переноса медиа"></progress>
+      <div id="transfer-preview-panel" class="glass rounded-2xl p-5 space-y-4 hidden">
+        <h2 class="text-lg font-bold">Проверка готова — подтвердите копирование</h2>
+        <p id="transfer-summary"></p>
+        <p id="transfer-warning" class="text-amber-300"></p>
+        <label class="block">Для подтверждения введите указанную цель<input id="transfer-confirmation" class="form-input w-full" autocomplete="off"></label>
+        <label class="flex items-center gap-2"><input id="transfer-confirmed" type="checkbox">Я проверил изменения и подтверждаю запись в указанную базу</label>
+        <button id="transfer-apply" type="button" class="px-4 py-2 bg-indigo-600 rounded-lg" disabled>2. Начать копирование</button>
+        <div id="transfer-diff" class="space-y-2"></div>
+        <div id="transfer-media-list" class="text-sm text-slate-400"></div>
+      </div>
+      <div class="glass rounded-2xl p-5"><h2 class="font-bold mb-3">Сохранённые операции</h2><div id="transfer-jobs" class="space-y-2"></div></div>
+    </section>
+
     <section id="content-author" class="space-y-6 hidden">
       <!-- Top Title & Sub-Navigation Header -->
       <div class="glass p-5 rounded-2xl border border-slate-800 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -2578,6 +2628,7 @@
   <script src="/static/js/media_manager.js?v=20260912_3"></script>
   <script src="/static/js/author.js?v=20261006_1"></script>
   <script src="/static/js/folder_import.js?v=20261022_1"></script>
+  <script src="/static/js/material_transfer.js?v=20261022_1"></script>
   <script src="/static/js/app.js?v=20260912_3"></script>
 
 </body>

@@ -126,3 +126,15 @@ Integration/browser scripts могут менять данные; сначала
 - Экспорт Автора сохраняет индивидуальные паспорта, включая пустые колоды, и author order position/id. CLI поддерживает паспорт вместе с карточками и publish --passport-only.
 - DeckIntro показывает сворачиваемый авторский маршрут, LessonCompletion — учебное описание и рекомендации без вывода об освоении. Метрики занятия остаются в sessionStats; пользовательские настройки и offline metadata API сохранены.
 - Проверки: `scripts/tests/test_deck_passport.py`, `app/src/utils/__tests__/deckPedagogy.test.js`, `scripts/tests/browser/deck-passport.spec.cjs`; DB одноразовая SQLite, browser API подменены.
+
+## Перенос LOCAL ↔ Supabase
+
+Авторские TMA_Folder/TMA_Deck/TMA_Card обслуживаются в отдельном разделе локальной
+админки «Перенос и публикация». Контракт и проверки:
+[MATERIAL_TRANSFER](../../docs/MATERIAL_TRANSFER.md). Это перенос контента с
+предпросмотром/подтверждением, не пользовательский sync. Прежние permissions,
+global_readonly и независимые copy/share сохраняются; grants/SRS не переносятся.
+Сопоставления между базами, source/target checksums, версии, родители и receipts
+принадлежат TMAOfflineBatch; совпадающие числа ID не являются соответствием.
+Перемещения mapped детей за пределы выбранного контейнера включаются в план;
+soft-delete передаётся явно, hard-missing ID блокирует перенос без восстановления.

@@ -6,7 +6,7 @@ function switchTab(tab) {
         localStorage.setItem('lerne_admin_tab', tab);
       } catch (e) {}
 
-      ['users', 'decks', 'folders', 'ai', 'bulk', 'classification', 'backups', 'backup-explorer', 'media-manager', 'author'].forEach(t => {
+      ['users', 'decks', 'folders', 'ai', 'bulk', 'classification', 'backups', 'backup-explorer', 'media-manager', 'author', 'transfer'].forEach(t => {
         const contentEl = document.getElementById(`content-${t}`);
         if (contentEl) contentEl.classList.add('hidden');
         const btn = document.getElementById(`tab-${t}`);
@@ -24,7 +24,9 @@ function switchTab(tab) {
         activeBtn.classList.remove('text-slate-400');
       }
 
-      if (tab === 'folders') {
+      if (tab === 'transfer') {
+        initTransfer();
+      } else if (tab === 'folders') {
         loadAdminFolders();
       } else if (tab === 'backups') {
         loadBackups();
