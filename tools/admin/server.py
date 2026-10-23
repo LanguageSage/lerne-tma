@@ -26,6 +26,7 @@ os.environ.setdefault('PGOPTIONS', '-c statement_timeout=30000 -c lock_timeout=5
 
 from api import models
 from tools.admin.services import diagnostics
+from tools.admin.services.deck_import_limits import ImportBodyLimitMiddleware
 
 logger = logging.getLogger(__name__)
 
@@ -69,6 +70,7 @@ def db_session_scope():
 app = FastAPI(title="Lerne TMA Admin Console", version="2.0.0", dependencies=[Depends(db_session_scope)])
 
 app.add_middleware(diagnostics.DiagnosticsMiddleware)
+app.add_middleware(ImportBodyLimitMiddleware)
 
 
 @app.get("/api/admin/diagnostics")
@@ -156,7 +158,7 @@ def get_admin_ui():
 
 
 # ─── Register routers ─────────────────────────────────────────────────────────
-from tools.admin.routers import prompts, users, decks, cards, folders, tasks, classification, media, backups, author  # noqa: E402
+from tools.admin.routers import prompts, users, decks, cards, folders, tasks, classification, media, backups, author, deck_import  # noqa: E402
 
 app.include_router(prompts.router)
 app.include_router(users.router)
@@ -168,6 +170,7 @@ app.include_router(classification.router)
 app.include_router(media.router)
 app.include_router(backups.router)
 app.include_router(author.router)
+app.include_router(deck_import.router)
 
 
 # ─── Dev launch ──────────────────────────────────────────────────────────────

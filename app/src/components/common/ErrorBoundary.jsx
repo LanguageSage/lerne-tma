@@ -1,5 +1,6 @@
 import { tr } from '../../i18n/locale';
 import React from 'react';
+import { storage } from '../../utils/auth';
 
 export class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -17,7 +18,7 @@ export class ErrorBoundary extends React.Component {
 
   handleReload = () => {
     try {
-      localStorage.removeItem('lerne_init_cache');
+      storage.remove('lerne_init_cache');
     } catch { /* ignore */ }
     window.location.reload();
   };

@@ -34,6 +34,8 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 
 ## Source of truth
 
+- Опциональный LOCAL использует `local/router.py` → `login_local_test` для выпуска стандартной auth v2 session. Route отсутствует вне LOCAL, требует loopback client, разрешённый Origin и приватный credential от Vite proxy. Session/profile/pending keys имеют namespace `lerne_local:*`. См. [local-development](local-development.md).
+
 - `api/auth/service.py` владеет auth-транзакциями, TTL, token rotation, password throttling и отзывом сессий.
 - `api/models.py`: `TMAAuthAccount`, `TMAAuthIdentity`, `TMAAuthSession`, `TMAAuthToken`, `TMAAuthProof`, `TMAAuthChallenge`, `TMAAuthPassword`, `TMAAuthPasswordThrottle`.
 - `get_user_id` в `api/dependencies/auth.py` делегирует строгой Bearer-зависимости из `api/auth/dependencies.py`. `X-User-ID` не является credential и игнорируется; неверная/отозванная сессия не допускает fallback. Telegram получает сессию через подписанный initData/challenge в auth v2. Старые header-only клиенты должны войти заново.

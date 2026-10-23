@@ -8,8 +8,11 @@ from fastapi.middleware.cors import CORSMiddleware
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from test_offline_sync import database, models, sync, Request, TABLES, ROOT
 
-(ROOT / 'scratch').mkdir(exist_ok=True)
-database.init(str(ROOT / 'scratch/offline-sandbox.sqlite3'))
+from local.runtime import DEFAULT_DATA_ROOT, external_path
+import os
+test_data = external_path(os.environ.get('LERNE_LOCAL_TEST_DATA_DIR', str(DEFAULT_DATA_ROOT / 'test-data')))
+test_data.mkdir(parents=True, exist_ok=True)
+database.init(str(test_data / 'offline-sandbox.sqlite3'))
 database.connect(reuse_if_open=True)
 database.create_tables(TABLES, safe=True)
 user, _ = models.TMAUser.get_or_create(user_id=1, defaults={

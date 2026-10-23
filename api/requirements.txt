@@ -1,6 +1,6 @@
 fastapi
 uvicorn
-peewee
+peewee>=3.17,<4
 psycopg2-binary
 pg8000
 edge-tts

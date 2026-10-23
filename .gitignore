@@ -111,6 +111,17 @@ celerybeat.pid
 
 # Environments
 .env
+.env.*
+!.env.example
+!*.env.example
+*.dump
+*.backup
+*.partial
+/data/
+/.test-tmp/
+/postgres/
+/backups/
+local.json
 .venv
 env/
 venv/
@@ -192,3 +203,9 @@ playwright-report/
 
 
 
+
+# Code in local/ is versioned; accidental runtime artifacts are not.
+/local/data/
+/local/config/
+/local/postgres/
+/local/backups/

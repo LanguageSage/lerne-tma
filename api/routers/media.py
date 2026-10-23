@@ -12,6 +12,7 @@ from PIL import Image, UnidentifiedImageError
 from api import models
 from api.dependencies.auth import get_user_id
 from api.utils.image import optimize_image, upload_image_to_supabase
+from api.local_runtime import is_local, media_file
 
 logger = logging.getLogger(__name__)
 
@@ -37,6 +38,29 @@ LANG_DEFAULT_VOICES = {
 }
 
 RATE_RE = re.compile(r"^[+-]\d{1,3}%$")
+
+
+def _save_local_media(folder, filename, content):
+    path = media_file(folder, filename)
+    path.write_bytes(content)
+    try:
+        models.TMAMedia.create(filename=filename, folder=folder, content=None)
+    except Exception:
+        path.unlink(missing_ok=True)
+        raise
+    return {'path': f'{folder}/{filename}', 'url': f'/api/media/{folder}/{filename}'}
+
+
+def _local_media_response(folder, filename, request, media_type):
+    import mimetypes
+    from fastapi.responses import FileResponse
+    try:
+        path = media_file(folder, filename)
+    except ValueError:
+        raise HTTPException(404, detail='Media not found') from None
+    if not path.is_file():
+        raise HTTPException(404, detail='Local media not found')
+    return FileResponse(path, media_type=mimetypes.guess_type(path.name)[0] or media_type)
 
 
 def _normalize_tts_rate(value: str | None) -> str | None:
@@ -132,6 +156,9 @@ async def upload_image(
     # Вызываем наш оптимизатор. Он вернет сжатые байты и новый MIME-тип (image/webp)
     optimized_content, media_type = optimize_image(content)
     filename = f"upload_{user_id}_{uuid.uuid4().hex[:12]}.webp" # Всегда .webp
+    if is_local():
+        return {**_save_local_media('images', filename, optimized_content), 'media_type': media_type,
+                'original_size': len(content), 'optimized_size': len(optimized_content)}
 
     # 1. Загрузка в Supabase Storage bucket 'images'
     cloud_url = upload_image_to_supabase(optimized_content, filename, media_type)
@@ -336,6 +363,8 @@ async def upload_audio_file(
         raise HTTPException(status_code=413, detail="Audio is too large. Maximum size is 20 MB")
 
     filename = f"aud_{user_id}_{uuid.uuid4().hex[:12]}.mp3"
+    if is_local():
+        return _save_local_media('audio', filename, content)
     
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_KEY")
@@ -406,6 +435,8 @@ _media_cache = MediaMemoryCache()
 @router.get("/audio/{filename:path}")
 def get_audio(filename: str, request: Request):
     """Serve audio locally if present in temp/pending storage, else redirect to Supabase Storage CDN."""
+    if is_local():
+        return _local_media_response('audio', filename, request, 'audio/mpeg')
     clean_filename = os.path.basename(filename.split('?')[0])
 
     possible_paths = [
@@ -427,6 +458,8 @@ def get_audio(filename: str, request: Request):
 
 @router.get("/images/{filename:path}")
 def get_image(filename: str, request: Request):
+    if is_local():
+        return _local_media_response('images', filename, request, 'image/webp')
     clean_filename = os.path.basename(filename)
     cached = _media_cache.get('images', clean_filename)
     if cached:
@@ -499,6 +532,8 @@ async def upload_video(
         raise HTTPException(status_code=413, detail="Video is too large. Maximum size is 20 MB")
 
     filename = f"vid_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
+    if is_local():
+        return _save_local_media('videos', filename, content)
     try:
         models.TMAMedia.create(
             filename=filename,
@@ -525,6 +560,8 @@ async def upload_background(
         raise HTTPException(status_code=400, detail="Background file is empty")
     
     filename = f"bg_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
+    if is_local():
+        return _save_local_media('backgrounds', filename, content)
     try:
         models.TMAMedia.create(
             filename=filename,
@@ -551,6 +588,8 @@ def list_backgrounds(user_id: int = Depends(get_user_id)):
 
 @router.get("/videos/{filename}")
 def get_video(filename: str, request: Request):
+    if is_local():
+        return _local_media_response('videos', filename, request, 'video/mp4')
     media = models.TMAMedia.get_or_none(
         models.TMAMedia.filename == filename, 
         models.TMAMedia.folder == 'videos'
@@ -563,6 +602,8 @@ def get_video(filename: str, request: Request):
 
 @router.get("/backgrounds/{filename}")
 def get_background_video(filename: str, request: Request):
+    if is_local():
+        return _local_media_response('backgrounds', filename, request, 'video/mp4')
     media = models.TMAMedia.get_or_none(
         models.TMAMedia.filename == filename, 
         models.TMAMedia.folder == 'backgrounds'

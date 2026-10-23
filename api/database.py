@@ -1,10 +1,15 @@
 import os
 import logging
-from urllib.parse import urlparse, parse_qs
+from urllib.parse import urlparse, parse_qs, unquote
 from peewee import Proxy, OperationalError, ImproperlyConfigured, PostgresqlDatabase
 from dotenv import load_dotenv
+from api.local_runtime import configure_local, is_local, local_config, validate_database_url
 
-load_dotenv()
+configure_local()
+if not is_local():
+    load_dotenv()
+    if is_local():
+        raise RuntimeError('Enable LERNE_MODE=LOCAL explicitly in the process environment, not in the repository .env')
 logger = logging.getLogger(__name__)
 
 tma_db = Proxy()
@@ -45,6 +50,16 @@ class Pg8000Database(PostgresqlDatabase):
 def _parse_db_url(url: str) -> dict:
     """Parses SUPABASE_DB_URL into connection parameters."""
     parsed = urlparse(url)
+    if (os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV')
+            or os.environ.get('ENVIRONMENT', '').lower() == 'production'):
+        import ipaddress
+        host = (parsed.hostname or '').lower().rstrip('.')
+        try:
+            loopback = ipaddress.ip_address(host).is_loopback
+        except ValueError:
+            loopback = host == 'localhost' or host.endswith('.localhost')
+        if not host or loopback or parsed.path == '/lerne_tma_local':
+            raise RuntimeError('Production cannot connect to the LOCAL database')
     params = {
         'database': parsed.path.lstrip('/'),
         'user': parsed.username,
@@ -61,6 +76,15 @@ def _parse_db_url(url: str) -> dict:
 def initialize_database() -> bool:
     """Initializes the tma_db and lerne_db proxies with the best available PostgreSQL driver."""
     global tma_db, lerne_db
+    if is_local():
+        url = validate_database_url(local_config()['database_url'])
+        actual_db = PostgresqlDatabase(
+            url.path.lstrip('/'), user=unquote(url.username), password=unquote(url.password),
+            host='127.0.0.1' if url.hostname == 'localhost' else url.hostname,
+            port=url.port or 5432, connect_timeout=5, sslmode='disable')
+        tma_db.initialize(actual_db)
+        lerne_db.initialize(actual_db)
+        return True
     supabase_url = os.environ.get("SUPABASE_DB_URL")
     if not supabase_url:
         logger.error("FATAL: SUPABASE_DB_URL is not set.")

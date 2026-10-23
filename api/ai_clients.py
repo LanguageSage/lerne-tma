@@ -64,6 +64,9 @@ class AIService:
 
     async def chat_completion(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         """Route with per-request sampling; None preserves each provider's generation defaults."""
+        from api.local_runtime import is_local
+        if is_local():
+            return 'AI is unavailable in LOCAL', False
         self.last_failure_code = None
         keys_to_try = self._get_ordered_keys()
         if self.key_attempts is not None:

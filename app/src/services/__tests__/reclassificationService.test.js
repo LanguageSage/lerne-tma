@@ -1,5 +1,6 @@
 import { test, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import { setImmediate } from 'node:timers/promises';
 
 let user = 1;
 const storage = new Map();
@@ -38,7 +39,7 @@ test('sequential batches show progress and only report success after the final r
   const first = reclassifyDeck(deck, options);
   const duplicate = reclassifyDeck(deck, options);
   assert.equal(first, duplicate);
-  await new Promise(resolve => setImmediate(resolve));
+  await setImmediate();
   assert.equal(requests.length, 2);
   assert.equal(toasts.some(([, type]) => type === 'success'), false);
   assert.match(toasts.at(-1)[0], /10.*20/);
