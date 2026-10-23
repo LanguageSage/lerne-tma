@@ -639,7 +639,7 @@ export const CardForm = ({
           <CardBackground styleType={resolvedBgBack} />
 
           <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <label className="sub-label" htmlFor="card-editor-back">{tr("Ответ / обратная сторона")}</label>
+            <label className="sub-label" htmlFor="card-editor-back">{tr(detectExerciseType(cardData) === 'editable_text' ? 'Полный исправленный текст' : 'Ответ / обратная сторона')}</label>
             <textarea
               id="card-editor-back"
               ref={backRef}
@@ -665,8 +665,9 @@ export const CardForm = ({
                 minHeight: '52px'
               }}
               placeholder={(() => {
-                const isExercise = Boolean(detectExerciseType(cardData));
-                return isExercise ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
+                const exerciseType = detectExerciseType(cardData);
+                if (exerciseType === 'editable_text') return tr('Введите полный исправленный текст...');
+                return exerciseType ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
               })()}
             />
 

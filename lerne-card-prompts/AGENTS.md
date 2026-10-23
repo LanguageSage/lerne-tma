@@ -16,6 +16,7 @@
 | Собрать фразу из слов | [Puzzle](types/puzzle.md) |
 | Заполнить пропуски из общего банка | [Word Bank](types/word-bank.md) |
 | Дать открытый ответ: мнение, рассказ, эссе | [Free Text](types/free-text.md) |
+| Исправить готовый текст в поле | [Editable Text](types/editable-text.md) |
 | Вспомнить ответ и перевернуть карточку | [Standard](types/standard.md) |
 | Прочитать правило или объяснение | [Theory](types/theory.md) |
 

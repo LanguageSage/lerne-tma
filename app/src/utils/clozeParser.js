@@ -70,7 +70,7 @@ export const normalizeAnswer = (str) => {
 
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
-  const stripped = parseExerciseContent(text).exercise.replace(/^@(puzzle|match|free)\s*/i, '');
+  const stripped = parseExerciseContent(text).exercise.replace(/^@(puzzle|match|free|edit)\s*/i, '');
   return stripped.replace(/(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())/g, (match, c1, c2, c3) => {
     const contents = c1 || c2 || c3 || '';
     const parts = contents.split(/[|;,/]/).map(p => p.trim()).filter(Boolean);

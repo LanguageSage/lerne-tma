@@ -11,7 +11,7 @@ const MARKER_TO_BLOCK_TYPE = Object.freeze({
 const normalizeLineEndings = (value) => String(value ?? '').replace(/\r\n?/g, '\n');
 
 const isExerciseMarker = (line) => /^\s*::exercise\s*$/i.test(line || '');
-const isInteractiveMarker = (line) => /^[ \t]*@(puzzle|match|wordbank|free|theory)[ \t]*$/i.test(line || '');
+const isInteractiveMarker = (line) => /^[ \t]*@(puzzle|match|wordbank|free|edit|theory)[ \t]*$/i.test(line || '');
 const isTheoryMarker = (line) => /^[ \t]*@theory[ \t]*$/i.test(line || '');
 
 const getBlockType = (line) => {

@@ -71,8 +71,8 @@ def _structure_errors(item):
         chunks = exercise.split(opening)
         if closing in chunks[0] or any(len(chunk.split(closing)) != 2 for chunk in chunks[1:]):
             errors.append('unclosed_syntax')
-    if item['card_type'] in ('match', 'free_text', 'puzzle', 'word_bank'):
-        if not re.sub(r'@(match|free|puzzle|wordbank)\b', '', exercise, flags=re.I).strip():
+    if item['card_type'] in ('match', 'free_text', 'editable_text', 'puzzle', 'word_bank'):
+        if not re.sub(r'@(match|free|edit|puzzle|wordbank)\b', '', exercise, flags=re.I).strip():
             errors.append('invalid_exercise')
     # Service metadata and transport section boundaries must never be submitted as content.
     for field in ('front', 'back', 'context'):

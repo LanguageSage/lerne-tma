@@ -20,6 +20,7 @@
 | **Сборка предложения** из перемешанных слов/токенов | `"puzzle"` | [types/puzzle.md](types/puzzle.md) |
 | **Заполнение пропусков из общего банка слов** | `"word_bank"` | [types/word-bank.md](types/word-bank.md) |
 | **Открытый развёрнутый ответ** (мнение, рассказ, эссе, трансформация по полиси) | `"free_text"` | [types/free-text.md](types/free-text.md) |
+| **Исправление готового текста** целиком в поле | `"editable_text"` | [types/editable-text.md](types/editable-text.md) |
 | **Двусторонняя карточка** (вопрос $\rightarrow$ ответ, слово $\rightarrow$ перевод) | `"standard"` | [types/standard.md](types/standard.md) |
 | **Чтение правила, таблицы или грамматической сводки** без проверки ввода | `"theory"` | [types/theory.md](types/theory.md) |
 
@@ -44,7 +45,7 @@
 Финальный ответ должен содержать **валидный JSON-документ Structured Cards V2** (`"schema_version": 2`), готовый к загрузке в `api/services/structured_cards_v2.py` и `api/services/author_service.py`:
 - Без вступительных и заключительных фраз.
 - Без комментариев `//` или trailing commas (строгий стандарт RFC 8259 JSON).
-- Без legacy-маркеров (`FRONT:`, `BACK:`, `CONTEXT:`, `<<<LERNE_CARD>>>`, `[[...]]`, `{...|...}`, `@puzzle`, `::task`) внутри строковых полей.
+- Без legacy-маркеров (`FRONT:`, `BACK:`, `CONTEXT:`, `<<<LERNE_CARD>>>`, `[[...]]`, `{...|...}`, `@puzzle`, `@edit`, `::task`) внутри строковых полей.
 - **Экономия токенов**: опускайте неиспользуемые поля (`id`, пустые `info`, `metadata`). Если `level` и `topics` заданы в `deck.passport.intro`, не дублируйте их внутри карточек.
 - **Компактный формат**: пишите плотный JSON без раздутых отступов (1-2 пробела либо компактные строки карточек).
 

@@ -97,6 +97,7 @@ BACK:
       rawText.includes('@wordbank') ||
       rawText.includes('@match') ||
       rawText.includes('@free') ||
+      rawText.includes('@edit') ||
       rawText.includes('@puzzle') ||
       rawText.includes('\n*') ||
       /\{([^}]+)\}/.test(rawText) ||
@@ -301,6 +302,7 @@ BACK:
   const trainerCount = parsedCards.filter(c => getCardType(c) === 'trainer').length;
   const matchCount = parsedCards.filter(c => getCardType(c) === 'match').length;
   const freeTextCount = parsedCards.filter(c => getCardType(c) === 'free_text').length;
+  const editableTextCount = parsedCards.filter(c => getCardType(c) === 'editable_text').length;
   const puzzleCount = parsedCards.filter(c => getCardType(c) === 'puzzle').length;
   const wordBankCount = parsedCards.filter(c => getCardType(c) === 'word_bank').length;
   const standardCount = parsedCards.filter(c => getCardType(c) === 'standard').length;
@@ -474,6 +476,7 @@ BACK:
                             {quizCount > 0 && <span style={{ color: '#4ade80', background: 'rgba(34,197,94,0.15)', padding: '1px 5px', borderRadius: 4 }}>☑️ Quiz: {quizCount}</span>}
                             {matchCount > 0 && <span style={{ color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '1px 5px', borderRadius: 4 }}>🔗 Match: {matchCount}</span>}
                             {freeTextCount > 0 && <span style={{ color: '#f59e0b', background: 'rgba(245,158,11,0.15)', padding: '1px 5px', borderRadius: 4 }}>💬 Free text: {freeTextCount}</span>}
+                            {editableTextCount > 0 && <span style={{ color: '#38bdf8', background: 'rgba(56,189,248,0.15)', padding: '1px 5px', borderRadius: 4 }}>✏️ Editable text: {editableTextCount}</span>}
                             {puzzleCount > 0 && <span style={{ color: '#ec4899', background: 'rgba(236,72,153,0.15)', padding: '1px 5px', borderRadius: 4 }}>🧩 Puzzle: {puzzleCount}</span>}
                             {wordBankCount > 0 && <span style={{ color: '#a78bfa', background: 'rgba(167,139,250,0.15)', padding: '1px 5px', borderRadius: 4 }}>🏦 Word Bank: {wordBankCount}</span>}
                             {standardCount > 0 && <span style={{ color: '#94a3b8', background: 'rgba(255,255,255,0.08)', padding: '1px 5px', borderRadius: 4 }}>📖 Standard: {standardCount}</span>}

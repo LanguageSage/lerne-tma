@@ -13,14 +13,14 @@ import './StudyCardFreeText.css';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
 export const StudyCardFreeText = React.memo(({
-  card, freeTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
+  card, freeTextData, editableTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
   styles = {}, isPureTrainerMode = false, savedState, onSaveState, reviewKey,
   assessmentMode = false,
 }) => {
   useInterfaceLocale();
   const currentKey = reviewKey ?? (card?.id != null ? String(card.id) : null);
   const [prevKey, setPrevKey] = useState(currentKey);
-  const [userInput, setUserInput] = useState(savedState?.userInput || '');
+  const [userInput, setUserInput] = useState(savedState?.userInput ?? editableTextData?.sourceText ?? '');
   const [showExample, setShowExample] = useState(savedState?.showExample || false);
   const isAdmin = useSettingsStore(s => s.isAdmin);
   const [diagnosticsEnabled, setDiagnosticsEnabled] = useState(false);
@@ -41,7 +41,7 @@ export const StudyCardFreeText = React.memo(({
 
   if (prevKey !== currentKey) {
     setPrevKey(currentKey);
-    setUserInput(savedState?.userInput || '');
+    setUserInput(savedState?.userInput ?? editableTextData?.sourceText ?? '');
     setShowExample(savedState?.showExample || false);
   }
 
@@ -67,9 +67,10 @@ export const StudyCardFreeText = React.memo(({
     }
   }, [evidence, onTrainerAnswer, card?.id]);
 
-  if (!card || !freeTextData) return null;
-  const exampleAnswer = freeTextData.exampleAnswer;
-  const canShowExample = !assessmentMode && !isCompleted && canRevealFreeTextAnswer(state);
+  if (!card || (!freeTextData && !editableTextData)) return null;
+  const isEditable = Boolean(editableTextData);
+  const exampleAnswer = freeTextData?.exampleAnswer;
+  const canShowExample = !isEditable && !assessmentMode && !isCompleted && canRevealFreeTextAnswer(state);
   const sameRejectedAnswer = userInput === state.lastAnswer && result?.verdict !== 'unavailable';
 
   const handleSubmit = async event => {
@@ -113,21 +114,23 @@ export const StudyCardFreeText = React.memo(({
   };
 
   return (
-    <form className="interactive-mode-container free-text-exercise"
+    <form className={`interactive-mode-container free-text-exercise${isEditable ? ' editable-text-exercise' : ''}`}
       onClick={event => event.stopPropagation()} onSubmit={handleSubmit} aria-busy={loading}>
-      <div className="free-text-heading"><PenLine size={16} />{tr('Свободный ответ / Письмо')}</div>
-      <div className="text-front free-text-prompt" style={cardStyle}>{freeTextData.prompt}</div>
+      <div className="free-text-heading"><PenLine size={16} />{tr(isEditable ? 'Редактируемый текст' : 'Свободный ответ / Письмо')}</div>
+      {isEditable
+        ? <p className="free-text-dictation-help">{tr('Исправьте текст прямо в поле и проверьте ответ.')}</p>
+        : <div className="text-front free-text-prompt" style={cardStyle}>{freeTextData.prompt}</div>}
       {renderAudioPlayer && <div className="free-text-audio">{renderAudioPlayer()}</div>}
       <textarea
-        aria-label={tr('Ваш ответ')}
+        aria-label={tr(isEditable ? 'Исправленный текст' : 'Ваш ответ')}
         value={userInput}
         onChange={event => { cancel(); setUserInput(event.target.value); }}
-        placeholder={tr('Напишите ваш ответ здесь...')}
+        placeholder={tr(isEditable ? 'Исправьте текст здесь...' : 'Напишите ваш ответ здесь...')}
         disabled={isCompleted || isExhausted || loading}
         maxLength={4000} rows={3} style={contextStyle}
-        aria-describedby={`dictation-help-${card.id}${result ? ` answer-feedback-${card.id}` : ''}`}
+        aria-describedby={`${isEditable ? '' : `dictation-help-${card.id}`}${result ? ` answer-feedback-${card.id}` : ''}`.trim() || undefined}
       />
-      {!isCompleted && !isExhausted && <button type="button"
+      {!isEditable && !isCompleted && !isExhausted && <button type="button"
         className="btn btn-secondary free-text-action free-text-dictate" aria-pressed={isListening}
         disabled={loading || isStopping}
         onClick={() => {
@@ -138,16 +141,16 @@ export const StudyCardFreeText = React.memo(({
         {isListening ? <Pause size={16} /> : isPaused ? <Play size={16} /> : <Mic size={16} />}
         {isListening ? tr('Пауза') : isPaused ? tr('Продолжить') : tr('Диктовать')}
       </button>}
-      <p id={`dictation-help-${card.id}`} className="free-text-dictation-help" role="status">
+      {!isEditable && <p id={`dictation-help-${card.id}`} className="free-text-dictation-help" role="status">
         {speechError || (isStopping ? tr('Завершаем распознавание…') : isListening ? tr('Слушаю… Говорите на языке задания.') : tr('Можно исправить текст перед проверкой.'))}
-      </p>
+      </p>}
       {result && (
         <div id={`answer-feedback-${card.id}`} className={`free-text-feedback ${isCompleted ? 'is-success' : ''}`}
           role="status" aria-live="polite">
           {result.verdict === 'correct' && <p><Check size={16} />{tr('Верно!')}</p>}
           {result.verdict === 'accepted_minor' && <>
             <p><Check size={16} />{result.error_type === 'typo' ? tr('Верно. Небольшая опечатка.') : tr('Верно. Небольшая неточность в написании.')}</p>
-            {result.corrected_answer && <p className="free-text-correction">{result.corrected_answer}</p>}
+            {!isEditable && result.corrected_answer && <p className="free-text-correction">{result.corrected_answer}</p>}
           </>}
           {result.verdict === 'unavailable' && <>
             <p>{tr('Не удалось проверить ответ. Попробуйте ещё раз — попытка не засчитана.')}</p>

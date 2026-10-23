@@ -108,6 +108,8 @@ rg -n 'clearCurrentFeedback|requiredPartIds|interaction_count' app/src/utils/exe
 
 ## Free Text: диктовка ответа
 
+Editable Text (`@edit`) предзаполняет поле ошибочным текстом. BACK — полное исправление, `::source` — перевод при необходимости, CONTEXT — объяснение на обороте. Проверка через `evaluate-answer` с `controlled_text` и отключённым зачётом опечаток по умолчанию; `useFreeTextEvaluation` сохраняет попытки и ошибки, а `exerciseStates[reviewKey]` — черновик внутри сессии.
+
 - `useSpeechRecognition` сохраняет прежние defaults для `StudyCardSpeech`: silenceTimeoutMs=1500, autoRestart=false. Free Text передаёт silenceTimeoutMs=null и autoRestart=true; Game Mode не менялся.
 - Free Text: «Диктовать» → «Пауза» + «Отправить» → «Продолжить» + «Отправить». Ручной ввод остаётся доступен и отменяет запись/ожидающую отправку, сохраняя исправленный текст. Повторная диктовка после ручной правки дописывается к текущему черновику; лимит 4000 символов.
 - Пауза и отправка вызывают `recognition.stop()`, ждут финальные results и onend; 2s fallback сохраняет видимый текст, если движок не завершает сеанс. Отправка заблокирована ref-защёлкой на время flush и существующим evaluation session на время API. Навигация, язык и unmount отменяют запись, таймеры и pending flush; старые события игнорируются.

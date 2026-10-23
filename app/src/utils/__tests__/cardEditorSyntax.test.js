@@ -189,7 +189,7 @@ test('source toolbar action generates only the official source marker and hint i
   assert.ok(exerciseGroup);
   assert.ok(markerGroup);
   assert.ok(editGroup);
-  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'wordbank', 'choice', 'input']);
+  assert.deepEqual(exerciseGroup.commands.map(c => c.id), ['puzzle', 'match', 'free', 'edit', 'wordbank', 'choice', 'input']);
   assert.deepEqual(markerGroup.commands.map(c => c.id), ['task', 'source', 'example', 'exercise', 'options', 'topic', 'level']);
   assert.deepEqual(editGroup.commands.map(c => c.id), ['ending']);
 

@@ -31,15 +31,16 @@ export const detectAiQuickActionType = (text) => {
  * Strict Priority:
  * 1. match (@match)
  * 2. free_text (@free)
- * 3. puzzle (@puzzle)
- * 4. word_bank (@wordbank)
- * 5. trainer ({...} or [[...]]) - absolute priority over quiz
- * 6. quiz (structured multiple choice test with * on option lines)
- * 7. puzzle (if studyMode === 'puzzle')
- * 8. null (standard card)
+ * 3. editable_text (@edit)
+ * 4. puzzle (@puzzle)
+ * 5. word_bank (@wordbank)
+ * 6. trainer ({...} or [[...]]) - absolute priority over quiz
+ * 7. quiz (structured multiple choice test with * on option lines)
+ * 8. puzzle (if studyMode === 'puzzle')
+ * 9. null (standard card)
  *
  * @theory is explicit type metadata and takes priority over exercise syntax.
- * Returns: 'theory' | 'match' | 'free_text' | 'quiz' | 'trainer' | 'puzzle' | 'word_bank' | null
+ * Returns: 'theory' | 'match' | 'free_text' | 'editable_text' | 'quiz' | 'trainer' | 'puzzle' | 'word_bank' | null
  */
 export const detectCardType = (cardOrFront, studyMode = 'classic') => {
   if (!cardOrFront) return null;
@@ -61,22 +62,26 @@ export const detectCardType = (cardOrFront, studyMode = 'classic') => {
     return 'free_text';
   }
 
-  // 3. Sentence builder / puzzle directive: @puzzle
+  if (/^[ \t]*@edit[ \t]*$/im.test(trimmed)) {
+    return 'editable_text';
+  }
+
+  // 4. Sentence builder / puzzle directive: @puzzle
   if (/^[ \t]*@puzzle[ \t]*$/im.test(trimmed)) {
     return 'puzzle';
   }
 
-  // 4. Shared word bank. Must win over trainer syntax if malformed legacy tokens are present.
+  // 5. Shared word bank. Must win over trainer syntax if malformed legacy tokens are present.
   if (/^[ \t]*@wordbank[ \t]*$/im.test(trimmed)) {
     return 'word_bank';
   }
 
-  // 5. Trainer / Cloze gaps: {...} or [[...]] (Strict priority over quiz)
+  // 6. Trainer / Cloze gaps: {...} or [[...]] (Strict priority over quiz)
   if (hasTrainerSyntax(trimmed)) {
     return 'trainer';
   }
 
-  // 6. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
+  // 7. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
   const cardObj = typeof cardOrFront === 'string'
     ? { front: trimmed }
     : { ...cardOrFront, front: trimmed, front_text: trimmed };
@@ -85,7 +90,7 @@ export const detectCardType = (cardOrFront, studyMode = 'classic') => {
     return 'quiz';
   }
 
-  // 7. Explicit studyMode puzzle fallback
+  // 8. Explicit studyMode puzzle fallback
   if (studyMode === 'puzzle') {
     return 'puzzle';
   }

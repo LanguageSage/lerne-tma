@@ -224,7 +224,7 @@ export function parseBatchCardsText(rawText) {
 
     const { level: explicitLevel, topic: explicitTopic, cleanContext } = extractContextMetadata(context);
 
-    const defaultLevel = (detectedType === 'match' || detectedType === 'free_text' || detectedType === 'quiz' || detectedType === 'word_bank')
+    const defaultLevel = (detectedType === 'match' || detectedType === 'free_text' || detectedType === 'editable_text' || detectedType === 'quiz' || detectedType === 'word_bank')
       ? 'B1'
       : 'A1';
 

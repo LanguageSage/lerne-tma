@@ -25,6 +25,8 @@
   resize: vertical;
 }
 .free-text-exercise textarea:focus-visible { outline: 2px solid var(--design-ft-focus-border, currentColor); outline-offset: 4px; }
+.editable-text-exercise textarea { max-width: min(100%, 620px); min-height: 120px; }
+.editable-text-exercise .free-text-feedback { max-width: 620px; }
 .free-text-action { width: 100%; max-width: 340px; min-height: 44px; display: inline-flex; gap: 8px; align-items: center; justify-content: center; white-space: normal; }
 .free-text-dictate[aria-pressed="true"] { outline: 2px solid currentColor; outline-offset: 2px; }
 .free-text-dictate svg { flex-shrink: 0; }

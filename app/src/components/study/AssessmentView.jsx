@@ -85,7 +85,7 @@ export function AssessmentView() {
     </section> : <>
       <p role="status">{tr('Задание')} {session.index + 1} / {session.cards.length}
         {session.index >= session.config.required_count ? ` · ${tr('Бонус')}` : ''}</p>
-      {['trainer', 'free_text'].includes(detectExerciseType(card)) ? <ExerciseRenderer
+      {['trainer', 'free_text', 'editable_text'].includes(detectExerciseType(card)) ? <ExerciseRenderer
         key={`${session.id}:${card.id}`} reviewKey={`${session.id}:${card.id}`} card={card}
         studyMode="classic" assessmentMode styles={settings} onTrainerAnswer={save} />
         : <p role="alert">{tr('Механика задания не поддерживается в экзамене. Вернитесь к колоде.')}</p>}
