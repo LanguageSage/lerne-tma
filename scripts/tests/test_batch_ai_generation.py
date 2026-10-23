@@ -4,11 +4,11 @@ import asyncio
 from peewee import SqliteDatabase
 
 # Ensure project root is in python path
-project_root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 sys.path.insert(0, project_root)
 
-# Initialize in-memory SQLite database for testing
-test_db = SqliteDatabase(':memory:')
+# Share the in-memory database with the classifier's worker threads.
+test_db = SqliteDatabase('file:batch-ai-test?mode=memory&cache=shared', uri=True)
 
 from api import models
 models.tma_db.initialize(test_db)
@@ -21,7 +21,8 @@ models.tma_db.create_tables([
     models.TMA_Card,
     models.TMAProgress,
     models.TMASetting,
-    models.TMACustomPrompt
+    models.TMACustomPrompt,
+    models.TMAOfflineBatch,
 ], safe=True)
 
 # Mock AI Service responses
@@ -78,7 +79,7 @@ Das Haus mit dem großen Garten."""
     # Test 2: classify_phrases_batch
     print("\n[Test 2] Testing classify_phrases_batch...")
     with patch("api.ai_clients.AIService.chat_completion", new_callable=AsyncMock) as mock_chat:
-        mock_chat.return_value = ('["A1", "A1", "B2", "A1", "A2"]', True)
+        mock_chat.return_value = ('["B2", "A2"]', True)
         phrases = [c["front"] for c in res["cards"]]
         levels = await ai_service.classify_phrases_batch(phrases, "de")
         assert len(levels) == 5
@@ -104,10 +105,10 @@ Das Haus mit dem großen Garten."""
 
     from api.routers.ai import classify_cards_batch_endpoint, ClassifyBatchRequest
     with patch("api.ai_service.classify_phrases_batch", new_callable=AsyncMock) as mock_classify:
-        mock_classify.return_value = ["A1", "A1", "B2", "A1", "A2"]
+        mock_classify.return_value = ["B2", "A2"]
         req = ClassifyBatchRequest(deck_id=deck.id, target_language="de")
         classify_res = await classify_cards_batch_endpoint(req, user_id=user_id)
-        assert classify_res["status"] == "ok"
+        assert classify_res["status"] == "ok" and classify_res["complete"]
         assert classify_res["updated_count"] == 5
         
         db_cards = list(models.TMA_Card.select().where(models.TMA_Card.deck_id == deck.id).order_by(models.TMA_Card.position.asc()))

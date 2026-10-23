@@ -35,6 +35,33 @@ evaluator must be ai. Always include confidence, a number from 0 to 1 reflecting
 If uncertain, use unavailable. Do not store chain-of-thought."""
 
 
+_CLIP = {'hint': 300, 'explanation': 500, 'corrected_answer': 4000, 'error_code': 100}
+
+
+def _parse_evaluation(raw: str) -> AnswerEvaluation:
+    """Validate a model reply, tolerating formatting noise but never a wrong verdict.
+
+    Accepts markdown fences, END_JSON and text around the object, drops unknown
+    fields, clips over-long feedback and reads percent confidence (95 -> 0.95).
+    Verdict/accepted/severity consistency is still enforced by the schema.
+    """
+    text = raw.strip() if isinstance(raw, str) else ''
+    start, end = text.find('{'), text.rfind('}')
+    if start < 0 or end < start:
+        raise ValueError('no json object')
+    data = json.loads(text[start:end + 1])
+    if not isinstance(data, dict):
+        raise ValueError('not an object')
+    data = {key: value for key, value in data.items() if key in AnswerEvaluation.model_fields}
+    for key, limit in _CLIP.items():
+        if isinstance(data.get(key), str):
+            data[key] = data[key][:limit]
+    confidence = data.get('confidence')
+    if isinstance(confidence, (int, float)) and not isinstance(confidence, bool) and 1 < confidence <= 100:
+        data['confidence'] = confidence / 100
+    return AnswerEvaluation.model_validate(data)
+
+
 async def evaluate_with_ai(context: dict, policy: GradingPolicy, client, model: str,
                            diagnostics=None):
     failure_reason = None
@@ -53,8 +80,7 @@ async def evaluate_with_ai(context: dict, policy: GradingPolicy, client, model: 
             if diagnostics is not None:
                 diagnostics.update(ai_called=True, provider=getattr(client, 'provider', None), model=model)
                 diagnostics.setdefault('requests', []).append({**request})
-            raw, success = await client.chat_completion(
-                **request)
+            raw, success = await client.chat_completion(**request)
             if not success:
                 code = getattr(client, 'last_failure_code', None)
                 reason = code if code in ('timeout', 'rate_limited', 'provider_unavailable',
@@ -66,11 +92,7 @@ async def evaluate_with_ai(context: dict, policy: GradingPolicy, client, model: 
                     continue
                 return failed(reason)
             try:
-                # Accept a complete fenced object, never salvage a broken/truncated response.
-                if isinstance(raw, str):
-                    fenced = re.fullmatch(r'\s*```(?:json)?\s*(.*?)\s*```\s*', raw, re.S | re.I)
-                    raw = fenced[1] if fenced else raw
-                result = AnswerEvaluation.model_validate_json(raw)
+                result = _parse_evaluation(raw)
                 if 'confidence' not in result.model_fields_set or 'evaluator' not in result.model_fields_set:
                     reason = 'schema_validation'
                 else:
