@@ -1691,12 +1691,13 @@
                ondrop="handleAuthorPublishDrop(event)"
                onclick="document.getElementById('author-publish-file-input').click()"
                class="glass border-2 border-dashed border-slate-700 hover:border-indigo-500/80 rounded-2xl p-10 text-center cursor-pointer transition-all bg-slate-900/40 hover:bg-indigo-950/20 group">
-            <input type="file" id="author-publish-file-input" accept=".json,.txt,.md,.text" multiple onchange="handleAuthorPublishFileSelect(this)" class="hidden">
+            <input type="file" id="author-publish-file-input" accept=".json,.txt,.md,.text,.jpg,.jpeg,.png,.webp,.gif" multiple onchange="handleAuthorPublishFileSelect(this)" class="hidden">
             <div class="w-14 h-14 rounded-2xl bg-indigo-600/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 mx-auto mb-4 group-hover:scale-105 group-hover:bg-indigo-600/20 transition-transform">
               <i data-lucide="file-up" class="w-7 h-7"></i>
             </div>
-            <h3 class="font-bold text-base text-white">Перетащите файлы урока (.json / .txt / .md) сюда</h3>
+            <h3 class="font-bold text-base text-white">Перетащите файлы урока и связанные изображения сюда</h3>
             <p class="text-xs text-slate-400 mt-1">или <span class="text-indigo-400 underline font-semibold">нажмите для выбора файлов</span> (можно выбрать несколько)</p>
+            <p class="text-[11px] text-slate-400 mt-2">Связь: Markdown <code>![описание](файл.png)</code>, <code>::image файл.png</code>, поле <code>image</code> в V2 или манифест <code>*.images.json</code>.</p>
             <div class="flex items-center justify-center gap-2 mt-4 text-[11px] text-slate-500 font-mono">
               <span class="px-2 py-0.5 rounded bg-slate-800/80 border border-slate-700/60">JSON V2 / Lerne Codex</span>
               <span>•</span>
@@ -1755,6 +1756,7 @@
 
           <!-- Syntax Issues Alert Container -->
           <div id="author-publish-syntax-wrap" class="hidden"></div>
+          <div id="author-publish-images-wrap" class="hidden"></div>
 
           <!-- Decks Preview Table -->
           <div class="glass rounded-2xl border border-slate-800 overflow-hidden">

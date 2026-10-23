@@ -19,9 +19,11 @@ import re
 import uuid
 import json
 import datetime
+from collections import Counter
+from pathlib import PurePosixPath
 from typing import List, Dict, Any, Optional, Tuple
 
-from api.models import tma_db, TMA_Folder, TMA_Deck, TMA_Card, TMAUser
+from api.models import tma_db, TMA_Folder, TMA_Deck, TMA_Card, TMAUser, TMAMedia
 from api import services
 from api.services.card_text_update import (
     preview_text_update,
@@ -177,6 +179,7 @@ def _parse_card_blocks(
         card_m = re.search(r'::card_id\s+(\d+)', meta_part)
         if card_m:
             card_id = int(card_m.group(1))
+        image_m = re.search(r'(?m)^\s*::image\s+(.+?)\s*$', meta_part)
 
         # Извлечение секций FRONT:, BACK:, CONTEXT:
         front_m = re.search(r'FRONT:\s*\n?(.*?)(?=\n\s*BACK:|\Z)', card_content, re.DOTALL | re.IGNORECASE)
@@ -235,6 +238,7 @@ def _parse_card_blocks(
                 'context': clean_context,
                 'level': level,
                 'topics': topics,
+                'image_ref': image_m.group(1) if image_m else None,
             })
 
     return parsed_cards
@@ -252,7 +256,9 @@ def _parse_v2_json_document(text, default_deck_id=None, default_deck_name=None):
                 'structure_errors': [msg], 'warnings': []}
     deck_name = doc.deck.name or default_deck_name or 'Без названия'
     cards = [
-        {**c, 'number': idx + 1, 'card_id': None, 'deck_id': default_deck_id, 'deck_name': deck_name}
+        {**c, 'number': idx + 1, 'card_id': None, 'deck_id': default_deck_id,
+         'deck_name': deck_name, 'source_id': doc.cards[idx].id,
+         'image_ref': doc.cards[idx].image}
         for idx, c in enumerate(legacy['cards'])
     ]
     passports = (
@@ -380,6 +386,83 @@ def parse_uploaded_documents(files):
     for number, card in enumerate(combined['cards'], 1):
         card['number'] = number
     return combined
+
+
+IMAGE_LINK = re.compile(r'!\[[^\]]*\]\(<([^>]+)>\)|!\[[^\]]*\]\(([^\s)]+)(?:\s+"[^"]*")?\)', re.I)
+IMAGE_DIRECTIVE = re.compile(r'(?m)^\s*::image\s+(.+?)\s*$')
+
+
+def _image_key(value):
+    """Normalize only safe, relative asset names; never resolve paths on disk."""
+    from urllib.parse import unquote, urlsplit
+    value = unquote(str(value or '').strip().replace('\\', '/'))
+    if not value or value.startswith('/') or '://' in value or value.startswith('data:'):
+        return None
+    path = urlsplit(value).path
+    parts = PurePosixPath(path).parts
+    if not parts or any(part in ('.', '..') for part in parts) or ':' in parts[0]:
+        return None
+    return '/'.join(parts).casefold()
+
+
+def resolve_import_images(cards, image_names, manifest=None):
+    """Return reviewable links; never guess when a filename or card target is ambiguous."""
+    manifest = manifest or []
+    name_counts = Counter(image_names)
+    assets = {}
+    for name in image_names:
+        key = _image_key(name)
+        if key:
+            assets.setdefault(key, []).append(name)
+    links = []
+    manifest_hits = [0] * len(manifest)
+    for card in cards:
+        refs = []
+        if card.get('image_ref'):
+            refs.append(card['image_ref'])
+        for field in ('front', 'back', 'context'):
+            body = card.get(field) or ''
+            refs.extend(match.group(1) or match.group(2) for match in IMAGE_LINK.finditer(body))
+            refs.extend(IMAGE_DIRECTIVE.findall(body))
+        for index, item in enumerate(manifest):
+            if (item.get('deck') == card.get('deck_name') and
+                (item.get('card') == card.get('source_id') or
+                 item.get('card') == card.get('number'))):
+                manifest_hits[index] += 1
+                refs.append(item.get('file'))
+                if not card.get('image_ref'):
+                    card['image_ref'] = item.get('file')
+        refs = list(dict.fromkeys(refs))
+        if not refs:
+            continue
+        candidates = []
+        for ref in refs:
+            key = _image_key(ref)
+            if key:
+                exact = assets.get(key, [])
+                basename = [name for asset_key, names in assets.items()
+                            if asset_key.rsplit('/', 1)[-1] == key.rsplit('/', 1)[-1]
+                            for name in names]
+                candidates.extend(exact or basename)
+        unique = list(dict.fromkeys(candidates))
+        duplicate_file = any(name_counts[name] > 1 for name in unique)
+        status = ('matched' if len(refs) == 1 and len(unique) == 1 and not duplicate_file else
+                  'missing' if not unique else 'ambiguous')
+        if status == 'matched':
+            card['image_ref'] = refs[0]
+            for field in ('front', 'back', 'context'):
+                body = card.get(field) or ''
+                body = IMAGE_LINK.sub('', body)
+                card[field] = IMAGE_DIRECTIVE.sub('', body).strip()
+        links.append({'card_number': card['number'], 'deck': card.get('deck_name'),
+                      'references': refs, 'candidates': unique, 'status': status,
+                      'file': unique[0] if status == 'matched' else None})
+    for item, hits in zip(manifest, manifest_hits):
+        if hits != 1:
+            links.append({'card_number': None, 'deck': item.get('deck'),
+                          'references': [item.get('file')], 'candidates': [],
+                          'status': 'missing' if hits == 0 else 'ambiguous', 'file': None})
+    return links
 
 
 def parse_cards_text(text, default_deck_id=None, default_deck_name=None):
@@ -718,7 +801,8 @@ def apply_publish_content(
     force_new_deck: bool = False,
     user_id: Optional[int] = None,
     passports=None,
-    passport_only: bool = False
+    passport_only: bool = False,
+    image_data=None
 ) -> Dict[str, Any]:
     """
     Атомарно публикует урок:
@@ -734,6 +818,17 @@ def apply_publish_content(
 
     # Outer transaction also covers new folder creation and all nested bulk saves.
     with tma_db.atomic():
+        media_paths = {}
+        for card in cards:
+            if card.get('image_file'):
+                file_name = card['image_file']
+                if not image_data or file_name not in image_data:
+                    raise ValueError(f'Изображение {file_name} отсутствует в запросе публикации.')
+                if file_name not in media_paths:
+                    media_name = f'author_{uuid.uuid4().hex}.webp'
+                    TMAMedia.create(filename=media_name, folder='images', content=image_data[file_name])
+                    media_paths[file_name] = f'images/{media_name}'
+                card['image_path'] = media_paths[file_name]
         return _publish_document(cards, target_folder_id, new_folder_name, default_deck_name,
                                  force_new_deck, user_id, passport_map, passport_only)
 
@@ -817,6 +912,8 @@ def _publish_document(cards, target_folder_id, new_folder_name, default_deck_nam
                     'level': c.get('level'),
                     'card_type': exercise_type,
                 }
+                if c.get('image_path'):
+                    item['image_path'] = c['image_path']
                 if 'metadata' in c:
                     item['metadata'] = c['metadata']
                 cards_payload.append(item)

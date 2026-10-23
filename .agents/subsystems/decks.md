@@ -109,13 +109,6 @@ Integration/browser scripts могут менять данные; сначала
 - Учебные карточки и CardList читают опубликованный V2 (или черновик при включённом локальном просмотре); личные typography/front/back настройки и SRS/статистика не изменяются.
 - Проверки: `app/src/design/__tests__/designConfig.test.js`, `designTokens.test.js`; `scripts/tests/browser/design-editor.spec.cjs` перехватывает API и внешние запросы, покрывает JSON, черновик, confirm/cancel, локальный просмотр, ошибки, восстановление, реальные CSS-значения и 320/375/430/768/1080px. Внешние данные и production-публикация в тестах не используются.
 
-## Импорт папки с медиа (локальная Windows-админка)
-
-- Контракт манифеста, ограничения и команды проверок: [ADMIN_FOLDER_IMPORT](../../docs/ADMIN_FOLDER_IMPORT.md).
-- `/api/admin/author/folder-import/preview` и `/apply` в `tools/admin/routers/deck_import.py`; отдельные модули `tools/admin/services/deck_import{,_sources,_media,_limits}.py`, интерфейс `static/js/folder_import.js`. Выбор TXT/MD/JSON-файлов из папки, подтверждение и отдельный media-only режим; ZIP исключён.
-- Идентификация использует существующий `card_id` и `TMAOfflineBatch` receipts. Неоднозначные строки требуют ручного выбора. Новые карточки создаёт прежний bulk-save; существующие получают только медиа-поля/updated_at. Авторство, владельцы, ответы, metadata карточек, SRS/история не меняются. Права повторно проверяются на сервере; подготовка Storage идёт вне транзакции привязок.
-- Проверки: `scripts/tests/test_admin_folder_import.py`, `scripts/tests/browser/admin-folder-import.desktop.cjs`; одноразовая SQLite, Storage подменён, браузерный стенд на 8059. Только настольная компоновка ПК/ноутбука. Код `tools/` и `scripts/` исключён из deploy через `.vercelignore`.
-
 ## Методический паспорт (локальный Автор)
 
 - Контракт и инструкция: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md).
@@ -127,14 +120,10 @@ Integration/browser scripts могут менять данные; сначала
 - DeckIntro показывает сворачиваемый авторский маршрут, LessonCompletion — учебное описание и рекомендации без вывода об освоении. Метрики занятия остаются в sessionStats; пользовательские настройки и offline metadata API сохранены.
 - Проверки: `scripts/tests/test_deck_passport.py`, `app/src/utils/__tests__/deckPedagogy.test.js`, `scripts/tests/browser/deck-passport.spec.cjs`; DB одноразовая SQLite, browser API подменены.
 
-## Перенос LOCAL ↔ Supabase
+## Связанные изображения в импорте Автора
 
-Авторские TMA_Folder/TMA_Deck/TMA_Card обслуживаются в отдельном разделе локальной
-админки «Перенос и публикация». Контракт и проверки:
-[MATERIAL_TRANSFER](../../docs/MATERIAL_TRANSFER.md). Это перенос контента с
-предпросмотром/подтверждением, не пользовательский sync. Прежние permissions,
-global_readonly и независимые copy/share сохраняются; grants/SRS не переносятся.
-Сопоставления между базами, source/target checksums, версии, родители и receipts
-принадлежат TMAOfflineBatch; совпадающие числа ID не являются соответствием.
-Перемещения mapped детей за пределы выбранного контейнера включаются в план;
-soft-delete передаётся явно, hard-missing ID блокирует перенос без восстановления.
+- При выборе нескольких файлов `tools/admin/routers/author.py` отделяет изображения JPEG/PNG/WebP/GIF от документов. Markdown-ссылка `![описание](путь/файл.png)` или строка `::image путь/файл.png` в карточке задаёт явную связь. Structured Cards V2 поддерживает поле карточки `image` с относительным именем файла.
+- Манифест `*.images.json` содержит `{"images":[{"deck":"Название колоды","card":1,"file":"файл.png"}]}`. `card` — глобальный номер карточки в загруженных документах (с 1) или строковый `id` карточки V2. Название колоды должно совпадать точно.
+- `resolve_import_images` сначала ищет точный относительный путь, затем уникальное совпадение по имени файла. Отсутствующие, неоднозначные и не привязанные к карточке записи манифеста показываются в предпросмотре и блокируют публикацию. После успешного сопоставления текстовая ссылка удаляется из содержимого карточки, а исходная ссылка остаётся в `image_ref` для проверки при публикации.
+- `POST /api/admin/author/publish-images` получает исходные файлы и проверенную проекцию карточек, оптимизирует связанные изображения в WebP и сохраняет `TMAMedia` вместе с карточками в одной DB-транзакции. Обычный `/publish` остаётся для документов без изображений. Файлы изображений ограничены 10 МБ каждый.
+- Проверки: `scripts/tests/test_author_router.py` покрывает Markdown, V2, манифест, отсутствие и неоднозначность, а также сохранение изображения.

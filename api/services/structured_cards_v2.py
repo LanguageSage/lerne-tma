@@ -222,6 +222,7 @@ class EditableTextData(V2Model):
 
 # Extension metadata must never become a shadow content/answer/passport payload.
 CONTENT_KEYS = {'front', 'front_text', 'back', 'back_text', 'context', 'type', 'card_type',
+                'image', 'image_path',
                 'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
                 'accepted_answers', 'grading_policy', 'intro', 'pedagogy', 'passport',
                 'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens',
@@ -237,6 +238,7 @@ def check_metadata(value):
 
 class CardBase(V2Model):
     id: Text | None = None  # Author's reference only; never a database write target.
+    image: Text | None = None  # Relative image filename resolved by the author import.
     info: list[Info] = Field(default_factory=list)
     explanation: str = ''  # Post-answer explanation, legacy CONTEXT.
     level: Level | None = None
