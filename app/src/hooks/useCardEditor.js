@@ -178,6 +178,7 @@ export const useCardEditor = () => {
           ui.setView(sourceView);
         }
       }
+      return savedCard;
     } catch (err) {
       console.error(err);
       const detail = err.response?.data?.detail || err.message;

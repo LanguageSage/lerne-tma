@@ -1001,14 +1001,14 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     }
 
 
-def touch_deck_and_parent_folders(deck_id: int, deck_obj=None):
+def touch_deck_and_parent_folders(deck_id: int, deck_obj=None, *, now=None):
     """
     Updates updated_at timestamp on a deck AND recursively updates all parent TMA_Folder timestamps.
     This guarantees that live sync detects card edits/deletions when a user is in Folder view.
     """
     if not deck_id and not deck_obj:
         return
-    now = datetime.datetime.now()
+    now = now if now is not None else datetime.datetime.now()
     deck = deck_obj or models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id)
     if not deck:
         return

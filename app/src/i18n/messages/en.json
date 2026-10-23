@@ -1906,5 +1906,9 @@
   "Переклассификация прервана. Прогресс сохранён; повторите «Обновить CEFR-уровни», чтобы продолжить.": "Reclassification interrupted. Progress is saved; select “Update CEFR levels” again to continue.",
   "Достигнут лимит попыток. Подождите 5 минут и продолжите; прогресс сохранён.": "Attempt limit reached. Wait 5 minutes and continue; progress is saved.",
   "Уровни обновлены. Не удалось загрузить список; обновите страницу.": "Levels updated. Could not reload the list; refresh the page.",
-  "Не удалось сохранить операцию в браузере. Переклассификация не запущена.": "Could not save the operation in your browser. Reclassification has not started."
+  "Не удалось сохранить операцию в браузере. Переклассификация не запущена.": "Could not save the operation in your browser. Reclassification has not started.",
+  "Опубликовать в Supabase": "Publish to Supabase",
+  "Сначала сохраните карточку.": "Save the card first.",
+  "Дождитесь завершения синхронизации.": "Wait for synchronization to finish.",
+  "Разрешите открытие вкладки административной консоли.": "Allow the admin console tab to open."
 }

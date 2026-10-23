@@ -158,7 +158,7 @@ def get_admin_ui():
 
 
 # ─── Register routers ─────────────────────────────────────────────────────────
-from tools.admin.routers import prompts, users, decks, cards, folders, tasks, classification, media, backups, author, deck_import  # noqa: E402
+from tools.admin.routers import prompts, users, decks, cards, folders, tasks, classification, media, backups, author, deck_import, material_transfer  # noqa: E402
 
 app.include_router(prompts.router)
 app.include_router(users.router)
@@ -171,6 +171,7 @@ app.include_router(media.router)
 app.include_router(backups.router)
 app.include_router(author.router)
 app.include_router(deck_import.router)
+app.include_router(material_transfer.router)
 
 
 # ─── Dev launch ──────────────────────────────────────────────────────────────

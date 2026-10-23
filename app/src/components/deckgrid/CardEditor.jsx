@@ -12,6 +12,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { resolveAiTranslation } from '../../utils/aiCardResult';
 import { detectCardType } from '../../utils/exerciseDetector';
 import { navigateUp } from '../../utils/navigation';
+import { LocalPublishButton } from '../common/LocalPublishButton';
 
 export const CardEditor = () => {
   useInterfaceLocale();
@@ -70,7 +71,7 @@ export const CardEditor = () => {
   };
 
   const handleSave = () => {
-    saveCard(null, 'editor');
+    return saveCard(null, 'editor');
   };
 
   return (
@@ -110,6 +111,7 @@ export const CardEditor = () => {
           playAudio={playAudio}
           isCreator={false}
         />
+        <LocalPublishButton cardId={editingCard?.id} beforeOpen={handleSave} />
 
       </motion.div>
     </div>

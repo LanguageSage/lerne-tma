@@ -4,6 +4,7 @@ import io
 import os
 import warnings
 import wave
+from uuid import uuid4
 from pathlib import PurePosixPath
 
 from fastapi import HTTPException
@@ -129,14 +130,21 @@ def media_exists(asset):
         TMAMedia.filename == asset['filename'], TMAMedia.folder == asset['folder']).exists()
 
 
-def store_media(asset):
+def store_media(asset, *, local_root=None, storage=None):
     """No blob reads, external GETs or retries. Immutable keys; never overwrite."""
     from api.local_runtime import is_local, media_file
-    if is_local():
-        destination = media_file(asset['folder'], asset['filename'])
-        if not destination.is_file():
+    if is_local() or local_root is not None:
+        if local_root is not None:
+            from pathlib import Path
+            if asset['folder'] not in ('images', 'audio') or Path(asset['filename']).name != asset['filename']:
+                raise ValueError('Invalid transfer media path')
+            destination = Path(local_root) / asset['folder'] / asset['filename']
+        else:
+            destination = media_file(asset['folder'], asset['filename'])
+        if not destination.is_file() or (local_root is not None and
+                hashlib.sha256(destination.read_bytes()).hexdigest() != asset['sha256']):
             destination.parent.mkdir(parents=True, exist_ok=True)
-            temporary = destination.with_name(destination.name + '.partial')
+            temporary = destination.with_name(destination.name + '.' + uuid4().hex + '.partial')
             try:
                 with temporary.open('xb') as output:
                     output.write(asset['data'])
@@ -149,18 +157,33 @@ def store_media(asset):
             TMAMedia.insert(filename=asset['filename'], folder=asset['folder'], content=None).on_conflict_ignore().execute()
         return
     if media_exists(asset):
-        return
-    if asset['folder'] == 'audio' and not storage_configured():
+        if storage is None:
+            return
+        import requests
+        try:
+            check = requests.head(f"{storage['url']}/storage/v1/object/public/{asset['folder']}/{asset['filename']}",
+                                  timeout=(5, 30), allow_redirects=False)
+        except requests.RequestException:
+            raise HTTPException(502, 'Не удалось проверить существующий файл Storage.') from None
+        if check.status_code == 200:
+            return
+        if check.status_code != 404:
+            raise HTTPException(502, 'Не удалось проверить существующий файл Storage.')
+    if asset['folder'] == 'audio' and storage is None and not storage_configured():
         raise HTTPException(503, 'Для аудио требуется настроенный Supabase Storage (SUPABASE_URL и SUPABASE_KEY).')
-    base, key = os.environ.get('SUPABASE_URL', '').rstrip('/'), os.environ.get('SUPABASE_KEY')
+    base, key = ((storage['url'], storage['key']) if storage is not None else
+                 (os.environ.get('SUPABASE_URL', '').rstrip('/'), os.environ.get('SUPABASE_KEY')))
+    if storage is not None and (not base or not key):
+        raise HTTPException(503, 'Для публикации медиа настройте серверный ключ Storage.')
     content = asset['data']
     if base and key:
         import requests
         try:
             response = requests.post(
                 f"{base}/storage/v1/object/{asset['folder']}/{asset['filename']}",
-                headers={'Authorization': f'Bearer {key}', 'Content-Type': asset['mime'], 'x-upsert': 'false'},
-                data=content, timeout=30)
+                headers={'Authorization': f'Bearer {key}', 'apikey': key,
+                         'Content-Type': asset['mime'], 'x-upsert': 'false'},
+                data=content, timeout=30, **({'allow_redirects': False} if storage is not None else {}))
             duplicate = False
             if response.status_code in (400, 409):
                 try:
