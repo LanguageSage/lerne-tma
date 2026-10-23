@@ -12,6 +12,7 @@ os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 from pydantic import ValidationError
 from api.services.structured_cards_v2 import Document, load_document, validate_document
 from api.services.structured_cards_legacy import LegacyConversionError, to_legacy_document
+from api.services.answer_rules import evaluate_deterministic
 
 ROOT = Path(__file__).resolve().parents[2]
 EXAMPLES = ROOT / 'project_docs/examples/structured_cards_v2'
@@ -162,7 +163,31 @@ class V2ValidationTests(unittest.TestCase):
         schema = Document.model_json_schema()
         self.assertEqual(schema['properties']['schema_version']['const'], 2)
         self.assertEqual(set(schema['properties']['cards']['items']['discriminator']['mapping']),
-                         {'theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text'})
+                         {'theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text', 'editable_text'})
+
+    def test_editable_text_requires_a_distinct_correction(self):
+        card = {'type': 'editable_text', 'data': {
+            'source_text': 'Ich trainiere, um ich stärker zu werden.',
+            'correct_text': 'Ich trainiere, um stärker zu werden.'}}
+        validated = validate_document(document(card))
+        self.assertEqual(validated.cards[0].data.grading_policy.mode, 'controlled_text')
+        self.assertFalse(validated.cards[0].data.grading_policy.typo_tolerance)
+        data = validated.cards[0].data
+        self.assertIsNone(evaluate_deterministic(data.source_text, [data.correct_text], data.grading_policy))
+        self.assertTrue(evaluate_deterministic(data.correct_text, [data.correct_text], data.grading_policy).accepted)
+        for correction in (card['data']['source_text'], ''):
+            bad = copy.deepcopy(card)
+            bad['data']['correct_text'] = correction
+            self.assertInvalid(document(bad))
+
+    def test_editable_text_legacy_projection_preserves_front_and_back(self):
+        card = {'type': 'editable_text', 'data': {
+            'source_text': 'Ich trainiere, um ich stärker zu werden.',
+            'correct_text': 'Ich trainiere, um stärker zu werden.'}}
+        projected = to_legacy_document(document(card))['cards'][0]
+        self.assertEqual(projected['front'], '::exercise\n@edit\n' + card['data']['source_text'])
+        self.assertEqual(projected['back'], card['data']['correct_text'])
+        self.assertEqual(projected['metadata']['grading_policy']['mode'], 'controlled_text')
 
 
 class V2LegacyTests(unittest.TestCase):

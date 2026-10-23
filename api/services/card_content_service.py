@@ -21,7 +21,7 @@ from api.utils.audio import _prepare_tts_text
 
 LEVELS = ('A1', 'A2', 'B1', 'B2', 'C1', 'C2')
 VALID_CARD_TYPES = {
-    'theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text'
+    'theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text', 'editable_text'
 }
 
 

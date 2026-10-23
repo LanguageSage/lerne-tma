@@ -285,6 +285,11 @@ async def generate_card_fields(
         elif input_type in typed_builders:
             system_prompt = with_user_request(typed_builders[input_type](
                 phrase=exercise_phrase, detect_level=detect_level, **common), clean_user_request)
+        elif input_type == 'editable_text':
+            system_prompt = with_user_request(
+                build_card_prompt(phrase=exercise_phrase, directive=clean_user_request, **common),
+                'Это @edit: FRONT сохрани без изменений. BACK должен содержать полный исправленный текст, '
+                'CONTEXT — краткое объяснение правки.')
         else:
             system_prompt = build_card_prompt(phrase=exercise_phrase, directive=clean_user_request, **common)
 
@@ -332,7 +337,7 @@ async def generate_card_fields(
                 raise ValueError('Поля карточки должны быть текстом')
         except ValueError:
             return {'error': 'ИИ вернул повреждённый JSON. Карточка не изменена.'}
-        if input_type in ("theory", "match", "puzzle", "word_bank", "free_text"):
+        if input_type in ("theory", "match", "puzzle", "word_bank", "free_text", "editable_text"):
             result["front"] = clean_phrase
         else:
             generated_front = preserve_exercise_marker(result.get("front", exercise_phrase), input_type)

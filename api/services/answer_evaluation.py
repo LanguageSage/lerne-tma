@@ -26,13 +26,19 @@ def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> t
         if not card or card.deck.is_deleted:
             raise HTTPException(404, 'Card not found')
         require_access(user_id, 'deck', card.deck_id, write=False)
-        if detect_ai_input_type(card.front_text) != 'free_text':
-            raise HTTPException(422, 'Answer evaluation requires a free-text card')
+        card_type = detect_ai_input_type(card.front_text)
+        if card_type not in ('free_text', 'editable_text'):
+            raise HTTPException(422, 'Answer evaluation requires a text-answer card')
         try:
             metadata = json.loads(card.metadata or '{}')
             if not isinstance(metadata, dict):
                 raise ValueError('metadata must be an object')
-            policy = GradingPolicy.model_validate(metadata.get('grading_policy', {}))
+            default_policy = {'mode': 'controlled_text', 'typo_tolerance': False} if card_type == 'editable_text' else {}
+            raw_policy = metadata.get('grading_policy', {})
+            policy = GradingPolicy.model_validate(
+                {**default_policy, **raw_policy} if isinstance(raw_policy, dict) else raw_policy)
+            if card_type == 'editable_text' and policy.mode == 'open_text':
+                raise ValueError('Editable Text requires a controlled grading policy')
         except (ValueError, TypeError, ValidationError) as exc:
             raise HTTPException(422, 'Invalid grading policy') from exc
         variants = metadata.get('accepted_answers', [])
@@ -40,7 +46,7 @@ def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> t
             not isinstance(v, str) or len(v) > 4000 for v in variants
         ):
             raise HTTPException(422, 'Invalid accepted answers')
-        expected = card.back_text or card.context or ''
+        expected = (card.back_text or '') if card_type == 'editable_text' else card.back_text or card.context or ''
         mapping = models.TMACardKnowledgeItem.get_or_none(
             (models.TMACardKnowledgeItem.card_id == card.id) &
             (models.TMACardKnowledgeItem.role == 'primary'))
@@ -49,7 +55,7 @@ def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> t
             # Surface errors are primary learning errors for these targets.
             policy = policy.model_copy(update={'typo_tolerance': False})
         content = parse_exercise_content(card.front_text)
-        exercise = re.sub(r'@free\b', '', content['exercise'], count=1, flags=re.I).strip()
+        exercise = re.sub(r'@(?:free|edit)\b', '', content['exercise'], count=1, flags=re.I).strip()
         # The prompt may just say "Answer using a relative clause". The actual
         # dialogue/situation lives in ::source; omitting it changes what is graded.
         task = '\n\n'.join(part for part in (content['task'], content['context'], exercise, card.context) if part)

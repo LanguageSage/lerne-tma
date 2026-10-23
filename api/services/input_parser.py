@@ -28,7 +28,7 @@ def _exercise_block_marker(block_type: str) -> str:
 
 
 def _interactive_marker(line: str) -> bool:
-    return bool(re.fullmatch(r"[ \t]*@(puzzle|match|wordbank|free|theory)[ \t]*", line or "", re.IGNORECASE))
+    return bool(re.fullmatch(r"[ \t]*@(puzzle|match|wordbank|free|edit|theory)[ \t]*", line or "", re.IGNORECASE))
 
 
 def parse_exercise_content(raw_text: str) -> dict:
@@ -191,6 +191,8 @@ def detect_ai_input_type(text: str) -> str:
         return "word_bank"
     if re.search(r"(?im)^[ \t]*@free[ \t]*$", normalized):
         return "free_text"
+    if re.search(r"(?im)^[ \t]*@edit[ \t]*$", normalized):
+        return "editable_text"
 
     # Keep the established backend priority: quiz markers win over cloze.
     is_quiz = (
@@ -271,7 +273,7 @@ def detect_card_type(text: str) -> str:
     normalized = parsed["exercise"].strip()
     if not normalized:
         return "standard"
-    for marker, card_type in (("match", "match"), ("free", "free_text"),
+    for marker, card_type in (("match", "match"), ("free", "free_text"), ("edit", "editable_text"),
                               ("puzzle", "puzzle"), ("wordbank", "word_bank")):
         if re.search(rf"(?im)^[ \t]*@{marker}[ \t]*$", normalized):
             return card_type
@@ -289,6 +291,7 @@ def preserve_exercise_marker(front: str, input_type: str) -> str:
         "match": "@match",
         "puzzle": "@puzzle",
         "free_text": "@free",
+        "editable_text": "@edit",
         "word_bank": "@wordbank"
     }
     if input_type not in type_to_marker:
@@ -299,7 +302,7 @@ def preserve_exercise_marker(front: str, input_type: str) -> str:
     if re.search(rf"(?im)^\s*{re.escape(marker)}\b", generated_front):
         return generated_front
 
-    generated_front = re.sub(r"(?im)^\s*@(match|puzzle|free|wordbank)\b\s*", "", generated_front, count=1).strip()
+    generated_front = re.sub(r"(?im)^\s*@(match|puzzle|free|edit|wordbank)\b\s*", "", generated_front, count=1).strip()
     return f"{marker}\n{generated_front}" if generated_front else marker
 
 

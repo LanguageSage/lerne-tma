@@ -4,6 +4,7 @@ import { parseClozeData, normalizeAnswer } from './clozeParser.js';
 import { parseQuizData } from './quizParser.js';
 import { parseMatchData } from './matchParser.js';
 import { parseFreeTextData } from './freeTextParser.js';
+import { parseEditableTextData } from './editableTextParser.js';
 import { parseWordBankData } from './wordBankParser.js';
 import { evaluateTrainerGaps } from './trainerEvaluation.js';
 
@@ -75,7 +76,7 @@ export function auditLesson(snapshot) {
       const parsed = parseExerciseContent(front), type = detectExerciseType(card);
       types[type || 'standard'] = (types[type || 'standard'] || 0) + 1;
       const markers = [...parsed.exercise.matchAll(/^\s*@(\w+)\s*$/gm)].map(m => m[1].toLowerCase());
-      for (const marker of markers) if (!['puzzle', 'match', 'wordbank', 'free', 'options'].includes(marker)) add('ERROR', 'syntax.unsupported_directive', cardTarget, `Unsupported standalone @${marker}.`);
+      for (const marker of markers) if (!['puzzle', 'match', 'wordbank', 'free', 'edit', 'options'].includes(marker)) add('ERROR', 'syntax.unsupported_directive', cardTarget, `Unsupported standalone @${marker}.`);
       const interactiveBlocks = parsed.blocks.filter(b => b.type === 'exercise' && detectExerciseType(b.content));
       if (interactiveBlocks.length > 1) add('ERROR', 'syntax.multiple_mechanics', cardTarget, 'Multiple interactive blocks need author review: directives select one block, while trainers merge blocks and may duplicate gaps.');
       if (!back.trim() && !type) add('WARNING', 'card.empty_back', cardTarget, 'Standard card has no back.');
@@ -102,6 +103,12 @@ export function auditLesson(snapshot) {
         if (!cardMeta.grading_policy) add('WARNING', 'answer.free_policy_default', cardTarget, 'Free text uses controlled_text defaults; open production may need open_text and an explicit rubric.');
         if (!back.trim() && !card.context?.trim() && cardMeta.grading_policy?.mode !== 'open_text') add('ERROR', 'answer.free_reference_missing', cardTarget, 'Controlled free text has no reference.');
       }
+      if (type === 'editable_text') {
+        const data = parseEditableTextData(card);
+        if (!data) add('ERROR', 'parser.editable_text', cardTarget, 'Editable Text requires source text and a corrected BACK.');
+        else if (data.sourceText === data.correctText) add('ERROR', 'answer.no_edit', cardTarget, 'Source and correction must differ.');
+        if (data && (data.sourceText.length > 4000 || data.correctText.length > 4000)) add('ERROR', 'answer.too_long', cardTarget, 'Editable Text exceeds the 4000-character answer limit.');
+      }
       if (type === 'puzzle') {
         const body = getInteractiveExerciseContent(front, 'puzzle').replace(/^@puzzle\s*/i, '').trim();
         if (!body) add('ERROR', 'parser.puzzle', cardTarget, 'Puzzle has no tokens.');
@@ -118,7 +125,7 @@ export function auditLesson(snapshot) {
         const cardTarget = { ...target, card_id: card.id };
         let meta = {};
         try { meta = jsonObject(card.metadata); } catch { /* existing diagnostic */ }
-        if (!['trainer', 'free_text'].includes(detectExerciseType(card))) add('ERROR', 'assessment.mechanic', cardTarget, 'This assessment renderer supports trainer and free_text.');
+        if (!['trainer', 'free_text', 'editable_text'].includes(detectExerciseType(card))) add('ERROR', 'assessment.mechanic', cardTarget, 'This assessment renderer supports trainer, free_text and editable_text.');
         if (!Array.isArray(meta.assessment?.competency_ids) || !meta.assessment.competency_ids.length || meta.assessment.competency_ids.some(id => !competencies.has(id))) add('ERROR', 'assessment.competencies', cardTarget, 'Assessment must name authored competencies for every card.');
       }
     }

@@ -23,6 +23,8 @@ The server supplies token_differences against nearest_expected_answer after poli
 normalization. These edits are evidence, never an automatic verdict: evaluate meaning,
 grammar and the learning target independently. Ground spelling/capitalization feedback in
 the actual edits; never invent spelling or capitalization errors in unchanged tokens.
+When typo_tolerance is false, use needs_retry with a spelling hint for an unresolved typo;
+never use accepted_minor.
 Honor case_sensitive and punctuation_sensitive: ignored case/final-period differences
 are not learner errors. Do not confuse grammatical roles of unchanged words with typos.
 Use correct for a fully correct answer; accepted_minor only for a minor surface error unrelated

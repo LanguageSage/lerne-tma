@@ -128,7 +128,7 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 ## Границы интерактивных блоков и паспорт
 
 - `exerciseContentParser.js` и серверный `api/services/input_parser.py` разбирают
-  отдельные строки `@puzzle`, `@match`, `@wordbank`, `@free`, `@theory` до следующего
+  отдельные строки `@puzzle`, `@match`, `@wordbank`, `@free`, `@edit`, `@theory` до следующего
   структурного маркера или конца FRONT; пустые строки сохраняются, `@options`
   остаётся частью Word Bank. `::exercise` необязателен для этих директив.
 - Информационные блоки непрозрачны для определения типа: директива внутри
@@ -156,7 +156,7 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - **Единый детектор типа карточки**: `detect_card_type(text)` в `api/services/input_parser.py` синхронизирован с клиентским `detectExerciseType` в `app/src/utils/exerciseDetector.js` (включая `@theory`, непрозрачность информационных блоков и приоритеты директив). Нулевое расхождение между Python и JS проверяется на общем корпусе `tests/fixtures/exercise_detection_corpus.json` (`scripts/tests/test_exercise_detection_corpus.py`).
 - **Authoring в V2 JSON и детерминированная компиляция в DSL**:
   - Промпты второго прохода для генерации V2 JSON находятся в `lerne-card-prompts-v2/` (существующая папка `lerne-card-prompts/` для текстового DSL сохранена без изменений).
-  - `api/services/structured_cards_v2.py` валидирует и нормализует контракты V2 (`schema_version: 2`, 8 типов: `standard`, `trainer`, `word_bank`, `puzzle`, `match`, `quiz`, `free_text`, `theory`), но не добавляет отдельную колонку хранения в БД.
+  - `api/services/structured_cards_v2.py` валидирует и нормализует контракты V2 (`schema_version: 2`, 9 типов: `standard`, `trainer`, `word_bank`, `puzzle`, `match`, `quiz`, `free_text`, `editable_text`, `theory`), но не добавляет отдельную колонку хранения в БД.
   - `api/services/structured_cards_legacy.py` (`to_legacy_card`, `to_legacy_document`) компилирует V2-карточки в канонический DSL (`front_text`, `back_text`, `context`, `level`, `metadata`) и выполняет обязательную round-trip верификацию через `detect_card_type` и `detect_ai_input_type`.
   - `api/services/author_service.py` (`parse_document`) прозрачно принимает как legacy-текст с паспортом, так и JSON-документы V2, сохраняя карточки через штатный `bulk_save_cards`.
   - Загрузка «Автора» (`/api/admin/author/parse`) принимает `.json`, `.txt`, `.md`, `.text`; `parse_uploaded_documents` разбирает файлы отдельно, без добавления заголовка к JSON и склейки документов. JSON V2 внутри старых текстовых расширений также распознаётся. Название legacy-колоды без заголовка берётся из имени файла; паспорта, ошибки с именами файлов и сквозная нумерация сохраняются, повтор паспортов блокирует публикацию. Регрессии: `scripts/tests/test_structured_preview.py`.

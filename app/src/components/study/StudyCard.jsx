@@ -256,7 +256,7 @@ export const StudyCard = React.memo(({
     return detectExerciseType(card, studyMode);
   }, [card, studyMode]);
 
-  const blockAnswerReveal = exerciseType === 'free_text' && studyMode !== 'speak' && !isAutoplayActive
+  const blockAnswerReveal = ['free_text', 'editable_text'].includes(exerciseType) && studyMode !== 'speak' && !isAutoplayActive
     && !canRevealFreeTextAnswer(exerciseStates[reviewKey]?.evaluationState);
   const onFlip = next => {
     if (!loading && !isAutoplayActive && (!next || !blockAnswerReveal)) requestFlip(next);
@@ -526,7 +526,7 @@ export const StudyCard = React.memo(({
                 </>
               )}
 
-              {/* Interactive Exercise Renderer (match, free_text, quiz, trainer, puzzle) */}
+              {/* Interactive Exercise Renderer */}
               {exerciseType && studyMode !== 'speak' && (
                 <ExerciseRenderer
                   card={card}

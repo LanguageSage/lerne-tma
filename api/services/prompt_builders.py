@@ -163,7 +163,7 @@ def build_batch_enrichment_prompt(cards, target_lang='de', native_lang='ru') -> 
         "переводом: сохраняй их ключи ответа.\n"
         "- Theory (@theory) — теория: сохраняй её смысл, педагогическое назначение и front без изменений; "
         "не превращай её в упражнение или Quiz из-за наличия вопроса.\n"
-        "- Сохраняй @theory, @wordbank, @options, @match, @puzzle, @free, [[...]], {...}, <<...>>.\n"
+        "- Сохраняй @theory, @wordbank, @options, @match, @puzzle, @free, @edit, [[...]], {...}, <<...>>.\n"
         "- <<<LERNE_CARD>>> и FRONT:/BACK:/CONTEXT: — формат импорта, не формат ответа: в ответе только JSON "
         "без этих внешних маркеров.\n"
         "- ::task и другие информационные блоки перед ::exercise даны для понимания; "

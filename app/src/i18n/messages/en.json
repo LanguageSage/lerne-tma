@@ -1911,5 +1911,11 @@
   "Переклассификация прервана. Прогресс сохранён; повторите «Обновить CEFR-уровни», чтобы продолжить.": "Reclassification interrupted. Progress is saved; select “Update CEFR levels” again to continue.",
   "Достигнут лимит попыток. Подождите 5 минут и продолжите; прогресс сохранён.": "Attempt limit reached. Wait 5 minutes and continue; progress is saved.",
   "Уровни обновлены. Не удалось загрузить список; обновите страницу.": "Levels updated. Could not reload the list; refresh the page.",
-  "Не удалось сохранить операцию в браузере. Переклассификация не запущена.": "Could not save the operation in your browser. Reclassification has not started."
+  "Не удалось сохранить операцию в браузере. Переклассификация не запущена.": "Could not save the operation in your browser. Reclassification has not started.",
+  "Редактируемый текст": "Editable text",
+  "Исправьте текст прямо в поле и проверьте ответ.": "Correct the text in the field, then check your answer.",
+  "Исправленный текст": "Corrected text",
+  "Исправьте текст здесь...": "Correct the text here...",
+  "Полный исправленный текст": "Full corrected text",
+  "Введите полный исправленный текст...": "Enter the full corrected text..."
 }

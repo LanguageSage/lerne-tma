@@ -71,11 +71,12 @@ V2 — JSON-контракт для авторства уроков челове
 | `puzzle` | `tokens: ["Ich", "bin", "angekommen."]` | Непустой массив токенов в правильном порядке. Необязательный `translation`. |
 | `word_bank` | `options: ["habe", "bin", ...]`, `parts` | text либо `{type: "gap", option: 0}`. `option` — индекс правильного элемента options с нуля, один элемент расходуется один раз. |
 | `free_text` | `prompt`, `sample_answer` | Образец не является точным ключом. Необязательные `accepted_answers`, `grading_policy` используют действующий контракт. При отсутствии политики используется `mode: open_text`. |
+| `editable_text` | `source_text`, `correct_text` | Ошибочный текст предзаполняет поле; BACK хранит полное исправление. Необязательные `accepted_answers` и `grading_policy`; по умолчанию `controlled_text`, без зачёта опечаток. Перевод до проверки — `info.source`. |
 
 ## Реализация и запуск
 
-- `api/services/structured_cards_v2.py`: строгие Pydantic-модели всех 8 типов, `validate_document(dict)`, `load_document(json_text)`, `validate_card(dict)`, `load_card(json_text)`, `normalize_card(card)` и генерируемая JSON Schema.
-- `api/services/structured_cards_legacy.py`: `to_legacy_card(card, deck, index)` и `to_legacy_document(dict | Document)` для всех восьми типов с проверкой `parse_exercise_content`, `detect_card_type` и `detect_ai_input_type`.
+- `api/services/structured_cards_v2.py`: строгие Pydantic-модели всех 9 типов, `validate_document(dict)`, `load_document(json_text)`, `validate_card(dict)`, `load_card(json_text)`, `normalize_card(card)` и генерируемая JSON Schema.
+- `api/services/structured_cards_legacy.py`: `to_legacy_card(card, deck, index)` и `to_legacy_document(dict | Document)` для всех девяти типов с проверкой `parse_exercise_content`, `detect_card_type` и `detect_ai_input_type`.
 - `api/services/author_service.py`: `parse_document` прозрачно принимает как текстовый формат Lerne Codex, так и V2 JSON (компилируя его через `to_legacy_document` и сохраняя `metadata` при публикации).
 - `tools/admin/services/structured_preview.py` и `POST /api/admin/author/v2-preview`: покарточный предпросмотр V2 JSON без записи в БД.
 - `scripts/structured_cards_v2.py`: CLI (`validate`, `to-legacy`, `schema`).

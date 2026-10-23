@@ -20,11 +20,13 @@ export const editorCommandGroups = [
       { id: 'wordbank', label: 'Банк слов', template: '@wordbank\nIch lerne <<1>>.\n@options\nDeutsch | Englisch', directive: true, group: 'exercise' },
       { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true, group: 'exercise' },
       { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true, group: 'exercise' },
+      { id: 'edit', label: 'Редактируемый текст', template: '@edit\nIch trainiere regelmäßig, um ich stärker zu werden.', directive: true, group: 'exercise' },
     ],
     commands: [
       { id: 'puzzle', label: 'Собрать предложение', template: '@puzzle\nIch lerne Deutsch.', directive: true, group: 'exercise' },
       { id: 'match', label: 'Соединение пар', template: '@match\nBerlin => Deutschland\nWien => Österreich', directive: true, group: 'exercise' },
       { id: 'free', label: 'Свободный ответ', template: '@free\n', directive: true, group: 'exercise' },
+      { id: 'edit', label: 'Редактируемый текст', template: '@edit\nIch trainiere regelmäßig, um ich stärker zu werden.', directive: true, group: 'exercise' },
       { id: 'wordbank', label: 'Банк слов', template: '@wordbank\nIch lerne <<1>>.\n@options\nDeutsch | Englisch', directive: true, group: 'exercise' },
       { id: 'choice', label: 'Варианты ответа', template: '{*Berlin|Hamburg|München}', group: 'exercise' },
       { id: 'input', label: 'Поле для ввода', template: '[[Berlin]]', group: 'exercise' },
@@ -109,7 +111,7 @@ export function syncWordBankAnswer(back, oldOption, newOption, options = []) {
 /** Readable preview when legacy markup cannot be mapped to safe edit ranges. */
 export function readableFrontText(raw = '') {
   return raw.split(/\r?\n/)
-    .filter(line => !/^\s*(?:::\w+|@(theory|match|free|puzzle|wordbank|options))\s*$/i.test(line))
+    .filter(line => !/^\s*(?:::\w+|@(theory|match|free|edit|puzzle|wordbank|options))\s*$/i.test(line))
     .join('\n')
     .replace(/\[\[(.*?)\]\]/g, '$1')
     .replace(/\{([^{}]*)\}/g, (_, choices) => choices.split(/[|;,/]/)[0].trim().replace(/^\*/, ''));
@@ -259,7 +261,7 @@ export function projectEditorFields(raw = '') {
       if (!projectWordBankSection(raw, start, end, add, sectionIndex)) return null;
       continue;
     }
-    const directive = /^@(match|free|puzzle)[ \t]*\r?\n?/i.exec(text);
+    const directive = /^@(match|free|edit|puzzle)[ \t]*\r?\n?/i.exec(text);
     if (directive) {
       const kind = directive[1].toLowerCase();
       start += directive[0].length;
@@ -278,7 +280,7 @@ export function projectEditorFields(raw = '') {
           add('pair', left, left + line[0].length, 'Соединение пар',
             { separator: separator.index, separatorLength: separator[0].length });
         }
-      } else add('text', start, end, kind === 'free' ? 'Свободный ответ' : 'Собрать предложение');
+      } else add('text', start, end, kind === 'free' ? 'Свободный ответ' : kind === 'edit' ? 'Исходный текст' : 'Собрать предложение');
       continue;
     }
     let pos = start;

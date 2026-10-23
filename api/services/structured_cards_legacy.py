@@ -1,4 +1,4 @@
-"""One-way, opt-in V2 -> legacy preview for all eight card types.
+"""One-way, opt-in V2 -> legacy preview for all card types.
 
 This module never writes cards. Derived FRONT/BACK must not be persisted alongside
 an independently editable V2 source. Unsupported/lossy conversion raises an error.
@@ -78,7 +78,7 @@ def _puzzle_body(card, path):
         _plain_legacy_text(token, p)
         if re.search(r'[\s\ufeff]', token):
             raise LegacyConversionError(f'{p}: legacy Puzzle splits tokens on whitespace')
-        if re.fullmatch(r'@(?:match|puzzle|wordbank|free|theory)|::(?:exercise|task|source|example|options|level|topic)', token, re.I):
+        if re.fullmatch(r'@(?:match|puzzle|wordbank|free|edit|theory)|::(?:exercise|task|source|example|options|level|topic)', token, re.I):
             raise LegacyConversionError(f'{p}: legacy structural marker cannot be a Puzzle token')
         tokens.append(token)
     return '@puzzle\n' + ' '.join(tokens)
@@ -92,7 +92,7 @@ def _quiz_text(text, path, *, option=False):
         raise LegacyConversionError(f'{path}: legacy Quiz would remove whitespace before punctuation')
     if re.search(r'\{[^}]+\}|\[\[[^\]]+\]\]', text):
         raise LegacyConversionError(f'{path}: legacy Quiz would mask Trainer syntax')
-    if re.search(r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|theory)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$', text):
+    if re.search(r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|edit|theory)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$', text):
         raise LegacyConversionError(f'{path}: legacy structural marker cannot be Quiz content')
     if option and re.match(r'[-○•]|(?:[a-zA-Z]|[0-9]{1,2})[).]', text):
         raise LegacyConversionError(f'{path}: legacy Quiz would strip the option prefix')
@@ -110,7 +110,7 @@ def _quiz_body(card, path):
     return prompt + '\n\n' + '\n'.join(lines), correct[0].text
 
 
-_STRUCTURAL_LINE = r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|theory|options)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$'
+_STRUCTURAL_LINE = r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|edit|theory|options)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$'
 
 
 def _word_bank_body(card, path):
@@ -172,6 +172,16 @@ def _free_text_body(card, path):
     return '@free\n' + prompt, sample
 
 
+def _editable_text_body(card, path):
+    source = _plain_legacy_text(card.data.source_text, path + '.data.source_text')
+    if source != source.strip() or re.search(r'[\r\u2028\u2029]', source) or re.search(_STRUCTURAL_LINE, source):
+        raise LegacyConversionError(f'{path}.data.source_text: legacy Editable Text cannot preserve these boundaries/markers')
+    correct = card.data.correct_text
+    if correct != correct.strip() or correct.startswith('\ufeff') or correct.endswith('\ufeff'):
+        raise LegacyConversionError(f'{path}.data.correct_text: legacy Editable Text would trim the correction')
+    return '@edit\n' + source, correct
+
+
 def to_legacy_card(card, deck, index):
     """Project one already validated V2 card and deck, preserving its source index.
 
@@ -201,6 +211,8 @@ def to_legacy_card(card, deck, index):
         body, back = _word_bank_body(card, path)
     elif card.type == 'free_text':
         body, back = _free_text_body(card, path)
+    elif card.type == 'editable_text':
+        body, back = _editable_text_body(card, path)
     else:
         raise LegacyConversionError(f'{path}.type: {card.type} conversion is not implemented')
 
@@ -237,7 +249,7 @@ def to_legacy_card(card, deck, index):
     result = {'front': front, 'back': back, 'context': card.explanation, 'card_type': card.type,
               'level': level, 'topics': ', '.join(topics),
               'metadata': card.model_dump(mode='json')['metadata']}
-    if card.type == 'free_text':
+    if card.type in ('free_text', 'editable_text'):
         # These are the existing server evaluator's authoritative legacy fields.
         # Explicit defaults matter: legacy defaults to controlled_text, V2 to open_text.
         result['metadata'].update(accepted_answers=list(card.data.accepted_answers),

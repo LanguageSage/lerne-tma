@@ -186,12 +186,46 @@ class FreeTextData(V2Model):
         return value
 
 
+class EditableTextData(V2Model):
+    source_text: Text
+    correct_text: Text
+    accepted_answers: list[Text] = Field(default_factory=list)
+    grading_policy: GradingPolicy = Field(default_factory=lambda: GradingPolicy(
+        mode='controlled_text', typo_tolerance=False))
+
+    @field_validator('grading_policy', mode='before')
+    @classmethod
+    def revalidate_policy(cls, value):
+        if isinstance(value, GradingPolicy):
+            return value.model_dump()
+        if isinstance(value, dict):
+            return {'mode': 'controlled_text', 'typo_tolerance': False, **value}
+        return value
+
+    @field_validator('accepted_answers')
+    @classmethod
+    def answer_variants(cls, value):
+        if len(value) > 20 or any(len(item) > 4000 for item in value):
+            raise ValueError('At most 20 nonblank answers of at most 4000 characters')
+        return value
+
+    @model_validator(mode='after')
+    def has_edit(self):
+        if len(self.source_text) > 4000 or len(self.correct_text) > 4000:
+            raise ValueError('Editable Text fields must fit the 4000-character answer limit')
+        if self.source_text.strip() == self.correct_text.strip():
+            raise ValueError('Editable Text source and correction must differ')
+        if self.grading_policy.mode == 'open_text':
+            raise ValueError('Editable Text requires controlled_text or exact grading')
+        return self
+
+
 # Extension metadata must never become a shadow content/answer/passport payload.
 CONTENT_KEYS = {'front', 'front_text', 'back', 'back_text', 'context', 'type', 'card_type',
                 'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
                 'accepted_answers', 'grading_policy', 'intro', 'pedagogy', 'passport',
                 'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens',
-                'sample_answer', 'summary', 'translation'}
+                'sample_answer', 'source_text', 'correct_text', 'summary', 'translation'}
 
 
 def check_metadata(value):
@@ -256,8 +290,13 @@ class FreeTextCard(CardBase):
     data: FreeTextData
 
 
+class EditableTextCard(CardBase):
+    type: Literal['editable_text']
+    data: EditableTextData
+
+
 Card = Annotated[TheoryCard | StandardCard | TrainerCard | QuizCard | MatchCard |
-                 PuzzleCard | WordBankCard | FreeTextCard, Field(discriminator='type')]
+                 PuzzleCard | WordBankCard | FreeTextCard | EditableTextCard, Field(discriminator='type')]
 CARD_ADAPTER = TypeAdapter(Card)
 
 

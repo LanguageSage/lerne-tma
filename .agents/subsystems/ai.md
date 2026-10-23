@@ -96,7 +96,7 @@ rg -n 'load_answer_context|evaluate_answer|evaluate_deterministic' api/services/
 
 ## Контекст оценки заданий с источником
 
-`load_answer_context` сохраняет в task все авторские `::task` и `::source` (Python parser называет source полем context), затем очищенный `@free` prompt. В диалоге реальная реплика часто находится только в source; оценивать один общий prompt недостаточно. BACK/accepted_answers/policy и проверка permissions остаются серверными. Regression на настоящей карточке 349555: `tests/test_answer_evaluation.py`.
+`load_answer_context` сохраняет в task все авторские `::task` и `::source` (Python parser называет source полем context), затем очищенный `@free` или `@edit` текст. В диалоге реальная реплика часто находится только в source; оценивать один общий prompt недостаточно. Для `@edit` BACK — эталон, default policy — `controlled_text` без зачёта опечаток. BACK/accepted_answers/policy и проверка permissions остаются серверными. Regression на настоящей карточке 349555: `tests/test_answer_evaluation.py`.
 
 В task оценки также передаётся авторский card.context с критериями; это сохраняет смысл после перехода длинных ответов на @free. aiCardResult сохраняет существующий ручной перевод, заполняя только пустой. Assessment подавляет reveal и фиксирует первый объективный verdict; unavailable не считается попыткой.
 
