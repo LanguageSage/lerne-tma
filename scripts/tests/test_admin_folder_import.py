@@ -6,6 +6,9 @@ import io
 import wave
 import json
 import unittest
+from contextlib import nullcontext
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
@@ -360,6 +363,96 @@ class FolderImportTests(unittest.TestCase):
             self.assertTrue(any('Supabase Storage' in p for p in plan['problems']))
             self.assertEqual(self.apply(plan).status_code, 422)
         self.assertEqual(self.upload.call_count, 0)
+
+    def test_explicit_database_target_routes_both_phases_together(self):
+        for target in ('cloud', 'local'):
+            with self.subTest(target=target):
+                self.payload['target_db'] = target
+                with patch('tools.admin.routers.deck_import._alternate', side_effect=[
+                        {'can_apply': True, 'preview_token': 'token'}, {'created_cards': 1}]) as alternate:
+                    plan = self.preview()
+                    self.assertEqual(self.apply(plan).json()['created_cards'], 1)
+                self.assertEqual([call.args[0]['action'] for call in alternate.call_args_list], ['preview', 'apply'])
+                self.assertTrue(all(call.args[0]['payload']['target_db'] == target for call in alternate.call_args_list))
+        self.assertEqual(models.TMA_Card.select().count(), 0)
+
+    def test_database_choices_reflect_server_write_gate(self):
+        with patch('tools.admin.routers.deck_import.is_local', return_value=True), \
+             patch('local.runtime.local_config', return_value={'config_path': Path('scratch/local.json')}), \
+             patch('tools.admin.transfer_worker.configuration', return_value=({
+                 'enabled': True, 'allow_cloud_write': False,
+                 'project_ref': 'abcdefghijklmnopqrst', 'environment': 'staging'}, None, None, None)):
+            choices = self.client.get('/api/admin/author/folder-import/targets').json()
+        self.assertEqual(choices['current'], 'LOCAL')
+        self.assertTrue(choices['cloud'])
+        self.assertFalse(choices['cloud_write'])
+        self.assertIn('abcdefghijklmnopqrst', choices['cloud_label'])
+        with patch('tools.admin.routers.deck_import.is_local', return_value=False), \
+             patch('local.runtime.local_config', return_value={'config_path': Path('scratch/local.json')}), \
+             patch('tools.admin.transfer_worker.configuration', return_value=({
+                 'enabled': True, 'allow_cloud_write': True,
+                 'project_ref': 'abcdefghijklmnopqrst', 'environment': 'staging'}, None, None, None)):
+            choices = self.client.get('/api/admin/author/folder-import/targets').json()
+        self.assertEqual(choices['current'], 'Supabase')
+        self.assertTrue(choices['local'])
+
+    def test_isolated_cloud_worker_uses_selected_target_and_write_gate(self):
+        from tools.admin import folder_import_worker
+        from tools.admin.routers.deck_import import ImportPayload
+
+        payload = ImportPayload.model_validate({**self.payload, 'target_db': 'cloud'}).model_dump()
+        cloud = SimpleNamespace(user_id=42, storage={'url': 'https://example.supabase.co', 'key': 'fixture'},
+                                scope=nullcontext)
+        transfer = SimpleNamespace(cloud=cloud, allow_cloud_write=False)
+        root = Path('scratch') / f'folder_import_worker_{uuid4().hex}'
+        root.mkdir(parents=True)
+        try:
+            with patch('tools.admin.transfer_worker.create_transfer', return_value=transfer):
+                (root / '0').write_bytes(self.files['B/D01.txt'])
+                request = {'config_path': 'unused', 'target_db': 'cloud', 'payload': payload,
+                           'files': [{'path': 'B/D01.txt', 'file': '0'}]}
+                (root / 'request.json').write_text(json.dumps({**request, 'action': 'preview'}), encoding='utf-8')
+                plan = folder_import_worker.main(root)
+                self.assertTrue(plan['can_apply'])
+                payload.update(preview_token=plan['preview_token'], request_id=str(uuid4()), confirmed=True)
+                (root / 'request.json').write_text(json.dumps({**request, 'action': 'apply'}), encoding='utf-8')
+                with self.assertRaisesRegex(Exception, 'Запись в Supabase отключена'):
+                    folder_import_worker.main(root)
+                self.assertEqual(models.TMA_Card.select().count(), 0)
+                transfer.allow_cloud_write = True
+                result = folder_import_worker.main(root)
+                self.assertEqual(result['created_cards'], 2)
+                self.assertEqual(models.TMA_Card.select().count(), 2)
+        finally:
+            (root / '0').unlink(missing_ok=True)
+            (root / 'request.json').unlink(missing_ok=True)
+            root.rmdir()
+
+    def test_isolated_local_worker_uses_local_author(self):
+        from tools.admin import folder_import_worker
+        from tools.admin.routers.deck_import import ImportPayload
+
+        payload = ImportPayload.model_validate({**self.payload, 'target_db': 'local', 'user_id': 99}).model_dump()
+        local = SimpleNamespace(user_id=42, scope=nullcontext)
+        transfer = SimpleNamespace(local=local)
+        root = Path('scratch') / f'folder_import_worker_{uuid4().hex}'
+        root.mkdir(parents=True)
+        try:
+            (root / '0').write_bytes(self.files['B/D01.txt'])
+            (root / 'request.json').write_text(json.dumps({
+                'config_path': str(root / 'transfer.json'), 'target_db': 'local',
+                'action': 'preview', 'payload': payload,
+                'files': [{'path': 'B/D01.txt', 'file': '0'}],
+            }), encoding='utf-8')
+            with patch('tools.admin.transfer_worker.create_transfer', return_value=transfer), \
+                 patch.dict('os.environ', {'LERNE_MODE': ''}):
+                plan = folder_import_worker.main(root)
+            self.assertEqual(plan['user_id'], 42)
+            self.assertTrue(plan['can_apply'])
+        finally:
+            (root / '0').unlink(missing_ok=True)
+            (root / 'request.json').unlink(missing_ok=True)
+            root.rmdir()
 
     def test_v2_json_uses_existing_projection(self):
         # Use the existing V2 corpus rather than inventing another JSON grammar.

@@ -58,7 +58,7 @@
         <i data-lucide="folder" class="w-3.5 h-3.5 text-indigo-400"></i> <span>Папки</span> (<span id="folders-tab-badge">0</span>)
       </button>
       <button onclick="switchTab('author')" id="tab-author" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
-        <i data-lucide="pen-tool" class="w-3.5 h-3.5 text-violet-400"></i> <span>Автор уроков</span>
+        <i data-lucide="folder-input" class="w-3.5 h-3.5 text-violet-400"></i> <span>Массовый импортёр</span>
       </button>
       <button onclick="switchTab('transfer')" id="tab-transfer" class="px-2.5 py-1 text-xs font-medium rounded-lg transition-all flex items-center gap-1.5 text-slate-400 hover:text-white shrink-0">
         <span>Перенос и публикация</span>
@@ -1587,8 +1587,8 @@
               <i data-lucide="pen-tool" class="w-5 h-5"></i>
             </div>
             <div>
-              <h2 class="text-xl font-bold text-white tracking-tight">Автор уроков</h2>
-              <p class="text-xs text-slate-400 mt-0.5">Публикация новых уроков, экспорт и безопасное обновление карточек без сброса SRS.</p>
+              <h2 class="text-xl font-bold text-white tracking-tight">Массовый импортёр</h2>
+              <p class="text-xs text-slate-400 mt-0.5">Импорт колод и медиа, экспорт и обновление карточек.</p>
             </div>
           </div>
         </div>
@@ -1610,7 +1610,7 @@
             </button>
           </div>
 
-          <button onclick="populateAuthorFolderSelects(); populateAuthorDeckSelects(); showToast('Списки папок и колод обновлены', 'info');" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 flex items-center gap-1.5 transition" title="Обновить списки папок и колод">
+          <button onclick="refreshAuthorCatalogs()" class="px-3 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium rounded-xl border border-slate-700 flex items-center gap-1.5 transition" title="Обновить списки папок и колод" aria-label="Обновить списки папок и колод">
             <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i>
           </button>
         </div>
@@ -1632,38 +1632,48 @@
       <!-- ================================================================= -->
       <div id="author-panel-publish" class="space-y-6">
 
-        <div id="folder-import-panel" class="glass p-5 rounded-2xl border border-slate-800 space-y-4 min-w-[1024px]">
-          <div class="flex items-center justify-between gap-6">
+        <div id="folder-import-panel" class="glass p-5 rounded-2xl border border-slate-800 space-y-4 min-w-0">
+          <div class="flex flex-wrap items-center justify-between gap-4">
             <div>
-              <h3 class="font-bold text-white">Добавить колоды из папки</h3>
+              <h3 class="font-bold text-white">Импорт из папки</h3>
               <p class="text-xs text-slate-400 mt-1">Выберите локальную папку, в том числе синхронизированную с Google Диском. Медиа связываются через media_manifest.json.</p>
             </div>
             <label class="shrink-0 px-4 py-3 rounded-xl bg-indigo-600 text-white text-sm cursor-pointer focus-within:ring-2 focus-within:ring-indigo-300">
-              Выбрать папку
+              1. Выбрать папку на компьютере
               <input id="folder-import-input" type="file" webkitdirectory multiple class="sr-only" onchange="selectFolderImport(this)">
             </label>
           </div>
           <div id="folder-import-workspace" class="hidden space-y-4">
             <fieldset id="folder-import-controls" class="space-y-4 min-w-0">
+              <div class="grid gap-4 lg:grid-cols-2">
               <label class="block text-sm text-slate-300">Режим
                 <select id="folder-import-mode" onchange="invalidateFolderImport()" class="block w-full bg-slate-900 border border-slate-700 rounded-xl p-3 mt-1">
                   <option value="import">Импорт колод и медиа</option>
                   <option value="media">Добавить изображения и аудио</option>
                 </select>
               </label>
-              <p class="text-xs text-slate-400">В существующих карточках меняются только медиа-ссылки. Текст и учебный прогресс сохраняются. Карточки без надёжного сопоставления потребуют вашего выбора.</p>
-              <div class="flex gap-2">
-                <button type="button" onclick="selectAllFolderImports(true)" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Выбрать все</button>
-                <button type="button" onclick="selectAllFolderImports(false)" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Снять выбор</button>
+              <label class="block text-sm text-slate-300">База для импорта
+                <select id="folder-import-database" onchange="changeFolderImportDatabase()" class="block w-full bg-slate-900 border border-slate-700 rounded-xl p-3 mt-1"></select>
+                <span id="folder-import-database-help" class="block mt-1 text-xs text-slate-400"></span>
+              </label>
+              </div>
+              <div id="folder-import-target"></div>
+              <div class="flex flex-wrap gap-2">
+                <button id="folder-import-preview-button" type="button" onclick="previewFolderImport()" class="px-4 py-3 bg-indigo-600 rounded-xl text-sm text-white disabled:opacity-40">2. Проверить</button>
+                <button id="folder-import-apply-button" type="button" onclick="applyFolderImport()" disabled class="px-4 py-3 bg-emerald-700 rounded-xl text-sm text-white disabled:opacity-40">3. Импортировать</button>
                 <button type="button" onclick="closeFolderImport()" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Обычные файлы / текст</button>
               </div>
-              <div id="folder-import-list" class="max-h-72 overflow-y-auto space-y-1"></div>
-              <p id="folder-import-discovery-warnings" class="text-xs text-amber-300 break-words"></p>
-              <div id="folder-import-target"></div>
-              <div class="flex gap-3">
-                <button id="folder-import-preview-button" type="button" onclick="previewFolderImport()" class="px-4 py-3 bg-indigo-600 rounded-xl text-sm text-white">Проверить выбранные колоды</button>
-                <button id="folder-import-apply-button" type="button" onclick="applyFolderImport()" disabled class="px-4 py-3 bg-emerald-700 rounded-xl text-sm text-white disabled:opacity-40">Подтвердить импорт</button>
+              <p class="text-xs text-slate-400">В существующих карточках меняются только медиа-ссылки. Текст и учебный прогресс сохраняются.</p>
+              <div class="flex flex-wrap items-center gap-2 border-t border-slate-800 pt-4">
+                <strong id="folder-import-count" class="text-sm text-white mr-auto"></strong>
+                <button type="button" onclick="selectAllFolderImports(true)" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Выбрать все</button>
+                <button type="button" onclick="selectAllFolderImports(false)" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Снять выбор</button>
               </div>
+              <label class="block text-sm text-slate-300">Найти колоду в выбранной папке
+                <input id="folder-import-search" type="search" oninput="filterFolderImportList()" placeholder="Название файла или папки" class="block w-full bg-slate-900 border border-slate-700 rounded-xl p-3 mt-1">
+              </label>
+              <div id="folder-import-list" class="max-h-96 overflow-y-auto space-y-2"></div>
+              <p id="folder-import-discovery-warnings" class="text-xs text-amber-300 break-words"></p>
               <div id="folder-import-preview" class="space-y-3 text-sm break-words"></div>
             </fieldset>
           </div>

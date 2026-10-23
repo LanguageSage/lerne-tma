@@ -165,6 +165,8 @@ let authorState = {
   }
 };
 let authorImageUrls = [];
+let authorFoldersData = [];
+let authorDecksData = [];
 
 
 // ============================================================================
@@ -172,8 +174,7 @@ let authorImageUrls = [];
 // ============================================================================
 
 async function initAuthorTab() {
-  foldersData = await adminCatalog('/api/admin/folders', 'folders');
-  decksData = await adminCatalog('/api/admin/decks', 'decks');
+  await refreshAuthorCatalogs(false);
 
   // Populate dropdowns for export and publish
   populateAuthorFolderSelects();
@@ -181,6 +182,19 @@ async function initAuthorTab() {
 
   // Render active subtab
   switchAuthorSubtab(authorState.activeSubtab);
+}
+
+async function refreshAuthorCatalogs(notify = true) {
+  try {
+    authorFoldersData = await adminCatalog('/api/admin/folders', 'folders');
+    authorDecksData = await adminCatalog('/api/admin/decks', 'decks');
+    populateAuthorFolderSelects();
+    populateAuthorDeckSelects();
+    if (notify) showToast('Списки папок и колод обновлены', 'info');
+  } catch (error) {
+    if (notify) showToast(`Не удалось обновить списки: ${error.message}`, 'error');
+    throw error;
+  }
 }
 
 function switchAuthorSubtab(subtab) {
@@ -277,7 +291,7 @@ function populateAuthorFolderSelects() {
   const pubSelect = document.getElementById('author-publish-folder-select');
   const expSelect = document.getElementById('author-export-folder-select');
 
-  const treeFolders = buildSortedFolderTree(foldersData || []);
+  const treeFolders = buildSortedFolderTree(authorFoldersData);
 
   if (pubSelect) {
     const currentVal = pubSelect.value;
@@ -323,7 +337,7 @@ function populateAuthorDeckSelects() {
   const expDeckSelect = document.getElementById('author-export-deck-select');
   if (!expDeckSelect) return;
 
-  const decks = (decksData || []).slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
+  const decks = authorDecksData.slice().sort((a, b) => (a.name || '').localeCompare(b.name || ''));
   const currentVal = expDeckSelect.value;
 
   expDeckSelect.innerHTML = '<option value="">-- Выберите колоду для экспорта --</option>';
@@ -489,7 +503,7 @@ function updateAuthorPublishFolderPath() {
     pathEl.innerHTML = '';
     return;
   }
-  const treeFolders = buildSortedFolderTree(foldersData || []);
+  const treeFolders = buildSortedFolderTree(authorFoldersData);
   const f = treeFolders.find(item => item.id === folderId);
   if (f && f.fullPath) {
     pathEl.classList.remove('hidden');
@@ -643,6 +657,7 @@ async function runAuthorPublish() {
 
     // Trigger instant refresh of folders and decks across entire admin
     if (typeof loadAdminFolders === 'function') await loadAdminFolders();
+    await refreshAuthorCatalogs(false);
     if (typeof loadDecks === 'function') await loadDecks();
     populateAuthorFolderSelects();
     populateAuthorDeckSelects();
@@ -964,8 +979,8 @@ function updateAuthorExportFolderStats() {
     return;
   }
 
-  const treeFolders = buildSortedFolderTree(foldersData || []);
-  const folder = treeFolders.find(f => f.id === folderId) || (foldersData || []).find(f => f.id === folderId);
+  const treeFolders = buildSortedFolderTree(authorFoldersData);
+  const folder = treeFolders.find(f => f.id === folderId) || authorFoldersData.find(f => f.id === folderId);
   if (!folder) {
     statBox.innerHTML = '<span class="text-slate-500 text-xs">Папка не найдена</span>';
     return;
@@ -1190,6 +1205,7 @@ async function runAuthorUpdateApply() {
     // Trigger instant refresh across admin
     if (typeof loadDecks === 'function') await loadDecks();
     if (typeof loadAdminFolders === 'function') await loadAdminFolders();
+    await refreshAuthorCatalogs(false);
   } catch (err) {
     authorState.update.isLoading = false;
     authorState.update.error = err.message || 'Ошибка применения изменений';

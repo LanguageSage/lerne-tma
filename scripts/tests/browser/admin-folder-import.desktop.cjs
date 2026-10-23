@@ -53,11 +53,12 @@ for (const width of [1280, 1440, 1920]) test(`desktop folder selection, preview 
   const errors = await setup(page);
   const sent = [];
   page.on('request', request => {
-    if (request.url().includes('/folder-import/')) sent.push(request.postDataBuffer().toString());
+    if (request.method() === 'POST' && request.url().includes('/folder-import/')) sent.push(request.postDataBuffer().toString());
   });
   const directory = await sources(testInfo, `Ширина ${width}`);
   await page.locator('#folder-import-input').setInputFiles(directory);
   await expect(page.locator('#folder-import-list input')).toHaveCount(10);
+  await page.locator('#folder-import-folder-select').selectOption({ index: 1 });
   expect(sent).toHaveLength(0);
   await expect(page.locator('#folder-import-apply-button')).toBeDisabled();
   await page.getByRole('button', { name: 'Выбрать все', exact: true }).click();
@@ -77,7 +78,7 @@ for (const width of [1280, 1440, 1920]) test(`desktop folder selection, preview 
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath(`preview-${width}.png`), fullPage: true });
   await page.locator('#folder-import-apply-button').click();
-  await expect(page.locator('#folder-import-status')).toContainText('Готово. Новых карточек: 1');
+  await expect(page.locator('#folder-import-status')).toContainText('Новых карточек: 1');
   await page.locator('#folder-import-preview-button').click();
   await expect(page.locator('#folder-import-preview')).toContainText('Новые карточки: 0');
   await expect(page.locator('#folder-import-apply-button')).toBeEnabled();
@@ -91,6 +92,7 @@ test('media-only manual match, file conflict, missing file and response-loss ret
   const directory = await sources(testInfo, 'Обновление', true, true);
   await page.locator('#folder-import-input').setInputFiles(directory);
   await page.locator('#folder-import-list input').first().check();
+  await page.locator('#folder-import-folder-select').selectOption({ index: 1 });
   await page.locator('#folder-import-mode').selectOption('media');
   await page.locator('#folder-import-preview-button').click();
   await expect(page.locator('#folder-import-preview')).toContainText('выберите существующую карточку');
@@ -114,10 +116,11 @@ test('media-only manual match, file conflict, missing file and response-loss ret
   const repeat = page.waitForRequest('**/folder-import/apply');
   await page.locator('#folder-import-apply-button').click();
   expect((await repeat).postDataBuffer().toString()).toContain(requestId);
-  await expect(page.locator('#folder-import-status')).toContainText('Готово. Новых карточек: 0');
+  await expect(page.locator('#folder-import-status')).toContainText('Новых карточек: 0');
   await fs.unlink(path.join(directory, 'D01_Медиа', 'audio', 'one.wav'));
   await page.locator('#folder-import-input').setInputFiles(directory);
   await page.locator('#folder-import-list input').first().check();
+  await page.locator('#folder-import-folder-select').selectOption({ index: 1 });
   await page.locator('#folder-import-preview-button').click();
   await expect(page.locator('#folder-import-preview')).toContainText('отсутствующий файл');
   await expect(page.locator('#folder-import-apply-button')).toBeDisabled();
@@ -127,12 +130,71 @@ test('three selected decks without media and legacy selector restoration', async
   await setup(page);
   const directory = await sources(testInfo, 'Три колоды', false);
   await page.locator('#folder-import-input').setInputFiles(directory);
+  await page.locator('#folder-import-folder-select').selectOption({ index: 1 });
   for (const index of [1, 4, 7]) await page.locator('#folder-import-list input').nth(index).check();
   await page.locator('#folder-import-preview-button').click();
   await expect(page.locator('#folder-import-preview')).toContainText('Колоды: 3');
   await page.locator('#folder-import-apply-button').click();
-  await expect(page.locator('#folder-import-status')).toContainText('Готово. Новых карточек: 3');
+  await expect(page.locator('#folder-import-status')).toContainText('Новых карточек: 3');
+  // A paginated folders tab may replace its own 50-row page between imports.
+  await page.evaluate(() => {
+    authorFoldersData = Array.from({ length: 230 }, (_, index) => ({
+      id: index + 1, name: `Папка ${index + 1}`, parent_id: null,
+    }));
+    foldersData = authorFoldersData.slice(0, 50);
+  });
+  await page.locator('#folder-import-input').setInputFiles(directory);
+  await expect(page.locator('#folder-import-folder-select option')).toHaveCount(231);
+  await expect(page.locator('#folder-import-list input')).toHaveCount(10);
   await page.getByRole('button', { name: 'Обычные файлы / текст', exact: true }).click();
   await expect(page.locator('#author-publish-dropzone-wrap')).toBeVisible();
   await expect(page.locator('#author-publish-result-wrap #author-publish-target-box')).toHaveCount(1);
+});
+
+test('database switch loads its own destination folders and sends the selected target', async ({ page }, testInfo) => {
+  await setup(page);
+  await page.route('**/folder-import/targets', route => route.fulfill({ json: {
+    current: 'LOCAL', cloud: true, cloud_label: 'Supabase · staging', cloud_write: true,
+  } }));
+  await page.route('**/folder-import/cloud-folders', route => route.fulfill({ json: [
+    { id: 777, name: 'Целевая папка облака', parent_id: null },
+  ] }));
+  let submitted;
+  await page.route('**/folder-import/preview', route => {
+    submitted = route.request().postDataBuffer().toString();
+    return route.fulfill({ json: {
+      groups: [], operations: [], resources: [], problems: [], assets: [],
+      created_cards: 0, existing_cards: 0, folder_name: 'Целевая папка облака', can_apply: false,
+    } });
+  });
+  const directory = await sources(testInfo, 'Базы', false);
+  await page.locator('#folder-import-input').setInputFiles(directory);
+  await page.locator('#folder-import-database').selectOption('cloud');
+  await expect(page.locator('#folder-import-folder-select option')).toHaveCount(2);
+  await page.locator('#folder-import-folder-select').selectOption('777');
+  await page.locator('#folder-import-list input').first().check();
+  await page.locator('#folder-import-preview-button').click();
+  await expect(page.locator('#folder-import-preview')).toContainText('База: Supabase · staging');
+  expect(submitted).toContain('"target_db":"cloud"');
+  expect(submitted).toContain('"target_folder_id":777');
+});
+
+test('Supabase console offers configured LOCAL database and its folders', async ({ page }, testInfo) => {
+  await setup(page);
+  await page.route('**/folder-import/targets', route => route.fulfill({ json: {
+    current: 'Supabase', cloud: false, local: true, cloud_write: true,
+  } }));
+  await page.route('**/folder-import/local-folders', route => route.fulfill({ json: [
+    { id: 901, name: 'Локальная папка', parent_id: null },
+  ] }));
+  const directory = await sources(testInfo, 'LOCAL', false);
+  await page.locator('#folder-import-input').setInputFiles(directory);
+  await page.locator('#folder-import-database').selectOption('local');
+  await expect(page.locator('#folder-import-folder-select option')).toHaveCount(2);
+  await expect(page.locator('#folder-import-folder-select')).toContainText('Локальная папка');
+  await page.locator('#folder-import-folder-select').selectOption('901');
+  await page.locator('#folder-import-list input').first().check();
+  expect(await page.evaluate(() => folderImportPayload())).toMatchObject({
+    target_db: 'local', target_folder_id: 901,
+  });
 });

@@ -1,5 +1,7 @@
 """Disposable admin browser fixture; SQLite and simulated Storage only."""
 import os
+import tempfile
+from pathlib import Path
 from unittest.mock import Mock, patch
 
 # Set before application imports. No .env credentials or remote services.
@@ -17,7 +19,8 @@ from tools.admin.server import app, db_session_scope
 server.ADMIN_HOSTS = {'127.0.0.1:8059', 'localhost:8059'}
 server.ADMIN_ORIGINS = {f'http://{host}' for host in server.ADMIN_HOSTS}
 
-database = SqliteDatabase(':memory:', thread_safe=False, check_same_thread=False)
+fixture_dir = tempfile.TemporaryDirectory(prefix='lerne-admin-import-fixture-')
+database = SqliteDatabase(str(Path(fixture_dir.name) / 'admin.sqlite3'))
 models.tma_db.initialize(database)
 models.lerne_db.initialize(database)
 database.create_tables([*TABLES, models.LibraryCategory, models.Deck, models.Card])
