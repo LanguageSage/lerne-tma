@@ -109,6 +109,13 @@ Integration/browser scripts могут менять данные; сначала
 - Учебные карточки и CardList читают опубликованный V2 (или черновик при включённом локальном просмотре); личные typography/front/back настройки и SRS/статистика не изменяются.
 - Проверки: `app/src/design/__tests__/designConfig.test.js`, `designTokens.test.js`; `scripts/tests/browser/design-editor.spec.cjs` перехватывает API и внешние запросы, покрывает JSON, черновик, confirm/cancel, локальный просмотр, ошибки, восстановление, реальные CSS-значения и 320/375/430/768/1080px. Внешние данные и production-публикация в тестах не используются.
 
+## Импорт папки с медиа (локальная Windows-админка)
+
+- Контракт манифеста, ограничения и команды проверок: [ADMIN_FOLDER_IMPORT](../../docs/ADMIN_FOLDER_IMPORT.md).
+- `/api/admin/author/folder-import/preview` и `/apply` в `tools/admin/routers/deck_import.py`; отдельные модули `tools/admin/services/deck_import{,_sources,_media,_limits}.py`, интерфейс `static/js/folder_import.js`. Выбор TXT/MD/JSON-файлов из папки, подтверждение и отдельный media-only режим; ZIP исключён.
+- Идентификация использует существующий `card_id` и `TMAOfflineBatch` receipts. Неоднозначные строки требуют ручного выбора. Новые карточки создаёт прежний bulk-save; существующие получают только медиа-поля/updated_at. Авторство, владельцы, ответы, metadata карточек, SRS/история не меняются. Права повторно проверяются на сервере; подготовка Storage идёт вне транзакции привязок.
+- Проверки: `scripts/tests/test_admin_folder_import.py`, `scripts/tests/browser/admin-folder-import.desktop.cjs`; одноразовая SQLite, Storage подменён, браузерный стенд на 8059. Только настольная компоновка ПК/ноутбука. Код `tools/` и `scripts/` исключён из deploy через `.vercelignore`.
+
 ## Методический паспорт (локальный Автор)
 
 - Контракт и инструкция: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md).

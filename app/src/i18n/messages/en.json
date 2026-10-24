@@ -1924,5 +1924,11 @@
   "Разрешите открытие вкладки административной консоли.": "Allow the admin console tab to open.",
   "Исходный текст": "Original text",
   "Текст изменён": "Text changed",
-  "Сбросить изменения": "Reset changes"
+  "Сбросить изменения": "Reset changes",
+  "Для перемещения нажмите пробел, используйте стрелки и снова пробел. Escape отменяет перемещение.": "To move a word, press Space, use the arrow keys, then press Space again. Escape cancels the move.",
+  "Перемещение слова «{{word}}».": "Moving the word “{{word}}”.",
+  "Собранная фраза": "Assembled sentence",
+  "Исходные слова": "Available words",
+  "Слово перемещено.": "Word moved.",
+  "Перемещение отменено.": "Move cancelled."
 }

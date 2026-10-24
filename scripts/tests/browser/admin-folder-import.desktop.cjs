@@ -113,7 +113,8 @@ test('media-only manual match, file conflict, missing file and response-loss ret
   });
   await page.locator('#folder-import-apply-button').click();
   await expect(page.locator('#folder-import-status')).toContainText('Можно повторить подтверждение');
-  const repeat = page.waitForRequest('**/folder-import/apply');
+  const repeat = page.waitForRequest(request =>
+    request.method() === 'POST' && request.url().endsWith('/folder-import/apply'));
   await page.locator('#folder-import-apply-button').click();
   expect((await repeat).postDataBuffer().toString()).toContain(requestId);
   await expect(page.locator('#folder-import-status')).toContainText('Новых карточек: 0');
@@ -197,4 +198,83 @@ test('Supabase console offers configured LOCAL database and its folders', async 
   expect(await page.evaluate(() => folderImportPayload())).toMatchObject({
     target_db: 'local', target_folder_id: 901,
   });
+});
+
+test('Supabase console maps both destinations without requiring alternate cloud write', async ({ page }, testInfo) => {
+  await setup(page);
+  await page.route('**/folder-import/targets', route => route.fulfill({ json: {
+    current: 'Supabase', cloud: false, local: true, cloud_write: false,
+  } }));
+  await page.route('**/folder-import/local-folders', route => route.fulfill({ json: [
+    { id: 901, name: 'Локальная папка', parent_id: null },
+  ] }));
+  const directory = await sources(testInfo, 'Две базы из Supabase', false);
+  await page.locator('#folder-import-input').setInputFiles(directory);
+  await expect(page.locator('#folder-import-database option[value="both"]')).toBeEnabled();
+  await page.locator('#folder-import-database').selectOption('both');
+  await page.locator('#folder-import-folder-select-local').selectOption('901');
+  await page.locator('#folder-import-folder-select-cloud').selectOption({ index: 1 });
+  await page.locator('#folder-import-list input').first().check();
+  expect(await page.evaluate(() => [folderImportPayload('local'), folderImportPayload('cloud')])).toMatchObject([
+    { target_db: 'local', target_folder_id: 901 },
+    { target_db: 'current' },
+  ]);
+});
+
+test('both databases require separate folders and resume only the unfinished write', async ({ page }, testInfo) => {
+  await setup(page);
+  await page.route('**/folder-import/targets', route => route.fulfill({ json: {
+    current: 'LOCAL', cloud: true, cloud_label: 'Supabase', cloud_write: true,
+  } }));
+  await page.route('**/folder-import/cloud-folders', route => route.fulfill({ json: [
+    { id: 777, name: 'Облачная папка', parent_id: null },
+  ] }));
+  const previews = [];
+  await page.route('**/folder-import/preview', route => {
+    const body = route.request().postDataBuffer().toString();
+    const cloud = body.includes('"target_db":"cloud"');
+    previews.push(body);
+    return route.fulfill({ json: {
+      groups: [], operations: [], resources: [], problems: [], assets: [],
+      created_cards: 1, existing_cards: 0, folder_name: cloud ? 'Облачная папка' : 'Локальная папка',
+      can_apply: true, preview_token: cloud ? 'cloud-token' : 'local-token',
+    } });
+  });
+  const applied = [];
+  await page.route('**/folder-import/apply', route => {
+    const body = route.request().postDataBuffer().toString();
+    applied.push(body);
+    if (body.includes('"target_db":"cloud"') && applied.length === 2) return route.abort('failed');
+    return route.fulfill({ json: { created_cards: 1, updated_media: 0 } });
+  });
+  const directory = await sources(testInfo, 'Две базы', false);
+  await page.locator('#folder-import-input').setInputFiles(directory);
+  await page.locator('#folder-import-database').selectOption('both');
+  await expect(page.locator('#folder-import-folder-select-local')).toBeVisible();
+  await expect(page.locator('#folder-import-folder-select-cloud')).toBeVisible();
+  await page.locator('#folder-import-folder-select-local').selectOption({ index: 1 });
+  await page.locator('#folder-import-folder-select-cloud').selectOption('777');
+  await page.locator('#folder-import-list input').first().check();
+  await page.locator('#folder-import-preview-button').click();
+  await expect(page.locator('#folder-import-preview')).toContainText('База: LOCAL');
+  await expect(page.locator('#folder-import-preview')).toContainText('База: Supabase');
+  await expect(page.locator('#folder-import-apply-button')).toBeEnabled();
+  const panel = page.locator('#folder-import-panel');
+  expect(await panel.evaluate(element => element.scrollWidth)).toBeLessThanOrEqual(await panel.evaluate(element => element.clientWidth) + 1);
+  await page.screenshot({ path: testInfo.outputPath('both-databases.png'), fullPage: true });
+  expect(previews).toHaveLength(2);
+  expect(previews[0]).toContain('"target_db":"current"');
+  expect(previews[1]).toContain('"target_db":"cloud"');
+  expect(previews[1]).toContain('"target_folder_id":777');
+  await page.locator('#folder-import-apply-button').click();
+  await expect(page.locator('#folder-import-status')).toContainText('Готово в LOCAL');
+  await expect(page.locator('#folder-import-database')).toBeDisabled();
+  await page.locator('#folder-import-apply-button').click();
+  await expect(page.locator('#folder-import-status')).toContainText('Готово: LOCAL');
+  expect(applied).toHaveLength(3);
+  expect(applied[0]).toContain('"target_db":"current"');
+  expect(applied[1]).toContain('"target_db":"cloud"');
+  expect(applied[2]).toContain('"target_db":"cloud"');
+  const requestIds = applied.slice(1).map(body => body.match(/"request_id":"([^"]+)"/)[1]);
+  expect(requestIds[0]).toBe(requestIds[1]);
 });

@@ -1419,6 +1419,7 @@
 /* Puzzle Constructor Drag Feedback */
 .puzzle-target-slots,
 .puzzle-pool-chips {
+  position: relative;
   box-sizing: border-box;
   min-width: 0;
 }
@@ -1458,37 +1459,66 @@
   min-width: 0;
   max-width: 100%;
   overflow-wrap: anywhere;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
 }
 
-.puzzle-slot-chip:focus-visible {
+.puzzle-slot-chip:focus-visible,
+.btn-puzzle-chip:focus-visible {
   outline: 2px solid #c084fc;
   outline-offset: 2px;
 }
 
-.puzzle-slot-chip.drag-hover {
-  border-color: #c084fc !important;
-  background: var(--design-puzzle-selected-bg, rgba(168, 85, 247, 0.35)) !important;
-  transform: scale(1.06) !important;
-  box-shadow: 0 0 10px rgba(168, 85, 247, 0.3);
+.puzzle-target-slots.is-drop-target,
+.puzzle-pool-chips.is-drop-target {
+  border-color: #c084fc;
+  box-shadow: 0 0 0 2px rgba(192, 132, 252, 0.28), 0 4px 14px rgba(168, 85, 247, 0.2);
 }
 
-.puzzle-slot-chip.dragging {
-  pointer-events: none !important;
-  opacity: 0.7;
-  z-index: 1000 !important;
+.puzzle-target-slots.is-drop-target,
+.puzzle-pool-chips.is-drop-target {
+  border-radius: 16px;
+  transition: border-color 120ms ease, box-shadow 120ms ease;
+}
+
+.puzzle-drag-overlay {
+  display: inline-flex;
+  box-sizing: border-box;
+  width: max-content;
+  align-items: center;
+  min-height: 44px;
+  max-width: min(80vw, 320px);
+  padding: 8px 16px;
+  overflow-wrap: anywhere;
+  border: 1.5px solid #c084fc;
+  border-radius: 99px;
+  background: rgba(48, 26, 76, 0.96);
+  color: #f1f5f9;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+}
+
+.puzzle-token-with-boundary.is-dragging {
+  opacity: 0.25;
+}
+
+.puzzle-slot-chip:disabled {
+  cursor: default;
 }
 
 /* Drop indicator vertical line */
 .puzzle-drop-indicator {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  transform: translateX(-50%);
   width: 4px;
   height: 30px;
   background: #c084fc;
   border-radius: 2px;
-  margin: 0 4px;
   box-shadow: 0 0 10px #a855f7;
-  display: inline-block;
-  align-self: center;
-  flex-shrink: 0;
 }
 
 /* Puzzle Pool Chips Container & Buttons */
@@ -1500,6 +1530,9 @@
   gap: 8px;
   width: 100%;
   max-width: 100%;
+  min-height: 64px;
+  padding: 8px;
+  border: 1px dashed rgba(168, 85, 247, 0.18);
   margin: 12px 0 16px 0;
 }
 
@@ -1510,7 +1543,7 @@
   border: 1.5px solid rgba(168, 85, 247, 0.42);
   color: #f1f5f9;
   font-weight: 600;
-  cursor: pointer;
+  cursor: grab;
   transition: all 0.15s ease-in-out;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
   user-select: none;
@@ -1528,6 +1561,18 @@
   cursor: default;
   border-color: rgba(255, 255, 255, 0.08);
   background: rgba(255, 255, 255, 0.03);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .puzzle-slot-chip,
+  .btn-puzzle-chip {
+    transition: none;
+  }
+
+  .puzzle-slot-chip:hover,
+  .btn-puzzle-chip:hover:not(:disabled) {
+    transform: none;
+  }
 }
 
 /* Tablet & Desktop Responsive Scaling */

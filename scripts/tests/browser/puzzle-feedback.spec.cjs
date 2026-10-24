@@ -1,4 +1,6 @@
 const { test, expect } = require('@playwright/test');
+// Several scenarios include full-app setup, touch gestures and five viewport captures.
+test.setTimeout(60000);
 const deck = { id: 1, name: 'Feedback', target_language: 'de', is_learning: true, stats: { total: 1, new: 1, due: 0, learning: 0 } };
 const puzzle = { id: 13, deck_id: 1, queue: 'new', front: '@puzzle\nIch gehe heute mit Anna ins Kino.', back: 'Я иду сегодня с Анной в кино.' };
 
@@ -91,21 +93,52 @@ async function dragAfter(page, fromId, toId, touch = false) {
   if (touch) {
     const client = await page.context().newCDPSession(page);
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await page.waitForTimeout(180); // Match the touch sensor's long-press activation window.
     for (let step = 1; step <= 10; step++) {
       await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
         x: start.x + (end.x - start.x) * step / 10, y: start.y + (end.y - start.y) * step / 10,
       }] });
     }
-    await expect(slot(page, fromId)).toHaveClass(/dragging/);
+    await expect(page.locator('.puzzle-drag-overlay')).toBeVisible();
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await client.detach();
   } else {
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     await page.mouse.move(end.x, end.y, { steps: 12 });
-    await expect(slot(page, fromId)).toHaveClass(/dragging/);
+    await expect(page.locator('.puzzle-drag-overlay')).toBeVisible();
     await page.mouse.up();
   }
+}
+
+async function dragBetween(page, fromSelector, toSelector, after = false, touch = false) {
+  await expect(page.locator(`${fromSelector}:visible`)).toBeVisible();
+  const from = await page.locator(`${fromSelector}:visible`).boundingBox();
+  const to = await page.locator(`${toSelector}:visible`).boundingBox();
+  const start = { x: from.x + from.width / 2, y: from.y + from.height / 2 };
+  const end = toSelector === '.puzzle-target-slots'
+    ? { x: to.x + to.width - 14, y: to.y + to.height - 14 }
+    : { x: to.x + to.width * (after ? 0.8 : 0.2), y: to.y + to.height / 2 };
+  if (touch) {
+    const client = await page.context().newCDPSession(page);
+    await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await page.waitForTimeout(180);
+    for (let step = 1; step <= 12; step++) {
+      await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{
+        x: start.x + (end.x - start.x) * step / 12, y: start.y + (end.y - start.y) * step / 12
+      }] });
+    }
+    await expect(page.locator('.puzzle-drag-overlay')).toBeVisible();
+    await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+    await client.detach();
+  } else {
+    await page.mouse.move(start.x, start.y);
+    await page.mouse.down();
+    await page.mouse.move(end.x, end.y, { steps: 12 });
+    await expect(page.locator('.puzzle-drag-overlay')).toBeVisible();
+    await page.mouse.up();
+  }
+  await expect(page.locator('.puzzle-drag-overlay')).toHaveCount(0);
 }
 
 test('Puzzle gates grading, marks only boundaries, preserves flip state, and clears feedback on drag', async ({ page, context }, testInfo) => {
@@ -117,7 +150,7 @@ test('Puzzle gates grading, marks only boundaries, preserves flip state, and cle
   await expect(boundaries(page)).toHaveCount(6);
   await expect(page.locator('.puzzle-boundary.is-incorrect')).toHaveCount(3);
   await expect(page.locator('.puzzle-boundary.is-correct')).toHaveCount(3);
-  await expect(page.getByRole('status')).toContainText('Проверь порядок возле отмеченных мест.');
+  await expect(page.locator('.puzzle-feedback-hint:visible')).toContainText('Проверь порядок возле отмеченных мест.');
   await expect(page.locator('.grade-buttons button')).toHaveCount(4);
   await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await expect(page.locator('.puzzle-slot-chip:disabled')).toHaveCount(0);
@@ -136,7 +169,7 @@ test('Puzzle gates grading, marks only boundaries, preserves flip state, and cle
   await dragAfter(page, 2, 1);
   await expect.poll(() => selectedOrder(page)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   await expect(boundaries(page)).toHaveCount(0);
-  await expect(page.getByRole('status')).toHaveCount(0);
+  await expect(page.locator('.puzzle-feedback-hint:visible')).toHaveCount(0);
   await expect(page.locator('.grade-buttons button')).toHaveCount(4);
   await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await check(page).click();
@@ -240,7 +273,7 @@ test('long German chips and wrapped boundary markers fit all required widths', a
   await check(page).click();
   for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 1000 });
-    await expect(page.getByRole('status')).toHaveText('Check the word order around the marked points.');
+    await expect(page.locator('.puzzle-feedback-hint:visible')).toHaveText('Check the word order around the marked points.');
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.locator('.puzzle-target-slots, .puzzle-pool-chips').evaluateAll(items => items.every(item => item.scrollWidth <= item.clientWidth))).toBe(true);
     expect(await page.locator('.puzzle-token-with-boundary').evaluateAll(items => items.every(item => {
@@ -253,21 +286,96 @@ test('long German chips and wrapped boundary markers fit all required widths', a
   }
 });
 
-test('mobile touch drag clears feedback, changes order without attempts, and keeps correct boundaries movable', async ({ page, context }, testInfo) => {
+test('mobile touch drag on the study card clears feedback, preserves gestures, and keeps correct boundaries movable', async ({ page, context }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 1000 });
   await openStudy(page, context, puzzle);
-  await rendererHarness(page, puzzle);
   await assemble(page, [0, 2, 1, 3, 4, 5, 6]);
   await check(page).click();
   await dragAfter(page, 2, 1, true);
   await expect.poll(() => selectedOrder(page)).toEqual([0, 1, 2, 3, 4, 5, 6]);
   await expect(boundaries(page)).toHaveCount(0);
-  expect(await page.evaluate(() => window.exerciseTest.saved['13:0'].evaluationState)).toMatchObject({ result: null, attemptCount: 1, mistakeCount: 1 });
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
+  expect(await page.evaluate(async () => {
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const { isFlipped, historyIndex } = useSessionStore.getState();
+    return { isFlipped, historyIndex };
+  })).toEqual({ isFlipped: false, historyIndex: 0 });
   // Still editable before success, even the pair confirmed by the earlier Check.
   await slot(page, 5).click();
   await expect(pool(page, 5)).toBeEnabled();
-  expect(await page.evaluate(() => window.exerciseTest.saved['13:0'].evaluationState.attemptCount)).toBe(1);
+  await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath('puzzle-touch-edit-375.png'), fullPage: true });
+});
+
+test('mouse drag reorders the source, moves words between zones, and inserts at both answer edges', async ({ page, context }) => {
+  await openStudy(page, context, puzzle, 'en');
+  await rendererHarness(page, puzzle);
+  await expect(pool(page, 0)).toBeVisible();
+  const sourceOrder = () => page.locator('.btn-puzzle-chip:visible').evaluateAll(items => items.map(item => Number(item.dataset.id)));
+  const beforePoolReorder = await sourceOrder();
+  await dragBetween(page, `.btn-puzzle-chip[data-id="${beforePoolReorder[0]}"]`, `.btn-puzzle-chip[data-id="${beforePoolReorder.at(-1)}"]`, true);
+  const reorderedPool = [...beforePoolReorder.slice(1), beforePoolReorder[0]];
+  expect(await sourceOrder()).toEqual(reorderedPool);
+  await page.evaluate(() => window.exerciseTest.render('13:0', false));
+  await expect(pool(page, 0)).toHaveCount(0);
+  await page.evaluate(() => window.exerciseTest.render());
+  await expect(pool(page, 0)).toBeVisible();
+  expect(await sourceOrder()).toEqual(reorderedPool);
+
+  await assemble(page, [0, 1, 2]);
+  const movedFromPool = (await sourceOrder())[1];
+  await dragBetween(page, `.btn-puzzle-chip[data-id="${movedFromPool}"]`, '.puzzle-slot-chip[data-id="1"]');
+  expect(await selectedOrder(page)).toEqual([0, movedFromPool, 1, 2]);
+  await dragBetween(page, `.puzzle-slot-chip[data-id="${movedFromPool}"]`, `.btn-puzzle-chip[data-id="${(await sourceOrder())[0]}"]`);
+  expect(await sourceOrder()).toContain(movedFromPool);
+  expect(await selectedOrder(page)).toEqual([0, 1, 2]);
+
+  await dragBetween(page, '.btn-puzzle-chip[data-id="6"]', '.puzzle-slot-chip[data-id="0"]');
+  expect((await selectedOrder(page))[0]).toBe(6);
+  await dragBetween(page, '.puzzle-slot-chip[data-id="0"]', '.puzzle-target-slots');
+  expect((await selectedOrder(page)).at(-1)).toBe(0);
+});
+
+test('cancel and outside drops preserve committed order; touch moves across wrapped rows and both zones', async ({ page, context }, testInfo) => {
+  await page.setViewportSize({ width: 375, height: 1000 });
+  await openStudy(page, context, puzzle, 'en');
+  await rendererHarness(page, puzzle);
+  await assemble(page, [0, 1, 2]);
+  const before = await selectedOrder(page);
+  const from = await slot(page, 0).boundingBox();
+  const to = await pool(page, 5).boundingBox();
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(to.x + to.width / 2, to.y + to.height / 2, { steps: 10 });
+  await expect(page.locator('.puzzle-drop-indicator')).toBeVisible();
+  expect((await page.locator('.puzzle-drag-overlay').boundingBox()).height).toBeLessThanOrEqual(from.height + 2);
+  await page.screenshot({ path: testInfo.outputPath('puzzle-insertion-marker-375.png'), fullPage: true });
+  expect(await selectedOrder(page)).toEqual(before);
+  await page.keyboard.press('Escape');
+  await page.mouse.up();
+  expect(await selectedOrder(page)).toEqual(before);
+
+  await page.mouse.move(from.x + from.width / 2, from.y + from.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(2, 990, { steps: 10 });
+  await page.mouse.up();
+  expect(await selectedOrder(page)).toEqual(before);
+
+  await dragBetween(page, '.btn-puzzle-chip[data-id="5"]', '.puzzle-slot-chip[data-id="1"]', false, true);
+  expect(await selectedOrder(page)).toEqual([0, 5, 1, 2]);
+  await dragBetween(page, '.puzzle-slot-chip[data-id="5"]', '.btn-puzzle-chip[data-id="6"]', false, true);
+  expect(await selectedOrder(page)).toEqual(before);
+
+  await page.getByRole('button', { name: 'Reset', exact: true }).click();
+  const sourceIds = await page.locator('.btn-puzzle-chip:visible').evaluateAll(items => items.map(item => Number(item.dataset.id)));
+  await dragBetween(page, `.btn-puzzle-chip[data-id="${sourceIds[0]}"]`, `.btn-puzzle-chip[data-id="${sourceIds.at(-1)}"]`, true, true);
+  expect(await page.locator('.btn-puzzle-chip:visible').evaluateAll(items => items.map(item => Number(item.dataset.id))))
+    .toEqual([...sourceIds.slice(1), sourceIds[0]]);
+  await assemble(page, [0, 1, 2, 3, 4, 5, 6]);
+  await dragBetween(page, '.puzzle-slot-chip[data-id="6"]', '.puzzle-slot-chip[data-id="0"]', false, true);
+  expect(await selectedOrder(page)).toEqual([6, 0, 1, 2, 3, 4, 5]);
+  await dragBetween(page, '.puzzle-slot-chip[data-id="6"]', '.puzzle-pool-chips', false, true);
+  await expect(pool(page, 6)).toBeVisible();
 });
 
 test('Puzzle keeps its own block with optional or later ::exercise and literal info markers', async ({ page, context }, testInfo) => {

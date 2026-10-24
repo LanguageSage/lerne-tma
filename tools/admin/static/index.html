@@ -1643,7 +1643,7 @@
               <input id="folder-import-input" type="file" webkitdirectory multiple class="sr-only" onchange="selectFolderImport(this)">
             </label>
           </div>
-          <div id="folder-import-workspace" class="hidden space-y-4">
+          <div id="folder-import-workspace" class="space-y-4">
             <fieldset id="folder-import-controls" class="space-y-4 min-w-0">
               <div class="grid gap-4 lg:grid-cols-2">
               <label class="block text-sm text-slate-300">Режим
@@ -1653,18 +1653,19 @@
                 </select>
               </label>
               <label class="block text-sm text-slate-300">База для импорта
-                <select id="folder-import-database" onchange="changeFolderImportDatabase()" class="block w-full bg-slate-900 border border-slate-700 rounded-xl p-3 mt-1"></select>
+                <select id="folder-import-database" size="3" onchange="changeFolderImportDatabase()" class="block w-full min-h-32 bg-slate-900 border border-slate-700 rounded-xl p-2 mt-1 [&>option]:p-3"></select>
                 <span id="folder-import-database-help" class="block mt-1 text-xs text-slate-400"></span>
               </label>
               </div>
               <div id="folder-import-target"></div>
               <div class="flex flex-wrap gap-2">
-                <button id="folder-import-preview-button" type="button" onclick="previewFolderImport()" class="px-4 py-3 bg-indigo-600 rounded-xl text-sm text-white disabled:opacity-40">2. Проверить</button>
+                <button id="folder-import-preview-button" type="button" onclick="previewFolderImport()" disabled class="px-4 py-3 bg-indigo-600 rounded-xl text-sm text-white disabled:opacity-40">2. Проверить</button>
                 <button id="folder-import-apply-button" type="button" onclick="applyFolderImport()" disabled class="px-4 py-3 bg-emerald-700 rounded-xl text-sm text-white disabled:opacity-40">3. Импортировать</button>
                 <button type="button" onclick="closeFolderImport()" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Обычные файлы / текст</button>
               </div>
               <p class="text-xs text-slate-400">В существующих карточках меняются только медиа-ссылки. Текст и учебный прогресс сохраняются.</p>
-              <div class="flex flex-wrap items-center gap-2 border-t border-slate-800 pt-4">
+              <div id="folder-import-selection" class="hidden space-y-4 border-t border-slate-800 pt-4">
+              <div class="flex flex-wrap items-center gap-2">
                 <strong id="folder-import-count" class="text-sm text-white mr-auto"></strong>
                 <button type="button" onclick="selectAllFolderImports(true)" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Выбрать все</button>
                 <button type="button" onclick="selectAllFolderImports(false)" class="px-3 py-3 bg-slate-800 rounded-xl text-sm">Снять выбор</button>
@@ -1674,6 +1675,7 @@
               </label>
               <div id="folder-import-list" class="max-h-96 overflow-y-auto space-y-2"></div>
               <p id="folder-import-discovery-warnings" class="text-xs text-amber-300 break-words"></p>
+              </div>
               <div id="folder-import-preview" class="space-y-3 text-sm break-words"></div>
             </fieldset>
           </div>

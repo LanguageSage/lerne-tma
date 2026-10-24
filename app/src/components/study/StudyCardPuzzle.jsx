@@ -1,8 +1,20 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, useReducedMotion } from 'framer-motion';
 import { Sparkles, RotateCcw, Eye, Check, X } from 'lucide-react';
+import {
+  DndContext,
+  DragOverlay,
+  KeyboardSensor,
+  MouseSensor,
+  TouchSensor,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors
+} from '@dnd-kit/core';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getTextShadow } from '../../utils/style';
@@ -11,7 +23,68 @@ import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { getBackCardStyle } from '../../utils/cardStyles';
 import { getInteractiveExerciseContent, parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { evaluatePuzzleOrder, puzzleBoundaryId } from '../../utils/puzzleEvaluation.js';
+import { createPuzzleLists, getPuzzleInsertion, movePuzzleToken, puzzleWordDndId } from '../../utils/puzzleDrag.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
+
+const puzzleCollisionDetection = args => {
+  const point = args.pointerCoordinates || {
+    x: args.collisionRect.left + args.collisionRect.width / 2,
+    y: args.collisionRect.top + args.collisionRect.height / 2
+  };
+  for (const container of args.droppableContainers) {
+    const node = container.node.current;
+    if (!node) continue;
+    const zone = node.getBoundingClientRect();
+    if (point.x < zone.left || point.x > zone.right || point.y < zone.top || point.y > zone.bottom) continue;
+    const rects = Array.from(node.querySelectorAll('[data-puzzle-token]'))
+      .filter(element => Number(element.dataset.puzzleToken) !== args.active.data.current.tokenId)
+      .map(element => element.getBoundingClientRect());
+    const insertion = getPuzzleInsertion(rects, point, zone);
+    return [{ id: container.id, data: {
+      droppableContainer: container, value: 1,
+      insertion: { ...insertion, destination: container.id, x: insertion.x - zone.left, y: insertion.y - zone.top }
+    } }];
+  }
+  return [];
+};
+
+const PuzzleWord = ({ word, selected, disabled, onClick, style, boundary }) => {
+  const reduceMotion = useReducedMotion();
+  const { setNodeRef, isDragging, attributes, listeners } = useDraggable({ id: puzzleWordDndId(word.id), data: { tokenId: word.id }, disabled });
+
+  return (
+    <motion.span
+      ref={setNodeRef}
+      data-puzzle-token={word.id}
+      className={`puzzle-token-with-boundary${isDragging ? ' is-dragging' : ''}`}
+      layout={!reduceMotion}
+      transition={{ layout: { duration: 0.16 } }}
+    >
+      {boundary}
+      <button
+        type="button"
+        disabled={disabled}
+        data-id={word.id}
+        className={selected ? 'puzzle-slot-chip' : 'btn-puzzle-chip'}
+        style={style}
+        {...attributes}
+        {...listeners}
+        onClick={onClick}
+        aria-label={word.text}
+      >{word.text}</button>
+    </motion.span>
+  );
+};
+
+const PuzzleDropZone = ({ id, className, children, style, preview, disabled }) => {
+  const { setNodeRef } = useDroppable({ id, disabled });
+  const insertion = preview?.destination === id ? preview : null;
+  return <div ref={setNodeRef} data-puzzle-zone={id} className={`${className}${insertion ? ' is-drop-target' : ''}`} style={style}>
+    {children}
+    {insertion && <span className="puzzle-drop-indicator" aria-hidden="true"
+      style={{ left: insertion.x, top: insertion.y, height: insertion.height }} />}
+  </div>;
+};
 
 export const StudyCardPuzzle = React.memo(({
   card,
@@ -24,16 +97,11 @@ export const StudyCardPuzzle = React.memo(({
 }) => {
   useInterfaceLocale();
   const reduceMotion = useReducedMotion();
-  const [selectedPuzzles, setSelectedPuzzles] = useState(savedState?.selectedPuzzles || []);
   const [activeDragId, setActiveDragId] = useState(null);
-  const [hoverIndex, setHoverIndex] = useState(null);
-  const [dragStartPos, setDragStartPos] = useState(null);
-  const [dragCurrentPos, setDragCurrentPos] = useState(null);
+  const [dropPreview, setDropPreview] = useState(null);
   const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const { completed, result } = evaluation.state;
-
-  const cachedRectsRef = useRef([]);
 
   const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles]);
 
@@ -45,15 +113,6 @@ export const StudyCardPuzzle = React.memo(({
     cardFontStyle,
     cardTextShadow
   } = styles;
-
-  // Sync state to parent for flip preservation
-  useEffect(() => {
-    onSaveState?.({
-      selectedPuzzles,
-      showTranslation,
-      evaluationState: evaluation.state
-    });
-  }, [selectedPuzzles, showTranslation, evaluation.state, onSaveState]);
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
@@ -82,23 +141,35 @@ export const StudyCardPuzzle = React.memo(({
     };
   }, [card]);
 
+  const [lists, setLists] = useState(() => createPuzzleLists(puzzleData?.shuffledWords || [], savedState));
+  const wordById = useMemo(() => new Map(puzzleData?.shuffledWords.map(word => [word.id, word]) || []), [puzzleData]);
+  const selectedPuzzles = useMemo(() => lists.answer.map(id => wordById.get(id)).filter(Boolean), [lists.answer, wordById]);
+  const availableIds = lists.pool;
   const allWordsPlaced = Boolean(puzzleData && selectedPuzzles.length === puzzleData.originalWords.length);
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 5 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 140, tolerance: 8 } }),
+    useSensor(KeyboardSensor)
+  );
+
+  // Only committed moves are saved. A cancelled drag never changes the answer.
+  useEffect(() => {
+    onSaveState?.({ selectedPuzzles, poolOrder: lists.pool, showTranslation, evaluationState: evaluation.state });
+  }, [selectedPuzzles, lists.pool, showTranslation, evaluation.state, onSaveState]);
 
   const handlePuzzleChipClick = (wordObj, e) => {
     e.stopPropagation();
-    if (isFlipped || completed || selectedPuzzles.some(word => word.id === wordObj.id)) return;
+    if (isFlipped || completed || activeDragId !== null) return;
     evaluation.clearCurrentFeedback();
-    const updated = [...selectedPuzzles, wordObj];
-    setSelectedPuzzles(updated);
+    setLists(current => movePuzzleToken(current, wordObj.id, 'answer', current.answer.length));
     triggerHaptic('light');
   };
 
-  const handleRemovePuzzleWord = (wordObj, index, e) => {
+  const handleRemovePuzzleWord = (wordObj, e) => {
     e.stopPropagation();
-    if (isFlipped || completed) return;
+    if (isFlipped || completed || activeDragId !== null) return;
     evaluation.clearCurrentFeedback();
-    const updated = selectedPuzzles.filter((_, i) => i !== index);
-    setSelectedPuzzles(updated);
+    setLists(current => movePuzzleToken(current, wordObj.id, 'pool', current.pool.length));
     triggerHaptic('light');
   };
 
@@ -117,10 +188,38 @@ export const StudyCardPuzzle = React.memo(({
   };
 
   const handleReset = () => {
-    if (isFlipped || completed) return;
-    setSelectedPuzzles([]);
+    if (isFlipped || completed || activeDragId !== null) return;
+    setLists(createPuzzleLists(puzzleData.shuffledWords));
     evaluation.clearCurrentFeedback();
     triggerHaptic('light');
+  };
+
+  const handleDragStart = event => {
+    setActiveDragId(event.active.data.current.tokenId);
+  };
+
+  const handleDragMove = event => {
+    setDropPreview(event.collisions?.[0]?.data?.insertion || null);
+  };
+
+  const handleDragCancel = () => {
+    setActiveDragId(null);
+    setDropPreview(null);
+  };
+  const handleDragEnd = event => {
+    const insertion = event.collisions?.[0]?.data?.insertion;
+    if (insertion && !isFlipped && !completed) {
+      setLists(current => movePuzzleToken(current, event.active.data.current.tokenId, insertion.destination, insertion.index));
+      evaluation.clearCurrentFeedback();
+      triggerHaptic('light');
+    }
+    handleDragCancel();
+  };
+
+  const wordStyle = {
+    fontFamily: cardFont, color: cardTextColor, fontSize: `${cardFontSize}rem`,
+    fontWeight: cardFontWeight, fontStyle: cardFontStyle,
+    textShadow: getTextShadow(cardTextShadow, cardTextColor)
   };
 
 
@@ -187,8 +286,29 @@ export const StudyCardPuzzle = React.memo(({
         </div>
       )}
 
+      <DndContext
+        sensors={sensors}
+        accessibility={{
+          screenReaderInstructions: { draggable: tr('Для перемещения нажмите пробел, используйте стрелки и снова пробел. Escape отменяет перемещение.') },
+          announcements: {
+            onDragStart: ({ active }) => tr('Перемещение слова «{{word}}».', { word: wordById.get(active.data.current.tokenId)?.text }),
+            onDragOver: ({ over }) => over ? tr(over.id === 'answer' ? 'Собранная фраза' : 'Исходные слова') : undefined,
+            onDragEnd: ({ over }) => tr(over ? 'Слово перемещено.' : 'Перемещение отменено.'),
+            onDragCancel: () => tr('Перемещение отменено.')
+          }
+        }}
+        collisionDetection={puzzleCollisionDetection}
+        onDragStart={handleDragStart}
+        onDragMove={handleDragMove}
+        onDragOver={handleDragMove}
+        onDragEnd={handleDragEnd}
+        onDragCancel={handleDragCancel}
+      >
       {/* Target Slots Container */}
-      <div 
+      <PuzzleDropZone
+        id="answer"
+        preview={dropPreview}
+        disabled={isFlipped || completed}
         className="puzzle-target-slots glass"
         style={{
           display: 'flex',
@@ -216,177 +336,52 @@ export const StudyCardPuzzle = React.memo(({
           <>
             {selectedPuzzles.map((w, idx) => {
               const boundary = idx > 0 ? evaluation.part(puzzleBoundaryId(selectedPuzzles[idx - 1].id, w.id)) : null;
-              const showIndicator = hoverIndex === idx && activeDragId !== null && activeDragId !== w.id;
               return (
-                <React.Fragment key={w.id}>
-                  {showIndicator && (
-                    <motion.div 
-                      layoutId="drop-indicator"
-                      className="puzzle-drop-indicator"
-                    />
-                  )}
-                  <span className="puzzle-token-with-boundary">
-                    {idx > 0 && <span
-                      className={`puzzle-boundary ${boundary ? `is-${boundary.status}` : ''}`}
-                      data-part-id={boundary?.id}
-                      role={boundary ? 'img' : undefined}
-                      aria-hidden={boundary ? undefined : true}
-                      aria-label={boundary ? tr(boundary.status === 'incorrect'
-                        ? 'Проверь порядок рядом с этим местом.' : 'Верное соседство слов.') : undefined}
-                    >
-                      {boundary && (boundary.status === 'correct' ? <Check size={14} /> : <X size={14} />)}
-                    </span>}
-                    <motion.button
-                      type="button"
-                      disabled={isFlipped || completed}
-                      data-id={w.id}
-                      layout={!reduceMotion}
-                      drag={!isFlipped && !completed}
-                      dragSnapToOrigin={true}
-                      dragElastic={0}
-                      dragMomentum={false}
-                      onDragStart={(event, info) => {
-                        evaluation.clearCurrentFeedback();
-                        setActiveDragId(w.id);
-                        const chips = event.target.closest('.puzzle-target-slots').querySelectorAll('.puzzle-slot-chip');
-                        cachedRectsRef.current = Array.from(chips).map((el, i) => ({
-                          index: i,
-                          id: el.getAttribute('data-id'),
-                          rect: el.getBoundingClientRect()
-                        }));
-
-                        const currentChip = Array.from(chips).find(el => el.getAttribute('data-id') === String(w.id));
-                        const cardEl = document.getElementById('tut-study-card');
-                        if (currentChip && cardEl) {
-                          const rect = currentChip.getBoundingClientRect();
-                          const cardRect = cardEl.getBoundingClientRect();
-                          setDragStartPos({
-                            x: rect.left + rect.width / 2 - cardRect.left,
-                            y: rect.top + rect.height / 2 - cardRect.top
-                          });
-                          setDragCurrentPos({
-                            x: info.point.x - cardRect.left,
-                            y: info.point.y - cardRect.top
-                          });
-                        }
-                      }}
-                      onDrag={(event, info) => {
-                        const px = info.point.x;
-                        const py = info.point.y;
-
-                        const cardEl = document.getElementById('tut-study-card');
-                        if (cardEl) {
-                          const cardRect = cardEl.getBoundingClientRect();
-                          setDragCurrentPos({
-                            x: px - cardRect.left,
-                            y: py - cardRect.top
-                          });
-                        }
-
-                        let closestIdx = null;
-                        let minDistance = Infinity;
-                        let isRightOfCenter = false;
-
-                        cachedRectsRef.current.forEach(({ index, id, rect }) => {
-                          if (id === String(w.id)) return;
-
-                          const cx = rect.left + rect.width / 2;
-                          const cy = rect.top + rect.height / 2;
-
-                          const dist = Math.sqrt((px - cx) ** 2 + (py - cy) ** 2);
-                          if (dist < minDistance) {
-                            minDistance = dist;
-                            closestIdx = index;
-                            isRightOfCenter = px > cx;
-                          }
-                        });
-
-                        if (minDistance < 120 && closestIdx !== null) {
-                          setHoverIndex(isRightOfCenter ? closestIdx + 1 : closestIdx);
-                        } else {
-                          setHoverIndex(null);
-                        }
-                      }}
-                      onDragEnd={() => {
-                        if (hoverIndex !== null && hoverIndex !== idx) {
-                          evaluation.clearCurrentFeedback();
-                          const updated = Array.from(selectedPuzzles);
-                          const [removed] = updated.splice(idx, 1);
-                          const insertIdx = idx < hoverIndex ? hoverIndex - 1 : hoverIndex;
-                          updated.splice(insertIdx, 0, removed);
-                          setSelectedPuzzles(updated);
-                        }
-                        setActiveDragId(null);
-                        setHoverIndex(null);
-                        setDragStartPos(null);
-                        setDragCurrentPos(null);
-                      }}
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemovePuzzleWord(w, idx, e);
-                      }}
-                      className={`puzzle-slot-chip ${activeDragId === w.id ? 'dragging' : ''} ${hoverIndex === idx && activeDragId !== w.id ? 'drag-hover' : ''}`}
-                      data-index={idx}
-                      style={{
-                        fontFamily: cardFont,
-                        color: cardTextColor,
-                        fontSize: `${cardFontSize}rem`,
-                        fontWeight: cardFontWeight,
-                        fontStyle: cardFontStyle,
-                        textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        cursor: completed ? 'default' : 'grab',
-                        userSelect: 'none',
-                        touchAction: 'none'
-                      }}
-                    >
-                      {w.text}
-                    </motion.button>
-                  </span>
-                </React.Fragment>
+                <PuzzleWord
+                  key={w.id}
+                  word={w}
+                  selected
+                  disabled={isFlipped || completed}
+                  onClick={e => {
+                    e.stopPropagation();
+                    handleRemovePuzzleWord(w, e);
+                  }}
+                  boundary={idx > 0 && <span
+                    className={`puzzle-boundary ${boundary ? `is-${boundary.status}` : ''}`}
+                    data-part-id={boundary?.id}
+                    role={boundary ? 'img' : undefined}
+                    aria-hidden={boundary ? undefined : true}
+                    aria-label={boundary ? tr(boundary.status === 'incorrect' ? 'Проверь порядок рядом с этим местом.' : 'Верное соседство слов.') : undefined}
+                  >{boundary && (boundary.status === 'correct' ? <Check size={14} /> : <X size={14} />)}</span>}
+                  style={wordStyle}
+                />
               );
             })}
-            {hoverIndex === selectedPuzzles.length && activeDragId !== null && (
-              <motion.div 
-                layoutId="drop-indicator"
-                className="puzzle-drop-indicator"
-              />
-            )}
           </>
         )}
-      </div>
+      </PuzzleDropZone>
 
       {result && !completed && <p className="puzzle-feedback-hint" role="status">
         {tr('Проверь порядок возле отмеченных мест.')}
       </p>}
 
       {/* Shuffled Pool Chips */}
-      <div className="puzzle-pool-chips">
-        {puzzleData.shuffledWords.map((w) => {
-          const isSelected = selectedPuzzles.some(p => p.id === w.id);
-          return (
-            <button
+      <PuzzleDropZone id="pool" preview={dropPreview} disabled={isFlipped || completed} className="puzzle-pool-chips">
+        {availableIds.map(id => {
+          const w = wordById.get(id);
+          if (!w) return null;
+          return <PuzzleWord
               key={w.id}
-              type="button"
-              data-id={w.id}
-              className="btn-puzzle-chip"
-              disabled={isSelected || completed || isFlipped}
-              onClick={(e) => handlePuzzleChipClick(w, e)}
-              style={{
-                fontFamily: cardFont,
-                color: cardTextColor,
-                fontSize: `${cardFontSize}rem`,
-                fontWeight: cardFontWeight,
-                fontStyle: cardFontStyle,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor)
-              }}
-            >
-              {w.text}
-            </button>
-          );
+              word={w}
+              disabled={completed || isFlipped}
+              onClick={e => handlePuzzleChipClick(w, e)}
+              style={wordStyle}
+            />;
         })}
-      </div>
+      </PuzzleDropZone>
+      {createPortal(<DragOverlay dropAnimation={reduceMotion ? null : { duration: 140, easing: 'ease-out' }}>
+        {activeDragId !== null && wordById.has(activeDragId) ? <span className="puzzle-drag-overlay" style={wordStyle}>{wordById.get(activeDragId).text}</span> : null}
+      </DragOverlay>, document.body)}
 
       {/* Check and Reset Action Buttons */}
       <div style={{
@@ -447,49 +442,7 @@ export const StudyCardPuzzle = React.memo(({
         )}
       </div>
 
-      {/* Drag Arrow SVG Overlay */}
-      {dragStartPos && dragCurrentPos && (
-        <svg
-          style={{
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            width: '100%',
-            height: '100%',
-            pointerEvents: 'none',
-            zIndex: 9999
-          }}
-        >
-          <defs>
-            <filter id="arrow-glow" x="-20%" y="-20%" width="140%" height="140%">
-              <feGaussianBlur stdDeviation="4" result="blur" />
-              <feComposite in="SourceGraphic" in2="blur" operator="over" />
-            </filter>
-            <marker
-              id="arrow"
-              viewBox="0 0 10 10"
-              refX="6"
-              refY="5"
-              markerWidth="8"
-              markerHeight="8"
-              orient="auto-start-reverse"
-            >
-              <path d="M 0 1.5 L 10 5 L 0 8.5 z" fill="#c084fc" />
-            </marker>
-          </defs>
-          <line
-            x1={dragStartPos.x}
-            y1={dragStartPos.y}
-            x2={dragCurrentPos.x}
-            y2={dragCurrentPos.y}
-            stroke="#c084fc"
-            strokeWidth="4"
-            strokeDasharray="6 6"
-            filter="url(#arrow-glow)"
-            markerEnd="url(#arrow)"
-          />
-        </svg>
-      )}
+      </DndContext>
     </div>
   );
 });

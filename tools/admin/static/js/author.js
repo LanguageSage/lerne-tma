@@ -175,6 +175,10 @@ let authorDecksData = [];
 
 async function initAuthorTab() {
   await refreshAuthorCatalogs(false);
+  if (!folderImport.initialized) {
+    try { await loadFolderImportTargets(); folderImport.initialized = true; }
+    catch (error) { folderImportStatus(error.message); }
+  }
 
   // Populate dropdowns for export and publish
   populateAuthorFolderSelects();

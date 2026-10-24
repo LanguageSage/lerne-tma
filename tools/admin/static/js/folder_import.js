@@ -2,14 +2,23 @@
  * Publication and permissions belong to the server; no storage credentials here.
  */
 let folderImport = {
-  files: new Map(), selected: new Set(), manifests: [], decisions: {}, mediaChoices: {},
-  preview: null, requestId: null, busy: false, folders: [], target: 'current'
+  files: new Map(), selected: new Set(), manifests: [], decisionsByDb: { local: {}, cloud: {} },
+  mediaChoicesByDb: { local: {}, cloud: {} }, preview: null, busy: false, folders: [],
+  foldersByDb: {}, target: 'current', currentDb: 'local', initialized: false
 };
+
+function folderImportDatabases() {
+  if (folderImport.target === 'both') return ['local', 'cloud'];
+  return [folderImport.target === 'current' ? folderImport.currentDb : folderImport.target];
+}
+
+function folderImportDbLabel(db) { return db === 'local' ? 'LOCAL' : 'Supabase'; }
 
 async function loadFolderImportTargets() {
   const response = await fetch('/api/admin/author/folder-import/targets');
   if (!response.ok) throw new Error('Не удалось узнать доступные базы.');
   const targets = await response.json();
+  folderImport.currentDb = targets.current === 'LOCAL' ? 'local' : 'cloud';
   const select = document.getElementById('folder-import-database');
   select.replaceChildren(new Option(targets.current, 'current'));
   if (targets.cloud) {
@@ -18,48 +27,64 @@ async function loadFolderImportTargets() {
     select.add(option);
   }
   if (targets.local) select.add(new Option('LOCAL', 'local'));
+  const both = new Option('Обе базы · LOCAL + Supabase', 'both');
+  both.disabled = !targets.local && !(targets.cloud && targets.cloud_write);
+  select.add(both);
   document.getElementById('folder-import-database-help').textContent =
     targets.cloud && !targets.cloud_write ? 'Запись в Supabase отключена в серверной настройке.'
       : !targets.cloud && !targets.local ? 'Вторая база не подключена: нужна внешняя конфигурация переноса.' : '';
-  if (!targets.cloud_write && folderImport.target === 'cloud') folderImport.target = 'current';
+  if ((!targets.cloud_write && folderImport.target === 'cloud') ||
+      (both.disabled && folderImport.target === 'both')) folderImport.target = 'current';
   select.value = folderImport.target;
   if (!select.value) folderImport.target = 'current';
   await loadFolderImportFolders();
 }
 
 async function loadFolderImportFolders(fresh = false) {
-  if (folderImport.target !== 'current') {
-    const response = await fetch(`/api/admin/author/folder-import/${folderImport.target}-folders`);
-    const data = await response.json();
-    if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : 'Не удалось загрузить папки Supabase.');
-    folderImport.folders = data;
-  } else {
-    folderImport.folders = !fresh && authorFoldersData.length
-      ? authorFoldersData.slice() : await adminCatalog('/api/admin/folders', 'folders');
-    if (fresh) authorFoldersData = folderImport.folders.slice();
+  for (const db of folderImportDatabases()) {
+    let folders;
+    if (db !== folderImport.currentDb) {
+      const response = await fetch(`/api/admin/author/folder-import/${db}-folders`);
+      const data = await response.json();
+      if (!response.ok) throw new Error(typeof data.detail === 'string' ? data.detail : `Не удалось загрузить папки ${folderImportDbLabel(db)}.`);
+      folders = data;
+    } else {
+      folders = !fresh && authorFoldersData.length
+        ? authorFoldersData.slice() : await adminCatalog('/api/admin/folders', 'folders');
+      if (fresh) authorFoldersData = folders.slice();
+    }
+    folderImport.foldersByDb[db] = folders;
   }
+  folderImport.folders = folderImport.foldersByDb[folderImportDatabases()[0]];
   renderFolderImportTarget();
 }
 
 function renderFolderImportTarget() {
   const root = document.getElementById('folder-import-target');
-  const previous = document.getElementById('folder-import-folder-select')?.value;
+  const previous = Object.fromEntries(folderImportDatabases().map(db => [db, {
+    value: document.getElementById(folderImport.target === 'both' ? `folder-import-folder-select-${db}` : 'folder-import-folder-select')?.value,
+    name: document.getElementById(folderImport.target === 'both' ? `folder-import-new-folder-${db}` : 'folder-import-new-folder')?.value,
+  }]));
   root.replaceChildren();
+  for (const db of folderImportDatabases()) {
+  const block = document.createElement('div');
+  block.className = 'rounded-xl border border-slate-700 bg-slate-900/50 p-3';
+  const suffix = folderImport.target === 'both' ? `-${db}` : '';
   const title = document.createElement('p');
   title.className = 'text-sm font-semibold text-white mb-2';
-  title.textContent = 'Целевая папка в выбранной базе';
-  root.append(title);
+  title.textContent = folderImport.target === 'both' ? `Целевая папка · ${folderImportDbLabel(db)}` : 'Целевая папка в выбранной базе';
+  block.append(title);
   const row = document.createElement('div');
   row.className = 'grid gap-2 sm:grid-cols-[minmax(0,1fr)_auto]';
   const select = document.createElement('select');
-  select.id = 'folder-import-folder-select';
+  select.id = `folder-import-folder-select${suffix}`;
   select.className = 'min-w-0 w-full bg-slate-900 border border-slate-700 rounded-xl p-3';
-  select.setAttribute('aria-label', 'Целевая папка в базе');
+  select.setAttribute('aria-label', `Целевая папка в ${folderImportDbLabel(db)}`);
   select.add(new Option('Выберите существующую папку', ''));
-  for (const folder of buildSortedFolderTree(folderImport.folders)) {
+  for (const folder of buildSortedFolderTree(folderImport.foldersByDb[db])) {
     select.add(new Option(folder.fullPath, String(folder.id)));
   }
-  if (previous && folderImport.folders.some(folder => String(folder.id) === previous)) select.value = previous;
+  if (previous[db].value && folderImport.foldersByDb[db].some(folder => String(folder.id) === previous[db].value)) select.value = previous[db].value;
   select.addEventListener('change', invalidateFolderImport);
   row.append(select);
   const button = document.createElement('button');
@@ -67,7 +92,7 @@ function renderFolderImportTarget() {
   button.className = 'px-3 py-3 bg-slate-800 rounded-xl text-sm';
   button.textContent = 'Создать новую папку';
   button.addEventListener('click', () => {
-    const input = document.getElementById('folder-import-new-folder');
+    const input = document.getElementById(`folder-import-new-folder${suffix}`);
     input.classList.toggle('hidden');
     select.disabled = !input.classList.contains('hidden');
     button.textContent = select.disabled ? 'Выбрать существующую' : 'Создать новую папку';
@@ -75,13 +100,16 @@ function renderFolderImportTarget() {
     if (select.disabled) input.focus();
   });
   row.append(button);
-  root.append(row);
+  block.append(row);
   const input = document.createElement('input');
-  input.id = 'folder-import-new-folder';
+  input.id = `folder-import-new-folder${suffix}`;
   input.placeholder = 'Название новой папки';
   input.className = 'hidden mt-2 w-full bg-slate-900 border border-slate-700 rounded-xl p-3';
+  input.value = previous[db].name || '';
   input.addEventListener('input', invalidateFolderImport);
-  root.append(input);
+  block.append(input);
+  root.append(block);
+  }
 }
 
 async function changeFolderImportDatabase() {
@@ -118,7 +146,6 @@ function folderImportStatus(text) {
 
 function invalidateFolderImport() {
   folderImport.preview = null;
-  folderImport.requestId = null;
   document.getElementById('folder-import-apply-button').disabled = true;
   folderImportStatus('Параметры изменены. Проверьте выбранные колоды перед подтверждением.');
 }
@@ -141,8 +168,8 @@ async function selectFolderImport(input) {
   input.value = '';
   folderImport.files = new Map(incoming.map(file => [file.webkitRelativePath || file.name, file]));
   folderImport.selected.clear();
-  folderImport.decisions = {};
-  folderImport.mediaChoices = {};
+  folderImport.decisionsByDb = { local: {}, cloud: {} };
+  folderImport.mediaChoicesByDb = { local: {}, cloud: {} };
   folderImport.manifests = [];
   document.getElementById('folder-import-apply-button').disabled = true;
   document.getElementById('folder-import-preview-button').disabled = true;
@@ -197,7 +224,7 @@ async function selectFolderImport(input) {
     updateFolderImportCount();
     await loadFolderImportTargets();
     document.getElementById('folder-import-preview-button').disabled = false;
-    document.getElementById('folder-import-workspace').classList.remove('hidden');
+    document.getElementById('folder-import-selection').classList.remove('hidden');
     document.getElementById('author-publish-dropzone-wrap').classList.add('hidden');
     document.getElementById('author-publish-result-wrap').classList.add('hidden');
     document.getElementById('folder-import-preview').replaceChildren();
@@ -221,27 +248,33 @@ function closeFolderImport() {
   if (folderImport.busy) return;
   folderImport.files.clear();
   folderImport.selected.clear();
-  document.getElementById('folder-import-workspace').classList.add('hidden');
+  folderImport.preview = null;
+  setFolderImportPartialLock(false);
+  document.getElementById('folder-import-selection').classList.add('hidden');
+  document.getElementById('folder-import-preview').replaceChildren();
+  document.getElementById('folder-import-preview-button').disabled = true;
+  document.getElementById('folder-import-apply-button').disabled = true;
   document.getElementById('folder-import-input').value = '';
-  folderImportStatus('');
+  folderImportStatus('Выберите папку на компьютере, чтобы начать новый импорт.');
   renderAuthorPublishState();
 }
 
-function folderImportPayload() {
+function folderImportPayload(db = folderImportDatabases()[0]) {
   if (!folderImport.selected.size) throw new Error('Выберите хотя бы одну колоду.');
   const payload = {
     selected: Array.from(folderImport.selected), mode: document.getElementById('folder-import-mode').value,
     manifests: folderImport.manifests.filter(m => folderImport.selected.has(m.deck)).map(m => m.path),
-    decisions: folderImport.decisions, media_choices: folderImport.mediaChoices
+    decisions: folderImport.decisionsByDb[db], media_choices: folderImport.mediaChoicesByDb[db]
   };
-  payload.target_db = folderImport.target;
-  const newFolder = document.getElementById('folder-import-new-folder');
+  payload.target_db = db === folderImport.currentDb ? 'current' : db;
+  const suffix = folderImport.target === 'both' ? `-${db}` : '';
+  const newFolder = document.getElementById(`folder-import-new-folder${suffix}`);
   if (!newFolder.classList.contains('hidden')) {
     payload.new_folder_name = newFolder.value.trim();
-    if (!payload.new_folder_name) throw new Error('Введите название целевой папки.');
+    if (!payload.new_folder_name) throw new Error(`Введите название целевой папки в ${folderImportDbLabel(db)}.`);
   } else {
-    payload.target_folder_id = Number(document.getElementById('folder-import-folder-select').value);
-    if (!payload.target_folder_id) throw new Error('Выберите целевую папку.');
+    payload.target_folder_id = Number(document.getElementById(`folder-import-folder-select${suffix}`).value);
+    if (!payload.target_folder_id) throw new Error(`Выберите целевую папку в ${folderImportDbLabel(db)}.`);
   }
   return payload;
 }
@@ -276,6 +309,17 @@ function setFolderImportBusy(busy) {
   document.getElementById('folder-import-input').disabled = busy;
 }
 
+function setFolderImportPartialLock(locked) {
+  for (const element of document.querySelectorAll(
+    '#folder-import-mode, #folder-import-database, #folder-import-target input, #folder-import-target select, #folder-import-target button, #folder-import-list input, #folder-import-selection button, #folder-import-preview-button, #folder-import-input'
+  )) {
+    const newFolder = element.matches('#folder-import-target select')
+      ? document.getElementById(element.id.replace('folder-select', 'new-folder')) : null;
+    element.disabled = locked || !!newFolder && !newFolder.classList.contains('hidden');
+  }
+  document.getElementById('folder-import-apply-button').textContent = locked ? 'Продолжить импорт' : '3. Импортировать';
+}
+
 async function sendFolderImport(action, payload) {
   const response = await fetch(`/api/admin/author/folder-import/${action}`, { method: 'POST', body: folderImportForm(payload) });
   const data = await response.json();
@@ -286,33 +330,48 @@ async function sendFolderImport(action, payload) {
 async function previewFolderImport() {
   if (folderImport.busy) return;
   try {
-    const payload = folderImportPayload();
+    const databases = folderImportDatabases();
+    const payloads = Object.fromEntries(databases.map(db => [db, folderImportPayload(db)]));
     setFolderImportBusy(true);
     invalidateFolderImport();
-    folderImportStatus('Проверка выбранных карточек и медиа. Данные в базе не изменяются…');
-    const plan = await sendFolderImport('preview', payload);
-    folderImport.preview = { plan, payload: JSON.parse(JSON.stringify(payload)) };
-    folderImport.requestId = crypto.randomUUID();
-    renderFolderImportPreview(plan);
-    document.getElementById('folder-import-apply-button').disabled = !plan.can_apply;
-    folderImportStatus(plan.can_apply ? 'Предпросмотр готов. Проверьте связи и подтвердите импорт в указанную базу.' : 'Обнаружены ошибки или конфликты. Исправьте их и повторите проверку.');
+    const entries = {};
+    const root = document.getElementById('folder-import-preview');
+    root.replaceChildren();
+    for (const db of databases) {
+      folderImportStatus(`Проверка ${folderImportDbLabel(db)}. Данные в базе не изменяются…`);
+      try {
+        const plan = await sendFolderImport('preview', payloads[db]);
+        entries[db] = { plan, payload: JSON.parse(JSON.stringify(payloads[db])), requestId: crypto.randomUUID(), result: null };
+        renderFolderImportPreview(plan, db);
+      } catch (error) {
+        const line = document.createElement('p');
+        line.className = 'text-rose-300';
+        line.textContent = `${folderImportDbLabel(db)}: ${error.message}`;
+        root.append(line);
+      }
+    }
+    if (databases.every(db => entries[db])) folderImport.preview = { entries, databases };
+    const ready = folderImport.preview && databases.every(db => entries[db].plan.can_apply);
+    document.getElementById('folder-import-apply-button').disabled = !ready;
+    folderImportStatus(ready ? 'Проверка завершена. Подтвердите импорт в указанные базы.' : 'Обнаружены ошибки или конфликты. Исправьте их и повторите проверку.');
   } catch (error) { folderImportStatus(error.message); }
   finally { setFolderImportBusy(false); }
 }
 
-function renderFolderImportPreview(plan) {
+function renderFolderImportPreview(plan, db) {
   const root = document.getElementById('folder-import-preview');
-  root.replaceChildren();
+  const section = document.createElement('section');
+  section.className = 'rounded-xl border border-slate-700 p-3 space-y-3';
   const summary = document.createElement('p');
   const duplicateCount = plan.assets.length - new Set(plan.assets.map(a => `${a.folder}/${a.sha256}`)).size;
-  const database = document.getElementById('folder-import-database').selectedOptions[0].text;
+  const database = folderImport.target === 'both' ? folderImportDbLabel(db) : document.getElementById('folder-import-database').selectedOptions[0].text;
   summary.textContent = `База: ${database}. Целевая папка: ${plan.folder_name}. Колоды: ${plan.groups.length}. Новые карточки: ${plan.created_cards}. Существующие: ${plan.existing_cards}. Изображения: ${plan.assets.filter(a => a.folder === 'images').length}. Аудио: ${plan.assets.filter(a => a.folder === 'audio').length}. Дубликаты файлов: ${duplicateCount}. Уже загружены: ${plan.assets.filter(a => a.reused).length}.`;
-  root.append(summary);
+  section.append(summary);
   for (const problem of plan.problems) {
     const line = document.createElement('p');
     line.className = 'text-amber-300';
     line.textContent = problem;
-    root.append(line);
+    section.append(line);
   }
   for (const group of plan.groups) {
     const details = document.createElement('details');
@@ -328,7 +387,7 @@ function renderFolderImportPreview(plan) {
       const text = document.createElement('p');
       text.textContent = `№${row.number}: ${row.front} → ${row.status === 'new' ? 'создать' : row.status === 'skip' ? 'пропустить' : row.card_id ? `карточка #${row.card_id}; текст сохранить` : 'нужно сопоставить'}`;
       line.append(text);
-      if (['conflict', 'error', 'skip'].includes(row.status) || folderImport.decisions[row.key]) {
+      if (['conflict', 'error', 'skip'].includes(row.status) || folderImport.decisionsByDb[db][row.key]) {
         const select = document.createElement('select');
         select.className = 'block w-full bg-slate-900 border border-slate-600 rounded-lg p-3';
         select.setAttribute('aria-label', `Сопоставление ${group.name}, карточка ${row.number}`);
@@ -336,10 +395,10 @@ function renderFolderImportPreview(plan) {
         for (const candidate of group.candidates) select.add(new Option(`#${candidate.id}: ${candidate.front}`, String(candidate.id)));
         if (document.getElementById('folder-import-mode').value === 'import') select.add(new Option('Подтверждаю создание новой карточки', 'new'));
         select.add(new Option('Пропустить строку и её медиа', 'skip'));
-        select.value = folderImport.decisions[row.key] || '';
+        select.value = folderImport.decisionsByDb[db][row.key] || '';
         select.addEventListener('change', () => {
-          if (select.value) folderImport.decisions[row.key] = select.value;
-          else delete folderImport.decisions[row.key];
+          if (select.value) folderImport.decisionsByDb[db][row.key] = select.value;
+          else delete folderImport.decisionsByDb[db][row.key];
           invalidateFolderImport();
         });
         line.append(select);
@@ -355,10 +414,10 @@ function renderFolderImportPreview(plan) {
           choice.className = 'block w-full bg-slate-900 border border-slate-600 rounded-lg p-3';
           choice.setAttribute('aria-label', `Медиа ${group.name}, карточка ${row.number}, ${op.role}`);
           for (const [title, value] of [['Выберите действие с медиа', ''], ['Оставить существующий файл', 'keep'], ['Заменить', 'replace'], ['Пропустить', 'skip']]) choice.add(new Option(title, value));
-          choice.value = folderImport.mediaChoices[op.key] || '';
+          choice.value = folderImport.mediaChoicesByDb[db][op.key] || '';
           choice.addEventListener('change', () => {
-            if (choice.value) folderImport.mediaChoices[op.key] = choice.value;
-            else delete folderImport.mediaChoices[op.key];
+            if (choice.value) folderImport.mediaChoicesByDb[db][op.key] = choice.value;
+            else delete folderImport.mediaChoicesByDb[db][op.key];
             invalidateFolderImport();
           });
           line.append(choice);
@@ -366,35 +425,52 @@ function renderFolderImportPreview(plan) {
       }
       details.append(line);
     }
-    root.append(details);
+    section.append(details);
   }
   for (const audio of plan.resources) {
     const line = document.createElement('p');
     line.textContent = `Учебная аудиозапись «${audio.title}»: ${audio.source} → ресурсы колоды «${audio.deck_name}»`;
-    root.append(line);
+    section.append(line);
   }
+  root.append(section);
 }
 
 async function applyFolderImport() {
-  if (folderImport.busy || !folderImport.preview?.plan.can_apply) return;
+  if (folderImport.busy || !folderImport.preview ||
+      !folderImport.preview.databases.every(db => folderImport.preview.entries[db].plan.can_apply)) return;
   const saved = folderImport.preview;
   try {
-    if (JSON.stringify(folderImportPayload()) !== JSON.stringify(saved.payload)) {
+    if (saved.databases.some(db => JSON.stringify(folderImportPayload(db)) !== JSON.stringify(saved.entries[db].payload))) {
       invalidateFolderImport();
       return;
     }
     setFolderImportBusy(true);
-    folderImportStatus('Импорт выбранных колод и медиа…');
-    const result = await sendFolderImport('apply', { ...saved.payload, preview_token: saved.plan.preview_token,
-      request_id: folderImport.requestId, confirmed: true });
+    for (const db of saved.databases) {
+      const entry = saved.entries[db];
+      if (entry.result) continue;
+      folderImportStatus(`Импорт в ${folderImportDbLabel(db)}…`);
+      try {
+        entry.result = await sendFolderImport('apply', { ...entry.payload, preview_token: entry.plan.preview_token,
+          request_id: entry.requestId, confirmed: true });
+      } catch (error) {
+        const completed = saved.databases.filter(item => saved.entries[item].result).map(folderImportDbLabel);
+        const prefix = completed.length ? `Готово в ${completed.join(', ')}. ` : '';
+        folderImportStatus(`${prefix}${folderImportDbLabel(db)}: ${error.message} Можно повторить подтверждение; при устаревшем предпросмотре начните новый импорт.`);
+        if (completed.length) setFolderImportPartialLock(true);
+        return;
+      }
+    }
     folderImport.preview = null;
     document.getElementById('folder-import-apply-button').disabled = true;
-    const success = `Готово в ${document.getElementById('folder-import-database').selectedOptions[0].text}. Новых карточек: ${result.created_cards}, изменено медиа-ссылок: ${result.updated_media}. Авторство и прогресс сохранены.`;
+    setFolderImportPartialLock(false);
+    const success = saved.databases.length === 1
+      ? `Готово в ${folderImportDbLabel(saved.databases[0])}. Новых карточек: ${saved.entries[saved.databases[0]].result.created_cards}, изменено медиа-ссылок: ${saved.entries[saved.databases[0]].result.updated_media}. Авторство и прогресс сохранены.`
+      : `Готово: ${saved.databases.map(db => `${folderImportDbLabel(db)} — новых карточек: ${saved.entries[db].result.created_cards}, изменено медиа-ссылок: ${saved.entries[db].result.updated_media}`).join('; ')}. Авторство и прогресс сохранены.`;
     folderImportStatus(success);
     try { await loadFolderImportFolders(true); populateAuthorFolderSelects(); }
     catch { folderImportStatus(`${success} Список папок не обновился; нажмите обновление вверху.`); }
   } catch (error) {
-    // Keep the exact request id for response-loss retries. No automatic retries.
+    // Keep each request id for response-loss retries. No automatic retries.
     folderImportStatus(`${error.message} Можно повторить подтверждение; при устаревшем предпросмотре выполните проверку заново.`);
   } finally { setFolderImportBusy(false); }
 }
