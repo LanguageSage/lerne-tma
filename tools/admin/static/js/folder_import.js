@@ -31,8 +31,8 @@ async function loadFolderImportTargets() {
   both.disabled = !targets.local && !(targets.cloud && targets.cloud_write);
   select.add(both);
   document.getElementById('folder-import-database-help').textContent =
-    targets.cloud && !targets.cloud_write ? 'Запись в Supabase отключена в серверной настройке.'
-      : !targets.cloud && !targets.local ? 'Вторая база не подключена: нужна внешняя конфигурация переноса.' : '';
+    targets.cloud && !targets.cloud_write ? 'Запись в Supabase отключена в серверной настройке, поэтому «Обе базы» недоступны.'
+      : !targets.cloud && !targets.local ? 'Вторая база не подключена: нужна внешняя конфигурация переноса. «Обе базы» недоступны.' : '';
   if ((!targets.cloud_write && folderImport.target === 'cloud') ||
       (both.disabled && folderImport.target === 'both')) folderImport.target = 'current';
   select.value = folderImport.target;
@@ -61,11 +61,13 @@ async function loadFolderImportFolders(fresh = false) {
 
 function renderFolderImportTarget() {
   const root = document.getElementById('folder-import-target');
+  const sameTarget = root.dataset.target === folderImport.target;
   const previous = Object.fromEntries(folderImportDatabases().map(db => [db, {
-    value: document.getElementById(folderImport.target === 'both' ? `folder-import-folder-select-${db}` : 'folder-import-folder-select')?.value,
-    name: document.getElementById(folderImport.target === 'both' ? `folder-import-new-folder-${db}` : 'folder-import-new-folder')?.value,
+    value: sameTarget ? document.getElementById(folderImport.target === 'both' ? `folder-import-folder-select-${db}` : 'folder-import-folder-select')?.value : null,
+    name: sameTarget ? document.getElementById(folderImport.target === 'both' ? `folder-import-new-folder-${db}` : 'folder-import-new-folder')?.value : null,
   }]));
   root.replaceChildren();
+  root.dataset.target = folderImport.target;
   for (const db of folderImportDatabases()) {
   const block = document.createElement('div');
   block.className = 'rounded-xl border border-slate-700 bg-slate-900/50 p-3';
