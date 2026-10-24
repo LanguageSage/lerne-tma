@@ -6,6 +6,28 @@
 !/package.json
 !/package-lock.json
 
+# Shared-core packaging is a local integration, not a deployment entry point
+pyproject.toml
+*.egg-info/
+
+# Private/generated artifacts inside the allowed trees.
+**/node_modules/
+**/__tests__/
+**/admin_config.json
+**/admin_task_state.json*
+**/transfer.json
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+**/*.sqlite-*
+**/*.sqlite3-*
+**/*.7z
+**/*.zip
+/api/data/backups/
+/api/data/media/pending_audio/
+/api/data/media/pending_images/
+
 # Exclude local admin tools, scripts, and launchers
 tools/
 scripts/
@@ -87,25 +109,3 @@ postgres/
 *.sqlite-*
 *.sqlite3
 *.sqlite3-*
-
-# Shared-core packaging is a local integration, not a deployment entry point
-pyproject.toml
-*.egg-info/
-
-# Private/generated artifacts inside the allowed trees.
-**/node_modules/
-**/__tests__/
-**/admin_config.json
-**/admin_task_state.json*
-**/transfer.json
-**/*.db
-**/*.db-*
-**/*.sqlite
-**/*.sqlite3
-**/*.sqlite-*
-**/*.sqlite3-*
-**/*.7z
-**/*.zip
-/api/data/backups/
-/api/data/media/pending_audio/
-/api/data/media/pending_images/
