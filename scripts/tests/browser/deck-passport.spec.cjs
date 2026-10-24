@@ -1,6 +1,4 @@
 const { test, expect } = require('@playwright/test');
-const fs = require('node:fs');
-const path = require('node:path');
 const hostile = '<img src=x onerror="window.passportXss=1">';
 const passport = { schema_version: 1, intro: { title: '09 · Самостоятельно построить мысль', level: 'B1',
   goal: 'Выражать противопоставление без готовых шаблонов', learning_outcomes: ['Строить предложения'], estimated_time: '40–60 минут' },
@@ -120,68 +118,6 @@ test('failed intro save keeps the draft open for retry', async ({ page, context 
   await expect(page.locator('.settings-modal')).toBeVisible();
   await expect(page.locator('.settings-modal input').first()).toHaveValue('Keep my draft');
   await expect(page.locator('.deck-intro-title')).toHaveText(passport.intro.title);
-});
-
-test('author preview edits passport drafts, escapes HTML and sends passport-only publication', async ({ page }, testInfo) => {
-  const root = path.resolve(__dirname, '../../..');
-  let html = fs.readFileSync(path.join(root, 'tools/admin/static/index.html'), 'utf8');
-  html = html.replace(/<script src="\/static\/js\/(?!state\.js|api\.js|author\.js)[^"]+"><\/script>/g, '');
-  await page.route('**/__admin', route => route.fulfill({ contentType: 'text/html', body: html }));
-  await page.route('**/static/js/**', route => route.fulfill({ contentType: 'text/javascript', body: fs.readFileSync(path.join(root, 'tools/admin/static/js', path.basename(new URL(route.request().url()).pathname)), 'utf8') }));
-  const doc = { cards: [{ deck_name: deck.name, front: 'F', back: 'B' }], passports: [{ deck_name: deck.name, passport }],
-    decks: [{ deck_name: deck.name, cards_count: 1, has_passport: true, level: 'B1', goal: passport.intro.goal, stages_count: 6 }],
-    total_cards: 1, decks_count: 1, passport_errors: [], document_errors: [], levels: ['B1'] };
-  let published;
-  await page.route('**/api/admin/author/**', route => {
-    const pathname = new URL(route.request().url()).pathname;
-    const body = route.request().postDataJSON();
-    if (pathname.endsWith('/parse')) return route.fulfill({ json: doc });
-    if (pathname.endsWith('/passport-validate')) return route.fulfill({ json: { errors: [], decks: doc.decks } });
-    if (pathname.endsWith('/publish-preview')) return route.fulfill({ json: { target_folder_name: 'Курс', total_cards: 1, decks_count: 1,
-      passports: [{ ...body.passports[0], target_deck_id: 1, changes: [{ field: 'intro.goal', before: 'Old', after: body.passports[0].passport.intro.goal }] }] } });
-    if (pathname.endsWith('/publish')) { published = body; return route.fulfill({ json: { folder_id: 10, folder_name: 'Курс', total_saved_cards: 0, passport_only: body.passport_only, updated_passports: 1, published_decks: [{ deck_name: deck.name, cards_count: 0 }] } }); }
-    return route.fulfill({ json: {} });
-  });
-  await page.goto('/__admin');
-  await page.evaluate(async () => {
-    document.querySelectorAll('main > section').forEach(e => e.classList.add('hidden'));
-    document.getElementById('content-author').classList.remove('hidden');
-    foldersData = [{ id: 10, name: 'Курс', parent_id: null }];
-    window.showToast = () => {};
-    populateAuthorFolderSelects();
-    await runAuthorParse({ text: 'fixture' });
-  });
-  await page.locator('#author-passport-editors > details > summary').click();
-  await expect(page.locator('#author-passport-editors fieldset')).toHaveCount(6);
-  expect(await page.locator('#author-passport-editors img').count()).toBe(0);
-  await page.getByLabel('Цель', { exact: true }).first().fill('Новая цель');
-  await page.getByRole('button', { name: 'Проверить изменения', exact: true }).click();
-  await page.locator('#author-publish-folder-select').selectOption('10');
-  await page.locator('#author-passport-only').check();
-  await page.getByRole('button', { name: /Предпросмотр \(Preview\)/ }).click();
-  await page.locator('#author-passport-changes summary').click();
-  await expect(page.locator('#author-passport-changes')).toContainText('Новая цель');
-  await page.setViewportSize({ width: 375, height: 900 });
-  await page.locator('#author-passport-editors').screenshot({ path: testInfo.outputPath('admin-editor-375.png') });
-  const dimensions = await page.locator('#author-passport-editors').evaluate(e => [e.scrollWidth, e.clientWidth]);
-  expect(dimensions[0]).toBeLessThanOrEqual(dimensions[1] + 1);
-  await page.getByRole('button', { name: 'Опубликовать в базу' }).click();
-  await expect(page.locator('#author-publish-success-wrap')).toBeVisible();
-  await expect(page.locator('#author-publish-success-wrap')).toContainText('Карточки не изменялись');
-  expect(published.passport_only).toBe(true);
-  expect(published.passports[0].passport.intro.goal).toBe('Новая цель');
-  expect(published.passports[0].passport.pedagogy.stages).toHaveLength(6);
-  await page.evaluate(passport => {
-    switchAuthorSubtab('update');
-    authorState.update.previewResult = { preview_token: 'test', cards: [], updated: 0, unchanged: 1,
-      passports: [{ deck_name: '09', deck_id: 1, before: { intro: { goal: 'Old' } }, passport }] };
-    renderAuthorUpdateState();
-  }, passport);
-  await page.locator('#author-update-passports summary').click();
-  await expect(page.locator('#author-update-passports')).toContainText('Old');
-  const importedPassport = JSON.parse(await page.locator('#author-update-passports pre').nth(1).textContent());
-  expect(importedPassport.pedagogy.stages[0].goal).toBe(hostile);
-  expect(await page.locator('#author-update-passports img').count()).toBe(0);
 });
 
 test('mobile deck passport renders topic badge without clipping and places start button above goal and srs at bottom', async ({ page, context }, testInfo) => {

@@ -158,6 +158,16 @@ cython_debug/
 *.db-shm
 *.db-wal
 *.db-journal
+*.sqlite
+*.sqlite3
+*.sqlite-*
+*.sqlite3-*
+# Local source inventories / archived prompt exports are not source inputs.
+/all_content.txt
+/all_md_files.txt
+/dirs.txt
+/out.txt
+/lerne-card-prompts.7z
 *.log
 audio_debug.log
 debug_output.txt

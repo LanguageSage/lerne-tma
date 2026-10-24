@@ -247,7 +247,7 @@ CEFR, число этапов, условные рекомендации и от
 ## Изменённые файлы
 
 - `api/services/author_service.py`, новый `api/services/deck_passport.py`.
-- `tools/admin/routers/author.py`, `tools/admin/static/js/author.js`, `tools/admin/static/index.html`.
+- `lerne-admin:src/lerne_admin/routers/author.py`, `lerne-admin:src/lerne_admin/static/js/author.js`, `lerne-admin:src/lerne_admin/static/index.html`.
 - `scripts/lerne_author_cli.py`.
 - `app/src/components/deck/DeckIntro.jsx`, `DeckIntro.css`, `DeckIntroEditModal.jsx`.
 - `app/src/components/study/LessonCompletion.jsx`, `LessonCompletion.css`.

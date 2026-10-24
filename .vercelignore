@@ -1,7 +1,14 @@
+# Production contains application/build inputs only. Keep nested source data/.
+/*
+!/api/
+!/app/
+!/vercel.json
+!/package.json
+!/package-lock.json
+
 # Exclude local admin tools, scripts, and launchers
 tools/
 scripts/
-run_admin.bat
 run_dev.bat
 run_tma.ps1
 check_db_status.bat
@@ -57,7 +64,7 @@ local/
 compose.local.yaml
 playwright*.config.*
 requirements-test.txt
-data/
+/data/
 postgres/
 .env
 .env.*
@@ -67,3 +74,25 @@ postgres/
 **/*.dump
 **/*.backup
 **/*.partial
+
+# Shared-core packaging is a local integration, not a deployment entry point
+pyproject.toml
+*.egg-info/
+
+# Private/generated artifacts inside the allowed trees.
+**/node_modules/
+**/__tests__/
+**/admin_config.json
+**/admin_task_state.json*
+**/transfer.json
+**/*.db
+**/*.db-*
+**/*.sqlite
+**/*.sqlite3
+**/*.sqlite-*
+**/*.sqlite3-*
+**/*.7z
+**/*.zip
+/api/data/backups/
+/api/data/media/pending_audio/
+/api/data/media/pending_images/

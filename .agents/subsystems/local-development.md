@@ -6,7 +6,7 @@
 - `local/runtime.py` — внешний config/data root, строгий URL и запрет внешней сети; `api/local_runtime.py` — ленивый production-safe адаптер режима.
 - `api/database.py`, `api/models.py`, `api/main.py` — отдельный LOCAL database path, существующая схема/auth migrations и fail-closed startup.
 - `local/router.py`, `api/auth/service.py:login_local_test` — локальный credential → существующая отзываемая Bearer-сессия.
-- `tools/admin/services/deck_import.py`, `tools/admin/services/deck_import_media.py`, `scripts/local_dev.py admin` — preview/apply folder importer в LOCAL и сохранение медиа в LOCAL data root.
+- `lerne-admin:src/lerne_admin/services/deck_import.py`, `lerne-admin:src/lerne_admin/services/deck_import_media.py`, `lerne-admin/run_admin.bat` — preview/apply folder importer в LOCAL и сохранение медиа в LOCAL data root.
 - `app/vite.config.js`, `app/src/utils/localMode.js`, `utils/auth.js`, `services/localDb.js` — loopback proxy/CSP, namespace сессий и Dexie.
 
 ## Source of truth / Data flow
@@ -28,13 +28,13 @@ Offline entities принадлежат `LerneTestDB_<user_id>` и синхро�
 
 `local/` хранится в Git, исключён из Vercel целиком. API вне LOCAL не импортирует
 этот пакет и не читает local.json; production URL отвергает loopback и имя
-lerne_tma_local. Модели, миграции и импортёр остаются общими.
+lerne_tma_local. Модели и миграции остаются в TMA; административный импортёр находится в lerne-admin и использует общие сервисы через установленный lerne-tma-core.
 
 ## Управляемый перенос и публикация
 
 - Контракт, конфигурация и ограничения: [MATERIAL_TRANSFER](../../docs/MATERIAL_TRANSFER.md).
-- LOCAL admin `/api/admin/transfer/*` → `tools/admin/routers/material_transfer.py` →
-  отдельный `tools/admin/transfer_worker.py`. Очищенное окружение, внешний
+- LOCAL admin `/api/admin/transfer/*` → `lerne-admin:src/lerne_admin/routers/material_transfer.py` →
+  отдельный `lerne-admin:src/lerne_admin/transfer_worker.py`. Очищенное окружение, внешний
   `config/transfer.json`, проверенный LOCAL URL/marker, TLS и совпадающий Supabase
   project_ref. Никаких migrations/startup init; облачная запись выключена без
   явного серверного флага и подтверждения preview.

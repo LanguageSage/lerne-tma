@@ -1,77 +1,35 @@
-# Lerne TMA Admin Console: Архитектурная карта (Admin Architecture & Feature Topology)
+# Админка вынесена в lerne-admin (этап 1)
 
-> **Назначение**: Быстрая навигация по коду локальной консоли администратора (`tools/admin/`) для ИИ-агента и разработчика. Перед внесением изменений сверяйтесь с матрицей и деревом диагностики.
+Исходники и полный реестр функций: отдельный проект
+`C:\121\Lerne_projekt\lerne-admin`, `src/lerne_admin/`.
+Архитектура и зависимости: `lerne-admin/docs/ARCHITECTURE.md`,
+`lerne-admin/docs/DEPENDENCIES.md`; запуск: `lerne-admin/README.md`.
 
----
+TMA предоставляет устанавливаемый `lerne-tma-core==0.1.1` (`pyproject.toml`):
+пакеты `api` и `local`. Модели, права, сервисы автора/контента/CEFR/медиа остаются
+единственными источниками бизнес-правил в TMA. Админка устанавливает этот
+checkout через `pip -e`; относительных sys.path/cwd связей между проектами нет.
+`scripts` и React-клиент админке для runtime не нужны. Админских Python-импортов
+в TMA нет; LOCAL UI сохраняет разрешённый HTTP-переход на loopback 8050.
 
-## 1. Сквозная матрица фич консоли администратора (Intent-to-Code Matrix)
+Старые `run_admin.bat`, `local_dev.py admin`, `tools/admin`, админские тесты и
+fixtures удалены после проверки нового проекта. Вместо них запускайте
+`lerne-admin/run_admin.bat` из нового проекта; настройка путей и отдельного
+окружения выполняется его `setup.ps1`.
 
-| Подсистема / Фича | Frontend UI & View (`static/index.html`) | Client Logic (`static/js/`) | Backend Router (`tools/admin/routers/`) | Backend Service / Worker (`tools/admin/services/`) | DB Model (`api/models.py`) |
-| :--- | :--- | :--- | :--- | :--- | :--- |
-| **Пользователи (Users)** | `#content-users`, сетка карточек, тулбар действий | `users.js` (`loadUsers`, `deleteSelectedUsers`, `cleanupGuestAccounts`) | `users.py` (`/api/admin/users`, `/cleanup-guests`, `/purge-deleted`) | — | `TMAUser`, `TMA_Deck`, `TMA_Folder` |
-| **Колоды (Decks)** | `#content-decks`, таблица колод, быстрые фильтры, пагинация | `decks.js` (`loadDecks`, `filterDecks`, `toggleDefaultDeck`, `deduplicateDeck`) | `decks.py` (`/api/admin/decks`, `/set-default`, `/assign`, `/deduplicate`) | `deck_helpers.py` (`get_deck_and_cards`, `sync_card_updates_to_matching_decks`) | `TMA_Deck`, `Deck` (Library) |
-| **Папки (Folders)** | `#content-folders`, метрики, фильтры, список папок | `folders.js` (`loadAdminFolders`, `toggleDefaultFolder`, `submitAssignFolder`) | `folders.py` (`/api/admin/folders`, `/set-default`, `/assign`, `/to-library`) | `deck_helpers.py` | `TMA_Folder`, `Folder` |
-| **Карточки & Превью** | `#modal-deck-preview`, `#modal-edit-card`, таблица карточек | `cards_preview.js` (`openDeckPreviewModal`, `saveCardEdit`, `synthesizeSingleCardAudio`) | `cards.py` (`/api/admin/cards/{id}`, `/synthesize-audio`, `/decks/{id}/cards`) | `card_helpers.py` (`save_audio_to_db_or_cloud`, `card_is_fully_completed`) | `TMA_Card`, `Card`, `TMAMedia` |
-| **Одиночная ИИ-студия** | `#content-ai`, колонка настроек, пресеты, плеер | `ai_studio.js` (`selectStudioPreset`, `startAiProcess`, `startAudioOnlyProcess`) | `decks.py` (`/regenerate`, `/regenerate-audio`, `/regen-status`, `/regen-control`) | `regen_worker.py` (`run_ai_regeneration`, `run_audio_regeneration`) | `TMA_Deck`, `TMA_Card`, `TMAMedia` |
-| **Пакетная ИИ & Очередь** | `#header-staged-box`, `#modal-staged-decks`, плавающий док | `staged.js`, `ai_studio.js` (`toggleStageDeck`, `startBatchAiProcess`) | `decks.py` (`/batch/regenerate`, `/batch/regenerate-audio`, `/batch/{id}/status`) | `regen_worker.py` (`run_batch_ai_regeneration`, `run_batch_audio_regeneration`) | `TMA_Deck`, `TMA_Card`, `admin_task_state.json` |
-| **Чекпоинты & Резюме** | `#ai-resume-checkpoint-banner`, плашка ошибок | `ai_studio.js` (`checkSavedCheckpoint`, `resumeSavedCheckpoint`, `retryFailedCardsFromTask`) | `tasks.py` (`/api/admin/tasks/checkpoint`, `/resume`, `/retry-failed`) | `task_manager.py` (`save_task_checkpoint`, `load_task_checkpoint`) | `admin_task_state.json` |
-| **Массовое создание (Bulk)** | `#content-bulk`, ввод слов, подсказки тем | `bulk_creator.js` (`startBulkCardCreationProcess`, `suggestTopicWords`) | `cards.py` (`/bulk-create`, `/bulk-suggest-words`) | `regen_worker.py` (`run_bulk_card_creation`), `api/ai_service.py` | `TMA_Deck`, `TMA_Card`, `Deck`, `Card` |
-| **CEFR классификация** | `#content-classification`, распределение уровней, лог | `classification.js` (`startClassificationTask`, `controlClassificationTask`) | `classification.py` (`/start`, `/{id}/status`, `/{id}/control`) | `classification_worker.py` (`run_classification_task`), `api/classifier/` | `TMA_Card.tags`, `Card.tags` |
-| **Резервные копии (Backups)** | `#content-backups`, таблица снимков, поле кастомного пути, тумблер автобэкапа, загрузка файлов | `backups.js` (`loadBackups`, `toggleAutoBackup`, `uploadBackupFile`, `saveBackupSettings`), `decks.js` (`createDeckBackup`), `folders.js` (`createFolderBackup`) | `backups.py` (`/api/admin/backups`, `/create`, `/create-deck`, `/create-folder`, `/upload`, `/download/{name}`, `/settings`) | `backup_service.py` (`create_deck_backup`, `create_folder_backup`, `inspect_backup`, `restore_deck_from_backup`, `restore_folder_from_backup`) | Файлы `.json` / `.db` / `.sql`, `admin_config.json` |
-| **Инспектор бэкапов (Explorer)** | `#content-backup-explorer`, двухколоночный полноэкранный рабочий стол, аудит карточек с цветными изображениями, выборочное восстановление | `backup_explorer.js` (`initBackupExplorer`, `inspectCurrentBackup`, `selectExplorerDeck`, `promptRestoreDeck`, `promptRestoreFolder`) | `backups.py` (`/api/admin/backups/inspect`, `/deck-preview`, `/restore-deck`, `/restore-folder`) | `backup_service.py` (`inspect_backup`, `get_backup_deck_cards`, `restore_deck_from_backup`, `restore_folder_from_backup`) | `TMA_Deck`, `TMA_Card`, `TMA_Folder` |
-| **Превью голосов Edge-TTS** | Кнопка «🔊 Превью», выбор скорости и диктора | `api.js` (`playVoicePreview`, `playAudioFile`) | `media.py` (`/api/admin/voice-preview`, `/api/media/audio/{path}`) | `api/utils/audio.py` (`generate_audio`), `edge-tts` | `TMAMedia` |
-| **Галерея и медиа (Media)** | `#content-media-manager`, `#modal-media-usage`, галерея миниатюр, фильтры осиротевших/активных, скачивание ZIP, очистка | `media_manager.js` (`initMediaManager`, `loadMediaCatalog`, `setMediaFilter`, `downloadAllOrphanedZip`, `downloadSelectedZip`, `cleanupOrphanedImages`, `openMediaUsageModal`) | `media.py` (`/api/admin/media/stats`, `/images`, `/usage/{name}`, `/download/{name}`, `/download-zip`, `/cleanup-orphaned`, `/api/media/images/{name}`) | — | `TMAMedia`, `TMA_Card`, `Card` |
-| **Автор уроков & V2 Превью** | `#content-author`, паспорт колоды, импорт текста/JSON V2, предпросмотр карточек | `author.js` (`parseAuthorDocument`, `publishAuthorDocument`, `previewStructuredCardsV2`) | `author.py` (`/api/admin/author/parse`, `/publish`, `/serialize-deck`, `/serialize-folder`, `/structured-v2/preview`) | `api/services/author_service.py`, `structured_preview.py` (`preview_structured_cards_v2`) | `TMA_Deck`, `TMA_Card`, `TMA_Folder` |
-| **Массовый импортёр папки с медиа** | `#folder-import-panel`, выбор LOCAL, Supabase или обеих баз, отдельные целевые папки, файлы, проверка и подтверждение | `folder_import.js`, полный каталог в `author.js` | `deck_import.py` (`/targets`, `/cloud-folders`, `/local-folders`, `/preview`, `/apply`) | `deck_import.py`, `deck_import_sources.py`, `deck_import_media.py`, `folder_import_worker.py` для изолированной альтернативной базы; [контракт](../docs/ADMIN_FOLDER_IMPORT.md) | Прежние `TMA_Deck`, `TMA_Card`, `TMAMedia`, `TMAOfflineBatch`; без миграций |
-| **Перенос и публикация** | `#content-transfer`, выбор, diff, подтверждение, прогресс/резюме | `material_transfer.js` | `material_transfer.py` (`/api/admin/transfer/*`) | отдельный `transfer_worker.py`, `services/material_transfer.py`, `material_transfer_media.py`, прежний `deck_import_media.py`; [контракт](../docs/MATERIAL_TRANSFER.md) | `TMA_Folder`, `TMA_Deck`, `TMA_Card`, `TMAMedia`, прежний `TMAOfflineBatch` (ledger/jobs/receipts) |
+Checkpoint/config перемещены вне Git в `data/admin` без изменения байтов.
+LOCAL DB, медиа, бэкапы, `config/local.json` и `config/transfer.json` сохраняют
+прежнее расположение. Облачный env подключается явно по пути без копирования.
+Схема, seed и миграции при запуске админки не применяются.
 
----
+Админские HTTP/unit/browser проверки принадлежат новому проекту. Проверки
+permissions TMA (`test_admin_permissions.py`), LOCAL и общего авторского сервиса
+остаются здесь. Maintenance Storage migration tests выделены из прежнего
+смешанного набора в `scripts/tests/test_media_storage_migration.py` и включены
+в обычный backend gate TMA.
 
-## 2. Архитектурные инварианты админки (Admin Architecture Rules)
+Следующий этап: выделить публичные версии доменных контрактов и конфигурации
+из `api`/`local.runtime`, убрать приватные импорты и legacy backup/audio paths,
+выпустить самостоятельный shared package. Сейчас editable TMA обязателен.
 
-### Локальные списки и диагностика Egress
-
-- `/api/admin/users`, `/decks`, `/folders`, `/decks/{id}/cards`: серверные страницы `page` (от 1), `limit` (1–200, по умолчанию 50), `total`, `has_more`. Фильтры применяются до страницы. Холодный запрос строит компактный снимок; глобальные счётчики остаются полными. Списки не содержат бинарников и полных контекстов карточек; полные тексты редактор получает через `GET /api/admin/cards/{id}?deck_id=...`.
-- `services/diagnostics.py`: ограниченный RAM-кэш компактных снимков (60 секунд, 32 ключа). SQL-записи, commit и rollback инвалидируют снимки, в том числе при работе фоновых процессов. Изменения из других процессов видны после TTL. Автор/импорт/назначение загружают полный компактный каталог только по запросу пользователя, страницами с конечным лимитом.
-- `/api/admin/diagnostics`: последние 100 операций, число SQL-запросов, строк, приблизительные байты прочитанных значений, фактические байты HTTP-body и тяжёлые операции. Хранит только числа и шаблоны маршрутов, без SQL, параметров, карточек, имён файлов и персональных данных. Это не счётчик тарифицируемого Supabase Egress.
-- Отчёт и ограничения проверки: `tools/admin/EGRESS_REPORT.md`. Регрессии: `scripts/tests/test_admin_egress.py`; браузерная фикстура `python -m scripts.tests.admin_egress_fixture` использует только БД в памяти.
-
-### Изоляция и окружение
-1. **Строгая изоляция от Production TMA**: Админ-панель запускается только локально через `run_admin.bat` на порту 8050 (`tools/admin/server.py`). Она не попадает в клиентский бандл TMA (`/app/`) и не зависит от Telegram WebApp API.
-2. **Прямой доступ к ORM**: В отличие от клиентского приложения (работающего через offline IndexedDB и `/api/routers/sync.py`), админка взаимодействует напрямую с PostgreSQL / SQLite через Peewee ORM (`api/models.py`).
-3. **Безопасность транзакций**: Массовые операции (удаление пользователей, дедупликация, пакетное назначение дефолтных колод) выполняются в атомарных транзакциях Peewee `models.tma_db.atomic()`.
-
-### Локальная HTTP-граница (`tools/admin/server.py`)
-
-- Uvicorn слушает `127.0.0.1:8050`, `proxy_headers=False`; middleware проверяет loopback peer и точный `Host`: `127.0.0.1:8050` / `localhost:8050`. Произвольные домены и порты запрещены (DNS rebinding).
-- CORS допускает только два origin `http://127.0.0.1:8050` / `http://localhost:8050`, методы GET/POST/PUT/DELETE и Content-Type, без credentials. Отдельный guard выполняется до CORS, DB dependencies и всех роутеров, включая `/api/media`.
-- Любой API (включая GET с генерацией/скачиванием) и изменяющий запрос требуют локальный Origin, локальный Referer при отсутствии Origin или `Sec-Fetch-Site: same-origin`. Посторонние/`null` Origin, `cross-site`/`same-site`, неоднозначные заголовки и отсутствие источника отклоняются с 403. Корень и static открываются напрямую без входа; `X-Frame-Options: DENY` запрещает встраивание.
-- CLI-клиенты передают `Origin: http://127.0.0.1:8050`. Локальные процессы и скрипты в origin админки остаются доверенными; это не пользовательская аутентификация. Не выставлять сервер наружу через туннель/локальный reverse proxy.
-- Регрессии: `scripts/tests/test_local_admin_security.py` проверяет все API до DB dependency, Host/Origin/Fetch Metadata/CORS и разрешённые удаления/бэкапы на SQLite в памяти и временных файлах. Соседние проверки: `test_author_router.py`, `test_structured_preview.py`.
-
-### Фоновые процессы и устойчивость к сбоям
-1. **Фоновые задачи и Чекпоинты**: Долгие задачи (ИИ-генерация сотен карточек, массовая озвучка, CEFR-классификация) выполняются в отдельных потоках через `FastAPI.BackgroundTasks`.
-2. **Сохранение состояния (`tools/admin/services/task_manager.py`)**:
-   - Каждое изменение прогресса сохраняется атомарно во временный файл и перемещается в `tools/admin/admin_task_state.json`.
-   - При перезапуске сервера или случайном закрытии браузера панель обнаруживает чекпоинт и предлагает кнопку **«▶ Продолжить задачу»** с точного индекса колоды и карточки.
-3. **Изоляция ошибок в пакете**: Сбой генерации одной карточки или колоды не прерывает весь пакет. Ошибочные карточки заносятся в `failed_card_ids` для последующего запуска через **«🔄 Перегенерировать ошибки»**.
-
-### Синхронизация данных
-1. **Кросс-колодная синхронизация (`tools/admin/services/deck_helpers.py`)**:
-   При включенном флаге `regen_sync_copies` обновленный контекст или озвучка карточки автоматически распространяются на все пользовательские копии колод с идентичным названием.
-2. **Библиотечные и пользовательские колоды**:
-   - Библиотечные колоды идентифицируются префиксом `lib_{id}` и хранятся в таблицах `Deck` и `Card`.
-   - Пользовательские колоды хранятся в `TMA_Deck` и `TMA_Card`. Функция `get_deck_and_cards()` прозрачно разрешает обе модели.
-
----
-
-## 3. Дерево решений: Диагностика проблем админки (Diagnostic Guide)
-
-| Симптом / Проблема | Шаг 1: Проверка в UI | Шаг 2: Проверка на сервере | Корневой источник истины |
-| :--- | :--- | :--- | :--- |
-| **Кнопки не нажимаются, индикатор сервера красный** | Проверить бейдж в шапке (Online / Offline) | Проверить консоль `run_admin.bat` (работает ли uvicorn на 8050) | `tools/admin/server.py` / занят порт 8050 |
-| **Генерация ИИ не стартует или зависает на 0%** | Открыть лог в блоке мониторинга студии | Проверить ключи OpenAI/Groq/Ollama в `.env` и логи `regen_worker.py` | `api/ai_service.py` (`get_ai_config()`) |
-| **Не воспроизводится озвучка Edge-TTS** | Консоль браузера (F12) $	o$ ошибки сети `/api/media/audio/...` | Проверить `models.TMAMedia` в БД и доступ к серверам Microsoft TTS | `tools/admin/routers/media.py` $	o$ `api/utils/audio.py` |
-| **Прерванная задача не продолжается** | Нажать «✕ Сбросить» в желтом баннере чекпоинта | Проверить валидность JSON в `tools/admin/admin_task_state.json` | `tools/admin/services/task_manager.py` |
-| **Карточка отредактирована, но изменения не видны в TMA** | Проверить статус сохранения в модалке предпросмотра | Проверить `updated_at` карточки в БД и вызов клиентом TMA синхронизации `/api/sync` | `tools/admin/routers/cards.py` $	o$ клиентский `syncService.js` |
-| **Не создаются бэкапы БД** | Проверить сообщение об ошибке во вкладке «Бэкапы БД» | Проверить права на запись в папку бэкапов и путь в `tools/admin/admin_config.json` | `tools/admin/services/backup_service.py` |
+Завершающий аудит: [docs/ADMIN_EXTRACTION_AUDIT.md](../docs/ADMIN_EXTRACTION_AUDIT.md). Core в админке закреплён точным SHA и проверяется при bootstrap/старте; clean checkout tests не требуют private config. Production source manifest проверяет scripts/verify_deploy_files.py.
