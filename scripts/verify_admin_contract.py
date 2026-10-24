@@ -18,9 +18,25 @@ COMPONENTS = {
 }
 
 
+def canonical_dump(node):
+    """Keep the reviewed Python 3.14 AST representation on older interpreters."""
+    if isinstance(node, ast.AST):
+        fields = []
+        for name, value in ast.iter_fields(node):
+            if value == []:
+                continue
+            # Optional fields are omitted; a literal None remains significant.
+            if value is None and not (name == 'value' and isinstance(node, (ast.Constant, ast.MatchSingleton))):
+                continue
+            fields.append(f'{name}={canonical_dump(value)}')
+        return f'{type(node).__name__}(' + ', '.join(fields) + ')'
+    if isinstance(node, list):
+        return '[' + ', '.join(canonical_dump(item) for item in node) + ']'
+    return repr(node)
+
+
 def source_hash(paths):
-    tree = '\n'.join(ast.dump(ast.parse((ROOT / p).read_text(encoding='utf-8-sig')),
-                              include_attributes=False) for p in paths)
+    tree = '\n'.join(canonical_dump(ast.parse((ROOT / p).read_text(encoding='utf-8-sig'))) for p in paths)
     return hashlib.sha256(tree.encode()).hexdigest()
 
 

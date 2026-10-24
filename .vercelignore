@@ -9,6 +9,7 @@
 # Exclude local admin tools, scripts, and launchers
 tools/
 scripts/
+run_admin.bat
 run_dev.bat
 run_tma.ps1
 check_db_status.bat
@@ -32,6 +33,7 @@ scratch/
 api/scratch/
 test-results/
 playwright-report/
+.test-tmp/
 
 # Android mobile build & local build artifacts
 android/
@@ -56,6 +58,7 @@ __pycache__/
 .gemini/
 .agent/
 .agents/
+.codex/
 .vscode/
 .idea/
 
@@ -64,7 +67,9 @@ local/
 compose.local.yaml
 playwright*.config.*
 requirements-test.txt
+# Root runtime data only; keep app/src/data and classifier/data sources.
 /data/
+api/data/
 postgres/
 .env
 .env.*
@@ -74,6 +79,14 @@ postgres/
 **/*.dump
 **/*.backup
 **/*.partial
+
+# Local database files, including tracked test database leftovers
+*.db
+*.db-*
+*.sqlite
+*.sqlite-*
+*.sqlite3
+*.sqlite3-*
 
 # Shared-core packaging is a local integration, not a deployment entry point
 pyproject.toml
