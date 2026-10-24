@@ -2,7 +2,7 @@ name: Regression checks
 
 on:
   push:
-    branches: [main]
+    branches: [main, codex/extract-local-admin]
   pull_request:
   workflow_dispatch:
   workflow_call:
