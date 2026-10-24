@@ -131,7 +131,8 @@ test('already done deck permits a finite graded forced pass', async ({ page, con
   page.on('request', request => { if (new URL(request.url()).pathname === '/api/study/grade') requests.push(request.postDataJSON()); });
   for (const card of cards) {
     await expect(page.getByText(card.front, { exact: true }).first()).toBeVisible();
-    await page.getByRole('button', { name: /Хорошо/ }).click();
+    // Separate deliberate grades from the production 350ms double-tap guard.
+    await page.getByRole('button', { name: /Хорошо/ }).click({ delay: 400 });
   }
   await expect(page.getByRole('heading', { name: 'Колода завершена', exact: true })).toBeVisible();
   expect(requests.map(r => r.card_id)).toEqual([1, 2, 3]);

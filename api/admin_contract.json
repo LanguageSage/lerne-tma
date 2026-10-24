@@ -1,0 +1,18 @@
+{
+  "schema": {
+    "version": 1,
+    "source_sha256": "dd2e8888416855f6d9ec28f9efde1363c6988b7659d2d2b8a178924a0955ef74"
+  },
+  "permissions": {
+    "version": 1,
+    "source_sha256": "3553025b39adda8e9b3c640f6f5d4501e44ca9d9a5ec1c807be11a1ab26f8975"
+  },
+  "cards": {
+    "version": 1,
+    "source_sha256": "eb528347252f5b591ad9641ddd49afc38d231c45e26f0edc24eab3cbef93f8e9"
+  },
+  "import": {
+    "version": 1,
+    "source_sha256": "8bf92a19d30df1e8984efb123b6a6272c8a72543c7de8107d2d7845bc88b40c6"
+  }
+}

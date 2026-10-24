@@ -17,7 +17,7 @@
 | Batch import | `app/src/components/modals/BatchCardModal.jsx`, `app/src/hooks/usePendingImport.js`, `app/src/utils/batchCardParser.js` |
 | Синтаксис и распознавание | `app/src/utils/cardEditorSyntax.js`, `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js`, `api/services/input_parser.py` |
 | Парсеры упражнений | `app/src/utils/wordBankParser.js`, `app/src/utils/clozeParser.js`, `app/src/utils/matchParser.js`, `app/src/utils/quizParser.js`, `app/src/utils/freeTextParser.js` |
-| Structured Cards V2 (Authoring → DSL) | `api/services/structured_cards_v2.py`, `api/services/structured_cards_legacy.py`, `api/services/author_service.py`, `tools/admin/services/structured_preview.py` |
+| Structured Cards V2 (Authoring → DSL) | `api/services/structured_cards_v2.py`, `api/services/structured_cards_legacy.py`, `api/services/author_service.py`, `lerne-admin:src/lerne_admin/services/structured_preview.py` |
 | Сеть / хранение | `api/routers/cards.py`, `api/services/cards.py`, `api/services/card_content_service.py`, `app/src/services/offlineApi.js` |
 
 ## Data flow
@@ -159,8 +159,8 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
   - `api/services/structured_cards_v2.py` валидирует и нормализует контракты V2 (`schema_version: 2`, 9 типов: `standard`, `trainer`, `word_bank`, `puzzle`, `match`, `quiz`, `free_text`, `editable_text`, `theory`), но не добавляет отдельную колонку хранения в БД.
   - `api/services/structured_cards_legacy.py` (`to_legacy_card`, `to_legacy_document`) компилирует V2-карточки в канонический DSL (`front_text`, `back_text`, `context`, `level`, `metadata`) и выполняет обязательную round-trip верификацию через `detect_card_type` и `detect_ai_input_type`.
   - `api/services/author_service.py` (`parse_document`) прозрачно принимает как legacy-текст с паспортом, так и JSON-документы V2, сохраняя карточки через штатный `bulk_save_cards`.
-  - Загрузка «Автора» (`/api/admin/author/parse`) принимает `.json`, `.txt`, `.md`, `.text`; `parse_uploaded_documents` разбирает файлы отдельно, без добавления заголовка к JSON и склейки документов. JSON V2 внутри старых текстовых расширений также распознаётся. Название legacy-колоды без заголовка берётся из имени файла; паспорта, ошибки с именами файлов и сквозная нумерация сохраняются, повтор паспортов блокирует публикацию. Регрессии: `scripts/tests/test_structured_preview.py`.
-  - Админский превью-сервис `tools/admin/services/structured_preview.py` и CLI `scripts/structured_cards_v2.py` используют тот же пайплайн валидации и компиляции.
+  - Загрузка «Автора» (`/api/admin/author/parse`) принимает `.json`, `.txt`, `.md`, `.text`; `parse_uploaded_documents` разбирает файлы отдельно, без добавления заголовка к JSON и склейки документов. JSON V2 внутри старых текстовых расширений также распознаётся. Название legacy-колоды без заголовка берётся из имени файла; паспорта, ошибки с именами файлов и сквозная нумерация сохраняются, повтор паспортов блокирует публикацию. Регрессии: `lerne-admin:tests/test_structured_preview.py`.
+  - Админский превью-сервис `lerne-admin:src/lerne_admin/services/structured_preview.py` и CLI `scripts/structured_cards_v2.py` используют тот же пайплайн валидации и компиляции.
 - **Единый шлюз записи контента (`api/services/card_content_service.py`)**:
   - `apply_card_content` и `build_text_update_values` централизуют запись `front_text`, `back_text`, `context`, синхронизацию `level_N` тегов (`update_level_tags`) и `card.metadata` (CEFR, `topics`, `ai_input` из `parse_input_metadata`), не завися от того, пуст ли `context`.
   - Используется в `save_card` (`api/services/cards.py`) и в `_update_values` (`api/services/card_text_update.py`).

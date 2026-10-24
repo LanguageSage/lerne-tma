@@ -243,7 +243,7 @@ Commit/push и перенос в main выполняются только по �
 импортирует `local/`, не читает внешний config и не создаёт каталоги. LOCAL на
 Vercel/в Production запрещён до загрузки локальных модулей; production-конфиг БД
 также отвергает loopback и имя `lerne_tma_local`. В `api/` остаются единые модели,
-миграции, сервисы карточек и API. Импортёр `tools/admin/services/deck_import*.py`
+миграции, сервисы карточек и API. Импортёр `lerne-admin:src/lerne_admin/services/deck_import*.py`
 общий для обеих баз; `tools/` и `scripts/` исключены из Vercel.
 
 `.vercelignore` также исключает data/postgres/backups, env-файлы, local.json,
@@ -272,7 +272,7 @@ LOCAL не подключается к Supabase: его сетевой запр�
    `C:\121\Lerne_projekt\data\imports\<имя>`. Это отдельная папка от PGDATA.
    Текстовый экспорт **не скачивает** объекты Supabase Storage. Их нужно отдельно
    скачать из соответствующих buckets в этот внешний каталог.
-3. Запустите LOCAL и `python scripts/local_dev.py admin`. В консоли
+3. Запустите LOCAL и `C:/121/Lerne_projekt/lerne-admin/run_admin.bat`. В консоли
    `http://127.0.0.1:8050` используйте существующий folder importer: выберите
    папку с текстами, новую целевую папку и выполните preview, затем apply.
    Экспортированный текст также можно загрузить через существующий текстовый
@@ -282,8 +282,8 @@ LOCAL не подключается к Supabase: его сетевой запр�
    локальные файлы. Для новых карточек привязывайте файлы по `card_number` внутри
    `deck_file`, не передавая старые Supabase `card_id`. Для обновления существующих
    карточек нужны их LOCAL ID. Схема manifest и проверки принадлежат общему
-   `tools/admin/services/deck_import_sources.py`, обработка файлов —
-   `tools/admin/services/deck_import_media.py`.
+   `lerne-admin:src/lerne_admin/services/deck_import_sources.py`, обработка файлов —
+   `lerne-admin:src/lerne_admin/services/deck_import_media.py`.
    Облачные URL сами по себе не переносят файлы и не работают в LOCAL.
 5. Проверьте число карточек и отображение/воспроизведение медиа, затем сделайте
    `python scripts/local_dev.py backup`; отдельно сохраните `data/media`.

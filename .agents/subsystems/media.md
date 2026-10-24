@@ -29,7 +29,7 @@
 
 - В LOCAL uploads хранят файлы во внешнем `data/media`, а `TMAMedia` — metadata; чтение идёт только через media routes, missing → 404 без Supabase redirect. Генерация TTS отключена. См. [local-development](local-development.md).
 
-- `scripts/migrate_images_to_storage.py` и audio/cyrillic entry points используют конечный проход по ID, лимиты записей/байтов/попыток/времени и JSON-отчёт. По умолчанию бинарник в БД сохраняется; `--clear-db-content` разрешает compare-and-clear только после проверки публичного GET и SHA-256. Перед этим все серверы чтения должны поддерживать `api/utils/storage_keys.py`. Legacy filename и ссылки в карточках/V2 не переписываются; не-ASCII имена разрешаются в стабильный ASCII-ключ Storage. Скрипты не выполняют schema initialization (`LERNE_SKIP_SCHEMA_INIT=1`). Подробности — `tools/admin/EGRESS_REPORT.md`.
+- `scripts/migrate_images_to_storage.py` и audio/cyrillic entry points используют конечный проход по ID, лимиты записей/байтов/попыток/времени и JSON-отчёт. По умолчанию бинарник в БД сохраняется; `--clear-db-content` разрешает compare-and-clear только после проверки публичного GET и SHA-256. Перед этим все серверы чтения должны поддерживать `api/utils/storage_keys.py`. Legacy filename и ссылки в карточках/V2 не переписываются; не-ASCII имена разрешаются в стабильный ASCII-ключ Storage. Скрипты не выполняют schema initialization (`LERNE_SKIP_SCHEMA_INIT=1`). Подробности — `lerne-admin:src/lerne_admin/EGRESS_REPORT.md`.
 
 - `TMAMedia` в `api/models.py` хранит серверные media records; аудио также использует публичный бакет Supabase Storage.
 - Разрешение пути: `getAudioUrl`/`cleanMedia` в utils/media, `mediaURL` в apiConfig; blob/data/external URLs требуют отдельного обращения.

@@ -77,6 +77,7 @@ test('offline CRUD, due scheduling, restart and persistent progress', async ({ p
   }), ids);
   expect(saved.cards[0]).toMatchObject({ front: 'Edited', back: 'Hello', card_type: 'quiz', audio_back_path: 'back.mp3', flag: 3 });
   expect(saved.progress).toMatchObject({ queue: 'review', repetitions: 1, is_dirty: 1 });
+  expect(saved.progress.flag).toBe(3);
   expect(saved.next.finished).toBe(true);
   await page.evaluate(async ids => {
     await api.delete(`/folders/${ids.child}`);
@@ -89,6 +90,83 @@ test('offline CRUD, due scheduling, restart and persistent progress', async ({ p
   expect(await page.evaluate(async ids => (await api.get(`/decks/${ids.deck}/next`)).data.finished, ids)).not.toBe(true);
 });
 
+test('flags remain per-user progress through save, grade, clear, retry and pull', async ({ page, context }) => {
+  await harness(page, context);
+  const state = await page.evaluate(async () => {
+    const deck = (await api.post('/decks', { name: 'Flags' })).data;
+    const card = (await api.post('/cards/save', { deck_id: deck.id, front: 'Flag', back: 'Back', flag: 3 })).data;
+    if (card.flag !== 3) throw new Error('Save response lost flag');
+    await api.post('/study/grade', { card_id: card.id, grade: 2, return_next: false });
+    const reviewed = await getDb().progress.get([card.id, 1]);
+    await api.post('/cards/save', { card_id: card.id, front: 'Edited' });
+    const edited = await getDb().progress.get([card.id, 1]);
+    await api.post('/cards/save', { card_id: card.id, flag: 0 });
+    const cleared = await getDb().progress.get([card.id, 1]);
+    return { deck: deck.id, card: card.id, reviewed, edited, cleared, canonical: await getDb().cards.get(card.id) };
+  });
+  expect(state.reviewed.flag).toBe(3);
+  expect(state.edited).toEqual(state.reviewed);
+  expect(state.cleared).toMatchObject({ flag: 0, repetitions: 1, queue: 'review', is_dirty: 1 });
+  expect(state.cleared.local_revision).not.toBe(state.edited.local_revision);
+  expect(state.canonical.flag).toBeUndefined();
+  await page.reload();
+  await loadModules(page);
+  expect(await page.evaluate(async id => (await api.get(`/study/card/${id}`)).data.flag, state.card)).toBe(0);
+
+  let payload;
+  await page.route('**/api/sync/v2/push', async route => {
+    payload = route.request().postDataJSON();
+    await route.fulfill({ json: { status: 'success', review_count: payload.reviews.length,
+      mappings: { folders: {}, decks: { [state.deck]: 10 }, cards: { [state.card]: 20 } } } });
+  });
+  await page.route('**/api/sync/v2/pull*', route => route.fulfill({ json: {
+    status: 'success', server_time: new Date().toISOString(), folders: [],
+    decks: [{ id: 10, name: 'Flags', user_id: 1 }],
+    cards: [{ id: 20, deck_id: 10, front_text: 'Edited', back_text: 'Back' }],
+    progress: [{ ...state.cleared, card_id: 20, user_id: 1 }],
+  } }));
+  expect((await page.evaluate(() => sync.sync())).success).toBe(true);
+  expect(payload.progress[0]).toMatchObject({ card_id: state.card, flag: 0, repetitions: 1 });
+  expect(payload.cards[0].flag).toBeUndefined();
+  expect(await page.evaluate(async () => (await api.get('/study/card/20')).data.flag)).toBe(0);
+});
+
+test('grading legacy cached flags preserves them while explicit zero takes precedence', async ({ page, context }) => {
+  await harness(page, context);
+  const state = await page.evaluate(async () => {
+    await getDb().decks.put({ id: 10, name: 'Legacy', user_id: 1, role: 'owner' });
+    await getDb().cards.put({ id: 20, deck_id: 10, front_text: 'Old cache', flag: 3 });
+    await api.post('/study/grade', { card_id: 20, grade: 2, return_next: false });
+    const graded = (await api.get('/study/card/20')).data;
+    await api.post('/cards/20/flag', { flag: 0 });
+    await api.post('/cards/save', { card_id: 20, front: 'Edited cache' });
+    const cleared = (await api.get('/study/card/20')).data;
+    return { graded, cleared, progress: await getDb().progress.get([20, 1]) };
+  });
+  expect(state.graded.flag).toBe(3);
+  expect(state.cleared.flag).toBe(0);
+  expect(state.progress).toMatchObject({ flag: 0, repetitions: 1 });
+});
+
+test('card and flag changes roll back together when progress cannot be saved', async ({ page, context }) => {
+  await harness(page, context);
+  const state = await page.evaluate(async () => {
+    const deck = (await api.post('/decks', { name: 'Atomic flag' })).data;
+    const card = (await api.post('/cards/save', { deck_id: deck.id, front: 'Original', flag: 3 })).data;
+    const table = getDb().progress;
+    const put = table.put;
+    let failed = false;
+    table.put = () => { throw new Error('Fixture storage failure'); };
+    try { await api.post('/cards/save', { card_id: card.id, front: 'Should roll back', flag: 0 }); }
+    catch (error) { failed = error.message === 'Fixture storage failure'; }
+    finally { table.put = put; }
+    return { failed, card: await getDb().cards.get(card.id), progress: await table.get([card.id, 1]) };
+  });
+  expect(state.failed).toBe(true);
+  expect(state.card.front_text).toBe('Original');
+  expect(state.progress.flag).toBe(3);
+});
+
 test('lost response retries identical durable batch after restart', async ({ page, context }) => {
   await harness(page, context);
   await page.route('**/api/sync/v2/push', async route => {
@@ -96,7 +174,7 @@ test('lost response retries identical durable batch after restart', async ({ pag
   });
   const pending = await page.evaluate(async () => {
     const deck = (await api.post('/decks', { name: 'Retry' })).data;
-    await api.post('/cards/save', { deck_id: deck.id, front: 'x', back: 'y' });
+    await api.post('/cards/save', { deck_id: deck.id, front: 'x', back: 'y', flag: 3 });
     const result = await sync.sync();
     return { result, batch: await getDb().syncState.get('pending') };
   });
@@ -119,6 +197,8 @@ test('lost response retries identical durable batch after restart', async ({ pag
 
   expect(retried.result.success).toBe(false);
   expect(sent?.request_id).toBe(pending.batch.request_id);
+  expect(sent.progress).toEqual(pending.batch.progress);
+  expect(sent.progress[0].flag).toBe(3);
   expect(retried.dirty).toBe(1);
 });
 
@@ -147,7 +227,7 @@ test('edits during push survive acknowledgement and stale pull', async ({ page, 
         folders: [],
         decks: [{ id: 10, name: 'Deck', user_id: 1 }],
         cards: [{ id: 20, deck_id: 10, front_text: 'Sent', back_text: 'Back' }],
-        progress: [],
+        progress: [{ card_id: 20, user_id: 1, flag: 3 }],
       }),
     });
   });
@@ -155,13 +235,13 @@ test('edits during push survive acknowledgement and stale pull', async ({ page, 
   await page.evaluate(async () => {
     await getDb().decks.put({ id: 10, name: 'Deck', user_id: 1 });
     await getDb().cards.put({ id: 20, deck_id: 10, front_text: 'Original', back_text: 'Back' });
-    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Sent' });
+    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Sent', flag: 3 });
   });
 
   const syncPromise = page.evaluate(async () => sync.sync());
   await pushStarted;
   await page.evaluate(async () => {
-    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Edited during request' });
+    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Edited during request', flag: 0 });
   });
   releasePush();
   const syncResult = await syncPromise;
@@ -169,6 +249,7 @@ test('edits during push survive acknowledgement and stale pull', async ({ page, 
 
   const card = await page.evaluate(async () => getDb().cards.get(20));
   expect(card).toMatchObject({ front_text: 'Edited during request', is_dirty: 1 });
+  expect(await page.evaluate(async () => getDb().progress.get([20, 1]))).toMatchObject({ flag: 0, is_dirty: 1 });
 });
 
 test('ID remapping preserves nested references and progress', async ({ page, context }) => {

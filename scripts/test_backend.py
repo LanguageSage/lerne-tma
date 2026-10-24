@@ -15,9 +15,14 @@ from unittest.mock import patch
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = (
     'scripts/tests/test_sql_migrations.py',
-    'scripts/tests/test_sql_migrations.py',
+    'scripts/tests/test_admin_contract.py',
+    'scripts/tests/test_admin_interop_boundary.py',
     'scripts/tests/test_local_dev.py',
     'scripts/tests/test_test_isolation.py',
+    'scripts/tests/test_media_storage_migration.py',
+    'scripts/tests/test_deploy_manifest.py',
+    'scripts/tests/test_local_deployment.py',
+    'scripts/tests/test_deck_passport.py',
     'scripts/tests/test_auth_foundation.py',
     'scripts/tests/test_critical_http.py',
     'scripts/tests/test_api_errors.py',

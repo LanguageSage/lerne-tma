@@ -298,22 +298,11 @@ def start(config):
                 process.kill()
 
 
-def admin(config):
-    with socket.socket() as sock:
-        try:
-            sock.bind(('127.0.0.1', 8050))
-        except OSError:
-            raise RuntimeError('Port 8050 is occupied. Stop its owner; no process was killed.') from None
-    print('LOCAL admin importer: http://127.0.0.1:8050')
-    run([sys.executable, '-m', 'uvicorn', 'tools.admin.server:app',
-         '--host', '127.0.0.1', '--port', '8050'], config)
-
-
 def main():
     if os.environ.get('VERCEL') or os.environ.get('VERCEL_ENV') or os.environ.get('ENVIRONMENT', '').lower() == 'production':
         raise RuntimeError('Local commands cannot run on Vercel or in Production')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=['init', 'init-native', 'start', 'admin', 'prepare', 'backup', 'restore', 'reset', 'stop-db', 'paths'])
+    parser.add_argument('command', choices=['init', 'init-native', 'start', 'prepare', 'backup', 'restore', 'reset', 'stop-db', 'paths'])
     parser.add_argument('file', nargs='?')
     args = parser.parse_args()
     config = initialize_config()

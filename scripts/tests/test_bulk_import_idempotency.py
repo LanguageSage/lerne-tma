@@ -51,6 +51,13 @@ TABLES = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
 
 
 class BulkImportTests(unittest.TestCase):
+    def test_explicit_personal_zero_overrides_legacy_card_flag(self):
+        card = {'id': 1, 'deck_id': 1, 'front_text': 'Flag', 'back_text': 'Back', 'flag': 3}
+        self.assertEqual(cards._build_card_dict(card)['flag'], 3)
+        for progress in ({'flag': 0}, models.TMAProgress(flag=0)):
+            self.assertEqual(cards._build_card_dict(card, progress)['flag'], 0)
+        self.assertEqual(cards._build_card_dict(card, {'flag': 2})['flag'], 2)
+
     def setUp(self):
         database.create_tables(TABLES)
         models.TMAUser.create(user_id=1)

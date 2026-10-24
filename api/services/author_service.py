@@ -10,7 +10,7 @@
 
 Используется одновременно:
 - CLI-интерфейсом (`scripts/lerne_author_cli.py`);
-- Консолью администратора (`tools/admin/routers/author.py`);
+- Консолью администратора (отдельный проект `lerne-admin`, `lerne_admin.routers.author`);
 - Автоматизацией через AI-агентов.
 """
 

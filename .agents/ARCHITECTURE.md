@@ -26,7 +26,7 @@ LOCAL API и не перенося SRS. Контракт: [MATERIAL_TRANSFER](..
 | Серверная логика | `api/services/` | CRUD, синхронизация, оценивание и проекции |
 | ORM / БД | `api/models.py`, `api/database.py`, `api/migrations.py` | Peewee, подключение и эволюция схемы |
 | Android | `android/`, `capacitor.config.json` | Оболочка Capacitor для того же клиента |
-| Локальная админка | `tools/admin/server.py` | Отдельное приложение с прямым доступом к ORM |
+| Локальная админка | `lerne-admin:src/lerne_admin/server.py` | Отдельный репозиторий; устанавливает общий independent admin core (see ADMIN_COMPATIBILITY.md) (api/local) |
 
 ## Основные потоки данных
 
@@ -101,7 +101,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 - Offline-записи, временные ID и повторные запросы обслуживает [sync](subsystems/sync.md).
 - AI-ответ становится данными карточки через существующее сохранение; evaluator возвращает verdict.
   Детали контрактов и провайдеров находятся в [ai](subsystems/ai.md).
-- Локальная админка использует `tools/admin/`, отдельно от React-клиента и его offline API.
+- Локальная админка находится в независимом проекте `lerne-admin` со своим core; проекты согласуют версии DB/форматов/прав через `api/admin_contract.json`, без Python/Git зависимости. См. `docs/ADMIN_COMPATIBILITY.md`.
 
 ## Документация, правила и skills
 

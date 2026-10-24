@@ -31,7 +31,7 @@
 | Изображение, image_path, media URL, CDN, blob cache, upload | Media: storage / rendering | [media](subsystems/media.md) |
 | Knowledge Item / KI, primary mapping, Attempt, evaluation_data | Knowledge: capture | [knowledge](subsystems/knowledge.md) |
 | knowledge_attempt_outbox, Knowledge Sync, mastery-v1, rebuild, diagnostics | Knowledge: persistence | [knowledge](subsystems/knowledge.md) |
-| Админ-панель, bulk creator, regen worker, checkpoint, backup explorer | Admin | [ADMIN_ARCHITECTURE](ADMIN_ARCHITECTURE.md) |
+| Админ-панель, bulk creator, regen worker, checkpoint, backup explorer | External admin (lerne-admin) | [ADMIN_ARCHITECTURE](ADMIN_ARCHITECTURE.md) |
 
 Если карточка разобрана правильно, но ответ проверяется неверно, переходите из Cards в Study.
 Если verdict free-text неверен, идите в AI; если verdict верен, но mastery не меняется — в Knowledge.

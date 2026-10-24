@@ -480,6 +480,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     lapses = get_p('lapses') or 0
     queue = get_p('queue') or "new"
     interval = get_p('interval') or 0
+    flag = get_p('flag')
+    if flag is None:
+        flag = get_val('flag', 'flag')
 
     result = {
         "id": get_val('id', 'id'),
@@ -504,7 +507,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "video_front_path": video_front,
         "video_back_path": video_back,
         # flag and want_to_learn are per-user: read from TMAProgress (p) first
-        "flag": int(get_p('flag') or get_val('flag', 'flag') or 0),
+        "flag": int(flag or 0),
         "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,

@@ -105,15 +105,18 @@ export const useAuthStore = create((set, get) => ({
 
   restoreSession: () => {
     if (restoration) return restoration;
+    const generation = authGeneration;
     set({ isRestoring: true });
     restoration = (async () => {
       try {
         if (getAccessToken()) {
           const response = await api.get('/auth/v2/me');
+          if (generation !== authGeneration) return;
           if (response.config?.headers?.Authorization && response.config.headers.Authorization !== `Bearer ${getAccessToken()}`) return;
           get().setUserProfile(response.data);
         } else if (IS_LOCAL) {
           const response = await api.post('/auth/local/login');
+          if (generation !== authGeneration) return;
           await get().finishLogin(response.data);
         } else if (window.Telegram?.WebApp?.initData && storage.get('lerne_force_guest') !== 'true') {
           // A pending bot/OAuth challenge owns this round trip, including reloads.
@@ -144,13 +147,17 @@ export const useAuthStore = create((set, get) => ({
   },
 
   refreshAuthMethods: async () => {
+    const generation = authGeneration;
+    const userId = getUserId();
     try {
       const [identities, settings] = await Promise.all([
         api.get('/auth/v2/identities'), api.get('/auth/v2/password-settings'),
       ]);
+      if (generation !== authGeneration || userId !== getUserId()) return null;
       set({ authMethods: identities.data.providers, passwordSettings: settings.data });
       return identities.data.providers;
     } catch {
+      if (generation !== authGeneration || userId !== getUserId()) return null;
       set({ authMethods: null, passwordSettings: null });
       return null;
     }
