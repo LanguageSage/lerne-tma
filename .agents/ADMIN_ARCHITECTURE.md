@@ -1,35 +1,24 @@
-# Админка вынесена в lerne-admin (этап 1)
+# Независимая админка lerne-admin
 
-Исходники и полный реестр функций: отдельный проект
-`C:\121\Lerne_projekt\lerne-admin`, `src/lerne_admin/`.
-Архитектура и зависимости: `lerne-admin/docs/ARCHITECTURE.md`,
-`lerne-admin/docs/DEPENDENCIES.md`; запуск: `lerne-admin/README.md`.
+Проект `C:\121\Lerne_projekt\lerne-admin` содержит UI, HTTP perimeter, workers,
+импорт/перенос/backup и собственный domain core в `src/lerne_admin/core`.
+TMA не является устанавливаемой зависимостью админки. TMA предоставляет своё
+приложение, API, LOCAL dev/test и собственную серверную логику независимо.
 
-TMA предоставляет устанавливаемый `lerne-tma-core==0.1.1` (`pyproject.toml`):
-пакеты `api` и `local`. Модели, права, сервисы автора/контента/CEFR/медиа остаются
-единственными источниками бизнес-правил в TMA. Админка устанавливает этот
-checkout через `pip -e`; относительных sys.path/cwd связей между проектами нет.
-`scripts` и React-клиент админке для runtime не нужны. Админских Python-импортов
-в TMA нет; LOCAL UI сохраняет разрешённый HTTP-переход на loopback 8050.
+Общая граница — формат данных/прав/импорта и DB contract, а не Python imports.
+`api/admin_contract.json` и `scripts/verify_admin_contract.py` фиксируют reviewed
+versions/source fingerprints; backend gate проверяет artifact. Подробный lifecycle
+изменений — `docs/ADMIN_COMPATIBILITY.md`, в админке — `docs/COMPATIBILITY.md`.
 
-Старые `run_admin.bat`, `local_dev.py admin`, `tools/admin`, админские тесты и
-fixtures удалены после проверки нового проекта. Вместо них запускайте
-`lerne-admin/run_admin.bat` из нового проекта; настройка путей и отдельного
-окружения выполняется его `setup.ps1`.
+Runtime не ищет sibling TMA, .env или Git checkout. Admin snapshots обновляются
+только отдельной candidate/review/test процедурой. При неизвестном DB contract,
+изменённой physical schema или несовместимом saved job запись админки блокируется.
+DB metadata не регистрируется и Production migrations не применяются автоматически.
 
-Checkpoint/config перемещены вне Git в `data/admin` без изменения байтов.
-LOCAL DB, медиа, бэкапы, `config/local.json` и `config/transfer.json` сохраняют
-прежнее расположение. Облачный env подключается явно по пути без копирования.
-Схема, seed и миграции при запуске админки не применяются.
+Единственная необязательная UI-связь — LOCAL HTTP-переход на loopback 8050.
+TMA-owned tests LOCAL permission link/media redirect остаются в TMA, admin tests
+и fixtures полностью принадлежат отдельному проекту. Frontend harness/offline
+сбои, воспроизведённые в чистом main, описаны отдельно от регрессий отделения.
 
-Админские HTTP/unit/browser проверки принадлежат новому проекту. Проверки
-permissions TMA (`test_admin_permissions.py`), LOCAL и общего авторского сервиса
-остаются здесь. Maintenance Storage migration tests выделены из прежнего
-смешанного набора в `scripts/tests/test_media_storage_migration.py` и включены
-в обычный backend gate TMA.
-
-Следующий этап: выделить публичные версии доменных контрактов и конфигурации
-из `api`/`local.runtime`, убрать приватные импорты и legacy backup/audio paths,
-выпустить самостоятельный shared package. Сейчас editable TMA обязателен.
-
-Завершающий аудит: [docs/ADMIN_EXTRACTION_AUDIT.md](../docs/ADMIN_EXTRACTION_AUDIT.md). Core в админке закреплён точным SHA и проверяется при bootstrap/старте; clean checkout tests не требуют private config. Production source manifest проверяет scripts/verify_deploy_files.py.
+Config, checkpoint, LOCAL/облачные базы, media и backups остаются внешними.
+История этапа editable core: docs/ADMIN_EXTRACTION_AUDIT.md (superseded).

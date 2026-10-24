@@ -1,5 +1,9 @@
 # Завершающий аудит отделения админки: границы первого этапа
 
+> Исторический отчёт этапа с editable core. Актуальное независимое решение:
+> [ADMIN_COMPATIBILITY.md](ADMIN_COMPATIBILITY.md). Runtime зависимости от TMA Git
+> и package `lerne-tma-core` устранены; исходное описание ниже сохранено для истории.
+
 TMA предоставляет `lerne-tma-core==0.1.1` из `pyproject.toml`. Core содержит
 единственные модели, permissions, content/author/CEFR/media services и LOCAL
 runtime. `lerne-admin` устанавливает чистый editable checkout **точного commit
