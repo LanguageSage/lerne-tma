@@ -3,6 +3,7 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { IS_LOCAL } from '../../app/src/utils/localMode.js';
 import axios from '../../app/node_modules/axios/index.js';
 
 const source = readFileSync(new URL('../../app/src/services/api.js', import.meta.url), 'utf8')
@@ -18,7 +19,7 @@ function fixture() {
     get session() { return session; }, set session(value) { session = value; },
     set userId(value) { userId = value; },
   };
-  const context = {
+  const context = { IS_LOCAL,
     axios: { create: config => axios.create({ ...config, adapter: async config => {
       calls.push(config);
       return f.transport(config);

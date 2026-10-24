@@ -4,11 +4,12 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { IS_LOCAL, localStorageKey } from '../../app/src/utils/localMode.js';
 import { createStore } from '../../app/node_modules/zustand/esm/vanilla.mjs';
 
 const source = readFileSync(new URL('../../app/src/store/useAuthStore.js', import.meta.url), 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export const useAuthStore', 'const useAuthStore');
-function fixture({ methods = ['email_password'], email = 'fixture@example.test' } = {}) {
+function fixture({ methods = ['email_password'], email = 'fixture@example.test', local = false } = {}) {
   const pending = new Map(), timers = new Map(), calls = [];
   let nextTimer = 0;
   const ui = { setIsAuthModalOpen: value => { ui.isAuthModalOpen = value; }, showToast() {},
@@ -32,7 +33,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test' 
   let resetAllDatabasesCount = 0;
   let currentUserId = null;
   let accessToken = null;
-  const context = { create: createStore, tr: value => value, api,
+  const context = { IS_LOCAL: local || IS_LOCAL, localStorageKey, create: createStore, tr: value => value, api,
     getUserProfile: () => (currentUserId ? { user_id: currentUserId } : null),
     saveUserProfile(p) { currentUserId = p?.user_id; },
     saveAuthSession(session) { accessToken = session.access_token; }, clearAuthSession() { currentUserId = null; accessToken = null; },
@@ -205,6 +206,46 @@ test('logout retires a login already waiting for its profile', async () => {
   resolve({ data: { user_id: -123 } });
   assert.equal(await login, null);
   assert.equal(f.store.getState().userProfile, null);
+});
+
+test('logout retires LOCAL automatic login before it can save credentials', async () => {
+  const f = fixture({ local: true });
+  let resolve;
+  f.api.post = () => new Promise(done => { resolve = done; });
+  const restoration = f.store.getState().restoreSession();
+  f.store.getState().logout();
+  resolve({ data: { access_token: 'late-local', refresh_token: 'late-refresh' } });
+  await restoration;
+  assert.equal(f.context.getAccessToken(), null);
+  assert.equal(f.store.getState().userProfile, null);
+});
+
+test('late identity and password settings cannot repopulate a logged-out session', async () => {
+  const f = fixture();
+  f.accessToken = 'synthetic';
+  const pending = [];
+  f.api.get = () => new Promise(resolve => pending.push(resolve));
+  const loading = f.store.getState().refreshAuthMethods();
+  f.store.getState().logout();
+  pending[0]({ data: { providers: ['telegram'] } });
+  pending[1]({ data: { email: 'private@example.test' } });
+  await loading;
+  assert.equal(f.store.getState().authMethods, null);
+  assert.equal(f.store.getState().passwordSettings, null);
+});
+
+test('failed settings request for the previous account cannot clear the new account settings', async () => {
+  const f = fixture();
+  f.currentUserId = 101;
+  let reject;
+  f.api.get = () => new Promise((_resolve, fail) => { reject = fail; });
+  const loading = f.store.getState().refreshAuthMethods();
+  f.currentUserId = 202;
+  f.store.setState({ authMethods: ['google'], passwordSettings: { email: 'new@example.test' } });
+  reject(new Error('Old account request failed'));
+  await loading;
+  assert.deepEqual(f.store.getState().authMethods, ['google']);
+  assert.equal(f.store.getState().passwordSettings.email, 'new@example.test');
 });
 
 test('unconfigured provider failure presents clear message without generic fallback', async () => {
