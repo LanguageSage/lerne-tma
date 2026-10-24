@@ -87,6 +87,22 @@ class OfflineSyncTests(unittest.TestCase):
         self.assertEqual(error.exception.status_code, 409)
         self.assertEqual(models.TMA_Deck.get().name, 'Original')
 
+    def test_personal_flag_survives_remap_retry_partial_progress_and_explicit_clear(self):
+        state = {'queue': 'review', 'interval': 1, 'ease_factor': 2.5, 'repetitions': 1, 'lapses': 0}
+        request = self.request(decks=[{'id': -1, 'name': 'Flag'}],
+            cards=[{'id': -2, 'deck_id': -1, 'front_text': 'x', 'back_text': 'y'}],
+            progress=[{'card_id': -2, **state, 'flag': 3}])
+        result = sync.push_offline(request, 1)
+        self.assertEqual(sync.push_offline(request, 1), result)
+        card_id = result['mappings']['cards']['-2']
+        self.assertEqual(sync.pull_offline(1)['progress'][0]['flag'], 3)
+        sync.push_offline(self.request(progress=[{'card_id': card_id, **state}]), 1)
+        self.assertEqual(sync.pull_offline(1)['progress'][0]['flag'], 3)
+        sync.push_offline(self.request(progress=[{'card_id': card_id, **state, 'flag': 0}]), 1)
+        self.assertEqual(sync.pull_offline(1)['progress'][0]['flag'], 0)
+        self.assertEqual(models.TMAProgress.get(card_id=card_id, user_id=1).repetitions, 1)
+        self.assertEqual(models.TMAProgress.select().where(models.TMAProgress.user_id == 2).count(), 0)
+
     def test_unauthorized_batch_rolls_back_receipt_and_creates(self):
         other = models.TMA_Deck.create(user_id=2, name='Private')
         request = self.request(decks=[{'id': -1, 'name': 'Should rollback'}],

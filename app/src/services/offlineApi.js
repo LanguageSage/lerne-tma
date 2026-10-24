@@ -17,6 +17,12 @@ const result = (data = {}) => ({ data });
 const success = (data = {}) => result({ status: 'success', ...data });
 const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
 const readOnly = () => { throw new Error(tr("У вас доступ только для чтения")); };
+const initialProgress = (card, userId) => ({
+  card_id: card.id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5,
+  repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null,
+  // Older caches stored personal fields on the card; retain them on first review.
+  flag: card.flag ?? 0, want_to_learn: card.want_to_learn ?? false,
+});
 async function requireContentWrite(db, entity, item) {
   if (!item) notFound();
   const owner = entity === 'cards' ? await db.decks.get(item.deck_id) : item;
@@ -185,9 +191,7 @@ export const offlineApi = {
       if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
       const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
       await db.transaction('rw', db.progress, db.syncState, async () => {
-        const progress = await db.progress.get([id, userId]) || {
-          card_id: id, user_id: userId, queue: 'new', ease_factor: 2.5, interval: 0, lapses: 0, repetitions: 0,
-        };
+        const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
         const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context), ...dirtyFields() };
         await db.progress.put(updated);
         // Same transaction as progress; every grade survives reload and batch retry.
@@ -201,7 +205,7 @@ export const offlineApi = {
       return nextCard(db, card.deck_id, userId, nextParams);
     }
     if (m === 'post' && url === '/cards/save') {
-      return db.transaction('rw', db.cards, db.decks, async () => {
+      return db.transaction('rw', db.cards, db.decks, db.progress, async () => {
         const id = Number(body.card_id || body.id) || getNextTempId();
         const previous = await db.cards.get(id);
         const deckId = Number(body.deck_id || previous?.deck_id);
@@ -220,7 +224,12 @@ export const offlineApi = {
         }
         if (body.cefr) card.metadata = { ...jsonObject(previous?.metadata), cefr: body.cefr };
         await db.cards.put(card);
-        return result({ ...card, front: card.front_text, back: card.back_text });
+        let progress = await db.progress.get([id, userId]);
+        if (Object.hasOwn(body, 'flag')) {
+          progress = { ...(progress || initialProgress(card, userId)), flag: Number(body.flag) || 0, ...dirtyFields() };
+          await db.progress.put(progress);
+        }
+        return result({ ...card, front: card.front_text, back: card.back_text, flag: progress?.flag ?? card.flag ?? 0 });
       });
     }
     if (m === 'post' && url === '/cards/batch-move') {
@@ -440,7 +449,7 @@ export const offlineApi = {
         if (action === 'color') fields = { color: body.color };
         if (action === 'flag') {
           if (entity !== 'cards') throw unsupported();
-          const prog = await db.progress.get([id, userId]) || { card_id: id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null };
+          const prog = await db.progress.get([id, userId]) || initialProgress(item, userId);
           prog.flag = Number(body.flag) || 0;
           Object.assign(prog, dirtyFields());
           await db.progress.put(prog);
