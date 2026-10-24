@@ -27,11 +27,16 @@ contract. CI проверяет исходники/artifact, а процедур
 публикацию metadata в общей БД; автоматического Production шага нет.
 
 Отдельные tests проверяют TMA-owned LOCAL HTTP link/permissions и media redirect;
-они больше не требуют admin package. Общий baseline main `506938e7ecb972cb3a6a8b515ba10bf79845ffe8`
-воспроизводит 36 frontend harness failures и offline CRUD `flag: 3 → 0`.
-Эти источники не меняются отделением; их исправление — отдельная задача.
+они больше не требуют admin package. Исправления offline flag, auth generation и
+frontend harness из `codex/fix-offline-flag-and-harness` интегрированы в ветку
+отделения. Сериализатор сохраняет явный пользовательский `progress.flag = 0`.
+Изменился только source fingerprint области import (она включает весь cards.py);
+schema/permissions/cards и все версии остаются прежними: совместимый bug fix не
+меняет wire format или схему. Admin snapshot обновляется отдельно через candidate.
+Старый exact marker не принимается новым core автоматически: DBA review metadata
+и уже версионированных checkpoint/jobs остаётся отдельным шагом, даже при version 1.
 
-Текущая публикация исходников самостоятельна. Слияние по-прежнему требует решения
-по красному общему gate. Публикация полной истории TMA также требует отдельного
+Текущая публикация исходников самостоятельна. Результаты объединённого общего gate
+фиксируются в отчёте интеграции. Публикация полной истории TMA требует отдельного
 решения по старым checkpoint/config/SQLite, оставшимся в истории: обычный commit
 их оттуда не удаляет, переписывания истории эта работа не выполняет.

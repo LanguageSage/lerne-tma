@@ -17,8 +17,9 @@ DB metadata не регистрируется и Production migrations не пр
 
 Единственная необязательная UI-связь — LOCAL HTTP-переход на loopback 8050.
 TMA-owned tests LOCAL permission link/media redirect остаются в TMA, admin tests
-и fixtures полностью принадлежат отдельному проекту. Frontend harness/offline
-сбои, воспроизведённые в чистом main, описаны отдельно от регрессий отделения.
+и fixtures полностью принадлежат отдельному проекту. Исправления baseline main
+для offline flag, auth/session и frontend harness интегрированы; source fingerprint
+import обновлён после review, без автоматического изменения DB marker.
 
 Config, checkpoint, LOCAL/облачные базы, media и backups остаются внешними.
 История этапа editable core: docs/ADMIN_EXTRACTION_AUDIT.md (superseded).

@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { IS_LOCAL, localStorageKey } from '../../app/src/utils/localMode.js';
 
 const source = (process.env.AUTH_SESSION_BASELINE === '1'
   ? execFileSync('git', ['show', 'HEAD:app/src/utils/auth.js'], { encoding: 'utf8' })
@@ -14,7 +15,7 @@ function fixture({ search = '', telegram = null, dev = false } = {}) {
   const values = new Map();
   const localStorage = { getItem: key => values.get(key) ?? null,
     setItem: (key, value) => values.set(key, value), removeItem: key => values.delete(key) };
-  const context = { localStorage, URLSearchParams, tr: x => x, env: { DEV: dev },
+  const context = { IS_LOCAL, localStorageKey, localStorage, URLSearchParams, tr: x => x, env: { DEV: dev },
     window: { location: { search, pathname: '/', hash: '#deck', hostname: dev ? 'localhost' : 'tma-amber.vercel.app' },
       history: { state: null, replaceState(_state, _title, url) {
         context.window.location.search = new URL(url, 'https://example.test').search;
