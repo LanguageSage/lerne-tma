@@ -215,7 +215,12 @@ def apply_import(payload, sources):
     if prior:
         if prior.payload_hash != stable_hash:
             raise HTTPException(409, 'Запрос с этим request_id уже изменён.')
-        return json.loads(prior.response)
+        result = json.loads(prior.response)
+        if 'deck_ids' not in result:
+            keys = [f"folder-source:{result['folder_id']}:{group['identity']}" for group in plan['groups']]
+            receipts = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.in_(keys))
+            result['deck_ids'] = sorted({json.loads(row.response)['deck_id'] for row in receipts})
+        return result
     if not plan['can_apply']:
         raise HTTPException(422, {'problems': plan['problems']})
     if plan['preview_token'] != payload['preview_token']:
@@ -303,7 +308,8 @@ def apply_import(payload, sources):
         for deck_id in sorted(touched):
             touch_deck_and_parent_folders(deck_id)
         result = {'status': 'success', 'created_cards': created, 'updated_media': updated,
-                  'folder_id': folder_id, 'folder_name': current['folder_name']}
+                  'folder_id': folder_id, 'folder_name': current['folder_name'],
+                  'deck_ids': sorted(set(target_decks.values()))}
         receipt.response = json.dumps(result, ensure_ascii=False)
         receipt.save()
         return result

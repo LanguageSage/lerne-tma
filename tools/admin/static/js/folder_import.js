@@ -256,11 +256,13 @@ function renderFolderImportPreview(plan) {
 async function applyFolderImport() {
   if (folderImport.busy || !folderImport.preview?.plan.can_apply) return;
   const saved = folderImport.preview;
+  const destination = authorDestination();
   try {
     if (JSON.stringify(folderImportPayload()) !== JSON.stringify(saved.payload)) {
       invalidateFolderImport();
       return;
     }
+    await verifyAuthorCloudDestination(destination);
     setFolderImportBusy(true);
     folderImportStatus('Импорт выбранных колод и медиа…');
     const result = await sendFolderImport('apply', { ...saved.payload, preview_token: saved.plan.preview_token,
@@ -268,6 +270,13 @@ async function applyFolderImport() {
     folderImport.preview = null;
     document.getElementById('folder-import-apply-button').disabled = true;
     folderImportStatus(`Готово. Новых карточек: ${result.created_cards}, изменено медиа-ссылок: ${result.updated_media}. Авторство и прогресс сохранены.`);
+    if (destination !== 'local') {
+      try {
+        await startAuthorCloudTransfer(result.deck_ids || []);
+      } catch (error) {
+        folderImportStatus(`LOCAL сохранён. Облачный перенос не подготовлен: ${error.message} Откройте раздел «Перенос и публикация» для продолжения.`);
+      }
+    }
   } catch (error) {
     // Keep the exact request id for response-loss retries. No automatic retries.
     folderImportStatus(`${error.message} Можно повторить подтверждение; при устаревшем предпросмотре выполните проверку заново.`);

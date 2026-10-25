@@ -160,6 +160,48 @@ function pollTransfer(id) {
   }, 1500);
 }
 
+async function previewTransferSelection() {
+  if (transferState.busy) return;
+  transferState.busy = true; transferControls(); transferMessage('Подготовка предпросмотра и необходимых медиа…');
+  transferEl('status').scrollIntoView({ block: 'center' });
+  try {
+    const pending = await transferRequest('/preview', { direction: transferEl('direction').value,
+      selection: { kind: transferEl('kind').value, ids: [...transferState.selected] },
+      mode: transferEl('mode').value, media_mode: transferEl('media').value,
+      on_conflict: transferEl('conflict').value, destination_folder_id: Number(transferEl('destination').value) || null,
+      accept_conflicts: transferEl('accept').checked, public_original: transferEl('public').checked });
+    const job = await waitTransferPreview(pending.id);
+    transferEl('confirmed').checked = false; transferEl('confirmation').value = '';
+    renderTransferJob(job); transferMessage('Проверка готова. Проверьте изменения и подтвердите цель, затем нажмите «Начать копирование».');
+    transferEl('preview-panel').style.scrollMarginTop = `${(document.querySelector('body > header')?.offsetHeight || 0) + 16}px`;
+    transferEl('preview-panel').scrollIntoView({ block: 'start' });
+    await loadTransferJobs();
+  } catch (error) { transferMessage(error.message, true); }
+  finally { transferState.busy = false; transferControls(); }
+}
+
+async function startAuthorCloudTransfer(deckIds) {
+  const ids = [...new Set(deckIds.map(Number))];
+  if (!ids.length || ids.length > 200 || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) {
+    throw new Error('Материалы сохранены в LOCAL. Для облачного переноса выберите до 200 колод в разделе «Перенос и публикация».');
+  }
+  transferEl('direction').value = 'publish';
+  transferEl('kind').value = 'deck';
+  transferEl('mode').value = 'changed';
+  transferEl('media').value = 'changed';
+  transferEl('conflict').value = 'replace';
+  transferEl('destination').replaceChildren(new Option('Корень библиотеки', ''));
+  transferEl('accept').checked = false;
+  transferEl('public').checked = false;
+  await initTransfer();
+  transferState.selected = new Set(ids);
+  transferEl('selection').textContent = `Выбрано локальных колод: ${ids.length} · ID: ${ids.join(', ')}`;
+  invalidateTransfer();
+  switchTab('transfer');
+  await loadTransferCatalog();
+  await previewTransferSelection();
+}
+
 async function initTransfer() {
   if (!transferState.initialized) {
     transferState.initialized = true;
@@ -180,25 +222,7 @@ async function initTransfer() {
     });
     transferEl('confirmed').addEventListener('change', transferControls);
     transferEl('confirmation').addEventListener('input', transferControls);
-    transferEl('preview').addEventListener('click', async () => {
-      if (transferState.busy) return;
-      transferState.busy = true; transferControls(); transferMessage('Подготовка предпросмотра и необходимых медиа…');
-      transferEl('status').scrollIntoView({ block: 'center' });
-      try {
-        const pending = await transferRequest('/preview', { direction: transferEl('direction').value,
-          selection: { kind: transferEl('kind').value, ids: [...transferState.selected] },
-          mode: transferEl('mode').value, media_mode: transferEl('media').value,
-          on_conflict: transferEl('conflict').value, destination_folder_id: Number(transferEl('destination').value) || null,
-          accept_conflicts: transferEl('accept').checked, public_original: transferEl('public').checked });
-        const job = await waitTransferPreview(pending.id);
-        transferEl('confirmed').checked = false; transferEl('confirmation').value = '';
-        renderTransferJob(job); transferMessage('Проверка готова. Проверьте изменения и подтвердите цель, затем нажмите «Начать копирование».');
-        transferEl('preview-panel').style.scrollMarginTop = `${(document.querySelector('body > header')?.offsetHeight || 0) + 16}px`;
-        transferEl('preview-panel').scrollIntoView({ block: 'start' });
-        await loadTransferJobs();
-      } catch (error) { transferMessage(error.message, true); }
-      finally { transferState.busy = false; transferControls(); }
-    });
+    transferEl('preview').addEventListener('click', previewTransferSelection);
     transferEl('apply').addEventListener('click', async () => {
       const job = transferState.job;
       transferState.busy = true; transferControls(); transferMessage('Перенос выполняется. Состояние сохранено на сервере.');

@@ -509,6 +509,29 @@ function authorPublishPayload(result) {
   };
 }
 
+function authorDestination() {
+  return document.getElementById('author-publish-destination').value;
+}
+
+function onAuthorDestinationChange() {
+  const destination = authorDestination();
+  document.getElementById('author-publish-destination-note').textContent = destination === 'local'
+    ? 'Материалы сохраняются в LOCAL.'
+    : destination === 'supabase'
+      ? 'Сначала сохраняется локальная копия, затем Material Transfer проверяет публикацию в Supabase. Облачная запись требует отдельного подтверждения.'
+      : 'Одна операция: сохранение в LOCAL и последующий перенос в Supabase с отдельной проверкой и подтверждением.';
+  invalidateAuthorPassportPreview();
+  if (typeof folderImport !== 'undefined' && folderImport.files.size) invalidateFolderImport();
+}
+
+async function verifyAuthorCloudDestination(destination = authorDestination()) {
+  if (destination === 'local') return;
+  const config = await transferRequest('/config');
+  if (!config.enabled || !config.allow_cloud_write) {
+    throw new Error('Публикация в Supabase отключена. Проверьте внешний config/transfer.json и разрешение облачной записи.');
+  }
+}
+
 async function runAuthorPublishPreview() {
   const result = authorState.publish.parseResult;
   if (!result || !result.cards) {
@@ -581,6 +604,9 @@ async function runAuthorPublish() {
     showToast('Исправьте и проверьте ошибки паспорта перед публикацией', 'error');
     return;
   }
+  const destination = authorDestination();
+  try { await verifyAuthorCloudDestination(destination); }
+  catch (err) { showToast(err.message, 'error'); return; }
   const payload = authorPublishPayload(result);
 
   if (authorState.publish.isNewFolder) {
@@ -615,23 +641,36 @@ async function runAuthorPublish() {
     if (!res.ok) throw new Error(data.detail || `Ошибка публикации (HTTP ${res.status})`);
 
     authorState.publish.isLoading = false;
-    authorState.publish.success = data;
+    authorState.publish.success = { ...data, destination };
     renderAuthorPublishState();
 
     showToast(data.passport_only
-      ? `Паспорта сохранены: ${data.updated_passports}. Карточки не изменялись.`
-      : `🎉 Опубликовано: ${data.total_saved_cards} карточек в папку «${data.folder_name}»!`, 'success');
+      ? `Паспорта сохранены в LOCAL: ${data.updated_passports}. Карточки не изменялись.`
+      : `Сохранено в LOCAL: ${data.total_saved_cards} карточек в папку «${data.folder_name}».`, 'success');
 
-    // Trigger instant refresh of folders and decks across entire admin
-    if (typeof loadAdminFolders === 'function') await loadAdminFolders();
-    if (typeof loadDecks === 'function') await loadDecks();
-    populateAuthorFolderSelects();
-    populateAuthorDeckSelects();
+    // Refresh navigation without treating a refresh failure as failed publication.
+    try {
+      if (typeof loadAdminFolders === 'function') await loadAdminFolders();
+      if (typeof loadDecks === 'function') await loadDecks();
+      populateAuthorFolderSelects();
+      populateAuthorDeckSelects();
+    } catch (refreshError) {
+      showToast('LOCAL сохранён, но списки не обновились. Обновите их вручную.', 'error');
+    }
   } catch (err) {
     authorState.publish.isLoading = false;
     authorState.publish.error = err.message || 'Ошибка публикации урока';
     renderAuthorPublishState();
     showToast(authorState.publish.error, 'error');
+    return;
+  }
+
+  if (destination !== 'local') {
+    try {
+      await startAuthorCloudTransfer(authorState.publish.success.published_decks.map(deck => deck.deck_id));
+    } catch (err) {
+      showToast(`LOCAL сохранён. Облачный перенос не подготовлен: ${err.message}`, 'error');
+    }
   }
 }
 
@@ -712,8 +751,9 @@ function renderAuthorPublishState() {
               <i data-lucide="check-circle-2" class="w-6 h-6"></i>
             </div>
             <div>
-              <h3 class="text-base font-bold text-white">${succ.passport_only ? 'Паспорта сохранены. Карточки не изменялись.' : 'Урок успешно опубликован в базу данных!'}</h3>
+              <h3 class="text-base font-bold text-white">${succ.passport_only ? 'Паспорта сохранены. Карточки не изменялись.' : 'Урок сохранён в LOCAL.'}</h3>
               <p class="text-xs text-emerald-300">Папка ID ${succ.folder_id}: <b>${escapeHtml(succ.folder_name)}</b> • ${succ.passport_only ? `Паспортов: <b>${succ.updated_passports}</b>` : `Всего сохранено: <b>${succ.total_saved_cards}</b> карточек`}</p>
+              ${succ.destination !== 'local' ? '<p class="text-xs text-amber-200 mt-1">Результат облачного шага смотрите в разделе «Перенос и публикация».</p>' : ''}
             </div>
           </div>
           <div class="space-y-1">

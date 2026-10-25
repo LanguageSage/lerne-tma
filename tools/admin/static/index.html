@@ -1632,6 +1632,16 @@
       <!-- ================================================================= -->
       <div id="author-panel-publish" class="space-y-6">
 
+        <div class="glass p-5 rounded-2xl border border-slate-800 space-y-2">
+          <label for="author-publish-destination" class="block text-sm font-semibold text-white">Назначение публикации</label>
+          <select id="author-publish-destination" class="w-full md:max-w-md bg-slate-900 border border-slate-700 rounded-xl p-3 text-sm text-white" onchange="onAuthorDestinationChange()">
+            <option value="local">LOCAL</option>
+            <option value="supabase">Supabase (локальный источник сохраняется)</option>
+            <option value="both">LOCAL и Supabase</option>
+          </select>
+          <p id="author-publish-destination-note" class="text-xs text-slate-400">Материалы сохраняются в LOCAL.</p>
+        </div>
+
         <div id="folder-import-panel" class="glass p-5 rounded-2xl border border-slate-800 space-y-4 min-w-[1024px]">
           <div class="flex items-center justify-between gap-6">
             <div>

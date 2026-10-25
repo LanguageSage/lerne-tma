@@ -123,3 +123,106 @@ test('returning to transfer tab preserves the catalog without new requests', asy
   await expect(page.locator('#transfer-catalog input')).toHaveCount(count);
   expect(requests).toBe(loaded);
 });
+
+test('Author destination sends saved LOCAL deck into the existing transfer preview', async ({ page }, testInfo) => {
+  const errors = await setup(page);
+  await page.setViewportSize({ width: 1440, height: 900 });
+  await page.locator('#tab-author').click();
+  await expect(page.locator('#tab-author')).toHaveClass(/bg-indigo-600/);
+  await expect(page.locator('#tab-transfer')).not.toHaveClass(/bg-indigo-600/);
+  await page.locator('#author-publish-destination').selectOption('both');
+  await page.screenshot({ path: testInfo.outputPath('author-destination.png'), fullPage: true });
+  await page.evaluate(() => {
+    const folder = document.getElementById('author-publish-folder-select');
+    folder.replaceChildren(new Option('A1 fixture', '1'));
+    folder.value = '1';
+    authorState.publish.isNewFolder = false;
+    authorState.publish.parseResult = {
+      cards: [{ front: 'Autor Transfer', back: 'Проверка', deck_name: 'Author destination fixture' }],
+      passports: [], passport_errors: [],
+    };
+  });
+  await page.evaluate(() => runAuthorPublish());
+  await expect(page.locator('#content-transfer')).toBeVisible();
+  await expect(page.locator('#transfer-direction')).toHaveValue('publish');
+  await expect(page.locator('#transfer-selection')).toContainText('локальных колод: 1');
+  await expect(page.locator('#transfer-diff')).toContainText('Author destination fixture');
+  await expect(page.locator('#transfer-apply')).toBeDisabled();
+  await page.locator('#transfer-confirmation').fill('Supabase:fixture');
+  await page.locator('#transfer-confirmed').check();
+  await page.locator('#transfer-apply').click();
+  await expect(page.locator('#transfer-status')).toContainText('Готово.', { timeout: 15000 });
+  expect(errors).toEqual([]);
+});
+
+test('folder importer hands its receipt deck IDs to Material Transfer', async ({ page }) => {
+  const errors = await setup(page);
+  await page.locator('#tab-author').click();
+  await page.locator('#author-publish-destination').selectOption('supabase');
+  await page.route('**/api/admin/author/folder-import/apply', route => route.fulfill({ json: {
+    status: 'success', created_cards: 1, updated_media: 0, folder_id: 1,
+    folder_name: 'A1 fixture', deck_ids: [1],
+  } }));
+  await page.evaluate(() => {
+    const folder = document.getElementById('author-publish-folder-select');
+    folder.replaceChildren(new Option('A1 fixture', '1'));
+    folder.value = '1';
+    authorState.publish.isNewFolder = false;
+    folderImport.files = new Map([['D01.txt', new File(['# Deck: Урок 1'], 'D01.txt')]]);
+    folderImport.selected = new Set(['D01.txt']);
+    folderImport.requestId = crypto.randomUUID();
+    folderImport.preview = { plan: { can_apply: true, preview_token: 'fixture' }, payload: {
+      selected: ['D01.txt'], mode: 'import', manifests: [], decisions: {}, media_choices: {}, target_folder_id: 1,
+    } };
+  });
+  await page.evaluate(() => applyFolderImport());
+  await expect(page.locator('#content-transfer')).toBeVisible();
+  await expect(page.locator('#transfer-selection')).toContainText('ID: 1');
+  await expect(page.locator('#transfer-preview-panel')).toBeVisible();
+  await expect(page.locator('#transfer-apply')).toBeDisabled();
+  expect(errors).toEqual([]);
+});
+
+test('LOCAL author destination never starts a cloud transfer', async ({ page }) => {
+  const errors = await setup(page);
+  let cloudPreviews = 0;
+  page.on('request', request => { if (request.url().endsWith('/api/admin/transfer/preview')) cloudPreviews++; });
+  await page.locator('#tab-author').click();
+  await expect(page.locator('#author-publish-destination')).toHaveValue('local');
+  await page.evaluate(() => {
+    const folder = document.getElementById('author-publish-folder-select');
+    folder.replaceChildren(new Option('A1 fixture', '1'));
+    folder.value = '1';
+    authorState.publish.isNewFolder = false;
+    authorState.publish.parseResult = {
+      cards: [{ front: 'Nur Lokal', back: 'Только локально', deck_name: 'Author local fixture' }],
+      passports: [], passport_errors: [],
+    };
+  });
+  await page.evaluate(() => runAuthorPublish());
+  await expect(page.locator('#author-publish-success-wrap')).toBeVisible();
+  await expect(page.locator('#content-author')).toBeVisible();
+  expect(cloudPreviews).toBe(0);
+  expect(errors).toEqual([]);
+});
+
+test('disabled cloud gate rejects Author publication before LOCAL write', async ({ page }) => {
+  await setup(page);
+  await page.locator('#tab-author').click();
+  await page.locator('#author-publish-destination').selectOption('supabase');
+  await page.route('**/api/admin/transfer/config', route => route.fulfill({ json: {
+    enabled: true, allow_cloud_write: false, project_ref: 'fixture', environment: 'staging',
+  } }));
+  let localWrites = 0;
+  page.on('request', request => { if (request.url().endsWith('/api/admin/author/publish')) localWrites++; });
+  await page.evaluate(() => {
+    authorState.publish.parseResult = {
+      cards: [{ front: 'Gate test', back: 'Проверка', deck_name: 'Blocked fixture' }],
+      passports: [], passport_errors: [],
+    };
+  });
+  await page.evaluate(() => runAuthorPublish());
+  expect(localWrites).toBe(0);
+  await expect(page.locator('#content-author')).toBeVisible();
+  await expect(page.locator('#author-publish-success-wrap')).toBeHidden();
+});

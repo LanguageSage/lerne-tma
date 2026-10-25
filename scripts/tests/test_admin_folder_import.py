@@ -129,6 +129,7 @@ class FolderImportTests(unittest.TestCase):
         request_id = str(uuid4())
         result = self.apply(plan, request_id=request_id)
         self.assertEqual(result.status_code, 200, result.text)
+        self.assertEqual(result.json()['deck_ids'], [models.TMA_Deck.get().id])
         self.assertEqual(models.TMAMedia.select().count(), 2)
         cards = list(models.TMA_Card.select())
         self.assertEqual(cards[0].image_path, cards[1].image_path)
@@ -138,6 +139,11 @@ class FolderImportTests(unittest.TestCase):
         with Image.open(io.BytesIO(content)) as prepared:
             self.assertEqual(prepared.format, 'WEBP')
             self.assertLessEqual(max(prepared.size), 1600)
+        receipt = models.TMAOfflineBatch.get(models.TMAOfflineBatch.key.startswith('folder-import:'))
+        old_response = json.loads(receipt.response)
+        old_response.pop('deck_ids')
+        receipt.response = json.dumps(old_response)
+        receipt.save()
         replay = self.apply(plan, request_id=request_id)
         self.assertEqual(replay.json(), result.json())
         again = self.preview()
@@ -435,7 +441,7 @@ class FolderImportTests(unittest.TestCase):
 
     def test_local_import_stores_images_and_audio_in_local_media_root(self):
         from pathlib import Path
-        with SyntheticDirectory() as directory, patch.dict('os.environ', {'LERNE_MODE': 'LOCAL'}):
+        with SyntheticDirectory() as directory, patch.dict('os.environ', {'LERNE_MODE': 'LOCAL', 'VERCEL': '', 'VERCEL_ENV': ''}):
             for name, content, role, folder in (
                     ('image.png', image(), 'image', 'images'),
                     ('audio.wav', audio(), 'audio_front', 'audio')):
