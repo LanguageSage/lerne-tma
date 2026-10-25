@@ -244,13 +244,16 @@ def to_legacy_card(card, deck, index):
     intro = (deck.passport or {}).get('intro', {})
     level = card.level if card.level is not None else intro.get('level')
     topics = card.topics if card.topics is not None else ([intro['topic']] if intro.get('topic') else [])
-    # Existing topics is one string. Reject an ambiguous join rather than losing
-    # the boundaries of explicitly authored topic names.
-    if any(',' in topic or '\n' in topic or '\r' in topic for topic in topics):
-        raise LegacyConversionError(f'{path}.topics: legacy topic names cannot contain commas or newlines')
+    # Legacy stores a display string, so preserve the source array when commas
+    # make a single name indistinguishable from multiple names.
+    if any('\n' in topic or '\r' in topic for topic in topics):
+        raise LegacyConversionError(f'{path}.topics: legacy topic names cannot contain newlines')
+    metadata = card.model_dump(mode='json')['metadata']
+    if len(topics) > 1 or any(',' in topic for topic in topics):
+        metadata['structured_topics'] = list(topics)
     result = {'front': front, 'back': back, 'context': card.explanation, 'card_type': card.type,
               'level': level, 'topics': ', '.join(topics),
-              'metadata': card.model_dump(mode='json')['metadata']}
+              'metadata': metadata}
     if card.type in ('free_text', 'editable_text'):
         # These are the existing server evaluator's authoritative legacy fields.
         # Explicit defaults matter: legacy defaults to controlled_text, V2 to open_text.

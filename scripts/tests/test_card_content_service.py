@@ -52,6 +52,18 @@ class CardContentServiceTests(unittest.TestCase):
         self.assertEqual(saved.tags, 'B2')
         self.assertEqual(get_cefr_metadata(saved.metadata)['level'], 'B2')
 
+    def test_topics_with_commas_remain_one_topic_string_when_saved(self):
+        saved = cards.save_card({
+            'deck_id': self.deck.id,
+            'front': 'Sich ausruhen',
+            'back': 'rest',
+            'topics': 'Erholung, Gesundheit und Alltag',
+            'metadata': {'structured_topics': ['Erholung, Gesundheit und Alltag']},
+        }, 1)
+        self.assertEqual(saved.topics, 'Erholung, Gesundheit und Alltag')
+        self.assertEqual(json.loads(saved.metadata)['structured_topics'],
+                         ['Erholung, Gesundheit und Alltag'])
+
     def test_level_syncs_metadata_even_with_empty_context_and_replaces_old_level_tag(self):
         saved = cards.save_card({
             'deck_id': self.deck.id,

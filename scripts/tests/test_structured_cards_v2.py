@@ -191,6 +191,47 @@ class V2ValidationTests(unittest.TestCase):
 
 
 class V2LegacyTests(unittest.TestCase):
+    def test_b1_33_d10_passport_topic_with_commas_imports_as_one_topic(self):
+        from api.services.author_service import _parse_v2_json_document
+
+        value = {
+            'schema_version': 2,
+            'deck': {'name': 'B1-33-D10', 'passport': {
+                'schema_version': 1,
+                'intro': {'title': 'Einführung', 'level': 'B1',
+                          'topic': 'Erholung, Gesundheit und Alltag'},
+                'pedagogy': {'lesson_type': 'practice'},
+            }},
+            'cards': [
+                {'type': 'standard', 'data': {'prompt': 'Sich ausruhen', 'answer': 'rest'}},
+                {'type': 'standard', 'topics': ['Erholung', 'Gesundheit und Alltag'],
+                 'data': {'prompt': 'Erholung', 'answer': 'rest'}},
+            ],
+        }
+
+        imported = _parse_v2_json_document(json.dumps(value))
+
+        self.assertEqual(imported['errors'], [])
+        self.assertEqual(imported['decks'][0]['deck_name'], 'B1-33-D10')
+        self.assertEqual(imported['cards'][0]['topics'], 'Erholung, Gesundheit und Alltag')
+        self.assertEqual(imported['cards'][0]['metadata']['structured_topics'],
+                         ['Erholung, Gesundheit und Alltag'])
+        # Multiple authored topics can have the same display string; retain their
+        # distinct boundaries through import metadata instead of splitting commas.
+        self.assertEqual(imported['cards'][1]['topics'], imported['cards'][0]['topics'])
+        self.assertEqual(imported['cards'][1]['metadata']['structured_topics'],
+                         ['Erholung', 'Gesundheit und Alltag'])
+
+    def test_inherited_topic_newlines_are_rejected_separately_from_commas(self):
+        value = document()
+        value['deck']['passport'] = {
+            'schema_version': 1,
+            'intro': {'title': 'Test', 'level': 'B1', 'topic': 'Thema, erste Zeile\nzweite Zeile'},
+            'pedagogy': {'lesson_type': 'practice'},
+        }
+        with self.assertRaisesRegex(LegacyConversionError, 'cannot contain newlines'):
+            to_legacy_document(value)
+
     def test_inheritance_overrides_metadata_and_input_immutability(self):
         value = json.loads((EXAMPLES / 'basics.json').read_text(encoding='utf-8'))
         before = copy.deepcopy(value)
