@@ -18,18 +18,22 @@ Verifier использует стабильное AST-представлени�
 Пустые/необязательные поля исключены, литерал `None` остаётся значимым. Эта
 нормализация не меняет artifact, версии контракта, DB marker или saved jobs.
 
-Для разрешения admin writes DBA отдельно подтверждает полный contract и fingerprint
-реальной public schema в `tmasetting`, key `LERNE_ADMIN_CONTRACT`. Неизвестный,
-устаревший contract или изменённая schema блокируют запись админки; DDL запрещён.
-Админка не создаёт marker и не применяет миграции автоматически. В этом изменении
-никакие metadata/DDL/data operations на существующих базах не выполнялись.
+Независимая админка использует versioned diagnostic profiles, привязанные к
+проверенному base contract, вместо обязательного `tmasetting.LERNE_ADMIN_CONTRACT`.
+Admin-only model/runtime adapters имеют отдельные provenance hashes; TMA source
+artifact остаётся описанием TMA. Проверяются реальные колонки/defaults,
+constraints/indexes, privileges/RLS и известные риски NULL. Unknown schema не
+считается безопасной автоматически. Warning можно явно подтвердить для текущей
+базы/схемы/операции, critical блокирует только затронутые операции. Перед каждой
+записью проверка повторяется, DDL запрещён. Полный отчёт/журнал находятся в Admin;
+metadata в БД не регистрируется. Существующие JSON V2/permissions/receipts и
+проверка `lerne_contract` saved jobs сохранены. Lifecycle профилей и результаты:
+`lerne-admin/docs/COMPATIBILITY.md`, `docs/DIAGNOSTICS_REPORT.md`.
 
-При выпуске изменения остановите старые admin workers, согласуйте миграции и
-artifact обеих реализаций, отдельно подтвердите metadata после review и проверок,
-затем разрешите операции. TMA semantic change без DDL тоже требует обновления
-artifact/metadata: один physical schema fingerprint не заменяет format/rights
-contract. CI проверяет исходники/artifact, а процедура выпуска отвечает за
-публикацию metadata в общей БД; автоматического Production шага нет.
+При обновлении остановите старые workers, проверьте candidate core и согласованные
+contract/profiles, выполните tests и выпустите Admin artifact. Миграции, если они
+действительно нужны, остаются отдельным DBA действием; ни migration, ни marker не
+являются формальным условием работы с уже проверенной совместимой схемой.
 
 Отдельные tests проверяют TMA-owned LOCAL HTTP link/permissions и media redirect;
 они больше не требуют admin package. Исправления offline flag, auth generation и
@@ -38,8 +42,8 @@ frontend harness из `codex/fix-offline-flag-and-harness` интегриров�
 Изменился только source fingerprint области import (она включает весь cards.py);
 schema/permissions/cards и все версии остаются прежними: совместимый bug fix не
 меняет wire format или схему. Admin snapshot обновляется отдельно через candidate.
-Старый exact marker не принимается новым core автоматически: DBA review metadata
-и уже версионированных checkpoint/jobs остаётся отдельным шагом, даже при version 1.
+DB marker не используется как разрешение записи; profiles и уже версионированные
+checkpoint/jobs проходят отдельную проверку согласованности release pair.
 
 Текущая публикация исходников самостоятельна. Результаты объединённого общего gate
 фиксируются в отчёте интеграции. Публикация полной истории TMA требует отдельного

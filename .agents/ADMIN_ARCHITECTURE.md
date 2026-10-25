@@ -11,9 +11,15 @@ versions/source fingerprints; backend gate проверяет artifact. Подр
 изменений — `docs/ADMIN_COMPATIBILITY.md`, в админке — `docs/COMPATIBILITY.md`.
 
 Runtime не ищет sibling TMA, .env или Git checkout. Admin snapshots обновляются
-только отдельной candidate/review/test процедурой. При неизвестном DB contract,
-изменённой physical schema или несовместимом saved job запись админки блокируется.
-DB metadata не регистрируется и Production migrations не применяются автоматически.
+только отдельной candidate/review/test процедурой. Admin-owned diagnostics v2 и
+`core/compatibility_profiles.json` версионируют проверенные LOCAL/Supabase schemas.
+UI показывает отчёт по операциям; warnings требуют подтверждения в локальном
+журнале, critical блокируют только затронутые операции. Перед записью проверка
+повторяется; изменившаяся схема инвалидирует старое подтверждение. DB marker
+`LERNE_ADMIN_CONTRACT` больше не обязателен. Metadata, schema/RLS/grants и
+Production-настройки автоматически не меняются. Saved jobs сохраняют base contract.
+Админка ориентирована на desktop; мобильное/удалённое управление — отдельная
+будущая задача. Её правила: `lerne-admin/AGENTS.md` и проектный `admin-ui` skill.
 
 Единственная необязательная UI-связь — LOCAL HTTP-переход на loopback 8050.
 TMA-owned tests LOCAL permission link/media redirect остаются в TMA, admin tests
