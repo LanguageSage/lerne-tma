@@ -391,10 +391,10 @@ class V2LegacyTests(unittest.TestCase):
 
     def test_match_rejects_lossy_labels_with_card_pair_and_side_paths(self):
         labels = [' spaced', 'spaced ', '\ufeffBOM', 'BOM\ufeff', 'A\nB', 'A\rB',
-                  'A\r\nB', 'A => B', 'A->B', 'A—B', 'A=B', '**bold**', '_italic_',
+                  'A\r\nB', '**bold**', '_italic_',
                   '`code`', '<center>A</center>', '<large>A</large>', 'A\n::task\nB']
         for side in ('left', 'right'):
-            for label in labels:
+            for label in labels + (['A => B', 'A=>B'] if side == 'left' else []):
                 value = document()
                 value['cards'].append({'type': 'match', 'data': {'pairs': [
                     {'left': 'eins', 'right': 'one'}, {'left': 'zwei', 'right': 'two', side: label}]}})
@@ -404,6 +404,54 @@ class V2LegacyTests(unittest.TestCase):
                         LegacyConversionError, rf'cards\[1\].data.pairs\[1\].{side}:'):
                     to_legacy_document(value)
                 self.assertEqual(value, before)
+
+    def test_match_special_symbols_survive_projection_and_actual_tma_evaluation(self):
+        pairs = [
+            {'left': 'um mich auszuruhen', 'right': 'цель — отдохнуть'},
+            {'left': 'a=b — c->d', 'right': 'x=>y -> z — w = v'},
+            {'left': 'ÄÖÜ ß?! «Wort»', 'right': 'a/b; c,d | [x] {y} <z> & @match ::task … 🙂'},
+            {'left': 'A', 'right': 'two  words\twith\u00a0spaces — punctuation!'},
+            {'left': 'B', 'right': 'цель — отдохнуть'},
+        ]
+        value = document({'type': 'match', 'data': {'pairs': pairs}})
+        before = copy.deepcopy(value)
+        projected = to_legacy_document(value)
+        body = '\n'.join(f"{pair['left']} => {pair['right']}" for pair in pairs)
+        self.assertEqual(projected['cards'][0]['front'], '::exercise\n@match\n' + body)
+        self.assertEqual(projected['cards'][0]['back'], body)
+        process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
+            input=json.dumps({'legacy': projected, 'expected': value}, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(json.loads(process.stdout)['pairs'], len(pairs))
+        self.assertEqual(value, before)
+
+    def test_reported_b1_33_d09_match_imports_as_card_13(self):
+        # Reproduce the reported pair at its import position; the full source
+        # deck is not a repository fixture.
+        from unittest.mock import patch
+        with patch('api.database.initialize_database'), patch('api.database.create_all_tables', create=True):
+            from api.services.author_service import parse_document
+        value = document()
+        value['deck']['name'] = 'B1-33-D09'
+        value['cards'] = [copy.deepcopy(value['cards'][0]) for _ in range(12)] + [
+            {'type': 'match', 'data': {'pairs': [
+                {'left': 'um mich auszuruhen', 'right': 'цель — отдохнуть'},
+                {'left': 'weil ich müde bin', 'right': 'причина — усталость'}]}}]
+        before = copy.deepcopy(value)
+        imported = parse_document(json.dumps(value, ensure_ascii=False), default_deck_id=42)
+        self.assertEqual(imported['errors'], [])
+        self.assertEqual(imported['structure_errors'], [])
+        self.assertEqual(len(imported['cards']), 13)
+        card = imported['cards'][12]
+        self.assertEqual((card['number'], card['deck_name'], card['deck_id'], card['card_type']),
+                         (13, 'B1-33-D09', 42, 'match'))
+        self.assertIn('um mich auszuruhen => цель — отдохнуть', card['front'])
+        process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
+            input=json.dumps({'legacy': imported, 'expected': value}, ensure_ascii=False),
+            capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
+        self.assertEqual(process.returncode, 0, process.stderr)
+        self.assertEqual(value, before)
 
     def test_match_actual_parser_evaluator_and_interchangeable_right_tiles(self):
         value = json.loads((EXAMPLES / 'match.json').read_text(encoding='utf-8'))

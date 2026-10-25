@@ -159,7 +159,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
         {[0, 1].map(side => <input key={side} className="form-input"
           aria-label={tr(side ? 'Правая сторона' : 'Левая сторона')}
           value={side ? field.value.slice(field.separator + field.separatorLength) : field.value.slice(0, field.separator)}
-          onChange={e => safeChange(e.target.value, /=>|->|—|=|[\r\n]/, next => replace(field, side
+          onChange={e => safeChange(e.target.value, /=>|[\r\n]/, next => replace(field, side
             ? field.value.slice(0, field.separator + field.separatorLength) + next : next + field.value.slice(field.separator)))} />)}
       </div>
       {!fields.slice(index + 1).some(item => item.kind === 'pair') &&

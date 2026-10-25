@@ -75,6 +75,13 @@ V2 — JSON-контракт для авторства уроков челове
 
 ## Реализация и запуск
 
+Match компилируется в строки `left => right`. Первый `=>` задаёт границу пары;
+все последующие `=>`, `->`, `—` и `=` справа сохраняются как текст. Символы
+`->`, `—` и `=` допустимы и слева, но буквальный `=>` слева неоднозначен и вызывает
+ошибку преобразования с путём поля. Переносы строк, краевые пробелы и разметка,
+которую legacy-парсер удаляет, по-прежнему отклоняются. Единственный разделитель
+пары — `=>`; строки с `->`, `—` или `=` без `=>` не считаются парами.
+
 - `api/services/structured_cards_v2.py`: строгие Pydantic-модели всех 9 типов, `validate_document(dict)`, `load_document(json_text)`, `validate_card(dict)`, `load_card(json_text)`, `normalize_card(card)` и генерируемая JSON Schema.
 - `api/services/structured_cards_legacy.py`: `to_legacy_card(card, deck, index)` и `to_legacy_document(dict | Document)` для всех девяти типов с проверкой `parse_exercise_content`, `detect_card_type` и `detect_ai_input_type`.
 - `api/services/author_service.py`: `parse_document` прозрачно принимает как текстовый формат Lerne Codex, так и V2 JSON (компилируя его через `to_legacy_document` и сохраняя `metadata` при публикации).

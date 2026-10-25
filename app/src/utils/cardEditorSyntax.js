@@ -2,6 +2,7 @@ import { parseExerciseContent } from './exerciseContentParser.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { normalizeWordBankValue } from './wordBankParser.js';
 import { isQuizOptionLine } from './quizParser.js';
+import { findMatchSeparator } from './matchParser.js';
 
 // Templates for the advanced markup toolbar grouped by category:
 // - exercise: interactive learning elements & card types
@@ -271,7 +272,7 @@ export function projectEditorFields(raw = '') {
         const lines = [...body.matchAll(/[^\r\n]+/g)];
         for (const line of lines) {
           const left = start + line.index;
-          const separator = /\s*(?:=>|->|—|=)\s*/.exec(line[0]);
+          const separator = findMatchSeparator(line[0]);
           if (!separator) {
             if (fields.some(field => field.kind === 'pair')) return null;
             add('text', left, left + line[0].length, 'Вопрос / лицевая сторона');

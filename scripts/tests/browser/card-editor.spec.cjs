@@ -285,6 +285,23 @@ test('raw changes roundtrip and save failure retain the draft', async ({ page, c
   expect((await saved).postDataJSON()).toMatchObject({ front: source, card_type: 'free_text' });
 });
 
+test('Match labels treat arrows, dashes and equals signs as literal text', async ({ page, context }) => {
+  const source = '::exercise\n@match\num mich auszuruhen => цель — отдохнуть\nWien => Österreich';
+  await openEditor(page, context, source);
+  const left = 'A -> B — C = D';
+  const right = 'цель — отдохнуть -> затем продолжить = пример';
+  await page.getByRole('textbox', { name: 'Левая сторона' }).first().fill(left);
+  await page.getByRole('textbox', { name: 'Правая сторона' }).first().fill(right);
+  await expect(page.getByRole('textbox', { name: 'Левая сторона' }).first()).toHaveValue(left);
+  await expect(page.getByRole('textbox', { name: 'Правая сторона' }).first()).toHaveValue(right);
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveValue(`::exercise\n@match\n${left} => ${right}\nWien => Österreich`);
+  await raw(page).fill('::exercise\n@match\nA -> B\nC — D\nE = F');
+  await toggleAdvanced(page).click();
+  await expect(page.getByRole('textbox', { name: 'Левая сторона', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('textbox', { name: 'Правая сторона', exact: true })).toHaveCount(0);
+});
+
 test('match pairs and puzzle content can be edited visually', async ({ page, context }) => {
   await openEditor(page, context, '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich');
   await page.getByRole('textbox', { name: 'Левая сторона' }).first().fill('Paris');

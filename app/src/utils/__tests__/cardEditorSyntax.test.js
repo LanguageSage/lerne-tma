@@ -67,13 +67,40 @@ test('trainer sentence segments keep inline gap positions and answers below', ()
   assert.equal(parseClozeData({ front: changed }, 'trainer').gaps.length, 2);
 });
 
-test('match pairs expose editable text for each supported separator', () => {
-  const raw = '@match\nVerbinde.\nBerlin => Deutschland\nWien -> Österreich\nParis — Frankreich\nRom = Italien';
+test('match pairs expose editable text with the => separator', () => {
+  const raw = '@match\nVerbinde.\nBerlin => Deutschland\nWien => Österreich\nParis => Frankreich\nRom => Italien';
   const fields = projectEditorFields(raw);
   assert.deepEqual(fields.map(field => field.kind), ['text', 'pair', 'pair', 'pair', 'pair']);
   for (const field of fields) assert.equal(replaceEditorRange(raw, field.start, field.end, field.value), raw);
-  const changed = replaceEditorRange(raw, fields[2].start, fields[2].end, 'Graz -> Österreich');
+  const changed = replaceEditorRange(raw, fields[2].start, fields[2].end, 'Graz => Österreich');
   assert.equal(parseMatchData(changed).pairs[1].left, 'Graz');
+});
+
+test('Match editor never projects ->, — or = as editable pairs', () => {
+  for (const separator of ['->', '—', '=']) {
+    const raw = `@match\nBerlin ${separator} Deutschland\nWien${separator}Österreich`;
+    const fields = projectEditorFields(raw);
+    assert.deepEqual(fields.map(field => field.kind), ['text', 'text']);
+    for (const field of fields) assert.equal(replaceEditorRange(raw, field.start, field.end, field.value), raw);
+  }
+});
+
+test('Match editor and runtime agree on explicit boundaries without rewriting labels', () => {
+  const raw = '@match\r\na=b — c->d => x=>y -> z — w = v\r\num mich auszuruhen => цель — отдохнуть';
+  const fields = projectEditorFields(raw);
+  assert.ok(fields.every(field => field.kind === 'pair'));
+  const sides = fields.map(field => ({
+    left: field.value.slice(0, field.separator),
+    right: field.value.slice(field.separator + field.separatorLength)
+  }));
+  assert.deepEqual(sides, parseMatchData(raw).pairs.map(({ left, right }) => ({ left, right })));
+  for (const field of fields) assert.equal(replaceEditorRange(raw, field.start, field.end, field.value), raw);
+  const field = fields[0];
+  const changed = replaceEditorRange(raw, field.start, field.end,
+    field.value.slice(0, field.separator + field.separatorLength) + 'цель — сохранить => весь текст');
+  assert.deepEqual(parseMatchData(changed).pairs[0], {
+    id: 0, left: sides[0].left, right: 'цель — сохранить => весь текст'
+  });
 });
 
 test('quiz question and options edit without exposing markers', () => {
@@ -100,7 +127,7 @@ test('adding a quiz option creates an editable answer below the existing ones', 
 });
 
 test('adding a matching pair creates two editable sides', () => {
-  const raw = '@match\nBerlin => Deutschland\nWien -> Österreich';
+  const raw = '@match\nBerlin => Deutschland\nWien => Österreich';
   const last = projectEditorFields(raw).at(-1);
   const added = insertEditorLineAfter(raw, last, ' => ');
   const pair = projectEditorFields(added).at(-1);
