@@ -11,12 +11,13 @@ from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
 from api import models
-from api.routers import auth_v2, cards, study, sync, card_notes
+from api.routers import auth_v2, cards, study, sync, card_notes, messages
+from api.migrations import run_card_notes_migration
 
 
 class CriticalHttpTests(unittest.TestCase):
     def setUp(self):
-        scratch = Path(__file__).resolve().parents[2] / 'scratch'
+        scratch = Path(__file__).resolve().parents[2] / 'local' / 'test-data'
         scratch.mkdir(exist_ok=True)
         self.path = scratch / f'critical-http-{uuid4().hex}.sqlite3'
         self.db = SqliteDatabase(str(self.path), pragmas={'foreign_keys': 1}, timeout=10,
@@ -32,7 +33,7 @@ class CriticalHttpTests(unittest.TestCase):
                   models.TMAAuthPassword, models.TMAAuthPasswordThrottle]
         self.db.create_tables(tables)
         app = FastAPI()
-        for router in (auth_v2.router, cards.router, study.router, sync.router, card_notes.router):
+        for router in (auth_v2.router, cards.router, study.router, sync.router, card_notes.router, messages.router):
             app.include_router(router, prefix='/api')
         self.client = TestClient(app)
         self.addCleanup(self.cleanup)
@@ -69,6 +70,7 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         card_id = response.json()['id']
         self.assertFalse(self.db.table_exists('tma_card_note'))
+        self.assertEqual(self.client.get('/api/messages', headers=self.headers()).status_code, 503)
         for method, url, options in (
             ('get', f'/api/card-notes/{card_id}', {}),
             ('put', f'/api/card-notes/{card_id}/{uuid4()}', {'json': {'kind': 'note', 'text': 'Keep locally'}}),
@@ -124,6 +126,21 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()['cards'], [])
         self.assertEqual(response.json()['progress'], [])
+
+    def test_message_http_auth_owner_and_retry(self):
+        run_card_notes_migration(self.db)
+        card_id = self.save().json()['id']
+        message_id = str(uuid4())
+        url = f'/api/messages/{message_id}'
+        payload = {'text': 'Исправьте карточку', 'card_id': card_id}
+        self.assertEqual(self.client.put(url, json=payload).status_code, 401)
+        response = self.client.put(url, headers=self.headers(), json=payload)
+        self.assertEqual(response.status_code, 200, response.text)
+        self.assertEqual(response.json()['kind'], 'suggestion')
+        self.assertEqual(self.client.put(url, headers=self.headers(), json=payload).status_code, 200)
+        self.assertEqual(self.client.get(url, headers=self.headers(self.other)).status_code, 404)
+        self.assertEqual(self.client.put(url, headers=self.headers(self.other), json=payload).status_code, 409)
+        self.assertEqual(models.TMAUserMessage.select().count(), 1)
 
     def test_missing_auth_and_invalid_grade_do_not_write(self):
         response = self.save()

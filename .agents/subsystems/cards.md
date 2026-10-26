@@ -214,9 +214,13 @@ is `user`, `admin` or `system`. A reply points to the root message via
 `thread_id`; `read_at` is the recipient's receipt. Client-generated UUID primary
 keys make retries idempotent. Suggestions carry `card_id` and `link` as historical
 references, without a card FK, so messages survive permanent card deletion.
-The message API and Admin/learner interfaces belong to the next stage. The old
-Admin card-suggestion SQL and its compatibility profile target the retired
-moderation fields and must not be used against migration 90.
+`api/routers/messages.py` provides authenticated `/api/messages`: list roots,
+read a conversation, PUT a client UUID to send a root or reply, and PUT the
+conversation's `read` state. Only the owner can access a thread; suggestion
+roots require card read access and retain `/cards/{id}` plus the card ID. Admin
+replies appear in the same thread. The TMA message interface is deferred.
+Admin uses its own loopback `/api/admin/messages` routes and a message-only
+compatibility gate; retired note moderation fields are not used.
 
 Migration 90 creates both tables transactionally with indexes, note FK cascade,
 message thread FK, RLS and revoked public Data API grants. ID 87 is already

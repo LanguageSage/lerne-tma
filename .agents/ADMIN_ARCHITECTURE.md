@@ -46,11 +46,11 @@ back to logical service names, so an extraction alone preserves fingerprints and
 saved jobs. It also checks aliases; future logic changes still require review.
 Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.
 
-## Personal messages — stage 1, 2026-10-26
+## Personal messages — stages 1–2, 2026-10-26
 
 TMA migration 90 separates private `tma_card_note` from `tma_user_message`.
-Suggestions, replies and announcements use the shared message table; messages
-retain a card ID/link without a card FK. Admin's current `/api/admin/card-suggestions`
-and `card-notes` compatibility profile still describe the superseded note
-moderation schema. They require review against the message contract before
-message handling is enabled in the next stage. Admin never runs TMA migrations.
+Suggestions and replies use the shared message table and retain a card ID/link
+without a card FK. Admin uses `/api/admin/messages` for list, conversation,
+read and reply. Its writes use the migration 90 message-table compatibility
+profile and the existing loopback perimeter. TMA exposes owner-only
+`/api/messages`; its message UI is deferred. Admin never runs TMA migrations.
