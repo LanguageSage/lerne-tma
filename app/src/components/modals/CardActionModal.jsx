@@ -30,7 +30,7 @@ export const CardActionModal = ({
   useInterfaceLocale();
   const [mode, setMode] = React.useState('main');
   const [expandedFolders, setExpandedFolders] = React.useState({});
-  const notes = useCardNotes(isOpen ? card?.id : null, true);
+  const notes = useCardNotes(isOpen ? card?.id : null, card?.deck_id, true);
   const modalRef = React.useRef(null);
   const { handleSetCardFlag } = useCardActions();
 
@@ -201,7 +201,7 @@ export const CardActionModal = ({
             <h2 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
               {mode === 'main' ? tr("Управление карточкой") : 
                mode === 'move' ? tr("Переместить") : 
-                mode === 'copy' ? tr("Копировать") : mode === 'notes' ? tr('Заметки и предложения') :
+                mode === 'copy' ? tr("Копировать") : mode === 'notes' ? tr('Мои заметки') :
                 mode === 'info' ? tr('Информация о карточке') : tr("Позиция в списке")}
             </h2>
             <button className="close-btn" aria-label={tr('Закрыть')} onClick={onClose} style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
@@ -304,9 +304,9 @@ export const CardActionModal = ({
                     <span>{tr("Это действие нельзя отменить")}</span>
                   </div>
                 </button>}
-                <button type="button" className="action-menu-item" aria-label={tr('Заметки и предложения')} onClick={() => setMode('notes')}>
+                <button type="button" className="action-menu-item" aria-label={tr('Мои заметки')} onClick={() => setMode('notes')}>
                   <div className="action-menu-icon"><MessageSquare size={20} /></div>
-                  <div className="action-menu-text"><strong>{tr('Заметки и предложения')}</strong></div>
+                  <div className="action-menu-text"><strong>{tr('Мои заметки')}</strong></div>
                   <NoteIndicator {...notes} />
                 </button>
                 <button type="button" className="action-menu-item" onClick={() => {
@@ -547,7 +547,7 @@ export const CardActionModal = ({
 export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false, refreshNotes = false }) => {
   useInterfaceLocale();
   const { setActionCard, setIsCardActionModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
-  const notes = useCardNotes(card?.id, refreshNotes);
+  const notes = useCardNotes(card?.id, card?.deck_id, refreshNotes);
 
   const handleClick = (e) => {
     e.stopPropagation();

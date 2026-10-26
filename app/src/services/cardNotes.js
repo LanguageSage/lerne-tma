@@ -5,6 +5,7 @@ import { getUserId } from '../utils/auth.js';
 // This small outbox belongs to the existing account-scoped Dexie database.
 // UUIDs make resubmission safe; local_revision protects edits made during a request.
 const syncing = new Map();
+const fetched = new WeakMap();
 export async function syncCardNotes(db, userId, cardId) {
   const previous = syncing.get(db.name) || Promise.resolve();
   const run = () => flushNotes(db, userId, cardId);
@@ -17,7 +18,8 @@ export async function syncCardNotes(db, userId, cardId) {
 
 async function flushNotes(db, userId, cardId) {
   const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
-  const pending = await db.card_notes.where('is_dirty').equals(1).toArray();
+  const pending = (await db.card_notes.where('is_dirty').equals(1).toArray())
+    .filter(row => row.kind !== 'suggestion');
   let firstError;
   for (const row of pending) {
     if (getUserId() !== userId) return;
@@ -26,8 +28,7 @@ async function flushNotes(db, userId, cardId) {
     if (resolvedId < 0) continue; // Existing entity sync owns temporary card IDs.
     try {
       const { data } = await networkApi.put(`/card-notes/${resolvedId}/${row.id}`, {
-        kind: row.kind, ...(row.write_text ? { text: row.text } : {}), is_deleted: row.is_deleted,
-        seen_revision: row.seen_revision,
+        text: row.text, is_deleted: row.is_deleted,
       });
       if (getUserId() !== userId) return;
       await db.transaction('rw', db.card_notes, async () => {
@@ -40,25 +41,33 @@ async function flushNotes(db, userId, cardId) {
   if (firstError) throw firstError;
 }
 
-export async function refreshCardNotes(cardId) {
+export async function refreshCardNotes(cardId, deckId = null, force = true) {
   const userId = getUserId();
+  if (userId == null) return;
   const db = await prepareLocalDb();
   if (!navigator.onLine) return;
-  await syncCardNotes(db, userId, cardId);
+  const key = deckId == null ? `card:${cardId}` : `deck:${deckId}`;
+  let requests = fetched.get(db);
+  if (!requests) { requests = new Map(); fetched.set(db, requests); }
+  if (!force && requests.has(key)) return requests.get(key);
+  const request = fetchNotes(db, userId, cardId, deckId);
+  requests.set(key, request);
+  await request;
+}
+
+async function fetchNotes(db, userId, cardId, deckId) {
+  await syncCardNotes(db, userId).catch(() => {}); // Failed writes remain in Dexie; reads still proceed.
   const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
   const resolvedId = aliases[String(cardId)] ?? cardId;
-  if (resolvedId < 0 || getUserId() !== userId) return;
-  const before = new Map((await db.card_notes.where('card_id').equals(resolvedId).toArray())
-    .map(row => [row.id, row.local_revision]));
-  const { data } = await networkApi.get(`/card-notes/${resolvedId}`);
+  if ((deckId == null && resolvedId < 0) || getUserId() !== userId) return;
+  const { data } = await networkApi.get(deckId == null
+    ? `/card-notes/${resolvedId}` : `/card-notes/deck/${deckId}`);
   if (getUserId() !== userId) return;
   await db.transaction('rw', db.card_notes, async () => {
     for (const row of data) {
       const local = await db.card_notes.get(row.id);
-      if (!local?.is_dirty && local?.local_revision === before.get(row.id)
-          && (!local || row.revision >= local.revision)) {
-        await db.card_notes.put({ ...row, seen_revision: Math.max(row.seen_revision, local?.seen_revision || 0),
-          is_dirty: 0, local_revision: local?.local_revision });
+      if (!local?.is_dirty && (!local || row.revision >= local.revision)) {
+        await db.card_notes.put({ ...row, is_dirty: 0, local_revision: local?.local_revision });
       }
     }
   });
@@ -72,11 +81,8 @@ export async function writeCardNote(cardId, row) {
     const previous = row.id ? await db.card_notes.get(row.id) : null;
     if (getUserId() !== userId) throw new Error('Account changed');
     const value = { ...previous, ...row, id: row.id || crypto.randomUUID(), card_id: cardId,
-      user_id: userId, status: previous?.status || 'new', reply: previous?.reply || '',
-      revision: previous?.revision || 1,
-      seen_revision: Math.max(row.seen_revision ?? 1, previous?.seen_revision || 0),
+      user_id: userId, revision: previous?.revision || 1,
       is_deleted: row.is_deleted ?? previous?.is_deleted ?? false,
-      write_text: row.text !== undefined || !!(previous?.is_dirty && previous?.write_text),
       is_dirty: 1, local_revision: crypto.randomUUID() };
     await db.card_notes.put(value);
     return value;

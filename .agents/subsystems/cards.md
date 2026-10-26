@@ -203,10 +203,14 @@ Database schema, SRS/progress, receipts, permissions and deployment config are u
 
 ## Personal notes and messages
 
-`TMACardNote` / `tma_card_note` stores only a user's note on a card, including
-AI questions and answers. The existing UUID note route keeps card read access,
-user ownership and deletion tombstones. A permanent card deletion cascades to
-notes. Card JSON, SRS and progress do not contain them.
+`TMACardNote` / `tma_card_note` stores only a user's personal note on a card.
+The UUID note route permits owner/editor/viewer creation, editing and tombstones
+with card read access and strict note ownership. `GET /card-notes/deck/{deck_id}`
+returns only the current user's notes for accessible, active cards in one query.
+`StudyCard` shows Dexie notes at the start of Context, before the source context;
+`CardNotesPanel` edits the same rows through the account-scoped offline outbox.
+AI answers are not connected. Permanent card deletion cascades to notes. Card
+JSON, SRS and progress do not contain them.
 
 `TMAUserMessage` / `tma_user_message` is the single store for suggestions,
 moderator replies and notifications. `user_id` owns each conversation; `sender`

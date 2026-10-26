@@ -42,6 +42,7 @@ import { triggerHaptic } from '../../utils/platform';
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardActionButton } from '../modals/CardActionModal';
+import { useCardNotes } from '../../hooks/useCardNotes';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 
 export const StudyCard = React.memo(({
@@ -102,6 +103,7 @@ export const StudyCard = React.memo(({
     || 'de';
 
   const deckId = useDeckStore.getState().currentDeck?.id;
+  const notes = useCardNotes(card?.id, card?.deck_id ?? deckId, true);
 
   // Propagate voice choice back to session store so it survives card navigation
   const handleVoiceChange = useCallback((voiceValue) => {
@@ -863,6 +865,11 @@ export const StudyCard = React.memo(({
               )}
 
               {/* 4. CONTEXT BLOCK */}
+              {notes.rows.length > 0 && <div className="card-context-wrapper card-personal-notes">
+                <strong>{tr('Мои заметки')}</strong>
+                {notes.rows.map(row => <div key={row.id} className="text-context"
+                  style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>{row.text}</div>)}
+              </div>}
               {card.context && (
                 <div className="card-context-wrapper">
                   <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>

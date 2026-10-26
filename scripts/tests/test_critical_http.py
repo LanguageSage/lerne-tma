@@ -72,8 +72,9 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertFalse(self.db.table_exists('tma_card_note'))
         self.assertEqual(self.client.get('/api/messages', headers=self.headers()).status_code, 503)
         for method, url, options in (
+            ('get', f'/api/card-notes/deck/{self.deck.id}', {}),
             ('get', f'/api/card-notes/{card_id}', {}),
-            ('put', f'/api/card-notes/{card_id}/{uuid4()}', {'json': {'kind': 'note', 'text': 'Keep locally'}}),
+            ('put', f'/api/card-notes/{card_id}/{uuid4()}', {'json': {'text': 'Keep locally'}}),
         ):
             with self.subTest(method=method):
                 result = getattr(self.client, method)(url, headers=self.headers(), **options)

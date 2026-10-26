@@ -25,24 +25,24 @@ beforeEach(async () => {
 });
 
 test('offline create/edit/delete persists across sessions and does not touch cards or SRS', async () => {
-  const first = await writeCardNote(10, { kind: 'note', text: 'One' });
-  await writeCardNote(10, { id: first.id, kind: 'note', text: 'Two' });
+  const first = await writeCardNote(10, { text: 'One' });
+  await writeCardNote(10, { id: first.id, text: 'Two' });
   resetAllDatabases();
   const db = await prepareLocalDb();
   assert.equal((await db.card_notes.get(first.id)).text, 'Two');
   assert.equal(await db.cards.count(), 0);
   assert.equal(await db.progress.count(), 0);
-  await writeCardNote(10, { id: first.id, kind: 'note', is_deleted: true });
+  await writeCardNote(10, { id: first.id, is_deleted: true });
   assert.equal((await db.card_notes.get(first.id)).is_deleted, true);
 });
 
-test('sync uses stable UUID, maps temporary cards and preserves server moderation', async () => {
-  const row = await writeCardNote(-10, { kind: 'suggestion', text: 'Fix it' });
+test('sync uses stable UUID and maps temporary cards', async () => {
+  const row = await writeCardNote(-10, { text: 'Remember' });
   const db = await prepareLocalDb();
   let calls = 0;
   networkApi.put = async (url, payload) => {
     calls++; assert.equal(url, `/card-notes/20/${row.id}`);
-    return { data: { ...row, ...payload, card_id: 20, reply: 'Done', status: 'fixed', revision: 2 } };
+    return { data: { ...row, ...payload, card_id: 20, revision: 2 } };
   };
   online = true;
   await syncCardNotes(db, 1);
@@ -52,12 +52,12 @@ test('sync uses stable UUID, maps temporary cards and preserves server moderatio
   await syncCardNotes(db, 1);
   assert.equal(calls, 1);
   const saved = await db.card_notes.get(row.id);
-  assert.equal(saved.card_id, 20); assert.equal(saved.reply, 'Done');
-  assert.equal(saved.revision > saved.seen_revision, true);
+  assert.equal(saved.card_id, 20); assert.equal(saved.text, 'Remember');
+  assert.equal(saved.is_dirty, 0);
 });
 
 test('an edit during a request survives an old acknowledgement', async () => {
-  const row = await writeCardNote(10, { kind: 'note', text: 'Old' });
+  const row = await writeCardNote(10, { text: 'Old' });
   const db = await prepareLocalDb();
   let release;
   networkApi.put = () => new Promise(resolve => { release = resolve; });
@@ -70,7 +70,7 @@ test('an edit during a request survives an old acknowledgement', async () => {
 });
 
 test('account switching isolates drafts and rejects responses from the old account', async () => {
-  const row = await writeCardNote(10, { kind: 'note', text: 'Private' });
+  const row = await writeCardNote(10, { text: 'Private' });
   const firstDb = await prepareLocalDb();
   networkApi.put = async () => { userId = 2; return { data: row }; };
   await syncCardNotes(firstDb, 1);
@@ -79,8 +79,8 @@ test('account switching isolates drafts and rejects responses from the old accou
 });
 
 test('one failed note does not block later records; the draft survives restart and retries with the same UUID', async () => {
-  const failed = await writeCardNote(10, { id: '00000000-0000-4000-8000-000000000001', kind: 'note', text: 'Keep draft' });
-  const accepted = await writeCardNote(20, { id: '00000000-0000-4000-8000-000000000002', kind: 'note', text: 'Send this' });
+  const failed = await writeCardNote(10, { id: '00000000-0000-4000-8000-000000000001', text: 'Keep draft' });
+  const accepted = await writeCardNote(20, { id: '00000000-0000-4000-8000-000000000002', text: 'Send this' });
   const db = await prepareLocalDb();
   const denied = Object.assign(new Error('Denied'), { response: { status: 403 } });
   const calls = [];
@@ -105,23 +105,36 @@ test('one failed note does not block later records; the draft survives restart a
   assert.equal(await reopened.card_notes.count(), 2);
 });
 
-test('read acknowledgements omit text and stale refresh cannot restore an unread indicator', async () => {
-  const row = await writeCardNote(10, { kind: 'suggestion', text: 'Typo' });
-  const db = await prepareLocalDb();
-  await db.card_notes.update(row.id, { is_dirty: 0, revision: 2 });
+test('deck notes load once across card changes and stay isolated by account', async () => {
   online = true;
-  networkApi.put = async (_url, payload) => {
-    assert.equal('text' in payload, false);
-    return { data: { ...row, ...payload, revision: 2, seen_revision: 2 } };
+  let calls = 0;
+  networkApi.get = async url => {
+    assert.equal(url, '/card-notes/deck/5');
+    calls++;
+    return { data: [{ id: 'server-note', card_id: 10, user_id: 1, text: 'Mine', revision: 1 }] };
   };
-  await writeCardNote(10, { id: row.id, kind: 'suggestion', seen_revision: 2 });
-  networkApi.get = async () => ({ data: [{ ...row, revision: 2, seen_revision: 1 }] });
-  await refreshCardNotes(10);
-  assert.equal((await db.card_notes.get(row.id)).seen_revision, 2);
+  await refreshCardNotes(10, 5, false);
+  await refreshCardNotes(11, 5, false);
+  assert.equal(calls, 1);
+  assert.equal((await (await prepareLocalDb()).card_notes.get('server-note')).text, 'Mine');
+  userId = 2;
+  assert.equal(await (await prepareLocalDb()).card_notes.count(), 0);
+});
+
+test('failed deck load is not repeated on each card; explicit refresh retries', async () => {
+  online = true;
+  let calls = 0;
+  networkApi.get = async () => { calls++; throw Error('migration 90 required'); };
+  await assert.rejects(refreshCardNotes(10, 5, false));
+  await assert.rejects(refreshCardNotes(11, 5, false));
+  assert.equal(calls, 1);
+  networkApi.get = async () => { calls++; return { data: [] }; };
+  await refreshCardNotes(11, 5, true);
+  assert.equal(calls, 2);
 });
 
 test('revoked card annotation access cannot block entity/progress synchronization or erase the draft', async () => {
-  const row = await writeCardNote(10, { kind: 'note', text: 'Keep this draft' });
+  const row = await writeCardNote(10, { text: 'Keep this draft' });
   online = true;
   networkApi.get = async () => ({ data: { status: 'success', server_time: '2026-10-26T10:00:00Z',
     folders: [], decks: [], cards: [], progress: [] } });
@@ -137,7 +150,7 @@ test('revoked card annotation access cannot block entity/progress synchronizatio
 
 test('network failure leaves a durable pending row and server refresh does not overwrite a draft', async () => {
   online = true;
-  const row = await writeCardNote(10, { kind: 'note', text: 'Pending' });
+  const row = await writeCardNote(10, { text: 'Pending' });
   assert.equal(row.sync_error, 'offline');
   const db = await prepareLocalDb();
   assert.equal((await db.card_notes.get(row.id)).is_dirty, 1);

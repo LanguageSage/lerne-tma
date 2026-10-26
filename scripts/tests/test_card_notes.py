@@ -50,12 +50,14 @@ class CardCommunicationTests(unittest.TestCase):
 
     def save(self, user=1, note_id=None, card=None, **values):
         return router.save_note(card or self.card.id, note_id or uuid4(),
-            router.NoteWrite(**{'kind': 'note', 'text': 'Remember', **values}), user)
+            router.NoteWrite(**{'text': 'Remember', **values}), user)
 
     def test_private_notes_viewer_edit_retry_and_purge(self):
         note = self.save(user=2)
         self.assertEqual(router.list_notes(self.card.id, 1), [])
-        self.assertEqual(router.list_notes(self.card.id, 2)[0]['kind'], 'note')
+        self.assertEqual(router.list_notes(self.card.id, 2)[0]['text'], 'Remember')
+        self.assertEqual(router.list_deck_notes(self.deck.id, 1), [])
+        self.assertEqual(len(router.list_deck_notes(self.deck.id, 2)), 1)
         self.save(user=2, note_id=note['id'], text='Updated')
         self.assertEqual(models.TMACardNote.select().count(), 1)
         with self.assertRaises(HTTPException) as caught:
@@ -69,11 +71,10 @@ class CardCommunicationTests(unittest.TestCase):
         self.card.delete_instance()
         self.assertEqual(models.TMACardNote.select().count(), 0)
 
-    def test_suggestions_cannot_enter_private_notes(self):
+    def test_deck_batch_requires_read_access(self):
         with self.assertRaises(HTTPException) as caught:
-            self.save(kind='suggestion', text='Typo')
-        self.assertEqual(caught.exception.status_code, 503)
-        self.assertEqual(models.TMACardNote.select().count(), 0)
+            router.list_deck_notes(self.deck.id, 3)
+        self.assertEqual(caught.exception.status_code, 403)
 
     def test_messages_thread_read_receipt_retry_and_deleted_card_history(self):
         message_id, reply_id = str(uuid4()), str(uuid4())

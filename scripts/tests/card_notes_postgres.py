@@ -45,7 +45,7 @@ def main():
         deck = models.TMA_Deck.create(user_id=1, name='Synthetic')
         card = models.TMA_Card.create(deck=deck, front_text='Hallo', back_text='Hello')
         note_id = uuid4()
-        first = router.save_note(card.id, note_id, router.NoteWrite(kind='note', text='Private'), 1)
+        first = router.save_note(card.id, note_id, router.NoteWrite(text='Private'), 1)
         run_card_notes_migration(db)
         assert router.list_notes(card.id, 1)[0]['id'] == first['id']
         for table in ('tma_card_note', 'tma_user_message'):
