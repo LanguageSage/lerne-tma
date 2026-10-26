@@ -29,6 +29,7 @@ Knowledge Attempts отправляются отдельным механизм�
 7. Legacy push/pull и collab-pull остаются отдельными маршрутами; проверяйте caller перед выбором сервиса.
 8. `card_notes` (Dexie v5) is a separate author-only outbox. `api.js` routes its mutations through `offlineApi.js` to `cardNotes.js`: persist first, then use the existing authenticated network client. Existing entity sync resolves temporary card IDs before flushing this outbox. UUIDs, tombstones, local revisions and a per-account write lock protect retries/edits; account switching cannot consume another account's responses. Opening a study card/menu or explicit refresh reads only that card's own annotations; there is no polling or new scheduler. Read acknowledgements omit text. Card/progress snapshots never include annotations. Tests: `app/src/services/__tests__/cardNotes.test.js`, `scripts/tests/browser/card-notes.spec.cjs`.
    An annotation error leaves its draft dirty and returns `card_notes_pending`, without blocking committed entity/review synchronization or unrelated offline API actions. Manual profile sync shows this partial result explicitly; the notes panel retains its pending/error/retry states.
+   A flush attempts every matching note, acknowledges only successful unchanged local revisions, and reports the first error after the loop. Rejected/network-failed records remain dirty across restarts and retry with the same UUID; one record cannot block other notes. Existing entity sync is unchanged.
 
 ## Source of truth
 

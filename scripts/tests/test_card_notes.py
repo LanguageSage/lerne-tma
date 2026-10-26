@@ -1,11 +1,30 @@
 """Isolated annotation contracts; no configured database or external services."""
 import unittest
+import os
+from unittest.mock import DEFAULT, patch
 from uuid import uuid4
 from fastapi import HTTPException
 from test_offline_sync import database, models, TABLES
 from api.routers import card_notes as router
 from api.migrations import run_card_notes_migration
 from peewee import SqliteDatabase
+from api import migrations
+
+
+class CardNoteBootstrapTests(unittest.TestCase):
+    def test_notes_migrate_automatically_only_in_local_bootstrap(self):
+        for local, flag in ((False, 'false'), (False, 'true'), (True, 'false')):
+            with self.subTest(local=local, run_migrations=flag), patch.dict(os.environ, RUN_MIGRATIONS=flag), \
+                    patch.object(models, 'is_local', return_value=local), \
+                    patch.object(models, '_tables_created', False), \
+                    patch.object(models, '_is_empty_local_bootstrap', return_value=False), \
+                    patch.object(models, 'tma_db') as db, \
+                    patch.multiple(migrations, run_migrations=DEFAULT, run_auth_migrations=DEFAULT,
+                                   run_knowledge_mastery_migration=DEFAULT, run_card_notes_migration=DEFAULT) as runners:
+                models.create_all_tables()
+                self.assertEqual(runners['run_card_notes_migration'].call_count, int(local))
+                self.assertNotIn(models.TMACardNote, db.create_tables.call_args.args[0])
+                self.assertTrue(models._tables_created)
 
 
 class CardNoteTests(unittest.TestCase):

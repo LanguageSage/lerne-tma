@@ -78,6 +78,33 @@ test('account switching isolates drafts and rejects responses from the old accou
   assert.equal(await (await prepareLocalDb()).card_notes.count(), 0);
 });
 
+test('one failed note does not block later records; the draft survives restart and retries with the same UUID', async () => {
+  const failed = await writeCardNote(10, { id: '00000000-0000-4000-8000-000000000001', kind: 'note', text: 'Keep draft' });
+  const accepted = await writeCardNote(20, { id: '00000000-0000-4000-8000-000000000002', kind: 'note', text: 'Send this' });
+  const db = await prepareLocalDb();
+  const denied = Object.assign(new Error('Denied'), { response: { status: 403 } });
+  const calls = [];
+  networkApi.put = async (url, payload) => {
+    calls.push(url);
+    if (url.includes(failed.id)) throw denied;
+    return { data: { ...accepted, ...payload } };
+  };
+  await assert.rejects(syncCardNotes(db, 1), error => error === denied);
+  assert.deepEqual(calls, [`/card-notes/10/${failed.id}`, `/card-notes/20/${accepted.id}`]);
+  assert.equal((await db.card_notes.get(accepted.id)).is_dirty, 0);
+  resetAllDatabases();
+  const reopened = await prepareLocalDb();
+  assert.equal((await reopened.card_notes.get(failed.id)).text, 'Keep draft');
+  assert.equal((await reopened.card_notes.get(failed.id)).is_dirty, 1);
+  networkApi.put = async (url, payload) => {
+    assert.equal(url, `/card-notes/10/${failed.id}`);
+    return { data: { ...failed, ...payload } };
+  };
+  await syncCardNotes(reopened, 1);
+  assert.equal((await reopened.card_notes.get(failed.id)).is_dirty, 0);
+  assert.equal(await reopened.card_notes.count(), 2);
+});
+
 test('read acknowledgements omit text and stale refresh cannot restore an unread indicator', async () => {
   const row = await writeCardNote(10, { kind: 'suggestion', text: 'Typo' });
   const db = await prepareLocalDb();

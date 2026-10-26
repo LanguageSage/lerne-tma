@@ -11,7 +11,7 @@ from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
 from api import models
-from api.routers import auth_v2, cards, study, sync
+from api.routers import auth_v2, cards, study, sync, card_notes
 
 
 class CriticalHttpTests(unittest.TestCase):
@@ -32,7 +32,7 @@ class CriticalHttpTests(unittest.TestCase):
                   models.TMAAuthPassword, models.TMAAuthPasswordThrottle]
         self.db.create_tables(tables)
         app = FastAPI()
-        for router in (auth_v2.router, cards.router, study.router, sync.router):
+        for router in (auth_v2.router, cards.router, study.router, sync.router, card_notes.router):
             app.include_router(router, prefix='/api')
         self.client = TestClient(app)
         self.addCleanup(self.cleanup)
@@ -63,6 +63,26 @@ class CriticalHttpTests(unittest.TestCase):
         return self.client.post('/api/cards/save', headers=self.headers(), json={
             'deck_id': self.deck.id, 'front': 'Haus', 'back': 'дом',
             'auto_generate_audio': False, **values})
+
+    def test_missing_notes_table_returns_503_without_blocking_cards_grades_or_sync(self):
+        response = self.save()
+        self.assertEqual(response.status_code, 200, response.text)
+        card_id = response.json()['id']
+        self.assertFalse(self.db.table_exists('tma_card_note'))
+        for method, url, options in (
+            ('get', f'/api/card-notes/{card_id}', {}),
+            ('put', f'/api/card-notes/{card_id}/{uuid4()}', {'json': {'kind': 'note', 'text': 'Keep locally'}}),
+        ):
+            with self.subTest(method=method):
+                result = getattr(self.client, method)(url, headers=self.headers(), **options)
+                self.assertEqual(result.status_code, 503, result.text)
+        self.assertEqual(self.save(card_id=card_id, front='Edited').status_code, 200)
+        grade = self.client.post('/api/study/grade', headers=self.headers(), json={
+            'card_id': card_id, 'deck_id': self.deck.id, 'grade': 2, 'return_next': False})
+        self.assertEqual(grade.status_code, 200, grade.text)
+        self.assertEqual(self.client.get('/api/sync/v2/pull', headers=self.headers()).status_code, 200)
+        self.assertEqual(models.TMAReviewHistory.select().count(), 1)
+        self.assertFalse(self.db.table_exists('tma_card_note'))
 
     def test_create_edit_study_grade_and_pull_persist_the_same_card(self):
         response = self.save()

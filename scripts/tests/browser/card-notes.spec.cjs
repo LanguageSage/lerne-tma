@@ -107,6 +107,27 @@ test('private note CRUD, durable offline queue, retry, and menu order', async ({
   expect(errors).toEqual([]);
 });
 
+test('503 before migration preserves notes across reload and retry', async ({ page, context }) => {
+  const { server, errors } = await setup(page, context);
+  const unavailable = route => route.fulfill({ status: 503, json: { detail: 'Card notes unavailable' } });
+  await page.route('**/api/card-notes/**', unavailable);
+  await openNotes(page);
+  await expect(page.getByRole('alert')).toContainText('Не удалось загрузить записи');
+  await page.getByLabel('Новая запись').fill('Сохранить до применения миграции');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await expect(page.getByText('Ожидает синхронизации')).toBeVisible();
+  expect(server.size).toBe(0);
+  await page.reload();
+  await openNotes(page);
+  await expect(page.locator('.card-notes-entry')).toContainText('Сохранить до применения миграции');
+  await page.unroute('**/api/card-notes/**', unavailable);
+  await page.getByRole('button', { name: 'Обновить', exact: true }).click();
+  await expect.poll(() => server.size).toBe(1);
+  await expect(page.getByText('Ожидает синхронизации')).toHaveCount(0);
+  await expect(page.getByRole('alert')).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
 test('moderation reply pulses until viewed, persists read state, and respects reduced motion', async ({ page, context }) => {
   const { server, errors } = await setup(page, context);
   await openNotes(page);

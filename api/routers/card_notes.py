@@ -26,6 +26,8 @@ def require_card(card_id, user_id):
     if not TMA_Card.select().where(
             (TMA_Card.id == card_id) & (TMA_Card.is_deleted == False)).exists():
         raise HTTPException(404, 'Card not found')
+    if not TMACardNote.table_exists():
+        raise HTTPException(503, 'Card notes unavailable: migration 87 is required')
 
 
 def serialize(note):

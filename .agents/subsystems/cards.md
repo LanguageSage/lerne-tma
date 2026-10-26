@@ -213,8 +213,11 @@ progress do not include these rows. Permanent card deletion cascades to notes.
 
 Additive migration 87 is transactional, creates indexes/FK and enables RLS with
 no public Data API grants/policies. Lerne's API and independent Admin use their
-existing direct PostgreSQL role (table owner or BYPASSRLS). Traditional table
-initialization includes it; Vercel requires explicit migration.
+existing direct PostgreSQL role (table owner or BYPASSRLS). Only LOCAL bootstrap
+applies it automatically. Every non-LOCAL API startup skips migration 87, even
+with `RUN_MIGRATIONS=true`; production uses the explicit script below. Until the
+table exists, both notes routes return 503 without creating it or blocking
+card editing, grading or entity sync.
 `scripts/migrate_card_notes.py` inspects the explicitly supplied
 `CARD_NOTES_MIGRATION_DATABASE_URL`; `--apply` applies only migration 87. Remote
 DSNs require TLS. No real LOCAL/Supabase database was migrated during this change.

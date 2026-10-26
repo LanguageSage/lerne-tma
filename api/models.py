@@ -61,7 +61,8 @@ def create_all_tables():
             from api.migrations import run_auth_migrations
             run_auth_migrations(tma_db)
         run_knowledge_mastery_migration(tma_db)
-        run_card_notes_migration(tma_db)
+        if is_local():
+            run_card_notes_migration(tma_db)
         try:
             tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
         except Exception as e:

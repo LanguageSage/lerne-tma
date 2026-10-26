@@ -18,22 +18,26 @@ export async function syncCardNotes(db, userId, cardId) {
 async function flushNotes(db, userId, cardId) {
   const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
   const pending = await db.card_notes.where('is_dirty').equals(1).toArray();
+  let firstError;
   for (const row of pending) {
     if (getUserId() !== userId) return;
     if (cardId != null && row.card_id !== cardId) continue;
     const resolvedId = aliases[String(row.card_id)] ?? row.card_id;
     if (resolvedId < 0) continue; // Existing entity sync owns temporary card IDs.
-    const { data } = await networkApi.put(`/card-notes/${resolvedId}/${row.id}`, {
-      kind: row.kind, ...(row.write_text ? { text: row.text } : {}), is_deleted: row.is_deleted,
-      seen_revision: row.seen_revision,
-    });
-    if (getUserId() !== userId) return;
-    await db.transaction('rw', db.card_notes, async () => {
-      if ((await db.card_notes.get(row.id))?.local_revision === row.local_revision) {
-        await db.card_notes.put({ ...data, is_dirty: 0, local_revision: row.local_revision });
-      }
-    });
+    try {
+      const { data } = await networkApi.put(`/card-notes/${resolvedId}/${row.id}`, {
+        kind: row.kind, ...(row.write_text ? { text: row.text } : {}), is_deleted: row.is_deleted,
+        seen_revision: row.seen_revision,
+      });
+      if (getUserId() !== userId) return;
+      await db.transaction('rw', db.card_notes, async () => {
+        if ((await db.card_notes.get(row.id))?.local_revision === row.local_revision) {
+          await db.card_notes.put({ ...data, is_dirty: 0, local_revision: row.local_revision });
+        }
+      });
+    } catch (error) { firstError ??= error; }
   }
+  if (firstError) throw firstError;
 }
 
 export async function refreshCardNotes(cardId) {
