@@ -5,10 +5,10 @@
 ## Запуск из корня репозитория
 
 ```powershell
-python scripts/lesson_qa.py --snapshot reports/lesson-qa/relativsaetze.snapshot.json --output reports/lesson-qa/result.json
-python scripts/lesson_qa.py --import-file lesson.txt --output reports/lesson-qa/import.json
-python scripts/lesson_qa.py --folder-id 285 --save-snapshot reports/lesson-qa/source.json --output reports/lesson-qa/folder.json
-python scripts/lesson_qa.py --deck-id 7139 --output reports/lesson-qa/deck.json
+python scripts/lesson_qa.py --snapshot local/test-data/lesson-qa/relativsaetze.snapshot.json --output local/test-data/lesson-qa/result.json
+python scripts/lesson_qa.py --import-file lesson.txt --output local/test-data/lesson-qa/import.json
+python scripts/lesson_qa.py --folder-id 285 --save-snapshot local/test-data/lesson-qa/source.json --output local/test-data/lesson-qa/folder.json
+python scripts/lesson_qa.py --deck-id 7139 --output local/test-data/lesson-qa/deck.json
 ```
 
 Файл импорта использует существующий формат «Автора»: заголовки колод, FRONT/BACK/CONTEXT, разделители и паспорта. Ошибки структуры и схемы сохраняются как ERROR в отчёте; содержимое не исправляется. IDs из импорта сохраняются; для новых карточек используются только локальные отрицательные IDs отчёта.
@@ -47,4 +47,4 @@ npx --no-install playwright test scripts/tests/browser/lesson-qa.spec.cjs --work
 
 Грамматику, естественность и педагогическую адекватность проверять отдельно автором или моделью с сохранением исходника, предлагаемого текста, причины, уверенности и источников. В этом MVP платного AI-provider и автоматического переписывания карточек нет.
 
-Артефакты аудита Relativsätze находятся в reports/lesson-qa: неизменяемый снимок, структурный отчёт, semantic coverage, предложения контента/паспортов и русский итоговый отчёт. `python scripts/prepare_relativsaetze_updates.py` собирает отдельные corrected.snapshot.json и update-plan.json с original/proposed значениями и проверкой ID/порядка. Он не подключается к БД и ничего не применяет. Lesson QA не заменяет авторское утверждение содержательных изменений.
+Артефакты аудита Relativsätze находятся в local/test-data/lesson-qa: неизменяемый снимок, структурный отчёт, semantic coverage, предложения контента/паспортов и русский итоговый отчёт. `python scripts/prepare_relativsaetze_updates.py` собирает отдельные corrected.snapshot.json и update-plan.json с original/proposed значениями и проверкой ID/порядка. Он не подключается к БД и ничего не применяет. Lesson QA не заменяет авторское утверждение содержательных изменений.

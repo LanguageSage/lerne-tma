@@ -54,19 +54,71 @@ export const parseQuizOption = (line = '') => {
 };
 
 export const findQuizOptionStart = (lines) => {
-  const maskedLines = lines.map(maskTrainerTokens);
-  let firstOptionIdx = maskedLines.findIndex((line, index) => index > 0 && isQuizOptionLine(line));
-  if (firstOptionIdx < 1) return -1;
+  // Keep this boundary contract in sync with lerne_card_core.input_parser.
+  const maskedLines = lines.map(line => maskTrainerTokens(line).trim());
+  let end = maskedLines.length;
+  while (end && !maskedLines[end - 1]) end--;
+  const validStart = (start, accepts) => {
+    const options = maskedLines.slice(start, end).filter(Boolean);
+    return start > 0 && maskedLines.slice(0, start).some(Boolean)
+      && options.every(accepts)
+      && options.filter(line => parseQuizOption(line).text).length >= 2 ? start : -1;
+  };
 
-  // Legacy unprefixed answers share a paragraph, with only the correct answer starred.
-  if (/^\s*\*(?!\*)/.test(maskedLines[firstOptionIdx])
-    && !isQuizOptionLine(maskedLines[firstOptionIdx].replace(/^\s*\*(?!\*)\s*/, ''))
-    && !maskedLines.slice(firstOptionIdx + 1).some(line => isQuizOptionLine(line.replace(/^\s*\*(?!\*)\s*/, '')))) {
-    for (let i = firstOptionIdx - 1; i > 0; i--) {
-      if (!maskedLines[i].trim()) return i + 1;
-    }
+  // Checkboxes explicitly delimit the WHOLE answer block. Numbered statements
+  // before it belong to the question; holes or trailing prose make it unsafe.
+  const bareStar = line => /^\*(?!\*)/.test(line)
+    && !isQuizOptionLine(line.replace(/^\*(?!\*)\s*/, ''));
+  let checkbox = maskedLines.findIndex(line => /^\[[*xX ]\]/.test(line));
+  if (checkbox !== -1) {
+    while (checkbox > 0 && bareStar(maskedLines[checkbox - 1])) checkbox--;
+    return validStart(checkbox, line => /^\[[*xX ]\]/.test(line) || bareStar(line));
   }
-  return firstOptionIdx;
+
+  let paragraph = end;
+  while (paragraph > 0 && maskedLines[paragraph - 1]) paragraph--;
+  const tail = maskedLines.slice(paragraph, end);
+  const withoutStar = line => line.replace(/^\*(?!\*)\s*/, '');
+  const labelKind = line => {
+    const match = /^(?:([a-zA-Z])|([0-9]{1,2}))(?:\)|\.\s)/.exec(withoutStar(line));
+    return match ? (match[1] ? 'letter' : 'number') : null;
+  };
+
+  let start = end;
+  while (start > paragraph && isQuizOptionLine(maskedLines[start - 1])) start--;
+  const structuredSuffix = maskedLines.slice(start, end).some(line => isQuizOptionLine(withoutStar(line)));
+
+  // Legacy unlabelled answers need a blank-line boundary. Never backtrack from
+  // a star into question prose when that separator is absent.
+  if (paragraph > 0 && tail.some(line => /^\*(?!\*)/.test(line))
+    && tail.some(line => !isQuizOptionLine(line))
+    && !tail.some(labelKind) && (!structuredSuffix || end - start < 2)) {
+    const legacyStart = validStart(paragraph, () => true);
+    if (legacyStart !== -1) return legacyStart;
+  }
+
+  const labelValue = line => /^([a-zA-Z]|[0-9]{1,2})(?:\)|\.\s)/.exec(withoutStar(line))?.[1].toLowerCase();
+  const coherent = optionLines => {
+    const labels = optionLines.map(labelValue).filter(Boolean);
+    return new Set(optionLines.map(labelKind).filter(Boolean)).size <= 1 && new Set(labels).size === labels.length;
+  };
+  // Extend across blank lines only through coherent marked paragraphs. The
+  // first paragraph remains the question even when it is entirely numbered.
+  while (start > 0 && !maskedLines[start - 1]) {
+    let previousEnd = start;
+    while (previousEnd > 0 && !maskedLines[previousEnd - 1]) previousEnd--;
+    let previousStart = previousEnd;
+    while (previousStart > 0 && isQuizOptionLine(maskedLines[previousStart - 1])) previousStart--;
+    if (previousStart === 0 || previousStart === previousEnd
+      || !coherent(maskedLines.slice(previousStart, end))) break;
+    start = previousStart;
+  }
+  let contextStart = start;
+  while (contextStart > 0 && maskedLines[contextStart - 1]) contextStart--;
+  const kinds = new Set(maskedLines.slice(start, end).map(labelKind).filter(Boolean));
+  if (!coherent(maskedLines.slice(start, end))
+    || maskedLines.slice(contextStart, start).some(line => kinds.has(labelKind(line)))) return -1;
+  return validStart(start, isQuizOptionLine);
 };
 
 /**

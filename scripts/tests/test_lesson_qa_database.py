@@ -49,7 +49,7 @@ class LessonQaDatabaseTests(unittest.TestCase):
         self.assertEqual(models.TMAProgress.select().count(), 0)
 
     def test_real_d14_forced_traversal_srs_history_and_completion(self):
-        snapshot = json.loads((ROOT / 'reports/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
+        snapshot = json.loads((ROOT / 'local/test-data/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
         deck = models.TMA_Deck.create(id=7139, user_id=1, name='D14 isolated')
         fixtures = sorted((c for c in snapshot['cards'] if c['deck_id'] == 7139), key=lambda c: (c['position'], c['id']))
         for c in fixtures:

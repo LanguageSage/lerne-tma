@@ -6,7 +6,7 @@ import re
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-OUT = ROOT / 'reports/lesson-qa'
+OUT = ROOT / 'local/test-data/lesson-qa'
 
 
 def prepare():

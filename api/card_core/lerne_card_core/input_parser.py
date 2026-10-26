@@ -216,42 +216,97 @@ def detect_ai_input_type(text: str) -> str:
 _TRAINER_SYNTAX = re.compile(r"\{[^}]+\}|\[\[[^\]]+\]\]")
 _OPTION_LINE = re.compile(r"^\*(?!\*)|^\[[*xX ]\]|^[-○•]|^(?:[a-zA-Z]|[0-9]{1,2})(?:\)|\.\s)")
 _CORRECT_OPTION = (re.compile(r"^\*(?!\*)"), re.compile(r"^\[\*\]"),
-                   re.compile(r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*"), re.compile(r"^[-○•]\s*\*"))
+                   re.compile(r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*(?!\*)"), re.compile(r"^[-○•]\s*\*(?!\*)"))
 
 
 def _option_parts(line: str) -> tuple[bool, str]:
-    """Mirror cleanOptionPrefix in app/src/utils/quizParser.js (without Markdown stripping)."""
+    """Mirror parseQuizOption in app/src/utils/quizParser.js (without Markdown stripping)."""
     line = line.strip()
-    cleaned = re.sub(r"^\[[*xX ]\]\s*", "", line)
-    cleaned = re.sub(r"^[-*○•\s]+", "", cleaned)
-    cleaned = re.sub(r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*", "", cleaned)
-    cleaned = re.sub(r"^[-*○•\s]+", "", cleaned).strip()
+    cleaned = line
+    for pattern in (r"^\[[*xX ]\]\s*", r"^\*(?!\*)\s*", r"^[-○•]\s*",
+                    r"^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*", r"^\*(?!\*)\s*"):
+        cleaned = re.sub(pattern, "", cleaned, count=1)
     return any(rx.search(line) for rx in _CORRECT_OPTION), cleaned
 
 
-def parse_quiz_options(exercise: str) -> list[tuple[bool, str]]:
-    """Mirror parseQuizData's option boundary, preserving question paragraphs."""
-    masked = re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__", re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", exercise))
-    lines = masked.splitlines()
+def find_quiz_option_start(lines: list[str]) -> int:
+    """Same whole-block boundary contract as quizParser.js/findQuizOptionStart."""
+    lines = [re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__",
+                    re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", line)).strip() for line in lines]
+    end = len(lines)
+    while end and not lines[end - 1]:
+        end -= 1
+
+    def valid_start(start, accepts):
+        options = [line for line in lines[start:end] if line]
+        return start if (start > 0 and any(lines[:start]) and all(accepts(line) for line in options)
+                         and sum(bool(_option_parts(line)[1]) for line in options) >= 2) else -1
 
     def is_option(line):
-        return bool(_OPTION_LINE.search(line.strip()))
+        return bool(_OPTION_LINE.search(line))
 
-    first = next((i for i, line in enumerate(lines) if i > 0 and is_option(line)), -1)
+    def bare_star(line):
+        return re.match(r'^\*(?!\*)', line) and not is_option(re.sub(r'^\*(?!\*)\s*', '', line))
+
+    checkbox = next((i for i, line in enumerate(lines) if re.match(r'^\[[*xX ]\]', line)), -1)
+    if checkbox != -1:
+        while checkbox > 0 and bare_star(lines[checkbox - 1]):
+            checkbox -= 1
+        return valid_start(checkbox, lambda line: re.match(r'^\[[*xX ]\]', line) or bare_star(line))
+
+    paragraph = end
+    while paragraph > 0 and lines[paragraph - 1]:
+        paragraph -= 1
+
+    def label_kind(line):
+        match = re.match(r'^(?:([a-zA-Z])|([0-9]{1,2}))(?:\)|\.\s)', re.sub(r'^\*(?!\*)\s*', '', line))
+        return ('letter' if match[1] else 'number') if match else None
+
+    tail = lines[paragraph:end]
+    start = end
+    while start > paragraph and is_option(lines[start - 1]):
+        start -= 1
+    structured_suffix = any(is_option(re.sub(r'^\*(?!\*)\s*', '', line)) for line in lines[start:end])
+    if (paragraph > 0 and any(re.match(r'^\*(?!\*)', line) for line in tail)
+            and any(not is_option(line) for line in tail)
+            and not any(map(label_kind, tail)) and (not structured_suffix or end - start < 2)):
+        legacy_start = valid_start(paragraph, lambda _line: True)
+        if legacy_start != -1:
+            return legacy_start
+
+    def coherent(option_lines):
+        labels = [match[1].lower() for line in option_lines
+                  if (match := re.match(r'^([a-zA-Z]|[0-9]{1,2})(?:\)|\.\s)', re.sub(r'^\*(?!\*)\s*', '', line)))]
+        return len({kind for line in option_lines if (kind := label_kind(line))}) <= 1 and len(set(labels)) == len(labels)
+
+    while start > 0 and not lines[start - 1]:
+        previous_end = start
+        while previous_end > 0 and not lines[previous_end - 1]:
+            previous_end -= 1
+        previous_start = previous_end
+        while previous_start > 0 and is_option(lines[previous_start - 1]):
+            previous_start -= 1
+        if previous_start == 0 or previous_start == previous_end or not coherent(lines[previous_start:end]):
+            break
+        start = previous_start
+    context_start = start
+    while context_start > 0 and lines[context_start - 1]:
+        context_start -= 1
+    kinds = {kind for line in lines[start:end] if (kind := label_kind(line))}
+    if (not coherent(lines[start:end])
+            or any(label_kind(line) in kinds for line in lines[context_start:start])):
+        return -1
+    return valid_start(start, is_option)
+
+
+def parse_quiz_options(exercise: str) -> list[tuple[bool, str]]:
+    """Parse only a complete answer block; ambiguous syntax stays source text."""
+    masked = re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__", re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", exercise))
+    lines = masked.replace('\r\n', '\n').replace('\r', '\n').split('\n')
+    first = find_quiz_option_start(lines)
     if first < 1:
         return []
-    # Legacy options without labels share a paragraph; include those before *.
-    if (re.match(r'^\s*\*(?!\*)', lines[first])
-        and not is_option(re.sub(r'^\s*\*(?!\*)\s*', '', lines[first]))
-        and not any(is_option(re.sub(r'^\s*\*(?!\*)\s*', '', line)) for line in lines[first + 1:])):
-        for i in range(first - 1, 0, -1):
-            if not lines[i].strip():
-                first = i + 1
-                break
-    option_lines = [line.strip() for line in lines[first:] if line.strip()]
-    if len(option_lines) < 2:
-        return []
-    return [_option_parts(line) for line in option_lines]
+    return [parts for line in lines[first:] if line.strip() and (parts := _option_parts(line))[1]]
 
 
 def _has_quiz_structure(exercise: str) -> bool:
@@ -265,7 +320,7 @@ def detect_card_type(text: str) -> str:
 
     Unlike detect_ai_input_type this is not a heuristic for raw AI input: quiz needs a real
     option structure, trainer tokens win over quiz and no keyword guessing is applied.
-    Shared fixtures: tests/fixtures/exercise_detection_corpus.json.
+    Shared fixtures: local/test-data/fixtures/exercise_detection_corpus.json.
     """
     parsed = parse_exercise_content(text)
     if parsed.get("is_theory"):

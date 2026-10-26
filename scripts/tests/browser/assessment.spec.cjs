@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
-const course = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../reports/lesson-qa/corrected.snapshot.json'), 'utf8'));
+const course = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../local/test-data/lesson-qa/corrected.snapshot.json'), 'utf8'));
 const deck = { ...course.decks.find(d => d.id === 7139), stats: { total: 48, new: 48, due: 0, learning: 0 } };
 const cards = course.cards.filter(c => c.deck_id === deck.id).sort((a,b) => a.position - b.position || a.id - b.id);
 // Match the real get_cards_for_study DTO: parsed metadata, front/back, no position.

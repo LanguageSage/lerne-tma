@@ -169,6 +169,26 @@ class SingleQuizTests(unittest.TestCase):
         self.assertEqual(parse_quiz_options(question + 'Auto\n*Bus\nZug'),
                          [(False, 'Auto'), (True, 'Bus'), (False, 'Zug')])
 
+    def test_numbered_conditions_do_not_inflate_ai_answer_count_or_change_front(self):
+        fixtures = json.loads((fixture['ROOT'] / 'local/test-data/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
+        for example in fixtures['examples']:
+            with self.subTest(example=example['name']):
+                front = example['preamble'] + example['question'] + example['gap'] + '\n'.join(
+                    f"{'[*]' if i == example['correct'] else '[ ]'} {text}"
+                    for i, text in enumerate(example['answers']))
+                self.mock_chat.reset_mock()
+                self.assertEqual(self.generate(front=front), LESSON)
+                self.assertEqual(self.mock_chat.await_count, 1)
+                self.assertEqual(self.mock_chat.call_args.kwargs['user_message'], front)
+
+    def test_ambiguous_quiz_is_rejected_before_contacting_ai(self):
+        fixtures = json.loads((fixture['ROOT'] / 'local/test-data/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
+        for front in fixtures['ambiguous']:
+            with self.subTest(front=front):
+                self.mock_chat.reset_mock()
+                self.assertEqual(set(self.generate(front=front)), {'error'})
+                self.mock_chat.assert_not_awaited()
+
     def test_provider_error_is_retried_only_once(self):
         self.mock_chat.return_value = ('Output token limit', False)
         self.assertEqual(set(self.generate()), {'error'})

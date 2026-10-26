@@ -1,11 +1,57 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
-import { parseQuizData } from '../quizParser.js';
+import { findQuizOptionStart, parseQuizData } from '../quizParser.js';
 import { projectEditorFields, replaceEditorRange, setQuizOptionCorrect } from '../cardEditorSyntax.js';
 
 const question = 'Wähle die passende Fortsetzung.\n\nDer Bus hatte eine Panne.\nWir kamen zu spät.\n\n\nWelche Aussage passt?';
 const answers = ['Wir kamen pünktlich.', 'Wir kamen wegen einer Panne zu spät.', 'Wir blieben zu Hause.'];
+
+const boundaries = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/fixtures/quiz_boundaries.json', import.meta.url), 'utf8'));
+const boundaryFormats = {
+  checkboxes: (text, i, correct) => `${i === correct ? '[*]' : '[ ]'} ${text}`,
+  letters: (text, i, correct) => `${String.fromCharCode(65 + i)})${i === correct ? '*' : ''}${text}`,
+  numbers: (text, i, correct) => `${i + 1}. ${i === correct ? '*' : ''}${text}`,
+  numberedParentheses: (text, i, correct) => `${i === correct ? '*' : ''}${i + 1})${text}`,
+  dottedLetters: (text, i, correct) => `${i === correct ? '*' : ''}${String.fromCharCode(65 + i)}. ${text}`,
+  bullets: (text, i, correct) => `- ${i === correct ? '*' : ''}${text}`,
+  circles: (text, i, correct) => `○ ${i === correct ? '*' : ''}${text}`,
+  dots: (text, i, correct) => `• ${i === correct ? '*' : ''}${text}`,
+  star: (text, i, correct) => `${i === correct ? '*' : ''}${text}`,
+};
+
+for (const fixture of boundaries.examples) {
+  for (const [format, render] of Object.entries(boundaryFormats)) {
+    for (const newline of ['\n', '\r\n']) {
+      test(`${fixture.name}: numbered question stays intact with ${format} (${JSON.stringify(newline)})`, () => {
+        const optionLines = fixture.answers.map((text, i) => render(text, i, fixture.correct));
+        const front = (fixture.preamble + fixture.question + fixture.gap + optionLines.join('\n')).replace(/\n/g, newline);
+        const parsed = parseQuizData({ front });
+        assert.ok(parsed);
+        assert.equal(parsed.question, fixture.question);
+        assert.deepEqual([...parsed.options].sort((a, b) => a.id - b.id), fixture.answers.map((text, id) => ({
+          id, text, isCorrect: id === fixture.correct,
+        })));
+        const fields = projectEditorFields(front);
+        const questionField = fields.find(field => field.sectionType === 'quiz');
+        assert.equal(questionField.value, fixture.question.replace(/\n/g, newline));
+        assert.equal(questionField.display.replace(/\r\n/g, '\n'), parsed.question);
+        assert.deepEqual(fields.filter(field => field.kind === 'quiz-option').map(field => field.display), fixture.answers);
+        for (const field of fields) assert.equal(replaceEditorRange(front, field.start, field.end, field.value), front);
+      });
+    }
+  }
+}
+
+for (const front of boundaries.ambiguous) {
+  test(`ambiguous Quiz keeps source instead of guessing options: ${JSON.stringify(front)}`, () => {
+    assert.equal(findQuizOptionStart(front.split('\n')), -1);
+    assert.equal(parseQuizData({ front }), null);
+    const fields = projectEditorFields(front);
+    assert.ok(fields === null || fields.every(field => field.kind !== 'quiz-option'));
+    if (fields) assert.equal(fields.map(field => field.value).join(''), front);
+  });
+}
 
 // FRONT content from B1-29-D02_Услышь_и_ответь.md, cards 1–3.
 const b1Cases = [
@@ -74,6 +120,13 @@ const formats = [
 ];
 
 for (const [format, options] of formats) {
+  if (format !== 'star') {
+    test(`quiz preserves a whole ${format} block with blank lines between answers`, () => {
+      const front = `${question}\n\n${options.join('\n\n')}`;
+      assert.equal(parseQuizData({ front }).question, question);
+      assert.deepEqual(projectEditorFields(front).filter(field => field.kind === 'quiz-option').map(field => field.display.replace(/^\*/, '')), answers);
+    });
+  }
   for (const newline of ['\n', '\r\n']) {
     test(`quiz keeps every question paragraph and parses ${format} options (${JSON.stringify(newline)})`, () => {
       const front = `::exercise\n${question}\n\n${options.join('\n')}`.replace(/\n/g, newline);
@@ -183,7 +236,7 @@ test('editor includes legacy unprefixed answers before a starred answer like stu
 });
 
 test('B1-29-D02 compact A)Text labels preserve the full question and both answer notations', () => {
-  const fixture = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/quiz_b1_29_d02.json', import.meta.url), 'utf8'));
+  const fixture = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/fixtures/quiz_b1_29_d02.json', import.meta.url), 'utf8'));
   const question = `A: «Wir haben zusammen nur 30 Euro gesammelt.»\n\nВыбери разумное продолжение:`;
   assert.equal(fixture.question, question);
 

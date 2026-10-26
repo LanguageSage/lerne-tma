@@ -219,3 +219,5 @@ playwright-report/
 /local/config/
 /local/postgres/
 /local/backups/
+/local/test-data/
+/local/test-data/

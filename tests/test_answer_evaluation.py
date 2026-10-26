@@ -554,7 +554,7 @@ class ServerContextTests(unittest.TestCase):
     def test_real_relative_clause_dialogue_keeps_task_and_source_for_grading(self):
         from pathlib import Path
         snapshot = json.loads((Path(__file__).resolve().parents[1] /
-            'reports/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
+            'local/test-data/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
         real = next(c for c in snapshot['cards'] if c['id'] == 349555)
         self.card.front_text = real['front_text']
         self.card.back_text = real['back_text']

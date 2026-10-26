@@ -161,7 +161,7 @@ function projectQuizSection(raw, start, end, add) {
   const text = raw.slice(start, end);
   const lines = text.split('\n');
   const optionStart = findQuizOptionStart(lines);
-  if (optionStart < 1 || lines.slice(optionStart).filter(line => line.trim()).length < 2) return false;
+  if (optionStart < 1) return false;
   let offset = start + lines.slice(0, optionStart).reduce((length, line) => length + line.length + 1, 0);
   let questionEnd = offset;
   while (questionEnd > start && /[\r\n]/.test(raw[questionEnd - 1])) questionEnd--;

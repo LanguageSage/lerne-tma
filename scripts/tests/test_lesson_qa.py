@@ -25,7 +25,7 @@ class LessonQaTests(unittest.TestCase):
 
     def test_passport_proposals_are_valid_and_preserve_unrelated_metadata(self):
         from api.services.deck_passport import passport_from_metadata, validate_passport
-        proposals = json.loads((ROOT / 'reports/lesson-qa/passport-proposals.json').read_text(encoding='utf-8'))
+        proposals = json.loads((ROOT / 'local/test-data/lesson-qa/passport-proposals.json').read_text(encoding='utf-8'))
         self.assertEqual(len(proposals), 6)
         for proposal in proposals:
             self.assertEqual(validate_passport(passport_from_metadata(proposal['proposed'])), [])
@@ -33,7 +33,7 @@ class LessonQaTests(unittest.TestCase):
                 self.assertEqual(proposal['original'].get(key), proposal['proposed'].get(key))
 
     def test_all_course_passports_use_the_canonical_validator(self):
-        snapshot = json.loads((ROOT / 'reports/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
+        snapshot = json.loads((ROOT / 'local/test-data/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
         report = run_audit(snapshot)
         errors = [f for f in report['findings'] if f['code'] == 'passport.schema']
         self.assertEqual(report['checked'], {'decks': 14, 'cards': 678})

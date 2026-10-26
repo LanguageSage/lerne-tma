@@ -156,7 +156,7 @@ class TestPassportParsing(unittest.TestCase):
         self.assertEqual(validate_passport(passport), [])
 
     def test_assessment_requires_bounded_complete_nonoverlapping_bands(self):
-        source = json.loads((Path(__file__).resolve().parents[2] / 'reports/lesson-qa/corrected.snapshot.json').read_text(encoding='utf-8'))
+        source = json.loads((Path(__file__).resolve().parents[2] / 'local/test-data/lesson-qa/corrected.snapshot.json').read_text(encoding='utf-8'))
         passport = json.loads(next(d['metadata'] for d in source['decks'] if d['id'] == 7139))
         passport = {'schema_version': 1, 'intro': passport['intro'], 'pedagogy': passport['pedagogy']}
         self.assertEqual(validate_passport(passport), [])

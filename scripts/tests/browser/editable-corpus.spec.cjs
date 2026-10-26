@@ -1,7 +1,7 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 const { writeFileSync, rmSync } = require('node:fs');
 const { resolve, basename } = require('node:path');
-const cards = require('./fixtures/editable-real-cards.json');
+const cards = require('../../../local/test-data/browser/fixtures/editable-real-cards.json');
 
 test('real editable corpus: detection, rendering, draft navigation and reset', async ({ page, context }, testInfo) => {
   const harness = resolve(__dirname, '../../../app', `.editable-corpus-${process.pid}.jsx`);

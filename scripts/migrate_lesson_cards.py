@@ -443,7 +443,7 @@ def main():
     parser.add_argument("--deck-id", type=int, default=None, help="Ограничить миграцию одной конкретной колодой")
     parser.add_argument("--all-cards", action="store_true", help="Сканировать всю базу данных без фильтра по папке")
     parser.add_argument("--apply", action="store_true", help="Применить изменения в базе данных (без флага работает в режиме DRY-RUN)")
-    parser.add_argument("--report", type=str, default="scripts/manual_review_report.json", help="Путь для сохранения отчёта needs_manual_review")
+    parser.add_argument("--report", type=str, default="local/test-data/reports/manual_review_report.json", help="Путь для сохранения отчёта needs_manual_review")
     args = parser.parse_args()
     
     if not initialize_database():

@@ -15,7 +15,7 @@ from api.services.structured_cards_legacy import LegacyConversionError, to_legac
 from api.services.answer_rules import evaluate_deterministic
 
 ROOT = Path(__file__).resolve().parents[2]
-EXAMPLES = ROOT / 'project_docs/examples/structured_cards_v2'
+EXAMPLES = ROOT / 'local/test-data/examples/structured_cards_v2'
 
 
 def document(card=None):
@@ -602,7 +602,7 @@ import runpy
 import sys
 from unittest.mock import patch
 sys.argv = ['scripts/structured_cards_v2.py', 'to-legacy',
-            'project_docs/examples/structured_cards_v2/basics.json']
+            'local/test-data/examples/structured_cards_v2/basics.json']
 with patch('peewee.Database.connect', side_effect=AssertionError('No database')) as connection, \\
      patch('peewee.Database.execute_sql', side_effect=AssertionError('No SQL')) as sql:
     try:

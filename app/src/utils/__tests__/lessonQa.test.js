@@ -9,7 +9,7 @@ import { parseQuizData } from '../quizParser.js';
 import { evaluateQuizOption } from '../quizEvaluation.js';
 import { calculateSessionStats } from '../sessionStats.js';
 
-const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../reports/lesson-qa/relativsaetze.snapshot.json', import.meta.url)));
+const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/lesson-qa/relativsaetze.snapshot.json', import.meta.url)));
 const lesson = front => ({ decks: [{ id: 1, name: 'Fixture', metadata: {} }], cards: [{ id: 2, deck_id: 1, front, back: '' }] });
 
 test('viewing or skipping all real D14 cards cannot invent a perfect score; generic stats include bonus reviews', () => {

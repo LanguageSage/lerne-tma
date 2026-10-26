@@ -63,7 +63,7 @@ keeps drafts by review key across card navigation. The existing evaluation
 service receives the current full input; the server owns BACK and grading policy.
 The interactive surface excludes clicks, keyboard input and gestures from flips.
 
-Regression fixtures: `scripts/tests/browser/fixtures/editable-real-cards.json`
+Regression fixtures: `local/test-data/browser/fixtures/editable-real-cards.json`
 is a read-only snapshot of all 65 active editable cards on 2026-10-23, including
 359618 in deck 7164 (B1-16-D05). `editable-corpus.spec.cjs` checks every card
 through StudyCard and draft navigation; `editable-text.spec.cjs` checks the

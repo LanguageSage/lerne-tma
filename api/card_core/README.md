@@ -1,4 +1,4 @@
-# lerne-card-core 0.1.0
+# lerne-card-core 0.1.1
 
 Canonical source for pure JSON V2 validation, passport validation/merge, the answer
 contract, legacy syntax parsing and V2-to-legacy conversion. This is the only
@@ -27,3 +27,10 @@ Never overwrite an already released version or modify extracted wheel sources.
 The first release moves five AST-identical TMA/Admin modules with only relative
 import changes. Provenance records the selected TMA revision and original bytes.
 The DB compatibility contract is separate; extraction alone changes no semantics.
+
+0.1.1 fixes Quiz question/option boundaries: checkbox blocks take precedence over
+numbered question statements, labelled answers must form a complete suffix, and
+unlabelled legacy answers require a separate final paragraph. Ambiguous blocks
+remain plain source text. Correctness markers now preserve bold formatting just
+like the JS parser. Storage and card JSON contracts are unchanged. Shared examples
+and fallback cases: `local/test-data/fixtures/quiz_boundaries.json` at the TMA root.

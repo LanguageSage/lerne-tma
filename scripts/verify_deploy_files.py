@@ -70,7 +70,7 @@ def inspect(root=ROOT):
     blocked = ['tools/admin/server.py', 'local/runtime.py', 'scripts/local_dev.py',
                '.env', 'api/.env', 'data/config/local.json', 'api/data/backups/private.json',
                'api/example.sqlite', 'app/private.db', 'api/admin_task_state.json',
-               'reports/lesson-qa/pre-change-backup.json', '.venv/pyvenv.cfg',
+               'local/test-data/lesson-qa/pre-change-backup.json', '.venv/pyvenv.cfg',
                'api/__pycache__/models.pyc', 'app/node_modules/example/index.js']
     patterns = (root / '.vercelignore').read_text(encoding='utf-8')
     ignored = ignored_paths(patterns, sorted(set(names + required + blocked)))

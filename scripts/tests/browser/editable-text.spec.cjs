@@ -1,6 +1,6 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 
-const realCards = require('./fixtures/editable-real-cards.json');
+const realCards = require('../../../local/test-data/browser/fixtures/editable-real-cards.json');
 const original = realCards.find(card => card.id === 359618);
 const source = original.front.split('@edit\n')[1];
 const correction = original.back;

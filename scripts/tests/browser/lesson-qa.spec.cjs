@@ -1,7 +1,7 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
-const snapshot = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../reports/lesson-qa/relativsaetze.snapshot.json'), 'utf8'));
+const snapshot = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../local/test-data/lesson-qa/relativsaetze.snapshot.json'), 'utf8'));
 const cardById = id => ({ ...snapshot.cards.find(c => c.id === id), front: snapshot.cards.find(c => c.id === id).front_text,
   back: snapshot.cards.find(c => c.id === id).back_text, queue: 'new' });
 

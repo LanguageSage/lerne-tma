@@ -53,6 +53,51 @@ const toggleAdvanced = page => page.getByRole('button', { name: 'Дополни�
 
 const analysisQuiz = '::task\nWählen Sie die richtige Antwort.\n\n::exercise\nWomit fährt Anna?\n\nA) Mit dem Auto\n*B) Mit dem Bus\nC) Mit dem Zug';
 
+for (const fixture of require('../../../local/test-data/fixtures/quiz_boundaries.json').examples) {
+  test(`numbered Quiz condition stays in the question: ${fixture.name}`, async ({ page, context }, testInfo) => {
+    const front = fixture.preamble + fixture.question + fixture.gap
+      + fixture.answers.map((text, i) => `${i === fixture.correct ? '[*]' : '[ ]'} ${text}`).join('\n');
+    await openEditor(page, context, front);
+    const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });
+    await expect(question).toHaveText(fixture.question);
+    await expect(page.locator('.card-editor-quiz-option')).toHaveCount(3);
+    for (const [i, answer] of fixture.answers.entries()) {
+      await expect(page.getByRole('textbox', { name: `Вариант ${i + 1}`, exact: true })).toHaveValue(answer);
+    }
+    await question.focus();
+    await page.locator('#card-editor-back').focus();
+    await toggleAdvanced(page).click();
+    await expect(raw(page)).toHaveValue(front);
+    await toggleAdvanced(page).click();
+    for (const width of [320, 1330]) {
+      await page.setViewportSize({ width, height: 900 });
+      await page.screenshot({ path: testInfo.outputPath(`quiz-boundary-editor-${width}.png`), fullPage: true });
+    }
+    const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
+    await page.getByRole('button', { name: /^Сохранить/ }).click();
+    expect((await saved).postDataJSON()).toMatchObject({ front, card_type: 'quiz' });
+
+    await page.evaluate(async ({ front, deck }) => {
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const card = { id: 99, deck_id: deck.id, front, back: 'Объяснение', queue: 'new' };
+      useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
+      useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
+        isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
+      useUiStore.getState().setView('study');
+    }, { front, deck });
+    await expect(page.locator('.quiz-question')).toHaveText(fixture.question);
+    await expect(page.locator('.quiz-option-item')).toHaveCount(3);
+    for (const answer of fixture.answers) await expect(page.locator('.quiz-option-item').filter({ hasText: answer })).toHaveCount(1);
+    for (const width of [320, 1330]) {
+      await page.setViewportSize({ width, height: 900 });
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`quiz-boundary-study-${width}.png`), fullPage: true });
+    }
+  });
+}
+
 test('quiz analysis preserves source and sits between card sides', async ({ page, context }, testInfo) => {
   await openEditor(page, context, analysisQuiz);
   const action = page.getByRole('button', { name: '📝 Разбор теста', exact: true });
@@ -140,7 +185,7 @@ test('single quiz fix keeps standard editor and new card generation available', 
 });
 
 test('B1-29-D02 compact quiz labels render in the editor and study card', async ({ page, context }, testInfo) => {
-  const fixture = require('../../../tests/fixtures/quiz_b1_29_d02.json');
+  const fixture = require('../../../local/test-data/fixtures/quiz_b1_29_d02.json');
   const front = `::task\n${fixture.task}\n::exercise\n${fixture.question}\n\nA)${fixture.answers[0]}\nB)${fixture.answers[1]}\nC)*${fixture.answers[fixture.correct]}`;
   await openEditor(page, context, front);
   const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });

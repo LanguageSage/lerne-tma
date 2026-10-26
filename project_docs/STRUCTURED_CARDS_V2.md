@@ -89,8 +89,8 @@ Match компилируется в строки `left => right`. Первый `
 - `scripts/structured_cards_v2.py`: CLI (`validate`, `to-legacy`, `schema`).
 
 ```powershell
-python scripts/structured_cards_v2.py validate project_docs/examples/structured_cards_v2/basics.json
-python scripts/structured_cards_v2.py to-legacy project_docs/examples/structured_cards_v2/basics.json
+python scripts/structured_cards_v2.py validate local/test-data/examples/structured_cards_v2/basics.json
+python scripts/structured_cards_v2.py to-legacy local/test-data/examples/structured_cards_v2/basics.json
 python scripts/structured_cards_v2.py schema
 python -m unittest scripts.tests.test_structured_cards_v2 scripts.tests.test_structured_preview -v
 ```
