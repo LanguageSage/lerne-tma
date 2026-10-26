@@ -26,6 +26,7 @@ import { HelpDrawer } from './components/help/HelpDrawer';
 import { FullGuideModal } from './components/help/FullGuideModal';
 import { LidExamView } from './components/lid/LidExamView';
 import { LerneSignIn } from './components/auth/LerneSignIn';
+import { MessagesView } from './components/messages/MessagesView';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';
 
@@ -165,7 +166,7 @@ function AppContent() {
 
     const isDeepSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
     const isCardListView = (view === 'cards');
-    const isDeckView = (view === 'deck_intro' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam');
+    const isDeckView = (view === 'deck_intro' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam' || view === 'messages');
     const baseViewLevel = isDeepSubView
       ? folderDepth + 3
       : isCardListView
@@ -267,6 +268,8 @@ function AppContent() {
             startStudyCard={startStudyCard}
           />
         );
+      case 'messages':
+        return <MessagesView />;
       case 'duplicates':
         return <DuplicateManager />;
       case 'trash':

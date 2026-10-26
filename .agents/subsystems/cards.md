@@ -218,7 +218,11 @@ references, without a card FK, so messages survive permanent card deletion.
 read a conversation, PUT a client UUID to send a root or reply, and PUT the
 conversation's `read` state. Only the owner can access a thread; suggestion
 roots require card read access and retain `/cards/{id}` plus the card ID. Admin
-replies appear in the same thread. The TMA message interface is deferred.
+replies appear in the same thread. `GET /messages/{thread_id}/card` resolves a
+still-accessible card to its deck without creating study progress. TMA uses
+`MessagesView` from the main deck header and the card action menu; it loads on
+entry and explicit refresh, with no polling. Missing migration 90 shows an
+isolated unavailable state.
 Admin uses its own loopback `/api/admin/messages` routes and a message-only
 compatibility gate; retired note moderation fields are not used.
 

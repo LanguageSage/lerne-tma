@@ -5,6 +5,11 @@ import { readLastSettingsTab, rememberSettingsTab } from '../utils/settingsNavig
 export const useUiStore = create((set, get) => ({
   view: 'decks',
   setView: (view) => set({ view }),
+  messageRoots: [],
+  setMessageRoots: (messageRoots) => set({ messageRoots }),
+  messageDraftCard: null,
+  openCardMessage: (card) => set({ messageDraftCard: card, view: 'messages', isCardActionModalOpen: false }),
+  clearMessageDraftCard: () => set({ messageDraftCard: null }),
   
   loading: false,
   setLoading: (loading) => set({ loading }),
@@ -79,7 +84,11 @@ export const useUiStore = create((set, get) => ({
   setCardsScrollTop: (top) => set({ cardsScrollTop: top }),
 
   userProfile: null,
-  setUserProfile: (profile) => set({ userProfile: profile }),
+  setUserProfile: (profile) => set(state => ({
+    userProfile: profile,
+    ...(state.userProfile?.user_id !== profile?.user_id
+      ? { messageRoots: [], messageDraftCard: null } : {}),
+  })),
 
   isAuthModalOpen: false,
   authModalTitle: tr("Требуется авторизация"),

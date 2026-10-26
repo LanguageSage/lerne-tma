@@ -137,6 +137,12 @@ export const navigateUp = () => {
   }
 
   // 4c. Duplicates or Trash -> Return to Decks grid
+  if (uiState.view === 'messages') {
+    uiState.clearMessageDraftCard();
+    uiState.setView('decks');
+    return true;
+  }
+
   if (uiState.view === 'duplicates' || uiState.view === 'trash') {
     uiState.setActiveFolderId(null);
     uiState.setView('decks');

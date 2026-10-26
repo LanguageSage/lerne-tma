@@ -99,9 +99,13 @@ class CardCommunicationTests(unittest.TestCase):
         self.assertEqual((first['kind'], first['card_id'], first['link']),
                          ('suggestion', self.card.id, f'/cards/{self.card.id}'))
         self.assertEqual(messages.send_message(root_id, request, 2)['id'], str(root_id))
+        self.assertEqual(messages.conversation_card(root_id, 2), {'id': self.card.id, 'deck_id': self.card.deck_id})
+        self.assertEqual(models.TMAProgress.select().count(), 0)
+        self.assertEqual(messages.conversations(2)[0]['incoming_count'], 0)
         self.assertEqual(models.TMAUserMessage.select().count(), 1)
         self.assertEqual(messages.conversations(1), [])
         for action in (lambda: messages.conversation(root_id, 1),
+                       lambda: messages.conversation_card(root_id, 1),
                        lambda: messages.mark_read(root_id, messages.ReadWrite(read=True), 1),
                        lambda: messages.send_message(reply_id,
                            messages.MessageWrite(text='Steal', thread_id=root_id), 1)):
@@ -118,10 +122,16 @@ class CardCommunicationTests(unittest.TestCase):
         self.assertEqual((user_reply['kind'], user_reply['thread_id']), ('reply', str(root_id)))
         self.assertEqual(len(messages.conversation(root_id, 2)), 3)
         self.assertEqual(messages.conversations(2)[0]['unread_count'], 1)
+        self.assertEqual(messages.conversations(2)[0]['incoming_count'], 1)
         messages.mark_read(root_id, messages.ReadWrite(read=True), 2)
         self.assertEqual(messages.conversations(2)[0]['unread_count'], 0)
         messages.mark_read(root_id, messages.ReadWrite(read=False), 2)
         self.assertEqual(messages.conversations(2)[0]['unread_count'], 1)
+        self.card.is_deleted = True
+        self.card.save()
+        with self.assertRaises(HTTPException) as caught:
+            messages.conversation_card(root_id, 2)
+        self.assertEqual(caught.exception.status_code, 404)
 
     def test_suggestion_requires_card_access(self):
         with self.assertRaises(HTTPException):

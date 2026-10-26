@@ -53,4 +53,5 @@ Suggestions and replies use the shared message table and retain a card ID/link
 without a card FK. Admin uses `/api/admin/messages` for list, conversation,
 read and reply. Its writes use the migration 90 message-table compatibility
 profile and the existing loopback perimeter. TMA exposes owner-only
-`/api/messages`; its message UI is deferred. Admin never runs TMA migrations.
+`/api/messages`; TMA now has a "Мои сообщения" view and opens suggestions from
+the card action menu. Admin never runs TMA migrations.

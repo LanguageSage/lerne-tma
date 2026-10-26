@@ -5,6 +5,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Move, Copy, Trash2, Edit2, Settings2, Hash, ArrowUp, ArrowDown, Info, MessageSquare } from 'lucide-react';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useUiStore } from '../../store/useUiStore';
+import { getUserId } from '../../utils/auth';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { FlagPicker } from '../common/FlagPicker';
@@ -307,6 +308,16 @@ export const CardActionModal = ({
                   <div className="action-menu-icon"><MessageSquare size={20} /></div>
                   <div className="action-menu-text"><strong>{tr('Заметки и предложения')}</strong></div>
                   <NoteIndicator {...notes} />
+                </button>
+                <button type="button" className="action-menu-item" onClick={() => {
+                  const ui = useUiStore.getState();
+                  if (!getUserId() || ui.userProfile?.is_guest) {
+                    onClose();
+                    ui.setIsAuthModalOpen(true, tr('Вход в аккаунт'));
+                  } else ui.openCardMessage(card);
+                }}>
+                  <div className="action-menu-icon"><MessageSquare size={20} /></div>
+                  <div className="action-menu-text"><strong>{tr('Предложить улучшение')}</strong></div>
                 </button>
                 <button type="button" className="action-menu-item" aria-label={tr('Информация о карточке')} onClick={() => setMode('info')}>
                   <div className="action-menu-icon"><Info size={20} /></div>

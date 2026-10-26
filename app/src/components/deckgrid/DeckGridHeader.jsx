@@ -1,9 +1,10 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
-import { Plus, Settings, ChevronLeft, Search, BookOpen } from 'lucide-react';
+import { Plus, Settings, ChevronLeft, Search, BookOpen, MessageSquare } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
-import { getAccessToken } from '../../utils/auth';
+import { getAccessToken, getUserId } from '../../utils/auth';
+import { networkApi } from '../../services/api';
 import { useAuthStore } from '../../store/useAuthStore';
 import { UserProfileBadge } from '../common/UserBadge';
 import { LanguageSelectorBadge } from './LanguageSelectorBadge';
@@ -24,6 +25,23 @@ export const DeckGridHeader = ({
 }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
+  const userProfile = useUiStore(state => state.userProfile);
+  const profileId = userProfile?.user_id;
+  const isGuest = userProfile?.is_guest;
+  const messageRoots = useUiStore(state => state.messageRoots);
+  const unreadCount = messageRoots.reduce((sum, row) => sum + row.unread_count, 0);
+
+  React.useEffect(() => {
+    if (!profileId || isGuest || !getUserId()) {
+      useUiStore.getState().setMessageRoots([]);
+      return;
+    }
+    let active = true;
+    networkApi.get('/messages').then(({ data }) => {
+      if (active && getUserId() === profileId) useUiStore.getState().setMessageRoots(data);
+    }).catch(() => {}); // The messages screen shows actionable errors on open.
+    return () => { active = false; };
+  }, [profileId, isGuest]);
 
   return (
     <>
@@ -42,6 +60,17 @@ export const DeckGridHeader = ({
           <UserProfileBadge />
         </div>
         <div className="header-actions">
+          <button type="button" className="header-action-btn message-nav-button"
+            onClick={() => {
+              if (!getUserId() || userProfile?.is_guest) {
+                useUiStore.getState().setIsAuthModalOpen(true, tr('Вход в аккаунт'));
+              } else useUiStore.getState().setView('messages');
+            }} aria-label={`${tr('Мои сообщения')}${unreadCount ? `, ${tr('Непрочитанных сообщений: {{p0}}', { p0: unreadCount })}` : ''}`}
+            title={tr('Мои сообщения')}>
+            <MessageSquare size={20} aria-hidden="true" />
+            <span className="message-nav-label">{tr('Мои сообщения')}</span>
+            {unreadCount > 0 && <span className="message-unread-count">{unreadCount > 99 ? '99+' : unreadCount}</span>}
+          </button>
           <HelpButton topic="decks" />
           {canCreateContent && <button 
             id="tut-add-deck" 

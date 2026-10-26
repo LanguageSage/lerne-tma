@@ -50,11 +50,15 @@ def conversations(user_id: int = Depends(get_user_id)):
         (TMAUserMessage.user_id == user_id) & TMAUserMessage.thread.is_null()
     ).order_by(TMAUserMessage.created_at.desc(), TMAUserMessage.id.desc())
     root_id = fn.COALESCE(TMAUserMessage.thread, TMAUserMessage.id)
+    incoming = dict(TMAUserMessage.select(root_id, fn.COUNT(TMAUserMessage.id)).where(
+        (TMAUserMessage.user_id == user_id) & (TMAUserMessage.sender != 'user')
+    ).group_by(root_id).tuples())
     unread = dict(TMAUserMessage.select(root_id, fn.COUNT(TMAUserMessage.id)).where(
         (TMAUserMessage.user_id == user_id) &
         (TMAUserMessage.sender != 'user') & TMAUserMessage.read_at.is_null()
     ).group_by(root_id).tuples())
-    return [{**serialize(root), 'unread_count': unread.get(root.id, 0)} for root in roots]
+    return [{**serialize(root), 'unread_count': unread.get(root.id, 0),
+             'incoming_count': incoming.get(root.id, 0)} for root in roots]
 
 
 @router.get('/{thread_id}')
@@ -65,6 +69,19 @@ def conversation(thread_id: UUID, user_id: int = Depends(get_user_id)):
         (TMAUserMessage.user_id == user_id) &
         ((TMAUserMessage.id == root.id) | (TMAUserMessage.thread == root.id))
     ).order_by(TMAUserMessage.created_at, TMAUserMessage.id)]
+
+
+@router.get('/{thread_id}/card')
+def conversation_card(thread_id: UUID, user_id: int = Depends(get_user_id)):
+    """Resolve a suggestion's current card without changing study progress."""
+    require_messages()
+    root = root_for(thread_id, user_id)
+    card = (TMA_Card.get_or_none((TMA_Card.id == root.card_id) & (TMA_Card.is_deleted == False))
+            if root.card_id else None)
+    if not card:
+        raise HTTPException(404, 'Card no longer exists')
+    _require_cards_access([card.id], user_id, write=False)
+    return {'id': card.id, 'deck_id': card.deck_id}
 
 
 @router.put('/{message_id}')
