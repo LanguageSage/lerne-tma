@@ -125,3 +125,14 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 Проектные обзоры могут содержать исторические пути; точные ссылки здесь сверены с рабочим деревом.
 `SMART_SYNC_PLAN.md` — план развития, а не контракт действующей offline sync v2.
 Детали алгоритмов, параметров, миграций и сценариев тестирования находятся в документах подсистем.
+
+
+Общие JSON V2/валидаторы/конвертеры: `api/card_core/lerne_card_core`; Admin
+потребляет версионированный wheel. Граница и выпуск: [cards](subsystems/cards.md).
+
+Card annotations belong to `TMACardNote` / `tma_card_note` and account-scoped Dexie
+`card_notes`, separately from card JSON and SRS/progress. Author API:
+`api/routers/card_notes.py`; learner UI: existing card actions menu. Independent
+Admin reads suggestions only and moderates under its existing local operator
+perimeter and `card-notes` compatibility operation. Additive migration 87 and
+details: [Cards](subsystems/cards.md).

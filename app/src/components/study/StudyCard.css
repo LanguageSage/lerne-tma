@@ -131,7 +131,7 @@
   overflow-wrap: anywhere;
 }
 
-.study-card-info-button {
+.study-card-actions-button {
   display: flex;
   align-items: center;
   justify-content: center;
@@ -145,12 +145,12 @@
   cursor: pointer;
 }
 
-.study-card-info-button[aria-expanded='true'] {
+.study-card-actions-button[aria-expanded='true'] {
   background: var(--design-active-bg, rgba(124, 58, 237, 0.15));
   color: var(--design-text-color, #fff);
 }
 
-.study-card-info-button:focus-visible {
+.study-card-actions-button:focus-visible {
   outline: 3px solid var(--design-accent, #ddd6fe);
   outline-offset: 3px;
 }

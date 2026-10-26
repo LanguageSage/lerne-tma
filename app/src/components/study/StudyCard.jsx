@@ -1,8 +1,8 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect, useMemo, useCallback, useId, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { RefreshCw, Eye, AlertTriangle, RotateCw, Info } from 'lucide-react';
+import { RefreshCw, Eye, AlertTriangle, RotateCw } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import './StudyCard.css';
@@ -41,7 +41,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
-import { StudyCardInfo } from './StudyCardInfo';
+import { CardActionButton } from '../modals/CardActionModal';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 
 export const StudyCard = React.memo(({
@@ -75,13 +75,10 @@ export const StudyCard = React.memo(({
   const flagStyle = useMemo(() => getFlagStyle(card?.flag), [card?.flag]);
 
   const [aiExplanation, setAiExplanation] = useState(null);
-  const [isInfoOpen, setIsInfoOpen] = useState(false);
-  const infoId = useId();
   const surfaceRef = useRef(null);
 
   useEffect(() => {
     setAiExplanation(null);
-    setIsInfoOpen(false);
   }, [card?.id]);
 
   const handleAsk = async (req) => {
@@ -899,29 +896,12 @@ export const StudyCard = React.memo(({
                 <span>{tr("Перевернуть карточку")}</span>
               </button>}
             </div>
-            <button
-              type="button"
-              className="study-card-info-button"
-              aria-label={tr('Информация о карточке')}
-              title={tr('Информация о карточке')}
-              aria-expanded={isInfoOpen}
-              aria-controls={infoId}
-              onClick={() => setIsInfoOpen(open => !open)}
-            >
-              <Info size={20} aria-hidden="true" />
-            </button>
+            <CardActionButton card={card} size={20} className="study-card-actions-button" refreshNotes />
           </div>
           <p className="study-card-controls-hint">
             <span className="study-card-keyboard-hint">{tr('Пробел — переворот · ←/→ — карточки')}<br /></span>
             {tr('Свайпы по свободной области: ↑ ответ · ↓ вопрос · ←/→ карточки')}
           </p>
-          {isInfoOpen && <StudyCardInfo
-            id={infoId}
-            card={card}
-            language={cardLang}
-            deckName={card.deck_id === deckId ? useDeckStore.getState().currentDeck?.name : undefined}
-            source={card.source || parsedFrontContent.source}
-          />}
         </div>
         {loading && (
           <div className="card-loading-overlay">

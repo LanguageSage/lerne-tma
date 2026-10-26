@@ -60,6 +60,10 @@ lerne_tma_local. Модели и миграции остаются в TMA; ад�
 
 ## Граница деплоя Vercel
 
+Корневой allowlist `.vercelignore` после `/*` должен разрешать каталоги как
+`!api` и `!app` (без завершающего `/`): CLI проверяет имя каталога до обхода его файлов.
+Иначе деплой может получить статус READY без frontend/API и отдавать Vercel 404.
+
 В `.vercelignore` правило `/data/` исключает только runtime-данные в корне репозитория.
 Каталоги `app/src/data/`, `app/src/services/classifier/data/` и
 `api/services/classifier/data/` должны попадать в CLI-загрузку: это обязательные исходники.

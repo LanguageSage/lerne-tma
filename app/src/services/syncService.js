@@ -1,7 +1,7 @@
-import { tr } from '../i18n/locale';
-import { prepareLocalDb, getNextTempId } from './localDb';
-import { networkApi } from './api';
-import { getAccessToken, getUserId } from '../utils/auth';
+import { tr } from '../i18n/locale.js';
+import { prepareLocalDb, getNextTempId } from './localDb.js';
+import { networkApi } from './api.js';
+import { getAccessToken, getUserId } from '../utils/auth.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
@@ -176,12 +176,16 @@ export const syncService = {
       await syncLearningPreferences(db);
       const response = await networkApi.get('/sync/v2/pull', options);
       await applySnapshot(db, response.data, userId);
+      const { syncCardNotes } = await import('./cardNotes.js');
+      let notesPending = false;
+      try { await syncCardNotes(db, userId); }
+      catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.
       if (getUserId() === userId) {
         localStorage.setItem('lerne_last_sync_time', response.data.server_time);
         localStorage.setItem('lerne_last_sync_user_id', String(userId));
         window.dispatchEvent(new CustomEvent('lerne:synced', { detail: { userId } }));
       }
-      return { success: true, server_time: response.data.server_time };
+      return { success: true, server_time: response.data.server_time, card_notes_pending: notesPending };
     } catch (error) {
       const reason = error.response?.status === 404
         ? tr("Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.")

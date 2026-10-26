@@ -183,3 +183,46 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
 Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
 сохранить блокировку production-сервисов и загрузки `.env`.
+
+
+## Shared card package — 2026-10-25
+
+JSON V2, passport validators, answer contracts, legacy parsing and conversion now
+have one implementation in `api/card_core/lerne_card_core` (lerne-card-core 0.1.0).
+The five old `api/services` modules are compatibility aliases. Admin consumes an
+exact wheel release; its DB/models/permissions/runtime remain independently owned.
+TMA uses the same package sources inside the existing Vercel `api/` input tree;
+no pip registry, sibling checkout or new deployment entry point is required.
+Release procedure and scope: `api/card_core/README.md`.
+
+The contract verifier follows the implementation and normalizes relative imports
+back to logical service names, so an extraction alone preserves fingerprints and
+saved jobs. It also checks aliases; future logic changes still require review.
+Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.
+
+## Personal notes and card suggestions
+
+`api/routers/card_notes.py` exposes authenticated `GET /card-notes/{card_id}`
+and UUID-idempotent `PUT /card-notes/{card_id}/{note_id}`. Both enforce existing
+card/deck read access; every returned/mutated row belongs to the caller, even for
+platform administrators. `TMACardNote` / `tma_card_note` owns kind, author/card,
+text, status, reply, moderation revision, seen revision and deletion tombstone.
+Only personal notes can be edited/deleted. Read acknowledgements never rewrite
+text or acknowledge a newer reply. Card editing, copying, content JSON, SRS and
+progress do not include these rows. Permanent card deletion cascades to notes.
+
+Additive migration 87 is transactional, creates indexes/FK and enables RLS with
+no public Data API grants/policies. Lerne's API and independent Admin use their
+existing direct PostgreSQL role (table owner or BYPASSRLS). Traditional table
+initialization includes it; Vercel requires explicit migration.
+`scripts/migrate_card_notes.py` inspects the explicitly supplied
+`CARD_NOTES_MIGRATION_DATABASE_URL`; `--apply` applies only migration 87. Remote
+DSNs require TLS. No real LOCAL/Supabase database was migrated during this change.
+
+Independent `lerne-admin` owns the suggestions list/moderation route and uses
+the table contract without importing TMA. It preserves its loopback operator
+boundary and separate compatibility operation `card-notes`. Schema contract is
+v2; card/import/permission contracts and shared card-core are unchanged.
+Checks: `test_card_notes.py`, client `cardNotes.test.js`, browser notes/info specs,
+and `card_notes_postgres.py` (explicit disposable cluster, actual Admin SQL guard,
+RLS/public grants, replies and read acknowledgements).

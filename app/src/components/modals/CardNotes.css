@@ -1,0 +1,33 @@
+.card-note-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  flex: 0 0 6px;
+  border-radius: 50%;
+  background: #2dd4bf;
+}
+.card-note-dot.unread { animation: card-note-pulse 3s ease-in-out infinite; }
+@keyframes card-note-pulse {
+  0%, 45%, 100% { opacity: 1; transform: scale(1); }
+  22% { opacity: .45; transform: scale(.8); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-note-dot.unread { animation: none; }
+}
+.study-card-actions-button { position: relative; }
+.study-card-actions-button .card-note-dot { position: absolute; top: 5px; right: 5px; }
+.card-notes { font-size: .9rem; color: #e2e8f0; }
+.card-notes-modes, .card-notes-entry-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.card-notes-modes > button { flex: 1; min-width: 100px; }
+.card-notes button { min-height: 44px; padding: 8px 12px; white-space: normal; }
+.card-notes [aria-pressed='true'] { border-color: #2dd4bf; }
+.card-notes-hint, .card-notes small { color: #94a3b8; }
+.card-notes-entry { border-top: 1px solid #334155; padding: 12px 0; }
+.card-notes-entry p { white-space: pre-wrap; overflow-wrap: anywhere; }
+.card-notes-reply { border-left: 2px solid #2dd4bf; padding-left: 12px; margin: 12px 0; }
+.card-notes form { display: grid; gap: 8px; margin-top: 16px; }
+.card-notes textarea { width: 100%; box-sizing: border-box; resize: vertical; padding: 10px; border: 1px solid #475569; border-radius: 10px; background: #0f172a; color: #f8fafc; font: inherit; font-size: 1rem; }
+.card-notes :focus-visible { outline: 2px solid #2dd4bf; outline-offset: 2px; }
+@media (max-width: 360px) {
+  .card-notes-modes { flex-direction: column; }
+}

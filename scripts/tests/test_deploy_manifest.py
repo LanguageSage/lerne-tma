@@ -32,3 +32,9 @@ class DeployManifestTests(unittest.TestCase):
         paths = ['app/src/data/bundeslaender.js', 'api/services/classifier/data/vocab_de.json',
                  'app/src/services/classifier/data/vocab_de.json']
         self.assertEqual(ignored_paths('data/\n', paths), set(paths))
+
+    def test_allowlisted_directories_are_traversable(self):
+        patterns = (ROOT / '.vercelignore').read_text(encoding='utf-8')
+        self.assertEqual(ignored_paths(patterns, ['api', 'app']), set())
+        broken = patterns.replace('!api\n', '!/api/\n').replace('!app\n', '!/app/\n')
+        self.assertEqual(ignored_paths(broken, ['api', 'app']), {'api', 'app'})

@@ -4,6 +4,7 @@ import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngi
 import { getUserId, getUserProfile } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
 import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
+import { writeCardNote } from './cardNotes.js';
 
 export const dirtyFields = () => ({
   is_dirty: 1, local_revision: crypto.randomUUID(), updated_at: new Date().toISOString(),
@@ -92,6 +93,10 @@ async function nextCard(db, deckId, userId, params) {
 
 export const offlineApi = {
   async handle(method, rawUrl, data = null, config = {}) {
+    const notePath = rawUrl.match(/^\/card-notes\/(-?\d+)(?:\/([a-f0-9-]+))?$/i);
+    if (notePath && method === 'put') {
+      return result(await writeCardNote(Number(notePath[1]), { ...data, id: notePath[2] || data?.id }));
+    }
     const db = await prepareLocalDb();
     const userId = getUserId();
     const parsed = new URL(rawUrl, 'https://local.invalid');

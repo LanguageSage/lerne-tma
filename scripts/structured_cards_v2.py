@@ -8,8 +8,7 @@ import sys
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-# As in lesson_qa.py: api.services imports legacy models; disable their import-time
-# table setup before any API import. No database queries or network calls below.
+# Pure package imports avoid application/database initialization entirely.
 os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
 
@@ -25,8 +24,8 @@ def main(argv=None):
         parser.error('file is required for validate and to-legacy')
 
     from pydantic import ValidationError
-    from api.services.structured_cards_v2 import Document, load_document
-    from api.services.structured_cards_legacy import to_legacy_document
+    from api.card_core.lerne_card_core.structured_cards_v2 import Document, load_document
+    from api.card_core.lerne_card_core.structured_cards_legacy import to_legacy_document
 
     try:
         if args.command == 'schema':

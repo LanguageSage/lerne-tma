@@ -19,6 +19,34 @@ KNOWLEDGE_MASTERY_MIGRATION_ID = 82
 KNOWLEDGE_MASTERY_LOCK_ID = 76120982
 
 
+def run_card_notes_migration(database):
+    """Additive annotation storage; direct SQL access only, never public REST."""
+    from api.models import TMACardNote
+    database = getattr(database, 'obj', database)
+    if not isinstance(database, (SqliteDatabase, PostgresqlDatabase)):
+        raise RuntimeError('Unsupported card notes database')
+    with database.atomic():
+        if isinstance(database, PostgresqlDatabase):
+            database.execute_sql("SET LOCAL lock_timeout = '5s'")
+            database.execute_sql('SELECT pg_advisory_xact_lock(76120987)')
+        database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
+            migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        if database.execute_sql('SELECT 1 FROM tma_migration_history WHERE migration_id = 87').fetchone():
+            if not database.table_exists('tma_card_note'):
+                raise MigrationError('Card notes migration history/schema mismatch')
+            return
+        with database.bind_ctx([TMACardNote], bind_refs=False, bind_backrefs=False):
+            database.create_tables([TMACardNote], safe=True)
+        if isinstance(database, PostgresqlDatabase):
+            database.execute_sql('ALTER TABLE tma_card_note ENABLE ROW LEVEL SECURITY')
+            # Lerne uses its own authentication, not Supabase Auth JWTs.
+            database.execute_sql('REVOKE ALL ON tma_card_note FROM PUBLIC')
+            for role in ('anon', 'authenticated'):
+                if database.execute_sql('SELECT 1 FROM pg_roles WHERE rolname = %s', (role,)).fetchone():
+                    database.execute_sql(f'REVOKE ALL ON tma_card_note FROM {role}')
+        database.execute_sql('INSERT INTO tma_migration_history (migration_id) VALUES (87)')
+
+
 def run_knowledge_mastery_migration(database):
     """Additive, transactional upgrade of the derived state table."""
     from peewee import PostgresqlDatabase

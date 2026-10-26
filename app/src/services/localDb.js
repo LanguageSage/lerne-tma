@@ -122,6 +122,7 @@ db.version(4).stores({
   knowledge_attempt_outbox: 'client_event_id, user_id, knowledge_item_id, sync_status, created_locally_at',
   user_knowledge_state: '[user_id+knowledge_item_id], user_id, knowledge_item_id'
 });
+db.version(5).stores({ card_notes: 'id, card_id, is_dirty' });
 }
 
 // Helper to generate temporary negative IDs

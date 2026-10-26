@@ -5,7 +5,7 @@
 TMA не является устанавливаемой зависимостью админки. TMA предоставляет своё
 приложение, API, LOCAL dev/test и собственную серверную логику независимо.
 
-Общая граница — формат данных/прав/импорта и DB contract, а не Python imports.
+Общая граница — формат данных/прав/импорта, DB contract и чистый пакет lerne-card-core.
 `api/admin_contract.json` и `scripts/verify_admin_contract.py` фиксируют reviewed
 versions/source fingerprints; backend gate проверяет artifact. Подробный lifecycle
 изменений — `docs/ADMIN_COMPATIBILITY.md`, в админке — `docs/COMPATIBILITY.md`.
@@ -29,3 +29,33 @@ import обновлён после review, без автоматического
 
 Config, checkpoint, LOCAL/облачные базы, media и backups остаются внешними.
 История этапа editable core: docs/ADMIN_EXTRACTION_AUDIT.md (superseded).
+
+
+## Shared card package — 2026-10-25
+
+JSON V2, passport validators, answer contracts, legacy parsing and conversion now
+have one implementation in `api/card_core/lerne_card_core` (lerne-card-core 0.1.0).
+The five old `api/services` modules are compatibility aliases. Admin consumes an
+exact wheel release; its DB/models/permissions/runtime remain independently owned.
+TMA uses the same package sources inside the existing Vercel `api/` input tree;
+no pip registry, sibling checkout or new deployment entry point is required.
+Release procedure and scope: `api/card_core/README.md`.
+
+The contract verifier follows the implementation and normalizes relative imports
+back to logical service names, so an extraction alone preserves fingerprints and
+saved jobs. It also checks aliases; future logic changes still require review.
+Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.
+
+## Card suggestions — 2026-10-26
+
+Admin owns `/api/admin/card-suggestions` (list/status/reply) and the «Предложения»
+tab, with a link to the existing card editor. It reads only `kind=suggestion` in
+new `tma_card_note`; personal notes are excluded. The trusted loopback console
+operator is the existing administrative authority. Host/Origin, alternate-source
+read-only dispatch, DB compatibility and revision conflict checks remain
+enforced; there is no remote moderator login or new role system. TMA owns
+additive migration 87; Admin never migrates this table. Schema contract v2 and
+optional profiles are reviewed in Admin's
+`reviews/card-notes-2026-10-26/README.md`. Missing/unknown annotation schemas block
+only annotation writes. Sources and UI tests are owned by `lerne-admin`, with no
+runtime TMA import.

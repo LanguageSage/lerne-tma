@@ -23,7 +23,7 @@ from api.permissions import is_admin
 from api import models, services
 from api.migrations import MigrationError
 
-from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, auth_v2, share, debug, trash, sync, folders, collaborative, lid, knowledge
+from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, auth_v2, share, debug, trash, sync, folders, collaborative, lid, knowledge, card_notes
 
 # Настройка логирования
 logging.basicConfig(level=logging.INFO)
@@ -188,6 +188,7 @@ app.include_router(folders.router, prefix="/api")
 app.include_router(collaborative.router, prefix="/api")
 app.include_router(lid.router, prefix="/api")
 app.include_router(knowledge.router, prefix="/api")
+app.include_router(card_notes.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")

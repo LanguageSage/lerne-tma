@@ -2,7 +2,7 @@
 
 `lerne-admin` теперь содержит свою выбранную доменную реализацию и не устанавливает
 TMA как core package. TMA сохраняет собственные модели/API/services и обычный запуск.
-Ни Python imports, ни filesystem/cwd/Git dependency между runtime проектов нет.
+Runtime проектов не зависит от filesystem/cwd/Git друг друга; чистые форматы разделяются через версионированный пакет.
 LOCAL UI по-прежнему может открыть loopback URL админки на 8050; это необязательная
 HTTP-ссылка, не зависимость сборки или серверной логики.
 
@@ -49,3 +49,19 @@ checkpoint/jobs проходят отдельную проверку согла�
 фиксируются в отчёте интеграции. Публикация полной истории TMA требует отдельного
 решения по старым checkpoint/config/SQLite, оставшимся в истории: обычный commit
 их оттуда не удаляет, переписывания истории эта работа не выполняет.
+
+
+## Shared card package — 2026-10-25
+
+JSON V2, passport validators, answer contracts, legacy parsing and conversion now
+have one implementation in `api/card_core/lerne_card_core` (lerne-card-core 0.1.0).
+The five old `api/services` modules are compatibility aliases. Admin consumes an
+exact wheel release; its DB/models/permissions/runtime remain independently owned.
+TMA uses the same package sources inside the existing Vercel `api/` input tree;
+no pip registry, sibling checkout or new deployment entry point is required.
+Release procedure and scope: `api/card_core/README.md`.
+
+The contract verifier follows the implementation and normalizes relative imports
+back to logical service names, so an extraction alone preserves fingerprints and
+saved jobs. It also checks aliases; future logic changes still require review.
+Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.

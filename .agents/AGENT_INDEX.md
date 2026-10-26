@@ -16,6 +16,7 @@
 | Sharing, библиотека, импорт JSON, корзина, soft delete | Decks: imports / lifecycle | [decks](subsystems/decks.md) |
 | Co-op, collaborator, совместный доступ | Decks: permissions | [decks](subsystems/decks.md) |
 | SRS, SM-2, интервалы, оценка, queue, next_review | Study / SRS | [study](subsystems/study.md) |
+| Личная заметка, предложение по карточке, ответ администратора, бирюзовая точка | Cards: annotations | [cards](subsystems/cards.md) |
 | StudyFinished, StudyError, forced review, «Учить ещё», следующая колода | Study: navigation | [study](subsystems/study.md) |
 | Неверный feedback, retry, completion, part ID, ошибка в проверке упражнения | Study: evaluation | [study](subsystems/study.md) |
 | Autoplay, auto-show, плеер/оценки сворачиваются, Next/Back тормозит | Study: controls | [study](subsystems/study.md) |
@@ -36,3 +37,7 @@
 Если карточка разобрана правильно, но ответ проверяется неверно, переходите из Cards в Study.
 Если verdict free-text неверен, идите в AI; если verdict верен, но mastery не меняется — в Knowledge.
 Если правка существует локально, но не попала на сервер, идите в Sync.
+
+
+Общие JSON V2/валидаторы/конвертеры: `api/card_core/lerne_card_core`; Admin
+потребляет версионированный wheel. Граница и выпуск: [cards](subsystems/cards.md).

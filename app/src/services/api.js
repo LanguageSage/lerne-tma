@@ -189,6 +189,7 @@ const api = new Proxy(axiosInstance, {
   get(target, propKey, receiver) {
     if (['get', 'post', 'put', 'delete', 'patch'].includes(propKey)) {
       return async (url, ...args) => {
+        if (url.startsWith('/card-notes/')) return offlineApi.handle(propKey, url, ...args);
         if (isOfflineMode()) {
           await prepareLocalDb();
           const resolved = await resolveLocalRequest(url, args[0]);

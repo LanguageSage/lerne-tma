@@ -119,17 +119,18 @@ async function reorderPuzzle(page) {
   if (await page.evaluate(() => navigator.maxTouchPoints > 0)) {
     const client = await page.context().newCDPSession(page);
     await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [start] });
+    await page.waitForTimeout(180); // Existing Puzzle TouchSensor activates after a 140ms hold.
     for (let step = 1; step <= 5; step++) await client.send('Input.dispatchTouchEvent', {
       type: 'touchMove', touchPoints: [{ x: start.x + (end.x - start.x) * step / 5, y: start.y + (end.y - start.y) * step / 5 }],
     });
-    await expect(chips.first()).toHaveClass(/dragging/);
+    await expect(page.locator('.puzzle-drag-overlay')).toBeVisible();
     await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
     await client.detach();
   } else {
     await page.mouse.move(start.x, start.y);
     await page.mouse.down();
     await page.mouse.move(end.x, end.y, { steps: 8 });
-    await expect(chips.first()).toHaveClass(/dragging/);
+    await expect(page.locator('.puzzle-drag-overlay')).toBeVisible();
     await page.mouse.up();
   }
   await expect.poll(() => chips.evaluateAll(nodes => nodes.map(node => node.dataset.id))).toEqual(before.reverse());

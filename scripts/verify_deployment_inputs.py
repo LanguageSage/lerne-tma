@@ -20,10 +20,13 @@ def verify():
     tracked = git_paths('ls-files', '--cached')
     excluded = git_paths('ls-files', '--cached', '--ignored', '--exclude-from=.vercelignore')
     included = tracked - excluded
-    required = {'api/index.py', 'api/requirements.txt', 'api/admin_contract.json',
+    required = {'api/index.py', 'api/requirements.txt', 'api/admin_contract.json', 'api/card_core/__init__.py',
                 'app/index.html', 'app/package.json', 'app/package-lock.json',
                 'app/vite.config.js', 'app/src/data/bundeslaender.js',
                 'package.json', 'package-lock.json', 'vercel.json'}
+    required.update('api/card_core/lerne_card_core/' + name + '.py' for name in (
+        '__init__', 'answer_contract', 'deck_passport', 'input_parser',
+        'structured_cards_v2', 'structured_cards_legacy'))
     required.update(p for p in tracked if p.endswith('.json') and (
         p.startswith('api/services/classifier/data/') or p.startswith('app/src/')))
     missing = sorted(p for p in required if p not in included or not (ROOT / p).is_file())

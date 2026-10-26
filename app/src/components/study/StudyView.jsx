@@ -12,7 +12,6 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { getTtsVoiceForLang } from '../../constants/languageConstants';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
-import { CardActionButton } from '../modals/CardActionModal';
 import { useAudio } from '../../hooks/useAudio';
 import { useAutoplay } from '../../hooks/useAutoplay';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
@@ -797,12 +796,6 @@ ${targetCard.back}`;
 
             <div className="card-actions-row-study">
               <div className="card-actions-left">
-                <CardActionButton 
-                  card={card} 
-                  size={22} 
-                  className="btn-card-action-trigger" 
-                  stopDrag={false}
-                />
               </div>
 
               {/* Center Column: Anki-style Queue Counter + Current Card SRS Status Underneath */}

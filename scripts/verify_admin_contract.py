@@ -36,7 +36,29 @@ def canonical_dump(node):
 
 
 def source_hash(paths):
-    tree = '\n'.join(canonical_dump(ast.parse((ROOT / p).read_text(encoding='utf-8-sig'))) for p in paths)
+    trees = []
+    for p in paths:
+        source = ROOT / p
+        shared = ROOT / 'api/card_core/lerne_card_core' / source.name
+        if p.startswith('api/services/') and shared.is_file():
+            name = source.stem
+            expected = ('\"\"\"Compatibility import; implementation belongs to lerne-card-core.\"\"\"\n'
+                        'import sys\n'
+                        f'from api.card_core.lerne_card_core import {name} as _implementation\n'
+                        'sys.modules[__name__] = _implementation\n')
+            if canonical_dump(ast.parse(source.read_text())) != canonical_dump(ast.parse(expected)):
+                raise RuntimeError(f'Unexpected card package adapter: {p}')
+            node = ast.parse(shared.read_text(encoding='utf-8'))
+            # Preserve logical source identity across a package-only move.
+            # Actual implementation changes still change the reviewed fingerprint.
+            for item in ast.walk(node):
+                if isinstance(item, ast.ImportFrom) and item.level == 1:
+                    item.level = 0
+                    item.module = 'api.services.' + item.module
+        else:
+            node = ast.parse(source.read_text(encoding='utf-8-sig'))
+        trees.append(canonical_dump(node))
+    tree = '\n'.join(trees)
     return hashlib.sha256(tree.encode()).hexdigest()
 
 

@@ -39,7 +39,7 @@ def create_all_tables():
     if _tables_created:
         return
     from api.migrations import (run_migrations, run_local_bootstrap_migrations,
-                                run_knowledge_mastery_migration)
+                                run_knowledge_mastery_migration, run_card_notes_migration)
     try:
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
@@ -61,6 +61,7 @@ def create_all_tables():
             from api.migrations import run_auth_migrations
             run_auth_migrations(tma_db)
         run_knowledge_mastery_migration(tma_db)
+        run_card_notes_migration(tma_db)
         try:
             tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
         except Exception as e:
@@ -157,6 +158,25 @@ class TMA_Card(BaseModel):
             (('front_text', 'is_deleted'), False),
             (('updated_at',), False),
         )
+
+class TMACardNote(BaseModel):
+    id = CharField(primary_key=True, max_length=36)
+    card = ForeignKeyField(TMA_Card, column_name='card_id', backref='notes', on_delete='CASCADE')
+    user_id = BigIntegerField()
+    kind = CharField(max_length=16)  # note | suggestion; immutable
+    text = TextField()
+    status = CharField(max_length=16, default='new')
+    reply = TextField(default='')
+    revision = IntegerField(default=1)
+    seen_revision = IntegerField(default=0)
+    is_deleted = BooleanField(default=False)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_card_note'
+        indexes = ((('user_id', 'card'), False), (('kind', 'status'), False))
+
 
 class TMA_Collaborator(BaseModel):
     id = AutoField()

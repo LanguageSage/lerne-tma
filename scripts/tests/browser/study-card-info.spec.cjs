@@ -31,7 +31,7 @@ async function setup(page, context, initialCard = card) {
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname)
     ? route.continue() : route.abort());
-  await page.route('**/api/**', route => route.fulfill({ json: {} }));
+  await page.route('**/api/**', route => route.fulfill({ json: [] }));
   await page.route('**/card-info-harness', route => route.fulfill({ contentType: 'text/html', body: `
     <html><head><meta name="viewport" content="width=device-width, initial-scale=1.0"></head>
     <body><div id="root"></div><script type="module">
@@ -46,16 +46,24 @@ async function setup(page, context, initialCard = card) {
     import { LanguageProvider } from '/src/i18n/i18nContext.jsx';
     import { setInterfaceLanguage } from '/src/i18n/locale.js';
     import { StudyCard } from '/src/components/study/StudyCard.jsx';
+    import { CardActionModal } from '/src/components/modals/CardActionModal.jsx';
+    import { useUiStore } from '/src/store/useUiStore.js';
     import { useDeckStore } from '/src/store/useDeckStore.js';
     import '/src/index.css'; import '/src/App.css';
-    useDeckStore.setState({ currentDeck: { id: 91, name: 'Рассказываем об опыте', target_language: 'de' } });
+    const deck = { id: 91, name: 'Рассказываем об опыте', target_language: 'de', role: 'viewer' };
+    useDeckStore.setState({ currentDeck: deck, deckCards: [${JSON.stringify(initialCard)}] });
     function Harness() {
       const [card, setCard] = React.useState(${JSON.stringify(initialCard)});
       const [isFlipped, onFlip] = React.useState(false);
       const [loading, setLoading] = React.useState(false);
-      window.setTestCard = setCard; window.setTestLoading = setLoading;
+      window.setTestCard = card => { useUiStore.getState().setIsCardActionModalOpen(false); setCard(card); };
+      window.setTestLoading = setLoading;
       window.setTestLocale = setInterfaceLanguage;
+      const open = useUiStore(s => s.isCardActionModalOpen);
+      const actionCard = useUiStore(s => s.actionCard);
       return React.createElement('div', { className: 'app-container' },
+        React.createElement(CardActionModal, { isOpen: open, card: actionCard, decks: [deck], folders: [],
+          onClose: () => useUiStore.getState().setIsCardActionModalOpen(false) }),
         React.createElement(StudyCard, { card, isFlipped, onFlip, loading, historyIndex: 0,
           audioControls: {}, styles: { cardFont: 'Inter', cardFontSize: 1.8,
             cardTextColor: '#cbd5e1', cardTextAlign: 'left' } }));
@@ -65,7 +73,7 @@ async function setup(page, context, initialCard = card) {
   `);
   await page.goto('/card-info-harness');
   try {
-    await expect(page.locator('.study-card-info-button')).toBeVisible();
+    await expect(page.locator('.study-card-actions-button')).toBeVisible();
   } catch (error) {
     throw new Error([...errors, ...diagnostics].join('\n') || error.message);
   }
@@ -79,7 +87,7 @@ async function checkLayout(page) {
     const footer = rect('.study-card-footer');
     const badge = rect('.card-level-badge');
     const actions = rect('.study-card-footer-actions');
-    const info = rect('.study-card-info-button');
+    const info = rect('.study-card-actions-button');
     return {
       belowContent: footer.top >= surface.bottom - 1,
       controlsSeparate: badge.right <= actions.left && actions.right <= info.left,
@@ -90,14 +98,17 @@ async function checkLayout(page) {
   expect(bounds).toEqual({ belowContent: true, controlsSeparate: true, fits: true, buttonFits: true });
 }
 
-test('long card: footer does not cover content, info expands in flow on both sides', async ({ page, context }, testInfo) => {
+async function openInfo(page, name = 'Информация о карточке') {
+  await page.locator('.study-card-actions-button').click();
+  await page.getByRole('button', { name, exact: true }).click();
+}
+
+test('long card: footer stays clear and all info is available through actions on both sides', async ({ page, context }, testInfo) => {
   const errors = await setup(page, context);
   for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
     await checkLayout(page);
-    const info = page.getByRole('button', { name: 'Информация о карточке', exact: true });
-    await info.click();
-    await expect(info).toHaveAttribute('aria-expanded', 'true');
+    await openInfo(page);
     await expect(page.locator('.study-card-info')).toContainText(card.creator_name);
     await expect(page.locator('.study-card-info')).toContainText('Немецкий');
     await expect(page.locator('.study-card-info')).toContainText('Учебные заметки автора');
@@ -105,13 +116,15 @@ test('long card: footer does not cover content, info expands in flow on both sid
     await expect(page.locator('.study-card-info-row').filter({ hasText: 'Соавторы' })).toContainText('Пока недоступно');
     expect(await page.locator('.card-front').count()).toBe(1);
     await checkLayout(page);
-    await page.locator('.study-card-footer').screenshot({ path: testInfo.outputPath(`info-${width}.png`) });
-    await info.click();
+    await page.getByRole('dialog').screenshot({ path: testInfo.outputPath(`info-${width}.png`) });
+    await page.keyboard.press('Escape');
     await expect(page.locator('.study-card-info')).toHaveCount(0);
   }
   await page.getByRole('button', { name: 'Перевернуть карточку', exact: true }).click();
   await expect(page.locator('.card-back')).toBeVisible();
   await checkLayout(page);
+  await page.locator('.study-card-actions-button').focus();
+  await page.keyboard.press('Enter');
   await page.getByRole('button', { name: 'Информация о карточке', exact: true }).focus();
   await page.keyboard.press('Enter');
   await expect(page.locator('.study-card-info')).toBeVisible();
@@ -121,8 +134,9 @@ test('long card: footer does not cover content, info expands in flow on both sid
   await page.evaluate(() => window.setTestCard({ id: 9102, deck_id: 91, front: 'Neue Karte', back: 'Новая карточка' }));
   await expect(page.locator('.study-card-info')).toHaveCount(0);
   await expect(page.locator('.card-level-badge')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Card information', exact: true }).click();
+  await openInfo(page, 'Card information');
   await expect(page.getByRole('region', { name: 'Card information' })).not.toContainText(card.creator_name);
+  await page.keyboard.press('Escape');
   await page.evaluate(() => window.setTestLoading(true));
   await expect(page.locator('.study-card-flip-button')).toBeDisabled();
   await page.evaluate(() => window.setTestLoading(false));
@@ -144,7 +158,7 @@ test('trainer check action remains usable in the non-floating footer', async ({ 
   await check.click();
   await expect(check).toHaveText('Выполнено');
   await checkLayout(page);
-  await page.getByRole('button', { name: 'Информация о карточке', exact: true }).click();
+  await openInfo(page);
   await expect(page.locator('.study-card-info-row').filter({ hasText: 'Дата создания' })).toContainText('10.09.2026');
   await expect(page.locator('.study-card-info-row').filter({ hasText: 'Дата изменения' })).toContainText('16.10.2026');
   expect(errors).toEqual([]);
@@ -155,7 +169,7 @@ test('info stays available without revealing a blocked free-text answer', async 
     ...card, front: '@free\nBeschreiben Sie Ihre Erfahrungen.', back: 'Private example answer',
   });
   await expect(page.locator('.study-card-flip-button')).toHaveCount(0);
-  await page.getByRole('button', { name: 'Информация о карточке', exact: true }).click();
+  await openInfo(page);
   await expect(page.locator('.study-card-info')).toContainText(card.creator_name);
   await expect(page.locator('.study-card-info')).not.toContainText('Private example answer');
   await expect(page.locator('.card-back')).toHaveCount(0);

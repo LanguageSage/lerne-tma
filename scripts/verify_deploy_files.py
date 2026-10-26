@@ -57,6 +57,10 @@ def inspect(root=ROOT):
     names = git_files(root)
     required = ['api/index.py', 'api/requirements.txt', 'app/package.json',
                 'app/src/data/bundeslaender.js']
+    required += ['api/card_core/__init__.py']
+    required += ['api/card_core/lerne_card_core/' + name + '.py' for name in (
+        '__init__', 'answer_contract', 'deck_passport', 'input_parser',
+        'structured_cards_v2', 'structured_cards_legacy')]
     required += [f'{base}/vocab_de{suffix}.json'
                  for base in ('api/services/classifier/data', 'app/src/services/classifier/data')
                  for suffix in ('', '_medium', '_max')]
@@ -71,6 +75,8 @@ def inspect(root=ROOT):
     patterns = (root / '.vercelignore').read_text(encoding='utf-8')
     ignored = ignored_paths(patterns, sorted(set(names + required + blocked)))
     missing = [p for p in required if p not in names or not (root / p).is_file() or p in ignored]
+    # Vercel checks a directory entry before descending into its files.
+    missing += sorted(ignored_paths(patterns, ['api', 'app']))
     leaked = [p for p in blocked if p not in ignored]
     config = json.loads((root / 'vercel.json').read_text(encoding='utf-8'))
     python_config = next(b['config'] for b in config['builds'] if b['src'] == 'api/index.py')

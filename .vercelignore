@@ -1,7 +1,7 @@
 # Production contains application/build inputs only. Keep nested source data/.
 /*
-!/api/
-!/app/
+!api
+!app
 !/vercel.json
 !/package.json
 !/package-lock.json

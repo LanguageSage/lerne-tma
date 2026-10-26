@@ -1,7 +1,7 @@
 {
   "schema": {
-    "version": 1,
-    "source_sha256": "dd2e8888416855f6d9ec28f9efde1363c6988b7659d2d2b8a178924a0955ef74"
+    "version": 2,
+    "source_sha256": "baac9ec77a300ed4eaadfb48b3cdacb013e7b2b31afc050f7205ba81e668f500"
   },
   "permissions": {
     "version": 1,

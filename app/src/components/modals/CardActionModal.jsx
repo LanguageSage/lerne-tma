@@ -2,13 +2,18 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Move, Copy, Trash2, Edit2, Settings2, Hash, ArrowUp, ArrowDown } from 'lucide-react';
+import { X, Move, Copy, Trash2, Edit2, Settings2, Hash, ArrowUp, ArrowDown, Info, MessageSquare } from 'lucide-react';
 import { arrayMove } from '@dnd-kit/sortable';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { FlagPicker } from '../common/FlagPicker';
 import { getSortedFolderAndDeckTree } from '../../utils/deckUtils';
+import { useLanguageStore } from '../../store/useLanguageStore';
+import { useCardNotes } from '../../hooks/useCardNotes';
+import { StudyCardInfo } from '../study/StudyCardInfo';
+import { parseExerciseContent } from '../../utils/exerciseContentParser';
+import { CardNotesPanel, NoteIndicator } from './CardNotesPanel';
 export const CardActionModal = ({
   isOpen,
   onClose,
@@ -22,8 +27,10 @@ export const CardActionModal = ({
   onEdit
 }) => {
   useInterfaceLocale();
-  const [mode, setMode] = React.useState('main'); // 'main' | 'move' | 'copy' | 'position'
+  const [mode, setMode] = React.useState('main');
   const [expandedFolders, setExpandedFolders] = React.useState({});
+  const notes = useCardNotes(isOpen ? card?.id : null, true);
+  const modalRef = React.useRef(null);
   const { handleSetCardFlag } = useCardActions();
 
   const currentDeck = useDeckStore(s => s.currentDeck);
@@ -48,6 +55,25 @@ export const CardActionModal = ({
   const totalCardsCount = cardsList.length || card?.total_cards || 1;
 
   const [targetPos, setTargetPos] = React.useState(currentPosition);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const previous = document.activeElement;
+    return () => { if (previous?.isConnected) previous.focus(); };
+  }, [isOpen]);
+
+  React.useEffect(() => {
+    if (isOpen) modalRef.current?.querySelector('button')?.focus();
+  }, [isOpen, mode]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
+    const close = event => {
+      if (event.key === 'Escape') { event.stopPropagation(); onClose(); }
+    };
+    window.addEventListener('keydown', close, true);
+    return () => window.removeEventListener('keydown', close, true);
+  }, [isOpen, onClose]);
 
   const toggleFolder = (folderId) => {
     setExpandedFolders(prev => ({
@@ -127,6 +153,17 @@ export const CardActionModal = ({
         }}
       >
         <motion.div 
+          ref={modalRef}
+          role="dialog"
+          aria-modal="true"
+          aria-label={tr('Управление карточкой')}
+          onKeyDown={event => {
+            if (event.key !== 'Tab') return;
+            const targets = [...modalRef.current.querySelectorAll('button:not(:disabled), input:not(:disabled), textarea:not(:disabled)')];
+            const first = targets[0], last = targets.at(-1);
+            if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
+            if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
+          }}
           initial={{ opacity: 0, y: 100 }} 
           animate={{ opacity: 1, y: 0 }} 
           exit={{ opacity: 0, y: 100 }} 
@@ -163,9 +200,10 @@ export const CardActionModal = ({
             <h2 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
               {mode === 'main' ? tr("Управление карточкой") : 
                mode === 'move' ? tr("Переместить") : 
-                mode === 'copy' ? tr("Копировать") : tr("Позиция в списке")}
+                mode === 'copy' ? tr("Копировать") : mode === 'notes' ? tr('Заметки и предложения') :
+                mode === 'info' ? tr('Информация о карточке') : tr("Позиция в списке")}
             </h2>
-            <button className="close-btn" onClick={onClose} style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
+            <button className="close-btn" aria-label={tr('Закрыть')} onClick={onClose} style={{ background: 'rgba(255, 255, 255, 0.05)' }}>
               <X size={20} />
             </button>
           </div>
@@ -265,8 +303,25 @@ export const CardActionModal = ({
                     <span>{tr("Это действие нельзя отменить")}</span>
                   </div>
                 </button>}
+                <button type="button" className="action-menu-item" aria-label={tr('Заметки и предложения')} onClick={() => setMode('notes')}>
+                  <div className="action-menu-icon"><MessageSquare size={20} /></div>
+                  <div className="action-menu-text"><strong>{tr('Заметки и предложения')}</strong></div>
+                  <NoteIndicator {...notes} />
+                </button>
+                <button type="button" className="action-menu-item" aria-label={tr('Информация о карточке')} onClick={() => setMode('info')}>
+                  <div className="action-menu-icon"><Info size={20} /></div>
+                  <div className="action-menu-text"><strong>{tr('Информация о карточке')}</strong></div>
+                </button>
               </div>
             )}
+
+            {mode === 'notes' && <CardNotesPanel key={card.id} card={card} notes={notes} />}
+            {mode === 'info' && <StudyCardInfo card={card}
+              language={card.target_language || actionDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de'}
+              deckName={actionDeck?.name}
+              source={card.source || parseExerciseContent(card.front || card.front_text || '').source} />}
+            {(mode === 'notes' || mode === 'info') && <button type="button" className="btn-secondary btn-full mt-2"
+              onClick={() => setMode('main')} style={{ minHeight: 44 }}>{tr('Назад')}</button>}
 
             {mode === 'position' && (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', padding: '4px 0 10px' }}>
@@ -478,9 +533,10 @@ export const CardActionModal = ({
   );
 };
 
-export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false }) => {
+export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false, refreshNotes = false }) => {
   useInterfaceLocale();
   const { setActionCard, setIsCardActionModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
+  const notes = useCardNotes(card?.id, refreshNotes);
 
   const handleClick = (e) => {
     e.stopPropagation();
@@ -496,13 +552,17 @@ export const CardActionButton = ({ card, size = 16, className = "", stopDrag = f
   };
 
   return (
-    <div
+    <button
+      type="button"
       className={className}
       onPointerDown={stopDrag ? (e) => e.stopPropagation() : undefined}
       onClick={handleClick}
       title={tr("Действия с карточкой")}
+      aria-label={tr('Действия с карточкой')}
+      aria-haspopup="dialog"
     >
       <Settings2 size={size} />
-    </div>
+      <NoteIndicator {...notes} />
+    </button>
   );
 };
