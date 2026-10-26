@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { parseQuizData } from '../quizParser.js';
-import { projectEditorFields } from '../cardEditorSyntax.js';
+import { projectEditorFields, replaceEditorRange, setQuizOptionCorrect } from '../cardEditorSyntax.js';
 
 const question = 'Wähle die passende Fortsetzung.\n\nDer Bus hatte eine Panne.\nWir kamen zu spät.\n\n\nWelche Aussage passt?';
 const answers = ['Wir kamen pünktlich.', 'Wir kamen wegen einer Panne zu spät.', 'Wir blieben zu Hause.'];
@@ -131,6 +131,54 @@ test('quiz ignores bold question lines and trainer markers when locating options
 test('quiz still requires a question, two answers and a correct-answer marker', () => {
   for (const front of ['', 'Frage?\nA) Eins\nB) Zwei', 'Frage?\n*Eins', '*Eins\nZwei']) {
     assert.equal(parseQuizData({ front }), null);
+  }
+});
+
+test('editor and study share Quiz text formatting, checkbox markers and literal brackets', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const front = ['**Welche Stadt** [in Deutschland] ?', '',
+      '[*] Berlin ist *richtig* [Hauptstadt] .', '[ ] **Bonn** [früher] .', '[x] Hamburg *heute* .'].join(newline);
+    const fields = projectEditorFields(front);
+    const parsed = parseQuizData({ front });
+    assert.equal(fields[0].display, parsed.question);
+    assert.equal(parsed.question, 'Welche Stadt [in Deutschland]?');
+    const options = fields.filter(field => field.kind === 'quiz-option');
+    assert.deepEqual(options.map(field => field.correct), [true, false, false]);
+    for (const [index, option] of options.entries()) {
+      const studyOption = parsed.options.find(item => item.id === index);
+      const updated = replaceEditorRange(front, option.start, option.end, setQuizOptionCorrect(option, !option.correct));
+      assert.equal(updated, front.replace(option.value, option.value.replace(/\[[*xX ]\]/, option.correct ? '[ ]' : '[*]')));
+      assert.equal(studyOption.isCorrect, option.correct);
+      assert.equal(option.prefix + option.display, option.value);
+    }
+    assert.deepEqual([...parsed.options].sort((a, b) => a.id - b.id).map(option => option.text),
+      ['Berlin ist richtig [Hauptstadt].', 'Bonn [früher].', 'Hamburg heute.']);
+  }
+});
+
+test('bold answer text is formatting and does not mark an answer correct', () => {
+  for (const prefix of ['A) ', '- ', '○ ', '• ', '[ ] ']) {
+    const front = `**Wo** ?\n\n${prefix}**Bonn** [früher]\n*Berlin`;
+    const parsed = parseQuizData({ front });
+    const options = projectEditorFields(front).filter(field => field.kind === 'quiz-option');
+    assert.equal(parsed.correctAnswerText, 'Berlin');
+    assert.equal(parsed.options.find(option => option.id === 0).text, 'Bonn [früher]');
+    assert.equal(options[0].correct, false);
+    assert.equal(options[0].display, '**Bonn** [früher]');
+    const changed = replaceEditorRange(front, options[0].start, options[0].end, setQuizOptionCorrect(options[0], true));
+    assert.equal(parseQuizData({ front: changed }).options.find(option => option.id === 0).isCorrect, true);
+    assert.equal(parseQuizData({ front: changed }).options.find(option => option.id === 0).text, 'Bonn [früher]');
+  }
+});
+
+test('editor includes legacy unprefixed answers before a starred answer like study', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const front = ['**Wo** ?', '', 'Bonn', '*Berlin', 'Hamburg'].join(newline);
+    const fields = projectEditorFields(front);
+    assert.equal(fields[0].display, parseQuizData({ front }).question);
+    assert.equal(fields[0].value, '**Wo** ?');
+    assert.deepEqual(fields.slice(1).map(field => field.display), ['Bonn', 'Berlin', 'Hamburg']);
+    for (const field of fields) assert.equal(replaceEditorRange(front, field.start, field.end, field.value), front);
   }
 });
 

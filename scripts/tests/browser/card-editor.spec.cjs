@@ -181,6 +181,67 @@ test('B1-29-D02 compact quiz labels render in the editor and study card', async 
   await expect(page.locator('.quiz-option-item.correct')).toHaveCount(1);
 });
 
+test('Quiz formatting matches study and preserves source through focus, edits and correctness changes', async ({ page, context }, testInfo) => {
+  const front = '**Welche Stadt** [in Deutschland] ?\n\n[*] Berlin ist *richtig* [Hauptstadt] .\n[ ] **Bonn** [früher] .\n[x] Hamburg *heute* .';
+  await openEditor(page, context, front);
+  const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });
+  const option = index => page.getByRole('textbox', { name: `Вариант ${index}`, exact: true });
+  const expectedQuestion = 'Welche Stadt [in Deutschland]?';
+  const expectedOptions = ['Berlin ist richtig [Hauptstadt].', 'Bonn [früher].', 'Hamburg heute.'];
+  await expect(question).toHaveText(expectedQuestion);
+  for (const [index, text] of expectedOptions.entries()) await expect(option(index + 1)).toHaveValue(text);
+  await expect(page.getByRole('checkbox', { name: 'Правильный вариант 1', exact: true })).toBeChecked();
+  await expect(page.getByRole('checkbox', { name: 'Правильный вариант 3', exact: true })).not.toBeChecked();
+
+  // Focus exposes the original text for editing; leaving it untouched must not rewrite Markdown.
+  await question.focus();
+  await expect(question).toHaveText('**Welche Stadt** [in Deutschland] ?');
+  await option(1).focus();
+  await expect(question).toHaveText(expectedQuestion);
+  await expect(option(1)).toHaveValue('Berlin ist *richtig* [Hauptstadt] .');
+  await page.locator('#card-editor-back').focus();
+  await expect(option(1)).toHaveValue(expectedOptions[0]);
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveValue(front);
+  await toggleAdvanced(page).click();
+
+  for (const width of [320, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`quiz-format-editor-${width}.png`), fullPage: true });
+  }
+  await question.fill('**Welche Stadt** [heute] ?');
+  await option(2).fill('**Bonn** [früher] !');
+  await page.getByRole('checkbox', { name: 'Правильный вариант 2', exact: true }).check();
+  await expect(question).toHaveText('Welche Stadt [heute]?');
+  await expect(option(2)).toHaveValue('Bonn [früher]!');
+  const changedFront = front.replace('[in Deutschland]', '[heute]').replace('[ ] **Bonn** [früher] .', '[*] **Bonn** [früher] !');
+  await toggleAdvanced(page).click();
+  await expect(raw(page)).toHaveValue(changedFront);
+
+  const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
+  await page.getByRole('button', { name: /^Сохранить/ }).click();
+  expect((await saved).postDataJSON()).toMatchObject({ front: changedFront, card_type: 'quiz' });
+
+  await page.evaluate(async ({ front, deck }) => {
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const card = { id: 99, deck_id: deck.id, front, back: 'Объяснение', queue: 'new' };
+    useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
+    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
+      isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
+    useUiStore.getState().setView('study');
+  }, { front, deck });
+  await expect(page.locator('.quiz-question')).toHaveText(expectedQuestion);
+  for (const text of expectedOptions) await expect(page.locator('.quiz-option-item').filter({ hasText: text })).toHaveCount(1);
+  for (const width of [320, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`quiz-format-study-${width}.png`), fullPage: true });
+  }
+});
+
 test('simple creation uses the existing save API and has no technical cheatsheet', async ({ page, context }, testInfo) => {
   await openEditor(page, context);
   await expect(page.getByText('Тренажёр:', { exact: true })).toHaveCount(0);

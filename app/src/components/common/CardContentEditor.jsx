@@ -3,6 +3,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { editorCommandGroups, projectEditorFields, readableFrontText, replaceEditorRange, insertEditorCommand, editorSourceOffset, insertEditorLineAfter, setQuizOptionCorrect, syncWordBankAnswer } from '../../utils/cardEditorSyntax';
 import { autoGenerateChoices, isWordGap } from '../../utils/clozeParser';
+import { formatQuizText } from '../../utils/quizParser';
 import './CardContentEditor.css';
 
 export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false, modeAction }) {
@@ -10,6 +11,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   const [advanced, setAdvanced] = useState(false);
   const [openMenu, setOpenMenu] = useState(null);
   const [error, setError] = useState('');
+  const [focusedQuizOption, setFocusedQuizOption] = useState(null);
   const advancedId = useId();
   const rawRef = useRef(null);
   const menuRef = useRef(null);
@@ -91,7 +93,8 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   const commitInlineText = (field, element) => {
     const next = element.innerText.replace(/\r\n?/g, '\n');
     if (next === field.value.replace(/\r\n?/g, '\n')) return;
-    if (/::|^\s*@|[{}[\]]|<<|>>/m.test(next)) {
+    const reserved = field.sectionType === 'quiz' ? /::|^\s*@|[{}]|\[\[|\]\]|<<|>>/m : /::|^\s*@|[{}[\]]|<<|>>/m;
+    if (reserved.test(next)) {
       setError(tr('Этот символ используется в разметке. Откройте расширенный редактор.'));
       element.textContent = field.value;
       return;
@@ -143,7 +146,11 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
       <div className="card-editor-sentence" style={textStyle}>
         <span className="card-editor-inline-text" contentEditable role="textbox"
           aria-label={tr(field.label)} aria-multiline="true" tabIndex={0} suppressContentEditableWarning
-          onBlur={e => commitInlineText(field, e.currentTarget)}>{field.value}</span>
+          onFocus={e => { e.currentTarget.textContent = field.value.replace(/\r\n?/g, '\n'); }}
+          onBlur={e => {
+            commitInlineText(field, e.currentTarget);
+            e.currentTarget.textContent = formatQuizText(e.currentTarget.innerText);
+          }}>{field.display}</span>
       </div>
     </div>;
     if (field.kind === 'text') return <label className="card-editor-field" key={index}>
@@ -181,8 +188,10 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
               replace(field, setQuizOptionCorrect(field, e.target.checked));
             }} /></label>
           <input className="form-input" aria-label={tr('Вариант {{p0}}', { p0: optionNumber })}
-            value={field.display}
-            onChange={e => safeChange(e.target.value, /^(?:\*|\[)|[\r\n]/, next => replace(field, field.prefix + next))} />
+            value={focusedQuizOption === field.start ? field.display : formatQuizText(field.display)}
+            onFocus={() => setFocusedQuizOption(field.start)}
+            onBlur={() => setFocusedQuizOption(null)}
+            onChange={e => safeChange(e.target.value, /^(?:\*(?!\*)|\[[*xX ]\])|[\r\n]/, next => replace(field, field.prefix + next))} />
         </div>
         {!fields.slice(index + 1).some(item => item.kind === 'quiz-option') &&
           <button type="button" className="btn-secondary card-editor-add" onClick={() => addLine(field, '- ')}>

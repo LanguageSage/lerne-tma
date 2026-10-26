@@ -1,7 +1,7 @@
 import { parseExerciseContent } from './exerciseContentParser.js';
 import { detectExerciseType } from './exerciseDetector.js';
 import { normalizeWordBankValue } from './wordBankParser.js';
-import { isQuizOptionLine } from './quizParser.js';
+import { findQuizOptionStart, parseQuizOption, formatQuizText } from './quizParser.js';
 import { findMatchSeparator } from './matchParser.js';
 
 // Templates for the advanced markup toolbar grouped by category:
@@ -144,27 +144,12 @@ export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   return result;
 }
 
-function quizOptionParts(line) {
-  const correct = /^\s*(?:\*(?!\*)|\[\*\]|[-○•]\s*\*|(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*)/u.test(line);
-  let rest = line;
-  let prefix = '';
-  for (const pattern of [/^\s*/, /^\*(?!\*)\s*/, /^\[[*xX ]\]\s*/, /^[-○•]\s*/u,
-    /^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*/, /^\*\s*/]) {
-    const match = pattern.exec(rest);
-    if (match?.[0]) {
-      prefix += match[0];
-      rest = rest.slice(match[0].length);
-    }
-  }
-  return { prefix, display: rest, correct };
-}
-
 export function setQuizOptionCorrect(field, checked) {
   let prefix = field.prefix;
   if (/\[[*xX ]\]/.test(prefix)) {
     prefix = prefix.replace(/\[[*xX ]\]/, checked ? '[*]' : '[ ]');
   } else if (checked && !field.correct) {
-    prefix = prefix ? `${prefix}*` : '*';
+    prefix += field.display.startsWith('*') ? '* ' : '*';
   } else if (!checked && field.correct) {
     prefix = prefix.replace(/\*(?!\*)/, '');
     if (!prefix.trim()) prefix = '- ';
@@ -174,16 +159,23 @@ export function setQuizOptionCorrect(field, checked) {
 
 function projectQuizSection(raw, start, end, add) {
   const text = raw.slice(start, end);
-  const lines = [...text.matchAll(/[^\r\n]+/g)];
-  const optionStart = lines.findIndex((line, index) => index > 0 && isQuizOptionLine(line[0]));
-  if (optionStart < 1 || lines.length - optionStart < 2) return false;
-  let questionEnd = start + lines[optionStart].index;
+  const lines = text.split('\n');
+  const optionStart = findQuizOptionStart(lines);
+  if (optionStart < 1 || lines.slice(optionStart).filter(line => line.trim()).length < 2) return false;
+  let offset = start + lines.slice(0, optionStart).reduce((length, line) => length + line.length + 1, 0);
+  let questionEnd = offset;
   while (questionEnd > start && /[\r\n]/.test(raw[questionEnd - 1])) questionEnd--;
-  add('text', start, questionEnd, 'Вопрос / лицевая сторона', { sectionType: 'quiz' });
+  add('text', start, questionEnd, 'Вопрос / лицевая сторона', {
+    sectionType: 'quiz', display: formatQuizText(raw.slice(start, questionEnd))
+  });
   for (const line of lines.slice(optionStart)) {
-    const parts = quizOptionParts(line[0]);
-    add('quiz-option', start + line.index, start + line.index + line[0].length,
-      'Варианты ответа', parts);
+    if (line.trim()) {
+      const source = line.replace(/\r$/, '');
+      const { prefix, display, isCorrect } = parseQuizOption(source);
+      add('quiz-option', offset, offset + source.length,
+        'Варианты ответа', { prefix, display, correct: isCorrect });
+    }
+    offset += line.length + 1;
   }
   return true;
 }
@@ -298,6 +290,7 @@ export function projectEditorFields(raw = '') {
       { sectionType: exerciseType === 'trainer' ? 'trainer' : undefined, sectionIndex });
   }
   // Anything the visual controls cannot safely express is kept intact behind Raw.
-  if (fields.some(f => f.kind === 'text' && /::|^\s*@|[{}[\]]|<<|>>/m.test(f.value))) return null;
+  if (fields.some(f => f.kind === 'text' && (f.sectionType === 'quiz'
+    ? /::|^\s*@|[{}]|\[\[|\]\]|<<|>>/m : /::|^\s*@|[{}[\]]|<<|>>/m).test(f.value))) return null;
   return fields.length ? fields : [{ kind: 'text', start: 0, end: raw.length, value: raw, label: 'Вопрос / лицевая сторона' }];
 }

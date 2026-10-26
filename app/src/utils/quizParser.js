@@ -7,6 +7,8 @@ const cleanPunctuation = (str) => {
   return str.replace(/\s+([?!.,;:])/g, '$1').trim();
 };
 
+export const formatQuizText = (text) => cleanPunctuation(stripMarkdown(text));
+
 export const maskTrainerTokens = (text) => {
   if (!text) return '';
   return text
@@ -21,8 +23,7 @@ export const isQuizOptionLine = (line) => /^\s*(?:\*(?!\*)|\[[*xX ]\]|[-○•]|
  * Helper to clean prefixes like ○, •, -, [ ], [*], A), 1., etc. from option line
  * and determine if it is marked as the correct answer.
  */
-const cleanOptionPrefix = (line) => {
-  if (!line) return { isCorrect: false, text: '' };
+export const parseQuizOption = (line = '') => {
   const trimmed = line.trim();
 
   // Check if line begins with a correct-answer marker:
@@ -33,19 +34,39 @@ const cleanOptionPrefix = (line) => {
   const isCorrect = (
     /^\*(?!\*)/.test(trimmed) ||
     /^\[\*\]/i.test(trimmed) ||
-    /^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*/i.test(trimmed) ||
-    /^[-○•]\s*\*/u.test(trimmed)
+    /^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*\*(?!\*)/i.test(trimmed) ||
+    /^[-○•]\s*\*(?!\*)/u.test(trimmed)
   );
 
   // Strip prefixes: *, ○, •, -, [ ], [*], [x], A), A., 1), 1.
-  const cleaned = trimmed
-    .replace(/^\[[*xX ]\]\s*/i, '') // strip [*], [ ], [x]
-    .replace(/^[-*○•\s]+/u, '')     // strip leading *, ○, •, - and spaces
-    .replace(/^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*/i, '') // strip A) , A. , 1) , 1.
-    .replace(/^[-*○•\s]+/u, '')     // strip remaining bullets/stars after letter
-    .trim();
+  let display = line;
+  let prefix = '';
+  for (const pattern of [/^\s*/, /^\[[*xX ]\]\s*/i, /^\*(?!\*)\s*/, /^[-○•]\s*/u,
+    /^(?:[a-zA-Z]|[0-9]{1,2})[).]\s*/i, /^\*(?!\*)\s*/]) {
+    const match = pattern.exec(display);
+    if (match) {
+      prefix += match[0];
+      display = display.slice(match[0].length);
+    }
+  }
 
-  return { isCorrect, text: cleanPunctuation(stripMarkdown(cleaned)) };
+  return { prefix, display, isCorrect, text: formatQuizText(display) };
+};
+
+export const findQuizOptionStart = (lines) => {
+  const maskedLines = lines.map(maskTrainerTokens);
+  let firstOptionIdx = maskedLines.findIndex((line, index) => index > 0 && isQuizOptionLine(line));
+  if (firstOptionIdx < 1) return -1;
+
+  // Legacy unprefixed answers share a paragraph, with only the correct answer starred.
+  if (/^\s*\*(?!\*)/.test(maskedLines[firstOptionIdx])
+    && !isQuizOptionLine(maskedLines[firstOptionIdx].replace(/^\s*\*(?!\*)\s*/, ''))
+    && !maskedLines.slice(firstOptionIdx + 1).some(line => isQuizOptionLine(line.replace(/^\s*\*(?!\*)\s*/, '')))) {
+    for (let i = firstOptionIdx - 1; i > 0; i--) {
+      if (!maskedLines[i].trim()) return i + 1;
+    }
+  }
+  return firstOptionIdx;
 };
 
 /**
@@ -61,21 +82,8 @@ export const parseQuizData = (card) => {
 
   const lines = maskedFront.split('\n');
   // Use the same option markers as projectQuizSection; blank lines belong to the question.
-  let firstOptionIdx = lines.findIndex((line, index) => index > 0 && isQuizOptionLine(line));
+  const firstOptionIdx = findQuizOptionStart(lines);
   if (firstOptionIdx < 1) return null;
-
-  // Legacy unprefixed answers share a paragraph, with only the correct answer starred.
-  // Include unmarked answers before that star, using the last blank line before it.
-  if (/^\s*\*(?!\*)/.test(lines[firstOptionIdx])
-    && !isQuizOptionLine(lines[firstOptionIdx].replace(/^\s*\*(?!\*)\s*/, ''))
-    && !lines.slice(firstOptionIdx + 1).some(line => isQuizOptionLine(line.replace(/^\s*\*(?!\*)\s*/, '')))) {
-    for (let i = firstOptionIdx - 1; i > 0; i--) {
-      if (!lines[i].trim()) {
-        firstOptionIdx = i + 1;
-        break;
-      }
-    }
-  }
 
   const rawQuestion = lines.slice(0, firstOptionIdx).join('\n').trim();
   const optionLines = lines.slice(firstOptionIdx).map(line => line.trim()).filter(Boolean);
@@ -83,7 +91,7 @@ export const parseQuizData = (card) => {
 
   let hasCorrect = false;
   const optionsRaw = optionLines.map((line, idx) => {
-    const { isCorrect, text } = cleanOptionPrefix(line);
+    const { isCorrect, text } = parseQuizOption(line);
     if (isCorrect) hasCorrect = true;
     return {
       id: idx,
@@ -101,7 +109,7 @@ export const parseQuizData = (card) => {
 
   return {
     isQuiz: true,
-    question: cleanPunctuation(stripMarkdown(rawQuestion)) || tr("Выберите правильный ответ:"),
+    question: formatQuizText(rawQuestion) || tr("Выберите правильный ответ:"),
     options: shuffledOptions,
     correctAnswerId: correctOption.id,
     correctAnswerText: correctOption.text
