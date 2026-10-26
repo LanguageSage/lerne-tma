@@ -1,4 +1,4 @@
-"""Verify annotations in a new disposable PostgreSQL cluster, never existing data."""
+"""Verify card notes and messages in a disposable PostgreSQL cluster."""
 import argparse
 import json
 import os
@@ -16,7 +16,7 @@ def main():
     parser.add_argument('--catalog', type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[2]
-    scratch = root / 'scratch' / ('card-notes-pg-' + uuid4().hex)
+    scratch = root / 'local' / 'test-data' / ('card-notes-pg-' + uuid4().hex)
     scratch.mkdir(parents=True)
     with socket.socket() as probe:
         probe.bind(('127.0.0.1', 0)); port = probe.getsockname()[1]
@@ -38,7 +38,7 @@ def main():
         from test_card_notes import models, TABLES, router, run_card_notes_migration
         from peewee import PostgresqlDatabase
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port, user='notes_test')
-        db.bind([*TABLES, models.TMACardNote]); db.create_tables(TABLES)
+        db.bind([*TABLES, models.TMACardNote, models.TMAUserMessage]); db.create_tables(TABLES)
         for role in ('anon', 'authenticated'):
             db.execute_sql(f'CREATE ROLE {role}')
         run_card_notes_migration(db)
@@ -48,38 +48,35 @@ def main():
         first = router.save_note(card.id, note_id, router.NoteWrite(kind='note', text='Private'), 1)
         run_card_notes_migration(db)
         assert router.list_notes(card.id, 1)[0]['id'] == first['id']
-        assert db.execute_sql("SELECT relrowsecurity FROM pg_class WHERE relname='tma_card_note'").fetchone() == (True,)
-        for role in ('anon', 'authenticated'):
-            assert db.execute_sql("SELECT has_table_privilege(%s, 'tma_card_note', 'SELECT')", (role,)).fetchone() == (False,)
-        # Independent Admin reads the same contract without importing TMA.
-        from lerne_admin.core.api import models as admin_models
-        from lerne_admin.core import compatibility
-        from lerne_admin.routers import card_notes as admin
-        admin_models.tma_db.initialize(db)
-        compatibility.guard_database(db)
-        suggestion = router.save_note(card.id, uuid4(), router.NoteWrite(
-            kind='suggestion', text='Typo', seen_revision=1), 1)
-        listed = admin.suggestions(status='new', page=1)['items']
-        assert [item['id'] for item in listed] == [suggestion['id']]
-        admin.review(suggestion['id'], admin.ReviewWrite(status='fixed', reply='Corrected', revision=1))
-        stale = router.save_note(card.id, suggestion['id'], router.NoteWrite(kind='suggestion', seen_revision=1), 1)
-        assert (stale['revision'], stale['seen_revision'], stale['reply']) == (2, 1, 'Corrected')
-        read = router.save_note(card.id, suggestion['id'], router.NoteWrite(kind='suggestion', seen_revision=2), 1)
-        assert read['seen_revision'] == 2
+        for table in ('tma_card_note', 'tma_user_message'):
+            assert db.execute_sql(
+                'SELECT relrowsecurity FROM pg_class WHERE relname=%s', (table,)).fetchone() == (True,)
+            for role in ('anon', 'authenticated'):
+                assert db.execute_sql(
+                    'SELECT has_table_privilege(%s, %s, %s)',
+                    (role, table, 'SELECT')).fetchone() == (False,)
+        message_id = str(uuid4())
+        models.TMAUserMessage.create(id=message_id, user_id=1, sender='user',
+            kind='suggestion', text='Typo', card_id=card.id, link=f'/cards/{card.id}')
+        models.TMAUserMessage.create(id=str(uuid4()), user_id=1, sender='admin',
+            kind='reply', text='Fixed', thread=message_id)
+        card.delete_instance()
+        assert models.TMACardNote.select().count() == 0
+        assert models.TMAUserMessage.select().count() == 2
         catalog = [
-            db.execute_sql("SELECT table_name, column_name, data_type, udt_name, is_nullable, character_maximum_length, column_default FROM information_schema.columns WHERE table_schema='public' AND table_name='tma_card_note' ORDER BY table_name, ordinal_position").fetchall(),
-            db.execute_sql("SELECT c.relname, con.conname, pg_get_constraintdef(con.oid) FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid WHERE c.relname='tma_card_note' ORDER BY c.relname, con.conname").fetchall(),
-            db.execute_sql("SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname='public' AND tablename='tma_card_note' ORDER BY tablename, indexname").fetchall(),
+            db.execute_sql("SELECT table_name, column_name, data_type, udt_name, is_nullable, character_maximum_length, column_default FROM information_schema.columns WHERE table_schema='public' AND table_name IN ('tma_card_note', 'tma_user_message') ORDER BY table_name, ordinal_position").fetchall(),
+            db.execute_sql("SELECT c.relname, con.conname, pg_get_constraintdef(con.oid) FROM pg_constraint con JOIN pg_class c ON c.oid=con.conrelid WHERE c.relname IN ('tma_card_note', 'tma_user_message') ORDER BY c.relname, con.conname").fetchall(),
+            db.execute_sql("SELECT tablename, indexname, indexdef FROM pg_indexes WHERE schemaname='public' AND tablename IN ('tma_card_note', 'tma_user_message') ORDER BY tablename, indexname").fetchall(),
         ]
         args.catalog.parent.mkdir(parents=True, exist_ok=True)
         args.catalog.write_text(json.dumps(catalog, indent=2), encoding='utf-8')
-        print('PASS: disposable PostgreSQL migration/rerun, RLS/grants, real Admin SQL guard/moderation, privacy and author read receipts; catalog captured')
+        print('PASS: disposable PostgreSQL migration/rerun, RLS/grants, note cascade, retained message thread; catalog captured')
         db.close()
     finally:
         if started:
             run('pg_ctl', '-D', scratch / 'data', '-m', 'immediate', '-w', 'stop')
             data = (scratch / 'data').resolve()
-            assert data.parent == scratch.resolve() and scratch.parent == root / 'scratch'
+            assert data.parent == scratch.resolve() and scratch.parent == root / 'local' / 'test-data'
             assert scratch.name.startswith('card-notes-pg-')
             shutil.rmtree(data)
 

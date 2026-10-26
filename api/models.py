@@ -164,19 +164,34 @@ class TMACardNote(BaseModel):
     id = CharField(primary_key=True, max_length=36)
     card = ForeignKeyField(TMA_Card, column_name='card_id', backref='notes', on_delete='CASCADE')
     user_id = BigIntegerField()
-    kind = CharField(max_length=16)  # note | suggestion; immutable
     text = TextField()
-    status = CharField(max_length=16, default='new')
-    reply = TextField(default='')
     revision = IntegerField(default=1)
-    seen_revision = IntegerField(default=0)
     is_deleted = BooleanField(default=False)
     created_at = DateTimeField(default=datetime.datetime.now)
     updated_at = DateTimeField(default=datetime.datetime.now)
 
     class Meta:
         table_name = 'tma_card_note'
-        indexes = ((('user_id', 'card'), False), (('kind', 'status'), False))
+        indexes = ((('user_id', 'card'), False),)
+
+
+class TMAUserMessage(BaseModel):
+    id = CharField(primary_key=True, max_length=36)  # Client-generated retry key.
+    user_id = BigIntegerField()  # Owner of the entire conversation.
+    sender = CharField(max_length=16)  # user -> moderator; admin/system -> user.
+    kind = CharField(max_length=32)  # suggestion, reply, news, deck_update, ...
+    text = TextField()
+    thread = ForeignKeyField('self', column_name='thread_id', null=True,
+                             backref='replies', on_delete='RESTRICT')
+    card_id = BigIntegerField(null=True)  # Historical reference, never a card FK.
+    link = TextField(null=True)
+    read_at = DateTimeField(null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_user_message'
+        indexes = ((('user_id', 'created_at'), False),
+                   (('sender', 'read_at', 'created_at'), False))
 
 
 class TMA_Collaborator(BaseModel):

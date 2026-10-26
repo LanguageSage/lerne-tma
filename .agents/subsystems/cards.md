@@ -201,32 +201,29 @@ back to logical service names, so an extraction alone preserves fingerprints and
 saved jobs. It also checks aliases; future logic changes still require review.
 Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.
 
-## Personal notes and card suggestions
+## Personal notes and messages
 
-`api/routers/card_notes.py` exposes authenticated `GET /card-notes/{card_id}`
-and UUID-idempotent `PUT /card-notes/{card_id}/{note_id}`. Both enforce existing
-card/deck read access; every returned/mutated row belongs to the caller, even for
-platform administrators. `TMACardNote` / `tma_card_note` owns kind, author/card,
-text, status, reply, moderation revision, seen revision and deletion tombstone.
-Only personal notes can be edited/deleted. Read acknowledgements never rewrite
-text or acknowledge a newer reply. Card editing, copying, content JSON, SRS and
-progress do not include these rows. Permanent card deletion cascades to notes.
+`TMACardNote` / `tma_card_note` stores only a user's note on a card, including
+AI questions and answers. The existing UUID note route keeps card read access,
+user ownership and deletion tombstones. A permanent card deletion cascades to
+notes. Card JSON, SRS and progress do not contain them.
 
-Additive migration 87 is transactional, creates indexes/FK and enables RLS with
-no public Data API grants/policies. Lerne's API and independent Admin use their
-existing direct PostgreSQL role (table owner or BYPASSRLS). Only LOCAL bootstrap
-applies it automatically. Every non-LOCAL API startup skips migration 87, even
-with `RUN_MIGRATIONS=true`; production uses the explicit script below. Until the
-table exists, both notes routes return 503 without creating it or blocking
-card editing, grading or entity sync.
-`scripts/migrate_card_notes.py` inspects the explicitly supplied
-`CARD_NOTES_MIGRATION_DATABASE_URL`; `--apply` applies only migration 87. Remote
-DSNs require TLS. No real LOCAL/Supabase database was migrated during this change.
+`TMAUserMessage` / `tma_user_message` is the single store for suggestions,
+moderator replies and notifications. `user_id` owns each conversation; `sender`
+is `user`, `admin` or `system`. A reply points to the root message via
+`thread_id`; `read_at` is the recipient's receipt. Client-generated UUID primary
+keys make retries idempotent. Suggestions carry `card_id` and `link` as historical
+references, without a card FK, so messages survive permanent card deletion.
+The message API and Admin/learner interfaces belong to the next stage. The old
+Admin card-suggestion SQL and its compatibility profile target the retired
+moderation fields and must not be used against migration 90.
 
-Independent `lerne-admin` owns the suggestions list/moderation route and uses
-the table contract without importing TMA. It preserves its loopback operator
-boundary and separate compatibility operation `card-notes`. Schema contract is
-v2; card/import/permission contracts and shared card-core are unchanged.
-Checks: `test_card_notes.py`, client `cardNotes.test.js`, browser notes/info specs,
-and `card_notes_postgres.py` (explicit disposable cluster, actual Admin SQL guard,
-RLS/public grants, replies and read acknowledgements).
+Migration 90 creates both tables transactionally with indexes, note FK cascade,
+message thread FK, RLS and revoked public Data API grants. ID 87 is already
+recorded in both connected Supabase projects without a note table; 88 and 89
+are also recorded in the test project. LOCAL bootstrap applies 90 automatically;
+non-LOCAL startup never does. `scripts/migrate_card_notes.py` inspects an
+explicit `CARD_NOTES_MIGRATION_DATABASE_URL`; `--apply` is the only production
+entry point. No real LOCAL/Supabase database was migrated during this stage.
+Checks: `test_card_notes.py`, `test_critical_http.py` and disposable PostgreSQL
+`card_notes_postgres.py`.

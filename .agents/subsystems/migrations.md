@@ -9,12 +9,16 @@
 
 ## Data flow / Recovery
 
-Card notes migration 87 is separate from `MIGRATIONS`: LOCAL bootstrap applies
-it; non-LOCAL API startup never does. Production uses only
+Card communication migration 90 is separate from `MIGRATIONS`: LOCAL bootstrap
+applies it; non-LOCAL API startup never does. Both connected Supabase projects
+already record ID 87 without `tma_card_note`; test also records 88 and 89, so
+87 must not be reused. Production uses only
 `scripts/migrate_card_notes.py --apply` with an explicit
-`CARD_NOTES_MIGRATION_DATABASE_URL`. Missing annotation storage is an isolated
-503 from the notes routes. Bootstrap scope and old-schema HTTP regressions are
-covered by `test_card_notes.py` and `test_critical_http.py`.
+`CARD_NOTES_MIGRATION_DATABASE_URL`. The migration
+creates private notes and messages atomically; existing untracked tables or a
+recorded 90 with a different shape fail closed. Missing note storage is an
+isolated 503 from the notes routes. Bootstrap scope and old-schema HTTP
+regressions are covered by `test_card_notes.py` and `test_critical_http.py`.
 
 `run_migrations` открывает собственную транзакцию. PostgreSQL advisory transaction lock
 `76120901` (ожидание блокировки максимум 5 секунд) или SQLite `BEGIN IMMEDIATE`

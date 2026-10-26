@@ -46,16 +46,11 @@ back to logical service names, so an extraction alone preserves fingerprints and
 saved jobs. It also checks aliases; future logic changes still require review.
 Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.
 
-## Card suggestions — 2026-10-26
+## Personal messages — stage 1, 2026-10-26
 
-Admin owns `/api/admin/card-suggestions` (list/status/reply) and the «Предложения»
-tab, with a link to the existing card editor. It reads only `kind=suggestion` in
-new `tma_card_note`; personal notes are excluded. The trusted loopback console
-operator is the existing administrative authority. Host/Origin, alternate-source
-read-only dispatch, DB compatibility and revision conflict checks remain
-enforced; there is no remote moderator login or new role system. TMA owns
-additive migration 87; Admin never migrates this table. Schema contract v2 and
-optional profiles are reviewed in Admin's
-`reviews/card-notes-2026-10-26/README.md`. Missing/unknown annotation schemas block
-only annotation writes. Sources and UI tests are owned by `lerne-admin`, with no
-runtime TMA import.
+TMA migration 90 separates private `tma_card_note` from `tma_user_message`.
+Suggestions, replies and announcements use the shared message table; messages
+retain a card ID/link without a card FK. Admin's current `/api/admin/card-suggestions`
+and `card-notes` compatibility profile still describe the superseded note
+moderation schema. They require review against the message contract before
+message handling is enabled in the next stage. Admin never runs TMA migrations.
