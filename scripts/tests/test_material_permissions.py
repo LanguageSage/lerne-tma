@@ -362,6 +362,21 @@ class MaterialPermissionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 500, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, previous)
 
+    def test_explicit_audio_does_not_overwrite_newer_link(self):
+        previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
+        newer = 'https://example.supabase.co/storage/v1/object/public/audio/manual.mp3'
+        models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
+
+        async def finish_after_new_link(*_args, **_kwargs):
+            models.TMA_Card.update(audio_path=newer).where(models.TMA_Card.id == self.card.id).execute()
+            return 'https://example.supabase.co/storage/v1/object/public/audio/generated.mp3'
+
+        with patch('api.utils.audio.generate_audio', side_effect=finish_after_new_link):
+            response = self.call('POST', '/media/generate-card-audio', 101,
+                                 json={'card_id': self.card.id})
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, newer)
+
     def test_text_edit_keeps_old_audio_when_background_upload_fails(self):
         previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
         models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()

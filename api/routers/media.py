@@ -292,6 +292,8 @@ async def generate_card_audio_endpoint(
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
     card_source_text = card.front_text if side == 'front' else card.back_text
+    field = 'audio_back_path' if side == 'back' else 'audio_path'
+    previous_path = getattr(card, field)
     text_value = data.get('text')
     if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
         text_value = card_source_text
@@ -324,11 +326,18 @@ async def generate_card_audio_endpoint(
             (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
         if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
             raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
-        field = 'audio_back_path' if side == 'back' else 'audio_path'
-        previous_path = getattr(card, field)
-        setattr(card, field, path)
-        card.updated_at = models.datetime.datetime.now()
-        card.save(only=[getattr(models.TMA_Card, field), models.TMA_Card.updated_at])
+        text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
+        changed = models.TMA_Card.update(**{
+            field: path, 'updated_at': models.datetime.datetime.now()
+        }).where(
+            (models.TMA_Card.id == card_id) &
+            (models.TMA_Card.deck_id == card.deck_id) &
+            (models.TMA_Card.is_deleted == False) &
+            (text_field == card_source_text) &
+            (getattr(models.TMA_Card, field) == previous_path)
+        ).execute()
+        if changed != 1:
+            raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
         return {'path': path, 'url': url}
     except HTTPException:
         raise
