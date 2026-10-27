@@ -56,7 +56,7 @@ export function CardNotesPanel({ card, notes }) {
     </article>)}
     <form onSubmit={save}>
       <label htmlFor="card-note-text">{tr(editing ? 'Редактировать запись' : 'Новая запись')}</label>
-      <textarea id="card-note-text" value={text} maxLength={10000} rows={4} required disabled={busy}
+      <textarea id="card-note-text" value={text} maxLength={100000} rows={4} required disabled={busy}
         onChange={event => setText(event.target.value)} />
       <div className="card-notes-entry-actions">
         <button type="submit" className="btn-primary" disabled={busy || !text.trim()}>{tr('Сохранить')}</button>

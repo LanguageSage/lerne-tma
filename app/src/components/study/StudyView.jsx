@@ -23,6 +23,7 @@ import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
 import { getUserId } from '../../utils/auth';
+import { writeCardNote } from '../../services/cardNotes.js';
 import { useStudyStepFlow } from '../../hooks/useStudyStepFlow.js';
 import { canGradeStudyFlow, isSuccessfulStudyAnswer, STUDY_ACTION } from '../../utils/studySteps.js';
 
@@ -525,34 +526,31 @@ ${targetCard.back}`;
   };
 
   const handleAskQuestion = async (userRequest) => {
-    if (!card?.front) return false;
-    if (userProfile?.is_guest) {
-      setIsAuthModalOpen(true, tr("Для редактирования карточек войдите через Telegram"));
+    const sourceCard = card;
+    const sourceCardId = sourceCard?.id;
+    const sourceUserId = getUserId();
+    if (!sourceCard?.front) return false;
+    if (sourceUserId == null || userProfile?.is_guest) {
+      setIsAuthModalOpen(true, tr('Вход в аккаунт'));
       return false;
     }
 
-    const promptContext = await buildStudyContext(card, studyMode);
+    const promptContext = await buildStudyContext(sourceCard, studyMode);
     const result = await runAiGenerator(promptContext, true, 'custom_directive', userRequest);
     if (!result) return false;
 
     const answer = String(result.context || '').trim();
     if (!answer) return false;
+    if (getUserId() !== sourceUserId) return false;
 
-    stopAudio();
-    return { success: true, answer };
-  };
-
-  const handleSaveExplanation = async (explanation) => {
-    if (!explanation || !card) return;
-    const currentContext = String(card.context || '').trim();
-    const nextContext = currentContext ? `${explanation}\n\n${currentContext}` : explanation;
     try {
-      await api.put(`/cards/${card.id}`, { context: nextContext });
-      useSessionStore.getState().updateCardInSession?.(card.id, { context: nextContext });
-      useDeckStore.getState().updateCardLocal?.(card.id, { context: nextContext });
-      showToast(tr("Ответ сохранен в контекст!"), "success");
+      const note = await writeCardNote(sourceCardId, { text: `${userRequest.trim()}\n\n${answer}` });
+      if (note.sync_error) showToast(tr('Не удалось синхронизировать записи. Изменения на устройстве сохранены.'), 'info');
+      if (useSessionStore.getState().card?.id === sourceCardId) stopAudio();
+      return true;
     } catch {
-      showToast(tr("Не удалось сохранить контекст"), "error");
+      showToast(tr('Не удалось сохранить изменения. Повторите попытку.'), 'error');
+      return false;
     }
   };
 
@@ -759,7 +757,6 @@ ${targetCard.back}`;
               stepFlow={stepFlow}
               renderRequiredAction={renderRequiredAction ?? (autoSpeechActions ? renderSpeechFollowup : undefined)}
               onAskQuestion={handleAskQuestion}
-              onSaveExplanation={handleSaveExplanation}
               onNextCard={() => {
                 if (!canGrade) return;
                 setIsFlipped(false);

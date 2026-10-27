@@ -14,7 +14,7 @@ router = APIRouter(prefix='/card-notes', tags=['card-notes'])
 
 class NoteWrite(BaseModel):
     model_config = ConfigDict(extra='forbid')
-    text: Optional[str] = Field(default=None, max_length=10000)
+    text: Optional[str] = Field(default=None, max_length=100000)
     is_deleted: bool = False
 
 

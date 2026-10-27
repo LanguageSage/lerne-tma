@@ -209,8 +209,9 @@ with card read access and strict note ownership. `GET /card-notes/deck/{deck_id}
 returns only the current user's notes for accessible, active cards in one query.
 `StudyCard` shows Dexie notes at the start of Context, before the source context;
 `CardNotesPanel` edits the same rows through the account-scoped offline outbox.
-AI answers are not connected. Permanent card deletion cascades to notes. Card
-JSON, SRS and progress do not contain them.
+Study AI questions save the question and complete answer as one ordinary note
+on the card captured at submission; failed generation creates no note. Permanent
+card deletion cascades to notes. Card JSON, SRS and progress do not contain them.
 
 `TMAUserMessage` / `tma_user_message` is the single store for suggestions,
 moderator replies and notifications. `user_id` owns each conversation; `sender`

@@ -76,6 +76,12 @@ class CardCommunicationTests(unittest.TestCase):
             router.list_deck_notes(self.deck.id, 3)
         self.assertEqual(caught.exception.status_code, 403)
 
+    def test_full_ai_answer_fits_personal_note(self):
+        text = 'Question\n\n' + 'Answer ' * 2000
+        note = self.save(text=text)
+        self.assertEqual(note['text'], text.strip())
+        self.assertEqual(router.list_deck_notes(self.deck.id, 1)[0]['text'], text.strip())
+
     def test_messages_thread_read_receipt_retry_and_deleted_card_history(self):
         message_id, reply_id = str(uuid4()), str(uuid4())
         original = dict(id=message_id, user_id=1, sender='user', kind='suggestion',
