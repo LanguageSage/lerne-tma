@@ -24,6 +24,7 @@ Knowledge Attempts отправляются отдельным механизм�
 2. Offline handler сохраняет изменения в Dexie, dirty flags и локальные версии; новые сущности получают отрицательные ID.
 3. SyncService формирует устойчивый пакет в `syncState` и отправляет `/sync/v2/push` через `networkApi`.
 4. `offline_sync.py` проверяет права и повтор `request_id`, сохраняет сущности/reviews и возвращает mappings.
+   Новое значение `audio_path`/`audio_back_path` в облаке принимается только при наличии объекта в `storage.objects`; неизменённые ссылки и явное удаление поля сохраняют прежнюю семантику.
 5. Клиент подтверждает пакет, переводит временные ID, синхронизирует learning preferences и получает `/sync/v2/pull`.
 6. Snapshot применяется с сохранением локальных dirty changes; события remap/synced обновляют клиентские представления.
 7. Legacy push/pull и collab-pull остаются отдельными маршрутами; проверяйте caller перед выбором сервиса.

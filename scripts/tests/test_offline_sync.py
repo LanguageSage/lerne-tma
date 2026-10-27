@@ -7,6 +7,7 @@ from pathlib import Path
 import sys
 import types
 import unittest
+from unittest.mock import patch
 from uuid import uuid4
 
 from peewee import SqliteDatabase
@@ -66,8 +67,9 @@ class OfflineSyncTests(unittest.TestCase):
                     'audio_back_path': 'back.mp3', 'flag': 3}],
             progress=[{'card_id': -4, 'queue': 'learning', 'interval': 5, 'ease_factor': 2.5,
                        'repetitions': 1, 'lapses': 0, 'step_index': 1, 'next_review': '2026-09-05T10:00:00Z'}])
-        first = sync.push_offline(request, 1)
-        self.assertEqual(sync.push_offline(request, 1), first)
+        with patch('api.services.offline_sync.validate_new_audio_path'):
+            first = sync.push_offline(request, 1)
+            self.assertEqual(sync.push_offline(request, 1), first)
         self.assertEqual(models.TMA_Card.select().count(), 1)
         child = models.TMA_Folder.get_by_id(first['mappings']['folders']['-2'])
         self.assertEqual(child.parent_id, first['mappings']['folders']['-1'])
@@ -131,6 +133,18 @@ class OfflineSyncTests(unittest.TestCase):
         self.assertEqual(updated.front_text, 'new')
         self.assertEqual(updated.audio_path, '')
         self.assertGreater(updated.updated_at.year, 2000)
+
+    def test_missing_new_audio_rolls_back_sync_and_keeps_old_link(self):
+        deck = models.TMA_Deck.create(user_id=1, name='Deck')
+        card = models.TMA_Card.create(deck=deck, front_text='x', back_text='y', audio_path='old.mp3')
+        request = self.request(cards=[{'id': card.id, 'deck_id': deck.id,
+                                      'front_text': 'changed', 'back_text': 'y',
+                                      'audio_path': 'audio/missing.mp3'}])
+        with self.assertRaises(HTTPException) as failure:
+            sync.push_offline(request, 1)
+        self.assertEqual(failure.exception.status_code, 422)
+        self.assertEqual(models.TMA_Card.get_by_id(card.id).audio_path, 'old.mp3')
+        self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
 
     def test_deleted_records_are_not_resurrected_and_cycles_rejected(self):
         with self.assertRaises(HTTPException):

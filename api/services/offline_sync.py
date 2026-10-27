@@ -6,6 +6,7 @@ import json
 from fastapi import HTTPException
 
 from api import models
+from api.services.media import validate_new_audio_path
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
@@ -104,6 +105,8 @@ def push_offline(request, user_id: int) -> dict:
                 raw = item.model_dump(exclude_unset=True)
                 values = {field: raw[field] for field in FIELDS[name] if field in raw}
                 lookup_fields = (model.id, model.deck_id) if name == 'cards' else (model.id,)
+                if name == 'cards':
+                    lookup_fields = (*lookup_fields, model.audio_path, model.audio_back_path)
                 existing = model.select(*lookup_fields).where(model.id == item.id).first() if item.id > 0 else None
                 if item.id >= 0 and existing is None:
                     raise HTTPException(409, 'Запись удалена на сервере. Локальные изменения сохранены.')
@@ -140,6 +143,9 @@ def push_offline(request, user_id: int) -> dict:
                     if not existing or existing.deck_id != deck_id:
                         require_access(user_id, 'deck', deck_id)
                     values['deck_id'] = deck_id
+                    for field in ('audio_path', 'audio_back_path'):
+                        if field in values:
+                            validate_new_audio_path(values[field], getattr(existing, field) if existing else None)
 
                 # Last committed edit wins across devices; client clock skew cannot hide it.
                 values['updated_at'] = now

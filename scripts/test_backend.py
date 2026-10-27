@@ -23,6 +23,8 @@ SUITES = (
     'scripts/tests/test_local_dev.py',
     'scripts/tests/test_test_isolation.py',
     'scripts/tests/test_media_storage_migration.py',
+    'scripts/tests/test_audio_force_regeneration.py',
+    'scripts/tests/test_card_content_service.py',
     'scripts/tests/test_deploy_manifest.py',
     'scripts/tests/test_local_deployment.py',
     'scripts/tests/test_deck_passport.py',

@@ -21,6 +21,7 @@
 1. Карточка содержит media paths/URLs; UI нормализует их через media helpers и отображает player/StudyCardImage.
 2. Playback аудио поддерживает прямой публичный Supabase Storage URL через `getAudioUrl`; images/media также обслуживает API.
 3. TTS запрос → `/media/generate-audio` → media service / edge-tts helpers → сохранение и возврат path/URL.
+   В cloud-режиме успех возвращается только после загрузки в Supabase Storage; `/tmp/pending_audio` — промежуточный файл и не становится ссылкой карточки. `/media/upload-audio` также отвечает ошибкой, если постоянная загрузка не состоялась.
 4. Клиент связывает результат с карточкой через cards flow; study serialization возвращает существующее audio, не генерируя его при каждом Next.
 5. Offline mediaCache возвращает cached blob URL или network URL и при возможности заполняет Dexie `media`.
 6. Изображения имеют собственные retry/loading/fallback в StudyCardImage.
@@ -35,6 +36,7 @@
 - Разрешение пути: `getAudioUrl`/`cleanMedia` в utils/media, `mediaURL` в apiConfig; blob/data/external URLs требуют отдельного обращения.
 - Локальный media cache — производная копия, отдельная от текста карточки и entity sync.
 - Генерация и проверка пригодности audio cache находятся в `api/services/media.py` / `api/utils/audio.py`.
+- Новые ссылки на аудио проверяются по `storage.objects` при `/cards/save`, пакетном копировании/перезаписи дубликата, v2 и legacy sync; отсутствие конфигурации Storage блокирует новую ссылку. Неизменённые старые ссылки не блокируют правку карточки. При смене произносимого текста и автоматической генерации прежняя ссылка остаётся до успешной загрузки новой. Скрипт `scripts/update_db_audio_urls.py` прекращает миграцию до UPDATE, если целевого объекта Storage нет.
 - Поля image URL/path могут отличаться у online/offline/raw карточек; renderer должен учитывать существующий fallback cascade.
 - StudyCardImage владеет состояниями загрузки/retry; настройки голоса и скорости — `app/src/store/useSettingsStore.js`.
 
@@ -64,6 +66,7 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
   не обходят права. Явный viewer audio grant сохранён; TTS подменён fixture.
 
 - Audio force/cache: `scripts/tests/test_audio_force_regeneration.py`.
+- Постоянная запись и сохранение старой ссылки при ошибке: `scripts/tests/test_audio_force_regeneration.py`, `scripts/tests/test_material_permissions.py`.
 - Offline media scenarios: `scripts/tests/browser/offline.spec.cjs`.
 - Playback/autoplay: `scripts/tests/browser/autoplay-ui.spec.cjs`, `scripts/tests/autoplay_sequence.mjs`.
 Проверяйте mocks/fixtures: аудио-проверки могут обращаться к TTS и storage.

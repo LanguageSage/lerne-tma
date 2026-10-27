@@ -260,16 +260,9 @@ async def generate_audio_endpoint(
                 "word_boundaries": word_boundaries
             }
         
-        try:
-            filename = os.path.basename(result)
-            return {
-                "path": filename,
-                "url": f"/api/media/audio/{filename}",
-                "word_boundaries": word_boundaries
-            }
-        except Exception as err:
-            logger.error(f"AUDIO GENERATION ERROR: {err}")
-            raise HTTPException(status_code=500, detail=f"Audio Generation Error: {str(err)}")
+        raise HTTPException(status_code=503, detail="Audio was not saved to permanent Storage")
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         err_msg = traceback.format_exc()
@@ -321,13 +314,10 @@ async def generate_card_audio_endpoint(
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
 
-        if result.startswith('http'):
-            path = result
-            url = result
-        else:
-            filename = os.path.basename(result)
-            path = filename
-            url = f'/api/media/audio/{filename}'
+        if not result.startswith('http'):
+            raise HTTPException(status_code=503, detail="Audio was not saved to permanent Storage")
+        path = result
+        url = result
 
         # Access or the containing deck may have changed while TTS was running.
         card = models.TMA_Card.get_or_none(
@@ -377,18 +367,7 @@ async def upload_audio_file(
                 "url": cloud_url
             }
 
-    try:
-        out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
-        os.makedirs(out_dir, exist_ok=True)
-        with open(os.path.join(out_dir, filename), "wb") as f:
-            f.write(content)
-    except Exception as e:
-        logger.error(f"Audio upload fallback save error: {e}")
-
-    return {
-        "path": f"audio/{filename}",
-        "url": f"/api/media/audio/{filename}"
-    }
+    raise HTTPException(status_code=503, detail="Audio upload to permanent Storage failed")
 
 from collections import OrderedDict
 

@@ -11,6 +11,26 @@ def main():
 
     print("Checking current status before update...")
     with db.atomic() as txn:
+        # A URL rewrite cannot make a missing object permanent. Abort the
+        # entire migration before changing even one card when a target is absent.
+        for tbl in ('tma_card', 'card'):
+            for field in ('audio_path', 'audio_back_path'):
+                missing = db.execute_sql(f"""
+                    SELECT COUNT(*) FROM {tbl} AS c
+                    WHERE (c.{field} LIKE '%%/tma-audio/%%' OR
+                           (c.{field} IS NOT NULL AND c.{field} <> '' AND c.{field} NOT LIKE 'http%%'))
+                      AND NOT EXISTS (
+                          SELECT 1 FROM storage.objects AS o
+                          WHERE o.bucket_id = 'audio'
+                            AND o.name = CASE
+                                WHEN c.{field} LIKE '%%/tma-audio/%%'
+                                THEN split_part(c.{field}, '/tma-audio/', 2)
+                                ELSE c.{field}
+                            END
+                      )
+                """).fetchone()[0]
+                if missing:
+                    raise RuntimeError(f'{tbl}.{field}: {missing} target Storage objects are absent; no URLs changed')
         # Check counts
         for tbl in ['tma_card', 'card']:
             cursor = db.execute_sql(f"""

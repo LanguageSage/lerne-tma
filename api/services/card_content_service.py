@@ -92,7 +92,10 @@ def apply_card_content(card: Any, data: dict) -> None:
         if spoken_changed:
             incoming_audio = data.get('audio_path')
             if not incoming_audio or incoming_audio == card.audio_path:
-                card.audio_path = None
+                if data.get('_defer_audio_invalidation') and card.audio_path:
+                    card._refresh_front_audio = True
+                else:
+                    card.audio_path = None
             else:
                 card.audio_path = incoming_audio
         elif 'audio_path' in data and data.get('audio_path') is not None:

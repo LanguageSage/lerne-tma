@@ -3,6 +3,7 @@ import json
 from pathlib import Path
 import runpy
 import unittest
+from unittest.mock import patch
 
 fixture = runpy.run_path(str(Path(__file__).with_name('test_bulk_import_idempotency.py')))
 models, cards, database = (fixture[k] for k in ('models', 'cards', 'database'))
@@ -12,6 +13,9 @@ from api.services.cefr_metadata import get_cefr_metadata
 class CardContentServiceTests(unittest.TestCase):
     def setUp(self):
         database.create_tables(fixture['TABLES'])
+        media_check = patch('api.services.media.validate_new_audio_path')
+        media_check.start()
+        self.addCleanup(media_check.stop)
         models.TMAUser.create(user_id=1)
         self.deck = models.TMA_Deck.create(user_id=1, name='Deck')
 
