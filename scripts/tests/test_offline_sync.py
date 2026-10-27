@@ -140,8 +140,10 @@ class OfflineSyncTests(unittest.TestCase):
         request = self.request(cards=[{'id': card.id, 'deck_id': deck.id,
                                       'front_text': 'changed', 'back_text': 'y',
                                       'audio_path': 'audio/missing.mp3'}])
-        with self.assertRaises(HTTPException) as failure:
-            sync.push_offline(request, 1)
+        with patch('api.services.offline_sync.validate_new_audio_path',
+                   side_effect=HTTPException(422, 'missing Storage object')):
+            with self.assertRaises(HTTPException) as failure:
+                sync.push_offline(request, 1)
         self.assertEqual(failure.exception.status_code, 422)
         self.assertEqual(models.TMA_Card.get_by_id(card.id).audio_path, 'old.mp3')
         self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
