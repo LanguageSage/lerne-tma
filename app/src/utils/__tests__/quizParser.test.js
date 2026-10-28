@@ -2,10 +2,36 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { findQuizOptionStart, parseQuizData } from '../quizParser.js';
+import { detectCardType, detectExerciseType } from '../exerciseDetector.js';
 import { projectEditorFields, replaceEditorRange, setQuizOptionCorrect } from '../cardEditorSyntax.js';
 
 const question = 'Wähle die passende Fortsetzung.\n\nDer Bus hatte eine Panne.\nWir kamen zu spät.\n\n\nWelche Aussage passt?';
 const answers = ['Wir kamen pünktlich.', 'Wir kamen wegen einer Panne zu spät.', 'Wir blieben zu Hause.'];
+
+test('explicit Quiz supports a question in information blocks without repeating a heading', () => {
+  for (const newline of ['\n', '\r\n']) {
+    for (const gap of ['\n', '\n\n']) {
+      const body = ['[ ] Ein Brief', '[*] Ein Forum', '[ ] Eine E-Mail'].join(gap);
+      const front = `::task\nBestimme die Textsorte.\n::source\nWelche Textsorte passt?\n::exercise\n${body}`.replace(/\n/g, newline);
+      assert.equal(detectCardType(front), 'quiz');
+      assert.equal(detectExerciseType({ front_text: front, card_type: 'standard' }), 'quiz');
+      const quiz = parseQuizData({ front });
+      assert.ok(quiz);
+      assert.equal(quiz.question, '');
+      assert.equal(quiz.correctAnswerText, 'Ein Forum');
+      assert.deepEqual([...quiz.options].sort((a, b) => a.id - b.id).map(option => option.text),
+        ['Ein Brief', 'Ein Forum', 'Eine E-Mail']);
+      const fields = projectEditorFields(front);
+      assert.deepEqual(fields.filter(field => field.kind === 'quiz-option').map(field => field.display),
+        ['Ein Brief', 'Ein Forum', 'Eine E-Mail']);
+      for (const field of fields) assert.equal(replaceEditorRange(front, field.start, field.end, field.value), front);
+    }
+  }
+  for (const body of ['[*] Nur eine Antwort', '[ ] Eins\n[ ] Zwei', '[*] Eins\nErklärung\n[ ] Zwei']) {
+    assert.equal(parseQuizData({ front: `::source\nFrage?\n::exercise\n${body}` }), null);
+  }
+  assert.equal(parseQuizData({ front: '::source\n[*] Eins\n[ ] Zwei\n::exercise\nNormaler Text' }), null);
+});
 
 const boundaries = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/fixtures/quiz_boundaries.json', import.meta.url), 'utf8'));
 const boundaryFormats = {

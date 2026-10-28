@@ -17,6 +17,21 @@ CORPUS = json.loads((Path(__file__).resolve().parents[2] / 'local' / 'test-data'
 
 
 class ExerciseDetectionCorpusTests(unittest.TestCase):
+    def test_explicit_quiz_without_repeated_question(self):
+        for newline in ('\n', '\r\n'):
+            for gap in ('\n', '\n\n'):
+                body = gap.join(['[ ] Ein Brief', '[*] Ein Forum', '[ ] Eine E-Mail'])
+                front = ('::task\nBestimme die Textsorte.\n::source\nWelche Textsorte passt?\n'
+                         f'::exercise\n{body}').replace('\n', newline)
+                with self.subTest(newline=newline, gap=gap):
+                    self.assertEqual(detect_card_type(front), 'quiz')
+                    exercise = parse_exercise_content(front)['exercise']
+                    self.assertEqual(parse_quiz_options(exercise, allow_empty_question=True),
+                                     [(False, 'Ein Brief'), (True, 'Ein Forum'), (False, 'Eine E-Mail')])
+                    self.assertEqual(parse_quiz_options(exercise), [])
+        for body in ('[*] Eins', '[ ] Eins\n[ ] Zwei', '[*] Eins\nErklärung\n[ ] Zwei'):
+            self.assertEqual(detect_card_type(f'::source\nFrage?\n::exercise\n{body}'), 'standard')
+
     def test_quiz_boundaries_match_editor_and_study_fixtures(self):
         fixtures = json.loads((Path(__file__).resolve().parents[2] / 'local/test-data/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
         formats = {

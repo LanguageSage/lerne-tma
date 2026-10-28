@@ -79,6 +79,12 @@ class SingleQuizTests(unittest.TestCase):
     def test_legacy_full_card_on_authored_quiz_uses_same_contract(self):
         self.assertEqual(set(self.generate('full_card')), {'back', 'context'})
 
+    def test_question_in_source_does_not_require_an_exercise_heading(self):
+        front = FRONT.replace('Womit fährt Anna?\n\n', '').replace('A) ', '[ ] ').replace('*B) ', '[*] ').replace('C) ', '[ ] ')
+        self.assertEqual(self.generate(front=front), LESSON)
+        self.assertEqual(self.mock_chat.await_count, 1)
+        self.assertEqual(self.mock_chat.call_args.kwargs['user_message'], front)
+
     def test_library_quiz_accepts_original_letter_labels_and_leading_checkmark(self):
         front = ('::task\nЗапись в библиотеку: конструкция «nicht ... sondern»\n::exercise\n'
                  'A: «Wir gehen nicht morgen, sondern erst nächste Woche zur Bibliothek.»\n\n'

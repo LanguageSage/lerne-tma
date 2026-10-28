@@ -66,6 +66,16 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 
 ## Session and provider recovery
 
+- Verified Telegram bot/Mini App display fields travel with the internal
+  `VerifiedIdentity`. Explicit auth migration 91 adds nullable
+  `TMAAuthChallenge.verified_profile` for the bot/browser round trip. Login/link
+  fills missing profile fields only after resolving the verified account, in the
+  same transaction as identity/session issuance; custom names are preserved.
+  Old pending challenges remain valid without metadata. Deploy migration 91
+  before this server version. Regression tests reproduce a blank browser-login
+  profile, verify re-login after logout, field isolation and migration rollback
+  in `scripts/tests/test_auth_foundation.py`.
+
 - `/auth/v2/me` applies the server learning language on restoration and login
   before loading the library. Startup `/auth/sync` does not write browser
   default languages to the account. Login retains the same account's init

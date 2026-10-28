@@ -1,6 +1,6 @@
 {
   "name": "lerne-card-core",
-  "version": "0.1.1",
+  "version": "0.1.2",
   "source_repository": "LanguageSage/tma",
   "source_revision": "0a850db9e22fb1f963548e942a07c1f5f36b2c0b",
   "source_files": {
@@ -13,9 +13,9 @@
   "files": {
     "answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "deck_passport.py": "087073a1f4b6391de9ca086b0c778ab9746392522a90d65d27f8957e06f141db",
-    "input_parser.py": "7534f189975d7b42ac1958263bb3cdd3b8811c21f034a16029c66359974682d0",
+    "input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
     "structured_cards_v2.py": "851076f220c2e2d89aaa6204ced4d1553322e6473fb0c98f478b519938a1cbe6",
     "structured_cards_legacy.py": "73088609cb721849e0781cf162a6cc2937f320f4e58782070953910395982429",
-    "__init__.py": "b70eff5cd227da8a3f673f888adbde963a2da965a38c3c79dabd16af9e7d7a72"
+    "__init__.py": "b92cad826e82baa52f3a9e82eb97c6e9102353209e0032ad28b468fea3df1bb7"
   }
 }

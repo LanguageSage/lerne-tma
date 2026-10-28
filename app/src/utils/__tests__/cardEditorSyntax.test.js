@@ -170,7 +170,7 @@ test('raw insertion replaces selection at the cursor, retaining both surrounding
   assert.equal(result.text, 'A[[Berlin]]B');
   assert.equal(result.cursor, 11);
   assert.equal(insertEditorCommand('AB', 'choice', 0, 1).text, '{*Berlin|Hamburg|München}B');
-  assert.equal(insertEditorCommand('AB', 'task', 1).text, 'A\n::task\nB');
+  assert.equal(insertEditorCommand('AB', 'task', 1).text, 'A\n::task\n\n::exercise\nB');
 });
 
 test('unknown and ambiguous legacy syntax is not converted or lost', () => {
@@ -261,7 +261,7 @@ test('hint and source insert at the cursor even when a source block exists', () 
   const after = '::source\nКонтекст.\n\n::exercise\nHallo.';
   for (const id of ['source', 'hint']) {
     assert.equal(insertEditorCommand(before + after, id, before.length).text, before + '::source\n' + after);
-    assert.equal(insertEditorCommand('SELECT\n' + after, id, 0, 6).text, '::source\n\n' + after);
+    assert.equal(insertEditorCommand('SELECT\n' + after, id, 0, 6).text, '::source\nSELECT\n' + after);
   }
 });
 
@@ -304,5 +304,107 @@ test('textarea LF offsets map both selection ends to CRLF source ranges', () => 
 test('all four directive templates use the existing exercise detector', () => {
   for (const [id, type] of [['puzzle', 'puzzle'], ['match', 'match'], ['free', 'free_text'], ['wordbank', 'word_bank']]) {
     assert.equal(detectExerciseType(insertEditorCommand('', id).text), type);
+  }
+});
+
+test('assigning a marker keeps the exact selection between the surrounding text', () => {
+  const raw = 'Before. Select this. After.';
+  const start = raw.indexOf('Select');
+  const end = start + 'Select this.'.length;
+  const result = insertEditorCommand(raw, 'task', start, end);
+  assert.equal(result.text, 'Before. \n::task\nSelect this.\n::exercise\n After.');
+  assert.deepEqual(parseExerciseContent(result.text).blocks.map(({ type, content }) => [type, content]),
+    [['exercise', 'Before.'], ['task', 'Select this.'], ['exercise', 'After.']]);
+  assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'Select this.');
+});
+
+test('all information markers preserve selected text, including exercise body', () => {
+  for (const command of editorCommands.filter(c => c.info)) {
+    const result = insertEditorCommand('Before\nSelected\nAfter', command.id, 7, 15);
+    assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'Selected');
+    assert.ok(parseExerciseContent(result.text).blocks.some(b => b.type === command.id && b.content === 'Selected'));
+    assert.equal(parseExerciseContent(result.text).blocks.at(-1).content, 'After');
+  }
+});
+
+test('whole block body and whole block including marker change role without duplicate markers', () => {
+  for (const newline of ['\n', '\r\n']) {
+    const raw = ['::task', 'Selected', '', '::exercise', 'After'].join(newline);
+    for (const start of [0, raw.indexOf('Selected')]) {
+      const result = insertEditorCommand(raw, 'source', start, raw.indexOf('Selected') + 8);
+      assert.equal(result.text, raw.replace('::task', '::source'));
+      assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'Selected');
+      assert.equal(parseExerciseContent(result.text).source, 'Selected');
+    }
+  }
+});
+
+test('partial block assignment restores both unselected parts to their original role', () => {
+  const raw = '::source\nBefore. Selected. After.\n::exercise\nBody';
+  const at = raw.indexOf('Selected.');
+  const result = insertEditorCommand(raw, 'task', at, at + 9);
+  assert.deepEqual(parseExerciseContent(result.text).blocks.map(({ type, content }) => [type, content]),
+    [['source', 'Before.'], ['task', 'Selected.'], ['source', 'After.'], ['exercise', 'Body']]);
+  const prefix = insertEditorCommand(raw, 'task', 9, at + 9);
+  assert.ok(prefix.text.startsWith('::task\nBefore. Selected.\n::source\n'));
+  assert.ok(!prefix.text.startsWith('::source'));
+});
+
+test('empty block insertion puts the cursor on its own line and leaves following text outside', () => {
+  const result = insertEditorCommand('BeforeAfter', 'task', 6);
+  assert.equal(result.text, 'Before\n::task\n\n::exercise\nAfter');
+  const typed = replaceEditorRange(result.text, result.cursor, result.cursor, 'New task');
+  assert.equal(parseExerciseContent(typed).task, 'New task');
+  assert.equal(parseExerciseContent(typed).exercise, 'Before\n\nAfter');
+});
+
+test('multiline selection remains a single information block', () => {
+  const raw = 'Paragraph one.\n\nParagraph two.';
+  const result = insertEditorCommand(raw, 'source', 0, raw.length);
+  assert.equal(parseExerciseContent(result.text).source, raw);
+  assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), raw);
+});
+
+test('legacy implicit exercise boundaries before and after a wrapped range keep their meaning', () => {
+  const raw = '::task\nInstruction\n\nFirst body\n\n::example\nExample\n\nSecond body';
+  for (const text of ['Instruction', 'First body', 'Example', 'Second body']) {
+    const start = raw.indexOf(text);
+    const result = insertEditorCommand(raw, 'source', start, start + text.length);
+    assert.deepEqual(parseExerciseContent(result.text).blocks.filter(b => b.content).map(b => b.content),
+      ['Instruction', 'First body', 'Example', 'Second body'], text);
+    assert.equal(parseExerciseContent(result.text).source, text);
+    assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), text);
+  }
+});
+
+test('unsafe selections across blocks or within answer syntax are rejected without changing text', () => {
+  const raw = '::task\nInstruction\n::exercise\nBody [[answer]]';
+  for (const [start, end] of [[0, raw.length], [2, 5], [raw.indexOf('answer') + 1, raw.length - 2]]) {
+    const result = insertEditorCommand(raw, 'source', start, end);
+    assert.equal(result.text, raw);
+    assert.ok(result.error);
+  }
+});
+
+test('CRLF wrapping preserves line endings, body whitespace and the exact selected range', () => {
+  const raw = 'Before\r\n  Selected  \r\nAfter';
+  const result = insertEditorCommand(raw, 'example', 8, 20);
+  assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), '  Selected  ');
+  assert.equal(parseExerciseContent(result.text).examples[0], 'Selected');
+  assert.ok(!/(?<!\r)\n/.test(result.text));
+  assert.ok(result.text.startsWith('Before\r\n'));
+  assert.ok(result.text.endsWith('\r\nAfter'));
+});
+
+test('block bodies matching marker names and repeated empty blocks use the actual body range', () => {
+  for (const newline of ['\n', '\r\n']) {
+    for (const emptyPrefix of ['', '::task' + newline + newline]) {
+      const raw = emptyPrefix + ['::task', 'task', '::exercise', 'Body'].join(newline);
+      const start = raw.lastIndexOf('task');
+      const result = insertEditorCommand(raw, 'source', start, start + 4);
+      assert.equal(result.text, emptyPrefix + ['::source', 'task', '::exercise', 'Body'].join(newline));
+      assert.equal(parseExerciseContent(result.text).source, 'task');
+      assert.equal(result.text.slice(result.selectionStart, result.selectionEnd), 'task');
+    }
   }
 });

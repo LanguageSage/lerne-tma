@@ -27,6 +27,7 @@ async function setup(page, context) {
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: cards });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/study/card/1' || pathname === '/api/decks/1/next') return route.fulfill({ json: cards[0] });
     if (pathname === '/api/cards/save') return route.fulfill({ json: { ...cards[0], ...route.request().postDataJSON() } });
     return route.fulfill({ json: {} });
@@ -69,8 +70,8 @@ test('Theory badge, ordinary study/reveal and editing preserve the type', async 
     useSessionStore.getState().setEditingCard(card);
     useUiStore.getState().setView('editor');
   }, cards[0]);
-  await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
   const raw = page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
+  await expect(raw).toBeVisible();
   await expect(raw).toHaveValue(front);
   await raw.fill(front + '\nDas ist eine Erklärung.');
   const request = page.waitForRequest('**/api/cards/save');

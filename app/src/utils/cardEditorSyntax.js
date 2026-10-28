@@ -124,6 +124,7 @@ export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   if (!command) return { text: raw, cursor: start };
   start = Math.max(0, Math.min(start, raw.length));
   end = Math.max(start, Math.min(end, raw.length));
+  if (command.info) return wrapEditorBlock(raw, command, start, end);
   const before = raw.slice(0, start);
   const after = raw.slice(end);
   const newline = raw.includes('\r\n') ? '\r\n' : '\n';
@@ -144,6 +145,88 @@ export function insertEditorCommand(raw, id, start = raw.length, end = start) {
   return result;
 }
 
+/** Assign a role to source text; the runtime parser owns the block boundaries. */
+function wrapEditorBlock(raw, command, start, end) {
+  const newline = raw.includes('\r\n') ? '\r\n' : '\n';
+  const normalized = raw.replace(/\r\n?/g, '\n');
+  const markers = editorMarkers(raw);
+  let searchFrom = 0;
+  const blocks = parseExerciseContent(raw).blocks.map(block => {
+    const marker = block.marker ? markers.find(m => m.type === block.type
+      && m.index >= editorSourceOffset(raw, searchFrom)) : null;
+    // Start after the actual marker, even for an empty block or body "task".
+    // Otherwise indexOf may mistake part of ::task for its body.
+    if (marker) searchFrom = raw.slice(0, marker.end).replace(/\r\n?/g, '\n').length;
+    const at = normalized.indexOf(block.content, searchFrom);
+    if (at < 0 || !block.content) return null;
+    const contentStart = editorSourceOffset(raw, at);
+    const contentEnd = editorSourceOffset(raw, at + block.content.length);
+    searchFrom = at + block.content.length;
+    return { ...block, start: contentStart, end: contentEnd, marker };
+  }).filter(Boolean);
+  const block = blocks.find(b => start >= (b.marker?.index ?? b.start) && start <= b.end);
+  const selected = raw.slice(start, end);
+  const fullBlock = block && end > start && end >= block.end
+    && (start <= (block.marker?.index ?? block.start)
+      || (start >= (block.marker?.end ?? block.start)
+        && !raw.slice(block.marker?.end ?? block.start, start).trim()));
+  const fail = () => ({ text: raw, cursor: start,
+    error: 'Выделите текст внутри одного блока, не разделяя маркеры и поля ответа.' });
+  const finish = (text, from, to, selectionStart, selectionEnd) => {
+    const delta = text.length - raw.length;
+    // Explicit exercise markers disable legacy blank-line boundaries globally.
+    // Preserve existing implicit exercise blocks on both sides of the edit.
+    for (const [index, next] of [...blocks.entries()].reverse()) {
+      if (next.type !== 'exercise' || next.marker || (next.start >= from && next.start <= to)
+        || !index || blocks[index - 1].type === 'exercise') continue;
+      const at = next.start > to ? next.start + delta : next.start;
+      const boundary = '::exercise' + newline;
+      text = text.slice(0, at) + boundary + text.slice(at);
+      if (at <= selectionStart) { selectionStart += boundary.length; selectionEnd += boundary.length; }
+    }
+    return { text, cursor: selectionEnd, selectionStart, selectionEnd };
+  };
+
+  if (block && end > block.end && raw.slice(block.end, end).trim()) return fail();
+
+  if (block?.marker && fullBlock) {
+    // Selecting the body or the whole block changes its role in place.
+    const from = block.marker.index;
+    const to = block.marker.end;
+    const template = command.template.replace(/\n/g, newline);
+    const text = raw.slice(0, from) + template + raw.slice(to);
+    const delta = template.length - (to - from);
+    return finish(text, from, to, block.start + delta, block.end + delta);
+  }
+  if (markers.some(m => start < m.end && end > m.index)
+    || (start === end && markers.some(m => start > m.index && start < m.end))
+    || [...raw.matchAll(/\[\[[\s\S]*?\]\]|\{[^{}]*\}|<<[^<>]*>>/g)]
+      .some(m => (start > m.index && start < m.index + m[0].length)
+        || (end > m.index && end < m.index + m[0].length))) return fail();
+
+  let from = start;
+  // At the beginning of an existing block, replace its marker instead of
+  // leaving an empty original block behind.
+  if (block?.marker && !raw.slice(block.marker.end, start).trim()) from = block.marker.index;
+  const before = raw.slice(0, from);
+  const after = raw.slice(end);
+  const prefix = before && !before.endsWith('\n') ? newline : '';
+  const template = command.template.replace(/\n/g, newline);
+  const bodyStart = before.length + prefix.length + template.length;
+  let addition = prefix + template + raw.slice(from === start ? start : block.marker.end, end);
+  const selectionStart = bodyStart + (from === start ? 0 : start - block.marker.end);
+  const selectionEnd = selectionStart + selected.length;
+  // A closing boundary keeps unselected text in its previous role. In
+  // particular, an empty inserted block must not capture the following text.
+  const remaining = block ? raw.slice(end, block.end) : after;
+  if ((remaining.trim() && !/^[\s]*::\w+[ \t]*\r?\n/.test(after))
+    || (command.id !== 'exercise' && /\r?\n[ \t]*\r?\n/.test(selected))) {
+    if (!selected || !addition.endsWith('\n')) addition += newline;
+    addition += `::${block?.type || 'exercise'}` + newline;
+  } else if (after && !addition.endsWith('\n') && !/^[\r\n]/.test(after)) addition += newline;
+  return finish(before + addition + after, from, end, selectionStart, selectionEnd);
+}
+
 export function setQuizOptionCorrect(field, checked) {
   let prefix = field.prefix;
   if (/\[[*xX ]\]/.test(prefix)) {
@@ -157,15 +240,15 @@ export function setQuizOptionCorrect(field, checked) {
   return prefix + field.display;
 }
 
-function projectQuizSection(raw, start, end, add) {
+function projectQuizSection(raw, start, end, add, allowEmptyQuestion) {
   const text = raw.slice(start, end);
   const lines = text.split('\n');
-  const optionStart = findQuizOptionStart(lines);
-  if (optionStart < 1) return false;
+  const optionStart = findQuizOptionStart(lines, { allowEmptyQuestion });
+  if (optionStart < 0) return false;
   let offset = start + lines.slice(0, optionStart).reduce((length, line) => length + line.length + 1, 0);
   let questionEnd = offset;
   while (questionEnd > start && /[\r\n]/.test(raw[questionEnd - 1])) questionEnd--;
-  add('text', start, questionEnd, 'Вопрос / лицевая сторона', {
+  if (raw.slice(start, questionEnd).trim()) add('text', start, questionEnd, 'Вопрос / лицевая сторона', {
     sectionType: 'quiz', display: formatQuizText(raw.slice(start, questionEnd))
   });
   for (const line of lines.slice(optionStart)) {
@@ -247,7 +330,7 @@ export function projectEditorFields(raw = '') {
       continue;
     }
     if (exerciseType === 'quiz') {
-      if (!projectQuizSection(raw, start, end, add)) return null;
+      if (!projectQuizSection(raw, start, end, add, explicitExercise)) return null;
       continue;
     }
     if (exerciseType === 'word_bank') {

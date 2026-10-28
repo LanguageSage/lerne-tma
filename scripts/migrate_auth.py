@@ -19,7 +19,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--apply', action='store_true', help='Apply auth migrations 76–79 to the explicitly configured DB')
+    parser.add_argument('--apply', action='store_true', help='Apply auth migrations 76–79 and 91 to the explicitly configured DB')
     args = parser.parse_args()
     # Read this BEFORE importing models (the legacy database module loads dotenv).
     url = os.environ.get('AUTH_MIGRATION_DATABASE_URL')
@@ -54,7 +54,7 @@ def main():
                       'auth_tables_present': [m._meta.table_name for m in AUTH_MODELS
                                               if database.table_exists(m._meta.table_name)]}
             report['recorded_auth_migrations'] = [row[0] for row in database.execute_sql(
-                'SELECT migration_id FROM tma_migration_history WHERE migration_id BETWEEN 76 AND 79 ORDER BY migration_id'
+                'SELECT migration_id FROM tma_migration_history WHERE migration_id BETWEEN 76 AND 79 OR migration_id = 91 ORDER BY migration_id'
             ).fetchall()] if database.table_exists('tma_migration_history') else []
             if args.apply:
                 report['migration'] = run_auth_migrations(database)

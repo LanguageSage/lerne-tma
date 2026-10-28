@@ -39,8 +39,8 @@ def proof(provider='telegram', subject='101', when=None):
 
 class AuthDatabaseTests(unittest.TestCase):
     def setUp(self):
-        scratch = Path(__file__).resolve().parents[2] / 'scratch'
-        scratch.mkdir(exist_ok=True)
+        scratch = Path(__file__).resolve().parents[2] / 'local' / 'test-data' / 'auth'
+        scratch.mkdir(parents=True, exist_ok=True)
         # Avoid Python 3.14's private temporary-directory ACL on Windows restricted
         # tokens; each test still gets a separate, unpredictable disposable file.
         self.database_path = scratch / f'lerne-auth-test-{uuid.uuid4().hex}.sqlite3'
@@ -371,6 +371,113 @@ class AuthDatabaseTests(unittest.TestCase):
         tokens = service.login_verified(proof('telegram', '101'))
         self.assertEqual(tokens.account_id, account_id)
 
+    def test_telegram_browser_login_restores_profile_and_same_account_after_logout(self):
+        self.migrate()
+        # Only the Telegram transport/types are stubbed; execute the real bot
+        # handler, challenge service and profile endpoint without network I/O.
+        telegram = SimpleNamespace(Update=object, WebAppInfo=object,
+                                   InlineKeyboardButton=lambda *a, **kw: None,
+                                   InlineKeyboardMarkup=lambda *a, **kw: None)
+        with patch.dict(sys.modules, {'telegram': telegram,
+                                     'telegram.ext': SimpleNamespace(Application=None)}):
+            from api.routers import bot
+        from api.routers.auth_v2 import get_authenticated_profile
+        subject = 303
+        telegram_user = SimpleNamespace(id=subject, first_name='Тестовый ученик',
+                                        last_name='Fixture', username='fixture_learner')
+        reply = AsyncMock()
+        update = SimpleNamespace(effective_user=telegram_user,
+                                 effective_message=SimpleNamespace(reply_text=reply))
+        for attempt in range(2):
+            challenge = service.create_challenge('telegram', 'login')
+            context = SimpleNamespace(args=['auth_' + challenge.state])
+            asyncio.run(bot.start_handler(update, context))
+            result = service.exchange_challenge(challenge.id, challenge.secret)
+            tokens = result['tokens']
+            profile = get_authenticated_profile(tokens.account_id)
+            self.assertEqual(profile['first_name'], telegram_user.first_name)
+            self.assertEqual(profile['username'], telegram_user.username)
+            self.assertFalse(profile['is_guest'])
+            if attempt == 0:
+                account_id = tokens.account_id
+                service.revoke_session(tokens.access_token)
+            else:
+                self.assertEqual(tokens.account_id, account_id)
+
+    def test_profile_migration_upgrades_old_challenges_without_losing_pending_login(self):
+        self.migrate()
+        challenge = service.create_challenge('telegram', 'login')
+        service.confirm_challenge(challenge.state, proof())
+        self.database.execute_sql('ALTER TABLE tma_auth_challenge DROP COLUMN verified_profile')
+        self.database.execute_sql('DELETE FROM tma_migration_history WHERE migration_id = 91')
+        before = self.snapshot()
+        self.assertTrue(self.migrate()['profile_migration_applied'])
+        self.assertEqual(self.snapshot(), before)
+        self.assertEqual(service.exchange_challenge(challenge.id, challenge.secret)['tokens'].account_id, 101)
+        self.assertFalse(self.migrate().get('profile_migration_applied', False))
+
+    def test_telegram_profile_only_fills_missing_fields_on_the_verified_account(self):
+        self.migrate()
+        verified = proof()
+        verified.profile.update(first_name='Provider name', last_name='Fixture', username='fixture_user',
+                                user_id=202, is_admin=True, email='spoofed@example.test')
+        challenge = service.create_challenge('telegram', 'login')
+        service.confirm_challenge(challenge.state, verified)
+        # Confirmation alone must not create identities or edit profiles.
+        self.assertEqual(models.TMAAuthIdentity.select().count(), 0)
+        self.assertIsNone(models.TMAUser.get_by_id(101).username)
+        service.exchange_challenge(challenge.id, challenge.secret)
+        user = models.TMAUser.get_by_id(101)
+        self.assertEqual(user.first_name, 'Synthetic user')
+        self.assertEqual(user.username, 'fixture_user')
+        stored_profile = models.TMAAuthChallenge.get_by_id(challenge.id).verified_profile
+        self.assertEqual(set(json.loads(stored_profile)), {'first_name', 'last_name', 'username'})
+        self.assertIsNone(models.TMAUser.get_by_id(202).username)
+
+    def test_signed_mini_app_login_fills_profile_for_the_same_identity(self):
+        self.migrate()
+        raw = TelegramProofTests().signed_data(user=json.dumps(
+            {'id': 303, 'first_name': 'Mini App learner', 'username': 'fixture_user'}))
+        verified = providers.verify_telegram_init_data(raw, 'synthetic-bot-token')
+        tokens = service.login_verified(verified)
+        user = models.TMAUser.get_by_id(tokens.account_id)
+        self.assertEqual(user.first_name, 'Mini App learner')
+        self.assertEqual(user.username, 'fixture_user')
+
+    def test_link_conflict_does_not_apply_provider_profile(self):
+        self.migrate()
+        service.login_verified(proof())
+        target = service.register_email_password('fixture@example.test', 'synthetic password')
+        challenge = service.create_challenge('telegram', 'link', access_token=target.access_token)
+        verified = proof()
+        verified.profile.update(first_name='Conflicting name', username='conflicting_user')
+        service.confirm_challenge(challenge.state, verified)
+        with self.assertRaises(AuthError) as caught:
+            service.exchange_challenge(challenge.id, challenge.secret, access_token=target.access_token)
+        self.assertEqual(caught.exception.code, 'identity_conflict')
+        self.assertIsNone(models.TMAUser.get_by_id(target.account_id).first_name)
+        self.assertIsNone(models.TMAUser.get_by_id(101).username)
+
+    def test_profile_migration_rolls_back_column_when_history_write_fails(self):
+        self.migrate()
+        self.database.execute_sql('ALTER TABLE tma_auth_challenge DROP COLUMN verified_profile')
+        self.database.execute_sql('DELETE FROM tma_migration_history WHERE migration_id = 91')
+        execute = self.database.execute_sql
+
+        def fail_marker(sql, params=None, *args, **kwargs):
+            if 'INSERT INTO tma_migration_history' in sql and params == (91,):
+                raise OperationalError('synthetic profile migration failure')
+            return execute(sql, params, *args, **kwargs)
+
+        with patch.object(self.database, 'execute_sql', side_effect=fail_marker):
+            with self.assertRaises(OperationalError):
+                self.migrate()
+        self.assertNotIn('verified_profile', {c.name for c in self.database.get_columns('tma_auth_challenge')})
+        self.assertTrue(self.migrate()['profile_migration_applied'])
+        self.database.execute_sql('ALTER TABLE tma_auth_challenge DROP COLUMN verified_profile')
+        with self.assertRaisesRegex(RuntimeError, 'Auth profile migration history/schema mismatch'):
+            self.migrate()
+
     def test_email_password_register_login_and_durable_throttle(self):
         self.migrate()
         password = 'correct horse battery staple'
@@ -540,6 +647,13 @@ class TelegramProofTests(unittest.TestCase):
         second = providers.verify_telegram_init_data('&'.join(reversed(raw.split('&'))), 'synthetic-bot-token')
         self.assertEqual(first.subject, '101')
         self.assertEqual(first.proof_hash, second.proof_hash)
+
+    def test_signed_mini_app_profile_is_preserved_and_untrusted_fields_are_excluded(self):
+        raw = self.signed_data(user=json.dumps({'id': 303, 'first_name': 'Тестовый ученик',
+                                               'username': 'fixture_user', 'is_admin': True}))
+        verified = providers.verify_telegram_init_data(raw, 'synthetic-bot-token')
+        self.assertEqual(verified.profile, {'first_name': 'Тестовый ученик', 'username': 'fixture_user'})
+        self.assertNotIn('Тестовый ученик', repr(verified))
 
     def test_invalid_signature_duplicates_expiry_future_and_subject(self):
         valid = self.signed_data()

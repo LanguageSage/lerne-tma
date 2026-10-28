@@ -6,6 +6,7 @@
   "Окно входа не открылось. Нажмите ссылку ниже, подтвердите вход и вернитесь в приложение.": "The sign-in window did not open. Use the link below, confirm sign-in and return to the app.",
   "Окно не открылось? Нажмите здесь ↗": "Window did not open? Click here ↗",
   "Информация о карточке": "Card information",
+  "Информация": "Information",
   "Автор": "Author",
   "Соавторы": "Coauthors",
   "Дата создания": "Created",
@@ -1635,7 +1636,7 @@
   "Редактировать исходную разметку": "Edit source markup",
   "Медиа и оформление": "Media and appearance",
   "Ответ / обратная сторона": "Answer / back",
-  "Примеры и пояснения": "Examples and notes",
+  "Контекст": "Context",
   "Дополнительно": "Advanced",
   "Удалить пару": "Remove pair",
   "Оценить ответ": "Rate your answer",
@@ -1983,5 +1984,14 @@
   "Показаны сохранённые данные": "Showing saved data",
   "Библиотека ещё не подтверждена сервером.": "The library has not yet been confirmed by the server.",
   "Проверьте подключение и повторите загрузку.": "Check your connection and try loading again.",
-  "Повторить загрузку": "Retry loading"
+  "Повторить загрузку": "Retry loading",
+  "Свернуть редактор": "Collapse editor",
+  "Показать предпросмотр": "Show preview",
+  "Скрыть предпросмотр": "Hide preview",
+  "Здесь появится предпросмотр карточки.": "Your card preview will appear here.",
+  "Выделите текст и нажмите маркер. Без выделения появится пустой блок у курсора.": "Select text and choose a marker. With no selection, an empty block is inserted at the cursor.",
+  "Выделите текст внутри одного блока, не разделяя маркеры и поля ответа.": "Select text within one block without splitting markers or answer fields.",
+  "История правок": "Edit history",
+  "Отменить правку": "Undo edit",
+  "Вернуть правку": "Redo edit"
 }

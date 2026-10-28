@@ -170,7 +170,7 @@ async def generate_card_fields(
         if action_type == 'quiz_analysis' or (action_type == 'full_card' and detect_card_type(phrase) == 'quiz'):
             if detect_card_type(phrase) != 'quiz':
                 return {'error': 'Для разбора нужен Quiz с вариантами и отмеченным ответом.'}
-            options = parse_quiz_options(parsed_content['exercise'])
+            options = parse_quiz_options(parsed_content['exercise'], allow_empty_question=True)
             system_prompt = build_quiz_prompt(phrase, target_lang, native_lang, detect_level=False)
             # Bound the entire analysis to two provider calls; do not multiply
             # transport retries or key rotation with the content retry.

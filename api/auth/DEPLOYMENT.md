@@ -2,7 +2,17 @@
 
 Run `python scripts/migrate_auth.py --apply` only in a planned maintenance
 window, with `AUTH_MIGRATION_DATABASE_URL` set to the chosen PostgreSQL target.
-This applies migrations 76–79; API startup never applies them implicitly.
+This applies migrations 76–79 and 91; API startup never applies them implicitly.
+Migration 91 adds nullable `tma_auth_challenge.verified_profile` and must run
+before deploying code that reads this field. It preserves pending challenges
+and existing sessions; older confirmations without profile fields remain valid.
+Telegram bot confirmations and signed Mini App data carry display fields to the
+resolved account during login/link, filling only missing fields. Existing custom
+names stay unchanged. A repeat login repairs an already blank profile. The
+profile migration, repeat login and rollback are covered by
+`scripts/tests/test_auth_foundation.py` on disposable SQLite; PostgreSQL staging
+validation is still required. Rollback may run the preceding code while leaving
+the additive nullable column and migration marker in place.
 Migration 79 adds nullable session authentication provenance. Existing sessions
 remain untrusted for password recovery until the user signs in again through a
 social provider. Tested on disposable SQLite only; validate PostgreSQL DDL and

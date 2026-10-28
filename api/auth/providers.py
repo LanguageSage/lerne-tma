@@ -23,6 +23,14 @@ class VerifiedIdentity:
     authenticated_at: datetime
     expires_at: datetime
     proof_hash: str = field(repr=False)
+    profile: dict[str, str] = field(default_factory=dict, repr=False)
+
+
+def telegram_profile_fields(user: dict) -> dict[str, str]:
+    """Display fields only; call after signature/webhook verification."""
+    limits = {'first_name': 255, 'last_name': 255, 'username': 255, 'photo_url': 2048}
+    return {key: value for key, limit in limits.items()
+            if isinstance(value := user.get(key), str) and value.strip() and len(value) <= limit}
 
 
 def verify_telegram_init_data(init_data: str, bot_token: str) -> VerifiedIdentity:
@@ -58,7 +66,8 @@ def verify_telegram_init_data(init_data: str, bot_token: str) -> VerifiedIdentit
             raise ValueError('Invalid Telegram subject')
         fingerprint = hashlib.sha256(
             ('telegram\n' + check_string + '\n' + supplied_hash).encode()).hexdigest()
-        return VerifiedIdentity('telegram', str(user_id), issued, issued + PROOF_TTL, fingerprint)
+        return VerifiedIdentity('telegram', str(user_id), issued, issued + PROOF_TTL, fingerprint,
+                                telegram_profile_fields(user))
     except (KeyError, ValueError, TypeError, OverflowError, UnicodeError):
         # Never include initData, profile contents or the bot token in an error.
         raise AuthError('invalid_provider_proof') from None

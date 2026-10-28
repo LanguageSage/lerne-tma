@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 
 const deck = {
   id: 1, name: 'Auto Test', target_language: 'de', is_learning: true,
@@ -28,6 +28,7 @@ async function openEditor(page, context, front = null) {
     } });
     if (pathname === '/api/cards/save') return route.fulfill({ json: { ...route.request().postDataJSON(), id: 10 } });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: cards });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname === '/api/study/card/1' || pathname === '/api/decks/1/next') return route.fulfill({ json: cards[0] });
     if (pathname === '/api/user/settings') return route.fulfill({ json: { status: 'success' } });
@@ -50,30 +51,97 @@ async function openEditor(page, context, front = null) {
 }
 
 const raw = page => page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
-const command = (page, name) => page.locator('.card-editor-toolbar').getByRole('button', { name, exact: true });
+async function command(page, name) {
+  return page.locator('.card-editor-toolbar').getByRole('button', { name, exact: true });
+}
 async function clickCommand(page, name) {
-  const direct = page.locator('.card-editor-toolbar').getByRole('button', { name, exact: true });
-  if (await direct.isVisible()) {
-    await direct.click();
-    return;
-  }
-  const mores = page.locator('.card-editor-btn-more');
-  const count = await mores.count();
-  for (let i = 0; i < count; i++) {
-    await mores.nth(i).click();
-    const inMenu = page.locator('.card-editor-popover').getByRole('menuitem', { name, exact: true });
-    if (await inMenu.isVisible()) {
-      await inMenu.click();
-      return;
-    }
-    await page.keyboard.press('Escape');
-  }
-  await direct.click();
+  await (await command(page, name)).click();
 }
 async function sourceEditor(page, context, front) {
   await openEditor(page, context, front);
-  await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
+  await expect(raw(page)).toBeVisible();
 }
+
+test('editor stays open while preview toggles without losing the draft, selection or undo history', async ({ page, context }, testInfo) => {
+  const front = '::task\nПрочитайте текст.\n::exercise\nHallo Welt.';
+  await sourceEditor(page, context, front);
+  const preview = page.locator('.card-front-preview');
+  const toggle = page.locator('.card-editor-mode > button');
+  await expect(preview).toHaveCount(0);
+  await expect(toggle).toHaveText('Показать предпросмотр');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  const edited = front + ' Guten Morgen.';
+  await raw(page).fill(edited);
+  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(4, 12); });
+  for (const width of [320, 375, 430, 768, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    await toggle.click();
+    await expect(toggle).toHaveText('Скрыть предпросмотр');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(preview).toContainText('Guten Morgen.');
+    await expect(raw(page)).toBeVisible();
+    await expect(raw(page)).toHaveValue(edited);
+    expect(await raw(page).evaluate(el => [el.selectionStart, el.selectionEnd])).toEqual([4, 12]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await toggle.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`preview-open-${width}.png`) });
+    await toggle.click();
+    await expect(preview).toHaveCount(0);
+    await expect(raw(page)).toHaveValue(edited);
+    expect(await raw(page).evaluate(el => [el.selectionStart, el.selectionEnd])).toEqual([4, 12]);
+    await page.screenshot({ path: testInfo.outputPath(`preview-closed-${width}.png`) });
+  }
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
+  await expect(toggle).toHaveText('Show preview');
+  await toggle.click();
+  await expect(toggle).toHaveText('Hide preview');
+  await toggle.click();
+  await page.getByRole('button', { name: 'Undo edit', exact: true }).click();
+  await expect(page.locator('.card-editor-raw')).toHaveValue(front);
+});
+
+test('all commands stay visible after selection, Escape and outside clicks', async ({ page, context }) => {
+  await sourceEditor(page, context, 'Hallo');
+  const toolbar = page.locator('.card-editor-toolbar');
+  await expect(toolbar.getByRole('group')).toHaveCount(3);
+  await expect(toolbar.getByRole('button')).toHaveCount(15);
+  await clickCommand(page, 'Подсказка');
+  await expect(toolbar.getByRole('button')).toHaveCount(15);
+  await expect(raw(page)).toBeFocused();
+  await page.keyboard.press('Escape');
+  await raw(page).click();
+  await expect(await command(page, 'Задание')).toBeVisible();
+});
+
+test('long front and source grow to fit wrapped text on open, edits and viewport changes', async ({ page, context }, testInfo) => {
+  const front = ('Lange deutsche Sätze werden im Editor vollständig angezeigt. '
+    + 'Длинный русский текст целиком виден без ручного растягивания поля. ').repeat(8);
+  await sourceEditor(page, context, front);
+  for (const width of [1330, 768, 430, 375, 320]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect.poll(() => page.locator('.card-content-editor textarea').evaluateAll(areas =>
+      areas.length === 1 && areas.every(area => area.scrollHeight <= area.clientHeight + 1))).toBe(true);
+    await expect(raw(page)).toHaveValue(front);
+    const action = page.locator('.card-editor-mode .card-question-trigger');
+    const more = page.locator('.card-editor-mode > button');
+    expect((await action.boundingBox()).height).toBe((await more.boundingBox()).height);
+    if (width === 1330) {
+      expect((await action.boundingBox()).width).toBeLessThan((await page.locator('.card-editor-mode').boundingBox()).width / 2);
+    }
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.locator('.card-editor-mode').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`expanded-front-${width}.png`) });
+    await page.locator('.card-editor-toolbar').first().scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`expanded-source-${width}.png`) });
+  }
+  const height = (await raw(page).boundingBox()).height;
+  await raw(page).fill('Kurz.');
+  await expect.poll(async () => (await raw(page).boundingBox()).height).toBeLessThan(height);
+  await raw(page).fill(front + front);
+  await expect.poll(() => page.locator('.card-content-editor textarea').evaluateAll(areas =>
+    areas.every(area => area.scrollHeight <= area.clientHeight + 1))).toBe(true);
+  await expect(raw(page)).toHaveValue(front + front);
+});
 
 test('puzzle inserts at a keyboard cursor between blocks, selects its example and saves the replacement', async ({ page, context }) => {
   const errors = [];
@@ -85,7 +153,7 @@ test('puzzle inserts at a keyboard cursor between blocks, selects its example an
   await page.keyboard.press('Control+Home');
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
   expect(await raw(page).evaluate(el => el.selectionStart)).toBe(before.length);
-  await command(page, 'Собрать предложение').click();
+  await (await command(page, 'Собрать предложение')).click();
   await expect(raw(page)).toHaveValue(before + '@puzzle\nIch lerne Deutsch.' + after);
   await expect(raw(page)).toBeFocused();
   expect(await raw(page).evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))).toBe('Ich lerne Deutsch.');
@@ -98,33 +166,29 @@ test('puzzle inserts at a keyboard cursor between blocks, selects its example an
   expect(errors).toEqual([]);
 });
 
-test('every toolbar command replaces selection and preserves both surrounding parts', async ({ page, context }) => {
+test('exercise templates replace selection and markers keep the selected text', async ({ page, context }) => {
   await sourceEditor(page, context, 'Hallo');
   const commands = await page.evaluate(async () => (await import('/src/utils/cardEditorSyntax.js')).editorCommands);
   for (const item of commands) {
     await raw(page).fill('AA\nREPLACE\nZZ');
     await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 10); });
     await clickCommand(page, item.label);
-    await expect(raw(page)).toHaveValue('AA\n' + item.template + '\nZZ');
+    await expect(raw(page)).toHaveValue(item.info
+      ? 'AA\n' + item.template + 'REPLACE\n::exercise\n\nZZ'
+      : 'AA\n' + item.template + '\nZZ');
     await expect(raw(page)).toBeFocused();
   }
 });
 
-test('repeated source and inline insertions use the cursor after typing and arrow keys', async ({ page, context }) => {
+test('empty markers isolate following text and typed text stays in the new block', async ({ page, context }) => {
   await sourceEditor(page, context, 'AA\nBB');
-  await raw(page).focus();
-  await page.keyboard.press('Control+Home');
-  await page.keyboard.press('ArrowDown');
-  await command(page, 'Подсказка').click();
-  await expect(raw(page)).toBeFocused();
-  await page.keyboard.insertText('Перевод.\n');
-  await command(page, 'Подсказка').click();
-  await expect(raw(page)).toHaveValue('AA\n::source\nПеревод.\n::source\nBB');
-  await expect(raw(page)).toBeFocused();
-  await page.keyboard.insertText('X');
-  await page.keyboard.press('ArrowLeft');
-  await command(page, 'Поле для ввода').click();
-  await expect(raw(page)).toHaveValue('AA\n::source\nПеревод.\n::source\n[[Berlin]]XBB');
+  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 3); });
+  await clickCommand(page, 'Подсказка');
+  await expect(raw(page)).toHaveValue('AA\n::source\n\n::exercise\nBB');
+  await page.keyboard.insertText('Перевод.');
+  await page.locator('.card-editor-mode > button').click();
+  await expect(page.locator('.card-front-preview .exercise-info-source')).toHaveText('Перевод.');
+  await expect(page.locator('.card-front-preview .text-front')).toHaveText(['AA', 'BB']);
 });
 
 test('mouse cursor and keyboard toolbar activation retain the last selection', async ({ page, context }) => {
@@ -139,7 +203,7 @@ test('mouse cursor and keyboard toolbar activation retain the last selection', a
   const at = await raw(page).evaluate(el => el.selectionStart);
   expect(at).toBeGreaterThanOrEqual('First line\n'.length);
   expect(at).toBeLessThan('First line\nSecond line\n'.length);
-  await command(page, 'Поле для ввода').click();
+  await (await command(page, 'Поле для ввода')).click();
   await expect(raw(page)).toHaveValue(source.slice(0, at) + '[[Berlin]]' + source.slice(at));
   await raw(page).fill('kleinem Haus');
   await raw(page).focus();
@@ -147,7 +211,7 @@ test('mouse cursor and keyboard toolbar activation retain the last selection', a
   for (let i = 0; i < 5; i++) await page.keyboard.press('ArrowRight');
   await page.keyboard.press('Shift+ArrowRight');
   await page.keyboard.press('Shift+ArrowRight');
-  await command(page, 'Окончание с выбором').focus();
+  await (await command(page, 'Окончание с выбором')).focus();
   await page.keyboard.press('Enter');
   await expect(raw(page)).toHaveValue('klein{em} Haus');
   await expect(raw(page)).toBeFocused();
@@ -160,7 +224,7 @@ test('CRLF uses textarea offsets and preserves the stored format on save', async
   await raw(page).focus();
   await page.keyboard.press('Control+Home');
   for (let i = 0; i < 3; i++) await page.keyboard.press('ArrowDown');
-  await command(page, 'Собрать предложение').click();
+  await (await command(page, 'Собрать предложение')).click();
   const expected = before + '@puzzle\r\nIch lerne Deutsch.' + after;
   await expect(raw(page)).toHaveValue(expected.replace(/\r\n/g, '\n'));
   expect(await raw(page).evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))).toBe('Ich lerne Deutsch.');
@@ -177,7 +241,7 @@ test('long source preserves textarea and container scroll during insertion', asy
     el.scrollTop = 1000;
   });
   const scroll = await raw(page).evaluate(el => el.scrollTop);
-  const button = command(page, 'Поле для ввода');
+  const button = await command(page, 'Поле для ввода');
   await button.scrollIntoViewIfNeeded();
   const containerScroll = await page.locator('.app-container').evaluate(el => el.scrollTop);
   await button.click();
@@ -190,7 +254,7 @@ test('long source preserves textarea and container scroll during insertion', asy
 test('untouched source appends at the end rather than using a fresh textarea zero offset', async ({ page, context }) => {
   await sourceEditor(page, context, 'Existing text.');
   expect(await raw(page).evaluate(el => el.selectionStart)).toBe(0);
-  await command(page, 'Собрать предложение').click();
+  await (await command(page, 'Собрать предложение')).click();
   await expect(raw(page)).toHaveValue('Existing text.\n@puzzle\nIch lerne Deutsch.');
   await expect(raw(page)).toBeFocused();
 });
@@ -200,9 +264,9 @@ test('mode roundtrip retains the cursor and save failure retains the edited draf
   await raw(page).focus();
   await page.keyboard.press('Control+Home');
   await page.keyboard.press('ArrowRight');
-  await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
-  await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
-  await command(page, 'Поле для ввода').click();
+  await page.locator('.card-editor-mode > button').click();
+  await page.locator('.card-editor-mode > button').click();
+  await (await command(page, 'Поле для ввода')).click();
   const source = 'A[[Berlin]]B';
   await expect(raw(page)).toHaveValue(source);
   let fail = true;
@@ -226,20 +290,18 @@ test('responsive toolbar fits narrow and desktop widths in Russian and English',
   await sourceEditor(page, context, '::task\nЗадание.\n\n::source\nПодсказка.\n\n::exercise\nHallo [[Welt]].');
   for (const [width, height] of [[1920, 1080], [1366, 768], [768, 900], [430, 900], [375, 812], [320, 740]]) {
     await page.setViewportSize({ width, height });
-    await command(page, 'Подсказка').scrollIntoViewIfNeeded();
-    await expect(command(page, 'Подсказка')).toBeVisible();
-    await command(page, 'Собрать предложение').scrollIntoViewIfNeeded();
-    await expect(command(page, 'Собрать предложение')).toBeVisible();
+    await (await command(page, 'Подсказка')).scrollIntoViewIfNeeded();
+    await expect(await command(page, 'Подсказка')).toBeVisible();
+    await (await command(page, 'Собрать предложение')).scrollIntoViewIfNeeded();
+    await expect(await command(page, 'Собрать предложение')).toBeVisible();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     expect(await page.locator('.card-content-editor').evaluate(el => el.scrollWidth <= el.clientWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath('toolbar-' + width + '.png'), fullPage: true });
   }
   await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
-  await expect(command(page, 'Hint')).toBeVisible();
-  const moreBtn = page.locator('.card-editor-cluster-exercise .card-editor-btn-more');
-  await moreBtn.click();
-  await expect(page.locator('.card-editor-popover').getByRole('menuitem', { name: 'Word bank', exact: true })).toBeVisible();
-  await page.keyboard.press('Escape');
+  await expect(page.locator('.card-editor-command-group > .sub-label')).toHaveText(['Information', 'Trainer', 'Edit']);
+  await expect(await command(page, 'Hint')).toBeVisible();
+  await expect(await command(page, 'Word bank')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('toolbar-en-320.png'), fullPage: true });
   expect(errors).toEqual([]);
 });
@@ -249,8 +311,54 @@ test.describe('touch toolbar', () => {
   test('touch activation retains textarea selection', async ({ page, context }) => {
     await sourceEditor(page, context, 'AA\nBB');
     await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 3); });
-    await command(page, 'Подсказка').tap();
-    await expect(raw(page)).toHaveValue('AA\n::source\nBB');
+    await (await command(page, 'Подсказка')).tap();
+    await expect(raw(page)).toHaveValue('AA\n::source\n\n::exercise\nBB');
     await expect(raw(page)).toBeFocused();
+    await page.getByRole('button', { name: 'Отменить правку', exact: true }).tap();
+    await expect(raw(page)).toHaveValue('AA\nBB');
+    await expect(page.getByRole('button', { name: 'Отменить правку', exact: true })).toBeDisabled();
+    await page.getByRole('button', { name: 'Вернуть правку', exact: true }).tap();
+    await expect(raw(page)).toHaveValue('AA\n::source\n\n::exercise\nBB');
   });
+});
+
+test('typing, marker assignment and paste keep independent undo steps across toggling preview', async ({ page, context }) => {
+  await sourceEditor(page, context, 'Before');
+  await raw(page).focus();
+  await page.keyboard.press('Control+End');
+  await page.keyboard.type(' Selected');
+  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(7, 15); });
+  await clickCommand(page, 'Задание');
+  const marked = await raw(page).inputValue();
+  await page.keyboard.press('Control+z');
+  await expect(raw(page)).toHaveValue('Before Selected');
+  await page.keyboard.press('Control+z');
+  await expect(raw(page)).toHaveValue('Before');
+  await page.keyboard.press('Control+y');
+  await expect(raw(page)).toHaveValue('Before Selected');
+  await page.keyboard.press('Control+y');
+  await expect(raw(page)).toHaveValue(marked);
+  await page.keyboard.insertText('Replacement');
+  await page.locator('.card-editor-mode > button').click();
+  await page.locator('.card-editor-mode > button').click();
+  await page.getByRole('button', { name: 'Отменить правку', exact: true }).click();
+  await expect(raw(page)).toHaveValue(marked);
+});
+
+test('unsafe cross-block selection shows a localized error without changing the draft', async ({ page, context }) => {
+  const front = '::task\nInstruction\n::exercise\nBody [[answer]]';
+  await sourceEditor(page, context, front);
+  await raw(page).focus();
+  await page.keyboard.press('Control+a');
+  await clickCommand(page, 'Подсказка');
+  await expect(raw(page)).toHaveValue(front);
+  await expect(page.getByRole('alert')).toContainText('внутри одного блока');
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('uk'));
+  const ukrainianRaw = page.getByRole('textbox', { name: 'Вихідна розмітка', exact: true });
+  await expect(page.getByRole('alert')).toContainText('у межах одного блоку');
+  await ukrainianRaw.focus();
+  await page.keyboard.press('Control+a');
+  await clickCommand(page, 'Підказка');
+  await expect(page.getByRole('alert')).toContainText('у межах одного блоку');
+  await expect(ukrainianRaw).toHaveValue(front);
 });

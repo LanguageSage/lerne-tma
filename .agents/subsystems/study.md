@@ -52,6 +52,14 @@
 
 ## Card footer and information
 
+Обычный физический FRONT в classic/reverse использует общий с предпросмотром
+редактора `components/common/CardFrontContent.jsx`: информационные блоки и
+фрагменты упражнения выводятся в исходном порядке. `KaraokeText` сохраняет
+сквозной индекс слов между фрагментами. Физический BACK в reverse продолжает
+использовать `MarkdownRenderer`. Интерактивные типы остаются в `ExerciseRenderer`;
+SRS, оценка и сохранение состояния не меняются. Порядок после назначения маркера
+проверяет `scripts/tests/browser/card-editor.spec.cjs`.
+
 ### Editable Text (`@edit`)
 
 `exerciseContentParser` selects the standalone `@edit` block up to the next
