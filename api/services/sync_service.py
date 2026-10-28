@@ -5,6 +5,7 @@ from fastapi import HTTPException
 
 from api import models
 from api.services.decks import ensure_inbox_deck
+from api.services.media import validate_new_audio_path
 
 logger = logging.getLogger(__name__)
 
@@ -90,6 +91,9 @@ def execute_sync_push(request, user_id: int) -> dict:
             require_write('folder', deck.folder_id)
         for card in request.cards:
             require_write('deck', card.deck_id)
+            previous = existing_cards.get(card.id)
+            validate_new_audio_path(card.audio_path, previous.audio_path if previous else None)
+            validate_new_audio_path(card.audio_back_path, previous.audio_back_path if previous else None)
             if card.id > 0:
                 existing_card = existing_cards.get(card.id)
                 if not existing_card:

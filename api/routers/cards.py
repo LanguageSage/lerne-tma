@@ -22,11 +22,12 @@ async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int 
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
         if user and user.is_guest:
             raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация через Telegram.")
-        card = services.save_card(data, user_id)
+        auto_generate = data.get('auto_generate_audio', True)
+        card = services.save_card({**data, '_defer_audio_invalidation': bool(auto_generate)}, user_id)
         if card:
-            auto_generate = data.get('auto_generate_audio', True)
-            if auto_generate and not card.audio_path and card.front_text:
-                background_tasks.add_task(services.ensure_card_audio, card, user_id)
+            refresh_audio = getattr(card, '_refresh_front_audio', False)
+            if auto_generate and card.front_text and (not card.audio_path or refresh_audio):
+                background_tasks.add_task(services.ensure_card_audio, card, user_id, force=refresh_audio)
             # Сразу возвращаем полные данные для StudyView
             return services.format_card_for_study(card, user_id)
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")

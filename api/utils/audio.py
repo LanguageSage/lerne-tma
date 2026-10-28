@@ -88,7 +88,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
                 audio_bytes = b"".join(audio_chunks)
                 if not audio_bytes:
                     logger.error("Edge TTS streamed empty audio")
-                    return abs_filepath, None
+                    return None, None
 
                 with open(abs_filepath, "wb") as f:
                     f.write(audio_bytes)
@@ -111,16 +111,13 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_KEY")
 
-    if supabase_url and supabase_key and "your_project_url_here" not in supabase_url:
-        try:
-            cloud_url = await _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
-            if cloud_url:
-                logger.info(f"Audio uploaded to cloud: {cloud_url}")
-                return cloud_url, word_boundaries
-        except Exception as e:
-            logger.warning(f"Failed to upload to cloud storage, falling back to DB: {e}")
-
-    return abs_filepath, word_boundaries
+    if not supabase_url or not supabase_key or "your_project_url_here" in supabase_url:
+        raise RuntimeError("Supabase Storage is not configured for audio")
+    cloud_url = await _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
+    if not cloud_url:
+        raise RuntimeError("Audio upload to Supabase Storage failed")
+    logger.info("Audio uploaded to cloud: %s", cloud_url)
+    return cloud_url, word_boundaries
 
 
 def _parse_boundaries(raw_events):

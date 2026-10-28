@@ -3,6 +3,8 @@ import datetime
 import logging
 import time
 import json
+from urllib.parse import unquote, urlsplit
+from fastapi import HTTPException
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia
 from .. import srs
 from peewee import fn, JOIN
@@ -10,6 +12,35 @@ from functools import lru_cache
 from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
+
+
+def validate_new_audio_path(path: str | None, previous: str | None = None) -> None:
+    """Reject new cloud card links unless their permanent Storage object exists."""
+    if not path or path == previous:
+        return
+    if is_local():
+        from api.local_runtime import media_file
+        name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
+        if (not path.startswith(('http:', 'https:', '/tmp/')) and name and
+                '/' not in name and '\\' not in name and name not in ('.', '..') and
+                media_file('audio', name).is_file()):
+            return
+        raise HTTPException(422, 'Аудиофайл отсутствует в LOCAL media.')
+    base = os.environ.get('SUPABASE_URL', '').rstrip('/')
+    if not base:
+        raise HTTPException(503, 'Supabase Storage не настроен; новая аудиоссылка не сохранена.')
+    parsed, origin = urlsplit(path), urlsplit(base)
+    prefix = '/storage/v1/object/public/audio/'
+    name = unquote(parsed.path[len(prefix):]) if parsed.path.startswith(prefix) else ''
+    if (parsed.scheme != origin.scheme or parsed.netloc != origin.netloc or
+            parsed.query or parsed.fragment or not name or '\\' in name or
+            any(part in ('', '.', '..') for part in name.split('/'))):
+        raise HTTPException(422, 'Аудио должно ссылаться на постоянный объект Supabase Storage.')
+    found = tma_db.execute_sql(
+        'SELECT 1 FROM storage.objects WHERE bucket_id = %s AND name = %s LIMIT 1',
+        ('audio', name)).fetchone()
+    if not found:
+        raise HTTPException(422, 'Аудиофайл отсутствует в Supabase Storage; ссылка не сохранена.')
 
 _tma_settings_cache = {}
 _tma_settings_cache_time = 0
@@ -172,13 +203,13 @@ def is_user_auto_generate_audio_enabled(user_id: int) -> bool:
     return True
 
 
-async def ensure_card_audio(card, user_id: int):
-    if is_local():
-        return
+async def ensure_card_audio(card, user_id: int, *, force: bool = False):
     """Проверяет наличие озвучки для лицевой стороны карточки.
     Если файла озвучки нет в TMAMedia или он пустой/недействительный,
     генерирует новую озвучку через Edge TTS и сохраняет в БД.
     """
+    if is_local():
+        return
     import re
     from ..models import TMAMedia, TMASetting
     from ..utils.audio import generate_audio
@@ -200,7 +231,7 @@ async def ensure_card_audio(card, user_id: int):
             # Проверяем только наличие записи по ID (без скачивания гигабайтных/мегабайтных BLOB из БД)
             has_valid_audio = _check_media_exists(filename, "audio")
                 
-    if has_valid_audio:
+    if has_valid_audio and not force:
         return
         
     # 2. Озвучки нет или она повреждена. Генерируем новую.
@@ -248,6 +279,8 @@ async def ensure_card_audio(card, user_id: int):
         voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
         rate = db_settings.get("TTS_SPEED") or "+0%"
         
+    previous_audio = card.audio_path
+    original_text = card.front_text
     try:
         # Генерируем аудио
         result = await generate_audio(card.front_text, voice=voice, rate=rate)
@@ -258,41 +291,16 @@ async def ensure_card_audio(card, user_id: int):
             logger.error(f"Failed to generate audio for card {card.id}")
             return
             
-        if result.startswith("http"):
-            # Облачная ссылка
+        if not result.startswith("http"):
+            raise RuntimeError("Generated audio was not saved to permanent Storage")
+        updated = type(card).update(audio_path=result).where(
+            (type(card).id == card.id) &
+            (type(card).front_text == original_text) &
+            (type(card).audio_path == previous_audio) &
+            (type(card).is_deleted == False)
+        ).execute()
+        if updated:
             card.audio_path = result
-            card.save()
-            logger.info(f"Generated cloud audio for card {card.id}: {result}")
-        else:
-            filename = os.path.basename(result)
-            with open(result, "rb") as f:
-                content = f.read()
-
-            supabase_url = os.environ.get("SUPABASE_URL")
-            supabase_key = os.environ.get("SUPABASE_KEY")
-            cloud_url = None
-            if supabase_url and supabase_key:
-                try:
-                    from ..utils.audio import _upload_to_supabase
-                    cloud_url = await _upload_to_supabase(content, filename, supabase_url, supabase_key)
-                except Exception as up_err:
-                    logger.warning(f"Failed to upload ensured audio to storage: {up_err}")
-
-            if cloud_url:
-                card.audio_path = cloud_url
-                card.save()
-                logger.info(f"Generated audio uploaded to cloud for card {card.id}: {cloud_url}")
-            else:
-                # Fallback to local pending storage
-                out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
-                os.makedirs(out_dir, exist_ok=True)
-                with open(os.path.join(out_dir, filename), "wb") as f:
-                    f.write(content)
-                card.audio_path = filename
-                card.save()
-                logger.info(f"Generated local audio for card {card.id} saved to pending storage: {filename}")
-            
-            try: os.remove(result)
-            except Exception: pass
+            logger.info("Generated cloud audio for card %s: %s", card.id, result)
     except Exception as e:
         logger.error(f"Failed to ensure audio for card {card.id}: {e}", exc_info=True)

@@ -80,7 +80,12 @@ def save_card(data, user_id, *, _batch=None):
     card._cached_deck = cached_deck
     
     from .card_content_service import apply_card_content
+    from .media import validate_new_audio_path
+    previous_audio = card.audio_path
+    previous_back_audio = card.audio_back_path
     apply_card_content(card, data)
+    validate_new_audio_path(card.audio_path, previous_audio)
+    validate_new_audio_path(card.audio_back_path, previous_back_audio)
 
     # При создании новой карточки выставляем позицию
     if not card.id:
@@ -191,6 +196,7 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     """Массово перемещает карточки в целевую колоду с сохранением SRS-прогресса."""
     from fastapi import HTTPException
     from .collaborative_service import _require_can_mutate, _require_cards_access, touch_deck_and_parent_folders
+    from .media import validate_new_audio_path
 
     if not card_ids:
         return {"status": "success", "count": 0}
@@ -244,6 +250,8 @@ def batch_move_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                 continue
 
             if existing_match and on_duplicate == 'overwrite':
+                validate_new_audio_path(card.audio_path, existing_match.audio_path)
+                validate_new_audio_path(card.audio_back_path, existing_match.audio_back_path)
                 existing_match.front_text = card.front_text or ''
                 existing_match.back_text = card.back_text or ''
                 existing_match.card_type = card.card_type or existing_match.card_type or 'standard'
@@ -300,6 +308,7 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
     """Массово копирует карточки в целевую колоду с обработкой совпадений по front_text."""
     from fastapi import HTTPException
     from .collaborative_service import _require_can_mutate, _require_cards_access, touch_deck_and_parent_folders
+    from .media import validate_new_audio_path
 
     if not card_ids:
         return {"status": "success", "count": 0, "created": 0, "updated": 0, "skipped": 0}
@@ -350,6 +359,8 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                 continue
 
             if existing_match and on_duplicate == 'overwrite':
+                validate_new_audio_path(card.audio_path, existing_match.audio_path)
+                validate_new_audio_path(card.audio_back_path, existing_match.audio_back_path)
                 existing_match.front_text = card.front_text or ''
                 existing_match.back_text = card.back_text or ''
                 existing_match.card_type = card.card_type or existing_match.card_type or 'standard'
@@ -376,6 +387,8 @@ def batch_copy_cards(card_ids: list[int], target_deck_id: int, user_id: int, on_
                 continue
 
             # on_duplicate == 'keep' или совпадений нет -> создаем новую карточку
+            validate_new_audio_path(card.audio_path)
+            validate_new_audio_path(card.audio_back_path)
             if max_pos == 0 and len(existing_cards) == 0:
                 card_pos = card.position if (card.position is not None and card.position > 0) else (idx + 1)
             else:

@@ -326,9 +326,19 @@ class MaterialPermissionTests(unittest.TestCase):
         response = self.call('GET', f'/decks/{self.targets[303].id}/cards', 303)
         self.assertEqual(response.json()[0]['creator_name'], 'user404')
 
+    def test_copy_rejects_missing_audio_without_creating_card(self):
+        missing = 'https://example.supabase.co/storage/v1/object/public/audio/missing.mp3'
+        models.TMA_Card.update(audio_path=missing).where(models.TMA_Card.id == self.card.id).execute()
+        target_id = self.targets[303].id
+        with patch('api.services.media.validate_new_audio_path', side_effect=HTTPException(422, 'missing Storage object')):
+            response = self.call('POST', '/cards/batch-copy', 303, json={
+                'card_ids': [self.card.id], 'target_deck_id': target_id})
+        self.assertEqual(response.status_code, 422, response.text)
+        self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck_id == target_id).count(), 0)
+
     def test_audio_requires_permission_instead_of_authorship(self):
         for uid in (101, 202, 303, 404):
-            with patch('api.utils.audio.generate_audio', new=AsyncMock(return_value='fixture.mp3')) as generate:
+            with patch('api.utils.audio.generate_audio', new=AsyncMock(return_value='https://example.supabase.co/storage/v1/object/public/audio/fixture.mp3')) as generate:
                 response = self.call('POST', '/media/generate-card-audio', uid,
                                      json={'card_id': self.card.id})
                 self.assertEqual(response.status_code, 200 if uid in (101, 202) else 403, response.text)
@@ -337,16 +347,71 @@ class MaterialPermissionTests(unittest.TestCase):
     def test_audio_viewer_grant_is_preserved(self):
         models.TMA_Collaborator.update(can_edit_audio=True).where(
             models.TMA_Collaborator.user_id == 303).execute()
-        with patch('api.utils.audio.generate_audio', new=AsyncMock(return_value='fixture.mp3')):
+        with patch('api.utils.audio.generate_audio', new=AsyncMock(return_value='https://example.supabase.co/storage/v1/object/public/audio/fixture.mp3')):
             response = self.call('POST', '/media/generate-card-audio', 303,
                                  json={'card_id': self.card.id})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).creator_id, 404)
 
+    def test_failed_audio_upload_keeps_previous_card_link(self):
+        previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
+        models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
+        with patch('api.utils.audio.generate_audio', side_effect=RuntimeError('Storage upload failed')):
+            response = self.call('POST', '/media/generate-card-audio', 101,
+                                 json={'card_id': self.card.id})
+        self.assertEqual(response.status_code, 500, response.text)
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, previous)
+
+    def test_explicit_audio_does_not_overwrite_newer_link(self):
+        previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
+        newer = 'https://example.supabase.co/storage/v1/object/public/audio/manual.mp3'
+        models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
+
+        async def finish_after_new_link(*_args, **_kwargs):
+            models.TMA_Card.update(audio_path=newer).where(models.TMA_Card.id == self.card.id).execute()
+            return 'https://example.supabase.co/storage/v1/object/public/audio/generated.mp3'
+
+        with patch('api.utils.audio.generate_audio', side_effect=finish_after_new_link):
+            response = self.call('POST', '/media/generate-card-audio', 101,
+                                 json={'card_id': self.card.id})
+        self.assertEqual(response.status_code, 409, response.text)
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, newer)
+
+    def test_text_edit_keeps_old_audio_when_background_upload_fails(self):
+        previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
+        models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
+        with patch('api.utils.audio.generate_audio', side_effect=RuntimeError('Storage upload failed')) as generate:
+            response = self.call('POST', '/cards/save', 101, json={
+                'card_id': self.card.id, 'deck_id': self.deck.id,
+                'front': 'Changed spoken text', 'audio_path': previous,
+            })
+        self.assertEqual(response.status_code, 200, response.text)
+        generate.assert_called_once()
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, previous)
+
+    def test_late_background_audio_does_not_overwrite_newer_edit(self):
+        previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
+        newer = 'https://example.supabase.co/storage/v1/object/public/audio/manual.mp3'
+        models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
+
+        async def finish_after_new_edit(*_args, **_kwargs):
+            models.TMA_Card.update(audio_path=newer, front_text='Newer edit').where(
+                models.TMA_Card.id == self.card.id).execute()
+            return 'https://example.supabase.co/storage/v1/object/public/audio/generated.mp3'
+
+        with patch('api.utils.audio.generate_audio', side_effect=finish_after_new_edit):
+            response = self.call('POST', '/cards/save', 101, json={
+                'card_id': self.card.id, 'deck_id': self.deck.id,
+                'front': 'First edit', 'audio_path': previous,
+            })
+        self.assertEqual(response.status_code, 200, response.text)
+        saved = models.TMA_Card.get_by_id(self.card.id)
+        self.assertEqual((saved.front_text, saved.audio_path), ('Newer edit', newer))
+
     def test_audio_rechecks_access_after_generation(self):
         async def revoke(*_args, **_kwargs):
             models.TMA_Collaborator.delete().where(models.TMA_Collaborator.user_id == 202).execute()
-            return 'fixture.mp3'
+            return 'https://example.supabase.co/storage/v1/object/public/audio/fixture.mp3'
         with patch('api.utils.audio.generate_audio', side_effect=revoke):
             response = self.call('POST', '/media/generate-card-audio', 202,
                                  json={'card_id': self.card.id})

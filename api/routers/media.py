@@ -260,16 +260,9 @@ async def generate_audio_endpoint(
                 "word_boundaries": word_boundaries
             }
         
-        try:
-            filename = os.path.basename(result)
-            return {
-                "path": filename,
-                "url": f"/api/media/audio/{filename}",
-                "word_boundaries": word_boundaries
-            }
-        except Exception as err:
-            logger.error(f"AUDIO GENERATION ERROR: {err}")
-            raise HTTPException(status_code=500, detail=f"Audio Generation Error: {str(err)}")
+        raise HTTPException(status_code=503, detail="Audio was not saved to permanent Storage")
+    except HTTPException:
+        raise
     except Exception as e:
         import traceback
         err_msg = traceback.format_exc()
@@ -299,6 +292,8 @@ async def generate_card_audio_endpoint(
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
     card_source_text = card.front_text if side == 'front' else card.back_text
+    field = 'audio_back_path' if side == 'back' else 'audio_path'
+    previous_path = getattr(card, field)
     text_value = data.get('text')
     if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
         text_value = card_source_text
@@ -321,24 +316,28 @@ async def generate_card_audio_endpoint(
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
 
-        if result.startswith('http'):
-            path = result
-            url = result
-        else:
-            filename = os.path.basename(result)
-            path = filename
-            url = f'/api/media/audio/{filename}'
+        if not result.startswith('http'):
+            raise HTTPException(status_code=503, detail="Audio was not saved to permanent Storage")
+        path = result
+        url = result
 
         # Access or the containing deck may have changed while TTS was running.
         card = models.TMA_Card.get_or_none(
             (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
         if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
             raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
-        field = 'audio_back_path' if side == 'back' else 'audio_path'
-        previous_path = getattr(card, field)
-        setattr(card, field, path)
-        card.updated_at = models.datetime.datetime.now()
-        card.save(only=[getattr(models.TMA_Card, field), models.TMA_Card.updated_at])
+        text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
+        changed = models.TMA_Card.update(**{
+            field: path, 'updated_at': models.datetime.datetime.now()
+        }).where(
+            (models.TMA_Card.id == card_id) &
+            (models.TMA_Card.deck_id == card.deck_id) &
+            (models.TMA_Card.is_deleted == False) &
+            (text_field == card_source_text) &
+            (getattr(models.TMA_Card, field) == previous_path)
+        ).execute()
+        if changed != 1:
+            raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
         return {'path': path, 'url': url}
     except HTTPException:
         raise
@@ -377,18 +376,7 @@ async def upload_audio_file(
                 "url": cloud_url
             }
 
-    try:
-        out_dir = "/tmp/pending_audio" if os.environ.get("VERCEL") else os.path.join(os.getcwd(), "user_files", "pending_audio")
-        os.makedirs(out_dir, exist_ok=True)
-        with open(os.path.join(out_dir, filename), "wb") as f:
-            f.write(content)
-    except Exception as e:
-        logger.error(f"Audio upload fallback save error: {e}")
-
-    return {
-        "path": f"audio/{filename}",
-        "url": f"/api/media/audio/{filename}"
-    }
+    raise HTTPException(status_code=503, detail="Audio upload to permanent Storage failed")
 
 from collections import OrderedDict
 
