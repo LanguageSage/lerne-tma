@@ -65,6 +65,9 @@ export const StudyCard = React.memo(({
   stepFlow,
   renderRequiredAction,
   onAskQuestion,
+  aiExplanation,
+  onSaveExplanation,
+  isSavingExplanation = false,
   onNextCard,
   onPreviousCard,
   onNavigateNext,
@@ -755,6 +758,18 @@ export const StudyCard = React.memo(({
               </div>
 
               <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />
+              {aiExplanation && <div className="ai-explanation-block card-context-wrapper">
+                <strong>{tr('Ответ ИИ:')}</strong>
+                <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
+                  <MarkdownRenderer>{aiExplanation.answer}</MarkdownRenderer>
+                </div>
+                <button type="button" className="btn btn-primary" disabled={isSavingExplanation}
+                  style={{ minHeight: '44px', width: '100%', marginTop: '12px', whiteSpace: 'normal' }}
+                  onClick={event => { event.stopPropagation(); onSaveExplanation?.(); }}>
+                  {isSavingExplanation ? tr('Выполняется...') : tr('Сохранить в Контекст')}
+                </button>
+              </div>}
+
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
               {(() => {

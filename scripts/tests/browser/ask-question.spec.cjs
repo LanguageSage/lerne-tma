@@ -10,6 +10,8 @@ const regularCard = { id: 2, deck_id: 1, queue: 'new',
 async function openStudy(page, context, card, options = {}) {
   const notes = new Map();
   const cardWrites = [];
+  const deck = { id: 1, name: 'Deck', target_language: 'de', role: 'viewer',
+    stats: { total: 2, new: 2, due: 0, learning: 0 }, ...options.deck };
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(() => {
@@ -25,7 +27,7 @@ async function openStudy(page, context, card, options = {}) {
     const url = route.request().url();
     const { pathname } = new URL(url);
     if (pathname === '/api/init') return route.fulfill({ json: {
-      decks: [{ id: 1, name: 'Deck', target_language: 'de', stats: { total: 2, new: 2, due: 0, learning: 0 } }], folders: [], settings: {}, prompts: {}, user_settings: {},
+      decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {},
       user_info: { user_id: 1, first_name: 'Test', is_guest: false },
     } });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: options.cards || [card] });
@@ -57,7 +59,11 @@ async function openStudy(page, context, card, options = {}) {
       return route.fulfill({ json: {} });
     }
     if (pathname === '/api/cards/save') {
-      return route.fulfill({ json: { id: card.id, ...JSON.parse(route.request().postData()) } });
+      const payload = route.request().postDataJSON();
+      cardWrites.push(payload);
+      if (options.failCardSave) return route.fulfill({ status: 403, json: { detail: 'No edit permission' } });
+      Object.assign(card, payload);
+      return route.fulfill({ json: card });
     }
     return route.fulfill({ json: {} });
   });
@@ -65,15 +71,16 @@ async function openStudy(page, context, card, options = {}) {
   await page.goto('/?user_id=1');
   await expect(page.getByText('Deck', { exact: true }).first()).toBeVisible();
   
-  await page.evaluate(async ({ card }) => {
+  await page.evaluate(async ({ card, deck, activeDeck }) => {
     const { useUiStore } = await import('/src/store/useUiStore.js');
     const { useDeckStore } = await import('/src/store/useDeckStore.js');
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
-    const deck = { id: 1, name: 'Deck', target_language: 'de', stats: { total: 2, new: 2, due: 0, learning: 0 } };
-    useDeckStore.setState({ currentDeck: deck, cards: [card] });
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    useSettingsStore.setState({ autoGenerateCardAudio: false });
+    useDeckStore.setState({ currentDeck: activeDeck, decks: [deck], deckCards: [card], cardsByDeck: { [deck.id]: [card] } });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: true });
     useUiStore.getState().setView('study');
-  }, { card });
+  }, { card, deck, activeDeck: options.activeDeck || deck });
   return { notes, cardWrites, options };
 }
 
@@ -198,3 +205,151 @@ test('answer generated after navigation belongs to the question card', async ({ 
   }, { original: wordBank });
   await expect(page.locator('.card-personal-notes')).toContainText('AI explanation for: slow');
 });
+
+for (const [role, width] of [['owner', 375], ['editor', 1330], [null, 375]]) {
+  test(`AI answer for ${role || 'legacy owner'} saves to context and can be edited at ${width}px`, async ({ page, context }, info) => {
+    await page.setViewportSize({ width, height: 900 });
+    const sharedContext = 'Общее пояснение карточки';
+    const { notes, cardWrites } = await openStudy(page, context, { ...regularCard, context: sharedContext }, { deck: { role } });
+    await page.locator('.card-question-trigger').click();
+    await page.locator('.card-question-input').fill('Почему здесь der?');
+    await page.locator('.card-question-button.primary').click();
+    const answer = 'AI explanation for: Почему здесь der?';
+    const preview = page.locator('.ai-explanation-block');
+    await expect(preview).toContainText(answer);
+    expect(cardWrites).toEqual([]);
+    await page.screenshot({ path: info.outputPath(`answer-preview-${role}-${width}.png`), fullPage: true });
+    await preview.getByRole('button', { name: 'Сохранить в Контекст', exact: true }).click();
+    await expect(preview).toHaveCount(0);
+    const expectedContext = `${answer}\n\n${sharedContext}`;
+    await expect(page.locator('.card-context-wrapper')).toContainText(answer);
+    expect(cardWrites).toHaveLength(1);
+    expect(cardWrites[0]).toMatchObject({ card_id: regularCard.id, context: expectedContext, auto_generate_audio: false });
+    expect(notes.size).toBe(0);
+    await expect(page.locator('.card-personal-notes')).toHaveCount(0);
+
+    await page.locator('#tut-study-edit-card').click();
+    const input = page.getByRole('textbox', { name: 'Примеры и пояснения', exact: true });
+    await expect(input).toHaveValue(expectedContext);
+    const edited = expectedContext.replace(answer, 'Мой исправленный ответ: der — определённый артикль.');
+    await input.fill(edited);
+    await page.screenshot({ path: info.outputPath(`answer-context-${role}-${width}.png`), fullPage: true });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.locator('.view-editor').getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+    await expect(page.locator('.view-study')).toBeVisible();
+    await expect(page.locator('.card-context-wrapper')).toContainText('Мой исправленный ответ');
+    await page.locator('#tut-study-edit-card').click();
+    await expect(input).toHaveValue(edited);
+    expect(notes.size).toBe(0);
+  });
+}
+
+test('public read-only deck without a role saves AI answer only as a note', async ({ page, context }) => {
+  const { notes, cardWrites } = await openStudy(page, context, regularCard, { deck: { role: null, is_global_readonly: true } });
+  await page.locator('.card-question-trigger').click();
+  await page.locator('.card-question-input').fill('Read only');
+  await page.locator('.card-question-button.primary').click();
+  await expect(page.locator('.card-personal-notes')).toContainText('AI explanation for: Read only');
+  expect(notes.size).toBe(1);
+  expect(cardWrites).toEqual([]);
+  await expect(page.getByRole('button', { name: 'Сохранить в Контекст', exact: true })).toHaveCount(0);
+});
+
+test('rejected context save retains the answer for retry without creating a note', async ({ page, context }) => {
+  const { notes, options } = await openStudy(page, context, { ...regularCard, context: 'Original' },
+    { deck: { role: 'owner' }, failCardSave: true });
+  await page.locator('.card-question-trigger').click();
+  await page.locator('.card-question-input').fill('Keep answer');
+  await page.locator('.card-question-button.primary').click();
+  const preview = page.locator('.ai-explanation-block');
+  await expect(preview).toContainText('AI explanation for: Keep answer');
+  await preview.getByRole('button', { name: 'Сохранить в Контекст', exact: true }).click();
+  await expect(page.locator('.toast')).toContainText('Не удалось сохранить контекст');
+  await expect(preview).toContainText('AI explanation for: Keep answer');
+  expect(notes.size).toBe(0);
+  options.failCardSave = false;
+  await preview.getByRole('button', { name: 'Сохранить в Контекст', exact: true }).click();
+  await expect(preview).toHaveCount(0);
+  await expect(page.locator('.card-context-wrapper')).toContainText('AI explanation for: Keep answer');
+});
+
+test('editable answer arriving after navigation stays with its source card and appends to the latest context', async ({ page, context }) => {
+  const original = { ...wordBank, context: 'Before question' };
+  const { notes, cardWrites } = await openStudy(page, context, original,
+    { deck: { role: 'editor' }, cards: [original, regularCard] });
+  await page.locator('.card-question-trigger').click();
+  await page.locator('.card-question-input').fill('slow');
+  await page.locator('.card-question-button.primary').click();
+  await page.evaluate(async ({ next, original }) => {
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    useSessionStore.setState({ card: next, studyHistory: [original, next], historyIndex: 1, isFlipped: true });
+  }, { next: regularCard, original });
+  await expect.poll(() => page.locator('.card-loading-overlay').count()).toBe(0);
+  await expect(page.locator('.ai-explanation-block')).toHaveCount(0);
+  expect(notes.size).toBe(0);
+  expect(cardWrites).toEqual([]);
+  await page.evaluate(async ({ original }) => {
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    useSessionStore.setState({ card: { ...original, context: 'Edited while waiting' }, historyIndex: 0, isFlipped: true });
+  }, { original });
+  const preview = page.locator('.ai-explanation-block');
+  await expect(preview).toContainText('AI explanation for: slow');
+  await preview.getByRole('button', { name: 'Сохранить в Контекст', exact: true }).click();
+  await expect(preview).toHaveCount(0);
+  expect(cardWrites).toHaveLength(1);
+  expect(cardWrites[0]).toMatchObject({ card_id: original.id, context: 'AI explanation for: slow\n\nEdited while waiting' });
+});
+
+test('owner can save a generated answer offline without losing other card fields', async ({ page, context }) => {
+  const source = { ...regularCard, context: 'Original context' };
+  const { notes, cardWrites } = await openStudy(page, context, source, { deck: { role: 'owner' } });
+  await page.locator('.card-question-trigger').click();
+  await page.locator('.card-question-input').fill('Offline answer');
+  await page.locator('.card-question-button.primary').click();
+  const preview = page.locator('.ai-explanation-block');
+  await expect(preview).toContainText('AI explanation for: Offline answer');
+  await page.evaluate(async ({ source }) => {
+    const { prepareLocalDb } = await import('/src/services/localDb.js');
+    const db = await prepareLocalDb();
+    await db.decks.put({ id: 1, user_id: 1, role: 'owner', name: 'Deck' });
+    await db.cards.put({ id: source.id, deck_id: 1, front_text: source.front, back_text: source.back,
+      context: source.context, position: 0, audio_path: 'existing.mp3' });
+    Object.defineProperty(navigator, 'onLine', { configurable: true, get: () => false });
+  }, { source });
+  await preview.getByRole('button', { name: 'Сохранить в Контекст', exact: true }).click();
+  await expect(preview).toHaveCount(0);
+  const stored = await page.evaluate(async id => (await import('/src/services/localDb.js')).getLocalDb().cards.get(id), source.id);
+  expect(stored).toMatchObject({ id: source.id, front_text: source.front, back_text: source.back,
+    context: 'AI explanation for: Offline answer\n\nOriginal context', audio_path: 'existing.mp3', is_dirty: 1 });
+  expect(notes.size).toBe(0);
+  expect(cardWrites).toEqual([]);
+});
+
+for (const role of ['owner', 'viewer']) {
+  test(`duplicates use the source deck ${role} permission for an AI answer`, async ({ page, context }) => {
+    const { notes, cardWrites } = await openStudy(page, context, { ...regularCard, creator_id: 1 },
+      { deck: { role }, activeDeck: { id: 'duplicates', name: 'Duplicates', role: role === 'owner' ? 'viewer' : 'owner' } });
+    await page.locator('.card-question-trigger').click();
+    await page.locator('.card-question-input').fill('Source permission');
+    await page.locator('.card-question-button.primary').click();
+    if (role === 'owner') {
+      const preview = page.locator('.ai-explanation-block');
+      await expect(preview).toContainText('AI explanation for: Source permission');
+      expect(cardWrites).toEqual([]);
+      await preview.getByRole('button', { name: 'Сохранить в Контекст', exact: true }).click();
+      await expect(preview).toHaveCount(0);
+      expect(cardWrites).toHaveLength(1);
+      const sourceCache = await page.evaluate(async () => {
+        const { useDeckStore } = await import('/src/store/useDeckStore.js');
+        return useDeckStore.getState().cardsByDeck[1][0];
+      });
+      expect(sourceCache.context).toBe('AI explanation for: Source permission');
+      expect(notes.size).toBe(0);
+    } else {
+      await expect(page.locator('.card-personal-notes')).toContainText('AI explanation for: Source permission');
+      await expect(page.locator('.ai-explanation-block')).toHaveCount(0);
+      expect(notes.size).toBe(1);
+      expect(cardWrites).toEqual([]);
+    }
+  });
+}

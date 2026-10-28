@@ -26,7 +26,7 @@ TTS — [media](media.md); feedback lifecycle — [study](study.md); persistence
 5. Free-text клиент → `/ai/evaluate-answer`; сервер загружает карточку, accepted answers, grading policy и primary KI.
 6. Детерминированные правила пробуют exact/typo; затем bounded AI fallback возвращает валидированный verdict или unavailable.
 7. Verdict идёт в существующий study lifecycle; Attempt сохраняется при grade через Knowledge capture.
-8. «Задать вопрос» в StudyView фиксирует исходную карточку перед AI-запросом; успешный ответ вместе с вопросом записывает `writeCardNote` в личную Dexie-заметку. Тот же outbox доставляет её на сервер; общий `card.context` не меняется. Регрессия: `scripts/tests/browser/ask-question.spec.cjs`.
+8. «Задать вопрос» в StudyView фиксирует исходную карточку, аккаунт и право записи перед AI-запросом. Для owner/editor (включая прежние собственные колоды без role, если они не global readonly) ответ показывается с кнопкой «Сохранить в Контекст»: частичный `/cards/save` добавляет ответ перед актуальным context, без генерации аудио, затем обновляет session/history и deck cache. Ошибка сохраняет ответ для повтора; офлайн используется существующий Dexie-путь сохранения карточек. Без права редактирования вопрос и ответ записывает `writeCardNote` в личную Dexie-заметку и её outbox; общий context не меняется. Права определяются по колоде исходной карточки, включая режим duplicates; сервер проверяет их повторно при записи. Регрессия: `scripts/tests/browser/ask-question.spec.cjs` (owner/editor/viewer, read-only, редактор, ошибка/повтор, навигация, офлайн).
 
 ## Free Text: надёжность и диагностика
 

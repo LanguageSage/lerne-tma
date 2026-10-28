@@ -525,10 +525,56 @@ ${targetCard.back}`;
     return fallback;
   };
 
+  const [aiExplanation, setAiExplanation] = useState(null);
+  const [isSavingExplanation, setIsSavingExplanation] = useState(false);
+  const explanationSaveLock = useRef(false);
+  const questionDeckId = card?.deck_id ?? currentDeck?.id;
+  const questionDeck = String(currentDeck?.id) === String(questionDeckId)
+    ? currentDeck : decks.find(deck => String(deck.id) === String(questionDeckId));
+  const canEditQuestionCard = Boolean(questionDeck && (questionDeck.role === 'owner'
+    || questionDeck.role === 'editor' || (!questionDeck.role && !questionDeck.is_global_readonly)));
+
+  const handleSaveExplanation = async () => {
+    const pending = aiExplanation;
+    if (!pending || explanationSaveLock.current || pending.userId !== getUserId()
+      || String(pending.cardId) !== String(card?.id)) return;
+    if (!canEditQuestionCard) {
+      showToast(tr('Не удалось сохранить контекст'), 'error');
+      return;
+    }
+    explanationSaveLock.current = true;
+    setIsSavingExplanation(true);
+    try {
+      const session = useSessionStore.getState();
+      const latestCard = String(session.card?.id) === String(pending.cardId) ? session.card
+        : session.studyHistory.find(item => String(item.id) === String(pending.cardId));
+      const currentContext = String(latestCard?.context ?? pending.context).trim();
+      const context = currentContext ? `${pending.answer}\n\n${currentContext}` : pending.answer;
+      await api.post('/cards/save', { card_id: pending.cardId, context, auto_generate_audio: false });
+      if (pending.userId !== getUserId()) return;
+      useSessionStore.getState().updateCardInSession(pending.cardId, { context });
+      const deckState = useDeckStore.getState();
+      deckState.updateCardLocal(pending.cardId, { context });
+      const sourceCards = deckState.cardsByDeck[pending.deckId];
+      if (sourceCards && String(deckState.currentDeck?.id) !== String(pending.deckId)) {
+        useDeckStore.setState(state => ({ cardsByDeck: { ...state.cardsByDeck,
+          [pending.deckId]: sourceCards.map(item => String(item.id) === String(pending.cardId) ? { ...item, context } : item) } }));
+      }
+      setAiExplanation(current => current === pending ? null : current);
+      showToast(tr('Ответ сохранен в контекст!'), 'success');
+    } catch {
+      showToast(tr('Не удалось сохранить контекст'), 'error');
+    } finally {
+      explanationSaveLock.current = false;
+      setIsSavingExplanation(false);
+    }
+  };
+
   const handleAskQuestion = async (userRequest) => {
     const sourceCard = card;
     const sourceCardId = sourceCard?.id;
     const sourceUserId = getUserId();
+    const saveToContext = canEditQuestionCard;
     if (!sourceCard?.front) return false;
     if (sourceUserId == null || userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr('Вход в аккаунт'));
@@ -542,6 +588,11 @@ ${targetCard.back}`;
     const answer = String(result.context || '').trim();
     if (!answer) return false;
     if (getUserId() !== sourceUserId) return false;
+    if (saveToContext) {
+      setAiExplanation({ cardId: sourceCardId, deckId: questionDeckId, userId: sourceUserId, answer, context: sourceCard.context || '' });
+      if (useSessionStore.getState().card?.id === sourceCardId) stopAudio();
+      return true;
+    }
 
     try {
       const note = await writeCardNote(sourceCardId, { text: `${userRequest.trim()}\n\n${answer}` });
@@ -757,6 +808,9 @@ ${targetCard.back}`;
               stepFlow={stepFlow}
               renderRequiredAction={renderRequiredAction ?? (autoSpeechActions ? renderSpeechFollowup : undefined)}
               onAskQuestion={handleAskQuestion}
+              aiExplanation={aiExplanation?.cardId === card?.id && aiExplanation?.userId === getUserId() ? aiExplanation : null}
+              onSaveExplanation={handleSaveExplanation}
+              isSavingExplanation={isSavingExplanation}
               onNextCard={() => {
                 if (!canGrade) return;
                 setIsFlipped(false);
