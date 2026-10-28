@@ -121,7 +121,8 @@ export const offlineApi = {
       for (const deck of decks) {
         deck.stats = await deckStats(db, deck.id, userId);
         deck.metadata = jsonObject(deck.metadata);
-        deck.is_learning = deck.is_learning ?? !!deck.metadata.is_learning;
+        delete deck.metadata.is_learning;
+        deck.is_learning = deck.is_learning ?? false;
       }
       const folders = ordered(await db.folders.filter(f => !f.is_deleted && (!f.target_language || f.target_language === language)).toArray());
       if (url === '/decks') return result(decks);
@@ -482,7 +483,11 @@ export const offlineApi = {
           }
           fields = { [key]: target };
         }
-        if (action === 'metadata') fields = { metadata: body };
+        if (action === 'metadata') {
+          const metadata = { ...body };
+          if (entity === 'decks') delete metadata.is_learning;
+          fields = { metadata };
+        }
         if (fields) return success(await change(table, id, fields));
         throw unsupported();
       });

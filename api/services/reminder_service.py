@@ -13,11 +13,13 @@ except ImportError:
     WebAppInfo = None
 
 from peewee import fn, Case, JOIN
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAUser, TMASetting, TMAAuthIdentity, tma_db
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAUser, TMASetting, TMAAuthIdentity, TMAAuthAccount
+from .decks import _learning_key
+from .collaborative_service import get_user_accessible_deck_ids
 
 logger = logging.getLogger(__name__)
 
-TMA_URL = "https://tma-amber.vercel.app"
+TMA_URL = os.getenv("TMA_PUBLIC_URL", "https://tma-amber.vercel.app").rstrip("/")
 
 OFFSET_TO_IANA = {
     0: "UTC",
@@ -52,7 +54,7 @@ def resolve_user_tzinfo(settings: dict):
 def get_user_reminder_settings(user_id: int) -> dict:
     """Возвращает настройки напоминаний пользователя."""
     default_settings = {
-        "enabled": True,
+        "enabled": False,
         "times": ["09:00", "19:00"],
         "frequency": "twice_daily",  # 'hourly', 'five_times', 'three_times', 'twice_daily', 'daily', 'custom'
         "hourly_start": "08:00",
@@ -69,6 +71,8 @@ def get_user_reminder_settings(user_id: int) -> dict:
         if setting and setting.value:
             loaded = json.loads(setting.value)
             default_settings.update(loaded)
+            if not loaded.get("timezone") and "timezone_offset" in loaded:
+                default_settings["timezone"] = resolve_user_tzinfo(loaded)[1]
     except Exception as e:
         logger.error(f"Error reading reminder settings for user {user_id}: {e}")
 
@@ -84,10 +88,11 @@ def save_user_reminder_settings(user_id: int, settings: dict) -> bool:
     try:
         current = get_user_reminder_settings(user_id)
         current.update(settings)
-        setting, created = TMASetting.get_or_create(key=f"REMINDER_SETTINGS_{user_id}")
-        setting.value = json.dumps(current)
-        setting.updated_at = datetime.datetime.now()
-        setting.save()
+        value = json.dumps(current)
+        TMASetting.insert(key=f"REMINDER_SETTINGS_{user_id}", value=value).on_conflict(
+            conflict_target=[TMASetting.key], update={
+                TMASetting.value: value, TMASetting.updated_at: datetime.datetime.now()
+            }).execute()
         logger.info(f"Saved reminder settings for user {user_id}: {current}")
         return True
     except Exception as e:
@@ -112,21 +117,13 @@ def get_user_due_summary(user_id: int) -> dict:
     }
 
     try:
-        decks = list(TMA_Deck.select().where(
-            (TMA_Deck.user_id == user_id) & 
-            (TMA_Deck.is_deleted == False)
-        ))
-
-        active_decks = []
-        for d in decks:
-            meta = {}
-            if d.metadata:
-                try:
-                    meta = json.loads(d.metadata)
-                except Exception:
-                    meta = {}
-            if meta.get("is_learning", False):
-                active_decks.append(d)
+        accessible_ids = get_user_accessible_deck_ids(user_id)
+        learning_keys = {_learning_key(user_id, deck_id): deck_id for deck_id in accessible_ids}
+        active_ids = [learning_keys[row.key] for row in TMASetting.select(
+            TMASetting.key).where((TMASetting.key.in_(list(learning_keys))) & (TMASetting.value == '1'))]
+        active_decks = list(TMA_Deck.select().where(
+            (TMA_Deck.id.in_(active_ids)) & (TMA_Deck.is_deleted == False)
+        ).order_by(TMA_Deck.id))
 
         summary["total_active_decks"] = len(active_decks)
         if not active_decks:
@@ -141,7 +138,7 @@ def get_user_due_summary(user_id: int) -> dict:
 
         counts_query = (TMA_Card
                         .select(
-                            TMA_Card.deck_id,
+                            TMA_Card.deck_id.alias('deck_id'),
                             fn.COUNT(TMA_Card.id).alias('total'),
                             fn.COUNT(tracked_case).alias('tracked'),
                             fn.COUNT(learning_case).alias('learning'),
@@ -249,29 +246,13 @@ async def send_reminder_to_user(bot_app, user_id: int, force: bool = False) -> d
         if not user or user.is_guest:
             return {"status": "skipped", "message": "Guest user"}
 
-        target_chat_id = None
-        identity = TMAAuthIdentity.get_or_none(
-            (TMAAuthIdentity.account == user_id) & (TMAAuthIdentity.provider == 'telegram'))
-        if identity and identity.subject.isdigit() and int(identity.subject) > 0:
-            target_chat_id = int(identity.subject)
-        elif isinstance(user_id, int) and user_id > 0:
-            target_chat_id = user_id
-            try:
-                from ..models import TMAAuthAccount
-                if TMAAuthAccount.get_or_none(TMAAuthAccount.user_id == user_id):
-                    TMAAuthIdentity.get_or_create(
-                        account=user_id,
-                        provider='telegram',
-                        defaults={'subject': str(user_id)}
-                    )
-            except Exception as sync_err:
-                logger.debug(f"Identity backfill skipped for {user_id}: {sync_err}")
+        target_chat_id = get_verified_telegram_chat_id(user_id)
 
         if not target_chat_id:
             return {"status": "skipped", "message": "Telegram not linked"}
 
         settings = get_user_reminder_settings(user_id)
-        if not settings.get("enabled", True) and not force:
+        if not settings.get("enabled", False) and not force:
             return {"status": "skipped", "message": "Notifications disabled by user"}
 
         summary = get_user_due_summary(user_id)
@@ -302,6 +283,38 @@ async def send_reminder_to_user(bot_app, user_id: int, force: bool = False) -> d
         return {"status": "error", "message": str(e)}
 
 
+def get_verified_telegram_chat_id(user_id: int):
+    """Only auth identities established by verified Telegram proofs are recipients."""
+    identity = (TMAAuthIdentity.select().join(TMAAuthAccount).where(
+        (TMAAuthIdentity.account == user_id) & (TMAAuthIdentity.provider == 'telegram') &
+        (TMAAuthAccount.disabled_at.is_null(True))
+    ).first())
+    if identity and identity.subject.isascii() and identity.subject.isdigit() and int(identity.subject) > 0:
+        return int(identity.subject)
+    return None
+
+
+def is_quiet_time(settings: dict, time: datetime.time) -> bool:
+    if not settings.get("quiet_enabled", False):
+        return False
+    start = datetime.time.fromisoformat(settings.get("quiet_start", "23:00"))
+    end = datetime.time.fromisoformat(settings.get("quiet_end", "07:00"))
+    return (time >= start or time < end) if start > end else start <= time < end
+
+
+def claim_reminder_slot(user_id: int, slot_key: str) -> bool:
+    """Atomic durable watermark, acquired BEFORE Telegram I/O across cron workers.
+
+    A failed/unknown send is not retried for this slot: Telegram has no idempotency
+    key, so retrying a timeout could deliver twice. The next scheduled slot works.
+    """
+    key = f"LAST_REMINDER_ATTEMPT_{user_id}"
+    TMASetting.insert(key=key, value="").on_conflict_ignore().execute()
+    return bool(TMASetting.update(value=slot_key, updated_at=datetime.datetime.now()).where(
+        (TMASetting.key == key) & (TMASetting.value < slot_key)
+    ).execute())
+
+
 async def check_and_send_all_reminders(bot_app) -> dict:
     """
     Проверяет всех пользователей и рассылает напоминания согласно их расписанию и часовому поясу.
@@ -319,7 +332,7 @@ async def check_and_send_all_reminders(bot_app) -> dict:
         for u in users:
             try:
                 settings = get_user_reminder_settings(u.user_id)
-                if not settings.get("enabled", True):
+                if not settings.get("enabled", False):
                     results["skipped"] += 1
                     details.append({"user_id": u.user_id, "status": "skipped", "reason": "disabled"})
                     continue
@@ -327,6 +340,10 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                 tzinfo, tz_name = resolve_user_tzinfo(settings)
                 user_local_now = now_utc.astimezone(tzinfo)
                 user_today = user_local_now.date()
+                if is_quiet_time(settings, user_local_now.time()):
+                    results["skipped"] += 1
+                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "quiet_hours"})
+                    continue
 
                 # Считываем ранее отправленные слоты
                 last_slots_key = f"LAST_REMINDER_SLOTS_{u.user_id}"
@@ -361,12 +378,8 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                         slot_dt = slot_naive.replace(tzinfo=tzinfo)
 
                         # Проверка тихого режима
-                        if settings.get("quiet_enabled", False):
-                            q_start = int(settings.get("quiet_start", "23:00").split(":")[0])
-                            q_end = int(settings.get("quiet_end", "07:00").split(":")[0])
-                            is_quiet = (sh_h >= q_start or sh_h < q_end) if q_start > q_end else (q_start <= sh_h < q_end)
-                            if is_quiet:
-                                continue
+                        if is_quiet_time(settings, slot_dt.time()):
+                            continue
 
                         slot_key = f"{user_today.isoformat()}_{sh_h:02d}:{sh_m:02d}"
 
@@ -392,13 +405,17 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                         for s_key, _ in due_slots:
                             if s_key not in sent_slots:
                                 sent_slots.append(s_key)
-                        s_obj, _ = TMASetting.get_or_create(key=last_slots_key)
-                        s_obj.value = json.dumps(sent_slots[-15:])
+                        s_obj, _ = TMASetting.get_or_create(key=last_slots_key, defaults={'value': '[]'})
+                        s_obj.value = json.dumps([s for s in sent_slots if s.startswith(user_today.isoformat())])
                         s_obj.updated_at = datetime.datetime.now()
                         s_obj.save()
                         continue
 
-                latest_slot_key, latest_slot_dt = due_slots[-1]
+                latest_slot_key, _ = max(due_slots, key=lambda slot: slot[1])
+                if not claim_reminder_slot(u.user_id, latest_slot_key):
+                    results["skipped"] += 1
+                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "slot_already_attempted"})
+                    continue
 
                 res = await send_reminder_to_user(bot_app, u.user_id, force=False)
                 if res.get("status") == "success":
@@ -409,13 +426,14 @@ async def check_and_send_all_reminders(bot_app) -> dict:
                         if s_key not in sent_slots:
                             sent_slots.append(s_key)
 
-                    s_obj, _ = TMASetting.get_or_create(key=last_slots_key)
-                    s_obj.value = json.dumps(sent_slots[-15:])
+                    s_obj, _ = TMASetting.get_or_create(key=last_slots_key, defaults={'value': '[]'})
+                    s_obj.value = json.dumps([s for s in sent_slots if s.startswith(user_today.isoformat())])
                     s_obj.updated_at = datetime.datetime.now()
                     s_obj.save()
                 else:
-                    results["skipped"] += 1
-                    details.append({"user_id": u.user_id, "status": "skipped", "reason": res.get("message")})
+                    status = "error" if res.get("status") == "error" else "skipped"
+                    results["errors" if status == "error" else "skipped"] += 1
+                    details.append({"user_id": u.user_id, "status": status, "reason": res.get("message")})
             except Exception as user_err:
                 logger.error(f"Error processing user {u.user_id} in cron: {user_err}", exc_info=True)
                 results["errors"] += 1
@@ -439,13 +457,7 @@ def get_user_reminder_diagnostics(user_id: int) -> dict:
     user_today = user_local_now.date()
 
     # Telegram Link status
-    target_chat_id = None
-    identity = TMAAuthIdentity.get_or_none(
-        (TMAAuthIdentity.account == user_id) & (TMAAuthIdentity.provider == 'telegram'))
-    if identity and identity.subject.isdigit() and int(identity.subject) > 0:
-        target_chat_id = int(identity.subject)
-    elif isinstance(user_id, int) and user_id > 0:
-        target_chat_id = user_id
+    target_chat_id = get_verified_telegram_chat_id(user_id)
 
     # Next scheduled slot
     frequency = settings.get("frequency", "twice_daily")
@@ -466,7 +478,7 @@ def get_user_reminder_diagnostics(user_id: int) -> dict:
                 parts = t_str.split(":")
                 sh_h, sh_m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
                 slot_dt = datetime.datetime.combine(target_date, datetime.time(sh_h, sh_m)).replace(tzinfo=tzinfo)
-                if slot_dt > user_local_now:
+                if settings.get("enabled", False) and slot_dt > user_local_now and not is_quiet_time(settings, slot_dt.time()):
                     day_label = "Сегодня" if day_offset == 0 else "Завтра"
                     next_slot_str = f"{day_label} в {t_str}"
                     break
@@ -488,7 +500,7 @@ def get_user_reminder_diagnostics(user_id: int) -> dict:
             pass
 
     return {
-        "enabled": settings.get("enabled", True),
+        "enabled": settings.get("enabled", False),
         "timezone": tz_name,
         "telegram_linked": bool(target_chat_id),
         "telegram_chat_id": target_chat_id,

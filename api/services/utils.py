@@ -52,6 +52,8 @@ def resolve_deck_metadata(deck, *, resolve_media_urls: bool = True):
     except (json.JSONDecodeError, TypeError):
         return {"resources": []}
     
+    # Learning is a personal TMASetting, never transferable deck metadata.
+    deck_metadata = {k: v for k, v in deck_metadata.items() if k != 'is_learning'}
     resolved_resources = []
     for r in deck_metadata.get('resources', []):
         res_type = r.get('type')

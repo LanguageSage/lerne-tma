@@ -44,7 +44,8 @@ export const LearningShortcutsBar = ({
           const hasCardsToStudy = dueCount > 0 || learningCount > 0 || newCount > 0;
 
           return (
-            <motion.div
+            <motion.button
+              type="button"
               key={`learning-shortcut-${deck.id}`}
               whileHover={{ scale: 1.03, y: -2 }}
               whileTap={{ scale: 0.97 }}
@@ -87,7 +88,7 @@ export const LearningShortcutsBar = ({
                   </span>
                 )}
               </div>
-            </motion.div>
+            </motion.button>
           );
         })}
       </div>

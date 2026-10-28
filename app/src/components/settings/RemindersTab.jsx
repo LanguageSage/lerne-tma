@@ -21,11 +21,14 @@ import {
 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
+import { useAuthStore } from '../../store/useAuthStore';
 
 export const RemindersTab = () => {
   useInterfaceLocale();
   const { 
     reminderSettings, 
+    reminderAccountId,
+    reminderLoading,
     reminderDiagnostics,
     fetchReminderSettings, 
     fetchReminderDiagnostics,
@@ -33,10 +36,11 @@ export const RemindersTab = () => {
     sendTestReminder 
   } = useSettingsStore();
   const { showToast } = useUiStore();
+  const accountId = useAuthStore(state => state.userProfile?.user_id);
 
   const [isSendingTest, setIsSendingTest] = useState(false);
   const [localSettings, setLocalSettings] = useState(reminderSettings || {
-    enabled: true,
+    enabled: false,
     frequency: 'twice_daily',
     times: ['09:00', '19:00'],
     hourly_start: '08:00',
@@ -52,7 +56,7 @@ export const RemindersTab = () => {
   useEffect(() => {
     fetchReminderSettings();
     fetchReminderDiagnostics();
-  }, [fetchReminderSettings, fetchReminderDiagnostics]);
+  }, [fetchReminderSettings, fetchReminderDiagnostics, accountId]);
 
   useEffect(() => {
     if (reminderSettings) {
@@ -76,18 +80,21 @@ export const RemindersTab = () => {
   }, [reminderSettings]);
 
   const handleUpdate = async (updated) => {
-    setLocalSettings(updated);
     try {
-      await saveReminderSettings(updated);
+      if (!await saveReminderSettings(updated)) return false;
+      setLocalSettings(updated);
+      return true;
     } catch {
       showToast(tr("Ошибка сохранения настроек"), 'error');
+      return false;
     }
   };
 
   const handleToggleEnabled = async (checked) => {
     const updated = { ...localSettings, enabled: checked };
-    await handleUpdate(updated);
-    showToast(checked ? tr("🔔 Напоминания бота включены") : tr("🔕 Напоминания отключены"), 'info');
+    if (await handleUpdate(updated)) {
+      showToast(checked ? tr("🔔 Напоминания бота включены") : tr("🔕 Напоминания отключены"), 'info');
+    }
   };
 
   const handleFrequencyChange = async (freq) => {
@@ -166,6 +173,15 @@ export const RemindersTab = () => {
     { id: 'daily', label: tr("1 раз в день"), desc: tr("Одно напоминание в день"), icon: Bell, color: '#34d399' },
     { id: 'custom', label: tr("Свой график"), desc: tr("Настроить любое время вручную"), icon: Plus, color: '#a855f7' }
   ];
+
+  if (reminderAccountId !== accountId || reminderLoading) {
+    return <div className="settings-section" role="status">
+      <h3>{tr("🔔 Напоминания Telegram-бота")}</h3>
+      <button className="btn btn-secondary" disabled={reminderLoading} onClick={fetchReminderSettings}>
+        {tr("Повторить загрузку")}
+      </button>
+    </div>;
+  }
 
   return (
     <motion.div 

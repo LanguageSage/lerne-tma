@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { storage } from '../utils/auth';
+import { storage, getUserId } from '../utils/auth';
 import api from '../services/api';
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
@@ -739,7 +739,7 @@ export const useSettingsStore = create((set, get) => {
 
     // --- Bot Reminder Settings ---
     reminderSettings: {
-      enabled: true,
+      enabled: false,
       times: ['10:00', '19:00'],
       frequency: 'twice_daily',
       timezone: 'Europe/Berlin',
@@ -747,25 +747,29 @@ export const useSettingsStore = create((set, get) => {
     },
     reminderDiagnostics: null,
     reminderLoading: false,
+    reminderAccountId: null,
 
     fetchReminderSettings: async () => {
+      const account = getUserId();
       try {
-        set({ reminderLoading: true });
+        set({ reminderLoading: true, reminderAccountId: null });
         const res = await api.get('/user/reminder-settings');
-        if (res.data) {
-          set({ reminderSettings: res.data });
+        if (res.data && getUserId() === account) {
+          set({ reminderSettings: res.data, reminderAccountId: account });
         }
       } catch (err) {
         console.error('Fetch Reminder Settings Error:', err);
       } finally {
-        set({ reminderLoading: false });
+        if (getUserId() === account) set({ reminderLoading: false });
       }
     },
 
     fetchReminderDiagnostics: async () => {
+      const account = getUserId();
+      set({ reminderDiagnostics: null });
       try {
         const res = await api.get('/bot/reminder-diagnostics');
-        if (res.data) {
+        if (res.data && getUserId() === account) {
           set({ reminderDiagnostics: res.data });
         }
         return res.data;
@@ -776,13 +780,14 @@ export const useSettingsStore = create((set, get) => {
     },
 
     saveReminderSettings: async (newSettings) => {
+      const account = getUserId();
+      if (!account || get().reminderAccountId !== account) throw new Error('Reminder settings not loaded for this account');
       try {
-        set((state) => ({ reminderSettings: { ...state.reminderSettings, ...newSettings } }));
         const res = await api.post('/user/reminder-settings', newSettings);
-        if (res.data?.settings) {
+        if (res.data?.settings && getUserId() === account) {
           set({ reminderSettings: res.data.settings });
         }
-        return true;
+        return getUserId() === account;
       } catch (err) {
         console.error('Save Reminder Settings Error:', err);
         throw err;

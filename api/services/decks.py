@@ -272,7 +272,7 @@ def create_deck(name: str, user_id: int, folder_id: int = None, target_language:
 
         with tma_db.atomic():
             next_position = get_next_deck_position(user_id=user_id, folder_id=folder_id, target_language=target_language)
-            meta_dict = {"resources": [], "is_learning": False}
+            meta_dict = {"resources": []}
             deck = TMA_Deck.create(
                 user_id=user_id,
                 name=name,
@@ -505,7 +505,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
                 "folder_id": deck_folder_id,
                 "has_updates": has_updates,
                 "metadata": parsed_metadata,
-                "is_learning": learning_states.get(d.id, bool(parsed_metadata.get('is_learning', False)) if d.user_id == user_id else False),
+                "is_learning": learning_states.get(d.id, False),
                 "is_shared": is_shared,
                 "is_global_readonly": collab_meta.get('is_global_readonly', False),
                 "role": role,
@@ -1104,7 +1104,7 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
         if not role or role not in ('owner', 'editor', 'admin'):
             return None
 
-        deck.metadata = json.dumps(metadata_dict)
+        deck.metadata = json.dumps({k: v for k, v in metadata_dict.items() if k != 'is_learning'})
         deck.updated_at = datetime.datetime.now()
         deck.save()
         return deck
@@ -1127,15 +1127,13 @@ def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
         
         key = _learning_key(user_id, deck_id)
         setting = TMASetting.get_or_none(TMASetting.key == key)
-        current_status = setting.value == '1' if setting else (
-            bool(resolve_deck_metadata(deck).get('is_learning', False)) if deck.user_id == user_id else False)
+        current_status = setting.value == '1' if setting else False
         new_status = not current_status if is_learning is None else bool(is_learning)
-        if setting:
-            setting.value = '1' if new_status else '0'
-            setting.updated_at = datetime.datetime.now()
-            setting.save()
-        else:
-            TMASetting.create(key=key, value='1' if new_status else '0')
+        value = '1' if new_status else '0'
+        TMASetting.insert(key=key, value=value).on_conflict(
+            conflict_target=[TMASetting.key], update={
+                TMASetting.value: value, TMASetting.updated_at: datetime.datetime.now()
+            }).execute()
         logger.info(f"Deck {deck_id} learning status set to {new_status} by user {user_id}")
         return new_status
     except Exception as e:

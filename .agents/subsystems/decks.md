@@ -156,3 +156,12 @@ Integration/browser scripts могут менять данные; сначала
 - `local` init восстанавливает текущую колоду/экран и запрашивает её карточки до раннего выхода; серверные настройки, профиль и init-кеш не применяются.
 - Регрессии: `node scripts/tests/library_store_regression.mjs`; синтетические API/storage и deferred Promise, без сети и БД.
 - Если `/init` устарел и завершился раньше нового обновления библиотеки, его завершение ожидает актуальную загрузку в той же сессии, после чего снимает `loading` и выставляет `hasInitialized`. Адресная регрессия: `superseded init completes initialization when the newer library refresh finishes last` в `library_store_regression.mjs`.
+
+
+## Персональное изучение и Telegram-напоминания
+
+- `DECK_LEARNING_{user_id}_{deck_id}` в `TMASetting` — единственный серверный источник личного `is_learning`. Отсутствие записи означает false; metadata не источник и не место записи. API выдаёт личное поле отдельно, очищает старое metadata-поле в проекции; offline использует прежние per-account Dexie и `learning_dirty`.
+- `DeckCardItem` показывает действие опубликованным/shared viewer колодам; права записи контента остаются прежними. `LearningShortcutsBar` видна и в папках, открывает deck_intro мышью/клавиатурой, сохраняет SRS counters.
+- `api/services/reminder_service.py` читает персональные flags только доступных колод через существующий collaborative resolver и агрегирует `TMAProgress` текущего пользователя. Default reminders off; существующие явно сохранённые настройки сохраняются. Получатель только Telegram identity активного auth account, без fallback на account ID.
+- Cron использует атомарный `LAST_REMINDER_ATTEMPT_{user_id}` перед I/O, успешные слоты остаются в `LAST_REMINDER_SLOTS_{user_id}`. Неопределённую отправку одного слота автоматически не повторяем; следующий слот независим. Схема не меняется.
+- Контракт, changed files, LOCAL/PostgreSQL/browser checks и production prerequisites: [LEARNING_REMINDERS](../../docs/LEARNING_REMINDERS.md). Изолированный suite: `scripts/tests/test_learning_reminders.py`; одноразовый LOCAL PG: `scripts/tests/learning_reminders_postgres.py`; browser: `deck-learning.spec.cjs` и адресный offline-viewer regression.

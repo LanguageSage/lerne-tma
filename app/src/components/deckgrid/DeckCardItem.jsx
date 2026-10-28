@@ -321,7 +321,7 @@ export const DeckCardItem = React.memo(({
             </div>
           )}
 
-          {!deck.is_inbox && !deck.is_global_readonly && (
+          {!deck.is_inbox && (
             <button
               type="button"
               className={`deck-learning-action-btn ${deck.is_learning === true ? 'active' : 'inactive'}`}
@@ -448,7 +448,7 @@ export const DeckCardItem = React.memo(({
               </button>
             )}
 
-            {!deck.is_inbox && !deck.is_global_readonly && (
+            {!deck.is_inbox && (
               <button 
                 className="dropdown-item" 
                 onClick={handleToggleLearning}

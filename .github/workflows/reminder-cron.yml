@@ -9,10 +9,24 @@ on:
 jobs:
   trigger-reminders:
     runs-on: ubuntu-latest
+    timeout-minutes: 5
     steps:
       - name: Ping TMA Reminders Endpoint
+        env:
+          REMINDER_CRON_TOKEN: ${{ secrets.REMINDER_CRON_TOKEN }}
         run: |
-          curl --fail-with-body --show-error --location \
+          test -n "$REMINDER_CRON_TOKEN" || { echo 'REMINDER_CRON_TOKEN is missing'; exit 1; }
+          curl --fail-with-body --silent --show-error --max-time 180 \
             -X POST \
-            -H "X-Internal-Cron-Token: ${{ secrets.REMINDER_CRON_TOKEN }}" \
+            -H "X-Internal-Cron-Token: $REMINDER_CRON_TOKEN" \
+            --output reminder-result.json \
             https://tma-amber.vercel.app/api/bot/cron-reminders
+          python - <<'PY'
+          import json
+          with open('reminder-result.json') as response:
+              result = json.load(response)
+          counts = result.get('results', {})
+          print({key: counts.get(key, 0) for key in ('sent', 'skipped', 'errors')})
+          if result.get('status') != 'ok' or counts.get('errors', 0):
+              raise SystemExit('Reminder cron did not complete successfully')
+          PY

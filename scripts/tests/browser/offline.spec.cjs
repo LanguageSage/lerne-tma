@@ -34,6 +34,31 @@ async function loadModules(page) {
   });
 }
 
+test('offline viewer learning stays personal and never writes deck metadata', async ({ page, context }) => {
+  await harness(page, context);
+  const result = await page.evaluate(async () => {
+    await getDb().decks.put({ id: 77, name: 'Published', role: 'viewer', is_global_readonly: true,
+      target_language: 'de', metadata: { intro: 'Preserved' }, is_dirty: 0 });
+    await api.post('/decks/77/toggle-learning', { is_learning: true });
+    return getDb().decks.get(77);
+  });
+  expect(result).toMatchObject({ is_learning: true, learning_dirty: 1, is_dirty: 0, metadata: { intro: 'Preserved' } });
+  await page.reload();
+  await loadModules(page);
+  expect(await page.evaluate(async () => (await api.get('/decks')).data[0].is_learning)).toBe(true);
+  const other = await page.evaluate(async () => {
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 2, is_guest: false }));
+    await getDb().decks.put({ id: 77, name: 'Published', role: 'viewer', metadata: { is_learning: true } });
+    return (await api.get('/decks')).data[0];
+  });
+  expect(other.is_learning).toBe(false);
+  expect(other.metadata).not.toHaveProperty('is_learning');
+  expect(await page.evaluate(async () => {
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    return (await api.get('/decks')).data[0].is_learning;
+  })).toBe(true);
+});
+
 test('offline save-only grade keeps its atomic progress and durable review event', async ({ page, context }) => {
   await harness(page, context);
   await context.setOffline(true);

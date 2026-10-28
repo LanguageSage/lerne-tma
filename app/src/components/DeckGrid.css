@@ -789,6 +789,9 @@
   animation: learningChipGlow 3s ease-in-out infinite;
   display: flex;
   flex-direction: column;
+  align-items: stretch;
+  text-align: left;
+  font: inherit;
   gap: 6px;
   transition: border-color 0.2s, box-shadow 0.2s;
 }
@@ -823,6 +826,7 @@
 
 .shortcut-top-row {
   display: flex;
+  min-width: 0;
   align-items: center;
   gap: 7px;
 }

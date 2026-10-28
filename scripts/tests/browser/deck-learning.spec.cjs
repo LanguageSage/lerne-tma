@@ -1,10 +1,13 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context) {
-  const backend = { learning: new Map(), writes: [], fail: false, pending: null };
+async function setup(page, context, options = {}) {
+  const backend = options.backend || { learning: new Map(), writes: [], fail: false, pending: null,
+    reminderSettings: new Map(), reminderWrites: [], reminderFail: false };
+  const folders = options.folder ? [{ id: 10, name: 'Опубликованная папка', parent_id: null,
+    target_language: 'de', role: 'viewer', access_scope: 'global_readonly' }] : [];
   const profile = user_id => ({ user_id, first_name: 'Test', is_guest: false });
   const decks = userId => [{ id: 1, name: 'Общая колода', target_language: 'de',
-    role: 'viewer', is_global_readonly: true, is_shared: true,
+    role: 'viewer', is_global_readonly: true, is_shared: true, folder_id: options.folder ? 10 : null,
     is_learning: backend.learning.get(userId) ?? false,
     metadata: {}, stats: { total: 1, new: 1, due: 0, learning: 0 } }];
   await page.routeWebSocket('**/*', () => {});
@@ -25,10 +28,19 @@ async function setup(page, context) {
     const { pathname } = new URL(request.url());
     const userId = Number(request.headers()['x-user-id'] || 1);
     if (pathname === '/api/init') return route.fulfill({ json: {
-      decks: decks(userId), folders: [], settings: {}, prompts: {}, user_settings: {}, user_info: profile(userId),
+      decks: decks(userId), folders, settings: {}, prompts: [], user_settings: {}, user_info: profile(userId),
     } });
     if (pathname === '/api/decks') return route.fulfill({ json: decks(userId) });
-    if (pathname === '/api/folders' || pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
+    if (pathname === '/api/folders') return route.fulfill({ json: folders });
+    if (['/api/cards/duplicates', '/api/messages', '/api/decks/1/cards'].includes(pathname)) return route.fulfill({ json: [] });
+    if (pathname === '/api/user/reminder-settings') {
+      if (request.method() === 'GET') return route.fulfill({ json: backend.reminderSettings.get(userId) || {
+        enabled: false, frequency: 'twice_daily', times: ['09:00', '19:00'], timezone: 'Europe/Budapest' } });
+      backend.reminderWrites.push({ userId, ...request.postDataJSON() });
+      if (backend.reminderFail) return route.fulfill({ status: 500, json: { detail: 'Synthetic settings failure' } });
+      backend.reminderSettings.set(userId, request.postDataJSON());
+      return route.fulfill({ json: { status: 'success', settings: request.postDataJSON() } });
+    }
     if (pathname === '/api/decks/1/toggle-learning') {
       const body = request.postDataJSON();
       backend.writes.push({ userId, ...body });
@@ -50,6 +62,9 @@ async function setup(page, context) {
     return route.fulfill({ json: {} });
   });
   await page.goto('/');
+  if (options.folder) {
+    await page.evaluate(async () => (await import('/src/store/useUiStore.js')).useUiStore.getState().setActiveFolderId(10));
+  }
   await expect(page.locator('#deck-item-1')).toBeVisible();
   return backend;
 }
@@ -74,6 +89,8 @@ test('learning button and menu persist true/false across fetch, reload and login
   await expect(page.locator('.toast.success')).toHaveText('Колода добавлена в изучение');
   expect(backend.writes).toEqual([{ userId: 1, is_learning: true }]);
   await expect(learningButton(page)).toHaveText('🔥Учу');
+  await expect(page.locator('.learning-shortcut-chip')).toHaveCount(1);
+  expect(await page.evaluate(async () => (await import('/src/store/useDeckStore.js')).useDeckStore.getState().decks[0].metadata)).toEqual({});
   await fetchDecks(page);
   await expect(learningButton(page)).toHaveAttribute('aria-pressed', 'true');
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lerne_init_cache')).decks[0].is_learning)).toBe(true);
@@ -83,6 +100,7 @@ test('learning button and menu persist true/false across fetch, reload and login
   await expect(learningButton(page)).toHaveText('🔥Учу');
   expect(await login(page, 'other@example.test')).toEqual({ success: true });
   await expect(learningButton(page)).toHaveText('🎯Учить');
+  await expect(page.locator('.learning-shortcut-chip')).toHaveCount(0);
   await openMenu(page);
   await page.getByRole('button', { name: '🔥 Включить в изучение', exact: true }).click();
   await expect(page.locator('.toast.success')).toHaveText('Колода добавлена в изучение');
@@ -106,9 +124,14 @@ test('pending clicks do not duplicate requests and errors roll back state and ca
   let release;
   backend.pending = new Promise(resolve => { release = resolve; });
   backend.fail = true;
+  await page.evaluate(async () => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    useDeckStore.setState({ currentDeck: useDeckStore.getState().decks[0] });
+  });
   await learningButton(page).click();
   await expect(learningButton(page)).toHaveAttribute('aria-busy', 'true');
   await expect(learningButton(page)).toHaveText('🔥Учу');
+  await expect(page.locator('.learning-shortcut-chip')).toHaveCount(1);
   await learningButton(page).click();
   await openMenu(page);
   await page.getByRole('button', { name: '⏸ Отключить изучение', exact: true }).click();
@@ -116,7 +139,12 @@ test('pending clicks do not duplicate requests and errors roll back state and ca
   release();
   await expect(page.locator('.toast.error')).toHaveText('Ошибка при изменении состояния изучения колоды');
   await expect(learningButton(page)).toHaveText('🎯Учить');
+  await expect(page.locator('.learning-shortcut-chip')).toHaveCount(0);
   await expect(learningButton(page)).toHaveAttribute('aria-busy', 'false');
+  expect(await page.evaluate(async () => {
+    const deck = (await import('/src/store/useDeckStore.js')).useDeckStore.getState().currentDeck;
+    return { learning: deck.is_learning, metadata: deck.metadata };
+  })).toEqual({ learning: false, metadata: {} });
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lerne_init_cache')).decks[0].is_learning)).toBe(false);
   backend.fail = false;
   backend.pending = null;
@@ -148,4 +176,87 @@ test('learning states and menu render at mobile and desktop widths in Russian an
     }
   }
   expect(errors).toEqual([]);
+});
+
+test('folder shortcuts appear immediately, keep SRS counters and open their deck with keyboard', async ({ page, context }, testInfo) => {
+  await setup(page, context, { folder: true });
+  await learningButton(page).click();
+  const chip = page.locator('.learning-shortcut-chip');
+  await expect(chip).toHaveCount(1);
+  await expect(chip.locator('.srs-count-val')).toHaveText(['0', '0', '1']);
+  await expect(page.locator('.toast')).toHaveCount(0, { timeout: 8000 });
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await expect(chip).toBeVisible();
+    const icon = await chip.locator('.shortcut-deck-icon').boundingBox();
+    const name = await chip.locator('.shortcut-deck-name').boundingBox();
+    expect(name.x).toBeGreaterThanOrEqual(icon.x + icon.width);
+    expect(await chip.locator('.shortcut-deck-name').evaluate(el => getComputedStyle(el).textAlign)).toBe('left');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`folder-shortcuts-${width}.png`), fullPage: true });
+  }
+  await chip.focus();
+  await page.keyboard.press('Enter');
+  await expect.poll(() => page.evaluate(async () => (await import('/src/store/useUiStore.js')).useUiStore.getState().view)).toBe('deck_intro');
+  expect(await page.evaluate(async () => (await import('/src/store/useDeckStore.js')).useDeckStore.getState().currentDeck.id)).toBe(1);
+});
+
+test('a fresh device reads the same personal selection', async ({ page, context, browser }) => {
+  const backend = await setup(page, context);
+  await learningButton(page).click();
+  await expect(page.locator('.toast.success')).toBeVisible();
+  const otherContext = await browser.newContext();
+  try {
+    const otherPage = await otherContext.newPage();
+    await setup(otherPage, otherContext, { backend });
+    await expect(learningButton(otherPage)).toHaveAttribute('aria-pressed', 'true');
+    await expect(otherPage.locator('.learning-shortcut-chip')).toHaveCount(1);
+    await learningButton(otherPage).click();
+    await expect(otherPage.locator('.learning-shortcut-chip')).toHaveCount(0);
+    await fetchDecks(page);
+    await expect(learningButton(page)).toHaveAttribute('aria-pressed', 'false');
+  } finally {
+    await otherContext.close();
+  }
+});
+
+test('a late learning failure cannot roll back another account', async ({ page, context }) => {
+  const backend = await setup(page, context);
+  let release;
+  backend.pending = new Promise(resolve => { release = resolve; });
+  backend.fail = true;
+  await learningButton(page).click();
+  await expect(learningButton(page)).toHaveAttribute('aria-busy', 'true');
+  expect(await login(page, 'other@example.test')).toEqual({ success: true });
+  await expect(learningButton(page)).toHaveAttribute('aria-pressed', 'false');
+  release();
+  await expect(page.locator('.toast.error')).toBeVisible();
+  await expect(learningButton(page)).toHaveAttribute('aria-pressed', 'false');
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem('lerne_init_cache')).user_id)).toBe(2);
+  await expect(page.locator('.learning-shortcut-chip')).toHaveCount(0);
+});
+
+test('reminders require separate opt-in, roll back on API errors and isolate accounts', async ({ page, context }) => {
+  const backend = await setup(page, context);
+  await learningButton(page).click();
+  expect(backend.reminderWrites).toHaveLength(0);
+  const openSettings = () => page.evaluate(async () => (await import('/src/store/useUiStore.js')).useUiStore.getState().openSettings('reminders'));
+  await openSettings();
+  const enabled = page.locator('.settings-section input[type=checkbox]').first();
+  await expect(enabled).not.toBeChecked();
+  backend.reminderFail = true;
+  await enabled.locator('..').click();
+  await expect(page.locator('.toast.error')).toHaveText('Ошибка сохранения настроек');
+  await expect(enabled).not.toBeChecked();
+  backend.reminderFail = false;
+  await enabled.locator('..').click();
+  await expect(enabled).toBeChecked();
+  await page.reload();
+  await openSettings();
+  await expect(enabled).toBeChecked();
+  expect(await login(page, 'other@example.test')).toEqual({ success: true });
+  await openSettings();
+  await expect(enabled).not.toBeChecked();
+  expect(backend.reminderSettings.get(1).enabled).toBe(true);
+  expect(backend.reminderSettings.has(2)).toBe(false);
 });

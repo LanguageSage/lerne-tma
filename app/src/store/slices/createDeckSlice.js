@@ -9,6 +9,7 @@ let pendingFetchCardsDeckId = null;
 
 export const createDeckSlice = (set, get) => {
   const pendingLoads = new Map();
+  const pendingLearning = new Map();
   return ({
   libraryRequestId: 0,
   getPendingLibraryLoad: (kind) => {
@@ -280,6 +281,9 @@ export const createDeckSlice = (set, get) => {
   },
 
   toggleDeckLearning: async (deckId, explicitStatus = null) => {
+    const account = getUserId();
+    const key = `${account}:${deckId}`;
+    if (pendingLearning.has(key)) return pendingLearning.get(key);
     const { decks, currentDeck } = get();
     const targetDeck = decks.find(d => d.id === deckId);
     if (!targetDeck) return;
@@ -291,8 +295,7 @@ export const createDeckSlice = (set, get) => {
       if (d.id === deckId) {
         return {
           ...d,
-          is_learning: nextStatus,
-          metadata: { ...(d.metadata || {}), is_learning: nextStatus }
+          is_learning: nextStatus
         };
       }
       return d;
@@ -305,21 +308,27 @@ export const createDeckSlice = (set, get) => {
       set({ 
         currentDeck: { 
           ...currentDeck, 
-          is_learning: nextStatus,
-          metadata: { ...(currentDeck.metadata || {}), is_learning: nextStatus }
+          is_learning: nextStatus
         } 
       });
     }
 
+    const request = api.post(`/decks/${deckId}/toggle-learning`, { is_learning: nextStatus });
+    pendingLearning.set(key, request);
     try {
-      await api.post(`/decks/${deckId}/toggle-learning`, { is_learning: nextStatus });
+      await request;
     } catch (err) {
       console.error('Toggle Deck Learning Error:', err);
+      if (getUserId() !== account) throw err;
       // Revert on failure
-      const revertedDecks = get().decks.map(d => d.id === deckId ? targetDeck : d);
-      set({ decks: revertedDecks });
+      const revertedDecks = get().decks.map(d => d.id === deckId ? { ...d, is_learning: targetDeck.is_learning } : d);
+      const selected = get().currentDeck;
+      set({ decks: revertedDecks, ...(selected?.id === deckId
+        ? { currentDeck: { ...selected, is_learning: targetDeck.is_learning } } : {}) });
       saveToInitCache({ decks: revertedDecks });
       throw err;
+    } finally {
+      pendingLearning.delete(key);
     }
   },
   

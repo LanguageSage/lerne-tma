@@ -346,7 +346,7 @@ export const DeckGrid = ({
         )}
 
         {/* Pulsing shortcuts bar for actively studied decks */}
-        {activeFolderId === null && !deckSearchQuery.trim() && (
+        {!deckSearchQuery.trim() && (
           <LearningShortcutsBar
             learningDecks={allActiveLearningDecks}
             folders={folders}
