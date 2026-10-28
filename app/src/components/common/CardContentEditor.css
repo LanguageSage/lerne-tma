@@ -1,11 +1,11 @@
 .card-content-editor { min-width: 0; display: grid; gap: 6px; }
 .card-form-secondary { margin: 4px 0 6px; }
 .card-form-secondary > summary { min-height: 28px; padding: 4px 0; box-sizing: border-box; cursor: pointer; font-size: .8rem; }
-.card-editor-mode { display: flex; justify-content: flex-end; align-items: center; flex-wrap: wrap; gap: 6px; margin: 0; }
-.card-editor-mode > .card-question-composer { margin: 0; min-width: 0; width: auto; flex: 1; }
-.card-editor-mode > .card-question-composer.is-open { flex-basis: 100%; }
-.card-editor-mode .card-question-composer.is-action .card-question-trigger { padding: 6px; min-height: 44px; font-size: .74rem; gap: 4px; }
-.card-content-editor .card-editor-mode > .btn-secondary { min-height: 44px; }
+.card-editor-mode { display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, max-content); justify-items: end; align-items: center; gap: 6px; margin: 0; }
+.card-editor-mode > .card-question-composer { margin: 0; min-width: 0; width: auto; max-width: 100%; }
+.card-editor-mode > .card-question-composer.is-open { grid-column: 1 / -1; justify-self: stretch; }
+.card-editor-mode .card-question-composer.is-action .card-question-trigger { width: auto; max-width: 100%; padding: 4px 8px; min-height: 44px; font-size: .74rem; line-height: 1.2; gap: 4px; border-radius: 6px; box-sizing: border-box; }
+.card-content-editor .card-editor-mode > button.btn-secondary { min-height: 44px; padding: 4px 8px; }
 .card-editor-mode .btn-secondary { min-height: 26px; padding: 2px 8px; font-size: 0.74rem; border-radius: 6px; }
 .card-content-editor .btn-secondary { min-height: 32px; padding: 4px 8px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
 .card-content-editor .card-editor-add { justify-self: start; min-height: 26px; padding: 2px 8px; font-size: 0.75rem; margin-top: 2px; }
@@ -19,18 +19,10 @@
 
 /* Compact Syntax Toolbar */
 .card-editor-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; padding-top: 2px; min-width: 0; }
-.card-editor-cluster { display: inline-flex; align-items: center; gap: 4px; padding: 2px 5px; border-radius: 8px; box-sizing: border-box; min-width: 0; }
-.card-editor-cluster-exercise { background: rgba(124, 58, 237, 0.06); border: 1px solid rgba(167, 139, 250, 0.22); }
-.card-editor-cluster-marker { background: rgba(14, 165, 233, 0.06); border: 1px solid rgba(56, 189, 248, 0.22); }
-.card-editor-cluster-edit { background: rgba(16, 185, 129, 0.06); border: 1px solid rgba(52, 211, 153, 0.22); }
-.card-editor-cluster-header { display: inline-flex; align-items: center; gap: 4px; padding: 0 2px; flex-shrink: 0; }
 .card-editor-cluster-dot { width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0; }
-.card-editor-dot-exercise { background: #a78bfa; box-shadow: 0 0 5px rgba(167, 139, 250, 0.65); }
-.card-editor-dot-marker { background: #38bdf8; box-shadow: 0 0 5px rgba(56, 189, 248, 0.65); }
-.card-editor-dot-edit { background: #34d399; box-shadow: 0 0 5px rgba(52, 211, 153, 0.65); }
-.card-editor-cluster-title { font-size: 0.68rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.04em; color: rgba(226, 232, 240, 0.75); white-space: nowrap; }
-.card-editor-cluster-buttons { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; min-width: 0; }
-
+.card-editor-dot-exercise { background: #a78bfa; }
+.card-editor-dot-marker { background: #38bdf8; }
+.card-editor-dot-edit { background: #34d399; }
 .card-content-editor .card-editor-btn { min-height: 28px; padding: 3px 8px; border-radius: 6px; font-size: 0.75rem; font-weight: 600; line-height: 1.2; text-align: center; cursor: pointer; box-sizing: border-box; transition: background 140ms ease, border-color 140ms ease, color 140ms ease, transform 140ms ease; display: inline-flex; align-items: center; justify-content: center; white-space: nowrap; }
 .card-content-editor .card-editor-btn-exercise { background: rgba(167, 139, 250, 0.12); border: 1px solid rgba(167, 139, 250, 0.28); color: #ddd6fe; }
 .card-content-editor .card-editor-btn-exercise:hover, .card-content-editor .card-editor-btn-exercise:focus-visible { background: rgba(167, 139, 250, 0.22); border-color: rgba(196, 181, 253, 0.55); color: #ffffff; transform: translateY(-1px); }
@@ -41,13 +33,9 @@
 .card-content-editor .card-editor-btn-edit { background: rgba(52, 211, 153, 0.09); border: 1px solid rgba(52, 211, 153, 0.24); color: #a7f3d0; }
 .card-content-editor .card-editor-btn-edit:hover, .card-content-editor .card-editor-btn-edit:focus-visible { background: rgba(52, 211, 153, 0.18); border-color: rgba(110, 231, 183, 0.55); color: #ffffff; transform: translateY(-1px); }
 .card-content-editor .card-editor-btn-edit:active { background: rgba(52, 211, 153, 0.26); transform: translateY(0); }
-.card-content-editor .card-editor-btn-more { opacity: 0.85; font-size: 0.72rem; }
-
-/* Popover Menu for Secondary Commands */
-.card-editor-popover-wrap { position: relative; display: inline-flex; }
-.card-editor-popover { position: absolute; top: calc(100% + 4px); left: 0; min-width: 170px; background: rgba(15, 23, 42, 0.96); border: 1px solid rgba(255, 255, 255, 0.18); border-radius: 8px; padding: 4px; box-shadow: 0 10px 28px rgba(0, 0, 0, 0.65); z-index: 100; backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); display: flex; flex-direction: column; gap: 3px; }
-.card-content-editor .card-editor-popover-btn { width: 100%; justify-content: flex-start; min-height: 28px; padding: 4px 8px; font-size: 0.75rem; border-radius: 5px; text-align: left; }
-
+.card-content-editor .card-editor-group-trigger { gap: 6px; }
+.card-content-editor .card-editor-group-trigger[aria-expanded=true] { box-shadow: inset 0 0 0 1px currentColor; }
+.card-editor-command-list { flex-basis: 100%; min-width: 0; display: flex; flex-wrap: wrap; gap: 6px; padding: 6px 0; }
 .card-editor-choice { display: grid; grid-template-columns: 36px minmax(0, 1fr) 36px; gap: 6px; align-items: center; }
 .card-editor-choice .card-editor-correct { width: 36px; height: 36px; display: grid; place-items: center; cursor: pointer; }
 .card-editor-choice input[type=checkbox] { width: 20px; height: 20px; margin: 0; cursor: pointer; }
@@ -67,12 +55,17 @@
 
 @media (max-width: 680px) {
   .card-editor-toolbar { gap: 4px; }
-  .card-editor-cluster { padding: 2px 3px; }
 }
 @media (max-width: 480px) {
-  .card-editor-cluster-title { display: none; }
   .card-content-editor .card-editor-btn { min-height: 28px; font-size: 0.72rem; padding: 2px 6px; }
 }
 @media (max-width: 360px) {
   .card-editor-pair-line { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (pointer: coarse) {
+  .card-content-editor .card-editor-btn { min-height: 44px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .card-content-editor .card-editor-btn { transition: none; }
 }

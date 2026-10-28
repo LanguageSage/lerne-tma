@@ -6,6 +6,13 @@ import { autoGenerateChoices, isWordGap } from '../../utils/clozeParser';
 import { formatQuizText } from '../../utils/quizParser';
 import './CardContentEditor.css';
 
+function fitEditorTextareas(editor) {
+  editor?.querySelectorAll('textarea').forEach(area => {
+    area.style.height = 'auto';
+    area.style.height = `${area.scrollHeight + area.offsetHeight - area.clientHeight}px`;
+  });
+}
+
 export function CardContentEditor({ value, onChange, back = '', onBackChange, textStyle, autoFocus = false, modeAction }) {
   useInterfaceLocale();
   const [advanced, setAdvanced] = useState(false);
@@ -13,11 +20,26 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   const [error, setError] = useState('');
   const [focusedQuizOption, setFocusedQuizOption] = useState(null);
   const advancedId = useId();
+  const editorRef = useRef(null);
   const rawRef = useRef(null);
   const menuRef = useRef(null);
   const selectionRef = useRef(null);
   const insertionRef = useRef(null);
 
+  useLayoutEffect(() => {
+    fitEditorTextareas(editorRef.current);
+  });
+  useEffect(() => {
+    const editor = editorRef.current;
+    let width = editor.clientWidth;
+    const observer = new ResizeObserver(() => {
+      if (editor.clientWidth === width) return;
+      width = editor.clientWidth;
+      fitEditorTextareas(editor);
+    });
+    observer.observe(editor);
+    return () => observer.disconnect();
+  }, []);
   useEffect(() => {
     if (!openMenu) return;
     const handleOutside = (e) => {
@@ -47,6 +69,7 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
   const fields = projectEditorFields(value);
   const toggle = () => {
     setAdvanced(current => !current);
+    setOpenMenu(null);
     setError('');
   };
   const replace = (field, next) => {
@@ -239,7 +262,10 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
     }
     return renderField(field, index);
   });
-  return <div className="card-content-editor">
+  const activeGroup = editorCommandGroups.find(group => group.id === openMenu);
+  const activeCommands = activeGroup?.primary
+    ? [...activeGroup.primary, ...activeGroup.secondary] : activeGroup?.commands;
+  return <div className="card-content-editor" ref={editorRef}>
     {fields ? <>
       {visualFields}
     </> : <div className="card-editor-field">
@@ -259,66 +285,32 @@ export function CardContentEditor({ value, onChange, back = '', onBackChange, te
           onClick={rememberSelection} onKeyUp={rememberSelection}
           onChange={e => { rememberSelection(e); onChange(e.target.value); }} spellCheck={false} />
       </label>
-      <div className="card-editor-toolbar" role="region" aria-label={tr('Панель быстрой вставки')}>
+      <div className="card-editor-toolbar" ref={menuRef} role="region" aria-label={tr('Панель быстрой вставки')}
+        onKeyDown={e => {
+          if (e.key === 'Escape' && openMenu) {
+            e.preventDefault();
+            menuRef.current.querySelector('[aria-expanded="true"]')?.focus();
+            setOpenMenu(null);
+          }
+        }}>
         {editorCommandGroups.map(group => {
-          const primaryList = group.primary || group.commands || [];
-          const secondaryList = group.secondary || [];
-          const hasSecondary = secondaryList.length > 0;
           const isOpen = openMenu === group.id;
-          return (
-            <div key={group.id} className={`card-editor-cluster card-editor-cluster-${group.id}`}>
-              <div className="card-editor-cluster-header">
-                <span className={`card-editor-cluster-dot card-editor-dot-${group.id}`} aria-hidden="true" />
-                <span className="card-editor-cluster-title">{tr(group.label)}</span>
-              </div>
-              <div className="card-editor-cluster-buttons">
-                {primaryList.map(command => (
-                  <button
-                    key={command.id}
-                    type="button"
-                    className={`btn-secondary card-editor-btn card-editor-btn-${command.group}`}
-                    onMouseDown={e => e.preventDefault()}
-                    onClick={() => insert(command.id)}
-                    title={tr(command.label)}
-                  >
-                    {tr(command.label)}
-                  </button>
-                ))}
-                {hasSecondary && (
-                  <div className="card-editor-popover-wrap" ref={isOpen ? menuRef : null}>
-                    <button
-                      type="button"
-                      className={`btn-secondary card-editor-btn card-editor-btn-more card-editor-btn-${group.id === 'marker' ? 'marker' : 'exercise'}`}
-                      aria-expanded={isOpen}
-                      aria-haspopup="true"
-                      onMouseDown={e => e.preventDefault()}
-                      onClick={() => setOpenMenu(isOpen ? null : group.id)}
-                      title={tr('Ещё')}
-                    >
-                      {tr('Ещё')} ▾
-                    </button>
-                    {isOpen && (
-                      <div className="card-editor-popover" role="menu">
-                        {secondaryList.map(command => (
-                          <button
-                            key={command.id}
-                            type="button"
-                            role="menuitem"
-                            className={`btn-secondary card-editor-popover-btn card-editor-btn-${command.group}`}
-                            onMouseDown={e => e.preventDefault()}
-                            onClick={() => insert(command.id)}
-                          >
-                            {tr(command.label)}
-                          </button>
-                        ))}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          );
+          return <button key={group.id} id={`${advancedId}-${group.id}-trigger`} type="button"
+            className={`btn-secondary card-editor-btn card-editor-group-trigger card-editor-btn-${group.id}`}
+            aria-expanded={isOpen} aria-controls={isOpen ? `${advancedId}-commands` : undefined}
+            onClick={() => setOpenMenu(isOpen ? null : group.id)}>
+            <span className={`card-editor-cluster-dot card-editor-dot-${group.id}`} aria-hidden="true" />
+            {tr(group.label)} <span aria-hidden="true">{isOpen ? '▴' : '▾'}</span>
+          </button>;
         })}
+        {openMenu && <div id={`${advancedId}-commands`} className="card-editor-command-list" role="group"
+          aria-labelledby={`${advancedId}-${openMenu}-trigger`}>
+          {activeCommands.map(command => <button key={command.id} type="button"
+            className={`btn-secondary card-editor-btn card-editor-btn-${openMenu}`}
+            onMouseDown={e => e.preventDefault()} onClick={() => insert(command.id)}>
+            {tr(command.label)}
+          </button>)}
+        </div>}
       </div>
       <p className="card-editor-hint">{tr('Окончания: klein{en} — выбор e / en / em / er / es; klein[[en]] — ввод. Выделите окончание и нажмите «Окончание с выбором».')}</p>
     </div>}

@@ -314,14 +314,14 @@ test('visual fields, raw toggle, cursor insertion and menu dismissal', async ({ 
   await expect(raw(page)).toHaveValue(source.replace('Berlin', 'Paris'));
   await raw(page).fill('AA\nBB');
   await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 3); });
-  const more = page.locator('.card-editor-cluster-marker .card-editor-btn-more');
+  const more = page.locator('.card-editor-group-trigger').filter({ hasText: 'Информация' });
   await more.click();
-  await page.locator('.card-editor-popover').getByRole('menuitem', { name: 'Пример', exact: true }).click();
+  await page.locator('.card-editor-command-list').getByRole('button', { name: 'Пример', exact: true }).click();
   await expect(raw(page)).toHaveValue('AA\n::example\nBB');
   await expect(raw(page)).toBeFocused();
   await more.focus();
   await page.keyboard.press('Enter');
-  const summary = page.locator('.card-editor-popover').getByRole('menuitem', { name: 'Содержимое упражнения', exact: true });
+  const summary = page.locator('.card-editor-command-list').getByRole('button', { name: 'Содержимое упражнения', exact: true });
   await expect(summary).toBeVisible();
   await raw(page).click();
   await expect(summary).toHaveCount(0);
