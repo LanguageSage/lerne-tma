@@ -54,6 +54,54 @@ const toggleAdvanced = page => page.locator('.card-editor-mode > button');
 
 const analysisQuiz = '::task\nWählen Sie die richtige Antwort.\n\n::exercise\nWomit fährt Anna?\n\nA) Mit dem Auto\n*B) Mit dem Bus\nC) Mit dem Zug';
 
+test('explicit quiz without a repeated heading works after source editing and saving', async ({ page, context }, testInfo) => {
+  const front = '::task\nОпредели тип текста по заданию на немецком языке.\n'
+    + '::source\nWelche Textsorte passt zu einem öffentlichen Diskussionsbeitrag?\n'
+    + '::exercise\n[ ] Ein persönlicher Brief an eine Freundin\n'
+    + '[*] Ein Beitrag in einem öffentlichen Forum\n[ ] Eine formelle E-Mail an die Schulleitung';
+  await openEditor(page, context, 'Ausgangstext');
+  await raw(page).fill(front);
+  await toggleAdvanced(page).click();
+  const preview = page.locator('.card-front-preview');
+  await expect(preview.locator('.quiz-option-item')).toHaveCount(3);
+  await expect(preview.locator('.quiz-option-item').first()).toBeDisabled();
+  await expect(preview.locator('.quiz-question')).toHaveCount(0);
+  await expect(preview.locator('.exercise-info-block')).toHaveCount(2);
+  await expect(raw(page)).toHaveValue(front);
+  const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
+  await page.getByRole('button', { name: /^Сохранить/ }).click();
+  expect((await saved).postDataJSON()).toMatchObject({ front, card_type: 'quiz' });
+  await page.evaluate(async ({ front, deck }) => {
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const card = { id: 99, deck_id: deck.id, front, back: 'Объяснение', queue: 'new' };
+    useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
+    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
+      isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
+    useUiStore.getState().setView('study');
+  }, { front, deck });
+  await expect(page.locator('.quiz-option-item')).toHaveCount(3);
+  await expect(page.locator('.quiz-question')).toHaveCount(0);
+  await expect(page.locator('.exercise-info-block')).toHaveCount(2);
+  for (const width of [320, 1330]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: testInfo.outputPath(`quiz-no-heading-${width}.png`), fullPage: true });
+  }
+  const wrong = page.locator('.quiz-option-item').filter({ hasText: 'Ein persönlicher Brief' });
+  const correct = page.locator('.quiz-option-item').filter({ hasText: 'Ein Beitrag in einem öffentlichen Forum' });
+  await expect(page.locator('.btn-check-quiz')).toBeDisabled();
+  await wrong.click();
+  await expect(wrong).toHaveAttribute('aria-pressed', 'true');
+  await page.locator('.btn-check-quiz').click();
+  await expect(wrong).toHaveClass(/wrong/);
+  await correct.click();
+  await page.locator('.btn-check-quiz').click();
+  await expect(correct).toHaveClass(/correct/);
+  await expect(page.locator('.btn-check-quiz')).toHaveCount(0);
+});
+
 for (const fixture of require('../../../local/test-data/fixtures/quiz_boundaries.json').examples) {
   test(`numbered Quiz condition stays in the question: ${fixture.name}`, async ({ page, context }, testInfo) => {
     const front = fixture.preamble + fixture.question + fixture.gap

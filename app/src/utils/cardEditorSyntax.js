@@ -240,15 +240,15 @@ export function setQuizOptionCorrect(field, checked) {
   return prefix + field.display;
 }
 
-function projectQuizSection(raw, start, end, add) {
+function projectQuizSection(raw, start, end, add, allowEmptyQuestion) {
   const text = raw.slice(start, end);
   const lines = text.split('\n');
-  const optionStart = findQuizOptionStart(lines);
-  if (optionStart < 1) return false;
+  const optionStart = findQuizOptionStart(lines, { allowEmptyQuestion });
+  if (optionStart < 0) return false;
   let offset = start + lines.slice(0, optionStart).reduce((length, line) => length + line.length + 1, 0);
   let questionEnd = offset;
   while (questionEnd > start && /[\r\n]/.test(raw[questionEnd - 1])) questionEnd--;
-  add('text', start, questionEnd, 'Вопрос / лицевая сторона', {
+  if (raw.slice(start, questionEnd).trim()) add('text', start, questionEnd, 'Вопрос / лицевая сторона', {
     sectionType: 'quiz', display: formatQuizText(raw.slice(start, questionEnd))
   });
   for (const line of lines.slice(optionStart)) {
@@ -330,7 +330,7 @@ export function projectEditorFields(raw = '') {
       continue;
     }
     if (exerciseType === 'quiz') {
-      if (!projectQuizSection(raw, start, end, add)) return null;
+      if (!projectQuizSection(raw, start, end, add, explicitExercise)) return null;
       continue;
     }
     if (exerciseType === 'word_bank') {

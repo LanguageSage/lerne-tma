@@ -53,14 +53,14 @@ export const parseQuizOption = (line = '') => {
   return { prefix, display, isCorrect, text: formatQuizText(display) };
 };
 
-export const findQuizOptionStart = (lines) => {
+export const findQuizOptionStart = (lines, { allowEmptyQuestion = false } = {}) => {
   // Keep this boundary contract in sync with lerne_card_core.input_parser.
   const maskedLines = lines.map(line => maskTrainerTokens(line).trim());
   let end = maskedLines.length;
   while (end && !maskedLines[end - 1]) end--;
   const validStart = (start, accepts) => {
     const options = maskedLines.slice(start, end).filter(Boolean);
-    return start > 0 && maskedLines.slice(0, start).some(Boolean)
+    return (allowEmptyQuestion || (start > 0 && maskedLines.slice(0, start).some(Boolean)))
       && options.every(accepts)
       && options.filter(line => parseQuizOption(line).text).length >= 2 ? start : -1;
   };
@@ -126,7 +126,8 @@ export const findQuizOptionStart = (lines) => {
  */
 export const parseQuizData = (card) => {
   if (!card) return null;
-  const rawFront = parseExerciseContent(card.front || card.front_text || '').exercise.trim();
+  const content = parseExerciseContent(card.front || card.front_text || '');
+  const rawFront = content.exercise.trim();
   if (!rawFront) return null;
 
   // Mask trainer tokens so asterisks inside {...} or [[...]] are never seen as quiz markers
@@ -134,8 +135,11 @@ export const parseQuizData = (card) => {
 
   const lines = maskedFront.split('\n');
   // Use the same option markers as projectQuizSection; blank lines belong to the question.
-  const firstOptionIdx = findQuizOptionStart(lines);
-  if (firstOptionIdx < 1) return null;
+  // An explicit exercise may contain only options: the question can already be
+  // displayed in ::task / ::source. Unmarked legacy text still needs a question.
+  const allowEmptyQuestion = content.blocks.some(block => block.type === 'exercise' && block.marker);
+  const firstOptionIdx = findQuizOptionStart(lines, { allowEmptyQuestion });
+  if (firstOptionIdx < 0) return null;
 
   const rawQuestion = lines.slice(0, firstOptionIdx).join('\n').trim();
   const optionLines = lines.slice(firstOptionIdx).map(line => line.trim()).filter(Boolean);
@@ -161,7 +165,7 @@ export const parseQuizData = (card) => {
 
   return {
     isQuiz: true,
-    question: formatQuizText(rawQuestion) || tr("Выберите правильный ответ:"),
+    question: rawQuestion ? (formatQuizText(rawQuestion) || tr("Выберите правильный ответ:")) : '',
     options: shuffledOptions,
     correctAnswerId: correctOption.id,
     correctAnswerText: correctOption.text

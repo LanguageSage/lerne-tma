@@ -82,9 +82,7 @@ export const detectCardType = (cardOrFront, studyMode = 'classic') => {
   }
 
   // 7. Quiz / Multiple Choice structure (Checked on content after masking trainer tokens)
-  const cardObj = typeof cardOrFront === 'string'
-    ? { front: trimmed }
-    : { ...cardOrFront, front: trimmed, front_text: trimmed };
+  const cardObj = typeof cardOrFront === 'string' ? { front } : cardOrFront;
   const quizData = parseQuizData(cardObj);
   if (quizData?.isQuiz) {
     return 'quiz';

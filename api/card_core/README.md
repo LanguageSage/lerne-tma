@@ -1,4 +1,4 @@
-# lerne-card-core 0.1.1
+# lerne-card-core 0.1.2
 
 Canonical source for pure JSON V2 validation, passport validation/merge, the answer
 contract, legacy syntax parsing and V2-to-legacy conversion. This is the only
@@ -34,3 +34,8 @@ unlabelled legacy answers require a separate final paragraph. Ambiguous blocks
 remain plain source text. Correctness markers now preserve bold formatting just
 like the JS parser. Storage and card JSON contracts are unchanged. Shared examples
 and fallback cases: `local/test-data/fixtures/quiz_boundaries.json` at the TMA root.
+
+0.1.2 accepts an explicit `::exercise` containing Quiz options without repeating
+the question from `::task` or `::source`. `parse_quiz_options` and the boundary
+helper expose an optional `allow_empty_question` flag; existing callers retain
+the question requirement by default. Storage and JSON schemas are unchanged.

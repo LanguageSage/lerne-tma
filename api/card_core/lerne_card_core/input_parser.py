@@ -229,7 +229,7 @@ def _option_parts(line: str) -> tuple[bool, str]:
     return any(rx.search(line) for rx in _CORRECT_OPTION), cleaned
 
 
-def find_quiz_option_start(lines: list[str]) -> int:
+def find_quiz_option_start(lines: list[str], *, allow_empty_question: bool = False) -> int:
     """Same whole-block boundary contract as quizParser.js/findQuizOptionStart."""
     lines = [re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__",
                     re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", line)).strip() for line in lines]
@@ -239,7 +239,8 @@ def find_quiz_option_start(lines: list[str]) -> int:
 
     def valid_start(start, accepts):
         options = [line for line in lines[start:end] if line]
-        return start if (start > 0 and any(lines[:start]) and all(accepts(line) for line in options)
+        return start if ((allow_empty_question or (start > 0 and any(lines[:start])))
+                         and all(accepts(line) for line in options)
                          and sum(bool(_option_parts(line)[1]) for line in options) >= 2) else -1
 
     def is_option(line):
@@ -299,19 +300,19 @@ def find_quiz_option_start(lines: list[str]) -> int:
     return valid_start(start, is_option)
 
 
-def parse_quiz_options(exercise: str) -> list[tuple[bool, str]]:
+def parse_quiz_options(exercise: str, *, allow_empty_question: bool = False) -> list[tuple[bool, str]]:
     """Parse only a complete answer block; ambiguous syntax stays source text."""
     masked = re.sub(r"\{[^}]+\}", "__TRAINER_CHOICE__", re.sub(r"\[\[[^\]]+\]\]", "__TRAINER_INPUT__", exercise))
     lines = masked.replace('\r\n', '\n').replace('\r', '\n').split('\n')
-    first = find_quiz_option_start(lines)
-    if first < 1:
+    first = find_quiz_option_start(lines, allow_empty_question=allow_empty_question)
+    if first < 0:
         return []
     return [parts for line in lines[first:] if line.strip() and (parts := _option_parts(line))[1]]
 
 
-def _has_quiz_structure(exercise: str) -> bool:
-    """A question plus >= 2 options, at least one marked correct."""
-    options = parse_quiz_options(exercise)
+def _has_quiz_structure(exercise: str, *, allow_empty_question: bool = False) -> bool:
+    """>= 2 options with a correct marker; explicit exercises may omit the question."""
+    options = parse_quiz_options(exercise, allow_empty_question=allow_empty_question)
     return any(correct for correct, _ in options) and sum(1 for _, text in options if text) >= 2
 
 
@@ -334,7 +335,8 @@ def detect_card_type(text: str) -> str:
             return card_type
     if _TRAINER_SYNTAX.search(normalized):
         return "trainer"
-    if _has_quiz_structure(parse_exercise_content(normalized)["exercise"].strip()):
+    allow_empty_question = any(b['type'] == 'exercise' and b['marker'] for b in parsed['blocks'])
+    if _has_quiz_structure(normalized, allow_empty_question=allow_empty_question):
         return "quiz"
     return "standard"
 
