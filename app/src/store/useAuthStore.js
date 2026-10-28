@@ -6,6 +6,7 @@ import { closeLocalDb, resetAllDatabases } from '../services/localDb';
 import { getPlatform, openExternalLink, prepareExternalLink } from '../utils/platform';
 import { useUiStore } from './useUiStore';
 import { useDeckStore } from './useDeckStore';
+import { useLanguageStore } from './useLanguageStore';
 import { IS_LOCAL, localStorageKey } from '../utils/localMode.js';
 
 const PENDING_KEY = localStorageKey('lerne_auth_v2_pending');
@@ -171,6 +172,8 @@ export const useAuthStore = create((set, get) => ({
   setUserProfile: (profile) => {
     set({ userProfile: profile });
     if (profile) saveUserProfile(profile);
+    if (profile?.active_language) useLanguageStore.getState().syncLanguageFromExternal(
+      profile.active_language, Boolean(profile.has_selected_language));
     useUiStore.setState({ userProfile: profile });
   },
 
@@ -185,11 +188,10 @@ export const useAuthStore = create((set, get) => ({
     const profile = response.data;
     if (prevUserId && String(prevUserId) !== String(profile.user_id)) {
       useDeckStore.getState().resetDeckStore?.();
+      useUiStore.setState({ activeFolderId: null });
       closeLocalDb(prevUserId);
     }
     get().setUserProfile(profile);
-    storage.remove('lerne_init_cache');
-    storage.remove('lerne_last_sync_time');
     storage.remove('lerne_force_guest');
     clearPending();
     stopPolling();
@@ -202,7 +204,6 @@ export const useAuthStore = create((set, get) => ({
     useUiStore.getState().showToast(tr('Вход выполнен. Ваши колоды и прогресс доступны.'), 'success');
     try {
       await useDeckStore.getState().fetchDecks(true);
-      await useDeckStore.getState().fetchFolders();
     } catch { /* the authenticated UI may retry */ }
     return profile;
   },
@@ -396,6 +397,7 @@ export const useAuthStore = create((set, get) => ({
         telegramPreparation = null;
         set({ preparedTelegramChallenge: null });
         useDeckStore.getState().resetDeckStore?.();
+        useUiStore.setState({ activeFolderId: null });
         if (previous) closeLocalDb(previous);
       }
       set(state => ({ userProfile: profile, sessionRevision: state.sessionRevision + 1 }));

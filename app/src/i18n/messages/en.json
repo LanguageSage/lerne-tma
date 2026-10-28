@@ -1979,5 +1979,10 @@
   "Система": "System",
   "Вы": "You",
   "Отметить прочитанным": "Mark as read",
-  "Отметить непрочитанным": "Mark as unread"
+  "Отметить непрочитанным": "Mark as unread",
+  "Не удалось загрузить библиотеку": "Could not load your library",
+  "Показаны сохранённые данные": "Showing saved data",
+  "Библиотека ещё не подтверждена сервером.": "The library has not yet been confirmed by the server.",
+  "Проверьте подключение и повторите загрузку.": "Check your connection and try loading again.",
+  "Повторить загрузку": "Retry loading"
 }

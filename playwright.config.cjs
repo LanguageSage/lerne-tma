@@ -6,14 +6,15 @@ module.exports = defineConfig({
   forbidOnly: !!process.env.CI,
   retries: 0,
   workers: 2,
-  reporter: [['list'], ['html', { open: 'never' }]],
+  outputDir: './local/test-data/playwright',
+  reporter: [['list'], ['html', { open: 'never', outputFolder: 'local/test-data/playwright-report' }]],
   projects: [
-    { name: 'critical', testMatch: /(?:guest-entry|card-editor|study-finished|offline)\.spec\.cjs$/,
+    { name: 'critical', testMatch: /(?:guest-entry|library-mobile|card-editor|study-finished|offline)\.spec\.cjs$/,
       // Requires a separately started HTTP sandbox; never probe an arbitrary
       // running backend during the isolated gate.
       grepInvert: /two separate devices exchange real HTTP/ },
     { name: 'extended', testMatch: /.*\.spec\.cjs$/,
-      testIgnore: /(?:guest-entry|card-editor|study-finished|offline)\.spec\.cjs$/ },
+      testIgnore: /(?:guest-entry|library-mobile|card-editor|study-finished|offline)\.spec\.cjs$/ },
     { name: 'auth-chrome', testMatch: /auth-lifecycle\.spec\.cjs$/,
       use: { channel: 'chrome' } },
   ],

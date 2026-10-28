@@ -65,7 +65,7 @@ export const DeckGrid = ({
     decks, folders, setCurrentDeck, fetchDeckCards, 
     handleSyncDeck, handleResetProgress, handleDeleteDeck, 
     setDeckCards, togglePinDeck,
-    duplicateCards, isFetchingDecks
+    duplicateCards, isFetchingDecks, libraryStatus, libraryError, fetchDecks
   } = useDeckStore();
 
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
@@ -128,7 +128,7 @@ export const DeckGrid = ({
 
   const currentFolders = React.useMemo(() => {
     return folders ? folders.filter(f => {
-      if (f.parent_id !== activeFolderId) return false;
+      if ((f.parent_id ?? null) !== (activeFolderId ?? null)) return false;
       if (activeFolderId !== null) return true;
       return (f.target_language || 'de') === activeLanguage;
     }) : [];
@@ -248,7 +248,8 @@ export const DeckGrid = ({
   const activeFolder = folders?.find(f => f.id === activeFolderId);
   const canCreateContent = !activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor';
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
-  const isInitialLoading = !hasInitialized || loading || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
+  const isInitialLoading = !hasInitialized || loading || (libraryStatus === 'idle' && Boolean(userProfile?.user_id))
+    || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
   const isFolderEmpty = !isInitialLoading && !isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0;
 
   return (
@@ -354,12 +355,35 @@ export const DeckGrid = ({
           />
         )}
 
+        {libraryStatus === 'cached' && (decks.length > 0 || folders.length > 0) && (
+          <div className="glass" role="status" style={{ padding: 16, marginBottom: 12 }}>
+            <strong>{tr('Показаны сохранённые данные')}</strong>
+            <p>{tr('Библиотека ещё не подтверждена сервером.')}</p>
+            <button className="btn btn-secondary" disabled={isFetchingDecks}
+              onClick={() => fetchDecks(true).catch(() => {})}>{tr('Повторить загрузку')}</button>
+          </div>
+        )}
+
         <div id="tut-deck-list" className="deck-grid">
           {isInitialLoading ? (
             <div className="empty-decks-state glass">
               <RefreshCw size={48} className="spin" color="#a855f7" />
               <h3>{t('decks.loading', 'Идет загрузка колод...')}</h3>
               <p>{tr("Пожалуйста, подождите немного.")}</p>
+            </div>
+          ) : (libraryStatus === 'error' || ((libraryError || libraryStatus === 'cached') && currentFolders.length === 0 && currentDecks.length === 0)) ? (
+            <div className="empty-decks-state glass" role="alert">
+              <RefreshCw size={48} opacity={0.5} />
+              <h3>{!userProfile?.user_id || libraryError?.status === 401
+                ? tr('Войдите в аккаунт') : tr('Не удалось загрузить библиотеку')}</h3>
+              <p>{libraryError?.status === 401
+                ? tr('Войдите в свой аккаунт, чтобы открыть ваши колоды и прогресс.')
+                : tr('Проверьте подключение и повторите загрузку.')}</p>
+              {(!userProfile?.user_id || libraryError?.status === 401) ? (
+                <button className="btn btn-primary" onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}>{tr('Войти в аккаунт')}</button>
+              ) : (
+                <button className="btn btn-primary" onClick={() => fetchDecks(true).catch(() => {})}>{tr('Повторить загрузку')}</button>
+              )}
             </div>
           ) : isSearchActive ? (
             <div className="search-results-container" style={{ gridColumn: '1 / -1', width: '100%' }}>

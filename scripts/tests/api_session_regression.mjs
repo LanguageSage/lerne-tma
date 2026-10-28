@@ -14,6 +14,7 @@ function fixture() {
   let session = { access_token: 'old', refresh_token: 'refresh-old' }, userId = 101;
   const calls = [];
   const f = { calls, refreshes: 0, clears: 0,
+    offlineRead: async () => ({ data: [] }),
     transport: async config => ({ data: { ok: true }, status: 200, headers: {}, config }),
     refresh: async () => ({ data: { access_token: 'fresh', refresh_token: 'refresh-fresh' } }),
     get session() { return session; }, set session(value) { session = value; },
@@ -28,9 +29,11 @@ function fixture() {
     getAuthSession: () => session, saveAuthSession: value => { session = value; },
     clearAuthSession: () => { f.clears++; session = null; }, getUserId: () => userId,
     isOfflineMode: () => false, navigator: { onLine: true }, console,
+    offlineApi: { handle: (...args) => f.offlineRead(...args) },
   };
-  vm.runInNewContext(`${source}\nglobalThis.subject = axiosInstance;`, context);
+  vm.runInNewContext(`${source}\nglobalThis.subject = axiosInstance; globalThis.proxySubject = api;`, context);
   f.api = context.subject;
+  f.proxy = context.proxySubject;
   return f;
 }
 function unauthorized(config) {
@@ -99,4 +102,31 @@ test('rejected Mini App proof does not refresh or delete an existing session', a
   await assert.rejects(f.api.post('/auth/v2/telegram/mini-app', { init_data: 'fixture' }));
   assert.equal(f.refreshes, 0);
   assert.equal(f.clears, 0);
+});
+
+test('network failure and empty local library preserve the original error', async () => {
+  const f = fixture();
+  const error = new Error('Network Error');
+  f.transport = async () => { throw error; };
+  await assert.rejects(f.proxy.get('/init'), error);
+  assert.equal(f.clears, 0);
+});
+
+test('nonempty offline library is explicitly marked as cached', async () => {
+  const f = fixture();
+  f.transport = async () => { throw new Error('Network Error'); };
+  f.offlineRead = async () => ({ data: { decks: [{ id: 1 }], folders: [] } });
+  const response = await f.proxy.get('/init');
+  assert.equal(response.dataSource, 'cache');
+  assert.equal(response.data.decks.length, 1);
+});
+
+test('HTTP 500 and 401 never become successful offline library responses', async () => {
+  for (const status of [500, 401]) {
+    const f = fixture();
+    f.transport = async config => { throw Object.assign(new Error('Fixture failure'), { config, response: { status } }); };
+    f.refresh = async () => { throw Object.assign(new Error('Rejected refresh'), { response: { status: 401 } }); };
+    f.offlineRead = async () => { assert.fail('HTTP errors must not use offline fallback'); };
+    await assert.rejects(f.proxy.get('/folders'));
+  }
 });

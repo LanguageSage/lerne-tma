@@ -6,7 +6,8 @@ export const getInitialCachedData = () => {
     if (raw) {
       const data = JSON.parse(raw);
       const currentUserId = getUserId();
-      if (data.user_id && currentUserId && String(data.user_id) !== String(currentUserId)) {
+      const owner = data.user_id ?? data.user_info?.user_id;
+      if (!owner || !currentUserId || String(owner) !== String(currentUserId)) {
         return { decks: [], folders: [] };
       }
       return {
@@ -23,7 +24,9 @@ export const saveToInitCache = (partialData) => {
     const raw = storage.get('lerne_init_cache');
     const existing = raw ? JSON.parse(raw) : {};
     const currentUserId = getUserId();
-    const merged = { ...existing, ...partialData, ...(currentUserId ? { user_id: currentUserId } : {}) };
+    if (!currentUserId) return;
+    const owner = existing.user_id ?? existing.user_info?.user_id;
+    const merged = { ...(String(owner) === String(currentUserId) ? existing : {}), ...partialData, user_id: currentUserId };
     storage.set('lerne_init_cache', JSON.stringify(merged));
   } catch { /* ignore */ }
 };

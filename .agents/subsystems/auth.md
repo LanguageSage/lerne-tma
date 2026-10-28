@@ -66,6 +66,14 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 
 ## Session and provider recovery
 
+- `/auth/v2/me` applies the server learning language on restoration and login
+  before loading the library. Startup `/auth/sync` does not write browser
+  default languages to the account. Login retains the same account's init
+  cache; switching resets the in-memory library/folder navigation while
+  retaining stored data. Init/profile responses from earlier account/session
+  revisions cannot overwrite the new view. Browser regressions:
+  `scripts/tests/browser/library-mobile.spec.cjs`.
+
 - `utils/auth.js` consumes `guest=1` / `reset=1` through `history.replaceState`, preserving other query parameters and the hash. A new login must survive the next reload.
 - `restoreSession` retires responses from an earlier auth generation before publishing a profile or accepting LOCAL login tokens. `refreshAuthMethods` checks the generation and account on success and failure, so late responses cannot restore or clear another session's identity/password settings. Logout and account switching own this generation.
 - VM auth/session fixtures inject the real `IS_LOCAL` / `localStorageKey` module exports after stripping application imports; missing imported dependencies must fail the harness rather than be hidden by changed assertions.

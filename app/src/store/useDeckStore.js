@@ -5,8 +5,6 @@ import { createTrashSlice } from './slices/createTrashSlice';
 import { createShareSlice } from './slices/createShareSlice';
 import { createLibrarySlice } from './slices/createLibrarySlice';
 
-import { storage } from '../utils/auth';
-
 /**
  * Main Deck Store assembled from modular domain slices.
  * - createDeckSlice: Decks & Cards CRUD, SRS progress & ordering
@@ -22,8 +20,6 @@ export const useDeckStore = create((set, get, store) => ({
   ...createShareSlice(set, get, store),
   ...createLibrarySlice(set, get, store),
   resetDeckStore: () => {
-    storage.remove('lerne_init_cache');
-    storage.remove('lerne_current_deck_id');
     set({
       decks: [],
       folders: [],
@@ -36,6 +32,8 @@ export const useDeckStore = create((set, get, store) => ({
       deckToSync: null,
       cardsLoading: false,
       isFetchingDecks: false,
+      libraryStatus: 'idle',
+      libraryError: null,
       trashItems: { decks: [], cards: [] },
       externalDecks: [],
       communityDecks: [],

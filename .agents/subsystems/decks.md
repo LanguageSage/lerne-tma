@@ -56,6 +56,19 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
 
 ## Relevant tests
 
+- Android browser library loading: `scripts/tests/browser/library-mobile.spec.cjs`
+  (`critical`, Pixel 7 Chromium, isolated APIs) and
+  `scripts/tests/library_store_regression.mjs`. Zustand owns `libraryStatus`
+  (`idle`, `ready`, `cached`, `error`) and safe `libraryError.status`;
+  `isFetchingDecks` tracks requests independently. Only validated server arrays
+  confirm an empty account. The paired deck/folder refresh preserves previous
+  data on either failure; error and cached states offer retry. A failed `/init`
+  may recover through the existing `/decks` + `/folders` endpoints.
+  Account ownership accepts `user_id` or legacy `user_info.user_id`; unknown or
+  mismatched caches are ignored in place. Missing cached root `parent_id` is
+  treated as null. Diagnostic evidence and limits:
+  [LIBRARY_ANDROID_DIAGNOSTIC](../../docs/LIBRARY_ANDROID_DIAGNOSTIC.md).
+
 - Аудит permissions 1.4: [отчёт](../../docs/MATERIAL_PERMISSIONS_AUDIT.md).
   `python scripts/test_backend.py scripts/tests/test_material_permissions.py`:
   owner/editor/viewer/outsider, inherited/global access, copy/import/trash и sync.

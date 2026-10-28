@@ -1,5 +1,5 @@
 import api from '../../services/api';
-import { storage } from '../../utils/auth';
+import { storage, getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from './initCacheHelper';
 
 let reorderTimeout = null;
@@ -18,6 +18,14 @@ export const createDeckSlice = (set, get) => ({
   deckToSync: null,
   cardsLoading: false,
   isFetchingDecks: false,
+  libraryStatus: getInitialCachedData().decks.length || getInitialCachedData().folders.length ? 'cached' : 'idle',
+  libraryError: null,
+
+  setLibraryLoadError: (error) => set({
+    libraryStatus: get().decks.length || get().folders.length ? 'cached' : 'error',
+    libraryError: { status: error?.response?.status || error?.status || 0 },
+    isFetchingDecks: false,
+  }),
 
   setDecks: (decks) => {
     const sortedDecks = sortDecks(decks);
@@ -25,8 +33,12 @@ export const createDeckSlice = (set, get) => ({
     saveToInitCache({ decks: sortedDecks });
   },
 
-  setDecksAndFolders: (decks, folders) => {
+  setDecksAndFolders: (decks, folders, source = 'server') => {
     const state = get();
+    if (source === 'cache' && (state.decks.length || state.folders.length)) {
+      set({ libraryStatus: 'cached', libraryError: null, isFetchingDecks: false });
+      return;
+    }
     const sortedFolders = sortFolders(folders);
     const sortedDecks = sortDecks(decks);
     const updatedCurrentDeck = state.currentDeck 
@@ -36,9 +48,11 @@ export const createDeckSlice = (set, get) => ({
       decks: sortedDecks, 
       folders: sortedFolders, 
       currentDeck: updatedCurrentDeck,
-      isFetchingDecks: false 
+      isFetchingDecks: false,
+      libraryStatus: source === 'server' ? 'ready' : 'cached',
+      libraryError: null,
     });
-    saveToInitCache({ decks: sortedDecks, folders: sortedFolders });
+    if (source === 'server') saveToInitCache({ decks: sortedDecks, folders: sortedFolders });
   },
 
   setCurrentDeck: (deck) => {
@@ -89,45 +103,27 @@ export const createDeckSlice = (set, get) => ({
   },
 
   fetchDecks: async (force = false, attempts = 3) => {
-    const { decks } = get();
-    if (!force && decks.length > 0) return;
+    const { decks, libraryStatus } = get();
+    if (!force && decks.length > 0 && libraryStatus === 'ready') return;
+    const account = getUserId();
     
     set({ isFetchingDecks: true });
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt++) {
       try {
-        if (force) {
-          const [decksRes, foldersRes] = await Promise.all([
-            api.get('/decks'),
-            api.get('/folders')
-          ]);
-          const newDecks = sortDecks(decksRes.data || []);
-          const sortedFolders = sortFolders(foldersRes.data || []);
-          const state = get();
-          const updatedCurrentDeck = state.currentDeck 
-            ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
-            : null;
-
-          set({ 
-            decks: newDecks, 
-            folders: sortedFolders, 
-            currentDeck: updatedCurrentDeck,
-            isFetchingDecks: false 
-          });
-          saveToInitCache({ decks: newDecks, folders: sortedFolders });
-        } else {
-          const res = await api.get('/decks');
-          const newDecks = sortDecks(res.data || []);
-          const state = get();
-          const updatedCurrentDeck = state.currentDeck 
-            ? newDecks.find(d => d.id === state.currentDeck.id) || state.currentDeck 
-            : null;
-          set({ decks: newDecks, currentDeck: updatedCurrentDeck, isFetchingDecks: false });
-          saveToInitCache({ decks: newDecks });
-        }
+        const [decksRes, foldersRes] = await Promise.all([
+          api.get('/decks'),
+          api.get('/folders')
+        ]);
+        if (account !== getUserId()) return;
+        if (!Array.isArray(decksRes.data) || !Array.isArray(foldersRes.data)) throw new Error('Invalid library response');
+        const source = decksRes.dataSource === 'cache' || foldersRes.dataSource === 'cache' ? 'cache'
+          : decksRes.dataSource === 'local' || foldersRes.dataSource === 'local' ? 'local' : 'server';
+        get().setDecksAndFolders(decksRes.data, foldersRes.data, source);
         return;
       } catch (err) {
         lastError = err;
+        if (account !== getUserId()) return;
         const status = err?.response?.status || err?.status;
         if (status === 401 || status === 403) {
           break;
@@ -137,8 +133,8 @@ export const createDeckSlice = (set, get) => ({
         }
       }
     }
-    set({ isFetchingDecks: false });
-    console.error('Fetch Decks Error:', lastError);
+    get().setLibraryLoadError(lastError);
+    console.warn('Library load failed', { status: lastError?.response?.status || 0 });
     throw lastError;
   },
 

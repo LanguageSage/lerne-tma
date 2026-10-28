@@ -1,4 +1,5 @@
 import api from '../../services/api';
+import { getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders } from './initCacheHelper';
 
 let folderReorderTimeout = null;
@@ -13,13 +14,22 @@ export const createFolderSlice = (set, get) => ({
   },
 
   fetchFolders: async () => {
+    const account = getUserId();
     try {
       const res = await api.get('/folders');
+      if (account !== getUserId()) return;
+      if (!Array.isArray(res.data)) throw new Error('Invalid folders response');
+      if (res.dataSource === 'cache' && get().folders.length) {
+        set({ libraryStatus: 'cached' });
+        return;
+      }
       const sorted = sortFolders(res.data || []);
-      set({ folders: sorted });
-      saveToInitCache({ folders: sorted });
+      set({ folders: sorted, ...(res.dataSource ? { libraryStatus: 'cached' } : {}) });
+      if (!res.dataSource) saveToInitCache({ folders: sorted });
     } catch (err) {
-      console.error('Fetch Folders Error:', err);
+      if (account !== getUserId()) return;
+      get().setLibraryLoadError(err);
+      console.warn('Folders load failed', { status: err?.response?.status || 0 });
     }
   },
 

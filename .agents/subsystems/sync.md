@@ -34,6 +34,13 @@ Knowledge Attempts отправляются отдельным механизм�
 
 ## Source of truth
 
+- Library reads from `api.js` identify their source: `cache` for automatic
+  fallback, `local` for explicit offline mode. An empty automatic fallback is
+  not a successful server library response. Cached init data is retained on
+  transport failure and is never replaced by synthetic local profile/settings.
+  Explicit local mode still updates the view from Dexie after local edits.
+  No Dexie schema, entity writes, SRS or sync queues changed.
+
 - `localDb.js` задаёт схему Dexie и отдельную БД аккаунта; несинхронизированные данные принадлежат этой локальной БД.
 - `api/models.py` задаёт серверную схему; online entities сохраняются в Peewee, offline доставка — в `offline_sync.py`.
 - Цветовая метка `flag` принадлежит progress конкретного пользователя. Offline `/cards/save` сохраняет явно переданный `flag` вместе с карточкой в одной Dexie-транзакции; отсутствие поля сохраняет прежний progress. Оценка переносит legacy cached `card.flag` только при создании progress. Явный `progress.flag = 0` имеет приоритет над legacy-значением при любой сериализации. Схема, накопленный SRS и очереди sync не сбрасываются.

@@ -34,6 +34,7 @@ async function setup(page, context, identified = false) {
     if (pathname === '/api/auth/v2/identities') return route.fulfill({ json: { providers: ['email_password'] } });
     if (pathname === '/api/decks') return route.fulfill({ json: decks });
     if (pathname === '/api/folders') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/auth/sync') return route.fulfill({ json: { status: 'ok', user: profile } });
     return route.fulfill({ json: {} });
   });

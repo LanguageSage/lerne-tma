@@ -205,10 +205,18 @@ const api = new Proxy(axiosInstance, {
           url.startsWith('/init');
 
         const forceOffline = isOfflineMode() || (typeof navigator !== 'undefined' && !navigator.onLine);
+        const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
 
         if (forceOffline && isOfflineEndpoint) {
           try {
-            return await offlineApi.handle(propKey, url, ...args);
+            const response = await offlineApi.handle(propKey, url, ...args);
+            // A browser without a downloaded library must not turn a failed
+            // network request into an authoritative empty-account response.
+            if (isLibraryRead && !isOfflineMode()) {
+              const items = url.startsWith('/init') ? [...(response.data?.decks || []), ...(response.data?.folders || [])] : response.data;
+              if (!items?.length) throw new Error('Library unavailable offline');
+            }
+            return isLibraryRead ? { ...response, dataSource: isOfflineMode() ? 'local' : 'cache' } : response;
           } catch (err) {
             if (err.code !== 'OFFLINE_UNSUPPORTED' || !navigator.onLine) throw err;
           }
@@ -242,9 +250,12 @@ const api = new Proxy(axiosInstance, {
           if (isOfflineEndpoint && isNetworkFailure) {
             console.log(`[Network Unavailable] Falling back to local offline DB for ${propKey.toUpperCase()} ${url}`);
             try {
-              return await offlineApi.handle(propKey, url, ...args);
-            } catch (fallbackErr) {
-              console.error(`[Offline Fallback Failed] ${propKey.toUpperCase()} ${url}:`, fallbackErr);
+              const response = await offlineApi.handle(propKey, url, ...args);
+              const items = url.startsWith('/init') ? [...(response.data?.decks || []), ...(response.data?.folders || [])] : response.data;
+              if (isLibraryRead && !items?.length) throw networkErr;
+              return isLibraryRead ? { ...response, dataSource: 'cache' } : response;
+            } catch {
+              console.warn('Offline fallback unavailable', { method: propKey.toUpperCase() });
             }
           }
           throw networkErr;

@@ -43,6 +43,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test',
     storage: { remove() {}, set() {}, get() { return null; } }, getPlatform: () => 'web', openExternalLink() { return true; },
     prepareExternalLink: () => ({ navigate() {}, close() {} }),
     useUiStore: { getState: () => ui, setState: value => Object.assign(ui, value) },
+    useLanguageStore: { getState: () => ({ syncLanguageFromExternal() {} }) },
     useDeckStore: { getState: () => ({
       async fetchDecks() {},
       async fetchFolders() {},

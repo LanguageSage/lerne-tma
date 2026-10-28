@@ -59,7 +59,7 @@ export const useAppInitialization = (checkStartParam) => {
       const initPromise = fetchInitData();
 
       // 2. Sync profile in parallel
-      if (profile) syncProfile(profile).catch(e => console.error("Profile sync error:", e));
+      if (profile) syncProfile(profile).catch(() => console.warn('Profile sync unavailable'));
 
       // 3. Perform background sync in offline mode if online
       if (isOfflineMode() && navigator.onLine) {
@@ -91,8 +91,7 @@ export const useAppInitialization = (checkStartParam) => {
             if (now - lastVisibilityFetch > VISIBILITY_FETCH_COOLDOWN_MS) {
               lastVisibilityFetch = now;
               // Fresh reload of decks and folders when returning to Telegram Mini App
-              useDeckStore.getState().fetchDecks();
-              useDeckStore.getState().fetchFolders();
+              useDeckStore.getState().fetchDecks(true).catch(() => {});
             }
           }
           useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
@@ -106,6 +105,7 @@ export const useAppInitialization = (checkStartParam) => {
       if (isOfflineMode()) {
         syncService.sync().catch(e => console.error("Online event sync failed:", e));
       } else {
+        useDeckStore.getState().fetchDecks(true).catch(() => {});
         useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
     };
@@ -147,23 +147,20 @@ export const useAppInitialization = (checkStartParam) => {
     try {
       const cacheVer = storage.get('lerne_init_cache_version');
       if (cacheVer !== CACHE_VERSION) {
-        // Stale cache — wipe it so we always get fresh data from server
-        storage.remove('lerne_init_cache');
-        storage.set('lerne_init_cache_version', CACHE_VERSION);
+        // Leave unsupported stored data intact; only fresh server data replaces it.
         return;
       }
       const cachedRaw = storage.get('lerne_init_cache');
       if (cachedRaw) {
         const data = JSON.parse(cachedRaw);
         const currentUserId = getUserId();
-        if (data.user_id && currentUserId && String(data.user_id) !== String(currentUserId)) {
-          storage.remove('lerne_init_cache');
-          storage.remove('lerne_current_deck_id');
+        const owner = data.user_id ?? data.user_info?.user_id;
+        if (!owner || !currentUserId || String(owner) !== String(currentUserId)) {
           return;
         }
         const { setDecksAndFolders, setCurrentDeck } = useDeckStore.getState();
         if ((data.decks && data.decks.length > 0) || (data.folders && data.folders.length > 0)) {
-          setDecksAndFolders(data.decks || [], data.folders || []);
+          setDecksAndFolders(data.decks || [], data.folders || [], 'cache');
           const savedDeckId = storage.get('lerne_current_deck_id');
           if (savedDeckId && data.decks) {
             const cachedCurrent = data.decks.find(d => String(d.id) === String(savedDeckId));
@@ -195,7 +192,7 @@ export const useAppInitialization = (checkStartParam) => {
         }
       }
     } catch (e) {
-      console.error("Failed to load cached init data:", e);
+      console.warn('Cached init data unavailable', { type: e?.name });
     }
   };
 
@@ -216,7 +213,7 @@ export const useAppInitialization = (checkStartParam) => {
           break;
         }
         if (attempt === attempts) break;
-        console.warn(`${label} failed on attempt ${attempt}, retrying...`, err);
+        console.warn(`${label} failed on attempt ${attempt}, retrying...`, { status: status || 0 });
         await sleep(400 * attempt);
       }
     }
@@ -224,6 +221,9 @@ export const useAppInitialization = (checkStartParam) => {
   };
 
   const fetchInitData = async () => {
+    const account = getUserId();
+    const revision = useAuthStore.getState().sessionRevision;
+    const isCurrent = () => account === getUserId() && revision === useAuthStore.getState().sessionRevision;
     const languageAtStart = getInterfaceLanguage();
     const { setDecksAndFolders } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
@@ -234,19 +234,28 @@ export const useAppInitialization = (checkStartParam) => {
     useDeckStore.setState({ isFetchingDecks: true });
     try {
       let res = await requestWithRetry(() => api.get('/init'), 'Init data load');
+      if (!isCurrent()) return;
+      if (!Array.isArray(res.data?.decks) || !Array.isArray(res.data?.folders)) throw new Error('Invalid init library response');
+      if (res.data.user_info?.user_id && String(res.data.user_info.user_id) !== String(account)) throw new Error('Init account mismatch');
       let freshDecks = res.data.decks || [];
       let freshFolders = res.data.folders || [];
 
       // A cold serverless/database start can briefly return a successful but
       // empty /init response while starter data is being provisioned. Do one
       // bounded refetch so the first launch does not require a browser reload.
-      if (freshDecks.length === 0 && freshFolders.length === 0 && getUserId()) {
+      if (!res.dataSource && freshDecks.length === 0 && freshFolders.length === 0 && getUserId()) {
         await sleep(700);
         res = await requestWithRetry(() => api.get('/init'), 'Init data refetch');
+        if (!isCurrent()) return;
+        if (!Array.isArray(res.data?.decks) || !Array.isArray(res.data?.folders)) throw new Error('Invalid init library response');
+        if (res.data.user_info?.user_id && String(res.data.user_info.user_id) !== String(account)) throw new Error('Init account mismatch');
         freshDecks = res.data.decks || [];
         freshFolders = res.data.folders || [];
       }
-      setDecksAndFolders(freshDecks, freshFolders);
+      setDecksAndFolders(freshDecks, freshFolders, res.dataSource);
+      // Offline data is useful for display; it cannot replace server profile,
+      // settings or a fuller init cache with synthetic local defaults.
+      if (res.dataSource) return;
       setAdminSettings(res.data.settings);
       setUserPrompts(res.data.prompts);
 
@@ -292,7 +301,7 @@ export const useAppInitialization = (checkStartParam) => {
       }
 
       // Cache init response for instant future starts
-      storage.set('lerne_init_cache', JSON.stringify(res.data));
+      storage.set('lerne_init_cache', JSON.stringify({ ...res.data, user_id: account }));
       storage.set('lerne_init_cache_version', CACHE_VERSION);
 
       // Backend-authoritative isAdmin (source of truth)
@@ -330,8 +339,19 @@ export const useAppInitialization = (checkStartParam) => {
         useUiStore.setState({ view: 'decks' });
       }
     } catch (err) {
-      console.error("Init Data Error:", err);
+      if (!isCurrent()) return;
+      console.warn('Init load failed', { status: err?.response?.status || 0 });
       const isAuthError = err?.response?.status === 401 || err?.status === 401;
+      // A consolidated init failure must not prevent an otherwise available
+      // library from loading via its existing endpoints.
+      if (!isAuthError && err?.response?.status !== 403) {
+        try {
+          await useDeckStore.getState().fetchDecks(true);
+          return;
+        } catch { /* preserve the last confirmed library and show retry */ }
+      }
+      if (!isCurrent()) return;
+      useDeckStore.getState().setLibraryLoadError(err);
       if (!isAuthError) {
         // Auth errors are silent — user can log in manually via the profile/settings button
         const decksNow = useDeckStore.getState().decks;
@@ -340,12 +360,14 @@ export const useAppInitialization = (checkStartParam) => {
         }
       }
     } finally {
-      useDeckStore.setState({ isFetchingDecks: false });
+      if (isCurrent()) useDeckStore.setState({ isFetchingDecks: false });
       useUiStore.setState({ loading: false, hasInitialized: true });
     }
   };
 
   const syncProfile = async (currentProfile) => {
+    const account = getUserId();
+    const revision = useAuthStore.getState().sessionRevision;
     const languageAtStart = getInterfaceLanguage();
     try {
       const { useLanguageStore } = await import('../store/useLanguageStore');
@@ -361,8 +383,8 @@ export const useAppInitialization = (checkStartParam) => {
         username: currentProfile.username || undefined,
         photo_url: currentProfile.photo_url || undefined,
         is_guest: Boolean(currentProfile.is_guest),
-        active_language: langState.activeLanguage,
-        native_language: localStorage.getItem('native_language') || 'uk'
+        // Language changes have their own explicit action. Startup must not
+        // overwrite server preferences with defaults from a new browser.
       };
       if (langState.hasSelectedLanguage) {
         syncPayload.has_selected_language = true;
@@ -370,6 +392,7 @@ export const useAppInitialization = (checkStartParam) => {
 
       // Always perform sync to ensure backend has the latest Telegram profile info
       const res = await requestWithRetry(() => api.post('/auth/sync', syncPayload), 'Profile sync');
+      if (account !== getUserId() || revision !== useAuthStore.getState().sessionRevision) return;
 
       if (res.data.status === 'ok' && res.data.user) {
         const serverUser = res.data.user;
@@ -404,7 +427,7 @@ export const useAppInitialization = (checkStartParam) => {
         }
       }
     } catch (err) {
-      console.error("Profile sync error:", err);
+      console.warn('Profile sync failed', { status: err?.response?.status || 0 });
     }
   };
 };
