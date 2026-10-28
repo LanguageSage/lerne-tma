@@ -6,6 +6,9 @@
 .card-front-preview .exercise-info-blocks { margin: 0; }
 .card-form-secondary { margin: 4px 0 6px; }
 .card-form-secondary > summary { min-height: 28px; padding: 4px 0; box-sizing: border-box; cursor: pointer; font-size: .8rem; }
+.card-form-text-field { display: grid; gap: 8px; min-width: 0; padding: 10px; margin: 8px 0; border: 1px solid rgba(148, 163, 184, .3); border-radius: 8px; }
+.card-form-text-field > .sub-label { margin: 0; }
+.card-form-text-field:focus-within { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: 2px; }
 .card-editor-mode { display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, max-content); justify-items: end; align-items: center; gap: 6px; margin: 0; }
 .card-editor-mode > .card-question-composer { margin: 0; min-width: 0; width: auto; max-width: 100%; }
 .card-editor-mode > .card-question-composer.is-open { grid-column: 1 / -1; justify-self: stretch; }

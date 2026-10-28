@@ -4,8 +4,6 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { CardContentEditor } from './CardContentEditor';
-import { MarkdownRenderer } from './MarkdownRenderer';
-import { getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
 import { getTextShadow, getContextShadow } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -639,7 +637,8 @@ export const CardForm = ({
           <CardBackground styleType={resolvedBgBack} />
 
           <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <label className="sub-label" htmlFor="card-editor-back">{tr(detectExerciseType(cardData) === 'editable_text' ? 'Полный исправленный текст' : 'Ответ / обратная сторона')}</label>
+            <div className="card-form-text-field">
+            <label className="sub-label" htmlFor="card-editor-back">{tr('Обратная сторона')}</label>
             <textarea
               id="card-editor-back"
               ref={backRef}
@@ -671,16 +670,13 @@ export const CardForm = ({
               })()}
             />
 
-            {cardData.back && <details className="card-form-secondary card-back-markdown-preview">
-              <summary>{tr('Предпросмотр')}</summary>
-              <MarkdownRenderer style={getBackCardStyle(settings)}>{cardData.back}</MarkdownRenderer>
-            </details>}
+            </div>
 
-            <details className="card-form-secondary" open={cardData.context ? true : undefined}>
-              <summary>{tr("Примеры и пояснения")}</summary>
+            <div className="card-form-text-field">
+            <label className="sub-label" htmlFor="card-editor-context">{tr('Контекст')}</label>
             <textarea
+              id="card-editor-context"
               ref={contextRef}
-              aria-label={tr("Примеры и пояснения")}
               className="context-textarea textarea-preview textarea-context-preview"
               value={cardData.context || ''}
               onChange={(e) => {
@@ -704,11 +700,7 @@ export const CardForm = ({
               }}
               placeholder={t('creator.context', 'Примеры, грамматика...')}
             />
-            {cardData.context && <details className="card-form-secondary card-context-markdown-preview">
-              <summary>{tr('Предпросмотр')}</summary>
-              <MarkdownRenderer style={getContextStyle(settings)}>{cardData.context}</MarkdownRenderer>
-            </details>}
-            </details>
+            </div>
           </div>
         </div>
       </div>

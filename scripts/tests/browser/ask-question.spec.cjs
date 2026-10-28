@@ -229,7 +229,7 @@ for (const [role, width] of [['owner', 375], ['editor', 1330], [null, 375]]) {
     await expect(page.locator('.card-personal-notes')).toHaveCount(0);
 
     await page.locator('#tut-study-edit-card').click();
-    const input = page.getByRole('textbox', { name: 'Примеры и пояснения', exact: true });
+    const input = page.getByRole('textbox', { name: 'Контекст', exact: true });
     await expect(input).toHaveValue(expectedContext);
     const edited = expectedContext.replace(answer, 'Мой исправленный ответ: der — определённый артикль.');
     await input.fill(edited);

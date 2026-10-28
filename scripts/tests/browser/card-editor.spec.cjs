@@ -168,7 +168,7 @@ test('quiz custom request remains available without changing the question', asyn
   await page.getByRole('button', { name: 'Выполнить просьбу', exact: true }).click();
   await page.locator('.card-question-input').fill('Объясни падеж');
   await page.getByRole('button', { name: 'Выполнить ✨', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Примеры и пояснения', exact: true })).toHaveValue('Пояснение падежа\n\nNote');
+  await expect(page.getByRole('textbox', { name: 'Контекст', exact: true })).toHaveValue('Пояснение падежа\n\nNote');
   const draft = await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
   expect(draft.front).toBe(analysisQuiz);
   expect(draft.context).toContain('Пояснение падежа');
@@ -214,7 +214,8 @@ test('new card opens the editor, previews typing immediately and uses the existi
   await expect(raw(page)).toBeVisible();
   await raw(page).fill('Hallo');
   await expect(page.locator('.card-front-preview .text-front')).toHaveText('Hallo');
-  await page.getByRole('textbox', { name: 'Ответ / обратная сторона' }).fill('Hello');
+  await expect(page.getByRole('textbox', { name: 'Контекст', exact: true })).toBeVisible();
+  await page.getByRole('textbox', { name: 'Обратная сторона', exact: true }).fill('Hello');
   const saved = page.waitForRequest('**/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
   expect((await saved).postDataJSON()).toMatchObject({ front: 'Hallo', back: 'Hello', card_type: 'standard' });

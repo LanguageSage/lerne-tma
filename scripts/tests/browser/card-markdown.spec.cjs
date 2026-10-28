@@ -154,7 +154,7 @@ test('trainer and puzzle translation disclosures preserve full Markdown and exer
   expect(errors).toEqual([]);
 });
 
-test('editor previews and list use Markdown while saved front/back/context remain exact', async ({ page, context }, testInfo) => {
+test('editor keeps two open text fields and saves exact Markdown for study and list', async ({ page, context }, testInfo) => {
   const errors = await setup(page, context);
   const editorCard = { ...card, front: '::future\r\nKEEP  EXACTLY\r\n@wordbank\r\n<<1>>' };
   await page.evaluate(async card => {
@@ -164,18 +164,31 @@ test('editor previews and list use Markdown while saved front/back/context remai
     useUiStore.getState().setView('editor');
   }, editorCard);
   await expect(page.locator('#card-editor-back')).toHaveValue(card.back);
-  const backPreview = page.locator('.card-back-markdown-preview');
-  const contextPreview = page.locator('.card-context-markdown-preview');
-  await backPreview.locator('summary').click();
-  await contextPreview.locator('summary').click();
-  for (const width of [320, 375, 400, 1280]) {
+  const back = page.getByRole('textbox', { name: 'Обратная сторона', exact: true });
+  const contextField = page.getByRole('textbox', { name: 'Контекст', exact: true });
+  const fields = page.locator('.card-form-text-field');
+  await expect(fields).toHaveCount(2);
+  await expect(fields.locator('details, summary, .card-markdown')).toHaveCount(0);
+  await expect(page.locator('.card-back-markdown-preview, .card-context-markdown-preview')).toHaveCount(0);
+  await expect(contextField).toHaveValue(card.context);
+  for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await checkTables(page, backPreview);
-    await checkTables(page, contextPreview);
+    await expect(back).toBeVisible();
+    await expect(contextField).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`editor-markdown-${width}.png`), fullPage: true });
-    await backPreview.screenshot({ path: testInfo.outputPath(`back-preview-${width}.png`) });
-    await contextPreview.screenshot({ path: testInfo.outputPath(`context-preview-${width}.png`) });
+    await page.locator('.card-preview-container').last().screenshot({ path: testInfo.outputPath(`editor-fields-${width}.png`) });
   }
+  await back.fill('Изменённый ответ\n\n**Markdown**');
+  await contextField.fill('');
+  await expect(contextField).toBeVisible();
+  await contextField.fill('Новый контекст\n\n- пример');
+  await back.fill(card.back);
+  await contextField.fill(card.context);
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
+  await expect(page.getByRole('textbox', { name: 'Back side', exact: true })).toBeVisible();
+  await expect(page.getByRole('textbox', { name: 'Context', exact: true })).toBeVisible();
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('ru'));
   await expect(page.locator('#tut-creator-front .card-markdown')).toHaveCount(0);
   const request = page.waitForRequest('**/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
