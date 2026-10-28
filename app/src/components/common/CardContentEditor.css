@@ -9,11 +9,12 @@
 .card-form-text-field { display: grid; gap: 8px; min-width: 0; padding: 10px; margin: 8px 0; border: 1px solid rgba(148, 163, 184, .3); border-radius: 8px; }
 .card-form-text-field > .sub-label { margin: 0; }
 .card-form-text-field:focus-within { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: 2px; }
-.card-editor-mode { display: grid; grid-template-columns: minmax(max-content, 1fr) minmax(0, max-content); justify-items: end; align-items: center; gap: 6px; margin: 0; }
+.card-editor-mode { display: grid; grid-template-columns: repeat(2, minmax(0, max-content)); justify-content: end; justify-items: end; align-items: stretch; gap: 6px; margin: 0; }
+.card-editor-mode:has(> .card-question-composer.is-open) { grid-template-columns: 1fr; }
 .card-editor-mode > .card-question-composer { margin: 0; min-width: 0; width: auto; max-width: 100%; }
 .card-editor-mode > .card-question-composer.is-open { grid-column: 1 / -1; justify-self: stretch; }
-.card-editor-mode .card-question-composer.is-action .card-question-trigger { width: auto; max-width: 100%; padding: 4px 8px; min-height: 44px; font-size: .74rem; line-height: 1.2; gap: 4px; border-radius: 6px; box-sizing: border-box; }
-.card-content-editor .card-editor-mode > button.btn-secondary { min-height: 44px; padding: 4px 8px; }
+.card-editor-mode .card-question-composer.is-action .card-question-trigger { width: auto; max-width: 100%; height: 100%; padding: 4px 8px; min-height: 44px; font-size: .74rem; line-height: 1.2; gap: 4px; border-radius: 6px; box-sizing: border-box; }
+.card-content-editor .card-editor-mode > button.btn-secondary { min-height: 44px; max-width: 100%; padding: 4px 8px; line-height: 1.2; white-space: normal; overflow-wrap: anywhere; }
 .card-editor-mode .btn-secondary { min-height: 26px; padding: 2px 8px; font-size: 0.74rem; border-radius: 6px; }
 .card-editor-advanced .btn-secondary { min-height: 32px; padding: 4px 8px; white-space: normal; overflow-wrap: anywhere; cursor: pointer; }
 .card-content-editor .card-editor-add { justify-self: start; min-height: 26px; padding: 2px 8px; font-size: 0.75rem; margin-top: 2px; }

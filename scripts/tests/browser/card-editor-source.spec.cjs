@@ -59,8 +59,46 @@ async function clickCommand(page, name) {
 }
 async function sourceEditor(page, context, front) {
   await openEditor(page, context, front);
-  await page.locator('.card-editor-mode > button').click();
+  await expect(raw(page)).toBeVisible();
 }
+
+test('editor stays open while preview toggles without losing the draft, selection or undo history', async ({ page, context }, testInfo) => {
+  const front = '::task\nПрочитайте текст.\n::exercise\nHallo Welt.';
+  await sourceEditor(page, context, front);
+  const preview = page.locator('.card-front-preview');
+  const toggle = page.locator('.card-editor-mode > button');
+  await expect(preview).toHaveCount(0);
+  await expect(toggle).toHaveText('Показать предпросмотр');
+  await expect(toggle).toHaveAttribute('aria-expanded', 'false');
+  const edited = front + ' Guten Morgen.';
+  await raw(page).fill(edited);
+  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(4, 12); });
+  for (const width of [320, 375, 430, 768, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    await toggle.click();
+    await expect(toggle).toHaveText('Скрыть предпросмотр');
+    await expect(toggle).toHaveAttribute('aria-expanded', 'true');
+    await expect(preview).toContainText('Guten Morgen.');
+    await expect(raw(page)).toBeVisible();
+    await expect(raw(page)).toHaveValue(edited);
+    expect(await raw(page).evaluate(el => [el.selectionStart, el.selectionEnd])).toEqual([4, 12]);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await toggle.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`preview-open-${width}.png`) });
+    await toggle.click();
+    await expect(preview).toHaveCount(0);
+    await expect(raw(page)).toHaveValue(edited);
+    expect(await raw(page).evaluate(el => [el.selectionStart, el.selectionEnd])).toEqual([4, 12]);
+    await page.screenshot({ path: testInfo.outputPath(`preview-closed-${width}.png`) });
+  }
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
+  await expect(toggle).toHaveText('Show preview');
+  await toggle.click();
+  await expect(toggle).toHaveText('Hide preview');
+  await toggle.click();
+  await page.getByRole('button', { name: 'Undo edit', exact: true }).click();
+  await expect(page.locator('.card-editor-raw')).toHaveValue(front);
+});
 
 test('all commands stay visible after selection, Escape and outside clicks', async ({ page, context }) => {
   await sourceEditor(page, context, 'Hallo');
@@ -148,6 +186,7 @@ test('empty markers isolate following text and typed text stays in the new block
   await clickCommand(page, 'Подсказка');
   await expect(raw(page)).toHaveValue('AA\n::source\n\n::exercise\nBB');
   await page.keyboard.insertText('Перевод.');
+  await page.locator('.card-editor-mode > button').click();
   await expect(page.locator('.card-front-preview .exercise-info-source')).toHaveText('Перевод.');
   await expect(page.locator('.card-front-preview .text-front')).toHaveText(['AA', 'BB']);
 });
@@ -283,7 +322,7 @@ test.describe('touch toolbar', () => {
   });
 });
 
-test('typing, marker assignment and paste keep independent undo steps across closing the editor', async ({ page, context }) => {
+test('typing, marker assignment and paste keep independent undo steps across toggling preview', async ({ page, context }) => {
   await sourceEditor(page, context, 'Before');
   await raw(page).focus();
   await page.keyboard.press('Control+End');

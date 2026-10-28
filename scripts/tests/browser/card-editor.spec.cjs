@@ -59,12 +59,12 @@ for (const fixture of require('../../../local/test-data/fixtures/quiz_boundaries
     const front = fixture.preamble + fixture.question + fixture.gap
       + fixture.answers.map((text, i) => `${i === fixture.correct ? '[*]' : '[ ]'} ${text}`).join('\n');
     await openEditor(page, context, front);
+    await toggleAdvanced(page).click();
     await expect(page.locator('.card-front-preview .quiz-question')).toHaveText(fixture.question);
     await expect(page.locator('.card-front-preview .quiz-option-item')).toHaveCount(3);
     for (const answer of fixture.answers) {
       await expect(page.locator('.card-front-preview .quiz-option-item').filter({ hasText: answer })).toHaveCount(1);
     }
-    await toggleAdvanced(page).click();
     await expect(raw(page)).toHaveValue(front);
     await toggleAdvanced(page).click();
     for (const width of [320, 1330]) {
@@ -185,14 +185,14 @@ test('single quiz fix keeps standard editor and new card generation available', 
 test('preview uses the study quiz renderer while source edits preserve Markdown and correctness', async ({ page, context }, testInfo) => {
   const front = '**Welche Stadt** [in Deutschland] ?\n\n[*] Berlin ist *richtig* [Hauptstadt] .\n[ ] **Bonn** [früher] .\n[x] Hamburg *heute* .';
   await openEditor(page, context, front);
+  await toggleAdvanced(page).click();
   const preview = page.locator('.card-front-preview');
   await expect(preview.locator('.quiz-question')).toHaveText('Welche Stadt [in Deutschland]?');
   for (const text of ['Berlin ist richtig [Hauptstadt].', 'Bonn [früher].', 'Hamburg heute.']) {
     await expect(preview.locator('.quiz-option-item').filter({ hasText: text })).toHaveCount(1);
   }
   await expect(preview.getByRole('button').first()).toBeDisabled();
-  await expect(raw(page)).toHaveCount(0);
-  await toggleAdvanced(page).click();
+  await expect(raw(page)).toBeVisible();
   await expect(raw(page)).toHaveValue(front);
   const changed = front.replace('[in Deutschland]', '[heute]').replace('[ ] **Bonn** [früher] .', '[*] **Bonn** [früher] !');
   await raw(page).fill(changed);
@@ -212,7 +212,10 @@ test('preview uses the study quiz renderer while source edits preserve Markdown 
 test('new card opens the editor, previews typing immediately and uses the existing save API', async ({ page, context }) => {
   await openEditor(page, context);
   await expect(raw(page)).toBeVisible();
+  await expect(page.locator('.card-front-preview')).toHaveCount(0);
   await raw(page).fill('Hallo');
+  await expect(page.locator('.card-front-preview')).toHaveCount(0);
+  await toggleAdvanced(page).click();
   await expect(page.locator('.card-front-preview .text-front')).toHaveText('Hallo');
   await expect(page.getByRole('textbox', { name: 'Контекст', exact: true })).toBeVisible();
   await page.getByRole('textbox', { name: 'Обратная сторона', exact: true }).fill('Hello');
@@ -250,7 +253,8 @@ test('assigning and changing a marker preserves order, selection, one-step undo/
   await page.keyboard.press('Control+z');
   await expect(raw(page)).toHaveValue(marked);
   await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveCount(0);
+  await expect(raw(page)).toBeVisible();
+  await expect(page.locator('.card-front-preview')).toHaveCount(0);
   await toggleAdvanced(page).click();
   await expect(raw(page)).toHaveValue(marked);
   for (const width of [320, 375, 430, 768, 1330]) {
@@ -283,6 +287,7 @@ test('assigning and changing a marker preserves order, selection, one-step undo/
 test('legacy unknown source and CRLF survive preview, opening, closing and save', async ({ page, context }) => {
   const source = '::future\r\nKEEP  EXACTLY\r\nLiteral [text]';
   await openEditor(page, context, source);
+  await toggleAdvanced(page).click();
   await expect(page.locator('.card-front-preview')).toContainText('KEEP  EXACTLY');
   for (let i = 0; i < 2; i++) {
     await toggleAdvanced(page).click();
@@ -296,8 +301,8 @@ test('legacy unknown source and CRLF survive preview, opening, closing and save'
 
 test('match and puzzle previews use the exercise renderers and update after source edits', async ({ page, context }) => {
   await openEditor(page, context, '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich');
-  await expect(page.locator('.card-front-preview')).toContainText('Berlin');
   await toggleAdvanced(page).click();
+  await expect(page.locator('.card-front-preview')).toContainText('Berlin');
   const source = '::exercise\n@match\nA -> B — C = D => цель — отдохнуть\nWien => Österreich';
   await raw(page).fill(source);
   await expect(page.locator('.card-front-preview')).toContainText('A -> B — C = D');
@@ -354,6 +359,7 @@ test('preview and study share published typography and the explicitly enabled lo
       useSessionStore.getState().setEditingCard({ id: 1, deck_id: 1, front, back: 'Answer' });
       useUiStore.getState().setView('editor');
     }, { localDraft, front, deck });
+    await toggleAdvanced(page).click();
     const preview = page.locator('.card-front-preview .text-front');
     await expect(preview).toBeVisible();
     await expect(preview).toHaveCSS('font-family', 'Georgia');

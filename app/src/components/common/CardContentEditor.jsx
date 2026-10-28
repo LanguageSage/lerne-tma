@@ -18,10 +18,10 @@ function fitEditorTextarea(area) {
 
 export function CardContentEditor({ value, onChange, card = {}, styles, textStyle, autoFocus = false, modeAction }) {
   useInterfaceLocale();
-  const [expanded, setExpanded] = useState(() => !value.trim());
+  const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState('');
   const [historyActions, setHistoryActions] = useState({ text: value, undo: false, redo: false });
-  const editorId = useId();
+  const previewId = useId();
   const rawRef = useRef(null);
   const editorRef = useRef(null);
   const selectionRef = useRef(null);
@@ -47,7 +47,7 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
       element.scrollTop = top;
       element.scrollLeft = left;
     }
-  }, [value, expanded]);
+  }, [value]);
 
   const rememberSelection = event => {
     const area = event.currentTarget;
@@ -115,11 +115,6 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
       area.focus({ preventScroll: true });
     }
   };
-  const toggle = () => {
-    if (!expanded && selectionRef.current) insertionRef.current = snapshot();
-    setExpanded(current => !current);
-    setError('');
-  };
   const previewCard = { ...card, front: value };
   const exerciseType = detectExerciseType(previewCard);
   const effectiveConfig = styles?.isLocalDesignPreviewActive && styles.adminDraftDesignV2
@@ -138,22 +133,22 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
   </div>;
 
   return <div className="card-content-editor" ref={editorRef}>
-    <div className="card-editor-preview">
+    {showPreview && <div id={previewId} className="card-editor-preview">
       <span className="sub-label">{tr('Предпросмотр (Лицевая сторона)')}</span>
       <fieldset disabled className="card-front-preview" aria-label={tr('Предпросмотр (Лицевая сторона)')}>
         {!value.trim() ? <p className="card-editor-hint">{tr('Здесь появится предпросмотр карточки.')}</p>
           : exerciseType ? <ExerciseRenderer key={value + card.back} card={previewCard} styles={styles} />
             : <CardFrontContent content={parseExerciseContent(value)} textStyle={previewTextStyle} />}
       </fieldset>
-    </div>
+    </div>}
     <div className="card-editor-mode">
-      <button type="button" className="btn-secondary" aria-expanded={expanded}
-        aria-controls={expanded ? editorId : undefined} onClick={toggle}>
-        {tr(expanded ? 'Свернуть редактор' : 'Редактировать')}
+      <button type="button" className="btn-secondary" aria-expanded={showPreview}
+        aria-controls={showPreview ? previewId : undefined} onClick={() => setShowPreview(current => !current)}>
+        {tr(showPreview ? 'Скрыть предпросмотр' : 'Показать предпросмотр')}
       </button>
       {modeAction}
     </div>
-    {expanded && <div id={editorId} className="card-editor-advanced">
+    <div className="card-editor-advanced">
       <div className="card-editor-toolbar" role="region" aria-label={tr('Панель быстрой вставки')}>
         {editorCommandGroups.filter(group => group.id === 'marker').map(renderCommands)}
       </div>
@@ -197,6 +192,6 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
       <div className="card-editor-toolbar" role="region" aria-label={tr('Тренажёр')}>
         {editorCommandGroups.filter(group => group.id !== 'marker').map(renderCommands)}
       </div>
-    </div>}
+    </div>
   </div>;
 }

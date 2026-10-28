@@ -1986,6 +1986,8 @@
   "Проверьте подключение и повторите загрузку.": "Check your connection and try loading again.",
   "Повторить загрузку": "Retry loading",
   "Свернуть редактор": "Collapse editor",
+  "Показать предпросмотр": "Show preview",
+  "Скрыть предпросмотр": "Hide preview",
   "Здесь появится предпросмотр карточки.": "Your card preview will appear here.",
   "Выделите текст и нажмите маркер. Без выделения появится пустой блок у курсора.": "Select text and choose a marker. With no selection, an empty block is inserted at the cursor.",
   "Выделите текст внутри одного блока, не разделяя маркеры и поля ответа.": "Select text within one block without splitting markers or answer fields.",
