@@ -7,6 +7,7 @@ No legacy X-User-ID, profile, auth code or pending guest session grants access h
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 import hashlib
+import json
 import re
 import secrets
 import uuid
@@ -19,7 +20,7 @@ from api.models import (
     tma_db, auth_utcnow as utcnow,
 )
 from .errors import AuthError
-from .providers import VerifiedIdentity, PROOF_TTL, CLOCK_SKEW
+from .providers import VerifiedIdentity, PROOF_TTL, CLOCK_SKEW, telegram_profile_fields
 from .transactions import auth_transaction, locked
 
 ACCESS_TTL = timedelta(minutes=15)
@@ -204,6 +205,21 @@ def _new_challenge_value(prefix: str = '') -> str:
     return prefix + secrets.token_urlsafe(32)
 
 
+def _fill_provider_profile(account, proof):
+    if proof.provider != 'telegram' or not proof.profile:
+        return
+    user = TMAUser.get(TMAUser.user_id == account.user_id)
+    fields = []
+    for key, value in telegram_profile_fields(proof.profile).items():
+        # Preserve profile edits; a fresh provider login repairs missing fields.
+        if not getattr(user, key) or (key == 'first_name' and user.first_name == 'Пользователь'):
+            setattr(user, key, value)
+            fields.append(getattr(TMAUser, key))
+    if fields:
+        user.updated_at = utcnow()
+        user.save(only=[*fields, TMAUser.updated_at])
+
+
 def _issue_verified(proof: VerifiedIdentity, now: datetime, *, link_account_id: int | None = None):
     if not isinstance(proof, VerifiedIdentity):
         raise AuthError('invalid_provider_proof')
@@ -214,10 +230,12 @@ def _issue_verified(proof: VerifiedIdentity, now: datetime, *, link_account_id: 
             raise AuthError('identity_conflict', 409)
         _consume_proof(proof, now)
         _attach(account, proof)
+        _fill_provider_profile(account, proof)
         return None
     account = _account(owner) if owner is not None else _new_account()
     _consume_proof(proof, now)
     _attach(account, proof)
+    _fill_provider_profile(account, proof)
     return _create_session(account, now, proof.authenticated_at, authentication_method=proof.provider)
 
 
@@ -515,6 +533,7 @@ def confirm_challenge(state: str, proof: VerifiedIdentity):
         challenge.verified_at = proof.authenticated_at
         challenge.verified_expires_at = proof.expires_at
         challenge.proof_hash = proof.proof_hash
+        challenge.verified_profile = json.dumps(telegram_profile_fields(proof.profile)) if proof.provider == 'telegram' else None
         challenge.save()
 
 
@@ -546,7 +565,8 @@ def exchange_challenge(challenge_id: str, secret: str, *, access_token: str | No
                 or not challenge.verified_at or not challenge.verified_expires_at):
             raise AuthError('invalid_challenge')
         proof = VerifiedIdentity(challenge.provider, challenge.verified_subject, challenge.verified_at,
-                                 challenge.verified_expires_at, challenge.proof_hash)
+                                 challenge.verified_expires_at, challenge.proof_hash,
+                                 json.loads(challenge.verified_profile or '{}'))
         if challenge.purpose == 'link':
             if not access_token:
                 raise AuthError('authentication_required')

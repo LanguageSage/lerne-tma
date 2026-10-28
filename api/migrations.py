@@ -15,6 +15,7 @@ AUTH_FOUNDATION_MIGRATION_ID = 76
 AUTH_CHALLENGE_MIGRATION_ID = 77
 AUTH_PASSWORD_MIGRATION_ID = 78
 AUTH_SESSION_METHOD_MIGRATION_ID = 79
+AUTH_PROFILE_MIGRATION_ID = 91
 KNOWLEDGE_MASTERY_MIGRATION_ID = 82
 KNOWLEDGE_MASTERY_LOCK_ID = 76120982
 CARD_COMMUNICATION_MIGRATION_ID = 90  # 87-89 are already recorded in deployed histories.
@@ -267,6 +268,28 @@ def run_auth_migrations(database):
                     (AUTH_SESSION_METHOD_MIGRATION_ID,),
                 )
                 result['session_method_migration_applied'] = True
+        with database.atomic(**options):
+            if isinstance(database, PostgresqlDatabase):
+                database.execute_sql("SET LOCAL lock_timeout = '5s'")
+                database.execute_sql("SET LOCAL statement_timeout = '60s'")
+                database.execute_sql('SELECT pg_advisory_xact_lock(76120906)')
+            applied = database.execute_sql(
+                f'SELECT migration_id FROM tma_migration_history WHERE migration_id = {marker}',
+                (AUTH_PROFILE_MIGRATION_ID,),
+            ).fetchone()
+            has_column = any(c.name == 'verified_profile'
+                             for c in database.get_columns('tma_auth_challenge'))
+            if applied and not has_column:
+                raise RuntimeError('Auth profile migration history/schema mismatch')
+            if not applied:
+                # Old pending challenges remain valid, with no display fields.
+                if not has_column:
+                    database.execute_sql('ALTER TABLE tma_auth_challenge ADD COLUMN verified_profile TEXT NULL')
+                database.execute_sql(
+                    f'INSERT INTO tma_migration_history (migration_id) VALUES ({marker})',
+                    (AUTH_PROFILE_MIGRATION_ID,),
+                )
+                result['profile_migration_applied'] = True
         return result
     finally:
         if owned_connection and not database.is_closed():

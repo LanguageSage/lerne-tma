@@ -100,14 +100,16 @@ async def start_handler(update: Update, context):
 
         if args and args[0].startswith("auth_"):
             try:
-                from api.auth.providers import PROOF_TTL, VerifiedIdentity
+                from api.auth.providers import PROOF_TTL, VerifiedIdentity, telegram_profile_fields
                 from api.auth.service import confirm_challenge
                 from api.models import auth_utcnow
                 state = args[0].removeprefix("auth_")
                 now = auth_utcnow()
                 proof = VerifiedIdentity(
                     'telegram', str(user.id), now, now + PROOF_TTL,
-                    hashlib.sha256(f'telegram-bot-start:{state}:{user.id}'.encode()).hexdigest())
+                    hashlib.sha256(f'telegram-bot-start:{state}:{user.id}'.encode()).hexdigest(),
+                    telegram_profile_fields({'first_name': user.first_name,
+                                             'last_name': user.last_name, 'username': user.username}))
                 confirm_challenge(state, proof)
                 keyboard = InlineKeyboardMarkup([
                     [InlineKeyboardButton("🚀 Вернуться в Lerne", url=TMA_URL)]

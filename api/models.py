@@ -495,6 +495,7 @@ class TMAAuthChallenge(BaseModel):
     verified_subject = CharField(max_length=255, null=True)
     verified_at = DateTimeField(null=True)
     verified_expires_at = DateTimeField(null=True)
+    verified_profile = TextField(null=True)
     proof_hash = CharField(max_length=64, null=True)
     created_at = DateTimeField(default=auth_utcnow)
     expires_at = DateTimeField(index=True)
