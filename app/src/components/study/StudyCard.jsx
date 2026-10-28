@@ -28,6 +28,7 @@ import { CardAudioPlayer } from './CardAudioPlayer.jsx';
 import { StudyCardImage } from './StudyCardImage';
 import { CardQuestionComposer } from './CardQuestionComposer.jsx';
 import { KaraokeText } from './KaraokeText';
+import { CardFrontContent } from '../common/CardFrontContent.jsx';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 import { getAudioUrl } from '../../utils/media';
@@ -500,20 +501,15 @@ export const StudyCard = React.memo(({
               {/* Classic / Reverse Mode Text */}
               {!exerciseType && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
                 <>
-                  {topBlocks.length > 0 && (
-                    <ExerciseInfoBlocks blocks={topBlocks} />
-                  )}
-                  <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
-                    {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : <KaraokeText
-                      text={cleanBracketSyntax(frontText)}
-                      activeWordIndex={activeWordIndex}
-                      style={cardStyle}
-                    />}
-                  </div>
+                  {promptPhysicalSide === 'back' && topBlocks.length > 0 && <ExerciseInfoBlocks blocks={topBlocks} />}
+                  {promptPhysicalSide === 'back'
+                    ? <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
+                      <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
+                    </div>
+                    : <CardFrontContent content={parsedFrontContent} textStyle={cardStyle}
+                      activeWordIndex={activeWordIndex} id="tut-study-front" />}
                   {renderFrontAudioPlayer()}
-                  {bottomBlocks.length > 0 && (
-                    <ExerciseInfoBlocks blocks={bottomBlocks} />
-                  )}
+                  {promptPhysicalSide === 'back' && bottomBlocks.length > 0 && <ExerciseInfoBlocks blocks={bottomBlocks} />}
                 </>
               )}
 

@@ -285,8 +285,8 @@ export const CardForm = ({
             <CardContentEditor
               value={cardData.front || ''}
               onChange={front => setCardData(prev => ({ ...prev, front }))}
-              back={cardData.back || ''}
-              onBackChange={back => setCardData(prev => ({ ...prev, back }))}
+              card={cardData}
+              styles={settings}
               autoFocus={isCreator}
               modeAction={!isCreator && <CardQuestionComposer
                 onSubmit={(request) => onAiGenerate?.(detectCardType(cardData) === 'quiz' ? 'custom_directive' : 'full_card', request)}

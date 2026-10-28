@@ -50,7 +50,7 @@ async function openEditor(page, context, front = null) {
   await expect(page.locator('.card-content-editor')).toBeVisible();
 }
 const raw = page => page.getByRole('textbox', { name: 'Исходная разметка', exact: true });
-const toggleAdvanced = page => page.getByRole('button', { name: 'Дополнительно', exact: true });
+const toggleAdvanced = page => page.locator('.card-editor-mode > button');
 
 const analysisQuiz = '::task\nWählen Sie die richtige Antwort.\n\n::exercise\nWomit fährt Anna?\n\nA) Mit dem Auto\n*B) Mit dem Bus\nC) Mit dem Zug';
 
@@ -59,14 +59,11 @@ for (const fixture of require('../../../local/test-data/fixtures/quiz_boundaries
     const front = fixture.preamble + fixture.question + fixture.gap
       + fixture.answers.map((text, i) => `${i === fixture.correct ? '[*]' : '[ ]'} ${text}`).join('\n');
     await openEditor(page, context, front);
-    const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });
-    await expect(question).toHaveText(fixture.question);
-    await expect(page.locator('.card-editor-quiz-option')).toHaveCount(3);
-    for (const [i, answer] of fixture.answers.entries()) {
-      await expect(page.getByRole('textbox', { name: `Вариант ${i + 1}`, exact: true })).toHaveValue(answer);
+    await expect(page.locator('.card-front-preview .quiz-question')).toHaveText(fixture.question);
+    await expect(page.locator('.card-front-preview .quiz-option-item')).toHaveCount(3);
+    for (const answer of fixture.answers) {
+      await expect(page.locator('.card-front-preview .quiz-option-item').filter({ hasText: answer })).toHaveCount(1);
     }
-    await question.focus();
-    await page.locator('#card-editor-back').focus();
     await toggleAdvanced(page).click();
     await expect(raw(page)).toHaveValue(front);
     await toggleAdvanced(page).click();
@@ -185,241 +182,192 @@ test('single quiz fix keeps standard editor and new card generation available', 
   await expect(page.getByRole('button', { name: /генерировать/i })).toBeVisible();
 });
 
-test('B1-29-D02 compact quiz labels render in the editor and study card', async ({ page, context }, testInfo) => {
-  const fixture = require('../../../local/test-data/fixtures/quiz_b1_29_d02.json');
-  const front = `::task\n${fixture.task}\n::exercise\n${fixture.question}\n\nA)${fixture.answers[0]}\nB)${fixture.answers[1]}\nC)*${fixture.answers[fixture.correct]}`;
-  await openEditor(page, context, front);
-  const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });
-  await expect(question).toHaveText(fixture.question);
-  expect(await question.textContent()).toBe(fixture.question);
-  await expect(page.locator('.card-editor-quiz-option')).toHaveCount(3);
-  for (const [index, answer] of fixture.answers.entries()) {
-    await expect(page.getByRole('textbox', { name: `Вариант ${index + 1}`, exact: true })).toHaveValue(answer);
-  }
-  await expect(page.getByRole('checkbox', { name: 'Правильный вариант 3', exact: true })).toBeChecked();
-  await page.getByRole('button', { name: 'Дополнительно', exact: true }).click();
-  await expect(raw(page)).toHaveValue(front);
-
-  await page.evaluate(async ({ front, deck }) => {
-    const { useUiStore } = await import('/src/store/useUiStore.js');
-    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    const { useSessionStore } = await import('/src/store/useSessionStore.js');
-    const card = { id: 99, deck_id: deck.id, front, back: 'Объяснение', queue: 'new' };
-    useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
-    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
-      isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
-    useUiStore.getState().setView('study');
-  }, { front, deck });
-  await expect(page.locator('.quiz-question')).toHaveText(fixture.question);
-  expect(await page.locator('.quiz-question').textContent()).toBe(fixture.question);
-  await expect(page.locator('.quiz-option-item')).toHaveCount(3);
-  for (const answer of fixture.answers) await expect(page.locator('.quiz-option-item').filter({ hasText: answer })).toHaveCount(1);
-  for (const width of [375, 1330]) {
-    await page.setViewportSize({ width, height: 900 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`quiz-study-${width}.png`), fullPage: true });
-  }
-  await page.locator('.quiz-option-item').filter({ hasText: fixture.answers[0] }).click();
-  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
-  await expect(page.locator('.quiz-option-item.wrong')).toHaveCount(1);
-  await page.locator('.quiz-option-item').filter({ hasText: fixture.answers[fixture.correct] }).click();
-  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
-  await expect(page.locator('.quiz-option-item.correct')).toHaveCount(1);
-});
-
-test('Quiz formatting matches study and preserves source through focus, edits and correctness changes', async ({ page, context }, testInfo) => {
+test('preview uses the study quiz renderer while source edits preserve Markdown and correctness', async ({ page, context }, testInfo) => {
   const front = '**Welche Stadt** [in Deutschland] ?\n\n[*] Berlin ist *richtig* [Hauptstadt] .\n[ ] **Bonn** [früher] .\n[x] Hamburg *heute* .';
   await openEditor(page, context, front);
-  const question = page.getByRole('textbox', { name: 'Вопрос / лицевая сторона', exact: true });
-  const option = index => page.getByRole('textbox', { name: `Вариант ${index}`, exact: true });
-  const expectedQuestion = 'Welche Stadt [in Deutschland]?';
-  const expectedOptions = ['Berlin ist richtig [Hauptstadt].', 'Bonn [früher].', 'Hamburg heute.'];
-  await expect(question).toHaveText(expectedQuestion);
-  for (const [index, text] of expectedOptions.entries()) await expect(option(index + 1)).toHaveValue(text);
-  await expect(page.getByRole('checkbox', { name: 'Правильный вариант 1', exact: true })).toBeChecked();
-  await expect(page.getByRole('checkbox', { name: 'Правильный вариант 3', exact: true })).not.toBeChecked();
-
-  // Focus exposes the original text for editing; leaving it untouched must not rewrite Markdown.
-  await question.focus();
-  await expect(question).toHaveText('**Welche Stadt** [in Deutschland] ?');
-  await option(1).focus();
-  await expect(question).toHaveText(expectedQuestion);
-  await expect(option(1)).toHaveValue('Berlin ist *richtig* [Hauptstadt] .');
-  await page.locator('#card-editor-back').focus();
-  await expect(option(1)).toHaveValue(expectedOptions[0]);
+  const preview = page.locator('.card-front-preview');
+  await expect(preview.locator('.quiz-question')).toHaveText('Welche Stadt [in Deutschland]?');
+  for (const text of ['Berlin ist richtig [Hauptstadt].', 'Bonn [früher].', 'Hamburg heute.']) {
+    await expect(preview.locator('.quiz-option-item').filter({ hasText: text })).toHaveCount(1);
+  }
+  await expect(preview.getByRole('button').first()).toBeDisabled();
+  await expect(raw(page)).toHaveCount(0);
   await toggleAdvanced(page).click();
   await expect(raw(page)).toHaveValue(front);
-  await toggleAdvanced(page).click();
-
+  const changed = front.replace('[in Deutschland]', '[heute]').replace('[ ] **Bonn** [früher] .', '[*] **Bonn** [früher] !');
+  await raw(page).fill(changed);
+  await expect(preview.locator('.quiz-question')).toHaveText('Welche Stadt [heute]?');
+  await expect(preview.locator('.quiz-option-item').filter({ hasText: 'Bonn [früher]!' })).toHaveCount(1);
   for (const width of [320, 1330]) {
     await page.setViewportSize({ width, height: 900 });
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`quiz-format-editor-${width}.png`), fullPage: true });
+    await preview.scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`quiz-preview-${width}.png`) });
   }
-  await question.fill('**Welche Stadt** [heute] ?');
-  await option(2).fill('**Bonn** [früher] !');
-  await page.getByRole('checkbox', { name: 'Правильный вариант 2', exact: true }).check();
-  await expect(question).toHaveText('Welche Stadt [heute]?');
-  await expect(option(2)).toHaveValue('Bonn [früher]!');
-  const changedFront = front.replace('[in Deutschland]', '[heute]').replace('[ ] **Bonn** [früher] .', '[*] **Bonn** [früher] !');
-  await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveValue(changedFront);
-
-  const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
+  const saved = page.waitForRequest('**/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
-  expect((await saved).postDataJSON()).toMatchObject({ front: changedFront, card_type: 'quiz' });
-
-  await page.evaluate(async ({ front, deck }) => {
-    const { useUiStore } = await import('/src/store/useUiStore.js');
-    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    const { useSessionStore } = await import('/src/store/useSessionStore.js');
-    const card = { id: 99, deck_id: deck.id, front, back: 'Объяснение', queue: 'new' };
-    useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
-    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
-      isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
-    useUiStore.getState().setView('study');
-  }, { front, deck });
-  await expect(page.locator('.quiz-question')).toHaveText(expectedQuestion);
-  for (const text of expectedOptions) await expect(page.locator('.quiz-option-item').filter({ hasText: text })).toHaveCount(1);
-  for (const width of [320, 1330]) {
-    await page.setViewportSize({ width, height: 900 });
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`quiz-format-study-${width}.png`), fullPage: true });
-  }
+  expect((await saved).postDataJSON()).toMatchObject({ front: changed, card_type: 'quiz' });
 });
 
-test('simple creation uses the existing save API and has no technical cheatsheet', async ({ page, context }, testInfo) => {
+test('new card opens the editor, previews typing immediately and uses the existing save API', async ({ page, context }) => {
   await openEditor(page, context);
-  await expect(page.getByText('Тренажёр:', { exact: true })).toHaveCount(0);
-  await expect(raw(page)).toHaveCount(0);
-  await page.getByRole('textbox', { name: 'Вопрос / лицевая сторона' }).fill('Hallo');
+  await expect(raw(page)).toBeVisible();
+  await raw(page).fill('Hallo');
+  await expect(page.locator('.card-front-preview .text-front')).toHaveText('Hallo');
   await page.getByRole('textbox', { name: 'Ответ / обратная сторона' }).fill('Hello');
-  for (const width of [320, 1280]) {
-    await page.setViewportSize({ width, height: 900 });
-    await page.locator('.card-content-editor').scrollIntoViewIfNeeded();
-    await page.screenshot({ path: testInfo.outputPath(`simple-${width}.png`), fullPage: true });
-  }
-  const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
+  const saved = page.waitForRequest('**/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
   expect((await saved).postDataJSON()).toMatchObject({ front: 'Hallo', back: 'Hello', card_type: 'standard' });
 });
 
-test('visual fields, raw toggle, cursor insertion and menu dismissal', async ({ page, context }) => {
-  const source = '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich';
-  await openEditor(page, context, source);
-  const left = page.getByRole('textbox', { name: 'Левая сторона', exact: true });
-  await expect(left).toHaveCount(2);
-  await left.first().fill('Paris');
+test('assigning and changing a marker preserves order, selection, one-step undo/redo and saved text', async ({ page, context }, testInfo) => {
+  const front = 'Прочитайте предложение. Выберите правильное окончание. Ich sehe einen kleinen Hund.';
+  const selected = 'Выберите правильное окончание.';
+  await openEditor(page, context, front);
   await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveValue(source.replace('Berlin', 'Paris'));
-  await raw(page).fill('AA\nBB');
-  await raw(page).evaluate(el => { el.focus(); el.setSelectionRange(3, 3); });
-  const more = page.locator('.card-editor-group-trigger').filter({ hasText: 'Информация' });
-  await more.click();
-  await page.locator('.card-editor-command-list').getByRole('button', { name: 'Пример', exact: true }).click();
-  await expect(raw(page)).toHaveValue('AA\n::example\nBB');
-  await expect(raw(page)).toBeFocused();
-  await more.focus();
-  await page.keyboard.press('Enter');
-  const summary = page.locator('.card-editor-command-list').getByRole('button', { name: 'Содержимое упражнения', exact: true });
-  await expect(summary).toBeVisible();
-  await raw(page).click();
-  await expect(summary).toHaveCount(0);
-});
-
-test('legacy and unknown raw source survives viewing, mode switches and save', async ({ page, context }) => {
-  const source = '::future\r\nKEEP  EXACTLY\r\n@wordbank\r\n<<1>>';
-  const browserSource = source.replace(/\r\n/g, '\n');
-  await openEditor(page, context, source);
-  await expect(page.locator('.card-editor-readable')).toHaveText('KEEP  EXACTLY\n<<1>>');
-  await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveValue(browserSource);
+  const select = async text => raw(page).evaluate((el, text) => {
+    el.focus(); const start = el.value.indexOf(text); el.setSelectionRange(start, start + text.length);
+  }, text);
+  const command = name => page.locator('.card-editor-toolbar').getByRole('button', { name, exact: true });
+  await select(selected);
+  await command('Задание').click();
+  const marked = await raw(page).inputValue();
+  await expect(page.locator('.card-front-preview .exercise-info-task')).toHaveText(selected);
+  await expect(page.locator('.card-front-preview > *')).toHaveText([
+    'Прочитайте предложение.', selected, 'Ich sehe einen kleinen Hund.',
+  ]);
+  expect(await raw(page).evaluate(el => el.value.slice(el.selectionStart, el.selectionEnd))).toBe(selected);
+  await page.keyboard.press('Control+z');
+  await expect(raw(page)).toHaveValue(front);
+  await expect(page.locator('.card-front-preview .exercise-info-task')).toHaveCount(0);
+  await page.keyboard.press('Control+Shift+z');
+  await expect(raw(page)).toHaveValue(marked);
+  await command('Пример').click();
+  const changed = marked.replace('::task', '::example');
+  await expect(raw(page)).toHaveValue(changed);
+  await expect(page.locator('.card-front-preview .exercise-info-example')).toHaveText(selected);
+  await page.keyboard.press('Control+z');
+  await expect(raw(page)).toHaveValue(marked);
   await toggleAdvanced(page).click();
   await expect(raw(page)).toHaveCount(0);
   await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveValue(browserSource);
-  const saved = page.waitForRequest(r => new URL(r.url()).pathname === '/api/cards/save');
+  await expect(raw(page)).toHaveValue(marked);
+  for (const width of [320, 375, 430, 768, 1330]) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.locator('.card-content-editor').scrollIntoViewIfNeeded();
+    await page.screenshot({ path: testInfo.outputPath(`marker-editor-${width}.png`) });
+  }
+  const saved = page.waitForRequest('**/api/cards/save');
+  await page.getByRole('button', { name: /^Сохранить/ }).click();
+  expect((await saved).postDataJSON().front).toBe(marked);
+  await page.evaluate(async ({ front, deck }) => {
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const card = { id: 99, deck_id: deck.id, front, back: 'Answer', queue: 'new' };
+    useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
+    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
+      isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
+    useUiStore.getState().setView('study');
+  }, { front: marked, deck });
+  await expect(page.locator('.study-flashcard .card-front .card-face .text-front')).toHaveText([
+    'Прочитайте предложение.', 'Ich sehe einen kleinen Hund.',
+  ]);
+  await expect(page.locator('.study-flashcard .exercise-info-task')).toHaveText(selected);
+  const order = await page.locator('.study-flashcard .card-front .card-face').evaluate(el =>
+    [...el.querySelectorAll('.text-front, .exercise-info-text')].map(node => node.textContent.trim()));
+  expect(order).toEqual(['Прочитайте предложение.', selected, 'Ich sehe einen kleinen Hund.']);
+});
+
+test('legacy unknown source and CRLF survive preview, opening, closing and save', async ({ page, context }) => {
+  const source = '::future\r\nKEEP  EXACTLY\r\nLiteral [text]';
+  await openEditor(page, context, source);
+  await expect(page.locator('.card-front-preview')).toContainText('KEEP  EXACTLY');
+  for (let i = 0; i < 2; i++) {
+    await toggleAdvanced(page).click();
+    await expect(raw(page)).toHaveValue(source.replace(/\r\n/g, '\n'));
+    await toggleAdvanced(page).click();
+  }
+  const saved = page.waitForRequest('**/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
   expect((await saved).postDataJSON().front).toBe(source);
 });
 
-test('responsive visual and raw editor in Russian and English', async ({ page, context }, testInfo) => {
-  const errors = [];
-  page.on('pageerror', error => errors.push(error.message));
-  await openEditor(page, context, '::task\nVerbinde.\n::exercise\n@match\nBerlin => Deutschland\nWien => Österreich');
-  for (const width of [320, 375, 430, 768, 1280]) {
-    await page.setViewportSize({ width, height: 900 });
-    await expect(page.getByRole('textbox', { name: 'Левая сторона' }).first()).toHaveValue('Berlin');
-    await toggleAdvanced(page).click();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`visual-${width}.png`), fullPage: true });
-    await toggleAdvanced(page).click();
-    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-    await page.screenshot({ path: testInfo.outputPath(`raw-${width}.png`), fullPage: true });
-    await toggleAdvanced(page).click();
-  }
-  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
-  const englishToggle = page.getByRole('button', { name: 'Advanced', exact: true });
-  await expect(englishToggle).toBeVisible();
-  await page.setViewportSize({ width: 320, height: 900 });
-  await englishToggle.click();
-  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
-  await page.screenshot({ path: testInfo.outputPath('english-320.png'), fullPage: true });
-  expect(errors).toEqual([]);
+test('match and puzzle previews use the exercise renderers and update after source edits', async ({ page, context }) => {
+  await openEditor(page, context, '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich');
+  await expect(page.locator('.card-front-preview')).toContainText('Berlin');
+  await toggleAdvanced(page).click();
+  const source = '::exercise\n@match\nA -> B — C = D => цель — отдохнуть\nWien => Österreich';
+  await raw(page).fill(source);
+  await expect(page.locator('.card-front-preview')).toContainText('A -> B — C = D');
+  await expect(page.locator('.card-front-preview')).toContainText('цель — отдохнуть');
+  await raw(page).fill('::task\nСоберите предложение.\n::exercise\n@puzzle\nIch wohne in Berlin.');
+  await expect(page.locator('.card-front-preview .exercise-info-task')).toHaveText('Соберите предложение.');
+  await expect(page.locator('.card-front-preview')).toContainText('Berlin.');
+  await expect(page.locator('.card-front-preview')).not.toContainText('@puzzle');
 });
 
-
-test('raw changes roundtrip and save failure retain the draft', async ({ page, context }) => {
+test('failed save retains the source and the live free-text preview makes no evaluation requests', async ({ page, context }) => {
   await openEditor(page, context, 'Hallo');
   await toggleAdvanced(page).click();
+  let evaluations = 0;
+  await page.route('**/api/**evaluate**', route => { evaluations++; return route.fulfill({ json: {} }); });
   const source = '::task\nSchreibe.\n::exercise\n@free\nEin Satz.';
   await raw(page).fill(source);
-  await toggleAdvanced(page).click();
-  await expect(page.getByRole('textbox', { name: 'Свободный ответ', exact: true })).toHaveValue('Ein Satz.');
-  await toggleAdvanced(page).click();
-  let fail = true;
-  await page.route('**/api/cards/save', route => fail
-    ? route.fulfill({ status: 400, json: { detail: 'Test save failure' } })
-    : route.fulfill({ json: { ...route.request().postDataJSON(), id: 1 } }));
+  await expect(page.locator('.card-front-preview')).toContainText('Ein Satz.');
+  await expect(page.locator('.card-front-preview textarea')).toBeDisabled();
+  await page.route('**/api/cards/save', route => route.fulfill({ status: 400, json: { detail: 'Test save failure' } }));
   const failed = page.waitForResponse('**/api/cards/save');
   await page.getByRole('button', { name: /^Сохранить/ }).click();
   expect((await failed).status()).toBe(400);
   await expect(raw(page)).toHaveValue(source);
-  await expect(page.getByRole('button', { name: /^Сохранить/ })).toBeEnabled();
-  fail = false;
-  const saved = page.waitForRequest('**/api/cards/save');
-  await page.getByRole('button', { name: /^Сохранить/ }).click();
-  expect((await saved).postDataJSON()).toMatchObject({ front: source, card_type: 'free_text' });
+  expect(evaluations).toBe(0);
 });
 
-test('Match labels treat arrows, dashes and equals signs as literal text', async ({ page, context }) => {
-  const source = '::exercise\n@match\num mich auszuruhen => цель — отдохнуть\nWien => Österreich';
-  await openEditor(page, context, source);
-  const left = 'A -> B — C = D';
-  const right = 'цель — отдохнуть -> затем продолжить = пример';
-  await page.getByRole('textbox', { name: 'Левая сторона' }).first().fill(left);
-  await page.getByRole('textbox', { name: 'Правая сторона' }).first().fill(right);
-  await expect(page.getByRole('textbox', { name: 'Левая сторона' }).first()).toHaveValue(left);
-  await expect(page.getByRole('textbox', { name: 'Правая сторона' }).first()).toHaveValue(right);
-  await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveValue(`::exercise\n@match\n${left} => ${right}\nWien => Österreich`);
-  await raw(page).fill('::exercise\n@match\nA -> B\nC — D\nE = F');
-  await toggleAdvanced(page).click();
-  await expect(page.getByRole('textbox', { name: 'Левая сторона', exact: true })).toHaveCount(0);
-  await expect(page.getByRole('textbox', { name: 'Правая сторона', exact: true })).toHaveCount(0);
-});
-
-test('match pairs and puzzle content can be edited visually', async ({ page, context }) => {
-  await openEditor(page, context, '::exercise\n@match\nBerlin => Deutschland\nWien => Österreich');
-  await page.getByRole('textbox', { name: 'Левая сторона' }).first().fill('Paris');
-  await page.getByRole('textbox', { name: 'Правая сторона' }).first().fill('France');
-  await page.getByRole('button', { name: 'Добавить пару', exact: true }).click();
-  await expect(page.getByRole('textbox', { name: 'Левая сторона', exact: true })).toHaveCount(3);
-  await toggleAdvanced(page).click();
-  expect(await raw(page).inputValue()).toContain('Paris => France');
-  await raw(page).fill('::exercise\n@puzzle\nIch wohne in Berlin.');
-  await toggleAdvanced(page).click();
-  await page.getByRole('textbox', { name: 'Собрать предложение', exact: true }).fill('Ich wohne in Berlin.');
-  await toggleAdvanced(page).click();
-  await expect(raw(page)).toHaveValue('::exercise\n@puzzle\nIch wohne in Berlin.');
+test('preview and study share published typography and the explicitly enabled local draft', async ({ page, context }) => {
+  const front = '::task\nRead carefully.\n::exercise\nDonaudampfschifffahrtsgesellschaft — пример текста.';
+  await openEditor(page, context, front);
+  const typography = locator => locator.evaluate(el => {
+    const css = getComputedStyle(el);
+    return Object.fromEntries(['fontFamily', 'fontSize', 'fontWeight', 'fontStyle', 'color', 'textAlign', 'lineHeight']
+      .map(key => [key, css[key]]));
+  });
+  for (const localDraft of [false, true]) {
+    await page.evaluate(async ({ localDraft, front, deck }) => {
+      const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      const { useDeckStore } = await import('/src/store/useDeckStore.js');
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const { DEFAULT_DESIGN_CONFIG_V2 } = await import('/src/design/designConfig.js');
+      const { applyPublishedDesignTokens } = await import('/src/design/designTokens.js');
+      const published = structuredClone(DEFAULT_DESIGN_CONFIG_V2);
+      published.front.mainText = { font: 'Georgia', size: 1.2, weight: '400', style: 'italic',
+        color: '#a5f3fc', align: 'right', lineHeight: 1.6 };
+      const draft = structuredClone(published);
+      draft.front.mainText.color = '#fed7aa';
+      draft.front.mainText.size = 1.35;
+      useSettingsStore.setState({ publishedDesignV2: { config: published }, adminDraftDesignV2: draft,
+        isLocalDesignPreviewActive: localDraft, studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false });
+      applyPublishedDesignTokens(localDraft ? draft : published);
+      useDeckStore.setState({ currentDeck: deck });
+      useSessionStore.getState().setEditingCard({ id: 1, deck_id: 1, front, back: 'Answer' });
+      useUiStore.getState().setView('editor');
+    }, { localDraft, front, deck });
+    const preview = page.locator('.card-front-preview .text-front');
+    await expect(preview).toBeVisible();
+    await expect(preview).toHaveCSS('font-family', 'Georgia');
+    await expect(preview).toHaveCSS('color', localDraft ? 'rgb(254, 215, 170)' : 'rgb(165, 243, 252)');
+    const previewTypography = await typography(preview);
+    await page.evaluate(async ({ front, deck }) => {
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const card = { id: 99, deck_id: deck.id, front, back: 'Answer', queue: 'new' };
+      useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false,
+        isSessionFinished: false, exerciseStates: {}, trainerAnswered: false });
+      useUiStore.getState().setView('study');
+    }, { front, deck });
+    const study = page.locator('.study-flashcard .card-front .text-front');
+    await expect(study).toBeVisible();
+    expect(await typography(study)).toEqual(previewTypography);
+  }
 });

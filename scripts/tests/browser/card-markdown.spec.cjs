@@ -31,6 +31,7 @@ async function setup(page, context) {
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/cards/save') return route.fulfill({ json: { id: 1, ...route.request().postDataJSON() } });
     return route.fulfill({ json: {} });
   });
