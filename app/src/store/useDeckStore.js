@@ -21,6 +21,7 @@ export const useDeckStore = create((set, get, store) => ({
   ...createLibrarySlice(set, get, store),
   resetDeckStore: () => {
     set({
+      libraryRequestId: get().libraryRequestId + 1,
       decks: [],
       folders: [],
       currentDeck: null,

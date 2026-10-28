@@ -200,12 +200,14 @@ export const useAppInitialization = (checkStartParam) => {
 
   // WARNING: CRITICAL NETWORK STABILITY GUARANTEE: DO NOT REMOVE OR BYPASS RETRY LOGIC (requestWithRetry).
   // Required to protect against Supabase cloud DB cold starts, TCP disconnects, and backend reboots!
-  const requestWithRetry = async (requestFn, label, attempts = 3) => {
+  const requestWithRetry = async (requestFn, label, attempts = 3, isCurrent = () => true) => {
     let lastError;
     for (let attempt = 1; attempt <= attempts; attempt += 1) {
+      if (!isCurrent()) return;
       try {
         return await requestFn();
       } catch (err) {
+        if (!isCurrent()) return;
         lastError = err;
         const status = err?.response?.status || err?.status;
         if (status === 401 || status === 403) {
@@ -220,10 +222,11 @@ export const useAppInitialization = (checkStartParam) => {
     throw lastError;
   };
 
-  const fetchInitData = async () => {
+  const fetchInitData = () => useDeckStore.getState().runLibraryLoad('init', async (isLatest) => {
     const account = getUserId();
     const revision = useAuthStore.getState().sessionRevision;
-    const isCurrent = () => account === getUserId() && revision === useAuthStore.getState().sessionRevision;
+    const isSessionCurrent = () => account === getUserId() && revision === useAuthStore.getState().sessionRevision;
+    const isCurrent = () => isSessionCurrent() && isLatest();
     const languageAtStart = getInterfaceLanguage();
     const { setDecksAndFolders } = useDeckStore.getState();
     const currentDecks = useDeckStore.getState().decks;
@@ -233,7 +236,7 @@ export const useAppInitialization = (checkStartParam) => {
     }
     useDeckStore.setState({ isFetchingDecks: true });
     try {
-      let res = await requestWithRetry(() => api.get('/init'), 'Init data load');
+      let res = await requestWithRetry(() => api.get('/init'), 'Init data load', 3, isCurrent);
       if (!isCurrent()) return;
       if (!Array.isArray(res.data?.decks) || !Array.isArray(res.data?.folders)) throw new Error('Invalid init library response');
       if (res.data.user_info?.user_id && String(res.data.user_info.user_id) !== String(account)) throw new Error('Init account mismatch');
@@ -245,7 +248,8 @@ export const useAppInitialization = (checkStartParam) => {
       // bounded refetch so the first launch does not require a browser reload.
       if (!res.dataSource && freshDecks.length === 0 && freshFolders.length === 0 && getUserId()) {
         await sleep(700);
-        res = await requestWithRetry(() => api.get('/init'), 'Init data refetch');
+        if (!isCurrent()) return;
+        res = await requestWithRetry(() => api.get('/init'), 'Init data refetch', 3, isCurrent);
         if (!isCurrent()) return;
         if (!Array.isArray(res.data?.decks) || !Array.isArray(res.data?.folders)) throw new Error('Invalid init library response');
         if (res.data.user_info?.user_id && String(res.data.user_info.user_id) !== String(account)) throw new Error('Init account mismatch');
@@ -253,6 +257,24 @@ export const useAppInitialization = (checkStartParam) => {
         freshFolders = res.data.folders || [];
       }
       setDecksAndFolders(freshDecks, freshFolders, res.dataSource);
+      // If user opened a deck or refreshed, re-sync currentDeck & cards for current deck
+      const uiState = useUiStore.getState();
+      const savedDeckId = storage.get('lerne_current_deck_id');
+      const currDeck = useDeckStore.getState().currentDeck
+        || (savedDeckId ? freshDecks.find(d => String(d.id) === String(savedDeckId)) : null);
+
+      if (currDeck) {
+        const freshCurrentDeck = freshDecks.find(d => d.id === currDeck.id)
+          || freshDecks.find(d => d.name === currDeck.name && d.stats?.total > 0)
+          || freshDecks.find(d => d.name === currDeck.name)
+          || currDeck;
+        useDeckStore.getState().setCurrentDeck(freshCurrentDeck);
+        if (uiState.view === 'cards') {
+          useDeckStore.getState().fetchDeckCards(freshCurrentDeck.id);
+        }
+      } else if (uiState.view === 'cards') {
+        useUiStore.setState({ view: 'decks' });
+      }
       // Offline data is useful for display; it cannot replace server profile,
       // settings or a fuller init cache with synthetic local defaults.
       if (res.dataSource) return;
@@ -287,6 +309,7 @@ export const useAppInitialization = (checkStartParam) => {
 
       if (res.data.user_info?.has_selected_language || res.data.user_info?.active_language) {
         const { useLanguageStore } = await import('../store/useLanguageStore');
+        if (!isCurrent()) return;
         useLanguageStore.getState().syncLanguageFromExternal(
           res.data.user_info.active_language || 'de',
           Boolean(res.data.user_info.has_selected_language)
@@ -318,26 +341,6 @@ export const useAppInitialization = (checkStartParam) => {
       if (res.data.global_design_v2?.config) {
         setPublishedDesignV2(res.data.global_design_v2);
       }
-
-
-      // If user opened a deck or refreshed, re-sync currentDeck & cards for current deck
-      const uiState = useUiStore.getState();
-      const savedDeckId = storage.get('lerne_current_deck_id');
-      const currDeck = useDeckStore.getState().currentDeck
-        || (savedDeckId ? freshDecks.find(d => String(d.id) === String(savedDeckId)) : null);
-
-      if (currDeck) {
-        const freshCurrentDeck = freshDecks.find(d => d.id === currDeck.id)
-          || freshDecks.find(d => d.name === currDeck.name && d.stats?.total > 0)
-          || freshDecks.find(d => d.name === currDeck.name)
-          || currDeck;
-        useDeckStore.getState().setCurrentDeck(freshCurrentDeck);
-        if (uiState.view === 'cards') {
-          useDeckStore.getState().fetchDeckCards(freshCurrentDeck.id);
-        }
-      } else if (uiState.view === 'cards') {
-        useUiStore.setState({ view: 'decks' });
-      }
     } catch (err) {
       if (!isCurrent()) return;
       console.warn('Init load failed', { status: err?.response?.status || 0 });
@@ -361,9 +364,11 @@ export const useAppInitialization = (checkStartParam) => {
       }
     } finally {
       if (isCurrent()) useDeckStore.setState({ isFetchingDecks: false });
-      useUiStore.setState({ loading: false, hasInitialized: true });
+      if (isSessionCurrent() && (isLatest() || !useDeckStore.getState().isFetchingDecks)) {
+        useUiStore.setState({ loading: false, hasInitialized: true });
+      }
     }
-  };
+  });
 
   const syncProfile = async (currentProfile) => {
     const account = getUserId();

@@ -1,5 +1,4 @@
 import api from '../../services/api';
-import { getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders } from './initCacheHelper';
 
 let folderReorderTimeout = null;
@@ -14,23 +13,26 @@ export const createFolderSlice = (set, get) => ({
   },
 
   fetchFolders: async () => {
-    const account = getUserId();
-    try {
-      const res = await api.get('/folders');
-      if (account !== getUserId()) return;
-      if (!Array.isArray(res.data)) throw new Error('Invalid folders response');
-      if (res.dataSource === 'cache' && get().folders.length) {
-        set({ libraryStatus: 'cached' });
-        return;
+    const pendingDecks = get().getPendingLibraryLoad('decks');
+    if (pendingDecks) return pendingDecks;
+    return get().runLibraryLoad('folders', async (isCurrent) => {
+      try {
+        const res = await api.get('/folders');
+        if (!isCurrent()) return;
+        if (!Array.isArray(res.data)) throw new Error('Invalid folders response');
+        if (res.dataSource === 'cache' && get().folders.length) {
+          set({ libraryStatus: 'cached' });
+          return;
+        }
+        const sorted = sortFolders(res.data || []);
+        set({ folders: sorted, ...(res.dataSource ? { libraryStatus: 'cached' } : {}) });
+        if (!res.dataSource) saveToInitCache({ folders: sorted });
+      } catch (err) {
+        if (!isCurrent()) return;
+        get().setLibraryLoadError(err);
+        console.warn('Folders load failed', { status: err?.response?.status || 0 });
       }
-      const sorted = sortFolders(res.data || []);
-      set({ folders: sorted, ...(res.dataSource ? { libraryStatus: 'cached' } : {}) });
-      if (!res.dataSource) saveToInitCache({ folders: sorted });
-    } catch (err) {
-      if (account !== getUserId()) return;
-      get().setLibraryLoadError(err);
-      console.warn('Folders load failed', { status: err?.response?.status || 0 });
-    }
+    });
   },
 
   createFolder: async (name, parentId = null, color = null, targetLang = null) => {
@@ -87,8 +89,7 @@ export const createFolderSlice = (set, get) => ({
   deleteFolder: async (folderId) => {
     try {
       await api.delete(`/folders/${folderId}`);
-      const { fetchFolders, fetchDecks } = get();
-      await fetchFolders();
+      const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
       console.error('Delete Folder Error:', err);

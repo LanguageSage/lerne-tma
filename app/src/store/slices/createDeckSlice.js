@@ -7,7 +7,29 @@ let cardReorderTimeout = null;
 let pendingFetchCardsPromise = null;
 let pendingFetchCardsDeckId = null;
 
-export const createDeckSlice = (set, get) => ({
+export const createDeckSlice = (set, get) => {
+  const pendingLoads = new Map();
+  return ({
+  libraryRequestId: 0,
+  getPendingLibraryLoad: (kind) => {
+    const pending = pendingLoads.get(kind);
+    return pending?.isCurrent() ? pending.promise : null;
+  },
+  runLibraryLoad: (kind, load) => {
+    const pending = get().getPendingLibraryLoad(kind);
+    if (pending) return pending;
+    const account = getUserId();
+    const requestId = get().libraryRequestId + 1;
+    set({ libraryRequestId: requestId });
+    const isCurrent = () => account === getUserId() && requestId === get().libraryRequestId;
+    const entry = { isCurrent };
+    entry.promise = Promise.resolve().then(() => isCurrent() ? load(isCurrent) : undefined).finally(() => {
+      if (pendingLoads.get(kind) === entry) pendingLoads.delete(kind);
+      if (isCurrent()) set({ isFetchingDecks: false });
+    });
+    pendingLoads.set(kind, entry);
+    return entry.promise;
+  },
   decks: getInitialCachedData().decks,
   currentDeck: null,
   deckCards: [],
@@ -35,9 +57,10 @@ export const createDeckSlice = (set, get) => ({
 
   setDecksAndFolders: (decks, folders, source = 'server') => {
     const state = get();
-    if (source === 'cache' && (state.decks.length || state.folders.length)) {
-      set({ libraryStatus: 'cached', libraryError: null, isFetchingDecks: false });
-      return;
+    if (source === 'cache') {
+      // A partial cache must not prevent the missing collection from hydrating.
+      decks = state.decks.length ? state.decks : decks;
+      folders = state.folders.length ? state.folders : folders;
     }
     const sortedFolders = sortFolders(folders);
     const sortedDecks = sortDecks(decks);
@@ -105,37 +128,38 @@ export const createDeckSlice = (set, get) => ({
   fetchDecks: async (force = false, attempts = 3) => {
     const { decks, libraryStatus } = get();
     if (!force && decks.length > 0 && libraryStatus === 'ready') return;
-    const account = getUserId();
-    
-    set({ isFetchingDecks: true });
-    let lastError;
-    for (let attempt = 1; attempt <= attempts; attempt++) {
-      try {
-        const [decksRes, foldersRes] = await Promise.all([
-          api.get('/decks'),
-          api.get('/folders')
-        ]);
-        if (account !== getUserId()) return;
-        if (!Array.isArray(decksRes.data) || !Array.isArray(foldersRes.data)) throw new Error('Invalid library response');
-        const source = decksRes.dataSource === 'cache' || foldersRes.dataSource === 'cache' ? 'cache'
-          : decksRes.dataSource === 'local' || foldersRes.dataSource === 'local' ? 'local' : 'server';
-        get().setDecksAndFolders(decksRes.data, foldersRes.data, source);
-        return;
-      } catch (err) {
-        lastError = err;
-        if (account !== getUserId()) return;
-        const status = err?.response?.status || err?.status;
-        if (status === 401 || status === 403) {
-          break;
-        }
-        if (attempt < attempts) {
-          await new Promise(r => setTimeout(r, 400 * attempt));
+    return get().runLibraryLoad('decks', async (isCurrent) => {
+      set({ isFetchingDecks: true });
+      let lastError;
+      for (let attempt = 1; attempt <= attempts; attempt++) {
+        if (!isCurrent()) return;
+        try {
+          const [decksRes, foldersRes] = await Promise.all([
+            api.get('/decks'),
+            api.get('/folders')
+          ]);
+          if (!isCurrent()) return;
+          if (!Array.isArray(decksRes.data) || !Array.isArray(foldersRes.data)) throw new Error('Invalid library response');
+          const source = decksRes.dataSource === 'cache' || foldersRes.dataSource === 'cache' ? 'cache'
+            : decksRes.dataSource === 'local' || foldersRes.dataSource === 'local' ? 'local' : 'server';
+          get().setDecksAndFolders(decksRes.data, foldersRes.data, source);
+          return;
+        } catch (err) {
+          lastError = err;
+          if (!isCurrent()) return;
+          const status = err?.response?.status || err?.status;
+          if (status === 401 || status === 403) {
+            break;
+          }
+          if (attempt < attempts) {
+            await new Promise(r => setTimeout(r, 400 * attempt));
+          }
         }
       }
-    }
-    get().setLibraryLoadError(lastError);
-    console.warn('Library load failed', { status: lastError?.response?.status || 0 });
-    throw lastError;
+      get().setLibraryLoadError(lastError);
+      console.warn('Library load failed', { status: lastError?.response?.status || 0 });
+      throw lastError;
+    });
   },
 
   fetchDeckCards: async (deckId, attempts = 3, forceLoading = false) => {
@@ -495,4 +519,5 @@ export const createDeckSlice = (set, get) => ({
       }
     }, 400);
   },
-});
+  });
+};
