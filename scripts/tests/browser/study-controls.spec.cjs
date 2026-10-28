@@ -15,10 +15,10 @@ const types = {
   free: { front: '@free\nSchreibe einen Satz.', back: 'Ich lerne Deutsch.' },
 };
 
-async function setup(page, context, first = {}, locale = 'ru') {
+async function setup(page, context, first = {}, locale = 'ru', realAudio = false) {
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
-  await context.addInitScript(locale => {
+  await context.addInitScript(({ locale, realAudio }) => {
     localStorage.setItem('native_language', locale);
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
@@ -26,19 +26,48 @@ async function setup(page, context, first = {}, locale = 'ru') {
     localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
     localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test', refresh_token: 'test' }));
     window.gradeTones = 0;
-    window.AudioContext = class {
+    window.gradeBuffers = [];
+    window.gradeResumes = 0;
+    window.audioStarts = [];
+    window.NativeAudioContext = window.AudioContext;
+    if (realAudio) {
+      const decode = AudioContext.prototype.decodeAudioData;
+      AudioContext.prototype.decodeAudioData = function (data) {
+        return decode.call(this, data).then(buffer => {
+          window.gradeBuffers.push({ duration: buffer.duration, channels: buffer.numberOfChannels });
+          return buffer;
+        });
+      };
+      const create = AudioContext.prototype.createBufferSource;
+      AudioContext.prototype.createBufferSource = function () {
+        const source = create.call(this);
+        const start = source.start.bind(source);
+        source.start = (...args) => {
+          window.audioStarts.push({ at: performance.now(), buffer: source.buffer, state: this.state });
+          return start(...args);
+        };
+        return source;
+      };
+      document.addEventListener('click', event => {
+        if (event.target.closest('.btn-grade')) window.gradeClickedAt = performance.now();
+      }, true);
+    }
+    if (!realAudio) window.AudioContext = class {
       state = 'running'; currentTime = 0; destination = {};
-      createOscillator() { return { frequency: { setValueAtTime() {} }, connect() {}, disconnect() {}, start() { window.gradeTones++; }, stop() {} }; }
+      decodeAudioData(data) { window.gradeBuffers.push(data.byteLength); return Promise.resolve({ size: data.byteLength }); }
+      createBufferSource() { return { connect() {}, disconnect() {}, start() { window.gradeTones++; }, stop() {} }; }
+      createOscillator() { return { frequency: { setValueAtTime() {} }, connect() {}, disconnect() {}, start() {}, stop() {} }; }
       createGain() { return { gain: { setValueAtTime() {}, linearRampToValueAtTime() {}, exponentialRampToValueAtTime() {} }, connect() {}, disconnect() {} }; }
-      resume() { return Promise.resolve(); }
+      resume() { window.gradeResumes++; return Promise.resolve(); }
     };
     HTMLMediaElement.prototype.play = () => Promise.resolve();
-  }, locale);
+  }, { locale, realAudio });
   const sample = [{ ...cards[0], ...first }, ...cards.slice(1)];
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname.endsWith('/cards')) return route.fulfill({ json: sample });
     if (pathname.startsWith('/api/study/card/')) return route.fulfill({ json: sample.find(card => card.id === Number(pathname.split('/').pop())) });
     return route.fulfill({ json: {} });
@@ -59,6 +88,7 @@ async function setup(page, context, first = {}, locale = 'ru') {
     uiStore.getState().setView('study');
   }, { deck, sample });
   await expect(page.locator('.card-front')).toBeVisible();
+  await page.evaluate(async () => (await import('/src/utils/gradeSounds.js')).prepareGradeSounds());
   return errors;
 }
 
@@ -224,7 +254,7 @@ for (const device of ['desktop', 'Android']) {
       });
     }
 
-    test('grade confirmation waits for success, rejects double activation, respects mute', async ({ page, context }, testInfo) => {
+    test('grade sound starts before HTTP completes, rejects double activation, respects mute', async ({ page, context }, testInfo) => {
       await setup(page, context);
       const pending = [];
       await page.route('**/api/study/grade', route => pending.push(route));
@@ -233,18 +263,48 @@ for (const device of ['desktop', 'Android']) {
       await assertCard(page, 2);
       await expect.poll(() => pending.length).toBe(1);
       await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
-      expect(await page.evaluate(() => gradeTones)).toBe(0);
+      expect(await page.evaluate(() => gradeTones)).toBe(1);
+      expect(await page.evaluate(() => gradeBuffers.length)).toBe(11);
       await pending[0].fulfill({ json: { status: 'success' } });
-      await expect(page.locator('.study-grade-confirmation')).toContainText('№1 сохранена');
+      await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().pendingGrades).length)).toBe(0);
+      await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
       expect(await page.evaluate(() => gradeTones)).toBe(1);
       await page.screenshot({ path: testInfo.outputPath(`grade-saved-${device}.png`), fullPage: true });
-      await expect(page.locator('.study-grade-confirmation')).toBeEmpty();
       await page.evaluate(() => settingsStore.getState().setGradeSoundEnabled(false));
       await page.locator('.btn-grade.grade-2').click();
       await expect.poll(() => pending.length).toBe(2);
       await pending[1].fulfill({ json: { status: 'success' } });
-      await expect(page.locator('.study-grade-confirmation')).toContainText('№2 сохранена');
+      await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().pendingGrades).length)).toBe(0);
+      await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
       expect(await page.evaluate(() => gradeTones)).toBe(1);
+    });
+
+    test('all 11 MP3s decode in native Web Audio and the accepted gesture starts audio with HTTP pending', async ({ page, context }) => {
+      const errors = await setup(page, context, {}, 'ru', true);
+      const metadata = await page.evaluate(() => gradeBuffers);
+      expect(metadata).toHaveLength(11);
+      expect(metadata.map(buffer => Number(buffer.duration.toFixed(1))).sort((a, b) => a - b))
+        .toEqual([0.4, 0.8, 1, 1, 1.3, 1.5, 1.6, 1.8, 1.9, 3.5, 5.1]);
+      expect(metadata.filter(buffer => buffer.channels === 1)).toHaveLength(5);
+      expect(metadata.filter(buffer => buffer.channels === 2)).toHaveLength(6);
+      const pending = [];
+      await page.route('**/api/study/grade', route => pending.push(route));
+      await activate(page.locator('.btn-grade.grade-2'));
+      await expect.poll(() => page.evaluate(() => audioStarts.length)).toBe(1);
+      await expect.poll(() => pending.length).toBe(1);
+      const timing = await page.evaluate(() => ({ delay: audioStarts[0].at - gradeClickedAt, state: audioStarts[0].state }));
+      expect(timing.state).toBe('running');
+      expect(timing.delay).toBeLessThan(150);
+      await assertCard(page, 2);
+      await pending[0].fulfill({ status: 500, json: { detail: 'Save failed' } });
+      await expect(page.locator('.study-grade-error')).toContainText('Save failed');
+      expect(await page.evaluate(() => audioStarts.length)).toBe(1);
+      await page.getByTitle('Предыдущая карточка', { exact: true }).click();
+      await expect(page.locator('.btn-grade.grade-2')).toBeDisabled();
+      await page.locator('.btn-grade.grade-2').dispatchEvent('click', { detail: 1 });
+      expect(await page.evaluate(() => audioStarts.length)).toBe(1);
+      expect(pending).toHaveLength(1);
+      expect(errors).toEqual([]);
     });
 
     test('text retains native scrolling and no card command is issued', async ({ page, context }) => {
@@ -300,7 +360,7 @@ test('keyboard, real text selection/copy, held keys and modal retain native beha
 });
 
 for (const response of ['failure', 'invalid', 'reset', 'deck', 'view', 'user']) {
-  test(`${response} grade never signals success`, async ({ page, context }) => {
+  test(`${response} response does not replay the gesture sound or show success`, async ({ page, context }) => {
     await setup(page, context);
     let pending;
     await page.route('**/api/study/grade', route => { pending = route; });
@@ -317,7 +377,7 @@ for (const response of ['failure', 'invalid', 'reset', 'deck', 'view', 'user']) 
       : { json: response === 'invalid' ? {} : { status: 'success' } });
     await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().pendingGrades).length)).toBe(0);
     await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
-    expect(await page.evaluate(() => gradeTones)).toBe(0);
+    expect(await page.evaluate(() => gradeTones)).toBe(1);
     if (['failure', 'invalid'].includes(response)) await expect(page.locator('.study-grade-error')).toBeVisible();
   });
 }
@@ -325,7 +385,7 @@ for (const response of ['failure', 'invalid', 'reset', 'deck', 'view', 'user']) 
 test('sound preference is accessible, saved locally and included in settings sync', async ({ page, context }) => {
   await setup(page, context, {}, 'en');
   await page.evaluate(() => uiStore.getState().openSettings('general'));
-  const toggle = page.getByRole('checkbox', { name: 'Grade confirmation sound' });
+  const toggle = page.getByRole('checkbox', { name: 'Card grading sound' });
   await expect(toggle).toBeChecked();
   const saved = page.waitForRequest(request => request.url().endsWith('/user/settings') && request.method() === 'POST' && request.postDataJSON()?.gradeSoundEnabled === false);
   await toggle.locator('..').click();
@@ -338,7 +398,7 @@ test('sound preference is accessible, saved locally and included in settings syn
   expect(await page.evaluate(() => localStorage.getItem('lerne_grade_sound_enabled'))).toBe('true');
 });
 
-test('offline acknowledgement follows the atomic local review write exactly once', async ({ page, context }) => {
+test('offline grade writes an atomic local review exactly once with a gesture sound', async ({ page, context }) => {
   await setup(page, context);
   await page.evaluate(async ({ deck, cards }) => {
     const { prepareLocalDb } = await import('/src/services/localDb.js');
@@ -348,7 +408,8 @@ test('offline acknowledgement follows the atomic local review write exactly once
     localStorage.setItem('offline_mode', 'true');
   }, { deck, cards });
   await page.locator('.btn-grade.grade-2').click();
-  await expect(page.locator('.study-grade-confirmation')).toContainText('№1 сохранена');
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().pendingGrades).length)).toBe(0);
+  await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
   const saved = await page.evaluate(async () => {
     const db = (await import('/src/services/localDb.js')).getLocalDb();
     return { progress: await db.progress.get([1, 1]), reviews: (await db.syncState.toArray()).filter(item => item.key.startsWith('review:')) };
@@ -364,13 +425,13 @@ for (const width of [320, 375, 430, 768, 1280]) {
     await setup(page, context, {}, width === 430 ? 'uk' : 'ru');
     await page.route('**/api/study/grade', route => route.fulfill({ json: { status: 'success' } }));
     await page.locator('.btn-grade.grade-2').click();
-    await expect(page.locator('.study-grade-confirmation span')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().pendingGrades).length)).toBe(0);
+    await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
     const geometry = await page.evaluate(() => {
-      const confirmation = document.querySelector('.study-grade-confirmation').getBoundingClientRect();
       const hint = document.querySelector('.study-card-controls-hint').getBoundingClientRect();
-      return { fits: document.documentElement.scrollWidth <= innerWidth, confirmationFits: confirmation.left >= 0 && confirmation.right <= innerWidth, hintFits: hint.left >= 0 && hint.right <= innerWidth };
+      return { fits: document.documentElement.scrollWidth <= innerWidth, hintFits: hint.left >= 0 && hint.right <= innerWidth };
     });
-    expect(geometry).toEqual({ fits: true, confirmationFits: true, hintFits: true });
+    expect(geometry).toEqual({ fits: true, hintFits: true });
     await page.screenshot({ path: testInfo.outputPath(`feedback-${width}.png`), fullPage: true });
   });
 }
@@ -390,6 +451,8 @@ for (const extended of [false, true]) {
     await assertCard(page, 2);
     expect(pending).toHaveLength(1);
     await pending[0].fulfill({ json: { status: 'success' } });
-    await expect(page.locator('.study-grade-confirmation')).toContainText('№1 сохранена');
+    await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().pendingGrades).length)).toBe(0);
+    await expect(page.locator('.study-grade-confirmation')).toHaveCount(0);
+    expect(await page.evaluate(() => gradeTones)).toBe(1);
   });
 }

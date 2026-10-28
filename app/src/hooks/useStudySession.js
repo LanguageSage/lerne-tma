@@ -7,7 +7,7 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { prepareGradeSound, playGradeSavedSound } from '../utils/audioSynth';
+import { playGradeSound } from '../utils/gradeSounds';
 
 const reviewKey = session => `${session.sessionRevision}:${session.historyIndex}:${session.card?.id}`;
 // Opening a card and studying it use separate hook instances.
@@ -190,8 +190,7 @@ export const useStudySession = () => {
     const request = { card, userId, deckId: currentDeck.id, done: new Promise(resolve => { complete = resolve; }) };
     // Synchronous store lock protects against other hook instances and revisiting a pending card.
     if (!session.startGrade(key, request)) return;
-    const confirmationId = useSessionStore.getState().gradeRevision;
-    if (useSettingsStore.getState().gradeSoundEnabled) prepareGradeSound();
+    if (useSettingsStore.getState().gradeSoundEnabled) playGradeSound();
     const previousGrades = Object.values(session.pendingGrades)
       .filter(item => item.userId === userId && item.deckId === currentDeck.id).map(item => item.done);
     const nextHistoryIndex = session.historyIndex + 1;
@@ -231,11 +230,6 @@ export const useStudySession = () => {
         throw new Error(tr('Сохранение оценки не подтверждено'));
       }
       if (getUserId() === userId) captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
-
-      if (scope.isCurrent()) {
-        session.confirmGrade({ id: confirmationId, cardId: card.id, userId, confirmedAt: Date.now() });
-        if (useSettingsStore.getState().gradeSoundEnabled) playGradeSavedSound();
-      }
 
       if (!localNext && scope.isCurrent()) {
         if (res.data.finished) {

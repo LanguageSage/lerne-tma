@@ -5,6 +5,7 @@ import { useTranslation } from '../../i18n/i18nContext';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { getNextIntervals } from '../../utils/srsEngine';
 import { StudyControlsBlock } from './StudyControlsBlock';
+import { prepareGradeSounds } from '../../utils/gradeSounds';
 
 export const GradeButtons = ({ card, loading, onGrade }) => {
   useInterfaceLocale();
@@ -12,9 +13,14 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
   const srsExtendedGrades = useSettingsStore((s) => s.srsExtendedGrades);
   const gradingCollapsed = useSettingsStore((s) => s.gradingCollapsed);
   const setGradingCollapsed = useSettingsStore((s) => s.setGradingCollapsed);
+  const gradeSoundEnabled = useSettingsStore((s) => s.gradeSoundEnabled);
   const containerRef = useRef(null);
   const lastActivation = useRef(-Infinity);
   const hasCard = Boolean(card);
+  useEffect(() => {
+    if (hasCard && gradeSoundEnabled) void prepareGradeSounds();
+  }, [hasCard, gradeSoundEnabled]);
+
   const activateGrade = (event, grade, extended) => {
     // Touch double taps often both report detail=1, including after instant advance.
     if (loading || event.detail > 1 || event.timeStamp - lastActivation.current < 350) return;

@@ -22,6 +22,7 @@ async function setup(page, context, duplicate = false, language = 'en') {
       user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname.endsWith('/cards')) return route.fulfill({ json: cards });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: cards });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname.startsWith('/api/study/card/')) return route.fulfill({ json: cards.find(c => c.id === Number(pathname.split('/').pop())) });
     return route.fulfill({ json: {} });
   });

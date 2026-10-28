@@ -39,7 +39,6 @@ import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { getSpeechFollowupTarget } from '../../utils/speechFollowup.js';
 import { evaluateReviewResult, calculateSessionStats } from '../../utils/sessionStats.js';
 import { AssessmentView } from './AssessmentView.jsx';
-import { GradeConfirmation } from './GradeConfirmation.jsx';
 
 export const StudyView = (props) => {
   const assessment = useSessionStore(state => state.assessment);
@@ -652,7 +651,6 @@ ${targetCard.back}`;
 
   return (
     <div className="view-study">
-      <GradeConfirmation />
       {showGradeButtons && (
         <GradeButtons 
           card={card} 
