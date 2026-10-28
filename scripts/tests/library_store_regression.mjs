@@ -171,8 +171,8 @@ const hookSource = readFileSync(new URL('../../app/src/hooks/useAppInitializatio
   .replace(/await import\('..\/store\/useLanguageStore'\)/g, 'await Promise.resolve({ useLanguageStore })')
   .replace('  const syncProfile =', '  globalThis.fetchInitData = fetchInitData;\n  const syncProfile =');
 
-function initFixture() {
-  const f = fixture(), effects = [];
+function initFixture(cache = data) {
+  const f = fixture(cache), effects = [];
   const ui = { view: 'cards', loading: false };
   const settings = Object.fromEntries(['setAdminSettings', 'setUserPrompts', 'setIsAdmin', 'setPublishedDesignV2',
     'syncUserSettingsFromServer', 'saveCurrentSettingsToServer'].map(name => [name, () => { effects.push(name); return Promise.resolve(); }]));
@@ -303,4 +303,35 @@ test('deleting a folder refreshes its library through one endpoint pair', async 
   f.request = async path => { calls.push(path); return { data: [] }; };
   await f.store.getState().deleteFolder(2);
   assert.deepEqual(calls, ['/folders/2', '/decks', '/folders']);
+});
+
+
+test('superseded init completes initialization when the newer library refresh finishes last', async () => {
+  const f = initFixture(null), init = deferred(), decks = deferred(), folders = deferred();
+  const calls = [];
+  Object.assign(f.ui, { loading: true, hasInitialized: false });
+  f.context.api.get = path => {
+    calls.push(path);
+    return { '/init': init, '/decks': decks, '/folders': folders }[path].promise;
+  };
+  const initialization = f.load();
+  await Promise.resolve();
+  const refresh = f.store.getState().fetchDecks(true, 1);
+  await Promise.resolve();
+  init.resolve({ data: { decks: [{ id: 77 }], folders: [] } });
+  // Let the obsolete init response and its finally run while refresh is pending.
+  for (let i = 0; i < 10; i++) await Promise.resolve();
+  assert.equal(f.store.getState().isFetchingDecks, true);
+  assert.equal(f.ui.loading, true);
+  assert.equal(f.ui.hasInitialized, false);
+  decks.resolve({ data: [{ id: 88 }] });
+  folders.resolve({ data: [{ id: 89 }] });
+  await Promise.all([initialization, refresh]);
+  assert.equal(f.store.getState().decks[0].id, 88);
+  assert.equal(f.store.getState().folders[0].id, 89);
+  assert.equal(f.store.getState().isFetchingDecks, false);
+  assert.equal(f.ui.loading, false);
+  assert.equal(f.ui.hasInitialized, true);
+  assert.deepEqual(calls, ['/init', '/decks', '/folders']);
+  assert.deepEqual(f.effects, []);
 });

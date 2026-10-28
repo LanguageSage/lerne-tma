@@ -364,6 +364,15 @@ export const useAppInitialization = (checkStartParam) => {
       }
     } finally {
       if (isCurrent()) useDeckStore.setState({ isFetchingDecks: false });
+      // A superseding refresh owns library loading, but init still owns the
+      // startup screen. Finish it after the active load settles in this session.
+      while (isSessionCurrent() && !isLatest() && useDeckStore.getState().isFetchingDecks) {
+        const state = useDeckStore.getState();
+        const pending = state.getPendingLibraryLoad('decks')
+          || state.getPendingLibraryLoad('init') || state.getPendingLibraryLoad('folders');
+        if (!pending) break;
+        try { await pending; } catch { /* library errors are handled by the active load */ }
+      }
       if (isSessionCurrent() && (isLatest() || !useDeckStore.getState().isFetchingDecks)) {
         useUiStore.setState({ loading: false, hasInitialized: true });
       }

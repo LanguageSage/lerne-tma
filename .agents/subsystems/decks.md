@@ -155,3 +155,4 @@ Integration/browser scripts могут менять данные; сначала
 - Fallback из кеша заполняет отсутствующие коллекции независимо: имеющиеся колоды не блокируют восстановление папок и наоборот. Серверный init-кеш при этом не перезаписывается.
 - `local` init восстанавливает текущую колоду/экран и запрашивает её карточки до раннего выхода; серверные настройки, профиль и init-кеш не применяются.
 - Регрессии: `node scripts/tests/library_store_regression.mjs`; синтетические API/storage и deferred Promise, без сети и БД.
+- Если `/init` устарел и завершился раньше нового обновления библиотеки, его завершение ожидает актуальную загрузку в той же сессии, после чего снимает `loading` и выставляет `hasInitialized`. Адресная регрессия: `superseded init completes initialization when the newer library refresh finishes last` в `library_store_regression.mjs`.

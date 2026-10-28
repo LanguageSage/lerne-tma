@@ -36,6 +36,7 @@ async function setup(page, context, locale = 'ru') {
       const next = cards.find(c => ![...(body.exclude_ids || []), body.card_id].includes(c.id));
       return route.fulfill({ json: next || { finished: true } });
     }
+    if (url.pathname === '/api/messages') return route.fulfill({ json: [] });
     if (url.pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (url.pathname === '/api/auth/sync') return route.fulfill({ json: { status: 'ok', user: { user_id: 1, is_guest: false } } });
     return route.fulfill({ json: {} });

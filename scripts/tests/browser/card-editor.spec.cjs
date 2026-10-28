@@ -28,6 +28,7 @@ async function openEditor(page, context, front = null) {
     } });
     if (pathname === '/api/cards/save') return route.fulfill({ json: { ...route.request().postDataJSON(), id: 10 } });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: cards });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname === '/api/study/card/1' || pathname === '/api/decks/1/next') return route.fulfill({ json: cards[0] });
     if (pathname === '/api/user/settings') return route.fulfill({ json: { status: 'success' } });

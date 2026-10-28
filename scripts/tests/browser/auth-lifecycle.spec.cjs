@@ -64,6 +64,7 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
       return route.fulfill({ json: tokens });
     }
     if (!state.authenticated || state.expired) return fail(401, 'invalid_session');
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: profile });
     if (pathname === '/api/auth/v2/identities') return route.fulfill({ json: { providers: ['telegram', 'google'] } });
     if (pathname === '/api/auth/v2/password-settings') return route.fulfill({ json: { email: null } });
@@ -225,7 +226,7 @@ test('pending native login exposes last-resort link, survives reload and expires
     sessionStorage.setItem(key, JSON.stringify({ ...pending, expiresAt: '2000-01-01T00:00:00Z' }));
   });
   await page.getByRole('button', { name: 'Я подтвердил, продолжить' }).click();
-  await expect(page.getByRole('alert')).toContainText('Время подтверждения истекло');
+  await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Время подтверждения истекло');
   await expect(page.getByRole('link', { name: 'Войти через Telegram', exact: true })).toBeVisible();
   const retryPopupPromise = context.waitForEvent('page');
   await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
