@@ -30,10 +30,10 @@ export const GeneralTab = ({ userId }) => {
     >
       <h3>{tr("Обучение")}</h3>
       <div className="settings-row">
-        <span>{tr('Звук сохранения оценки')}</span>
+        <span>{tr('Звук оценки карточки')}</span>
         <label className="switch">
           <input type="checkbox" checked={gradeSoundEnabled}
-            aria-label={tr('Звук сохранения оценки')}
+            aria-label={tr('Звук оценки карточки')}
             onChange={event => setGradeSoundEnabled(event.target.checked)} />
           <span className="slider"></span>
         </label>

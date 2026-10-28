@@ -187,6 +187,7 @@ api/data/media/pending_images/
 .vercel
 
 *.mp3
+!/app/src/assets/grade-sounds/grade-sound-*.mp3
 *.lnk
 
 __pycache__/

@@ -6,8 +6,6 @@ export const useSessionStore = create((set, get) => ({
   // Shared by all hook instances; requests and unacknowledged failures survive session reset.
   pendingGrades: {},
   gradeErrors: {},
-  gradeConfirmation: null,
-  confirmGrade: confirmation => set({ gradeConfirmation: confirmation }),
   card: null,
   assessment: null,
   setAssessment: assessment => set({ assessment }),
@@ -166,7 +164,6 @@ export const useSessionStore = create((set, get) => ({
 
   resetSession: () => {
     set({
-      gradeConfirmation: null,
       sessionRevision: get().sessionRevision + 1,
       card: null,
       assessment: null,

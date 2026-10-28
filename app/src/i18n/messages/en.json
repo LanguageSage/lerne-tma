@@ -1,6 +1,5 @@
 {
-  "Звук сохранения оценки": "Grade confirmation sound",
-  "Оценка карточки №{{p0}} сохранена": "Grade saved for card #{{p0}}",
+  "Звук оценки карточки": "Card grading sound",
   "Сохранение оценки не подтверждено": "Grade saving was not confirmed",
   "Пробел — переворот · ←/→ — карточки": "Space to flip · ←/→ for cards",
   "Свайпы по свободной области: ↑ ответ · ↓ вопрос · ←/→ карточки": "Swipe on empty card space: ↑ answer · ↓ question · ←/→ cards",
