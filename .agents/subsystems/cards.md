@@ -246,3 +246,9 @@ explicit `CARD_NOTES_MIGRATION_DATABASE_URL`; `--apply` is the only production
 entry point. No real LOCAL/Supabase database was migrated during this stage.
 Checks: `test_card_notes.py`, `test_critical_http.py` and disposable PostgreSQL
 `card_notes_postgres.py`.
+
+
+Card-core 0.1.3 keeps 0.1.2 parsing rules and releases LF bytes reproducibly.
+Build/provenance procedure: `api/card_core/README.md`, `scripts/build_card_core.py`.
+The shared synthetic release corpus is `scripts/tests/test_shared_card_regressions.py`;
+Admin runs the same cases against the reviewed wheel. DB contract review remains separate.
