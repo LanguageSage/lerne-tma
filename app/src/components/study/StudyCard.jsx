@@ -540,7 +540,7 @@ export const StudyCard = React.memo(({
                   {topBlocks.length > 0 && (
                     <ExerciseInfoBlocks blocks={topBlocks} />
                   )}
-                  <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: 1.35 }}>
+                  <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: v2Styles ? cardStyle.lineHeight : 1.35 }}>
                     {(() => {
                       const parts = clozeData.maskedText.split('_____');
                       const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
@@ -593,7 +593,7 @@ export const StudyCard = React.memo(({
                       const isCorrect = correctSelected === opt;
 
                       let btnClass = 'btn-cloze-option';
-                      let customStyle = {
+                      let customStyle = v2Styles ? { ...v2Styles.frontText, color: undefined } : {
                         fontFamily: contextStyle.fontFamily,
                         fontSize: contextStyle.fontSize || `${styles?.cardFontSize}rem`,
                         fontWeight: contextStyle.fontWeight,

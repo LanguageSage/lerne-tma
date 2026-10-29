@@ -218,6 +218,9 @@ export function designConfigToCssVariables(config) {
   vars['--design-selected-border']= ex.choice.selected.borderColor;
 
   // Cloze gap
+  vars['--design-cloze-filled-bg']     = ex.clozeGap.filled.bg;
+  vars['--design-cloze-filled-border'] = ex.clozeGap.filled.borderColor;
+  vars['--design-cloze-filled-color']  = ex.clozeGap.filled.color;
   vars['--design-cloze-gap-bg']         = ex.clozeGap.gap.bg;
   vars['--design-cloze-gap-border']     = ex.clozeGap.gap.borderColor;
   vars['--design-cloze-gap-color']      = ex.clozeGap.gap.color;
@@ -230,7 +233,9 @@ export function designConfigToCssVariables(config) {
 
   // Gap Dropdown
   if (ex.gapDropdown) {
-    vars['--design-gap-dd-font']          = ex.gapDropdown.font;
+    // CSS-wide 'inherit' on a custom property would inherit the published token.
+    // 'initial' lets font-family's var() fallback inherit the scoped card font.
+    vars['--design-gap-dd-font']          = ex.gapDropdown.font === 'inherit' ? 'initial' : ex.gapDropdown.font;
     vars['--design-gap-dd-size']          = ex.gapDropdown.size ? `${ex.gapDropdown.size}rem` : undefined;
     vars['--design-gap-dd-bg']            = ex.gapDropdown.bg;
     vars['--design-gap-dd-border']        = ex.gapDropdown.borderColor;
@@ -289,15 +294,25 @@ export function designConfigToCssVariables(config) {
   vars['--design-puzzle-item-color']   = ex.puzzle.item.color;
   vars['--design-puzzle-item-border']  = ex.puzzle.item.borderColor;
   vars['--design-puzzle-item-radius']  = ex.puzzle.item.radius;
-  vars['--design-puzzle-selected-bg']  = ex.puzzle.selected.bg;
+  vars['--design-puzzle-container-bg'] = ex.puzzle.container.bg;
+  vars['--design-puzzle-container-border'] = ex.puzzle.container.borderColor;
+  vars['--design-puzzle-container-radius'] = ex.puzzle.container.radius;
+  for (const state of ['selected', 'correct', 'wrong']) {
+    vars[`--design-puzzle-${state}-bg`] = ex.puzzle[state].bg;
+    vars[`--design-puzzle-${state}-color`] = ex.puzzle[state].color;
+    vars[`--design-puzzle-${state}-border`] = ex.puzzle[state].borderColor;
+  }
 
   // Action buttons
   vars['--design-btn-primary-bg']     = ex.actionButton.primary.bg;
   vars['--design-btn-primary-color']  = ex.actionButton.primary.color;
   vars['--design-btn-primary-border'] = ex.actionButton.primary.borderColor;
   vars['--design-btn-secondary-bg']   = ex.actionButton.secondary.bg;
+  vars['--design-btn-secondary-color'] = ex.actionButton.secondary.color;
+  vars['--design-btn-secondary-border'] = ex.actionButton.secondary.borderColor;
   vars['--design-btn-disabled-bg']    = ex.actionButton.disabled.bg;
   vars['--design-btn-disabled-color'] = ex.actionButton.disabled.color;
+  vars['--design-btn-disabled-border'] = ex.actionButton.disabled.borderColor;
 
   // ── Card List ──────────────────────────────────────────────────────────────
   const cl = c.cardList;

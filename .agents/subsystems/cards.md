@@ -278,3 +278,11 @@ DesignPreviewScope вместо собственного JSX вариантов/
 действиями. Preview редактора содержимого сохраняет normal-оформление.
 Роли, токены состояний, проверки и границы следующей миграции:
 [DESIGN_V2_STAGE2A_INPUT_EXERCISES](../../docs/DESIGN_V2_STAGE2A_INPUT_EXERCISES.md).
+
+### Design V2: Puzzle и Trainer (этап 2B)
+
+В существующих preview редактора и настроек используются те же Puzzle/Trainer,
+что при изучении; отдельный макет Cloze удалён. Шрифты и состояния берутся из V2,
+включая порталы меню и перетаскиваемого слова внутри scoped draft. Поля Trainer
+в editor preview защищены от общих стилей формы. Parsing/source/save не менялись.
+Контракт и проверки: [этап 2B](../../docs/DESIGN_V2_STAGE2B_PUZZLE_TRAINER.md).

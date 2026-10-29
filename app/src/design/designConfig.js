@@ -304,6 +304,8 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       container: { bg: 'rgba(255,255,255,0.03)', borderColor: 'rgba(255,255,255,0.08)', radius: '12px' },
       item:      { bg: 'linear-gradient(135deg, rgba(168,85,247,0.2), rgba(99,102,241,0.2))', color: '#e9d5ff', borderColor: 'rgba(168,85,247,0.3)', radius: '99px' },
       selected:  { bg: 'rgba(168,85,247,0.35)',  color: '#a78bfa', borderColor: 'rgba(168,85,247,0.4)' },
+      correct:   { bg: 'rgba(34,197,94,0.12)', color: '#86efac', borderColor: '#22c55e' },
+      wrong:     { bg: 'rgba(239,68,68,0.12)', color: '#f87171', borderColor: '#ef4444' },
     },
 
     /** Action buttons (Check, Next, Submit) */

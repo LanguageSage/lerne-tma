@@ -10,7 +10,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { parseClozeData, cleanBracketSyntax } from '../../utils/clozeParser';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import { getCardStyle, getBackCardStyle, getContextStyle } from '../../utils/cardStyles';
+import { getCardStyle, getBackCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
 
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
@@ -26,6 +26,8 @@ export const TrainerView = () => {
   const { currentDeck, deckCards, fetchDeckCards } = useDeckStore();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
+  const effectiveConfig = useSettingsStore(s => s.isLocalDesignPreviewActive && s.adminDraftDesignV2
+    ? s.adminDraftDesignV2 : s.publishedDesignV2?.config);
   const cardBgFront = useSettingsStore(s => s.cardBgFront);
   const cardBgBack = useSettingsStore(s => s.cardBgBack);
   const cardFont = useSettingsStore(s => s.cardFont);
@@ -158,9 +160,10 @@ export const TrainerView = () => {
     }
   };
 
-  const cardStyle = useMemo(() => getCardStyle(styleSettings), [styleSettings]);
-  const backCardStyle = useMemo(() => getBackCardStyle(styleSettings), [styleSettings]);
-  const contextStyle = useMemo(() => getContextStyle(styleSettings), [styleSettings]);
+  const v2Styles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
+  const cardStyle = useMemo(() => v2Styles?.referenceText || getCardStyle(styleSettings), [v2Styles, styleSettings]);
+  const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styleSettings), [v2Styles, styleSettings]);
+  const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styleSettings), [v2Styles, styleSettings]);
 
   if (isFinished || !currentCard) {
     return (
@@ -304,6 +307,7 @@ export const TrainerView = () => {
                 >
                   <ExerciseRenderer
                     card={currentCard}
+                    designConfig={effectiveConfig}
                     studyMode="trainer"
                     isPureTrainerMode={true}
                     isFlipped={isFlipped}
@@ -315,6 +319,7 @@ export const TrainerView = () => {
                     fallback={
                       <StudyCardTrainer
                         card={currentCard}
+                        designConfig={effectiveConfig}
                         clozeData={clozeData}
                         isFlipped={isFlipped}
                         onFlip={setIsFlipped}

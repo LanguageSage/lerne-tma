@@ -237,6 +237,7 @@ export const ExerciseRenderer = React.memo(({
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           clozeData={clozeData}
+          designConfig={effectiveDesign}
           isFlipped={isFlipped}
           onFlip={onFlip}
           playAudio={playAudio}
@@ -256,6 +257,7 @@ export const ExerciseRenderer = React.memo(({
         <StudyCardPuzzle
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
+          designConfig={effectiveDesign}
           isFlipped={isFlipped}
           onFlip={onFlip}
           loading={false}

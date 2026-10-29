@@ -200,3 +200,13 @@ V2 JSON состоянием match.disabled, без миграции сохра�
 V1 helpers доступны только при отсутствии V2. Оценка/SRS/хранение не менялись.
 Контракт и проверки: [этап 2A](../../docs/DESIGN_V2_STAGE2A_INPUT_EXERCISES.md),
 `scripts/tests/browser/input-design-v2.spec.cjs`.
+
+## Design V2: Puzzle и Trainer (этап 2B)
+
+Эти renderers также получают effective V2 через `ExerciseRenderer`. Типографика
+использует `front.mainText`, перевод — `back.answerText`; собственные clozeGap
+и puzzle состояния определяют feedback без Legacy inline-цветов/`!important`.
+Реальные Trainer/Puzzle заменяют макет Cloze в настройках; их body-порталы
+получают scoped tokens без изменения root. Отдельный TrainerView также читает V2.
+Контракт, временный fallback и проверки: [этап 2B](../../docs/DESIGN_V2_STAGE2B_PUZZLE_TRAINER.md),
+`scripts/tests/browser/puzzle-trainer-design.spec.cjs`.

@@ -3,7 +3,8 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Languages } from 'lucide-react';
-import { getCardStyle } from '../../utils/cardStyles';
+import { getCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { designConfigToCssVariables } from '../../design/designTokens.js';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
@@ -18,10 +19,6 @@ const AutoExpandingInput = React.memo(({
   disabled,
   status,
   inputRef,
-  borderColor,
-  bgColor,
-  textColor,
-  textDecoration,
   onInputChange,
   onCheck
 }) => {
@@ -33,9 +30,6 @@ const AutoExpandingInput = React.memo(({
   };
 
   const hasValue = Boolean(rawValue && rawValue.trim());
-  const inputTextColor = gap.isAffix
-    ? (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#c084fc' : 'inherit')))
-    : (status === 'correct' ? '#22c55e' : (status === 'incorrect' ? '#f87171' : (hasValue ? '#f3e8ff' : textColor)));
 
   const isAffix = Boolean(gap.isAffix);
   const expectedAnswer = gap.correctAnswer ? (Array.isArray(gap.correctAnswer) ? gap.correctAnswer[0] : gap.correctAnswer.split('|')[0]) : '';
@@ -44,7 +38,7 @@ const AutoExpandingInput = React.memo(({
   const input = (
     <input
       type="text"
-      className={isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (hasValue ? 'selected' : 'idle')}${hasValue ? ' has-value' : ''}` : undefined}
+      className={`trainer-gap ${isAffix ? 'trainer-affix-gap' : 'trainer-full-gap'} is-${status === 'incorrect' ? 'wrong' : status || (hasValue ? 'selected' : 'idle')}`}
       ref={inputRef}
       aria-invalid={status === 'incorrect'}
       aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
@@ -65,20 +59,15 @@ const AutoExpandingInput = React.memo(({
         boxSizing: 'border-box',
         padding: isAffix ? '0 1px' : '4px 10px',
         borderRadius: isAffix ? 0 : '10px',
-        border: isAffix ? undefined : `2px solid ${borderColor}`,
-        background: isAffix ? undefined : bgColor,
-        color: inputTextColor,
-        textDecoration,
-        fontWeight: isAffix ? (hasValue || status ? 700 : 'inherit') : 700,
+        borderWidth: isAffix ? undefined : '2px',
+        borderStyle: isAffix ? undefined : 'solid',
+        fontWeight: 'inherit',
         fontSize: 'inherit',
         fontFamily: 'inherit',
         textAlign: 'center',
-        outline: isAffix ? undefined : 'none',
         whiteSpace: 'nowrap',
         overflow: 'hidden',
         verticalAlign: isAffix ? 'baseline' : 'middle',
-        boxShadow: !isAffix && status === 'correct' ? '0 0 12px rgba(34, 197, 94, 0.35)' : undefined,
-        animation: !isAffix && status === 'correct' ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)' : undefined,
         transition: 'border-color 0.15s ease-in-out, background 0.15s ease-in-out'
       }}
     />
@@ -113,6 +102,7 @@ export const StudyCardTrainer = React.memo(({
   onTrainerAnswer,
   renderAudioPlayer,
   styles = {},
+  designConfig,
   savedState,
   onSaveState,
   footerActionTarget,
@@ -129,7 +119,9 @@ export const StudyCardTrainer = React.memo(({
   const gapRefs = useRef({});
   const dropdownRef = useRef(null);
 
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
+  const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles]);
+  const designVars = useMemo(() => designConfig ? designConfigToCssVariables(designConfig) : {}, [designConfig]);
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
 
@@ -267,10 +259,6 @@ export const StudyCardTrainer = React.memo(({
     const locked = completed || evaluation.isLocked(gap.id);
     const isDropdownOpen = openDropdownGapId === gap.id;
     const hasValue = Boolean(rawValue && rawValue.trim());
-    const borderColor = status === 'correct' ? '#22c55e'
-      : status === 'incorrect' ? '#ef4444' : (hasValue ? 'rgba(168, 85, 247, 0.8)' : 'rgba(168, 85, 247, 0.45)');
-    const bgColor = status === 'correct' ? 'rgba(34, 197, 94, 0.22)'
-      : status === 'incorrect' ? 'rgba(239, 68, 68, 0.2)' : (hasValue ? 'rgba(168, 85, 247, 0.16)' : 'rgba(168, 85, 247, 0.1)');
     const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
     const longestChoice = gap.mode === 'choice' ? (gap.choices || []).reduce((a, b) => a.length > b.length ? a : b, '') : '';
     const sizerContent = gap.isAffix 
@@ -282,7 +270,7 @@ export const StudyCardTrainer = React.memo(({
 
     const buttonControl = (
         <button type="button" ref={el => { gapRefs.current[gap.id] = el; }}
-          className={gap.isAffix ? `trainer-affix-gap is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : (hasValue ? 'selected' : 'idle'))}${hasValue ? ' has-value' : ''}` : 'trainer-choice-gap'}
+          className={`trainer-gap ${gap.isAffix ? 'trainer-affix-gap' : 'trainer-choice-gap'} is-${status === 'incorrect' ? 'wrong' : status || (isDropdownOpen ? 'open' : (hasValue ? 'selected' : 'idle'))}`}
           onClick={e => handleOpenDropdown(gap.id, e)} disabled={locked}
           aria-label={label} aria-invalid={status === 'incorrect'}
           aria-describedby={status === 'incorrect' ? `trainer-hint-${gap.id}` : undefined}
@@ -291,18 +279,9 @@ export const StudyCardTrainer = React.memo(({
           style={gap.isAffix ? undefined : {
             gridArea: '1 / 1', width: '100%', height: '100%', boxSizing: 'border-box',
             position: 'relative',
-            borderColor,
-            background: bgColor,
-            color: status === 'correct' ? '#22c55e' : (hasValue ? '#e9d5ff' : 'inherit'),
             fontFamily: 'inherit',
             fontSize: '1em',
-            fontWeight: hasValue || status ? 700 : 'inherit',
-            boxShadow: status === 'correct'
-              ? '0 0 14px rgba(34, 197, 94, 0.4)'
-              : (isDropdownOpen ? '0 0 14px rgba(168, 85, 247, 0.7)' : undefined),
-            animation: status === 'correct'
-              ? 'victoryTextPulse 0.45s cubic-bezier(0.175, 0.885, 0.32, 1.275)'
-              : undefined
+            fontWeight: 'inherit',
           }}>
           {displayContent}
           {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
@@ -313,7 +292,6 @@ export const StudyCardTrainer = React.memo(({
       <label className={gap.isAffix ? 'trainer-affix-input' : 'trainer-input-gap'} onClick={e => e.stopPropagation()}>
         <AutoExpandingInput rawValue={rawValue} gap={gap} disabled={locked} status={status}
           inputRef={el => { gapRefs.current[gap.id] = el; }}
-          borderColor={borderColor} bgColor={bgColor} textColor="inherit" textDecoration="none"
           onInputChange={handleInputChange} onCheck={handleCheck} />
         {!gap.isAffix && status === 'correct' && <AnswerVictoryAnimation />}
       </label>
@@ -327,7 +305,7 @@ export const StudyCardTrainer = React.memo(({
           whiteSpace: 'pre', 
           padding: '4px 10px', 
           fontSize: '1em', 
-          fontWeight: 700 
+          fontWeight: 'inherit'
         }}>
           {sizerContent}
         </span>
@@ -441,7 +419,7 @@ export const StudyCardTrainer = React.memo(({
 
           return (
             <div key={`line-${idx}`} style={{ width: '100%', marginBottom: 0 }}>
-              <div style={{ lineHeight: 1.75 }}>
+              <div style={{ lineHeight: v2Styles ? 'inherit' : 1.75 }}>
                 {renderSnippetWithGaps(line)}
               </div>
             </div>
@@ -449,7 +427,7 @@ export const StudyCardTrainer = React.memo(({
         })}
 
         {showTranslation && hasBackText && (
-          <div className="trainer-line-trans" style={{ marginTop: '6px' }}>
+          <div className="trainer-line-trans" style={{ ...v2Styles?.backText, marginTop: '6px' }}>
             <Languages size={15} className="trainer-trans-icon" />
             <MarkdownRenderer>{backText}</MarkdownRenderer>
           </div>
@@ -460,7 +438,8 @@ export const StudyCardTrainer = React.memo(({
 
   return (
     <div
-      className="interactive-mode-container"
+      className="interactive-mode-container trainer-exercise"
+      data-design-v2={Boolean(v2Styles)}
       onClick={e => e.stopPropagation()}
       style={{
         cursor: 'default',
@@ -557,7 +536,8 @@ export const StudyCardTrainer = React.memo(({
               onClick={() => setOpenDropdownGapId(null)}
               onTouchStart={() => setOpenDropdownGapId(null)}
             />
-            <div ref={dropdownRef} className="gap-dropdown-popover" style={dropdownPos}
+            <div ref={dropdownRef} className="gap-dropdown-popover"
+              style={{ ...designVars, ...dropdownPos, fontFamily: cardStyle.fontFamily, fontSize: cardStyle.fontSize }}
               role="dialog" aria-label={tr('Пропуск {{p0}}', { p0: openDropdownGapId + 1 })}
               onClick={e => e.stopPropagation()}>
               {currentChoices.map((opt, i) => {
@@ -573,7 +553,7 @@ export const StudyCardTrainer = React.memo(({
                     }}
                   >
                     <span style={{ flex: 1 }}>{opt}</span>
-                    {isSelected && <span style={{ color: '#c084fc', fontWeight: 800 }}>✓</span>}
+                    {isSelected && <span aria-hidden="true">✓</span>}
                   </button>
                 );
               })}

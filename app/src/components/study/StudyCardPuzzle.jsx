@@ -17,10 +17,10 @@ import {
 } from '@dnd-kit/core';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import { getTextShadow } from '../../utils/style';
 import { triggerHaptic } from '../../utils/platform';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
-import { getBackCardStyle } from '../../utils/cardStyles';
+import { getCardStyle, getBackCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { designConfigToCssVariables } from '../../design/designTokens.js';
 import { getInteractiveExerciseContent, parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { evaluatePuzzleOrder, puzzleBoundaryId } from '../../utils/puzzleEvaluation.js';
 import { createPuzzleLists, getPuzzleInsertion, movePuzzleToken, puzzleWordDndId } from '../../utils/puzzleDrag.js';
@@ -92,6 +92,7 @@ export const StudyCardPuzzle = React.memo(({
   onTrainerAnswer,
   renderAudioPlayer,
   styles = {},
+  designConfig,
   savedState,
   onSaveState
 }) => {
@@ -103,16 +104,9 @@ export const StudyCardPuzzle = React.memo(({
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const { completed, result } = evaluation.state;
 
-  const backCardStyle = useMemo(() => getBackCardStyle(styles), [styles]);
-
-  const {
-    cardFont,
-    cardTextColor,
-    cardFontSize = 1,
-    cardFontWeight,
-    cardFontStyle,
-    cardTextShadow
-  } = styles;
+  const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
+  const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styles), [v2Styles, styles]);
+  const designVars = useMemo(() => designConfig ? designConfigToCssVariables(designConfig) : {}, [designConfig]);
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
@@ -216,17 +210,14 @@ export const StudyCardPuzzle = React.memo(({
     handleDragCancel();
   };
 
-  const wordStyle = {
-    fontFamily: cardFont, color: cardTextColor, fontSize: `${cardFontSize}rem`,
-    fontWeight: cardFontWeight, fontStyle: cardFontStyle,
-    textShadow: getTextShadow(cardTextShadow, cardTextColor)
-  };
+  const wordStyle = v2Styles ? { ...v2Styles.frontText, color: undefined }
+    : { ...getCardStyle(styles), fontSize: `${styles.cardFontSize ?? 1}rem` };
 
 
   if (!puzzleData) return null;
 
   return (
-    <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
+    <div className={`interactive-mode-container puzzle-exercise${completed ? ' is-correct' : result ? ' is-wrong' : ''}`} onClick={e => e.stopPropagation()}>
       {/* Header Instruction */}
       <div style={{
         display: 'flex',
@@ -275,7 +266,7 @@ export const StudyCardPuzzle = React.memo(({
               className="text-back"
               style={{
                 ...backCardStyle,
-                textAlign: 'center',
+                textAlign: v2Styles ? backCardStyle.textAlign : 'center',
                 width: '100%',
                 opacity: 0.95
               }}
@@ -309,26 +300,7 @@ export const StudyCardPuzzle = React.memo(({
         id="answer"
         preview={dropPreview}
         disabled={isFlipped || completed}
-        className="puzzle-target-slots glass"
-        style={{
-          display: 'flex',
-          flexWrap: 'wrap',
-          alignItems: 'center',
-          justifyContent: 'center',
-          gap: '8px',
-          width: '100%',
-          minHeight: '58px',
-          padding: '12px',
-          borderRadius: '16px',
-          background: completed
-            ? 'rgba(34, 197, 94, 0.12)'
-            : 'rgba(0, 0, 0, 0.2)',
-          border: completed
-            ? '1.5px solid #22c55e'
-            : '1px solid rgba(255, 255, 255, 0.06)',
-          marginBottom: '16px',
-          transition: 'all 0.2s ease-in-out'
-        }}
+        className="puzzle-target-slots"
       >
         {selectedPuzzles.length === 0 ? (
           <span className="puzzle-placeholder">{tr("Нажимайте слова ниже, чтобы собрать фразу")}</span>
@@ -379,64 +351,19 @@ export const StudyCardPuzzle = React.memo(({
             />;
         })}
       </PuzzleDropZone>
-      {createPortal(<DragOverlay dropAnimation={reduceMotion ? null : { duration: 140, easing: 'ease-out' }}>
-        {activeDragId !== null && wordById.has(activeDragId) ? <span className="puzzle-drag-overlay" style={wordStyle}>{wordById.get(activeDragId).text}</span> : null}
+      {createPortal(<DragOverlay zIndex={100000} dropAnimation={reduceMotion ? null : { duration: 140, easing: 'ease-out' }}>
+        {activeDragId !== null && wordById.has(activeDragId) ? <span className="puzzle-drag-overlay" style={{ ...designVars, ...wordStyle }}>{wordById.get(activeDragId).text}</span> : null}
       </DragOverlay>, document.body)}
 
-      {/* Check and Reset Action Buttons */}
-      <div style={{
-        width: '100%',
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        maxWidth: '340px',
-        margin: '12px auto 4px auto'
-      }}>
-        <button
-          type="button"
-          className="btn btn-primary"
+      <div className="puzzle-actions">
+        <button type="button" className="btn puzzle-check-action"
           disabled={!allWordsPlaced || completed || isFlipped || activeDragId !== null}
-          onClick={handleCheck}
-          style={{
-            flex: 1,
-            padding: '13px 20px',
-            fontWeight: 700,
-            borderRadius: '16px',
-            fontSize: '1rem',
-            cursor: allWordsPlaced ? 'pointer' : 'not-allowed',
-            background: allWordsPlaced
-              ? (completed
-                  ? 'linear-gradient(135deg, #22c55e, #16a34a)'
-                  : 'linear-gradient(135deg, #a855f7, #7c3aed)')
-              : 'rgba(25, 20, 42, 0.85)',
-            color: allWordsPlaced ? '#ffffff' : '#94a3b8',
-            boxShadow: allWordsPlaced ? '0 4px 18px rgba(168, 85, 247, 0.45)' : 'none',
-            border: allWordsPlaced ? 'none' : '1px solid rgba(168, 85, 247, 0.3)',
-            transition: 'all 0.2s ease-in-out'
-          }}
-        >
+          onClick={handleCheck}>
           {tr("Проверить ответы")}
         </button>
-
         {selectedPuzzles.length > 0 && !completed && (
-          <button
-            type="button"
-            onClick={handleReset}
-            disabled={isFlipped || activeDragId !== null}
-            title={tr("Сбросить")}
-            style={{
-              padding: '12px 14px',
-              borderRadius: '16px',
-              background: 'rgba(255, 255, 255, 0.08)',
-              border: '1px solid rgba(255, 255, 255, 0.15)',
-              color: '#ffffff',
-              cursor: 'pointer',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center'
-            }}
-          >
+          <button type="button" className="puzzle-reset-action" onClick={handleReset}
+            disabled={isFlipped || activeDragId !== null} title={tr("Сбросить")}>
             <RotateCcw size={18} />
           </button>
         )}

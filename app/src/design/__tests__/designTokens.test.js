@@ -122,3 +122,37 @@ test('WordBank and Free Text export their own surfaces and feedback, independent
   assert.equal(oldV2['--design-ft-wrong-border'], '#ef4444');
 });
 
+test('Trainer filled and Puzzle surfaces/feedback round-trip independently of choice', () => {
+  assert.equal(designConfigToCssVariables({ exercises: { gapDropdown: { font: 'inherit' } } })['--design-gap-dd-font'], 'initial');
+  const config = normalizeDesignConfig({ exercises: { puzzle: {
+    item: { color: '#abcdef', radius: '17px' },
+    selected: { color: '#deabcd', bg: '#123456', borderColor: '#654321' },
+  } } });
+  assert.equal(config.exercises.puzzle.item.color, '#abcdef');
+  assert.equal(config.exercises.puzzle.item.radius, '17px');
+  assert.equal(config.exercises.puzzle.selected.bg, '#123456');
+  assert.deepEqual(config.exercises.puzzle.correct, { color: '#86efac', bg: 'rgba(34,197,94,0.12)', borderColor: '#22c55e' });
+  for (const [i, state] of ['gap', 'filled', 'correct', 'wrong'].entries()) {
+    config.exercises.clozeGap[state] = { color: `#ab${i}def`, bg: `#12${i}456`, borderColor: `#65${i}321` };
+  }
+  config.exercises.puzzle.correct = { color: '#bbaaee', bg: '#112233', borderColor: '#998877' };
+  config.exercises.puzzle.wrong = { color: '#ccaadd', bg: '#223344', borderColor: '#887766' };
+  const vars = designConfigToCssVariables(config);
+  for (const state of ['gap', 'filled', 'correct', 'wrong']) {
+    assert.equal(vars[`--design-cloze-${state}-color`], config.exercises.clozeGap[state].color);
+    assert.equal(vars[`--design-cloze-${state}-bg`], config.exercises.clozeGap[state].bg);
+    assert.equal(vars[`--design-cloze-${state}-border`], config.exercises.clozeGap[state].borderColor);
+  }
+  for (const state of ['item', 'selected', 'correct', 'wrong']) {
+    for (const [token, prop] of [['color', 'color'], ['bg', 'bg'], ['border', 'borderColor']]) {
+      assert.equal(vars[`--design-puzzle-${state}-${token}`], config.exercises.puzzle[state][prop]);
+    }
+  }
+  assert.equal(vars['--design-puzzle-container-radius'], config.exercises.puzzle.container.radius);
+  assert.equal(vars['--design-puzzle-container-bg'], config.exercises.puzzle.container.bg);
+  assert.equal(vars['--design-puzzle-container-border'], config.exercises.puzzle.container.borderColor);
+  assert.equal(vars['--design-choice-correct-color'], config.exercises.choice.correct.color);
+  const roundTrip = normalizeDesignConfig(JSON.parse(JSON.stringify(config)));
+  assert.deepEqual(roundTrip.exercises.puzzle, config.exercises.puzzle);
+});
+

@@ -7,6 +7,8 @@ import { FONT_OPTIONS } from '../designConstants';
 import { ExerciseRenderer } from '../../../study/ExerciseRenderer.jsx';
 
 const PREVIEW_CARDS = {
+  cloze: { id: -1001, front: 'Ich [[lerne]] mit klein{en} Hunden {*heute|morgen}.', back: 'Сегодня я учусь.' },
+  puzzle: { id: -1002, front: '@puzzle\nIch lerne heute Deutsch.', back: 'Сегодня я учу немецкий.' },
   quiz: { id: 'design-quiz', front: 'Welche Antwort passt?\n\n- Gestern\n* Heute\n- Morgen', back: '' },
   match: { id: 'design-match', front: '@match\ndie Katze => кошка\nder Hund => собака\nder Vogel => птица', back: '' },
   wordBank: { id: 'design-wordbank', front: '@wordbank\nIch <<1>> <<2>> Deutsch.\n@options\nlerne | heute | morgen', back: '1=lerne\n2=heute' },
@@ -19,10 +21,12 @@ const STATE_GROUPS = {
   match: ['item', 'selected', 'matched', 'wrong', 'disabled'],
   wordBank: ['container', 'word', 'selected', 'correct', 'wrong'],
   freeText: ['input', 'focus', 'correct', 'wrong'],
+  clozeGap: ['gap', 'filled', 'correct', 'wrong'],
+  puzzle: ['container', 'item', 'selected', 'correct', 'wrong'],
 };
 
 const PREVIEW_TYPES = [
-  ['quiz', 'Тест / Выбор'], ['cloze', 'Пропуск'], ['match', 'Пары'],
+  ['quiz', 'Тест / Выбор'], ['cloze', 'Пропуск'], ['match', 'Пары'], ['puzzle', 'Пазл'],
   ['wordBank', 'Банк слов'], ['freeText', 'Свободный ответ / Письмо'], ['editableText', 'Редактируемый текст'],
 ];
 
@@ -79,37 +83,6 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
               onClick={() => setPreviewRevision(value => value + 1)}>{tr('Сбросить')}</button>
           </>}
 
-          {/* Cloze Preview */}
-          {previewType === 'cloze' && (
-            <div style={{ fontSize: '1.05rem', lineHeight: 1.8, color: '#f8fafc' }}>
-              <span>Ich lebe </span>
-              <span style={{
-                display: 'inline-block',
-                padding: '2px 10px',
-                borderRadius: '8px',
-                border: '1px solid var(--design-cloze-gap-border, rgba(255,255,255,0.4))',
-                background: 'var(--design-cloze-gap-bg, rgba(255,255,255,0.05))',
-                color: 'var(--design-cloze-gap-color, rgba(255,255,255,0.5))'
-              }}>
-                [ пустой пропуск ]
-              </span>
-              <span> seit vielen Jahren in Deutschland. </span>
-              <div style={{ marginTop: '10px' }}>
-                <span>Richtig: </span>
-                <span style={{
-                  display: 'inline-block',
-                  padding: '2px 10px',
-                  borderRadius: '8px',
-                  border: '1px solid var(--design-cloze-correct-border, #22c55e)',
-                  background: 'var(--design-cloze-correct-bg, rgba(34,197,94,0.2))',
-                  color: 'var(--design-cloze-correct-color, #4ade80)'
-                }}>
-                  seit ✓
-                </span>
-              </div>
-            </div>
-          )}
-
         </div>
       </DesignPreviewScope>
 
@@ -133,8 +106,8 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         </button>
         <button
           type="button"
-          className={`btn-secondary btn-tiny ${subTab === 'cloze' ? 'active' : ''}`}
-          onClick={() => setSubTab('cloze')}
+          className={`btn-secondary btn-tiny ${subTab === 'clozeGap' ? 'active' : ''}`}
+          onClick={() => setSubTab('clozeGap')}
           style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
         >
           {tr('Пропуски')}
@@ -156,6 +129,9 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         <button type="button" className={`btn-secondary btn-tiny ${subTab === 'freeText' ? 'active' : ''}`}
           style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
           onClick={() => setSubTab('freeText')}>{tr('Свободный ответ / Письмо')}</button>
+        <button type="button" className={`btn-secondary btn-tiny ${subTab === 'puzzle' ? 'active' : ''}`}
+          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          onClick={() => setSubTab('puzzle')}>{tr('Пазл')}</button>
       </div>
 
       {/* Palette Mode */}
@@ -207,39 +183,6 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
                 onChange={value => onChangeField(`exercises.${subTab}.${state}.radius`, `${value}px`)} />}
             </fieldset>
           ))}
-        </div>
-      )}
-
-      {/* Cloze Gap */}
-      {subTab === 'cloze' && (
-        <div>
-          <h4 style={{ fontSize: '0.9rem', color: '#94a3b8', margin: '0 0 10px 0' }}>
-            {tr('Пустой пропуск (Gap)')}
-          </h4>
-          <ColorControl
-            label={tr('Цвет рамки')}
-            value={ex.clozeGap?.gap?.borderColor || 'rgba(255,255,255,0.4)'}
-            onChange={val => onChangeField('exercises.clozeGap.gap.borderColor', val)}
-          />
-          <ColorControl
-            label={tr('Цвет фона')}
-            value={ex.clozeGap?.gap?.bg || 'rgba(255,255,255,0.05)'}
-            onChange={val => onChangeField('exercises.clozeGap.gap.bg', val)}
-          />
-
-          <h4 style={{ fontSize: '0.9rem', color: '#4ade80', margin: '16px 0 10px 0' }}>
-            ✓ {tr('Правильно заполненный пропуск')}
-          </h4>
-          <ColorControl
-            label={tr('Цвет текста')}
-            value={ex.clozeGap?.correct?.color || '#4ade80'}
-            onChange={val => onChangeField('exercises.clozeGap.correct.color', val)}
-          />
-          <ColorControl
-            label={tr('Цвет фона')}
-            value={ex.clozeGap?.correct?.bg || 'rgba(34,197,94,0.2)'}
-            onChange={val => onChangeField('exercises.clozeGap.correct.bg', val)}
-          />
         </div>
       )}
 

@@ -23,6 +23,7 @@ async function openCard(page, context, language = 'ru', editor = false) {
     if (pathname === '/api/cards/save') return route.fulfill({ json: { ...route.request().postDataJSON(), id: 1 } });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/study/card/1' || pathname === '/api/decks/1/next') return route.fulfill({ json: card });
     return route.fulfill({ json: {} });
   });
@@ -118,17 +119,22 @@ test('endings stay compact and attached across viewports; choices, typing, corre
 
 test('ending command wraps a selected ending and saves the short markup; English labels work', async ({ page, context }, testInfo) => {
   await openCard(page, context, 'en', true);
-  await page.getByRole('button', { name: 'Advanced', exact: true }).click();
   const source = page.getByRole('textbox', { name: 'Source markup', exact: true });
   await expect(source).toHaveValue('kleinen');
   await source.evaluate(element => { element.focus(); element.setSelectionRange(5, 7); });
   await page.getByRole('button', { name: 'Ending with choices', exact: true }).click();
   await expect(source).toHaveValue('klein{en}');
-  await expect(page.locator('.card-editor-choice')).toHaveCount(5);
-  await expect(page.locator('.card-editor-choice input[type=checkbox]').first()).toBeChecked();
-  await expect(page.locator('.card-editor-inline-gap.is-affix')).toHaveText('··');
+  const gap = await page.evaluate(async front => {
+    const { parseClozeData } = await import('/src/utils/clozeParser.js');
+    return parseClozeData({ front }, 'trainer').gaps[0];
+  }, await source.inputValue());
+  expect(gap.correctAnswer).toBe('en');
+  expect(gap.choices.slice().sort()).toEqual(['e', 'em', 'en', 'er', 'es']);
+  await page.getByRole('button', { name: 'Show preview', exact: true }).click();
+  await expect(page.locator('.card-front-preview .trainer-affix-gap')).toHaveText('··');
+  await expect(page.locator('.card-front-preview .trainer-affix-gap')).toBeDisabled();
   await page.setViewportSize({ width: 320, height: 900 });
-  await page.locator('.card-editor-sentence').scrollIntoViewIfNeeded();
+  await page.locator('.card-front-preview').scrollIntoViewIfNeeded();
   await page.screenshot({ path: testInfo.outputPath('ending-editor-sentence-en-320.png'), fullPage: true });
   await source.scrollIntoViewIfNeeded();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
