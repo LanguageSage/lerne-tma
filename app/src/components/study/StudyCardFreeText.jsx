@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PenLine, Eye, Check, LoaderCircle, Mic, Pause, Play, RotateCcw } from 'lucide-react';
-import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
+import { getCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
@@ -15,6 +15,7 @@ import { MarkdownRenderer } from '../common/MarkdownRenderer';
 export const StudyCardFreeText = React.memo(({
   card, freeTextData, editableTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
   styles = {}, isPureTrainerMode = false, savedState, onSaveState, reviewKey,
+  designConfig,
   assessmentMode = false,
 }) => {
   useInterfaceLocale();
@@ -53,8 +54,13 @@ export const StudyCardFreeText = React.memo(({
   const { result, loading } = state;
   const isCompleted = result?.accepted === true;
   const isExhausted = Boolean((assessmentMode && state.attemptCount > 0) || (state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries));
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
+  const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
+  const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles]);
+  const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styles), [v2Styles, styles]);
+  // Input colors belong to freeText states; typography uses the existing context role.
+  const inputStyle = v2Styles ? { ...contextStyle, color: undefined } : contextStyle;
+  const answerStatus = isCompleted ? 'is-correct'
+    : ['needs_retry', 'incorrect'].includes(result?.verdict) && userInput === state.lastAnswer ? 'is-incorrect' : '';
 
   useEffect(() => {
     onSaveState?.({ userInput, showExample, isCompleted, evaluationState: state });
@@ -115,7 +121,7 @@ export const StudyCardFreeText = React.memo(({
   };
 
   return (
-    <form className={`interactive-mode-container free-text-exercise${isEditable ? ' editable-text-exercise' : ''}`}
+    <form className={`interactive-mode-container free-text-exercise ${answerStatus}${isEditable ? ' editable-text-exercise' : ''}`}
       onClick={event => event.stopPropagation()} onSubmit={handleSubmit} aria-busy={loading}>
       <div className="free-text-heading"><PenLine size={16} />{tr(isEditable ? 'Редактируемый текст' : 'Свободный ответ / Письмо')}</div>
       {isEditable
@@ -134,7 +140,8 @@ export const StudyCardFreeText = React.memo(({
           onChange={event => { cancel(); setUserInput(event.target.value); }}
           placeholder={tr(isEditable ? 'Исправьте текст здесь...' : 'Напишите ваш ответ здесь...')}
           disabled={isCompleted || isExhausted || loading}
-          maxLength={4000} rows={3} style={contextStyle}
+          maxLength={4000} rows={3} style={inputStyle}
+          aria-invalid={answerStatus === 'is-incorrect'}
           aria-describedby={`${isEditable ? `edit-help-${card.id}` : `dictation-help-${card.id}`}${result ? ` answer-feedback-${card.id}` : ''}`.trim() || undefined}
         />
         {isEditable && <button type="button" className="btn btn-secondary editable-text-reset"

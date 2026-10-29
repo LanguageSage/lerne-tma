@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { createPortal } from 'react-dom';
-import { getCardStyle } from '../../utils/cardStyles.js';
+import { getCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { playErrorSound, playSuccessSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
@@ -21,6 +21,7 @@ export const StudyCardWordBank = React.memo(({
   wordBankData,
   onTrainerAnswer,
   styles = {},
+  designConfig,
   savedState,
   onSaveState,
   footerActionTarget
@@ -41,7 +42,8 @@ export const StudyCardWordBank = React.memo(({
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const { completed: isCompleted } = evaluation.state;
 
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
+  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig)?.frontText, [designConfig]);
+  const cardStyle = useMemo(() => v2Text || getCardStyle(styles), [v2Text, styles]);
   const optionFontSize = useMemo(() => {
     if (cardStyle?.fontSize) {
       return `calc(${cardStyle.fontSize} * 0.9)`;
@@ -131,7 +133,7 @@ export const StudyCardWordBank = React.memo(({
           disabled={evaluation.isLocked(gapId)}
           aria-invalid={result === 'incorrect'}
           aria-describedby={part?.hint ? `word-bank-hint-${gapId}` : undefined}
-          style={{ fontSize: cardStyle?.fontSize || 'inherit' }}
+          style={v2Text ? { ...v2Text, color: undefined } : { fontSize: cardStyle?.fontSize || 'inherit' }}
           aria-label={selectedOption
             ? `${gapId}: ${selectedOption.value}`
             : `${gapId}: ${tr('Пустой пропуск')}`}
@@ -189,7 +191,7 @@ export const StudyCardWordBank = React.memo(({
                 key={option.id}
                 type="button"
                 className="word-bank-option"
-                style={{ fontSize: optionFontSize }}
+                style={v2Text ? { ...v2Text, color: undefined, fontSize: optionFontSize } : { fontSize: optionFontSize }}
                 disabled={isUsed || isCompleted}
                 onClick={(event) => handleOptionClick(option.id, event)}
               >

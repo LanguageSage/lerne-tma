@@ -9,14 +9,30 @@ import { ExerciseRenderer } from '../../../study/ExerciseRenderer.jsx';
 const PREVIEW_CARDS = {
   quiz: { id: 'design-quiz', front: 'Welche Antwort passt?\n\n- Gestern\n* Heute\n- Morgen', back: '' },
   match: { id: 'design-match', front: '@match\ndie Katze => кошка\nder Hund => собака\nder Vogel => птица', back: '' },
+  wordBank: { id: 'design-wordbank', front: '@wordbank\nIch <<1>> <<2>> Deutsch.\n@options\nlerne | heute | morgen', back: '1=lerne\n2=heute' },
+  freeText: { id: 'design-free', front: '@free\nSchreiben Sie einen Satz über Ihren Alltag.', back: 'Ich lerne jeden Tag Deutsch.' },
+  editableText: { id: 'design-edit', front: '@edit\nIch lernen jeden Tag Deutsch.', back: 'Ich lerne jeden Tag Deutsch.' },
 };
 
+const STATE_GROUPS = {
+  choice: ['normal', 'selected', 'correct', 'wrong', 'disabled'],
+  match: ['item', 'selected', 'matched', 'wrong', 'disabled'],
+  wordBank: ['container', 'word', 'selected', 'correct', 'wrong'],
+  freeText: ['input', 'focus', 'correct', 'wrong'],
+};
+
+const PREVIEW_TYPES = [
+  ['quiz', 'Тест / Выбор'], ['cloze', 'Пропуск'], ['match', 'Пары'],
+  ['wordBank', 'Банк слов'], ['freeText', 'Свободный ответ / Письмо'], ['editableText', 'Редактируемый текст'],
+];
+
 export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
-  const [previewType, setPreviewType] = useState('quiz'); // 'quiz' | 'cloze' | 'match' | 'wordBank'
+  const [previewType, setPreviewType] = useState('quiz');
   const [previewRevision, setPreviewRevision] = useState(0);
-  const [subTab, setSubTab] = useState('palette'); // 'palette' | 'choice' | 'cloze' | 'match' | 'wordBank'
+  const [subTab, setSubTab] = useState('palette');
   const ex = config?.exercises || {};
   const isAutoPalette = ex.paletteMode === 'auto';
+  const isInputPreview = ['freeText', 'editableText'].includes(previewType);
 
   return (
     <div className="exercise-design-section">
@@ -31,27 +47,34 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           boxShadow: '0 16px 32px -16px rgba(0,0,0,0.65)'
         }}>
           {/* Switch preview mode */}
-          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
-            {['quiz', 'cloze', 'match', 'wordBank'].map(type => (
+          <label className="exercise-preview-type-select design-editor-select">
+            {tr('Предпросмотр (Лицевая сторона)')}
+            <select value={previewType} onChange={event => setPreviewType(event.target.value)}>
+              {PREVIEW_TYPES.map(([type, label]) => <option key={type} value={type}>{tr(label)}</option>)}
+            </select>
+          </label>
+          <div className="exercise-preview-type-buttons">
+            {PREVIEW_TYPES.map(([type, label]) => (
               <button
                 key={type}
                 type="button"
                 className={`btn-secondary btn-tiny ${previewType === type ? 'active' : ''}`}
                 onClick={() => setPreviewType(type)}
-                style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px' }}
+                style={{ fontSize: '0.75rem', padding: '4px 8px', borderRadius: '12px', minHeight: '44px' }}
               >
-                {type === 'quiz' && tr('Тест / Выбор')}
-                {type === 'cloze' && tr('Пропуск')}
-                {type === 'match' && tr('Пары')}
-                {type === 'wordBank' && tr('Банк слов')}
+                {tr(label)}
               </button>
             ))}
           </div>
 
           {/* Use the real renderer in the existing preview surface. */}
-          {['quiz', 'match'].includes(previewType) && <>
-            <ExerciseRenderer key={`${previewType}:${previewRevision}`}
-              card={PREVIEW_CARDS[previewType]} designConfig={config} />
+          {PREVIEW_CARDS[previewType] && <>
+            {/* Free/Edit are appearance samples: no evaluation or microphone requests. */}
+            <fieldset disabled={isInputPreview} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
+              <ExerciseRenderer key={`${previewType}:${previewRevision}`}
+                card={PREVIEW_CARDS[previewType]} designConfig={config}
+                savedState={previewType === 'freeText' ? { userInput: PREVIEW_CARDS.freeText.back } : undefined} />
+            </fieldset>
             <button type="button" className="btn-secondary btn-tiny"
               onClick={() => setPreviewRevision(value => value + 1)}>{tr('Сбросить')}</button>
           </>}
@@ -87,33 +110,11 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
             </div>
           )}
 
-          {/* Word Bank Preview */}
-          {previewType === 'wordBank' && (
-            <div style={{
-              background: 'var(--design-wb-word-bg, rgba(255,255,255,0.03))',
-              padding: '12px',
-              borderRadius: '12px',
-              border: '1px solid rgba(255,255,255,0.08)',
-              display: 'flex',
-              flexWrap: 'wrap',
-              gap: '6px'
-            }}>
-              <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'var(--design-wb-word-bg, rgba(255,255,255,0.07))', border: '1px solid rgba(255,255,255,0.12)', color: '#e2e8f0', fontSize: '0.85rem' }}>
-                gestern
-              </span>
-              <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'var(--design-wb-selected-bg, rgba(167,139,250,0.18))', border: '1px solid rgba(167,139,250,0.35)', color: '#a78bfa', fontSize: '0.85rem' }}>
-                heute (selected)
-              </span>
-              <span style={{ padding: '4px 10px', borderRadius: '8px', background: 'var(--design-correct-bg, rgba(34,197,94,0.18))', border: '1px solid rgba(34,197,94,0.35)', color: '#4ade80', fontSize: '0.85rem' }}>
-                morgen (correct)
-              </span>
-            </div>
-          )}
         </div>
       </DesignPreviewScope>
 
       {/* Sub tabs */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+      <div className="exercise-design-tabs" style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
         <button
           type="button"
           className={`btn-secondary btn-tiny ${subTab === 'palette' ? 'active' : ''}`}
@@ -149,6 +150,12 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         <button type="button" className={`btn-secondary btn-tiny ${subTab === 'match' ? 'active' : ''}`}
           style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
           onClick={() => setSubTab('match')}>{tr('Пары')}</button>
+        <button type="button" className={`btn-secondary btn-tiny ${subTab === 'wordBank' ? 'active' : ''}`}
+          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          onClick={() => setSubTab('wordBank')}>{tr('Банк слов')}</button>
+        <button type="button" className={`btn-secondary btn-tiny ${subTab === 'freeText' ? 'active' : ''}`}
+          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          onClick={() => setSubTab('freeText')}>{tr('Свободный ответ / Письмо')}</button>
       </div>
 
       {/* Palette Mode */}
@@ -183,19 +190,21 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         </div>
       )}
 
-      {/* Separate exercise-state controls; main typography stays in Front. */}
-      {['choice', 'match'].includes(subTab) && (
+      {/* Edit shares Free Text states; no duplicate configuration. */}
+      {STATE_GROUPS[subTab] && (
         <div>
-          {(subTab === 'choice' ? ['normal', 'selected', 'correct', 'wrong', 'disabled']
-            : ['item', 'selected', 'matched', 'wrong', 'disabled']).map(state => (
+          {STATE_GROUPS[subTab].map(state => (
             <fieldset key={state} style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
               <legend>{state}</legend>
-              <ColorControl label={tr('Цвет текста')} value={ex[subTab][state].color}
-                onChange={value => onChangeField(`exercises.${subTab}.${state}.color`, value)} />
-              <ColorControl label={tr('Цвет фона')} value={ex[subTab][state].bg}
-                onChange={value => onChangeField(`exercises.${subTab}.${state}.bg`, value)} />
+              {ex[subTab][state].color !== undefined && <ColorControl label={tr('Цвет текста')} value={ex[subTab][state].color}
+                onChange={value => onChangeField(`exercises.${subTab}.${state}.color`, value)} />}
+              {ex[subTab][state].bg !== undefined && <ColorControl label={tr('Цвет фона')} value={ex[subTab][state].bg}
+                onChange={value => onChangeField(`exercises.${subTab}.${state}.bg`, value)} />}
               <ColorControl label={tr('Цвет рамки')} value={ex[subTab][state].borderColor}
                 onChange={value => onChangeField(`exercises.${subTab}.${state}.borderColor`, value)} />
+              {ex[subTab][state].radius !== undefined && <SliderControl label={tr('Скругление углов')}
+                value={parseFloat(ex[subTab][state].radius)} min={0} max={40} step={1} unit="px"
+                onChange={value => onChangeField(`exercises.${subTab}.${state}.radius`, `${value}px`)} />}
             </fieldset>
           ))}
         </div>

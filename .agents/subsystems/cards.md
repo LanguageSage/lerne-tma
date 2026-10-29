@@ -256,6 +256,11 @@ Admin runs the same cases against the reviewed wheel. DB contract review remains
 
 ## Design V2: существующие Quiz/Match preview
 
+Для этапа 2A и следующих действует [архитектурное решение](../AGENTS.md#design-v2-архитектурное-решение):
+единственная целевая система оформления — Design V2. Legacy удаляется последовательно
+после безопасного переноса настроек, пресетов и данных и проверки результата;
+выполненный этап 1 не переделывается без необходимости.
+
 `CardContentEditor` передаёт effective V2 config своему прежнему ExerciseRenderer;
 его disabled fieldset сохраняет normal-внешний вид и блокировку взаимодействия.
 `ExerciseDesignSection` переиспользует тот же renderer внутри прежнего
@@ -264,3 +269,12 @@ DesignPreviewScope вместо собственного JSX вариантов/
 Новых preview-поверхностей нет; raw/source и сохранение карточки не менялись.
 Регрессии: `scripts/tests/browser/quiz-match-design.spec.cjs`.
 [Отчёт этапа 1 и Legacy fallback](../../docs/DESIGN_V2_STAGE1_QUIZ_MATCH.md).
+
+### Design V2: WordBank, Free Text и Edit (этап 2A)
+
+Эти три типа также получают effective config из `ExerciseRenderer` и используют
+прежний `getDesignStylesFromV2`. WordBank preview в настройках переиспользует
+реальный renderer; Free Text/Edit показывают тот же компонент с отключёнными
+действиями. Preview редактора содержимого сохраняет normal-оформление.
+Роли, токены состояний, проверки и границы следующей миграции:
+[DESIGN_V2_STAGE2A_INPUT_EXERCISES](../../docs/DESIGN_V2_STAGE2A_INPUT_EXERCISES.md).

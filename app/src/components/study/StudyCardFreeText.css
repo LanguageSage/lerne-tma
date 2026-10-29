@@ -25,6 +25,16 @@
   resize: vertical;
 }
 .free-text-exercise textarea:focus-visible { outline: 2px solid var(--design-ft-focus-border, currentColor); outline-offset: 4px; }
+.free-text-exercise textarea:focus { background: var(--design-ft-focus-bg, var(--design-ft-bg, transparent)); border-color: var(--design-ft-focus-border, currentColor); }
+.free-text-exercise.is-correct textarea, .free-text-exercise.is-correct .editable-text-field {
+  color: var(--design-ft-correct-color, #4ade80);
+  border-color: var(--design-ft-correct-border, #22c55e);
+}
+.free-text-exercise.is-incorrect textarea, .free-text-exercise.is-incorrect .editable-text-field {
+  color: var(--design-ft-wrong-color, #f87171);
+  border-color: var(--design-ft-wrong-border, #ef4444);
+}
+.free-text-exercise.is-incorrect textarea:focus-visible { outline-color: var(--design-ft-wrong-border, #ef4444); }
 .editable-text-exercise textarea { max-width: min(100%, 620px); min-height: 120px; }
 .editable-text-exercise .free-text-feedback { max-width: 620px; }
 .free-text-input-wrapper { display: contents; }
@@ -43,6 +53,7 @@
   outline: 2px solid var(--design-ft-focus-border, currentColor);
   outline-offset: 3px;
 }
+.free-text-exercise.is-incorrect .editable-text-field:focus-within { outline-color: var(--design-ft-wrong-border, #ef4444); }
 .editable-text-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 12px; font-size: .86rem; }
 .editable-text-toolbar label { display: flex; align-items: center; gap: 8px; font-weight: 700; }
 .editable-text-toolbar svg, .editable-text-reset svg { flex-shrink: 0; }
@@ -56,7 +67,8 @@
 .free-text-feedback, .free-text-example { width: 100%; max-width: 380px; line-height: 1.5; overflow-wrap: anywhere; }
 .free-text-feedback p, .free-text-example p { margin: 0 0 8px; }
 .free-text-feedback p:last-child, .free-text-example p:last-child { margin-bottom: 0; }
-.free-text-feedback.is-success { color: var(--success-color, #4ade80); }
+.free-text-feedback.is-success { color: var(--design-ft-correct-color, #4ade80); }
+.free-text-exercise.is-incorrect .free-text-feedback { color: var(--design-ft-wrong-color, #f87171); }
 .free-text-feedback p:first-child { display: flex; align-items: flex-start; gap: 8px; }
 .free-text-feedback svg { flex-shrink: 0; margin-top: 4px; }
 .free-text-correction, .free-text-example p { white-space: pre-wrap; }

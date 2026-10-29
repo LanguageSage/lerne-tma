@@ -90,3 +90,35 @@ test('Quiz and Match preserve independent text, background and border for every 
   assert.equal(oldV2.exercises.match.disabled.color, '#475569');
 });
 
+test('WordBank and Free Text export their own surfaces and feedback, independently of choice', () => {
+  const config = normalizeDesignConfig({});
+  for (const [i, state] of ['word', 'selected', 'correct', 'wrong'].entries()) {
+    config.exercises.wordBank[state] = { color: `#aa${i}abb`, bg: `#11${i}122`, borderColor: `#cc${i}cdd`, radius: `${i + 5}px` };
+  }
+  config.exercises.wordBank.container = { bg: '#123456', borderColor: '#654321', radius: '17px' };
+  config.exercises.freeText.focus = { bg: '#112244', borderColor: '#224466' };
+  config.exercises.freeText.correct = { color: '#aabbcc', borderColor: '#bbccdd' };
+  config.exercises.freeText.wrong = { color: '#ddbbcc', borderColor: '#eebbcc' };
+  const vars = designConfigToCssVariables(config);
+  for (const [i, state] of ['word', 'selected', 'correct', 'wrong'].entries()) {
+    assert.equal(vars[`--design-wb-${state}-color`], `#aa${i}abb`);
+    assert.equal(vars[`--design-wb-${state}-bg`], `#11${i}122`);
+    assert.equal(vars[`--design-wb-${state}-border`], `#cc${i}cdd`);
+    assert.equal(vars[`--design-wb-${state}-radius`], `${i + 5}px`);
+  }
+  assert.equal(vars['--design-wb-container-bg'], '#123456');
+  assert.equal(vars['--design-wb-container-border'], '#654321');
+  assert.equal(vars['--design-wb-container-radius'], '17px');
+  assert.equal(vars['--design-ft-focus-bg'], '#112244');
+  assert.equal(vars['--design-ft-focus-border'], '#224466');
+  for (const state of ['correct', 'wrong']) {
+    assert.equal(vars[`--design-ft-${state}-color`], config.exercises.freeText[state].color);
+    assert.equal(vars[`--design-ft-${state}-border`], config.exercises.freeText[state].borderColor);
+    assert.equal(vars[`--design-choice-${state}-color`], config.exercises.choice[state].color);
+  }
+  const oldV2 = designConfigToCssVariables({ schemaVersion: 2, exercises: { wordBank: { word: { color: '#abcdef' } } } });
+  assert.equal(oldV2['--design-wb-word-color'], '#abcdef');
+  assert.equal(oldV2['--design-wb-correct-color'], '#4ade80');
+  assert.equal(oldV2['--design-ft-wrong-border'], '#ef4444');
+});
+

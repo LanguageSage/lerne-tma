@@ -6,6 +6,7 @@
 
 | Симптом / термин | Подсистема | Документ |
 | --- | --- | --- |
+| Design V2, Legacy оформления, миграция дизайна, этап 2A | Cards: оформление | [cards](subsystems/cards.md#design-v2-существующие-quizmatch-preview) |
 | SQL-миграции, история выполнения, rollback, ошибка применения | Database migrations | [migrations](subsystems/migrations.md) |
 | LOCAL, локальный PostgreSQL, Docker, data paths, backup/restore/reset | Local development | [local-development](subsystems/local-development.md) |
 | Редактор карточки, Simple/Raw, курсор, вставка команды, `::source`, `::task`, `::exercise` | Cards: editor / syntax | [cards](subsystems/cards.md) |

@@ -189,3 +189,14 @@ V2 JSON состоянием match.disabled, без миграции сохра�
 `scripts/tests/browser/quiz-match-design.spec.cjs`; прежний feedback suite сохранён.
 Результаты, preview contract и оставшиеся зависимости от Legacy:
 [DESIGN_V2_STAGE1_QUIZ_MATCH](../../docs/DESIGN_V2_STAGE1_QUIZ_MATCH.md).
+
+## Design V2: WordBank, Free Text и Edit (этап 2A)
+
+`ExerciseRenderer` передаёт effective V2 в WordBank и общий Free Text/Edit.
+Основной текст использует `front.mainText`, поле ответа — типографику `back.context`;
+цвета полей и пропусков принадлежат собственным `wordBank`/`freeText` состояниям
+и не затираются текстовой ролью. Correct сохраняется при блокировке; правка
+отклонённого ответа возвращает normal-цвет, ошибка сервиса остаётся нейтральной.
+V1 helpers доступны только при отсутствии V2. Оценка/SRS/хранение не менялись.
+Контракт и проверки: [этап 2A](../../docs/DESIGN_V2_STAGE2A_INPUT_EXERCISES.md),
+`scripts/tests/browser/input-design-v2.spec.cjs`.

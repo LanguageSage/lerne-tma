@@ -25,6 +25,7 @@ async function openExercise(page, context, language = 'ru') {
     } });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/study/card/1' || pathname === '/api/decks/1/next') return route.fulfill({ json: card });
     if (pathname === '/api/auth/sync') return route.fulfill({ json: { status: 'ok', user: { user_id: 1, is_guest: false } } });
     return route.fulfill({ json: {} });

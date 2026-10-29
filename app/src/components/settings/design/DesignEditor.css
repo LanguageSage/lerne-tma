@@ -19,6 +19,13 @@
   color: #fff;
 }
 .design-editor-fields { min-width: 0; }
+.exercise-design-tabs button { min-height: 44px; white-space: normal; }
+.exercise-preview-type-buttons { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 14px; }
+.exercise-preview-type-select.design-editor-select { display: none; }
+@media (max-width: 680px) {
+  .exercise-preview-type-buttons { display: none; }
+  .exercise-preview-type-select.design-editor-select { display: grid; }
+}
 .design-editor-fields h3 { margin: 16px 0; color: #f8fafc; background: none; -webkit-text-fill-color: currentColor; }
 .design-editor-select, .design-preview-selectors label { display: grid; gap: 8px; font-size: .85rem; color: #94a3b8; margin-bottom: 16px; min-width: 0; }
 .design-editor-select select, .design-preview-selectors select {

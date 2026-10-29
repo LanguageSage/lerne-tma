@@ -206,7 +206,7 @@ export function designConfigToCssVariables(config) {
   vars['--design-choice-disabled-color']  = ex.choice.disabled.color;
   vars['--design-choice-disabled-border'] = ex.choice.disabled.borderColor;
 
-  // Универсальные semantic aliases (используются в cloze, match, word bank)
+  // Универсальные semantic aliases для оставшихся потребителей.
   vars['--design-correct-bg']     = ex.choice.correct.bg;
   vars['--design-correct-color']  = ex.choice.correct.color;
   vars['--design-correct-border'] = ex.choice.correct.borderColor;
@@ -249,6 +249,17 @@ export function designConfigToCssVariables(config) {
   vars['--design-wb-selected-bg']      = ex.wordBank.selected.bg;
   vars['--design-wb-selected-color']   = ex.wordBank.selected.color;
   vars['--design-wb-selected-border']  = ex.wordBank.selected.borderColor;
+  vars['--design-wb-container-bg']     = ex.wordBank.container.bg;
+  vars['--design-wb-container-border'] = ex.wordBank.container.borderColor;
+  vars['--design-wb-container-radius'] = ex.wordBank.container.radius;
+  for (const state of ['word', 'selected', 'correct', 'wrong']) {
+    vars[`--design-wb-${state}-radius`] = ex.wordBank[state].radius;
+  }
+  for (const state of ['correct', 'wrong']) {
+    vars[`--design-wb-${state}-bg`] = ex.wordBank[state].bg;
+    vars[`--design-wb-${state}-color`] = ex.wordBank[state].color;
+    vars[`--design-wb-${state}-border`] = ex.wordBank[state].borderColor;
+  }
 
   // Free text
   vars['--design-ft-bg']           = ex.freeText.input.bg;
@@ -256,6 +267,11 @@ export function designConfigToCssVariables(config) {
   vars['--design-ft-border']       = ex.freeText.input.borderColor;
   vars['--design-ft-radius']       = ex.freeText.input.radius;
   vars['--design-ft-focus-border'] = ex.freeText.focus.borderColor;
+  vars['--design-ft-focus-bg']     = ex.freeText.focus.bg;
+  for (const state of ['correct', 'wrong']) {
+    vars[`--design-ft-${state}-color`] = ex.freeText[state].color;
+    vars[`--design-ft-${state}-border`] = ex.freeText[state].borderColor;
+  }
 
   // Match
   vars['--design-match-item-bg']       = ex.match.item.bg;
