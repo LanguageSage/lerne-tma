@@ -65,3 +65,19 @@ The contract verifier follows the implementation and normalizes relative imports
 back to logical service names, so an extraction alone preserves fingerprints and
 saved jobs. It also checks aliases; future logic changes still require review.
 Database schema, SRS/progress, receipts, permissions and deployment config are unchanged.
+
+
+## Reviewed release pair — 2026-10-29
+
+Card-core 0.1.3 is saved in local commit 41d1058 (Admin adoption e85de50).
+TMA's reviewed contract is schema v3, import v2, permissions v1 and cards v1.
+The schema version records the incompatible split of notes and conversations;
+import v2 records audio-link guards, deferred invalidation and personal learning.
+Source history, affected functions, regression checks and Admin capability review:
+[ADMIN_CONTRACT_REVIEW_20261029](ADMIN_CONTRACT_REVIEW_20261029.md).
+
+Admin retains its independently reviewed base contract and exact catalog profiles;
+copying TMA's full contract into it would mislabel its implementation and invalidate
+existing jobs. The explicit pair review does not replace the runtime schema guard.
+Missing/unknown DB schema stays read-only. No migration or metadata registration
+is performed by this release. Shared parsing still belongs only to card-core in TMA.

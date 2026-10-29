@@ -239,9 +239,8 @@ def pull_offline(user_id: int) -> dict:
             data['role'] = info.get('role') or ('owner' if item.user_id == user_id else 'viewer')
             data['is_owner'] = data['role'] == 'owner'
         if name == 'decks':
-            from api.services.utils import resolve_deck_metadata
-            data['is_learning'] = learning_states.get(item.id,
-                bool(resolve_deck_metadata(item, resolve_media_urls=False).get('is_learning', False)) if item.user_id == user_id else False)
+            # Personal preference only; canonical metadata cannot opt a user in.
+            data['is_learning'] = learning_states.get(item.id, False)
         return data
 
     return {'status': 'success', 'protocol': 2,

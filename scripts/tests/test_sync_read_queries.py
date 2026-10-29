@@ -153,7 +153,9 @@ class SyncFixture(unittest.TestCase):
                 for uid in (1, 2, 3):
                     models.TMAProgress.create(card_id=card.id, user_id=uid, queue='review',
                         interval=7, flag=3, want_to_learn=True, updated_at=NOW)
+        # Explicit personal off/on; the third deck deliberately has no setting.
         models.TMASetting.create(key=f'DECK_LEARNING_1_{self.decks[0].id}', value='0')
+        models.TMASetting.create(key=f'DECK_LEARNING_1_{self.decks[1].id}', value='1')
 
     def assert_light_reads(self, reads):
         self.assertTrue(reads)
@@ -215,6 +217,9 @@ class SyncReadTests(SyncFixture):
                         self.assertIn(self.deleted_deck.id, decks)
                         self.assertFalse(decks[self.decks[0].id]['is_learning'])
                         self.assertTrue(decks[self.decks[1].id]['is_learning'])
+                        self.assertFalse(decks[self.decks[2].id]['is_learning'])
+                    elif uid == 2:
+                        self.assertFalse(decks[self.shared_deck.id]['is_learning'])
                     self.assertTrue(all(p['user_id'] == uid for p in data['progress']))
                     self.assertTrue(all('metadata' in c and 'tags' in c for c in data['cards']))
                 elif kind == 'legacy':
@@ -239,7 +244,7 @@ class SyncReadTests(SyncFixture):
             self.assertEqual(sum('FROM "tma_card"' in r['sql'] for r in large), 1)
 
     def test_v2_learning_flag_does_not_read_media_from_deck_metadata(self):
-        # Sync returns raw metadata and needs only is_learning from the parser.
+        # Raw metadata is transported unchanged; personal settings alone select learning.
         # Distinct paths defeat the media helper's per-filename cache.
         from api.services.media import _check_media_exists
         _check_media_exists.cache_clear()
@@ -255,8 +260,45 @@ class SyncReadTests(SyncFixture):
         owned = {d['id']: d for d in result['decks']}
         self.assertFalse(owned[self.decks[0].id]['is_learning'])  # Per-user override.
         self.assertTrue(owned[self.decks[1].id]['is_learning'])
+        self.assertFalse(owned[self.decks[2].id]['is_learning'])
         self.assertEqual(json.loads(owned[self.decks[1].id]['metadata'])['resources'][0]['path'],
                          f'{self.decks[1].id}-0.png')
+
+    def test_personal_learning_is_independent_for_owner_editor_and_viewer(self):
+        from api.services.decks import toggle_deck_learning
+        deck_id = self.shared_deck.id  # owner=2, editor=1, viewer=3, outsider=4.
+        models.TMA_Deck.update(metadata='{"is_learning":true}').where(models.TMA_Deck.id == deck_id).execute()
+        for uid in (1, 2, 3):
+            row = next(d for d in offline_sync.pull_offline(uid)['decks'] if d['id'] == deck_id)
+            self.assertFalse(row['is_learning'])
+        self.assertIsNone(toggle_deck_learning(deck_id, 4, True))
+        self.assertTrue(toggle_deck_learning(deck_id, 1, True))
+        self.assertTrue(toggle_deck_learning(deck_id, 3, True))
+        self.assertFalse(toggle_deck_learning(deck_id, 1, False))
+        for uid, expected in ((1, False), (2, False), (3, True)):
+            row = next(d for d in offline_sync.pull_offline(uid)['decks'] if d['id'] == deck_id)
+            self.assertIs(row['is_learning'], expected)
+        self.assertFalse(models.TMASetting.select().where(
+            models.TMASetting.key == f'DECK_LEARNING_4_{deck_id}').exists())
+
+    def test_learning_toggle_and_pull_preserve_existing_srs_history_and_content(self):
+        from api.services.decks import toggle_deck_learning
+        card = models.TMA_Card.get(models.TMA_Card.deck == self.shared_deck.id)
+        models.TMAReviewHistory.create(user_id=1, card_id=card.id, rating=3, scheduled_interval=7, review_time=NOW)
+        tables = [models.TMA_Deck, models.TMA_Card, models.TMAProgress, models.TMAReviewHistory]
+        def snapshot():
+            return {model._meta.table_name: list(model.select().order_by(model._meta.primary_key).dicts())
+                    for model in tables}
+        before = snapshot()
+        self.assertTrue(toggle_deck_learning(self.shared_deck.id, 1, True))
+        self.assertTrue(toggle_deck_learning(self.shared_deck.id, 3, True))
+        active = offline_sync.pull_offline(1)
+        self.assertTrue(next(d for d in active['decks'] if d['id'] == self.shared_deck.id)['is_learning'])
+        self.assertFalse(toggle_deck_learning(self.shared_deck.id, 1, False))
+        paused = offline_sync.pull_offline(1)
+        self.assertFalse(next(d for d in paused['decks'] if d['id'] == self.shared_deck.id)['is_learning'])
+        self.assertEqual(active['progress'], paused['progress'])
+        self.assertEqual(snapshot(), before)
 
     def test_push_preserves_unselected_content_and_media_rules(self):
         card = models.TMA_Card.get(models.TMA_Card.deck_id == self.decks[0].id)

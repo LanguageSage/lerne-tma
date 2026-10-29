@@ -1,7 +1,7 @@
 {
   "schema": {
-    "version": 2,
-    "source_sha256": "38aa8519ca9d85230cecaa5fa96b89d9e5abf91e348309133bb4a4d914450118"
+    "version": 3,
+    "source_sha256": "0684a02f0b3155062478603f016a8ab782193e9e07afe5c181d2ec32738d0fbf"
   },
   "permissions": {
     "version": 1,
@@ -12,7 +12,7 @@
     "source_sha256": "f8b759420008bb882ba4e3de0360ec8f8f9ba13399a8271613ac2b710196d7f8"
   },
   "import": {
-    "version": 1,
-    "source_sha256": "8bf92a19d30df1e8984efb123b6a6272c8a72543c7de8107d2d7845bc88b40c6"
+    "version": 2,
+    "source_sha256": "58e635094a13859d2114fdac270afe7a4a2d323dca165c4bd31a9ac648a30a5c"
   }
 }

@@ -174,3 +174,15 @@ Integration/browser scripts могут менять данные; сначала
 - `api/services/reminder_service.py` читает персональные flags только доступных колод через существующий collaborative resolver и агрегирует `TMAProgress` текущего пользователя. Default reminders off; существующие явно сохранённые настройки сохраняются. Получатель только Telegram identity активного auth account, без fallback на account ID.
 - Cron использует атомарный `LAST_REMINDER_ATTEMPT_{user_id}` перед I/O, успешные слоты остаются в `LAST_REMINDER_SLOTS_{user_id}`. Неопределённую отправку одного слота автоматически не повторяем; следующий слот независим. Схема не меняется.
 - Контракт, changed files, LOCAL/PostgreSQL/browser checks и production prerequisites: [LEARNING_REMINDERS](../../docs/LEARNING_REMINDERS.md). Изолированный suite: `scripts/tests/test_learning_reminders.py`; одноразовый LOCAL PG: `scripts/tests/learning_reminders_postgres.py`; browser: `deck-learning.spec.cjs` и адресный offline-viewer regression.
+
+
+## Personal learning contract (review 2026-10-29)
+
+The source of `is_learning` is `TMASetting.DECK_LEARNING_<user_id>_<deck_id>`;
+missing or explicit 0 means false, 1 means true. Deck metadata cannot opt any user
+in, including the owner. A viewer/editor may change only their own preference.
+`toggle_deck_learning`, `/decks`, offline-v2 pull and reminders follow this rule.
+Changing the preference does not change cards, SRS or review history. Regression
+matrix and unchanged-progress snapshots: `scripts/tests/test_sync_read_queries.py`
+and `scripts/tests/test_learning_reminders.py`. Review:
+`docs/ADMIN_CONTRACT_REVIEW_20261029.md`.

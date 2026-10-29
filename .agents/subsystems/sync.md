@@ -108,3 +108,10 @@ require_access разрешает владельцу восстановлени�
 матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
 Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
 сохранить блокировку production-сервисов и загрузки `.env`.
+
+
+Offline-v2 pull resolves `is_learning` only from batched personal settings;
+legacy deck metadata remains raw transport data and never opts the owner in.
+`test_sync_read_queries.py` covers explicit off/on/missing settings, different
+readers, access checks, bounded reads and unchanged SRS/history when toggling.
+Review: `docs/ADMIN_CONTRACT_REVIEW_20261029.md` (2026-10-29).
