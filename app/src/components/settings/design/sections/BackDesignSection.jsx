@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { CardBackground } from '../../../common/CardBackground';
+import { getDesignStylesFromV2 } from '../../../../utils/cardStyles';
+import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { tr } from '../../../../i18n/locale';
 import { TypographyControls } from '../controls/TypographyControls';
 import { SurfaceControls } from '../controls/SurfaceControls';
@@ -9,13 +12,16 @@ import { DesignPreviewScope } from '../DesignPreviewScope';
 export const BackDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('answerText'); // 'answerText' | 'context' | 'card' | 'reference'
   const back = config?.back || {};
+  const fallbackBackground = useSettingsStore(s => s.cardBgBack);
+  const textStyles = getDesignStylesFromV2(config);
 
   return (
     <div className="back-design-section">
       {/* Live Preview of Back Card */}
       <DesignPreviewScope>
-        <div style={{
-          background: 'linear-gradient(145deg, #1e1b4b, #0f172a)',
+        <div className="card-back" style={{
+          overflow: 'hidden', isolation: 'isolate',
+          background: 'linear-gradient(145deg, #25263f, #111b30)',
           border: 'var(--design-back-card-bw, 1px) solid var(--design-back-card-border, rgba(196,181,253,0.17))',
           borderRadius: 'var(--design-back-card-radius, 20px)',
           boxShadow: 'var(--design-back-card-shadow, none)',
@@ -24,14 +30,11 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
           minHeight: '140px',
           position: 'relative'
         }}>
+          <CardBackground background={back.card?.background} styleType={fallbackBackground} cardId={1} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Reference text (original phrase) */}
           <div style={{
-            fontFamily: 'var(--design-ref-font)',
-            fontSize: 'var(--design-ref-font-size)',
-            fontWeight: 'var(--design-ref-weight)',
-            fontStyle: 'var(--design-ref-style)',
-            color: 'var(--design-ref-color)',
-            textAlign: 'var(--design-ref-align)',
+            ...textStyles?.referenceText,
             opacity: 0.8,
             marginBottom: '10px'
           }}>
@@ -48,13 +51,7 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
 
           {/* Answer text (translation) */}
           <div style={{
-            fontFamily: 'var(--design-back-font)',
-            fontSize: 'var(--design-back-font-size)',
-            fontWeight: 'var(--design-back-weight)',
-            fontStyle: 'var(--design-back-style)',
-            color: 'var(--design-back-color)',
-            textAlign: 'var(--design-back-align)',
-            lineHeight: 'var(--design-back-lh)',
+            ...textStyles?.backText,
             marginBottom: '12px'
           }}>
             Я очень интересуюсь этой должностью.
@@ -62,19 +59,14 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
 
           {/* Context block */}
           <div style={{
-            fontFamily: 'var(--design-ctx-font)',
-            fontSize: 'var(--design-ctx-font-size)',
-            fontWeight: 'var(--design-ctx-weight)',
-            fontStyle: 'var(--design-ctx-style)',
-            color: 'var(--design-ctx-color)',
-            textAlign: 'var(--design-ctx-align)',
-            lineHeight: 'var(--design-ctx-lh)',
+            ...textStyles?.contextText,
             background: 'rgba(255,255,255,0.04)',
             padding: '8px 12px',
             borderRadius: '8px',
             border: '1px solid rgba(255,255,255,0.06)'
           }}>
             {tr('Пример контекста: Bewerbung um eine Arbeitsstelle.')}
+          </div>
           </div>
         </div>
       </DesignPreviewScope>

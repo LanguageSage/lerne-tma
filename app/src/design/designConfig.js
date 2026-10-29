@@ -9,6 +9,8 @@
  */
 
 
+import { isCardBackground } from '../utils/style.js';
+
 // App chrome is independent of learning-card typography and exercise semantics.
 const buttonState = (color1, color2, textColor, borderColor, mode = 'solid') => ({
   mode, color1, color2, angle: 135, textColor, iconColor: textColor, borderColor,
@@ -82,8 +84,9 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
   },
 
   front: {
-    /** Фон карточки определяется CardBackground (styleType), здесь CSS overrides */
+    /** Empty background retains the current personal background until migration. */
     card: {
+      background: '',
       borderColor: 'rgba(196,181,253,0.3)',
       borderWidth: '1px',
       borderRadius: '20px',
@@ -173,6 +176,7 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
   back: {
     /** Фон обратной стороны — независим от лицевой */
     card: {
+      background: '',
       borderColor: 'rgba(196,181,253,0.17)',
       borderWidth: '1px',
       borderRadius: '20px',
@@ -220,7 +224,7 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
   },
 
   exercises: {
-    /** Текст тела упражнения (cloze masked text, puzzle source text) */
+    /** Deprecated stored field; renderers use front.mainText. Retain until data migration. */
     bodyText: {
       font: 'Comfortaa',
       size: 1.7,
@@ -231,11 +235,11 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
     },
 
     /**
-     * Режим палитры: 'auto' — вычисляется из baseColor
-     *                'manual' — все состояния задаются вручную
+     * Deprecated stored field. Explicit state colors are authoritative; never
+     * recompute them from this old flag, which defaulted to auto for all users.
      */
     paletteMode: 'auto',
-    baseColor: '#fde047',   // используется для auto-palette
+    baseColor: '#fde047',   // Quiz icon harmony; explicit state colors remain authoritative.
 
     /** Quiz / choice options */
     choice: {
@@ -429,6 +433,9 @@ export function normalizeDesignConfig(partial) {
   const safe = filterKnownKeys(partial, base) || {};
   const merged = deepMergeKnown(structuredClone(base), safe);
   normalizeGlobalFields(merged.global);
+  for (const side of ['front', 'back']) {
+    if (!isCardBackground(merged[side].card.background)) merged[side].card.background = '';
+  }
   merged.schemaVersion = 2;
   return merged;
 }

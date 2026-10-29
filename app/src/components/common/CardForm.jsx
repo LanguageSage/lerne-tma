@@ -3,8 +3,9 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { CardContentEditor } from './CardContentEditor';
-import { getTextShadow, getContextShadow } from '../../utils/style';
+import { getTextShadow, getContextShadow, getResolvedStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
@@ -42,6 +43,10 @@ export const CardForm = ({
     contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
   } = settings;
 
+  const effectiveConfig = settings.isLocalDesignPreviewActive && settings.adminDraftDesignV2
+    ? settings.adminDraftDesignV2 : settings.publishedDesignV2?.config;
+  const v2Styles = getDesignStylesFromV2(effectiveConfig);
+
   const { loading, showToast } = useUiStore();
   const { uploadCreatorImage, uploadVideo } = useMediaUpload();
   const { decks = [], currentDeck, updateDeckMetadata } = useDeckStore();
@@ -76,16 +81,10 @@ export const CardForm = ({
     };
   }, []);
 
-  useEffect(() => { autoResize(backRef); }, [cardData?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle]);
-  useEffect(() => { autoResize(contextRef); }, [cardData?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle]);
-
-  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
-  const getResolvedStyle = (settingStyle, cardId) => {
-    if (settingStyle !== 'auto') return settingStyle;
-    if (!cardId) return 'standard';
-    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    return availableStyles[sum % availableStyles.length];
-  };
+  useEffect(() => { autoResize(backRef); }, [cardData?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle,
+    v2Styles?.backText.fontFamily, v2Styles?.backText.fontSize, v2Styles?.backText.fontWeight, v2Styles?.backText.fontStyle, v2Styles?.backText.lineHeight]);
+  useEffect(() => { autoResize(contextRef); }, [cardData?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle,
+    v2Styles?.contextText.fontFamily, v2Styles?.contextText.fontSize, v2Styles?.contextText.fontWeight, v2Styles?.contextText.fontStyle, v2Styles?.contextText.lineHeight]);
 
   const resolvedBgFront = getResolvedStyle(cardBgFront, cardData?.id || 0);
   const resolvedBgBack = getResolvedStyle(cardBgBack, cardData?.id || 0);
@@ -268,7 +267,7 @@ export const CardForm = ({
       <div className="form-group">
         <div 
           id="tut-creator-front" 
-          className="card-preview-container glass" 
+          className="card-preview-container glass card-front"
           style={{ 
             position: 'relative', 
             borderRadius: '12px',
@@ -277,7 +276,7 @@ export const CardForm = ({
             minHeight: '80px'
           }}
         >
-          <CardBackground styleType={resolvedBgFront} />
+          <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={cardData.id} />
           
           <div className="card-preview-body" style={{ padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
             <CardContentEditor
@@ -625,7 +624,7 @@ export const CardForm = ({
 
       <div className="form-group">
         <div
-          className="card-preview-container glass"
+          className="card-preview-container glass card-back"
           style={{
             position: 'relative',
             borderRadius: '12px',
@@ -634,7 +633,7 @@ export const CardForm = ({
             minHeight: '80px'
           }}
         >
-          <CardBackground styleType={resolvedBgBack} />
+          <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={cardData.id} />
 
           <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
             <div className="card-form-text-field">
@@ -659,6 +658,7 @@ export const CardForm = ({
                 fontSize: `${cardFontSize}rem`,
                 textShadow: getTextShadow(cardTextShadow, cardTextColor),
                 textAlign: cardTextAlign || 'center',
+                ...v2Styles?.backText,
                 overflow: 'hidden',
                 height: 'auto',
                 minHeight: '52px'
@@ -694,6 +694,7 @@ export const CardForm = ({
                 fontStyle: contextFontStyle,
                 textShadow: getContextShadow(contextTextShadow, contextTextColor),
                 textAlign: contextTextAlign || 'left',
+                ...v2Styles?.contextText,
                 overflow: 'hidden',
                 height: 'auto',
                 minHeight: '52px'

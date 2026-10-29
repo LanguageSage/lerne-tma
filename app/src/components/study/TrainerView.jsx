@@ -1,3 +1,4 @@
+import { getResolvedStyle } from '../../utils/style';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
@@ -12,6 +13,7 @@ import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getCardStyle, getBackCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
 
+import { CardBackground } from '../common/CardBackground';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
 import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
@@ -97,14 +99,6 @@ export const TrainerView = () => {
     if (!currentCard) return null;
     return parseClozeData(currentCard, 'trainer', activeCards);
   }, [currentCard, activeCards]);
-
-  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
-  const getResolvedStyle = (settingStyle, cardId) => {
-    if (settingStyle !== 'auto') return settingStyle;
-    if (!cardId) return 'standard';
-    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    return availableStyles[sum % availableStyles.length];
-  };
 
   const resolvedBgFront = getResolvedStyle(cardBgFront, currentCard?.id);
   const resolvedBgBack = getResolvedStyle(cardBgBack, currentCard?.id);
@@ -293,8 +287,9 @@ export const TrainerView = () => {
               {/* Front Face: Interactive Trainer */}
               {!isFlipped ? (
                 <div
-                  className={`card-face card-face-front card-bg-${resolvedBgFront}`}
+                  className="card-face card-face-front card-front trainer-card-face"
                   style={{
+                    position: 'relative', isolation: 'isolate', overflow: 'hidden',
                     minHeight: '380px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -305,6 +300,7 @@ export const TrainerView = () => {
                     border: '1px solid rgba(168, 85, 247, 0.3)'
                   }}
                 >
+                  <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={currentCard.id} />
                   <ExerciseRenderer
                     card={currentCard}
                     designConfig={effectiveConfig}
@@ -335,8 +331,9 @@ export const TrainerView = () => {
               ) : (
                 /* Back Face: Answer, Full Translation & Grammar Context */
                 <div
-                  className={`card-face card-face-back card-bg-${resolvedBgBack}`}
+                  className="card-face card-face-back card-back trainer-card-face"
                   style={{
+                    position: 'relative', isolation: 'isolate', overflow: 'hidden',
                     minHeight: '380px',
                     display: 'flex',
                     flexDirection: 'column',
@@ -347,6 +344,7 @@ export const TrainerView = () => {
                     border: '1px solid rgba(168, 85, 247, 0.3)'
                   }}
                 >
+                  <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={currentCard.id} />
                   {/* Top full original phrase */}
                   <div style={{ marginBottom: '16px', textAlign: 'center' }}>
                     {(() => {

@@ -1,4 +1,4 @@
-import { getTextShadow, getContextShadow } from './style';
+import { getTextShadow, getContextShadow } from './style.js';
 
 /**
  * Shared card style computation for all study mode components.
@@ -162,49 +162,28 @@ export const getHarmonizedOptionStyles = (baseColor) => {
   };
 };
 
-/**
- * Derives pre-computed inline style objects from Design Config V2.
- * Used by StudyCard when publishedDesignV2 is available.
- * Falls back to legacy flat-field functions when V2 is not set.
- */
+/** Shared typography for study, editor, list and settings previews. */
+export const getDesignTextStyle = (text, color = text?.color) => ({
+  fontFamily: text?.font,
+  color,
+  fontSize: text?.size ? `${text.size}rem` : undefined,
+  fontWeight: text?.weight,
+  fontStyle: text?.style,
+  textAlign: text?.align || 'left',
+  lineHeight: text?.lineHeight,
+  // Semantic state colors must also determine the glow on interactive text.
+  textShadow: getTextShadow(text?.shadow, 'currentColor'),
+});
+
 export const getDesignStylesFromV2 = (designConfig) => {
   if (!designConfig) return null;
   const { front, back } = designConfig;
+  const contextColor = back?.context?.color === 'auto'
+    ? getHarmonizedContextColor(back?.answerText?.color) : back?.context?.color;
   return {
-    frontText: {
-      fontFamily: front?.mainText?.font,
-      color: front?.mainText?.color,
-      fontSize: front?.mainText?.size ? `${front.mainText.size}rem` : undefined,
-      fontWeight: front?.mainText?.weight,
-      fontStyle: front?.mainText?.style,
-      textAlign: front?.mainText?.align || 'left',
-      lineHeight: front?.mainText?.lineHeight,
-    },
-    backText: {
-      fontFamily: back?.answerText?.font,
-      color: back?.answerText?.color,
-      fontSize: back?.answerText?.size ? `${back.answerText.size}rem` : undefined,
-      fontWeight: back?.answerText?.weight,
-      fontStyle: back?.answerText?.style,
-      textAlign: back?.answerText?.align || 'left',
-      lineHeight: back?.answerText?.lineHeight,
-    },
-    contextText: {
-      fontFamily: back?.context?.font,
-      color: back?.context?.color === 'auto' ? undefined : back?.context?.color,
-      fontSize: back?.context?.size ? `${back.context.size}rem` : undefined,
-      fontWeight: back?.context?.weight,
-      fontStyle: back?.context?.style,
-      textAlign: back?.context?.align || 'left',
-      lineHeight: back?.context?.lineHeight,
-    },
-    referenceText: {
-      fontFamily: back?.referenceText?.font,
-      color: back?.referenceText?.color,
-      fontSize: back?.referenceText?.size ? `${back.referenceText.size}rem` : undefined,
-      fontWeight: back?.referenceText?.weight,
-      fontStyle: back?.referenceText?.style,
-      textAlign: back?.referenceText?.align || 'left',
-    },
+    frontText: getDesignTextStyle(front?.mainText),
+    backText: getDesignTextStyle(back?.answerText),
+    contextText: getDesignTextStyle(back?.context, contextColor),
+    referenceText: getDesignTextStyle(back?.referenceText),
   };
 };

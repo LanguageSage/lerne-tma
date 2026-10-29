@@ -457,7 +457,7 @@ export const StudyCard = React.memo(({
         >
         {!isFlipped ? (
           <div className="card-inner card-front glass" style={flagStyle}>
-            <CardBackground styleType={resolvedBgFront} />
+            <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={card.id} />
             <div className="card-face">
               
               {/* Leech Indicator */}
@@ -632,6 +632,7 @@ export const StudyCard = React.memo(({
                 <StudyCardSpeech
                   key={stepFlow?.reviewKey || reviewKey}
                   card={card}
+                  designConfig={effectiveConfig}
                   reviewKey={stepFlow?.reviewKey || reviewKey}
                   onSuccess={onSpeechSuccess}
                   onFlip={onFlip}
@@ -653,7 +654,7 @@ export const StudyCard = React.memo(({
           </div>
         ) : (
           <div className="card-inner card-back glass" style={flagStyle}>
-            <CardBackground styleType={resolvedBgBack} />
+            <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={card.id} />
             <div className="card-face">
               {/* Leech Indicator */}
               {Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5)) && (

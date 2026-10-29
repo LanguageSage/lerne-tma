@@ -16,6 +16,7 @@
 
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2 } from './designConfig.js';
 import { CARD_LIST_PRESET_GRADIENTS } from '../utils/style.js';
+import { getDesignStylesFromV2, getDesignTextStyle } from '../utils/cardStyles.js';
 
 /**
  * Преобразует Design Config V2 в объект CSS custom properties.
@@ -183,7 +184,7 @@ export function designConfigToCssVariables(config) {
   vars['--design-ctx-weight']    = c.back.context.weight;
   vars['--design-ctx-style']     = c.back.context.style;
   vars['--design-ctx-lh']        = c.back.context.lineHeight;
-  vars['--design-ctx-color']     = c.back.context.color === 'auto' ? 'inherit' : c.back.context.color;
+  vars['--design-ctx-color']     = getDesignStylesFromV2(c).contextText.color;
   vars['--design-ctx-align']     = c.back.context.align;
 
   // ── Exercises — Semantic States ────────────────────────────────────────────
@@ -348,6 +349,14 @@ export function designConfigToCssVariables(config) {
   vars['--design-cl-drag-color']   = cl.controls.dragHandleColor;
   vars['--design-cl-menu-color']   = cl.controls.menuButtonColor;
 
+  const textStyles = getDesignStylesFromV2(c);
+  for (const [prefix, role] of [['front', 'frontText'], ['back', 'backText'], ['ctx', 'contextText'], ['ref', 'referenceText']]) {
+    vars[`--design-${prefix}-shadow`] = textStyles[role].textShadow;
+  }
+  for (const side of ['front', 'back']) {
+    vars[`--design-cl-${side}-style`] = c.cardList[`${side}Text`].style;
+    vars[`--design-cl-${side}-shadow`] = getDesignTextStyle(c.cardList[`${side}Text`]).textShadow;
+  }
   return vars;
 }
 

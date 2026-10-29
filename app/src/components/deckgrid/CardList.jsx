@@ -1,3 +1,4 @@
+import { getDesignTextStyle } from '../../utils/cardStyles';
 import { tr } from '../../i18n/locale';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
@@ -73,17 +74,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const frontColor = previewCardTextColor || '#ffffff';
   const frontTypographyStyle = React.useMemo(() => {
     const v2 = effectiveCardListConfig?.frontText;
-    if (v2) {
-      return {
-        fontFamily: v2.font || undefined,
-        color: v2.color || '#ffffff',
-        fontSize: v2.size ? `${v2.size}rem` : undefined,
-        textShadow: getTextShadow(v2.shadow, v2.color || '#ffffff'),
-        fontWeight: v2.weight || 600,
-        fontStyle: v2.style || undefined,
-        textAlign: v2.align || 'left',
-      };
-    }
+    if (v2) return getDesignTextStyle(v2);
+
     return {
       fontFamily: previewCardFont || undefined,
       color: frontColor,
@@ -98,17 +90,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const effectiveBackColor = previewBackTextColor || '#cbd5e1';
   const backTypographyStyle = React.useMemo(() => {
     const v2 = effectiveCardListConfig?.backText;
-    if (v2) {
-      return {
-        fontFamily: v2.font || undefined,
-        color: v2.color || '#cbd5e1',
-        fontSize: v2.size ? `${v2.size}rem` : undefined,
-        textShadow: getTextShadow(v2.shadow, v2.color || '#cbd5e1'),
-        fontWeight: v2.weight || 500,
-        fontStyle: v2.style || undefined,
-        textAlign: v2.align || 'left',
-      };
-    }
+    if (v2) return getDesignTextStyle(v2);
+
     return {
       fontFamily: previewCardFont || undefined,
       color: effectiveBackColor,

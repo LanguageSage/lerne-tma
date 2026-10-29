@@ -1,3 +1,4 @@
+import { getResolvedStyle } from '../../utils/style';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useEffect, useRef, useState, useCallback } from 'react';
@@ -434,14 +435,6 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   }, [card?.id, historyIndex, studyMode, randomEnabledModes, activeRandomMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
 
-
-  const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
-  const getResolvedStyle = (settingStyle, cardId) => {
-    if (settingStyle !== 'auto') return settingStyle;
-    if (!cardId) return 'standard';
-    const sum = cardId.toString().split('').reduce((a, b) => a + b.charCodeAt(0), 0);
-    return availableStyles[sum % availableStyles.length];
-  };
 
   const resolvedBgFront = getResolvedStyle(cardBgFront, card?.id);
   const resolvedBgBack = getResolvedStyle(cardBgBack, card?.id);

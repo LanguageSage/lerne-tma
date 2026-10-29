@@ -1,11 +1,15 @@
 import { CARD_LIST_BG_PRESETS } from '../constants/appConstants.js';
 
+const shadowTint = (color, alpha) => /^#[0-9a-f]{6}$/i.test(color || '')
+  ? `${color}${alpha}`
+  : `color-mix(in srgb, ${color || 'currentColor'} ${Math.round(parseInt(alpha, 16) / 255 * 100)}%, transparent)`;
+
 export const getTextShadow = (effect, color) => {
   switch (effect) {
     case 'shadow':
       return '0 0.08em 0.16em rgba(0,0,0,0.5)';
     case 'glow':
-      return `0 0 0.22em ${color}aa, 0 0.06em 0.12em rgba(0,0,0,0.5)`;
+      return `0 0 0.22em ${shadowTint(color, 'aa')}, 0 0.06em 0.12em rgba(0,0,0,0.5)`;
     case 'neon':
       return `0 0 0.12em #fff, 0 0 0.25em ${color}, 0 0 0.45em ${color}, 0 0.06em 0.12em rgba(0,0,0,0.5)`;
     case 'outline':
@@ -23,7 +27,7 @@ export const getContextShadow = (effect, color) => {
     case 'shadow':
       return '0 0.06em 0.12em rgba(0,0,0,0.3)';
     case 'glow':
-      return `0 0 0.18em ${color}88, 0 0.05em 0.1em rgba(0,0,0,0.3)`;
+      return `0 0 0.18em ${shadowTint(color, '88')}, 0 0.05em 0.1em rgba(0,0,0,0.3)`;
     case 'neon':
       return `0 0 0.1em #fff, 0 0 0.2em ${color}, 0 0 0.35em ${color}`;
     case 'outline':
@@ -35,6 +39,15 @@ export const getContextShadow = (effect, color) => {
 };
 
 export const availableStyles = ['mesh', 'aurora', 'holographic', 'liquid', 'liquid_sunset', 'liquid_ocean', 'liquid_cosmic', 'liquid_emerald', 'video_aquarium', 'video_space', 'video_nature'];
+export const CARD_BACKGROUND_PRESETS = ['standard', 'auto', ...availableStyles, 'liquid_morning',
+  'dark_obsidian', 'dark_minimal', 'dark_midnight', 'dark_emerald', 'dark_mocha'];
+
+export const isCardBackground = value => typeof value === 'string' && (
+  value === '' || CARD_BACKGROUND_PRESETS.includes(value)
+  || /^custom_[^/\\]+$/.test(value) && !value.includes('..')
+  || /^(?:#(?:[0-9a-f]{3}|[0-9a-f]{4}|[0-9a-f]{6}|[0-9a-f]{8})|transparent|currentColor)$/i.test(value)
+  || /^(?:(?:rgb|hsl)a?|(?:linear|radial)-gradient)\((?:[^(){};\\]|(?:rgb|hsl)a?\([^(){};\\]*\))*\)$/i.test(value)
+);
 
 export const getResolvedStyle = (settingStyle, cardId) => {
   if (settingStyle !== 'auto') return settingStyle;

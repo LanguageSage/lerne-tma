@@ -22,6 +22,7 @@
   perspective-origin: 50% 45%;
   width: 100%;
 }
+.trainer-card-face > .card-bg-layer { z-index: -1; }
 
 .study-card-controls-hint {
   margin: 8px 12px 0;

@@ -5,8 +5,12 @@ import { SliderControl } from '../controls/SliderControl';
 import { DesignPreviewScope } from '../DesignPreviewScope';
 import { FONT_OPTIONS } from '../designConstants';
 import { ExerciseRenderer } from '../../../study/ExerciseRenderer.jsx';
+import { StudyCardSpeech } from '../../../study/StudyCardSpeech.jsx';
+import { CardBackground } from '../../../common/CardBackground';
+import { useSettingsStore } from '../../../../store/useSettingsStore';
 
 const PREVIEW_CARDS = {
+  speech: { id: -1003, front: 'Ich lerne jeden Tag Deutsch.', back: 'Каждый день я учу немецкий.' },
   cloze: { id: -1001, front: 'Ich [[lerne]] mit klein{en} Hunden {*heute|morgen}.', back: 'Сегодня я учусь.' },
   puzzle: { id: -1002, front: '@puzzle\nIch lerne heute Deutsch.', back: 'Сегодня я учу немецкий.' },
   quiz: { id: 'design-quiz', front: 'Welche Antwort passt?\n\n- Gestern\n* Heute\n- Morgen', back: '' },
@@ -27,7 +31,7 @@ const STATE_GROUPS = {
 
 const PREVIEW_TYPES = [
   ['quiz', 'Тест / Выбор'], ['cloze', 'Пропуск'], ['match', 'Пары'], ['puzzle', 'Пазл'],
-  ['wordBank', 'Банк слов'], ['freeText', 'Свободный ответ / Письмо'], ['editableText', 'Редактируемый текст'],
+  ['wordBank', 'Банк слов'], ['freeText', 'Свободный ответ / Письмо'], ['editableText', 'Редактируемый текст'], ['speech', 'Речь'],
 ];
 
 export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
@@ -35,14 +39,15 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
   const [previewRevision, setPreviewRevision] = useState(0);
   const [subTab, setSubTab] = useState('palette');
   const ex = config?.exercises || {};
-  const isAutoPalette = ex.paletteMode === 'auto';
-  const isInputPreview = ['freeText', 'editableText'].includes(previewType);
+  const fallbackBackground = useSettingsStore(s => s.cardBgFront);
+  const isInputPreview = ['freeText', 'editableText', 'speech'].includes(previewType);
 
   return (
     <div className="exercise-design-section">
       {/* Exercise Live Preview */}
       <DesignPreviewScope>
-        <div style={{
+        <div className="card-front" style={{
+          position: 'relative', overflow: 'hidden',
           background: 'linear-gradient(145deg, #25263f, #111b30)',
           borderRadius: '20px',
           border: '1px solid rgba(196,181,253,0.3)',
@@ -50,6 +55,8 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           marginBottom: '20px',
           boxShadow: '0 16px 32px -16px rgba(0,0,0,0.65)'
         }}>
+          <CardBackground background={config?.front?.card?.background} styleType={fallbackBackground} cardId={1} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Switch preview mode */}
           <label className="exercise-preview-type-select design-editor-select">
             {tr('Предпросмотр (Лицевая сторона)')}
@@ -75,14 +82,16 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           {PREVIEW_CARDS[previewType] && <>
             {/* Free/Edit are appearance samples: no evaluation or microphone requests. */}
             <fieldset disabled={isInputPreview} style={{ border: 0, padding: 0, margin: 0, minWidth: 0 }}>
-              <ExerciseRenderer key={`${previewType}:${previewRevision}`}
+              {previewType === 'speech' ? <StudyCardSpeech key={`speech:${previewRevision}`}
+                card={PREVIEW_CARDS.speech} designConfig={config} /> : <ExerciseRenderer key={`${previewType}:${previewRevision}`}
                 card={PREVIEW_CARDS[previewType]} designConfig={config}
-                savedState={previewType === 'freeText' ? { userInput: PREVIEW_CARDS.freeText.back } : undefined} />
+                savedState={previewType === 'freeText' ? { userInput: PREVIEW_CARDS.freeText.back } : undefined} />}
             </fieldset>
             <button type="button" className="btn-secondary btn-tiny"
               onClick={() => setPreviewRevision(value => value + 1)}>{tr('Сбросить')}</button>
           </>}
 
+          </div>
         </div>
       </DesignPreviewScope>
 
@@ -94,7 +103,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           onClick={() => setSubTab('palette')}
           style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
         >
-          {tr('Режим палитры')}
+          {tr('Акцент упражнений')}
         </button>
         <button
           type="button"
@@ -137,27 +146,6 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
       {/* Palette Mode */}
       {subTab === 'palette' && (
         <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '12px' }}>
-            <div>
-              <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.9rem' }}>
-                {tr('Гармоничная палитра (Auto)')}
-              </span>
-              <p style={{ margin: '2px 0 0 0', fontSize: '0.78rem', color: '#94a3b8' }}>
-                {isAutoPalette
-                  ? tr('Цвета вариантов вычисляются автоматически из базового цвета')
-                  : tr('Все цвета вариантов настраиваются вручную')}
-              </p>
-            </div>
-            <button
-              type="button"
-              className={`btn-secondary btn-tiny ${isAutoPalette ? 'active' : ''}`}
-              onClick={() => onChangeField('exercises.paletteMode', isAutoPalette ? 'manual' : 'auto')}
-              style={{ padding: '6px 14px', borderRadius: '16px' }}
-            >
-              {isAutoPalette ? `✨ ${tr('Авто')}` : tr('Вручную')}
-            </button>
-          </div>
-
           <ColorControl
             label={tr('Базовый цвет гармонии упражнений')}
             value={ex.baseColor || '#fde047'}

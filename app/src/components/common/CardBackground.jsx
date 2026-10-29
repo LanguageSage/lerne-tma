@@ -1,7 +1,14 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, useReducedMotion } from 'framer-motion';
+import { CARD_BACKGROUND_PRESETS, getResolvedStyle, isCardBackground } from '../../utils/style.js';
 
-export const CardBackground = ({ styleType = 'standard', isStatic = false }) => {
+export const CardBackground = ({ styleType = 'standard', background = '', cardId = 0, isStatic = false }) => {
+  const reduceMotion = useReducedMotion();
+  isStatic = isStatic || reduceMotion;
+  styleType = getResolvedStyle(background || styleType, cardId) || 'standard';
+  if (!CARD_BACKGROUND_PRESETS.includes(styleType) && !styleType.startsWith('custom_')) {
+    return <div className="card-bg-layer bg-v2" style={{ background: isCardBackground(styleType) ? styleType : undefined }} />;
+  }
   if (isStatic) {
     switch (styleType) {
       case 'mesh':
@@ -16,7 +23,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
       case 'liquid_cosmic':
       case 'liquid_emerald':
       case 'liquid_morning':
-        return <div className="card-bg-layer bg-liquid-static" style={{ background: 'radial-gradient(circle at 30% 30%, rgba(99,102,241,0.25) 0%, transparent 70%), radial-gradient(circle at 70% 70%, rgba(168,85,247,0.25) 0%, transparent 70%)' }} />;
+        break; // Reuse the actual theme palette below without animation.
       case 'dark_obsidian':
         return <div className="card-bg-layer bg-dark-obsidian" />;
       case 'dark_minimal':
@@ -39,7 +46,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
           <motion.div
             className="blob"
             style={{ background: '#a855f7', width: '150px', height: '150px' }}
-            animate={{
+            animate={isStatic ? undefined : {
               x: [0, 100, -50, 0],
               y: [0, -50, 100, 0],
               scale: [1, 1.2, 0.9, 1],
@@ -49,7 +56,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
           <motion.div
             className="blob"
             style={{ background: '#3b82f6', width: '180px', height: '180px', right: '-20px', bottom: '-20px' }}
-            animate={{
+            animate={isStatic ? undefined : {
               x: [0, -100, 50, 0],
               y: [0, 100, -50, 0],
               scale: [1, 1.1, 1.3, 1],
@@ -59,7 +66,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
           <motion.div
             className="blob"
             style={{ background: '#ec4899', width: '120px', height: '120px', left: '20%', top: '30%' }}
-            animate={{
+            animate={isStatic ? undefined : {
               x: [0, 50, -80, 0],
               y: [0, 80, -30, 0],
             }}
@@ -77,7 +84,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
               background: 'linear-gradient(90deg, rgba(56,189,248,0.2) 0%, rgba(168,85,247,0.4) 50%, rgba(236,72,153,0.2) 100%)',
               width: '200%', height: '200%', left: '-50%', top: '-50%'
             }}
-            animate={{
+            animate={isStatic ? undefined : {
               rotate: [0, 360],
               scale: [1, 1.1, 1],
             }}
@@ -92,7 +99,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
         <div className="card-bg-layer bg-holo">
           <motion.div
             className="holo-gradient"
-            animate={{
+            animate={isStatic ? undefined : {
               backgroundPosition: ['0% 50%', '100% 50%', '0% 50%'],
             }}
             transition={{ duration: 10, repeat: Infinity, ease: 'linear' }}
@@ -118,7 +125,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
           <div className="liquid-container">
             <motion.div 
               className={`liquid-blob ${styleType === 'liquid' ? 'blob-blue' : 'blob-1'}`}
-              animate={{
+              animate={isStatic ? undefined : {
                 x: ['-10%', '10%', '-15%', '-10%'],
                 y: ['-10%', '15%', '10%', '-10%'],
                 scale: [1, 1.2, 0.9, 1],
@@ -128,7 +135,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
             />
             <motion.div 
               className={`liquid-blob ${styleType === 'liquid' ? 'blob-purple' : 'blob-2'}`}
-              animate={{
+              animate={isStatic ? undefined : {
                 x: ['10%', '-15%', '5%', '10%'],
                 y: ['10%', '-10%', '15%', '10%'],
                 scale: [1.1, 0.9, 1.2, 1.1],
@@ -138,7 +145,7 @@ export const CardBackground = ({ styleType = 'standard', isStatic = false }) => 
             />
             <motion.div 
               className={`liquid-blob ${styleType === 'liquid' ? 'blob-cyan' : 'blob-3'}`}
-              animate={{
+              animate={isStatic ? undefined : {
                 x: ['0%', '20%', '-20%', '0%'],
                 y: ['20%', '0%', '-20%', '20%'],
                 scale: [0.9, 1.3, 1, 0.9],

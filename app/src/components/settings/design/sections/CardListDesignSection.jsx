@@ -1,3 +1,4 @@
+import { getDesignTextStyle } from '../../../../utils/cardStyles';
 import React, { useState } from 'react';
 import { tr } from '../../../../i18n/locale';
 import { TypographyControls } from '../controls/TypographyControls';
@@ -42,13 +43,7 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
           >
             {/* Front text */}
             <div style={{
-              fontFamily: 'var(--design-cl-front-font)',
-              fontSize: 'var(--design-cl-front-size)',
-              fontWeight: 'var(--design-cl-front-weight)',
-              fontStyle: 'var(--design-cl-front-style, normal)',
-              color: 'var(--design-cl-front-color)',
-              textAlign: 'var(--design-cl-front-align)',
-              lineHeight: 'var(--design-cl-front-lh, 1.4)'
+              ...getDesignTextStyle(cardList.frontText),
             }}>
               Guten Tag! Wie geht es Ihnen heute? Ich freue mich, Sie kennenzulernen. ✨
             </div>
@@ -63,12 +58,7 @@ export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
 
             {/* Back text */}
             <div style={{
-              fontFamily: 'var(--design-cl-back-font)',
-              fontSize: 'var(--design-cl-back-size)',
-              fontWeight: 'var(--design-cl-back-weight)',
-              color: 'var(--design-cl-back-color)',
-              textAlign: 'var(--design-cl-back-align)',
-              lineHeight: 'var(--design-cl-back-lh, 1.4)'
+              ...getDesignTextStyle(cardList.backText),
             }}>
               {tr('Добрый день! Как ваши дела сегодня? Очень рад с вами познакомиться.')}
             </div>

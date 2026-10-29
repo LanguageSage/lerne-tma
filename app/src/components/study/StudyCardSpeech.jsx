@@ -4,12 +4,11 @@ import React, { useState, useEffect, useEffectEvent, useRef, useMemo } from 'rea
 import { RefreshCw, Eye, Volume2, Mic, Check, AlertCircle, Sparkles, Sliders } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { evaluateStudySpeech } from '../../utils/speechEvaluation.js';
-import { getTextShadow } from '../../utils/style';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
-import { getCardStyle } from '../../utils/cardStyles';
+import { getCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 import { stopGlobalAudio } from '../../hooks/useAudio';
 import { parseExerciseContent } from '../../utils/exerciseContentParser';
@@ -31,7 +30,8 @@ export const StudyCardSpeech = React.memo(({
   stopAudio,
   isAudioLoading,
   isAutoplayActive,
-  styles = {}
+  styles = {},
+  designConfig,
 }) => {
   useInterfaceLocale();
   const [speechSuccess, setSpeechSuccess] = useState(false);
@@ -41,6 +41,12 @@ export const StudyCardSpeech = React.memo(({
     () => targetText ?? cleanBracketSyntax(exerciseContent.exercise),
     [targetText, exerciseContent]
   );
+  const speechKey = JSON.stringify([card?.id, reviewKey, spokenFront]);
+  const [previousSpeechKey, setPreviousSpeechKey] = useState(speechKey);
+  if (previousSpeechKey !== speechKey) {
+    setPreviousSpeechKey(speechKey);
+    setSpeechSuccess(false);
+  }
 
   const cardFrontRef = useRef(spokenFront);
 
@@ -49,25 +55,13 @@ export const StudyCardSpeech = React.memo(({
   const speechMatchThreshold = useSettingsStore(s => s.speechMatchThreshold) ?? 75;
   const setSpeechMatchThreshold = useSettingsStore(s => s.setSpeechMatchThreshold);
 
-  const {
-    cardFont,
-    cardTextColor,
-    cardFontSize = 1,
-    cardFontWeight,
-    cardFontStyle,
-    cardTextShadow
-  } = styles;
-
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  const cardStyle = useMemo(() => getCardStyle(styles), [
-    styles?.cardFont,
-    styles?.cardTextColor,
-    styles?.cardFontSize,
-    styles?.cardFontWeight,
-    styles?.cardFontStyle,
-    styles?.cardTextShadow,
-    styles?.cardTextAlign
-  ]);
+  const activeDesign = useSettingsStore(s => s.isLocalDesignPreviewActive && s.adminDraftDesignV2
+    ? s.adminDraftDesignV2 : s.publishedDesignV2?.config);
+  const effectiveDesign = designConfig === undefined ? activeDesign : designConfig;
+  const v2Style = useMemo(() => getDesignStylesFromV2(effectiveDesign)?.frontText, [effectiveDesign]);
+  const cardStyle = useMemo(() => v2Style || getCardStyle(styles), [v2Style, styles]);
+  const transcriptStyle = v2Style || { ...cardStyle,
+    fontSize: `${Math.max((styles.cardFontSize ?? 1) * 1.1, 1.4)}rem`, textAlign: 'center' };
 
   useEffect(() => {
     cardFrontRef.current = spokenFront;
@@ -81,7 +75,6 @@ export const StudyCardSpeech = React.memo(({
   });
 
   useEffect(() => {
-    setSpeechSuccess(false);
     speechSuccessRef.current = false;
   }, [card?.id, reviewKey, spokenFront]);
 
@@ -231,7 +224,7 @@ export const StudyCardSpeech = React.memo(({
         <div 
           className="recognized-transcript-bubble glass"
           style={{
-            borderColor: speechSuccess ? 'rgba(16, 185, 129, 0.4)' : (isListening ? 'rgba(255, 255, 255, 0.15)' : 'rgba(244, 63, 94, 0.4)'),
+            borderColor: speechSuccess ? 'var(--design-correct-border, #10b981)' : (isListening ? 'var(--design-front-card-border, rgba(255,255,255,.15))' : 'var(--design-wrong-border, #f43f5e)'),
             flexDirection: 'column',
             padding: '12px 18px',
             width: '100%'
@@ -239,13 +232,7 @@ export const StudyCardSpeech = React.memo(({
         >
           <span style={{ fontSize: '0.85rem', opacity: 0.75, color: '#cbd5e1', marginBottom: '4px' }}>{tr("Вы сказали:")}</span>
           <div style={{
-            fontFamily: cardFont,
-            color: cardTextColor,
-            fontSize: `${Math.max(cardFontSize * 1.1, 1.4)}rem`,
-            fontWeight: cardFontWeight,
-            fontStyle: cardFontStyle,
-            textShadow: getTextShadow(cardTextShadow, cardTextColor),
-            textAlign: 'center',
+            ...transcriptStyle,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -254,9 +241,9 @@ export const StudyCardSpeech = React.memo(({
           }}>
             <span>{recognizedText}</span>
             {speechSuccess ? (
-              <Check size={24} color="#10b981" style={{ flexShrink: 0 }} />
+              <Check size={24} color="var(--design-correct-color, #10b981)" style={{ flexShrink: 0 }} />
             ) : (!isListening ? (
-              <AlertCircle size={24} color="#f43f5e" style={{ flexShrink: 0 }} />
+              <AlertCircle size={24} color="var(--design-wrong-color, #f43f5e)" style={{ flexShrink: 0 }} />
             ) : null)}
           </div>
         </div>

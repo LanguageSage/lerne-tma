@@ -1,4 +1,7 @@
 import React, { useState } from 'react';
+import { CardBackground } from '../../../common/CardBackground';
+import { getDesignStylesFromV2 } from '../../../../utils/cardStyles';
+import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { tr } from '../../../../i18n/locale';
 import { TypographyControls } from '../controls/TypographyControls';
 import { SurfaceControls } from '../controls/SurfaceControls';
@@ -10,6 +13,8 @@ import { ExerciseInfoBlocks } from '../../../study/ExerciseInfoBlocks';
 export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('mainText'); // 'mainText' | 'card' | 'infoBlocks'
   const front = config?.front || {};
+  const fallbackBackground = useSettingsStore(s => s.cardBgFront);
+  const textStyles = getDesignStylesFromV2(config);
 
   // Mock content for live preview
   const previewInfoContent = {
@@ -25,7 +30,8 @@ export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
     <div className="front-design-section">
       {/* Live Preview of Front Card */}
       <DesignPreviewScope>
-        <div style={{
+        <div className="card-front" style={{
+          overflow: 'hidden', isolation: 'isolate',
           background: 'linear-gradient(145deg, #25263f, #111b30)',
           border: 'var(--design-front-card-bw, 1px) solid var(--design-front-card-border, rgba(196,181,253,0.3))',
           borderRadius: 'var(--design-front-card-radius, 20px)',
@@ -35,21 +41,18 @@ export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
           minHeight: '140px',
           position: 'relative'
         }}>
+          <CardBackground background={front.card?.background} styleType={fallbackBackground} cardId={1} />
+          <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Information blocks preview */}
           <ExerciseInfoBlocks content={previewInfoContent} />
 
           {/* Main Card Text */}
           <div style={{
-            fontFamily: 'var(--design-front-font)',
-            fontSize: 'var(--design-front-font-size)',
-            fontWeight: 'var(--design-front-weight)',
-            fontStyle: 'var(--design-front-style)',
-            color: 'var(--design-front-color)',
-            textAlign: 'var(--design-front-align)',
-            lineHeight: 'var(--design-front-lh)',
+            ...textStyles?.frontText,
             margin: '14px 0'
           }}>
             Ich interessiere mich sehr für diese Stelle.
+          </div>
           </div>
         </div>
       </DesignPreviewScope>

@@ -286,3 +286,14 @@ DesignPreviewScope вместо собственного JSX вариантов/
 включая порталы меню и перетаскиваемого слова внутри scoped draft. Поля Trainer
 в editor preview защищены от общих стилей формы. Parsing/source/save не менялись.
 Контракт и проверки: [этап 2B](../../docs/DESIGN_V2_STAGE2B_PUZZLE_TRAINER.md).
+
+### Design V2: общие фоны и текстовые роли (этап 2C)
+
+`CardBackground` — единый renderer для StudyCard, TrainerView, CardForm и
+настроек. `front.card.background`/`back.card.background` поддерживают прежние
+темы и CSS-цвет/градиент; пустое значение сохраняет личный фон до миграции.
+CardForm применяет V2 answer/context к своим текстовым полям, CardList и
+предпросмотры используют общий `getDesignTextStyle`, включая lineHeight/shadow.
+Неиспользуемые отдельные TypographyPreview/CardListPreview удалены.
+Исходник и сохранение карточек не менялись. Контракт и ограничения:
+[этап 2C](../../docs/DESIGN_V2_STAGE2C_RUNTIME.md).

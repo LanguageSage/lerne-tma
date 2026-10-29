@@ -106,10 +106,9 @@ export function migrateLegacyDesignSettings(flat) {
   // 1. back.referenceText должна совпадать с front.mainText (в V1 нет разделения)
   v2.back.referenceText = { ...v2.front.mainText };
 
-  // 2. cardBgFront/cardBgBack — эти поля управляют CardBackground styleType,
-  //    не являются CSS-цветами. Сохраняем в global для возможного использования.
-  if (flat.cardBgFront) v2.global._legacyBgFront = flat.cardBgFront;
-  if (flat.cardBgBack)  v2.global._legacyBgBack  = flat.cardBgBack;
+  // Backgrounds now belong to V2 and survive normalization/preset application.
+  if (flat.cardBgFront) v2.front.card.background = flat.cardBgFront;
+  if (flat.cardBgBack) v2.back.card.background = flat.cardBgBack;
 
   // 3. previewCardBg → cardList.card.bg
   if (flat.previewCardBg) {
@@ -117,7 +116,7 @@ export function migrateLegacyDesignSettings(flat) {
     v2.cardList.card.bg = flat.previewCardBg;
   }
 
-  // Финальная нормализация (убирает _legacy* ключи, заполняет пропуски)
+  // Финальная нормализация (проверяет фон и заполняет пропуски)
   return normalizeDesignConfig(v2);
 }
 
@@ -144,8 +143,5 @@ export function adaptDesignPresetsToV2(presets) {
     id: preset.id,
     name: preset.name,
     configV2: legacyPresetToDesignConfigV2(preset),
-    // Сохраняем legacy bgFront/bgBack для CardBackground совместимости
-    legacyBgFront: preset.settings?.cardBgFront,
-    legacyBgBack:  preset.settings?.cardBgBack,
   }));
 }

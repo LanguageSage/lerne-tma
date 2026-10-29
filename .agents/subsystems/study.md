@@ -210,3 +210,16 @@ V1 helpers доступны только при отсутствии V2. Оце�
 получают scoped tokens без изменения root. Отдельный TrainerView также читает V2.
 Контракт, временный fallback и проверки: [этап 2B](../../docs/DESIGN_V2_STAGE2B_PUZZLE_TRAINER.md),
 `scripts/tests/browser/puzzle-trainer-design.spec.cjs`.
+
+## Design V2: речь, фоны и текстовые эффекты (этап 2C)
+
+`StudyCardSpeech` получает effective V2 по прежнему контракту; основной текст
+и transcript используют `front.mainText`. Feedback берёт существующие
+семантические токены. Смена дизайна сохраняет ответ, review и микрофон.
+Фоны обеих физических сторон StudyCard/TrainerView и preview рисует общий
+`CardBackground`; пустое V2-значение временно сохраняет прежний личный фон.
+Общий text helper применяет shadow и вычисляет auto context из answer color;
+свечение следует фактическому цвету семантического состояния через currentColor.
+Учебная политика, ASR, SRS и хранилища не мигрировались.
+Контракт и проверки: [этап 2C](../../docs/DESIGN_V2_STAGE2C_RUNTIME.md),
+`scripts/tests/browser/design-runtime-v2.spec.cjs`.
