@@ -137,7 +137,7 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
       <span className="sub-label">{tr('Предпросмотр (Лицевая сторона)')}</span>
       <fieldset disabled className="card-front-preview" aria-label={tr('Предпросмотр (Лицевая сторона)')}>
         {!value.trim() ? <p className="card-editor-hint">{tr('Здесь появится предпросмотр карточки.')}</p>
-          : exerciseType ? <ExerciseRenderer key={value + card.back} card={previewCard} styles={styles} />
+          : exerciseType ? <ExerciseRenderer key={value + card.back} card={previewCard} styles={styles} designConfig={effectiveConfig} />
             : <CardFrontContent content={parseExerciseContent(value)} textStyle={previewTextStyle} />}
       </fieldset>
     </div>}

@@ -1,4 +1,5 @@
 import React, { useMemo } from 'react';
+import { useSettingsStore } from '../../store/useSettingsStore.js';
 import { parseClozeData } from '../../utils/clozeParser.js';
 import { parseQuizData } from '../../utils/quizParser.js';
 import { parseMatchData } from '../../utils/matchParser.js';
@@ -37,6 +38,7 @@ export const ExerciseRenderer = React.memo(({
   renderAudioPlayer,
   playAudio,
   styles = {},
+  designConfig,
   savedState,
   onSaveState,
   footerActionTarget,
@@ -44,6 +46,11 @@ export const ExerciseRenderer = React.memo(({
   reviewKey,
   assessmentMode = false
 }) => {
+  // Standalone trainer callers use the effective app design; scoped previews
+  // explicitly supply their draft (null intentionally selects V1 fallback).
+  const activeDesign = useSettingsStore(state => state.isLocalDesignPreviewActive && state.adminDraftDesignV2
+    ? state.adminDraftDesignV2 : state.publishedDesignV2?.config);
+  const effectiveDesign = designConfig === undefined ? activeDesign : designConfig;
   const content = useMemo(() => {
     return parseExerciseContent(card?.front || card?.front_text || '');
   }, [card?.front, card?.front_text]);
@@ -148,6 +155,7 @@ export const ExerciseRenderer = React.memo(({
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           matchData={matchData}
+          designConfig={effectiveDesign}
           onFlip={onFlip}
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
@@ -205,6 +213,7 @@ export const ExerciseRenderer = React.memo(({
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           quizData={quizData}
+          designConfig={effectiveDesign}
           isFlipped={isFlipped}
           setIsFlipped={onFlip}
           onFlip={onFlip}

@@ -171,3 +171,21 @@ Session completion accuracy uses actual reviewsCount/correctCount/mistakeCount o
 матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
 Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
 сохранить блокировку production-сервисов и загрузки `.env`.
+
+
+## Design V2: Quiz и Match (этап 1)
+
+Основной текст Quiz/prompt Match и типографика вариантов/обеих колонок используют
+`front.mainText` через существующий `getDesignStylesFromV2`. Цвета вариантов
+приходят отдельно из `exercises.choice`/`exercises.match`; feedback применяется
+после типографики и не затирается V1 inline-цветами. `ExerciseRenderer.designConfig`
+переопределяет effective app design для scoped preview; без prop renderer читает
+активный local draft либо published config. При отсутствии V2 работают прежние
+V1 helpers. Состояния Match normal/correct соответствуют `item`/`matched`;
+правильная заблокированная пара остаётся matched. Нормализатор дополняет старый
+V2 JSON состоянием match.disabled, без миграции сохранённого дизайна.
+
+Адресные проверки: `app/src/design/__tests__/designTokens.test.js`,
+`scripts/tests/browser/quiz-match-design.spec.cjs`; прежний feedback suite сохранён.
+Результаты, preview contract и оставшиеся зависимости от Legacy:
+[DESIGN_V2_STAGE1_QUIZ_MATCH](../../docs/DESIGN_V2_STAGE1_QUIZ_MATCH.md).

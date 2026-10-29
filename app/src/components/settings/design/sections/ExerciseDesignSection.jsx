@@ -4,9 +4,16 @@ import { ColorControl } from '../controls/ColorControl';
 import { SliderControl } from '../controls/SliderControl';
 import { DesignPreviewScope } from '../DesignPreviewScope';
 import { FONT_OPTIONS } from '../designConstants';
+import { ExerciseRenderer } from '../../../study/ExerciseRenderer.jsx';
+
+const PREVIEW_CARDS = {
+  quiz: { id: 'design-quiz', front: 'Welche Antwort passt?\n\n- Gestern\n* Heute\n- Morgen', back: '' },
+  match: { id: 'design-match', front: '@match\ndie Katze => кошка\nder Hund => собака\nder Vogel => птица', back: '' },
+};
 
 export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
   const [previewType, setPreviewType] = useState('quiz'); // 'quiz' | 'cloze' | 'match' | 'wordBank'
+  const [previewRevision, setPreviewRevision] = useState(0);
   const [subTab, setSubTab] = useState('palette'); // 'palette' | 'choice' | 'cloze' | 'match' | 'wordBank'
   const ex = config?.exercises || {};
   const isAutoPalette = ex.paletteMode === 'auto';
@@ -24,7 +31,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           boxShadow: '0 16px 32px -16px rgba(0,0,0,0.65)'
         }}>
           {/* Switch preview mode */}
-          <div style={{ display: 'flex', gap: '6px', marginBottom: '14px' }}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px' }}>
             {['quiz', 'cloze', 'match', 'wordBank'].map(type => (
               <button
                 key={type}
@@ -41,51 +48,13 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
             ))}
           </div>
 
-          {/* Quiz Preview */}
-          {previewType === 'quiz' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: '1px solid var(--design-choice-normal-border, rgba(255,255,255,0.12))',
-                background: 'var(--design-choice-normal-bg, rgba(15,23,42,0.55))',
-                color: 'var(--design-choice-normal-color, #e2e8f0)',
-                fontSize: '0.9rem'
-              }}>
-                A) Обычный вариант ответа (normal)
-              </div>
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: '1px solid var(--design-choice-selected-border, rgba(167,139,250,0.35))',
-                background: 'var(--design-choice-selected-bg, rgba(167,139,250,0.18))',
-                color: 'var(--design-choice-selected-color, #a78bfa)',
-                fontSize: '0.9rem'
-              }}>
-                B) Выбранный вариант (selected)
-              </div>
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: '1px solid var(--design-choice-correct-border, rgba(34,197,94,0.35))',
-                background: 'var(--design-choice-correct-bg, rgba(34,197,94,0.18))',
-                color: 'var(--design-choice-correct-color, #4ade80)',
-                fontSize: '0.9rem'
-              }}>
-                C) Правильный ответ (correct) ✓
-              </div>
-              <div style={{
-                padding: '10px 14px',
-                borderRadius: '10px',
-                border: '1px solid var(--design-choice-wrong-border, rgba(239,68,68,0.35))',
-                background: 'var(--design-choice-wrong-bg, rgba(239,68,68,0.18))',
-                color: 'var(--design-choice-wrong-color, #f87171)',
-                fontSize: '0.9rem'
-              }}>
-                D) Неверный ответ (wrong) ✕
-              </div>
-            </div>
-          )}
+          {/* Use the real renderer in the existing preview surface. */}
+          {['quiz', 'match'].includes(previewType) && <>
+            <ExerciseRenderer key={`${previewType}:${previewRevision}`}
+              card={PREVIEW_CARDS[previewType]} designConfig={config} />
+            <button type="button" className="btn-secondary btn-tiny"
+              onClick={() => setPreviewRevision(value => value + 1)}>{tr('Сбросить')}</button>
+          </>}
 
           {/* Cloze Preview */}
           {previewType === 'cloze' && (
@@ -118,28 +87,6 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
             </div>
           )}
 
-          {/* Match Preview */}
-          {previewType === 'match' && (
-            <div style={{ display: 'flex', gap: '10px' }}>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--design-match-selected-bg, rgba(167,139,250,0.18))', border: '1px solid #a78bfa', color: '#a78bfa', fontSize: '0.85rem' }}>
-                  die Katze (selected)
-                </div>
-                <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--design-match-matched-bg, rgba(34,197,94,0.15))', border: '1px solid #22c55e', color: '#4ade80', fontSize: '0.85rem' }}>
-                  der Hund (matched)
-                </div>
-              </div>
-              <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: '6px' }}>
-                <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--design-match-item-bg, rgba(255,255,255,0.06))', border: '1px solid rgba(255,255,255,0.12)', color: '#e2e8f0', fontSize: '0.85rem' }}>
-                  кошка
-                </div>
-                <div style={{ padding: '8px 10px', borderRadius: '8px', background: 'var(--design-match-matched-bg, rgba(34,197,94,0.15))', border: '1px solid #22c55e', color: '#4ade80', fontSize: '0.85rem' }}>
-                  собака
-                </div>
-              </div>
-            </div>
-          )}
-
           {/* Word Bank Preview */}
           {previewType === 'wordBank' && (
             <div style={{
@@ -166,7 +113,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
       </DesignPreviewScope>
 
       {/* Sub tabs */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '16px', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '8px' }}>
         <button
           type="button"
           className={`btn-secondary btn-tiny ${subTab === 'palette' ? 'active' : ''}`}
@@ -199,6 +146,9 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         >
           {tr('Меню')}
         </button>
+        <button type="button" className={`btn-secondary btn-tiny ${subTab === 'match' ? 'active' : ''}`}
+          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
+          onClick={() => setSubTab('match')}>{tr('Пары')}</button>
       </div>
 
       {/* Palette Mode */}
@@ -233,50 +183,21 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
         </div>
       )}
 
-      {/* Choice States */}
-      {subTab === 'choice' && (
+      {/* Separate exercise-state controls; main typography stays in Front. */}
+      {['choice', 'match'].includes(subTab) && (
         <div>
-          <h4 style={{ fontSize: '0.9rem', color: '#4ade80', margin: '0 0 10px 0' }}>
-            ✓ {tr('Правильный ответ (Correct state)')}
-          </h4>
-          <ColorControl
-            label={tr('Цвет текста')}
-            value={ex.choice?.correct?.color || '#4ade80'}
-            onChange={val => onChangeField('exercises.choice.correct.color', val)}
-          />
-          <ColorControl
-            label={tr('Цвет фона')}
-            value={ex.choice?.correct?.bg || 'rgba(34,197,94,0.18)'}
-            onChange={val => onChangeField('exercises.choice.correct.bg', val)}
-          />
-
-          <h4 style={{ fontSize: '0.9rem', color: '#f87171', margin: '16px 0 10px 0' }}>
-            ✕ {tr('Неверный ответ (Wrong state)')}
-          </h4>
-          <ColorControl
-            label={tr('Цвет текста')}
-            value={ex.choice?.wrong?.color || '#f87171'}
-            onChange={val => onChangeField('exercises.choice.wrong.color', val)}
-          />
-          <ColorControl
-            label={tr('Цвет фона')}
-            value={ex.choice?.wrong?.bg || 'rgba(239,68,68,0.18)'}
-            onChange={val => onChangeField('exercises.choice.wrong.bg', val)}
-          />
-
-          <h4 style={{ fontSize: '0.9rem', color: '#a78bfa', margin: '16px 0 10px 0' }}>
-            ◉ {tr('Выбранный вариант (Selected state)')}
-          </h4>
-          <ColorControl
-            label={tr('Цвет текста')}
-            value={ex.choice?.selected?.color || '#a78bfa'}
-            onChange={val => onChangeField('exercises.choice.selected.color', val)}
-          />
-          <ColorControl
-            label={tr('Цвет фона')}
-            value={ex.choice?.selected?.bg || 'rgba(167,139,250,0.18)'}
-            onChange={val => onChangeField('exercises.choice.selected.bg', val)}
-          />
+          {(subTab === 'choice' ? ['normal', 'selected', 'correct', 'wrong', 'disabled']
+            : ['item', 'selected', 'matched', 'wrong', 'disabled']).map(state => (
+            <fieldset key={state} style={{ border: 0, padding: 0, margin: '0 0 16px' }}>
+              <legend>{state}</legend>
+              <ColorControl label={tr('Цвет текста')} value={ex[subTab][state].color}
+                onChange={value => onChangeField(`exercises.${subTab}.${state}.color`, value)} />
+              <ColorControl label={tr('Цвет фона')} value={ex[subTab][state].bg}
+                onChange={value => onChangeField(`exercises.${subTab}.${state}.bg`, value)} />
+              <ColorControl label={tr('Цвет рамки')} value={ex[subTab][state].borderColor}
+                onChange={value => onChangeField(`exercises.${subTab}.${state}.borderColor`, value)} />
+            </fieldset>
+          ))}
         </div>
       )}
 

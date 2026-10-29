@@ -204,6 +204,7 @@ export function designConfigToCssVariables(config) {
   vars['--design-choice-wrong-border']    = ex.choice.wrong.borderColor;
   vars['--design-choice-disabled-bg']     = ex.choice.disabled.bg;
   vars['--design-choice-disabled-color']  = ex.choice.disabled.color;
+  vars['--design-choice-disabled-border'] = ex.choice.disabled.borderColor;
 
   // Универсальные semantic aliases (используются в cloze, match, word bank)
   vars['--design-correct-bg']     = ex.choice.correct.bg;
@@ -261,10 +262,11 @@ export function designConfigToCssVariables(config) {
   vars['--design-match-item-color']    = ex.match.item.color;
   vars['--design-match-item-border']   = ex.match.item.borderColor;
   vars['--design-match-item-radius']   = ex.match.item.radius;
-  vars['--design-match-selected-bg']   = ex.match.selected.bg;
-  vars['--design-match-matched-bg']    = ex.match.matched.bg;
-  vars['--design-match-matched-color'] = ex.match.matched.color;
-  vars['--design-match-wrong-bg']      = ex.match.wrong.bg;
+  for (const state of ['selected', 'matched', 'wrong', 'disabled']) {
+    vars[`--design-match-${state}-bg`] = ex.match[state].bg;
+    vars[`--design-match-${state}-color`] = ex.match[state].color;
+    vars[`--design-match-${state}-border`] = ex.match[state].borderColor;
+  }
 
   // Puzzle
   vars['--design-puzzle-item-bg']      = ex.puzzle.item.bg;

@@ -526,6 +526,7 @@ export const StudyCard = React.memo(({
                   onNextCard={onNextCard}
                   renderAudioPlayer={renderFrontAudioPlayer}
                   styles={styles}
+                  designConfig={effectiveConfig}
                   savedState={reviewKey ? exerciseStates[reviewKey] : undefined}
                   onSaveState={handleSaveExerciseState}
                   footerActionTarget={exerciseFooterTarget}

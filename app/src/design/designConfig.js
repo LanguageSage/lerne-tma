@@ -296,6 +296,7 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       selected: { bg: 'rgba(168,85,247,0.35)', color: '#ffffff', borderColor: '#a855f7' },
       matched:  { bg: 'rgba(34,197,94,0.22)',   color: '#4ade80', borderColor: '#22c55e' },
       wrong:    { bg: 'rgba(239,68,68,0.22)',    color: '#f87171', borderColor: '#ef4444' },
+      disabled: { bg: 'rgba(255,255,255,0.03)', color: '#475569', borderColor: 'rgba(255,255,255,0.06)' },
     },
 
     /** Puzzle */

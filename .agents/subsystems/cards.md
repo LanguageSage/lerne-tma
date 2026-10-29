@@ -252,3 +252,15 @@ Card-core 0.1.3 keeps 0.1.2 parsing rules and releases LF bytes reproducibly.
 Build/provenance procedure: `api/card_core/README.md`, `scripts/build_card_core.py`.
 The shared synthetic release corpus is `scripts/tests/test_shared_card_regressions.py`;
 Admin runs the same cases against the reviewed wheel. DB contract review remains separate.
+
+
+## Design V2: существующие Quiz/Match preview
+
+`CardContentEditor` передаёт effective V2 config своему прежнему ExerciseRenderer;
+его disabled fieldset сохраняет normal-внешний вид и блокировку взаимодействия.
+`ExerciseDesignSection` переиспользует тот же renderer внутри прежнего
+DesignPreviewScope вместо собственного JSX вариантов/пар. Явный draft config
+позволяет менять preview без применения черновика ко всему приложению.
+Новых preview-поверхностей нет; raw/source и сохранение карточки не менялись.
+Регрессии: `scripts/tests/browser/quiz-match-design.spec.cjs`.
+[Отчёт этапа 1 и Legacy fallback](../../docs/DESIGN_V2_STAGE1_QUIZ_MATCH.md).

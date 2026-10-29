@@ -22,6 +22,7 @@ async function openStudy(page, context, card, locale = 'ru') {
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname === `/api/study/card/${card.id}` || pathname === '/api/decks/1/next') return route.fulfill({ json: card });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     return route.fulfill({ json: {} });
   });
   await page.goto('/?user_id=1');

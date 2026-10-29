@@ -68,3 +68,25 @@ test('local preview tokens can update root properties without server publication
   } finally { globalThis.document = original; }
 });
 
+
+test('Quiz and Match preserve independent text, background and border for every state', () => {
+  const config = normalizeDesignConfig({});
+  const states = ['normal', 'selected', 'correct', 'wrong', 'disabled'];
+  for (const [i, state] of states.entries()) {
+    config.exercises.choice[state] = { color: `#11${i}011`, bg: `#22${i}022`, borderColor: `#33${i}033` };
+    const matchState = state === 'normal' ? 'item' : state === 'correct' ? 'matched' : state;
+    config.exercises.match[matchState] = { color: `#44${i}044`, bg: `#55${i}055`, borderColor: `#66${i}066` };
+  }
+  const vars = designConfigToCssVariables(config);
+  for (const [i, state] of states.entries()) {
+    const matchState = state === 'normal' ? 'item' : state === 'correct' ? 'matched' : state;
+    for (const [prop, digit] of [['color', 1], ['bg', 2], ['border', 3]]) {
+      assert.equal(vars[`--design-choice-${state}-${prop}`], `#${digit}${digit}${i}0${digit}${digit}`);
+      assert.equal(vars[`--design-match-${matchState}-${prop}`], `#${digit+3}${digit+3}${i}0${digit+3}${digit+3}`);
+    }
+  }
+  const oldV2 = normalizeDesignConfig({ schemaVersion: 2, exercises: { match: { item: { color: '#abcdef' } } } });
+  assert.equal(oldV2.exercises.match.item.color, '#abcdef');
+  assert.equal(oldV2.exercises.match.disabled.color, '#475569');
+});
+

@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link2 } from 'lucide-react';
-import { getCardStyle, getContextStyle } from '../../utils/cardStyles.js';
+import { getCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { evaluateMatchPair, matchPartId } from '../../utils/matchEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
@@ -25,6 +25,7 @@ export const StudyCardMatch = React.memo(({
   onNextCard,
   renderAudioPlayer,
   styles = {},
+  designConfig,
   isPureTrainerMode = false,
   savedState,
   onSaveState
@@ -37,8 +38,9 @@ export const StudyCardMatch = React.memo(({
   const [wrongRightId, setWrongRightId] = useState(savedState?.wrongRightId ?? null);
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const isChecked = evaluation.state.completed;
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
-  const contextStyle = useMemo(() => getContextStyle(styles), [styles]);
+  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig)?.frontText, [designConfig]);
+  const cardStyle = useMemo(() => v2Text || getCardStyle(styles), [v2Text, styles]);
+  const contextStyle = useMemo(() => v2Text || getContextStyle(styles), [v2Text, styles]);
   const pairs = useMemo(() => matchData?.pairs || [], [matchData?.pairs]);
   const [shuffledRight] = useState(() => {
     if (savedState?.shuffledRight?.length) return savedState.shuffledRight;
@@ -100,7 +102,7 @@ export const StudyCardMatch = React.memo(({
 
   return (
     <div
-      className="interactive-mode-container"
+      className="interactive-mode-container match-container"
       onClick={e => e.stopPropagation()}
       style={{
         cursor: 'default',
@@ -125,7 +127,7 @@ export const StudyCardMatch = React.memo(({
           <span>{tr("Сопоставьте части предложений:")}</span>
         </div>
         {matchData.prompt && (
-          <div style={{ fontSize: '0.85rem', color: '#cbd5e1', ...cardStyle, opacity: 0.9 }}>
+          <div className="match-prompt" style={{ fontSize: '0.85rem', color: '#cbd5e1', ...cardStyle }}>
             {matchData.prompt}
           </div>
         )}
@@ -140,7 +142,7 @@ export const StudyCardMatch = React.memo(({
       {/* Two Columns Grid for Pairs */}
       <div style={{
         display: 'grid',
-        gridTemplateColumns: '1fr 1fr',
+        gridTemplateColumns: 'minmax(0, 1fr) minmax(0, 1fr)',
         gap: '10px',
         width: '100%',
         marginBottom: '16px'
@@ -162,22 +164,28 @@ export const StudyCardMatch = React.memo(({
 
             if (isCorrect || isWrong) {
               if (isCorrect) {
-                border = '2px solid var(--design-correct-border, #22c55e)';
+                border = '2px solid var(--design-match-matched-border, var(--design-correct-border, #22c55e))';
                 bg = 'var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
                 textColor = 'var(--design-match-matched-color, var(--design-correct-color, #4ade80))';
               } else if (isWrong) {
-                border = '2px solid var(--design-wrong-border, #ef4444)';
+                border = '2px solid var(--design-match-wrong-border, var(--design-wrong-border, #ef4444))';
                 bg = 'var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
-                textColor = 'var(--design-wrong-color, #f87171)';
+                textColor = 'var(--design-match-wrong-color, var(--design-wrong-color, #f87171))';
               }
             } else if (isSelected) {
-              border = '2px solid var(--design-selected-border, #a855f7)';
+              border = '2px solid var(--design-match-selected-border, var(--design-selected-border, #a855f7))';
               bg = 'var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, 0.35)))';
-              textColor = 'var(--design-selected-color, #ffffff)';
+              textColor = 'var(--design-match-selected-color, var(--design-selected-color, #ffffff))';
+            } else if (isChecked) {
+              border = '1.5px solid var(--design-match-disabled-border, rgba(255,255,255,0.06))';
+              bg = 'var(--design-match-disabled-bg, rgba(255,255,255,0.03))';
+              textColor = 'var(--design-match-disabled-color, #475569)';
             }
 
             return (
               <motion.button
+                className="match-item match-item-left"
+                data-design-state={isCorrect ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : isChecked ? 'disabled' : 'normal'}
                 key={`left-${p.id}`}
                 type="button"
                 whileTap={!isChecked && !isMatched ? { scale: 0.97 } : undefined}
@@ -197,14 +205,16 @@ export const StudyCardMatch = React.memo(({
                   borderRadius: 'var(--design-match-item-radius, 12px)',
                   border,
                   background: bg,
-                  color: textColor,
                   fontSize: '0.86rem',
                   fontWeight: 600,
                   textAlign: 'left',
+                  ...cardStyle,
+                  color: !v2Text && !isCorrect && !isWrong && !isSelected && !isChecked
+                    ? (cardStyle.color || textColor) : textColor,
+                  minWidth: 0,
                   cursor: isChecked || isMatched ? 'default' : 'pointer',
                   position: 'relative',
-                  transition: 'all 0.15s ease',
-                  ...cardStyle
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
@@ -225,7 +235,7 @@ export const StudyCardMatch = React.memo(({
                       {p.id + 1}
                     </span>
                   )}
-                  <span style={{ flex: 1, wordBreak: 'break-word' }}>{p.left}</span>
+                  <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{p.left}</span>
                 </div>
                 {feedback?.hint && <span id={`match-hint-${p.id}`} className="exercise-part-hint" role="status">{tr(feedback.hint)}</span>}
               </motion.button>
@@ -251,22 +261,28 @@ export const StudyCardMatch = React.memo(({
 
             if (isCorrect || isWrong) {
               if (isCorrect) {
-                border = '2px solid var(--design-correct-border, #22c55e)';
+                border = '2px solid var(--design-match-matched-border, var(--design-correct-border, #22c55e))';
                 bg = 'var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
                 textColor = 'var(--design-match-matched-color, var(--design-correct-color, #4ade80))';
               } else if (isWrong) {
-                border = '2px solid var(--design-wrong-border, #ef4444)';
+                border = '2px solid var(--design-match-wrong-border, var(--design-wrong-border, #ef4444))';
                 bg = 'var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
-                textColor = 'var(--design-wrong-color, #f87171)';
+                textColor = 'var(--design-match-wrong-color, var(--design-wrong-color, #f87171))';
               }
             } else if (isSelected) {
-              border = '2px solid var(--design-selected-border, #a855f7)';
+              border = '2px solid var(--design-match-selected-border, var(--design-selected-border, #a855f7))';
               bg = 'var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, 0.35)))';
-              textColor = 'var(--design-selected-color, #ffffff)';
+              textColor = 'var(--design-match-selected-color, var(--design-selected-color, #ffffff))';
+            } else if (isChecked) {
+              border = '1.5px solid var(--design-match-disabled-border, rgba(255,255,255,0.06))';
+              bg = 'var(--design-match-disabled-bg, rgba(255,255,255,0.03))';
+              textColor = 'var(--design-match-disabled-color, #475569)';
             }
 
             return (
               <motion.button
+                className="match-item match-item-right"
+                data-design-state={isCorrect ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : isChecked ? 'disabled' : 'normal'}
                 key={`right-${r.originalPairId}-${i}`}
                 type="button"
                 whileTap={!isChecked && !isMatched ? { scale: 0.97 } : undefined}
@@ -284,14 +300,16 @@ export const StudyCardMatch = React.memo(({
                   borderRadius: 'var(--design-match-item-radius, 12px)',
                   border,
                   background: bg,
-                  color: textColor,
                   fontSize: '0.86rem',
                   fontWeight: 600,
                   textAlign: 'left',
+                  ...contextStyle,
+                  color: !v2Text && !isCorrect && !isWrong && !isSelected && !isChecked
+                    ? (contextStyle.color || textColor) : textColor,
+                  minWidth: 0,
                   cursor: isChecked || isMatched ? 'default' : 'pointer',
                   position: 'relative',
-                  transition: 'all 0.15s ease',
-                  ...contextStyle
+                  transition: 'all 0.15s ease'
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
@@ -312,7 +330,7 @@ export const StudyCardMatch = React.memo(({
                       {leftIdNum + 1}
                     </span>
                   )}
-                  <span style={{ flex: 1, wordBreak: 'break-word' }}>{r.text}</span>
+                  <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{r.text}</span>
                 </div>
               </motion.button>
             );

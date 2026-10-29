@@ -31,6 +31,7 @@ async function setup(page, context, locale = 'ru') {
     }
     if (pathname === '/api/decks' || pathname === '/api/folders' || pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     return route.fulfill({ json: {} });
   });
   await page.goto('/');

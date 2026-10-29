@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
-import { getCardStyle, getHarmonizedOptionStyles } from '../../utils/cardStyles';
+import { getCardStyle, getDesignStylesFromV2, getHarmonizedOptionStyles } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { evaluateQuizOption, quizPartId } from '../../utils/quizEvaluation.js';
@@ -14,6 +14,7 @@ export const StudyCardQuiz = ({
   onTrainerAnswer,
   renderAudioPlayer,
   styles = {},
+  designConfig,
   savedState,
   onSaveState
 }) => {
@@ -24,8 +25,9 @@ export const StudyCardQuiz = ({
   const [optionOrder] = useState(() => savedState?.optionOrder || quizData.options.map(option => option.id));
   const options = useMemo(() => optionOrder.map(id => quizData.options.find(option => option.id === id)).filter(Boolean), [optionOrder, quizData.options]);
 
-  const cardStyle = useMemo(() => getCardStyle(styles), [styles]);
-  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(styles?.cardTextColor), [styles?.cardTextColor]);
+  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig)?.frontText, [designConfig]);
+  const cardStyle = useMemo(() => v2Text || getCardStyle(styles), [v2Text, styles]);
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(designConfig?.exercises?.baseColor || styles?.cardTextColor), [designConfig?.exercises?.baseColor, styles?.cardTextColor]);
 
   useEffect(() => {
     onSaveState?.({ selectedOptionId, optionOrder, evaluationState: evaluation.state });
@@ -86,7 +88,8 @@ export const StudyCardQuiz = ({
             textAlign: (styles?.cardTextAlign && styles.cardTextAlign !== 'center') ? styles.cardTextAlign : 'left',
             marginBottom: renderAudioPlayer ? '12px' : '0',
             width: '100%',
-            whiteSpace: 'pre-wrap'
+            whiteSpace: 'pre-wrap',
+            ...v2Text
           }}>
             {cleanDisplayQuestion}
           </div>
@@ -144,6 +147,7 @@ export const StudyCardQuiz = ({
           } else if (disabled) {
             bg = 'var(--design-choice-disabled-bg, rgba(255, 255, 255, 0.03))';
             textColor = 'var(--design-choice-disabled-color, #475569)';
+            borderColor = 'var(--design-choice-disabled-border, rgba(255, 255, 255, 0.06))';
           }
 
           return (
@@ -156,6 +160,7 @@ export const StudyCardQuiz = ({
                 aria-pressed={isSelected}
                 aria-invalid={isWrong}
                 aria-describedby={isWrong ? `quiz-hint-${option.id}` : undefined}
+                data-design-state={isConfirmed ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : disabled ? 'disabled' : 'normal'}
                 data-part-id={quizPartId(option.id)}
                 style={{
                   display: 'flex',
@@ -207,11 +212,13 @@ export const StudyCardQuiz = ({
 
                 {/* Option Text */}
                 <span style={{
+                  ...v2Text,
                   flex: 1,
+                  minWidth: 0,
                   wordBreak: 'break-word',
-                  fontSize: '1.2rem',
-                  lineHeight: 1.45,
-                  fontWeight: isSelected ? 600 : 400,
+                  fontSize: v2Text?.fontSize || '1.2rem',
+                  lineHeight: v2Text?.lineHeight || 1.45,
+                  fontWeight: v2Text?.fontWeight || (isSelected ? 600 : 400),
                   color: textColor,
                   letterSpacing: '0.01em',
                 }}>
@@ -265,9 +272,9 @@ export const StudyCardQuiz = ({
         <div style={{
           padding: '12px 16px',
           borderRadius: '10px',
-          background: 'rgba(34, 197, 94, 0.18)',
-          border: '1.5px solid #22c55e',
-          color: '#4ade80',
+          background: 'var(--design-choice-correct-bg, rgba(34, 197, 94, 0.18))',
+          border: '1.5px solid var(--design-choice-correct-border, #22c55e)',
+          color: 'var(--design-choice-correct-color, #4ade80)',
           fontSize: '0.92rem',
           fontWeight: 600,
           textAlign: 'center',
