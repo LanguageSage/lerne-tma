@@ -4,12 +4,11 @@ import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from '.
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
-let pendingFetchCardsPromise = null;
-let pendingFetchCardsDeckId = null;
 
 export const createDeckSlice = (set, get) => {
   const pendingLoads = new Map();
   const pendingLearning = new Map();
+  let pendingFetchCards = null;
   return ({
   libraryRequestId: 0,
   getPendingLibraryLoad: (kind) => {
@@ -164,11 +163,15 @@ export const createDeckSlice = (set, get) => {
   },
 
   fetchDeckCards: async (deckId, attempts = 3, forceLoading = false) => {
-    if (pendingFetchCardsDeckId === deckId && pendingFetchCardsPromise) {
-      return pendingFetchCardsPromise;
+    if (pendingFetchCards?.deckId === deckId && pendingFetchCards.isCurrent()) {
+      return pendingFetchCards.promise;
     }
 
     const state = get();
+    const account = getUserId();
+    const requestId = state.libraryRequestId;
+    const isCurrent = () => account === getUserId() && requestId === get().libraryRequestId;
+    const entry = { deckId, isCurrent };
     const isSameDeck = state.currentDeck?.id === deckId;
     const cached = state.cardsByDeck[deckId];
     const hasCards = (isSameDeck && state.deckCards && state.deckCards.length > 0) || (cached && cached.length > 0);
@@ -181,9 +184,11 @@ export const createDeckSlice = (set, get) => {
       try {
         let lastError;
         for (let attempt = 1; attempt <= attempts; attempt++) {
+          if (!isCurrent()) return;
           try {
             const endpoint = `/decks/${deckId}/cards`;
             const res = await api.get(endpoint);
+            if (!isCurrent()) return;
             const newCards = res.data || [];
             set((prev) => ({
               deckCards: prev.currentDeck?.id === deckId ? newCards : prev.deckCards,
@@ -194,6 +199,7 @@ export const createDeckSlice = (set, get) => {
             }));
             return newCards;
           } catch (err) {
+            if (!isCurrent()) return;
             lastError = err;
             if (attempt < attempts) {
               await new Promise(r => setTimeout(r, 150 * attempt));
@@ -203,16 +209,16 @@ export const createDeckSlice = (set, get) => {
         console.error('Fetch Deck Cards Error after retries:', lastError);
         throw lastError;
       } finally {
-        if (pendingFetchCardsDeckId === deckId) {
-          pendingFetchCardsPromise = null;
-          pendingFetchCardsDeckId = null;
+        // An obsolete request must not release a newer request or its loader.
+        if (pendingFetchCards === entry) {
+          pendingFetchCards = null;
+          if (isCurrent()) set({ cardsLoading: false });
         }
-        set({ cardsLoading: false });
       }
     })();
 
-    pendingFetchCardsPromise = fetchPromise;
-    pendingFetchCardsDeckId = deckId;
+    entry.promise = fetchPromise;
+    pendingFetchCards = entry;
 
     return fetchPromise;
   },

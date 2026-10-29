@@ -75,6 +75,43 @@ test('offline save-only grade keeps its atomic progress and durable review event
   expect(saved.reviews[0].rating).toBe(2);
 });
 
+test('offline deck card reload remains account-isolated and usable for scheduled study', async ({ page, context }) => {
+  await harness(page, context);
+  await context.setOffline(true);
+  const result = await page.evaluate(async () => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const deck = (await api.post('/decks', { name: 'Synthetic offline deck', target_language: 'de' })).data;
+    const card = (await api.post('/cards/save', { deck_id: deck.id, front: 'Synthetic front', back: 'Synthetic back' })).data;
+    useDeckStore.getState().setCurrentDeck(deck);
+    const first = await useDeckStore.getState().fetchDeckCards(deck.id);
+    const next = (await api.get(`/decks/${deck.id}/next`)).data;
+    await api.post('/cards/save', { ...card, front: 'Updated synthetic front' });
+    const reload = await useDeckStore.getState().fetchDeckCards(deck.id);
+    const selected = useDeckStore.getState().deckCards;
+    const cached = useDeckStore.getState().cardsByDeck[deck.id];
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 2, is_guest: false }));
+    useDeckStore.getState().resetDeckStore();
+    await getDb().decks.put({ id: deck.id, name: 'Other synthetic deck', target_language: 'de' });
+    await useDeckStore.getState().fetchDeckCards(deck.id);
+    const other = useDeckStore.getState().cardsByDeck[deck.id];
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    useDeckStore.getState().resetDeckStore();
+    useDeckStore.getState().setCurrentDeck(deck);
+    await useDeckStore.getState().fetchDeckCards(deck.id);
+    return { cardId: card.id, first, next, reload, selected, cached, other,
+      restored: useDeckStore.getState().deckCards, loading: useDeckStore.getState().cardsLoading };
+  });
+  expect(result.first).toHaveLength(1);
+  expect(result.first[0].id).toBe(result.cardId);
+  expect(result.next.id).toBe(result.cardId);
+  expect(result.reload[0].front).toBe('Updated synthetic front');
+  expect(result.selected).toEqual(result.reload);
+  expect(result.cached).toEqual(result.reload);
+  expect(result.other).toEqual([]);
+  expect(result.restored).toEqual(result.reload);
+  expect(result.loading).toBe(false);
+});
+
 test('offline CRUD, due scheduling, restart and persistent progress', async ({ page, context }) => {
   await harness(page, context);
   await context.setOffline(true);

@@ -111,6 +111,139 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+test('card response after an account switch cannot change any new-account state', async () => {
+  const f = fixture(), old = deferred();
+  f.request = () => old.promise;
+  const request = f.store.getState().fetchDeckCards(1);
+  f.userId = 202;
+  f.store.getState().resetDeckStore();
+  f.store.getState().setCurrentDeck({ id: 1 });
+  f.store.getState().setDeckCards([{ id: 202 }]);
+  f.store.setState({ cardsLoading: true });
+  const before = f.store.getState();
+  old.resolve({ data: [{ id: 101 }] });
+  assert.equal(await request, undefined);
+  assert.equal(f.store.getState(), before);
+});
+
+test('card requests do not deduplicate across accounts even before a store reset', async () => {
+  const f = fixture(), old = deferred(), next = deferred(), calls = [];
+  f.request = path => { calls.push(path); return calls.length === 1 ? old.promise : next.promise; };
+  const first = f.store.getState().fetchDeckCards(1);
+  f.userId = 202;
+  const second = f.store.getState().fetchDeckCards(1);
+  assert.equal(calls.length, 2);
+  next.resolve({ data: [{ id: 202 }] });
+  await second;
+  const before = f.store.getState();
+  old.resolve({ data: [{ id: 101 }] });
+  await first;
+  assert.equal(f.store.getState(), before);
+  assert.equal(f.store.getState().cardsByDeck[1][0].id, 202);
+});
+
+for (const outcome of ['success', 'failure']) {
+  test(`same-account reset retires card ${outcome} without clearing the new request or its loader`, async () => {
+    const f = fixture(), old = deferred(), next = deferred(), calls = [];
+    f.request = path => { calls.push(path); return calls.length === 1 ? old.promise : next.promise; };
+    const first = f.store.getState().fetchDeckCards(1);
+    f.store.getState().resetDeckStore();
+    f.store.getState().setCurrentDeck({ id: 1 });
+    const second = f.store.getState().fetchDeckCards(1);
+    assert.equal(calls.length, 2);
+    const before = f.store.getState();
+    if (outcome === 'success') old.resolve({ data: [{ id: 101 }] });
+    else old.reject(new Error('Obsolete card failure'));
+    assert.equal(await first, undefined);
+    assert.equal(f.store.getState(), before);
+    assert.equal(f.store.getState().cardsLoading, true);
+    const duplicate = f.store.getState().fetchDeckCards(1);
+    assert.equal(calls.length, 2);
+    const cards = [{ id: 202 }];
+    next.resolve({ data: cards });
+    assert.equal(await second, cards);
+    assert.equal(await duplicate, cards);
+    assert.equal(f.store.getState().deckCards, cards);
+    assert.equal(f.store.getState().cardsLoading, false);
+    f.request = async () => ({ data: [] });
+    await f.store.getState().fetchDeckCards(1);
+    assert.equal(f.store.getState().deckCards.length, 0);
+    assert.equal(f.store.getState().cardsByDeck[1].length, 0);
+  });
+}
+
+test('account switch during card retry backoff prevents another API request', async () => {
+  const f = fixture(), backoff = deferred();
+  let calls = 0, resume;
+  f.context.setTimeout = callback => { resume = callback; backoff.resolve(); };
+  f.request = async () => { calls++; throw new Error('Temporary card failure'); };
+  const request = f.store.getState().fetchDeckCards(1);
+  await backoff.promise;
+  f.userId = 202;
+  f.store.getState().resetDeckStore();
+  const before = f.store.getState();
+  resume();
+  assert.equal(await request, undefined);
+  assert.equal(calls, 1);
+  assert.equal(f.store.getState(), before);
+});
+
+test('current card requests deduplicate, retry and allow a fresh load after completion', async () => {
+  const f = fixture(), gate = deferred(), calls = [];
+  f.store.getState().setCurrentDeck({ id: 1 });
+  f.request = path => { calls.push(path); return gate.promise; };
+  const first = f.store.getState().fetchDeckCards(1), second = f.store.getState().fetchDeckCards(1);
+  assert.deepEqual(calls, ['/decks/1/cards']);
+  const cards = [{ id: 11 }];
+  gate.resolve({ data: cards });
+  assert.equal(await first, cards);
+  assert.equal(await second, cards);
+  assert.equal(f.store.getState().deckCards, cards);
+  f.context.setTimeout = callback => callback();
+  let retries = 0;
+  const fresh = [{ id: 12 }];
+  f.request = async () => {
+    if (++retries === 1) throw new Error('Retryable');
+    return { data: fresh };
+  };
+  assert.equal(await f.store.getState().fetchDeckCards(1), fresh);
+  assert.equal(retries, 2);
+  assert.equal(f.store.getState().deckCards, fresh);
+  assert.equal(f.store.getState().cardsByDeck[1], fresh);
+});
+
+test('current card failure preserves cached cards, clears loading and permits retry', async () => {
+  const f = fixture(), cards = [{ id: 11 }], error = new Error('Cards unavailable');
+  f.store.getState().setCurrentDeck({ id: 1 });
+  f.store.getState().setDeckCards(cards);
+  f.request = async () => { throw error; };
+  await assert.rejects(f.store.getState().fetchDeckCards(1, 1, true), error);
+  assert.equal(f.store.getState().deckCards, cards);
+  assert.equal(f.store.getState().cardsByDeck[1], cards);
+  assert.equal(f.store.getState().cardsLoading, false);
+  f.request = async () => ({ data: [] });
+  await f.store.getState().fetchDeckCards(1);
+  assert.equal(f.store.getState().deckCards.length, 0);
+});
+
+test('background card responses populate their deck cache without replacing the selected deck', async () => {
+  const f = fixture(), background = deferred(), selected = deferred();
+  f.request = path => path === '/decks/1/cards' ? background.promise : selected.promise;
+  f.store.getState().setCurrentDeck({ id: 1 });
+  const first = f.store.getState().fetchDeckCards(1);
+  f.store.getState().setCurrentDeck({ id: 2 });
+  const second = f.store.getState().fetchDeckCards(2);
+  background.resolve({ data: [{ id: 11 }] });
+  await first;
+  assert.equal(f.store.getState().cardsByDeck[1][0].id, 11);
+  assert.equal(f.store.getState().deckCards.length, 0);
+  assert.equal(f.store.getState().cardsLoading, true);
+  selected.resolve({ data: [{ id: 22 }] });
+  await second;
+  assert.equal(f.store.getState().deckCards[0].id, 22);
+  assert.equal(f.store.getState().cardsLoading, false);
+});
+
 test('partial cache hydrates missing folders while preserving existing decks and persisted cache', () => {
   const f = fixture({ user_id: 101, decks: data.decks });
   f.store.getState().setDecksAndFolders([{ id: 99 }], data.folders, 'cache');

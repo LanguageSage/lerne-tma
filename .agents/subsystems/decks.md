@@ -56,6 +56,15 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
 
 ## Relevant tests
 
+- `fetchDeckCards` связывает запрос с `getUserId()` и существующим
+  `libraryRequestId` (включая его увеличение в `resetDeckStore`). Дедупликация
+  действует только для актуального запроса; устаревшие success/error/retry не
+  меняют карточки и loading нового контекста. Очистка pending принадлежит
+  конкретному запросу, а не только ID колоды. Регрессии смены аккаунта, сброса,
+  повторной загрузки и loader: `scripts/tests/library_store_regression.mjs`;
+  реальный Dexie/offline API и обычный запуск обучения:
+  `scripts/tests/browser/offline.spec.cjs`, `scripts/tests/browser/study-finished.spec.cjs`.
+
 - Android browser library loading: `scripts/tests/browser/library-mobile.spec.cjs`
   (`critical`, Pixel 7 Chromium, isolated APIs) and
   `scripts/tests/library_store_regression.mjs`. Zustand owns `libraryStatus`

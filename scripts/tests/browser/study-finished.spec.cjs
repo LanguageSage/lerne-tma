@@ -78,6 +78,27 @@ test('middle deck continues via shared startStudy and returns directly to the th
     .toEqual({ view: 'decks', folder: 10, history: [] });
 });
 
+test('scheduled study loads uncached deck cards and keeps the cache for reopening', async ({ page, context }) => {
+  await setup(page, context);
+  await finish(page);
+  const scheduled = { ...cards[0], id: 21, deck_id: 2, front: 'Scheduled synthetic card',
+    next_review: new Date(Date.now() - 86400000).toISOString() };
+  await page.route('**/api/decks/2/cards*', route => route.fulfill({ json: [scheduled] }));
+  await page.route('**/api/decks/2/next*', route => route.fulfill({ json: scheduled }));
+  const nextRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/decks/2/next');
+  await page.getByRole('button', { name: /^Продолжить →/ }).click();
+  const request = await nextRequest;
+  expect(new URL(request.url()).searchParams.get('review_context')).not.toBe('forced');
+  await expect(page.getByText(scheduled.front, { exact: true }).first()).toBeVisible();
+  const state = await page.evaluate(() => ({ selected: deckStore.getState().deckCards,
+    cached: deckStore.getState().cardsByDeck[2], loading: deckStore.getState().cardsLoading,
+    forced: sessionStore.getState().isLearningMore }));
+  expect(state.selected).toEqual([scheduled]);
+  expect(state.cached).toEqual(state.selected);
+  expect(state.loading).toBe(false);
+  expect(state.forced).toBe(false);
+});
+
 test('last deck and root return have no fabricated next deck', async ({ page, context }) => {
   await setup(page, context);
   await finish(page, 2);
