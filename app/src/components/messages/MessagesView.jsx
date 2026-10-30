@@ -120,6 +120,7 @@ export function MessagesView() {
 
   const selectedRoot = roots.find(row => row.id === selectedId);
   const back = () => {
+    if (useUiStore.getState().returnFromCardMessage()) return;
     if (selectedId || messageDraftCard || isComposing) {
       setSelectedId(null); setIsComposing(false); setMessages([]); setText(''); setError('');
       pendingId.current = null; clearDraftCard();

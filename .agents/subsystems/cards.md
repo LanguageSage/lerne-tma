@@ -206,6 +206,11 @@ Database schema, SRS/progress, receipts, permissions and deployment config are u
 
 ## Personal notes and messages
 
+Сообщения, открытые из карточки, сохраняют `messageSourceView` отдельно от
+черновика: отправка и загрузка ветки не стирают точку возврата. Кнопка «Назад»,
+browser/native Back возвращают в исходный экран без сброса учебной сессии.
+Регрессия: `scripts/tests/browser/messages.spec.cjs`.
+
 `TMACardNote` / `tma_card_note` stores only a user's personal note on a card.
 The UUID note route permits owner/editor/viewer creation, editing and tombstones
 with card read access and strict note ownership. `GET /card-notes/deck/{deck_id}`

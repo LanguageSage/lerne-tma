@@ -61,6 +61,7 @@ function AppContent() {
   const userProfile = useUiStore(state => state.userProfile);
   const currentUserId = userProfile?.user_id ?? getUserId();
   const isCardActionModalOpen = useUiStore(state => state.isCardActionModalOpen);
+  const messageSourceView = useUiStore(state => state.messageSourceView);
   const setIsCardActionModalOpen = useUiStore(state => state.setIsCardActionModalOpen);
   const actionCard = useUiStore(state => state.actionCard);
   const loading = useUiStore(state => state.loading);
@@ -174,7 +175,10 @@ function AppContent() {
       : isDeckView
       ? folderDepth + 1
       : folderDepth;
-    const currentLevel = anyModalOpen ? baseViewLevel + 1 : baseViewLevel;
+    const messageLevel = view === 'messages' && messageSourceView
+      ? folderDepth + (['study', 'trainer', 'editor', 'creator'].includes(messageSourceView) ? 4 : messageSourceView === 'cards' ? 3 : 2)
+      : baseViewLevel;
+    const currentLevel = anyModalOpen ? messageLevel + 1 : messageLevel;
 
     if (isPopStateRef.current) {
       lastLevelRef.current = currentLevel;
@@ -207,7 +211,7 @@ function AppContent() {
     } else {
       showBackButton();
     }
-  }, [view, activeFolderId, anyModalOpen, folders]);
+  }, [view, activeFolderId, anyModalOpen, folders, messageSourceView]);
 
   // Custom hooks for initialization and import logic
   const { clearImportShareId, checkStartParam } = useAutoImport();

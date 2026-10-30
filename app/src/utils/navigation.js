@@ -138,6 +138,7 @@ export const navigateUp = () => {
 
   // 4c. Duplicates or Trash -> Return to Decks grid
   if (uiState.view === 'messages') {
+    if (uiState.returnFromCardMessage()) return true;
     uiState.clearMessageDraftCard();
     uiState.setView('decks');
     return true;

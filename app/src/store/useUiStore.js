@@ -8,7 +8,14 @@ export const useUiStore = create((set, get) => ({
   messageRoots: [],
   setMessageRoots: (messageRoots) => set({ messageRoots }),
   messageDraftCard: null,
-  openCardMessage: (card) => set({ messageDraftCard: card, view: 'messages', isCardActionModalOpen: false }),
+  messageSourceView: null,
+  openCardMessage: (card) => set({ messageDraftCard: card, messageSourceView: get().view, view: 'messages', isCardActionModalOpen: false }),
+  returnFromCardMessage: () => {
+    const source = get().messageSourceView;
+    if (!source) return false;
+    set({ view: source, messageSourceView: null, messageDraftCard: null });
+    return true;
+  },
   clearMessageDraftCard: () => set({ messageDraftCard: null }),
   
   loading: false,
@@ -87,7 +94,7 @@ export const useUiStore = create((set, get) => ({
   setUserProfile: (profile) => set(state => ({
     userProfile: profile,
     ...(state.userProfile?.user_id !== profile?.user_id
-      ? { messageRoots: [], messageDraftCard: null } : {}),
+      ? { messageRoots: [], messageDraftCard: null, messageSourceView: null } : {}),
   })),
 
   isAuthModalOpen: false,

@@ -42,6 +42,7 @@ async function setup(page, context, missingMigration = false) {
       state.writes.push({ pathname, body: request.postDataJSON(), authorization: request.headers().authorization });
       return route.fulfill({ json: { id: pathname.split('/').pop() } });
     }
+    if (pathname.startsWith('/api/messages/') && request.method() === 'GET') return route.fulfill({ json: [] });
     return route.fulfill({ json: {} });
   });
   await page.goto('/?user_id=1');
@@ -83,6 +84,37 @@ test('card action supplies card ID; missing migration leaves other screens usabl
   await expect(page.getByRole('alert')).toContainText('миграция базы данных №90');
   await expect(page.getByRole('button', { name: 'Отправить' })).toBeDisabled();
   await page.getByRole('button', { name: 'Назад' }).click();
-  await page.getByRole('button', { name: 'Назад' }).click();
   await expect(page.locator('#deck-item-1')).toBeVisible();
 });
+
+for (const method of ['button', 'browser', 'native']) {
+  test(`card message returns to the same study card via ${method}`, async ({ page, context }) => {
+    await setup(page, context);
+    await page.evaluate(async card => {
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      const { useDeckStore } = await import('/src/store/useDeckStore.js');
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      useDeckStore.setState({ currentDeck: { id: 1, name: 'Test deck' }, deckCards: [card] });
+      useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: true });
+      useUiStore.setState({ view: 'study' });
+    }, card);
+    await expect(page.locator('.study-flashcard')).toBeVisible();
+    await page.evaluate(async card => {
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useUiStore.getState().openCardMessage(card);
+    }, card);
+    await expect(page.getByText('Карточка № 10')).toBeVisible();
+    await page.getByLabel('Сообщение модератору', { exact: true }).fill('Проверить карточку');
+    await page.getByRole('button', { name: 'Отправить' }).click();
+    await expect(page.getByLabel('Ответить', { exact: true })).toBeVisible();
+    if (method === 'button') await page.getByRole('button', { name: 'Назад' }).click({ force: true });
+    else if (method === 'browser') await page.goBack();
+    else await page.evaluate(async () => (await import('/src/utils/navigation.js')).navigateUp());
+    await expect(page.locator('.study-flashcard')).toBeVisible();
+    expect(await page.evaluate(async () => {
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const { card, historyIndex, isFlipped } = useSessionStore.getState();
+      return { id: card.id, historyIndex, isFlipped };
+    })).toEqual({ id: 10, historyIndex: 0, isFlipped: true });
+  });
+}
