@@ -48,8 +48,7 @@ export const ExerciseRenderer = React.memo(({
 }) => {
   // Standalone trainer callers use the effective app design; scoped previews
   // explicitly supply their draft (null intentionally selects V1 fallback).
-  const activeDesign = useSettingsStore(state => state.isLocalDesignPreviewActive && state.adminDraftDesignV2
-    ? state.adminDraftDesignV2 : state.publishedDesignV2?.config);
+  const activeDesign = useSettingsStore(state => state.activeDesignConfig);
   const effectiveDesign = designConfig === undefined ? activeDesign : designConfig;
   const content = useMemo(() => {
     return parseExerciseContent(card?.front || card?.front_text || '');

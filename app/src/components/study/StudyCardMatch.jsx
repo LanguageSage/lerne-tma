@@ -38,9 +38,10 @@ export const StudyCardMatch = React.memo(({
   const [wrongRightId, setWrongRightId] = useState(savedState?.wrongRightId ?? null);
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const isChecked = evaluation.state.completed;
-  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig)?.frontText, [designConfig]);
+  const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
+  const v2Text = v2Styles?.frontText;
   const cardStyle = useMemo(() => v2Text || getCardStyle(styles), [v2Text, styles]);
-  const contextStyle = useMemo(() => v2Text || getContextStyle(styles), [v2Text, styles]);
+  const contextStyle = useMemo(() => v2Styles?.matchRightText || getContextStyle(styles), [v2Styles, styles]);
   const pairs = useMemo(() => matchData?.pairs || [], [matchData?.pairs]);
   const [shuffledRight] = useState(() => {
     if (savedState?.shuffledRight?.length) return savedState.shuffledRight;
@@ -304,7 +305,7 @@ export const StudyCardMatch = React.memo(({
                   fontWeight: 600,
                   textAlign: 'left',
                   ...contextStyle,
-                  color: !v2Text && !isCorrect && !isWrong && !isSelected && !isChecked
+                  color: !isCorrect && !isWrong && !isSelected && !isChecked
                     ? (contextStyle.color || textColor) : textColor,
                   minWidth: 0,
                   cursor: isChecked || isMatched ? 'default' : 'pointer',

@@ -43,8 +43,7 @@ export const CardForm = ({
     contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
   } = settings;
 
-  const effectiveConfig = settings.isLocalDesignPreviewActive && settings.adminDraftDesignV2
-    ? settings.adminDraftDesignV2 : settings.publishedDesignV2?.config;
+  const effectiveConfig = settings.activeDesignConfig;
   const v2Styles = getDesignStylesFromV2(effectiveConfig);
 
   const { loading, showToast } = useUiStore();

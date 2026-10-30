@@ -117,8 +117,7 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
   };
   const previewCard = { ...card, front: value };
   const exerciseType = detectExerciseType(previewCard);
-  const effectiveConfig = styles?.isLocalDesignPreviewActive && styles.adminDraftDesignV2
-    ? styles.adminDraftDesignV2 : styles?.publishedDesignV2?.config;
+  const effectiveConfig = styles?.activeDesignConfig;
   const previewTextStyle = getDesignStylesFromV2(effectiveConfig)?.frontText || textStyle;
   const renderCommands = group => <div key={group.id} className="card-editor-command-group"
     role="group" aria-label={tr(group.label)}>

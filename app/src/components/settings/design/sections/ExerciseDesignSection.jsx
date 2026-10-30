@@ -8,6 +8,8 @@ import { ExerciseRenderer } from '../../../study/ExerciseRenderer.jsx';
 import { StudyCardSpeech } from '../../../study/StudyCardSpeech.jsx';
 import { CardBackground } from '../../../common/CardBackground';
 import { useSettingsStore } from '../../../../store/useSettingsStore';
+import { TypographyControls } from '../controls/TypographyControls';
+import { getMatchRightTypography } from '../../../../utils/cardStyles.js';
 
 const PREVIEW_CARDS = {
   speech: { id: -1003, front: 'Ich lerne jeden Tag Deutsch.', back: 'Каждый день я учу немецкий.' },
@@ -39,7 +41,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
   const [previewRevision, setPreviewRevision] = useState(0);
   const [subTab, setSubTab] = useState('palette');
   const ex = config?.exercises || {};
-  const fallbackBackground = useSettingsStore(s => s.cardBgFront);
+  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background || s.cardBgFront);
   const isInputPreview = ['freeText', 'editableText', 'speech'].includes(previewType);
 
   return (
@@ -173,6 +175,16 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           ))}
         </div>
       )}
+
+      {subTab === 'match' && <>
+        <TypographyControls title={tr('Текст правой колонки Match')}
+          typography={getMatchRightTypography(config)}
+          onChangeField={(field, value) => onChangeField(`front.matchRightText.${field}`, value)} />
+        <button type="button" className="btn-secondary"
+          onClick={() => onChangeField('front.matchRightText', {})}>
+          {tr('Как основной текст карточки')}
+        </button>
+      </>}
 
       {/* Gap Dropdown Menu */}
       {subTab === 'gapDropdown' && (

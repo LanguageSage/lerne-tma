@@ -14,6 +14,9 @@ const axiosInstance = axios.create({
 
 // The server supports both Bearer token and X-User-ID headers.
 axiosInstance.interceptors.request.use((config) => {
+  if (config._expectedUserId !== undefined && config._expectedUserId !== getUserId()) {
+    throw new axios.CanceledError('Account changed before request');
+  }
   if (IS_LOCAL && (config.baseURL !== '/api' || !config.url?.startsWith('/') || config.url.startsWith('//'))) {
     throw new Error('External API requests disabled in LOCAL');
   }

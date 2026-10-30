@@ -7,18 +7,22 @@ import { useUiStore } from '../store/useUiStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSettingsStore } from '../store/useSettingsStore';
-import { DESIGN_PRESETS } from '../constants/appConstants';
 import { isOfflineMode } from '../services/localDb';
 import { syncService } from '../services/syncService';
 import { remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
 
-const SETTINGS_VERSION = '6';
-
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast } = useUiStore();
-  const { setAdminSettings, setUserPrompts, applyDesignPreset, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
+  const { setAdminSettings, setUserPrompts, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
 
   useEffect(() => {
+    const unsubscribeSettingsAccount = useAuthStore.subscribe((state, previous) => {
+      if (state.userProfile?.user_id !== previous.userProfile?.user_id
+          || state.sessionRevision !== previous.sessionRevision) {
+        useSettingsStore.getState().activateSettingsAccount();
+        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
+      }
+    });
     const tg = window.Telegram?.WebApp;
     if (tg) {
       tg.ready();
@@ -27,6 +31,9 @@ export const useAppInitialization = (checkStartParam) => {
 
     const init = async () => {
       await useAuthStore.getState().restoreSession();
+      if (useSettingsStore.getState().designAccountId !== getUserId()) {
+        useSettingsStore.getState().activateSettingsAccount();
+      }
       const profile = getUserProfile();
       setUserProfile(profile);
 
@@ -64,6 +71,7 @@ export const useAppInitialization = (checkStartParam) => {
       // 3. Perform background sync in offline mode if online
       if (isOfflineMode() && navigator.onLine) {
         syncService.sync().catch(e => console.error("Startup sync failed:", e));
+        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
 
       await initPromise;
@@ -106,8 +114,8 @@ export const useAppInitialization = (checkStartParam) => {
         syncService.sync().catch(e => console.error("Online event sync failed:", e));
       } else {
         useDeckStore.getState().fetchDecks(true).catch(() => {});
-        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
+      useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -122,17 +130,8 @@ export const useAppInitialization = (checkStartParam) => {
       }
     }, 60000);
 
-    const currentVersion = storage.get('lerne_settings_version');
-    if (currentVersion !== SETTINGS_VERSION) {
-      console.log(`Migrating settings to v${SETTINGS_VERSION}...`);
-      const defaultSettings = DESIGN_PRESETS.find(p => p.id === 'lerne_2026')?.settings;
-      if (defaultSettings) {
-        applyDesignPreset({ name: 'Lerne 2026', settings: defaultSettings });
-      }
-      storage.set('lerne_settings_version', SETTINGS_VERSION);
-    }
-
     return () => {
+      unsubscribeSettingsAccount();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('lerne:ids-remapped', remapOfflineUi);

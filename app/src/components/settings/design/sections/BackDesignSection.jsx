@@ -12,7 +12,7 @@ import { DesignPreviewScope } from '../DesignPreviewScope';
 export const BackDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('answerText'); // 'answerText' | 'context' | 'card' | 'reference'
   const back = config?.back || {};
-  const fallbackBackground = useSettingsStore(s => s.cardBgBack);
+  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background || s.cardBgBack);
   const textStyles = getDesignStylesFromV2(config);
 
   return (

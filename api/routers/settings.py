@@ -6,6 +6,7 @@ from api import models
 from api import services
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
+from api.services.user_settings import read_user_settings, save_user_settings, read_design_backup
 
 router = APIRouter(
     tags=["settings"],
@@ -20,36 +21,24 @@ from api import ai_service
 
 @router.get("/user/settings")
 def get_user_settings_endpoint(user_id: int = Depends(get_user_id)):
-    import json
     try:
-        setting = models.TMASetting.get_or_none(models.TMASetting.key == f"USER_SETTINGS_{user_id}")
-        if setting and setting.value:
-            return json.loads(setting.value)
+        return {**read_user_settings(user_id), '_designMigrationVersion': 1}
     except Exception as e:
         logger.error(f"Error fetching user settings for {user_id}: {e}")
-    return {}
+        raise HTTPException(status_code=500, detail="Failed to read user settings")
+
+
+@router.get('/user/settings/design-backup')
+def get_user_design_backup(user_id: int = Depends(get_user_id)):
+    return read_design_backup(user_id)
 
 @router.post("/user/settings")
 def save_user_settings_endpoint(data: dict, user_id: int = Depends(get_user_id)):
-    import json, datetime
     try:
         if not isinstance(data, dict):
             raise HTTPException(status_code=400, detail="Settings must be a dictionary")
-        setting, _ = models.TMASetting.get_or_create(
-            key=f"USER_SETTINGS_{user_id}",
-            defaults={"value": "{}", "updated_at": datetime.datetime.now()}
-        )
-        current = {}
-        if setting.value:
-            try:
-                current = json.loads(setting.value)
-            except Exception:
-                current = {}
-        current.update(data)
-        setting.value = json.dumps(current, ensure_ascii=False)
-        setting.updated_at = datetime.datetime.now()
-        setting.save()
-        return {"status": "success", "settings": current}
+        current = save_user_settings(user_id, data)
+        return {"status": "success", "settings": current, "designMigrationVersion": 1}
     except HTTPException:
         raise
     except Exception as e:

@@ -115,3 +115,30 @@ legacy deck metadata remains raw transport data and never opts the owner in.
 `test_sync_read_queries.py` covers explicit off/on/missing settings, different
 readers, access checks, bounded reads and unchanged SRS/history when toggling.
 Review: `docs/ADMIN_CONTRACT_REVIEW_20261029.md` (2026-10-29).
+
+## Личное оформление Design V2
+
+Владелец — `useSettingsStore.js` + `design/personalDesignMigration.js`.
+Для каждого аккаунта localStorage record `lerne:personal-design:v2:<id>`
+содержит исходные V1 snapshots, V2 config/preset и pending/base/revision.
+Локальная запись с проверкой чтением предшествует отправке через `networkApi`;
+настройки используют свой прежний `/user/settings`, отдельно от Dexie entities.
+`offline_mode` не мешает доставке pending настроек при восстановлении сети.
+
+Серверный владелец — `api/services/user_settings.py`, `TMASetting`:
+`USER_SETTINGS_<id>.designV2` и неизменяемая исходная строка в
+`USER_DESIGN_V1_BACKUP_<id>`. Транзакция и блокировка строки объединяют backup
+с переносом; ревизия/CAS и idempotent retry защищают запись между устройствами.
+Старые клиенты не удаляют V2. GET публикует `_designMigrationVersion: 1`;
+клиент не отправляет миграцию backend без этой поддержки.
+
+Auth profile сохраняется до уведомления подписчиков. Смена аккаунта/поколения
+отменяет pending timer, переключает scoped record/draft/preview и отбрасывает
+запоздалые ответы; interceptor проверяет `_expectedUserId` до отправки.
+Источник unscoped V1 переносится только первому владельцу; оригинал сохраняется.
+`/user/settings/design-backup` и `restorePersonalDesignFromBackup()` позволяют
+восстановить backup как новую V2-ревизию без удаления исходников.
+
+Регрессии: `personalDesignMigration.test.js`, `test_personal_design_migration.py`,
+`personal-design-migration.spec.cjs`. Матрица данных, поведение конфликта,
+порядок rollout и ограничения: [отчёт этапа 3](../../docs/DESIGN_V2_STAGE3_PERSONAL_MIGRATION.md).

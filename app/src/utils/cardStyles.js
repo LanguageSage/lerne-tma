@@ -175,6 +175,13 @@ export const getDesignTextStyle = (text, color = text?.color) => ({
   textShadow: getTextShadow(text?.shadow, 'currentColor'),
 });
 
+export const getMatchRightTypography = config => ({
+  ...config?.front?.mainText,
+  color: config?.exercises?.match?.item?.color || config?.front?.mainText?.color,
+  ...Object.fromEntries(Object.entries(config?.front?.matchRightText || {})
+    .filter(([, value]) => value !== '' && value !== 0)),
+});
+
 export const getDesignStylesFromV2 = (designConfig) => {
   if (!designConfig) return null;
   const { front, back } = designConfig;
@@ -185,5 +192,6 @@ export const getDesignStylesFromV2 = (designConfig) => {
     backText: getDesignTextStyle(back?.answerText),
     contextText: getDesignTextStyle(back?.context, contextColor),
     referenceText: getDesignTextStyle(back?.referenceText),
+    matchRightText: getDesignTextStyle(getMatchRightTypography(designConfig)),
   };
 };

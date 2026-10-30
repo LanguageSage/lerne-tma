@@ -15,6 +15,7 @@ const ADAPTED_PRESETS = adaptDesignPresetsToV2(DESIGN_PRESETS);
 export const DesignToolbar = ({ activeSection, onResetSection }) => {
   const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
   const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
+  const personalPreset = useSettingsStore(s => s.personalDesignV2?.preset);
   const isLocalPreviewActive = useSettingsStore(s => s.isLocalDesignPreviewActive);
   const toggleLocalDesignPreview = useSettingsStore(s => s.toggleLocalDesignPreview);
   const setAdminDraftDesignV2 = useSettingsStore(s => s.setAdminDraftDesignV2);
@@ -148,7 +149,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
           </button>
           {presetOpen && (
             <div className="design-preset-menu">
-              {ADAPTED_PRESETS.map(preset => (
+              {[...ADAPTED_PRESETS, ...(personalPreset ? [{ id: 'personal', name: tr('Мой дизайн'), configV2: personalPreset }] : [])].map(preset => (
                 <button
                   key={preset.id}
                   className="design-preset-item"

@@ -256,13 +256,8 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     except Exception: pass
 
     # Get user settings
-    user_settings = {}
-    try:
-        import json
-        us = models.TMASetting.get_or_none(models.TMASetting.key == f"USER_SETTINGS_{user_id}")
-        if us and us.value:
-            user_settings = json.loads(us.value)
-    except Exception: pass
+    from api.services.user_settings import read_user_settings
+    user_settings = read_user_settings(user_id)
 
     # Global Design V2
     global_design_v2 = {}

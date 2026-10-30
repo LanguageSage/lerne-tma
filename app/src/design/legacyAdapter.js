@@ -10,6 +10,72 @@
  */
 
 import { DEFAULT_DESIGN_CONFIG_V2, normalizeDesignConfig } from './designConfig.js';
+import { getDesignStylesFromV2 } from '../utils/cardStyles.js';
+
+export const DEFAULT_DESIGN_SETTINGS = {
+  cardBgFront: 'liquid_emerald',
+  cardBgBack: 'liquid_emerald',
+  cardFont: 'Comfortaa',
+  cardTextColor: '#fde047',
+  cardFontSize: 1.7,
+  cardTextAlign: 'left',
+  backTextColor: '#cbd5e1',
+  contextFont: 'Inter',
+  contextTextColor: 'auto',
+  contextFontSize: 1.4,
+  contextTextAlign: 'left',
+  cardTextShadow: 'glow',
+  contextTextShadow: 'glow',
+  cardFontWeight: '700',
+  cardFontStyle: 'normal',
+  contextFontWeight: '400',
+  contextFontStyle: 'normal',
+
+  // Card List Preview Settings
+  previewCardFont: 'Comfortaa',
+  previewCardTextColor: '#cbdeb5',
+  previewBackTextColor: '#b1e7e0',
+  previewCardFontSize: 1.19,
+  previewBackFontSize: 0.98,
+  previewCardFontWeight: '700',
+  previewCardFontStyle: 'normal',
+  previewTextShadow: 'none',
+  previewCardTextAlign: 'left',
+  previewCardLines: 3,
+  previewCardBg: 'dark_obsidian'
+};
+
+export const DESIGN_STORAGE_MAP = {
+  cardBgFront: 'lerne_card_bg_front',
+  cardBgBack: 'lerne_card_bg_back',
+  cardFont: 'lerne_card_font',
+  cardTextColor: 'lerne_card_text_color',
+  cardFontSize: 'lerne_card_font_size',
+  cardTextAlign: 'lerne_card_text_align',
+  backTextColor: 'lerne_back_text_color',
+  contextFont: 'lerne_context_font',
+  contextTextColor: 'lerne_context_text_color',
+  contextFontSize: 'lerne_context_font_size',
+  contextTextAlign: 'lerne_context_text_align',
+  cardTextShadow: 'lerne_card_text_shadow',
+  contextTextShadow: 'lerne_context_text_shadow',
+  cardFontWeight: 'lerne_card_font_weight',
+  cardFontStyle: 'lerne_card_font_style',
+  contextFontWeight: 'lerne_context_font_weight',
+  contextFontStyle: 'lerne_context_font_style',
+
+  previewCardFont: 'lerne_preview_card_font',
+  previewCardTextColor: 'lerne_preview_card_text_color',
+  previewBackTextColor: 'lerne_preview_back_text_color',
+  previewCardFontSize: 'lerne_preview_card_font_size',
+  previewBackFontSize: 'lerne_preview_back_font_size',
+  previewCardFontWeight: 'lerne_preview_card_font_weight',
+  previewCardFontStyle: 'lerne_preview_card_font_style',
+  previewTextShadow: 'lerne_preview_text_shadow',
+  previewCardTextAlign: 'lerne_preview_card_text_align',
+  previewCardLines: 'lerne_preview_card_lines',
+  previewCardBg: 'lerne_preview_card_bg',
+};
 
 /**
  * Маппинг старого flat field → dot-path в V2.
@@ -74,7 +140,7 @@ function setNestedValue(obj, path, value) {
  * 1. Создания первоначального admin draft из существующих настроек.
  * 2. Адаптации preset settings.
  *
- * НЕ используется для автоматической миграции обычных пользователей.
+ * Также используется безопасной миграцией личного оформления.
  *
  * @param {object} flat — объект с flat V1 design fields
  * @returns {object} полный валидный Design Config V2
@@ -82,6 +148,13 @@ function setNestedValue(obj, path, value) {
 export function migrateLegacyDesignSettings(flat) {
   if (!flat || typeof flat !== 'object') {
     return normalizeDesignConfig(null);
+  }
+  flat = { ...DEFAULT_DESIGN_SETTINGS, ...flat };
+  for (const [key, fallback] of Object.entries(DEFAULT_DESIGN_SETTINGS)) {
+    if (typeof fallback === 'number' && flat[key] !== '' && Number.isFinite(Number(flat[key]))) {
+      flat[key] = Number(flat[key]);
+    }
+    if (key.endsWith('FontWeight') && typeof flat[key] === 'number') flat[key] = String(flat[key]);
   }
 
   // Начинаем с полных defaults
@@ -105,6 +178,30 @@ export function migrateLegacyDesignSettings(flat) {
   // Особые случаи:
   // 1. back.referenceText должна совпадать с front.mainText (в V1 нет разделения)
   v2.back.referenceText = { ...v2.front.mainText };
+  // V1 answer inherits front typography; context alignment controls the answer.
+  v2.back.answerText = { ...v2.front.mainText,
+    font: flat.backCardFont || flat.cardFont,
+    size: flat.backCardFontSize != null && Number.isFinite(Number(flat.backCardFontSize))
+      ? Number(flat.backCardFontSize) : flat.cardFontSize,
+    weight: String(flat.backCardFontWeight || flat.cardFontWeight),
+    style: flat.backCardFontStyle || flat.cardFontStyle,
+    shadow: flat.backCardTextShadow || flat.cardTextShadow,
+    color: flat.backTextColor || flat.cardTextColor,
+    align: flat.contextTextAlign || 'left',
+  };
+  if (flat.contextTextColor?.toLowerCase() === v2.back.answerText.color?.toLowerCase()) {
+    v2.back.context.color = 'auto';
+  }
+  // V1 input and right Match column used the context role, not front typography.
+  const contextColor = getDesignStylesFromV2(v2).contextText.color;
+  v2.exercises.freeText.input.color = contextColor;
+  v2.exercises.match.item.color = v2.front.mainText.color;
+  v2.front.matchRightText = { ...v2.back.context, color: contextColor };
+  v2.exercises.puzzle.item.color = v2.front.mainText.color;
+  Object.assign(v2.cardList.backText, {
+    font: flat.previewCardFont, style: flat.previewCardFontStyle,
+    weight: '500', shadow: flat.previewTextShadow, align: flat.previewCardTextAlign,
+  });
 
   // Backgrounds now belong to V2 and survive normalization/preset application.
   if (flat.cardBgFront) v2.front.card.background = flat.cardBgFront;

@@ -297,3 +297,16 @@ CardForm применяет V2 answer/context к своим текстовым �
 Неиспользуемые отдельные TypographyPreview/CardListPreview удалены.
 Исходник и сохранение карточек не менялись. Контракт и ограничения:
 [этап 2C](../../docs/DESIGN_V2_STAGE2C_RUNTIME.md).
+
+### Design V2: личные настройки и пресеты (этап 3)
+
+`useSettingsStore.activeDesignConfig` — общая точка выбора runtime config:
+локальный draft → опубликованный V2 → личный V2. Пустые фоны draft/publication
+наследуют личные V2 backgrounds. Карточки, редактор и список читают этот config;
+scoped preview с явным config сохраняет изоляцию.
+`design/personalDesignMigration.js` выполняет безопасный перенос V1 с backup,
+а `legacyAdapter.js` учитывает наследование answer/list typography и пресетов.
+`front.matchRightText` сохраняет независимую правую колонку Match; пустые overrides
+наследуют основной текст, старые опубликованные V2 JSON сохраняют прежнее поведение.
+Хранение/доставка/восстановление — в [sync](sync.md#личное-оформление-design-v2).
+Полный аудит и условия удаления Legacy: [этап 3](../../docs/DESIGN_V2_STAGE3_PERSONAL_MIGRATION.md).

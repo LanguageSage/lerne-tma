@@ -104,6 +104,11 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       align: 'left',
       shadow: 'glow',
     },
+    /** Optional Match right-column overrides; empty values inherit main typography. */
+    matchRightText: {
+      font: '', size: 0, weight: '', style: '', lineHeight: 0,
+      color: '', align: '', shadow: '',
+    },
     /** Блок ::task */
     task: {
       font: 'Inter',

@@ -36,6 +36,8 @@ async function setup(page, context, card, config = design) {
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
     const { useUiStore } = await import('/src/store/useUiStore.js');
     useSettingsStore.setState({ cardFont: 'Georgia', cardTextColor: '#ff00ff', cardFontSize: 1.8, cardFontWeight: '900', contextFont: 'serif', contextTextColor: '#ffff00', contextFontSize: 1.6, studyMode: 'classic', autoPlayAudio: false, autoShowAnswer: false });
+    const { migrateLegacyDesignSettings } = await import('/src/design/legacyAdapter.js');
+    useSettingsStore.getState().setPersonalDesignV2(migrateLegacyDesignSettings(useSettingsStore.getState()));
     useDeckStore.setState({ currentDeck: deck, cards: [card] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.getState().setView('study');
@@ -130,7 +132,7 @@ test('local V2 edits and toggle update typography without losing selection', asy
   await colors(page.locator('.quiz-option-item').first(), choice.selected);
 });
 
-test('V1 typography and normal text colors remain when V2 is absent', async ({ page, context }) => {
+test('migrated personal typography and normal colors remain without published V2', async ({ page, context }) => {
   await setup(page, context, match, null);
   await expect(page.locator('.match-item-left').first()).toHaveCSS('font-family', 'Georgia');
   await expect(page.locator('.match-item-left').first()).toHaveCSS('color', 'rgb(255, 0, 255)');

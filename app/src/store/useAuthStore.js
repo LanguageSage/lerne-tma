@@ -170,8 +170,8 @@ export const useAuthStore = create((set, get) => ({
   },
   setAuthModalTab: (tab) => set({ authModalTab: tab, authError: null }),
   setUserProfile: (profile) => {
-    set({ userProfile: profile });
     if (profile) saveUserProfile(profile);
+    set({ userProfile: profile });
     if (profile?.active_language) useLanguageStore.getState().syncLanguageFromExternal(
       profile.active_language, Boolean(profile.has_selected_language));
     useUiStore.setState({ userProfile: profile });

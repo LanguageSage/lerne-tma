@@ -13,7 +13,7 @@ import { ExerciseInfoBlocks } from '../../../study/ExerciseInfoBlocks';
 export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('mainText'); // 'mainText' | 'card' | 'infoBlocks'
   const front = config?.front || {};
-  const fallbackBackground = useSettingsStore(s => s.cardBgFront);
+  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background || s.cardBgFront);
   const textStyles = getDesignStylesFromV2(config);
 
   // Mock content for live preview

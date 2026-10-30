@@ -42,6 +42,8 @@ async function setup(page, context, design = config) {
     useSettingsStore.setState({ cardFont: 'Georgia', cardTextColor: '#ff00ff', cardFontSize: 1.8,
       cardBgFront: 'dark_mocha', cardBgBack: 'dark_emerald', contextFont: 'monospace', contextTextColor: '#ffff00',
       studyMode: 'classic', autoPlayAudio: false, autoShowAnswer: false, speechFollowupEnabled: false });
+    const { migrateLegacyDesignSettings } = await import('/src/design/legacyAdapter.js');
+    useSettingsStore.getState().setPersonalDesignV2(migrateLegacyDesignSettings(useSettingsStore.getState()));
     useDeckStore.setState({ currentDeck: deck, cards: [card], deckCards: [card] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.getState().setView('study');

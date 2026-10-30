@@ -55,8 +55,7 @@ export const StudyCardSpeech = React.memo(({
   const speechMatchThreshold = useSettingsStore(s => s.speechMatchThreshold) ?? 75;
   const setSpeechMatchThreshold = useSettingsStore(s => s.setSpeechMatchThreshold);
 
-  const activeDesign = useSettingsStore(s => s.isLocalDesignPreviewActive && s.adminDraftDesignV2
-    ? s.adminDraftDesignV2 : s.publishedDesignV2?.config);
+  const activeDesign = useSettingsStore(s => s.activeDesignConfig);
   const effectiveDesign = designConfig === undefined ? activeDesign : designConfig;
   const v2Style = useMemo(() => getDesignStylesFromV2(effectiveDesign)?.frontText, [effectiveDesign]);
   const cardStyle = useMemo(() => v2Style || getCardStyle(styles), [v2Style, styles]);

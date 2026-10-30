@@ -28,8 +28,7 @@ export const TrainerView = () => {
   const { currentDeck, deckCards, fetchDeckCards } = useDeckStore();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
-  const effectiveConfig = useSettingsStore(s => s.isLocalDesignPreviewActive && s.adminDraftDesignV2
-    ? s.adminDraftDesignV2 : s.publishedDesignV2?.config);
+  const effectiveConfig = useSettingsStore(s => s.activeDesignConfig);
   const cardBgFront = useSettingsStore(s => s.cardBgFront);
   const cardBgBack = useSettingsStore(s => s.cardBgBack);
   const cardFont = useSettingsStore(s => s.cardFont);

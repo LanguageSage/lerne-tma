@@ -58,6 +58,8 @@ async function setup(page, context, { type = 'puzzle', enabled = true, recogniti
     const card = ${JSON.stringify({ id: 81, deck_id: 1, queue: 'new', ...fixtures[type], ...(requiredActions ? { requiredActions } : {}) })};
     const deck = { id: 1, name: 'Speech MVP', target_language: 'de', stats: { total: 2, new: 2 } };
     useSettingsStore.setState({ studyMode: 'classic', autoPlay: false, cardTextColor: '#fed7aa', cardFont: 'Georgia' });
+    const { migrateLegacyDesignSettings } = await import('/src/design/legacyAdapter.js');
+    useSettingsStore.getState().setPersonalDesignV2(migrateLegacyDesignSettings(useSettingsStore.getState()));
     useDeckStore.setState({ currentDeck: deck, deckCards: [card, { ...card, id: 82 }] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.setState({ view: 'study', loading: false });

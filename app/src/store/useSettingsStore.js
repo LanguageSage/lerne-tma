@@ -1,17 +1,22 @@
 import { create } from 'zustand';
-import { storage, getUserId } from '../utils/auth';
-import api from '../services/api';
-import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence';
+import { storage, getUserId } from '../utils/auth.js';
+import api, { networkApi } from '../services/api.js';
+import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord, legacyFromRaw,
+  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign,
+  documentFromLegacy } from '../design/personalDesignMigration.js';
+import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence.js';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
-import { migrateLegacyDesignSettings } from '../design/legacyAdapter.js';
+import { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP, migrateLegacyDesignSettings } from '../design/legacyAdapter.js';
+
+export { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP };
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
 const DESIGN_V2_CACHE_KEY = 'lerne:published-design:v2';
 
 function loadCachedPublishedDesign() {
   try {
-    const raw = localStorage.getItem(DESIGN_V2_CACHE_KEY);
+    const raw = storage.get(DESIGN_V2_CACHE_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw);
     if (!parsed?.config) return null;
@@ -24,17 +29,19 @@ function loadCachedPublishedDesign() {
 function saveCachedPublishedDesign(doc) {
   try {
     if (doc && doc.config) {
-      localStorage.setItem(DESIGN_V2_CACHE_KEY, JSON.stringify(doc));
+      storage.set(DESIGN_V2_CACHE_KEY, JSON.stringify(doc));
     }
   } catch { /* quota exceeded — silently ignore */ }
 }
 
+const accountCacheKey = key => `${key}:${getUserId() ?? 'guest'}`;
 const DESIGN_V2_DRAFT_CACHE_KEY = 'lerne:admin-draft:v2';
 const LOCAL_DESIGN_PREVIEW_KEY = 'lerne:local-design-preview';
 
 function loadCachedAdminDraft() {
   try {
-    const raw = localStorage.getItem(DESIGN_V2_DRAFT_CACHE_KEY);
+    const raw = storage.get(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY))
+      ?? readPersonalDesignRecord(getUserId())?.backups.local[DESIGN_V2_DRAFT_CACHE_KEY];
     if (!raw) return null;
     return normalizeDesignConfig(JSON.parse(raw));
   } catch {
@@ -45,16 +52,17 @@ function loadCachedAdminDraft() {
 function saveCachedAdminDraft(config) {
   try {
     if (config) {
-      localStorage.setItem(DESIGN_V2_DRAFT_CACHE_KEY, JSON.stringify(config));
+      storage.set(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY), JSON.stringify(config));
     } else {
-      localStorage.removeItem(DESIGN_V2_DRAFT_CACHE_KEY);
+      storage.remove(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY));
     }
   } catch { /* quota exceeded — silently ignore */ }
 }
 
 function loadCachedLocalPreviewState() {
   try {
-    return localStorage.getItem(LOCAL_DESIGN_PREVIEW_KEY) === 'true';
+    return (storage.get(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY))
+      ?? readPersonalDesignRecord(getUserId())?.backups.local[LOCAL_DESIGN_PREVIEW_KEY]) === 'true';
   } catch {
     return false;
   }
@@ -63,25 +71,25 @@ function loadCachedLocalPreviewState() {
 function saveCachedLocalPreviewState(active) {
   try {
     if (active) {
-      localStorage.setItem(LOCAL_DESIGN_PREVIEW_KEY, 'true');
+      storage.set(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY), 'true');
     } else {
-      localStorage.removeItem(LOCAL_DESIGN_PREVIEW_KEY);
+      storage.set(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY), 'false');
     }
   } catch { /* quota exceeded — silently ignore */ }
 }
 
-// Immediately apply design tokens on startup (cached published design, local preview draft, or defaults)
+// Back up V1 before reading defaults or applying any version-dependent initialization.
+let initialPersonalRecord = null;
+let initialMigrationError = null;
+try { initialPersonalRecord = openPersonalDesignRecord(getUserId()); }
+catch (error) { initialMigrationError = error.message; }
 const initialPublishedDesign = loadCachedPublishedDesign();
 const initialAdminDraft = loadCachedAdminDraft();
 const initialLocalPreviewActive = loadCachedLocalPreviewState();
-
-if (initialLocalPreviewActive && initialAdminDraft) {
-  applyPublishedDesignTokens(initialAdminDraft);
-} else if (initialPublishedDesign?.config) {
-  applyPublishedDesignTokens(initialPublishedDesign.config);
-} else {
-  applyPublishedDesignTokens(DEFAULT_DESIGN_CONFIG_V2);
-}
+const initialActiveDesign = resolveActiveDesign({ personalDesignV2: initialPersonalRecord?.document,
+  publishedDesignV2: initialPublishedDesign, adminDraftDesignV2: initialAdminDraft,
+  isLocalDesignPreviewActive: initialLocalPreviewActive });
+applyPublishedDesignTokens(initialActiveDesign ?? DEFAULT_DESIGN_CONFIG_V2);
 
 export const AUTOPLAY_STORAGE_MAP = Object.fromEntries(
   Object.keys(AUTOPLAY_DEFAULTS).map(key => [key, `lerne_auto_v2_${key}`]),
@@ -97,71 +105,6 @@ const getInitialAutoplaySettings = () => {
     ? normalizeAutoplaySettings(saved) : { ...AUTOPLAY_DEFAULTS };
   for (const [key, value] of Object.entries(settings)) storage.set(AUTOPLAY_STORAGE_MAP[key], value);
   return settings;
-};
-
-export const DEFAULT_DESIGN_SETTINGS = {
-  cardBgFront: 'liquid_emerald',
-  cardBgBack: 'liquid_emerald',
-  cardFont: 'Comfortaa',
-  cardTextColor: '#fde047',
-  cardFontSize: 1.7,
-  cardTextAlign: 'left',
-  backTextColor: '#cbd5e1',
-  contextFont: 'Inter',
-  contextTextColor: 'auto',
-  contextFontSize: 1.4,
-  contextTextAlign: 'left',
-  cardTextShadow: 'glow',
-  contextTextShadow: 'glow',
-  cardFontWeight: '700',
-  cardFontStyle: 'normal',
-  contextFontWeight: '400',
-  contextFontStyle: 'normal',
-
-  // Card List Preview Settings
-  previewCardFont: 'Comfortaa',
-  previewCardTextColor: '#cbdeb5',
-  previewBackTextColor: '#b1e7e0',
-  previewCardFontSize: 1.19,
-  previewBackFontSize: 0.98,
-  previewCardFontWeight: '700',
-  previewCardFontStyle: 'normal',
-  previewTextShadow: 'none',
-  previewCardTextAlign: 'left',
-  previewCardLines: 3,
-  previewCardBg: 'dark_obsidian'
-};
-
-export const DESIGN_STORAGE_MAP = {
-  cardBgFront: 'lerne_card_bg_front',
-  cardBgBack: 'lerne_card_bg_back',
-  cardFont: 'lerne_card_font',
-  cardTextColor: 'lerne_card_text_color',
-  cardFontSize: 'lerne_card_font_size',
-  cardTextAlign: 'lerne_card_text_align',
-  backTextColor: 'lerne_back_text_color',
-  contextFont: 'lerne_context_font',
-  contextTextColor: 'lerne_context_text_color',
-  contextFontSize: 'lerne_context_font_size',
-  contextTextAlign: 'lerne_context_text_align',
-  cardTextShadow: 'lerne_card_text_shadow',
-  contextTextShadow: 'lerne_context_text_shadow',
-  cardFontWeight: 'lerne_card_font_weight',
-  cardFontStyle: 'lerne_card_font_style',
-  contextFontWeight: 'lerne_context_font_weight',
-  contextFontStyle: 'lerne_context_font_style',
-
-  previewCardFont: 'lerne_preview_card_font',
-  previewCardTextColor: 'lerne_preview_card_text_color',
-  previewBackTextColor: 'lerne_preview_back_text_color',
-  previewCardFontSize: 'lerne_preview_card_font_size',
-  previewBackFontSize: 'lerne_preview_back_font_size',
-  previewCardFontWeight: 'lerne_preview_card_font_weight',
-  previewCardFontStyle: 'lerne_preview_card_font_style',
-  previewTextShadow: 'lerne_preview_text_shadow',
-  previewCardTextAlign: 'lerne_preview_card_text_align',
-  previewCardLines: 'lerne_preview_card_lines',
-  previewCardBg: 'lerne_preview_card_bg',
 };
 
 export const STUDY_STORAGE_MAP = {
@@ -188,15 +131,10 @@ export const STUDY_STORAGE_MAP = {
 
 export const collectUserSettings = (state) => {
   const settings = {};
-  Object.keys(DESIGN_STORAGE_MAP).forEach((k) => {
-    if (state[k] !== undefined) settings[k] = state[k];
-  });
   Object.keys(STUDY_STORAGE_MAP).forEach((k) => {
     if (state[k] !== undefined) settings[k] = state[k];
   });
-  if (state.userDesign !== undefined) {
-    settings.userDesign = state.userDesign;
-  }
+  if (state.personalDesignV2) settings.designV2 = state.personalDesignV2;
   const nativeLang = storage.get('native_language');
   if (nativeLang) {
     settings.native_language = nativeLang;
@@ -205,53 +143,22 @@ export const collectUserSettings = (state) => {
 };
 
 let saveTimer = null;
+let settingsGeneration = 0;
+let settingsWrite = null;
 export const debouncedSaveSettings = (get) => {
   if (saveTimer) clearTimeout(saveTimer);
-  saveTimer = setTimeout(async () => {
+  const account = getUserId(), generation = settingsGeneration;
+  saveTimer = setTimeout(() => {
     saveTimer = null;
-    try {
-      const { getAccessToken, getUserId } = await import('../utils/auth');
-      if (!getAccessToken() && !getUserId()) return;
-      const settings = collectUserSettings(get());
-      await api.post('/user/settings', settings);
-    } catch (e) {
-      console.warn('Failed to sync user settings to server:', e);
-    }
+    if (account !== getUserId() || generation !== settingsGeneration) return;
+    get().saveCurrentSettingsToServer();
   }, 1000);
 };
 
-const DESIGN_STORAGE_VERSION = '2026_08_emerald_final_v4';
-
-const getInitialDesignState = () => {
-  const storedVersion = storage.get('lerne_design_version');
-  const userSavedCustom = storage.get('lerne_user_design');
-
-  if (storedVersion !== DESIGN_STORAGE_VERSION) {
-    storage.set('lerne_design_version', DESIGN_STORAGE_VERSION);
-    Object.entries(DESIGN_STORAGE_MAP).forEach(([stateKey, storageKey]) => {
-      storage.set(storageKey, DEFAULT_DESIGN_SETTINGS[stateKey]);
-    });
-
-    return {
-      ...DEFAULT_DESIGN_SETTINGS,
-      userDesign: userSavedCustom ? JSON.parse(userSavedCustom) : null,
-    };
-  }
-
-  const state = {};
-  Object.entries(DESIGN_STORAGE_MAP).forEach(([stateKey, storageKey]) => {
-    const raw = storage.get(storageKey);
-    const defaultVal = DEFAULT_DESIGN_SETTINGS[stateKey];
-    if (typeof defaultVal === 'number') {
-      state[stateKey] = raw !== null ? Number(raw) : defaultVal;
-    } else {
-      state[stateKey] = raw || defaultVal;
-    }
-  });
-
-  state.userDesign = userSavedCustom ? JSON.parse(userSavedCustom) : null;
-  return state;
-};
+const getInitialDesignState = (record = initialPersonalRecord) => ({
+  ...DEFAULT_DESIGN_SETTINGS, ...legacyFromRaw(record?.backups.local),
+  userDesign: legacyFromRaw(record?.backups.local).userDesign ?? null,
+});
 
 const getStoredTtsVoices = () => {
   try {
@@ -288,21 +195,6 @@ const getInitialStudyState = () => ({
 });
 
 export const useSettingsStore = create((set, get) => {
-  // Generate design setters dynamically to eliminate boilerplate
-  const designSetters = {};
-  Object.entries(DESIGN_STORAGE_MAP).forEach(([stateKey, storageKey]) => {
-    const capitalized = stateKey.charAt(0).toUpperCase() + stateKey.slice(1);
-    const setterName = `set${capitalized}`;
-    const isNumber = typeof DEFAULT_DESIGN_SETTINGS[stateKey] === 'number';
-
-    designSetters[setterName] = (val) => {
-      const parsedVal = isNumber && val !== null && val !== undefined ? Number(val) : val;
-      storage.set(storageKey, parsedVal);
-      set({ [stateKey]: parsedVal });
-      debouncedSaveSettings(get);
-    };
-  });
-
   return {
     // --- Study Settings ---
     ...getInitialStudyState(),
@@ -411,67 +303,66 @@ export const useSettingsStore = create((set, get) => {
 
     // --- Design Settings & Setters ---
     ...getInitialDesignState(),
-    ...designSetters,
+    personalDesignV2: initialPersonalRecord?.document ?? null,
+    designAccountId: getUserId(),
+    designMigrationError: initialMigrationError,
+    activeDesignConfig: initialActiveDesign,
 
-    syncPreviewFromCard: () => {
-      const s = get();
-      const updates = {
-        previewCardFont: s.cardFont,
-        previewCardTextColor: s.cardTextColor,
-        previewBackTextColor: s.backTextColor || s.cardTextColor,
-        previewCardFontWeight: s.cardFontWeight || '600',
-        previewCardFontStyle: s.cardFontStyle || 'normal',
-        previewTextShadow: s.cardTextShadow || 'none',
-        previewCardTextAlign: s.cardTextAlign || 'left',
-      };
-      Object.entries(updates).forEach(([k, v]) => {
-        const storageKey = DESIGN_STORAGE_MAP[k];
-        if (storageKey) storage.set(storageKey, v);
-      });
-      set(updates);
+    activateSettingsAccount: () => {
+      const isAdmin = get().designAccountId === getUserId() && get().isAdmin;
+      settingsGeneration++;
+      if (saveTimer) clearTimeout(saveTimer);
+      saveTimer = null;
+      try {
+        const record = openPersonalDesignRecord(getUserId());
+        set({ ...getInitialDesignState(record), personalDesignV2: record?.document ?? null,
+          designAccountId: getUserId(), designMigrationError: null, isAdmin,
+          adminDraftDesignV2: loadCachedAdminDraft(), isLocalDesignPreviewActive: loadCachedLocalPreviewState() });
+      } catch (error) {
+        set({ ...DEFAULT_DESIGN_SETTINGS, userDesign: null, personalDesignV2: null,
+          designAccountId: getUserId(), designMigrationError: error.message,
+          adminDraftDesignV2: null, isLocalDesignPreviewActive: false, isAdmin: false });
+      }
     },
 
-    // Helper to apply a full design preset
-    applyDesignPreset: (preset) => {
-      const s = preset?.settings;
-      if (!s) return;
-      
-      set({ ...s });
-      
-      // Sync all valid keys to storage
-      Object.entries(s).forEach(([k, v]) => {
-        const storageKey = DESIGN_STORAGE_MAP[k];
-        if (storageKey) storage.set(storageKey, v);
-      });
+    setPersonalDesignV2: (config, preset) => {
+      if (get().designAccountId !== getUserId()) get().activateSettingsAccount();
+      const record = openPersonalDesignRecord(getUserId());
+      if (!record) throw new Error('Personal design not initialized');
+      const next = savePersonalDesignRecord(editPersonalDesign(record, config, preset));
+      set({ personalDesignV2: next.document, designMigrationError: null });
       debouncedSaveSettings(get);
     },
 
-    saveUserDesign: () => {
-      const s = get();
-      const design = {};
-      Object.keys(DESIGN_STORAGE_MAP).forEach((k) => {
-        design[k] = s[k];
-      });
-      storage.set('lerne_user_design', JSON.stringify(design));
-      set({ userDesign: design });
-      debouncedSaveSettings(get);
-    },
-
-    applyUserDesign: () => {
-      const design = get().userDesign;
-      if (design) get().applyDesignPreset({ settings: design });
-    },
-
-    resetDesign: () => {
-      set(DEFAULT_DESIGN_SETTINGS);
-      Object.entries(DESIGN_STORAGE_MAP).forEach(([stateKey, storageKey]) => {
-        storage.set(storageKey, DEFAULT_DESIGN_SETTINGS[stateKey]);
-      });
-      debouncedSaveSettings(get);
+    restorePersonalDesignFromBackup: async (source = 'local') => {
+      const account = getUserId(), generation = settingsGeneration;
+      const record = readPersonalDesignRecord(account);
+      if (!record) throw new Error('No design backup for this account');
+      let flat;
+      if (source === 'local') flat = legacyFromRaw(record.backups.local);
+      else if (source === 'server') {
+        const response = await networkApi.get('/user/settings/design-backup', { _expectedUserId: account });
+        if (account !== getUserId() || generation !== settingsGeneration) return false;
+        if (typeof response.data?.raw !== 'string') throw new Error('No server design backup');
+        flat = JSON.parse(response.data.raw);
+      } else throw new Error('Unknown design backup source');
+      const restored = documentFromLegacy(flat);
+      get().setPersonalDesignV2(restored.config, restored.preset);
+      return true;
     },
 
     syncUserSettingsFromServer: (serverSettings) => {
-      if (!serverSettings || typeof serverSettings !== 'object') return;
+      if (!serverSettings || typeof serverSettings !== 'object' || Array.isArray(serverSettings)) return;
+      if (get().designAccountId !== getUserId()) get().activateSettingsAccount();
+      try {
+        const record = openPersonalDesignRecord(getUserId());
+        if (record) {
+          const next = savePersonalDesignRecord(reconcilePersonalDesign(record, serverSettings));
+          set({ personalDesignV2: next.document, designMigrationError: null });
+          if (next.pending) debouncedSaveSettings(get);
+        }
+      } catch (error) { set({ designMigrationError: error.message }); }
+
       const migrateAutoplay = Number(serverSettings.autoplayVersion) !== AUTOPLAY_VERSION;
       // Old clients/server snapshots must not overwrite the new settings after migration.
       const autoplay = migrateAutoplay
@@ -480,14 +371,13 @@ export const useSettingsStore = create((set, get) => {
       const updates = {};
 
       // Apply design settings
-      Object.entries(DESIGN_STORAGE_MAP).forEach(([stateKey, storageKey]) => {
+      Object.keys(DESIGN_STORAGE_MAP).forEach((stateKey) => {
         if (serverSettings[stateKey] !== undefined) {
           const defaultVal = DEFAULT_DESIGN_SETTINGS[stateKey];
           const val = typeof defaultVal === 'number' 
             ? Number(serverSettings[stateKey]) 
             : serverSettings[stateKey];
           updates[stateKey] = val;
-          storage.set(storageKey, val);
         }
       });
 
@@ -510,18 +400,14 @@ export const useSettingsStore = create((set, get) => {
 
       if (serverSettings.userDesign !== undefined) {
         updates.userDesign = serverSettings.userDesign;
-        if (serverSettings.userDesign) {
-          storage.set('lerne_user_design', JSON.stringify(serverSettings.userDesign));
-        } else {
-          storage.remove('lerne_user_design');
-        }
+
       }
 
       // Sync native interface language if present and changed
       if (serverSettings.native_language) {
         const currentLang = storage.get('native_language');
         if (currentLang !== serverSettings.native_language) {
-          import('../i18n/locale').then(({ setInterfaceLanguage, normalizeInterfaceLanguage }) => {
+          import('../i18n/locale.js').then(({ setInterfaceLanguage, normalizeInterfaceLanguage }) => {
             const lang = normalizeInterfaceLanguage(serverSettings.native_language);
             if (lang) {
               setInterfaceLanguage(lang);
@@ -538,33 +424,50 @@ export const useSettingsStore = create((set, get) => {
       if (migrateAutoplay) debouncedSaveSettings(get);
     },
 
-    saveCurrentSettingsToServer: async () => {
-      try {
-        const { getAccessToken, getUserId } = await import('../utils/auth');
-        if (!getAccessToken() && !getUserId()) return false;
-        const settings = collectUserSettings(get());
-        await api.post('/user/settings', settings);
-        return true;
-      } catch (e) {
-        console.warn('Manual settings sync failed:', e);
-        return false;
-      }
+    saveCurrentSettingsToServer: () => {
+      const account = getUserId(), generation = settingsGeneration;
+      if (settingsWrite?.generation === generation) return settingsWrite.promise;
+      const operation = { generation };
+      operation.promise = (async () => {
+        const current = () => account === getUserId() && generation === settingsGeneration;
+        if (!account) return false;
+        try {
+          // Fetch before first write/retry: server settings retain their existing precedence.
+          const response = await networkApi.get('/user/settings', { _expectedUserId: account });
+          if (!current()) return false;
+          if (response.data?._designMigrationVersion !== 1) throw new Error('Server does not support safe design migration');
+          const record = openPersonalDesignRecord(account);
+          if (!record) return false;
+          const reconciled = savePersonalDesignRecord(reconcilePersonalDesign(record, response.data));
+          set({ personalDesignV2: reconciled.document });
+          const sent = structuredClone(reconciled.document);
+          const result = await networkApi.post('/user/settings', collectUserSettings(get()), { _expectedUserId: account });
+          if (!current()) return false;
+          if (result.data?.designMigrationVersion !== 1) throw new Error('Server did not confirm safe design migration');
+          const latest = readPersonalDesignRecord(account);
+          const next = savePersonalDesignRecord(acknowledgePersonalDesign(latest, sent, result.data?.settings?.designV2));
+          set({ personalDesignV2: next.document, designMigrationError: null });
+          if (next.pending) debouncedSaveSettings(get);
+          return true;
+        } catch (error) {
+          if (current()) set({ designMigrationError: error.message });
+          // A CAS conflict keeps the local record pending. A subsequent read rebases it.
+          return false;
+        }
+      })().finally(() => { if (settingsWrite === operation) settingsWrite = null; });
+      settingsWrite = operation;
+      return operation.promise;
     },
 
     fetchUserSettingsFromServer: async () => {
+      const account = getUserId(), generation = settingsGeneration;
+      if (!account || saveTimer !== null || settingsWrite?.generation === generation) return null;
       try {
-        if (saveTimer !== null) return null;
-        const { getAccessToken, getUserId } = await import('../utils/auth');
-        if (!getAccessToken() && !getUserId()) return null;
-        const res = await api.get('/user/settings');
-        if (res.data && typeof res.data === 'object' && Object.keys(res.data).length > 0) {
-          get().syncUserSettingsFromServer(res.data);
-          return res.data;
-        }
-      } catch (e) {
-        console.warn('Failed to fetch user settings from server:', e);
-      }
-      return null;
+        const res = await networkApi.get('/user/settings', { _expectedUserId: account });
+        if (account !== getUserId() || generation !== settingsGeneration) return null;
+        get().syncUserSettingsFromServer(res.data);
+        return res.data;
+      } catch { return null; }
     },
 
     // --- Admin/API Settings (Fetched from Backend) ---
@@ -596,9 +499,6 @@ export const useSettingsStore = create((set, get) => {
       const doc = { ...serverDoc, config: normalized };
       saveCachedPublishedDesign(doc);
       set({ publishedDesignV2: doc });
-      if (!get().isLocalDesignPreviewActive) {
-        applyPublishedDesignTokens(normalized);
-      }
     },
 
     /** Переключает локальный просмотр черновика только в текущем браузере */
@@ -606,13 +506,6 @@ export const useSettingsStore = create((set, get) => {
       const next = !get().isLocalDesignPreviewActive;
       saveCachedLocalPreviewState(next);
       set({ isLocalDesignPreviewActive: next });
-      if (next) {
-        const draft = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
-        applyPublishedDesignTokens(draft);
-      } else {
-        const published = get().publishedDesignV2?.config ?? DEFAULT_DESIGN_CONFIG_V2;
-        applyPublishedDesignTokens(published);
-      }
       return next;
     },
 
@@ -625,7 +518,6 @@ export const useSettingsStore = create((set, get) => {
         saveCachedLocalPreviewState(true);
         set({ isLocalDesignPreviewActive: true });
       }
-      if (get().isLocalDesignPreviewActive) applyPublishedDesignTokens(config);
     },
 
     /** Обновляет admin draft целиком. */
@@ -651,10 +543,12 @@ export const useSettingsStore = create((set, get) => {
 
     /** Публикует admin draft: отправляет на сервер, при успехе обновляет published. */
     publishAdminDraftToServer: async () => {
+      const account = getUserId(), generation = settingsGeneration;
       const draft = get().adminDraftDesignV2;
       if (!draft) return { success: false, error: 'No draft to publish' };
       try {
-        const res = await api.post('/admin/design/publish', { config: normalizeDesignConfig(draft) });
+        const res = await api.post('/admin/design/publish', { config: normalizeDesignConfig(draft) }, { _expectedUserId: account });
+        if (account !== getUserId() || generation !== settingsGeneration) return { success: false, error: 'Account changed' };
         if (res.data?.config) {
           saveCachedLocalPreviewState(false);
           set({ isLocalDesignPreviewActive: false });
@@ -670,10 +564,12 @@ export const useSettingsStore = create((set, get) => {
 
     /** Сохраняет admin draft на сервер (без публикации). */
     saveAdminDraftToServer: async () => {
+      const account = getUserId(), generation = settingsGeneration;
       const draft = get().adminDraftDesignV2;
       if (!draft) return { success: false, error: 'No draft to save' };
       try {
-        await api.post('/admin/design/draft', { config: normalizeDesignConfig(draft) });
+        await api.post('/admin/design/draft', { config: normalizeDesignConfig(draft) }, { _expectedUserId: account });
+        if (account !== getUserId() || generation !== settingsGeneration) return { success: false, error: 'Account changed' };
         return { success: true };
       } catch (e) {
         console.warn('Failed to save admin draft:', e);
@@ -683,8 +579,10 @@ export const useSettingsStore = create((set, get) => {
 
     /** Загружает сохранённый на сервере admin draft; возвращает прежний черновик для отмены. */
     loadAdminDraftFromServer: async () => {
+      const account = getUserId(), generation = settingsGeneration;
       try {
-        const res = await api.get('/admin/design/draft');
+        const res = await api.get('/admin/design/draft', { _expectedUserId: account });
+        if (account !== getUserId() || generation !== settingsGeneration) return { success: false, error: 'Account changed' };
         if (!res.data?.config) return { success: true, found: false };
         const previous = get().adminDraftDesignV2;
         get().commitAdminDraft(normalizeDesignConfig(res.data.config));
@@ -699,9 +597,8 @@ export const useSettingsStore = create((set, get) => {
      *  лицевая/обратная/список черновика; возвращает прежний черновик для отмены. */
     importLegacyPersonalDesign: () => {
       const state = get();
-      const flat = {};
-      Object.keys(DESIGN_STORAGE_MAP).forEach((key) => { flat[key] = state[key]; });
-      return state.applyDraftSections(migrateLegacyDesignSettings(flat), ['front', 'back', 'cardList']);
+      const config = state.personalDesignV2?.config ?? migrateLegacyDesignSettings(state);
+      return state.applyDraftSections(config, ['front', 'back', 'cardList']);
     },
 
     /** Возвращает draft к текущему published design. */
@@ -806,3 +703,14 @@ export const useSettingsStore = create((set, get) => {
   };
 });
 
+
+// Shared runtime selection is also the source of root CSS tokens.
+useSettingsStore.subscribe((state, previous) => {
+  if (state.personalDesignV2 !== previous.personalDesignV2 || state.publishedDesignV2 !== previous.publishedDesignV2
+      || state.adminDraftDesignV2 !== previous.adminDraftDesignV2
+      || state.isLocalDesignPreviewActive !== previous.isLocalDesignPreviewActive) {
+    const activeDesignConfig = resolveActiveDesign(state);
+    useSettingsStore.setState({ activeDesignConfig });
+    applyPublishedDesignTokens(activeDesignConfig ?? DEFAULT_DESIGN_CONFIG_V2);
+  }
+});
