@@ -4,7 +4,6 @@
  * Правила:
  * - migrateLegacyDesignSettings() берёт старые flat поля из useSettingsStore
  *   и маппит их в V2 структуру.
- * - legacyPresetToDesignConfigV2() адаптирует DESIGN_PRESETS из appConstants.
  * - Результат всегда проходит через normalizeDesignConfig() — безопасен.
  * - Не вызывает побочных эффектов, не читает/пишет localStorage.
  */
@@ -138,7 +137,7 @@ function setNestedValue(obj, path, value) {
  *
  * Используется для:
  * 1. Создания первоначального admin draft из существующих настроек.
- * 2. Адаптации preset settings.
+ * 2. Восстановления сохранённых пользовательских V1 preset settings.
  *
  * Также используется безопасной миграцией личного оформления.
  *
@@ -215,30 +214,4 @@ export function migrateLegacyDesignSettings(flat) {
 
   // Финальная нормализация (проверяет фон и заполняет пропуски)
   return normalizeDesignConfig(v2);
-}
-
-/**
- * Адаптирует один preset из DESIGN_PRESETS (V1 flat format) в Design Config V2.
- *
- * @param {object} preset — элемент из DESIGN_PRESETS (с полем settings)
- * @returns {object} полный валидный Design Config V2
- */
-export function legacyPresetToDesignConfigV2(preset) {
-  if (!preset?.settings) return normalizeDesignConfig(null);
-  return migrateLegacyDesignSettings(preset.settings);
-}
-
-/**
- * Адаптирует массив DESIGN_PRESETS в V2-совместимые preset объекты.
- *
- * @param {Array} presets — массив из DESIGN_PRESETS
- * @returns {Array} [{ id, name, configV2 }]
- */
-export function adaptDesignPresetsToV2(presets) {
-  if (!Array.isArray(presets)) return [];
-  return presets.map(preset => ({
-    id: preset.id,
-    name: preset.name,
-    configV2: legacyPresetToDesignConfigV2(preset),
-  }));
 }

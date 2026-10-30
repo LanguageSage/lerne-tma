@@ -8,7 +8,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
-import { getCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 import { stopGlobalAudio } from '../../hooks/useAudio';
 import { parseExerciseContent } from '../../utils/exerciseContentParser';
@@ -30,7 +30,6 @@ export const StudyCardSpeech = React.memo(({
   stopAudio,
   isAudioLoading,
   isAutoplayActive,
-  styles = {},
   designConfig,
 }) => {
   useInterfaceLocale();
@@ -56,11 +55,10 @@ export const StudyCardSpeech = React.memo(({
   const setSpeechMatchThreshold = useSettingsStore(s => s.setSpeechMatchThreshold);
 
   const activeDesign = useSettingsStore(s => s.activeDesignConfig);
-  const effectiveDesign = designConfig === undefined ? activeDesign : designConfig;
-  const v2Style = useMemo(() => getDesignStylesFromV2(effectiveDesign)?.frontText, [effectiveDesign]);
-  const cardStyle = useMemo(() => v2Style || getCardStyle(styles), [v2Style, styles]);
-  const transcriptStyle = v2Style || { ...cardStyle,
-    fontSize: `${Math.max((styles.cardFontSize ?? 1) * 1.1, 1.4)}rem`, textAlign: 'center' };
+  const effectiveDesign = designConfig ?? activeDesign;
+  const v2Style = useMemo(() => getDesignStylesFromV2(effectiveDesign).frontText, [effectiveDesign]);
+  const cardStyle = v2Style;
+  const transcriptStyle = v2Style;
 
   useEffect(() => {
     cardFrontRef.current = spokenFront;

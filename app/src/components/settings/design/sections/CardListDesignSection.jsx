@@ -7,13 +7,12 @@ import { SliderControl } from '../controls/SliderControl';
 import { DesignPreviewScope } from '../DesignPreviewScope';
 import { CARD_LIST_BG_PRESETS } from '../../../../constants/appConstants';
 import { getCardListBgStyle, CARD_LIST_PRESET_GRADIENTS } from '../../../../utils/style';
-import { useSettingsStore } from '../../../../store/useSettingsStore';
+import { DEFAULT_DESIGN_CONFIG_V2 } from '../../../../design/designConfig.js';
 
 export const CardListDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('frontText'); // 'frontText' | 'backText' | 'divider' | 'cardBg'
   const cardList = config?.cardList || {};
-  const previewCardBg = useSettingsStore(s => s.previewCardBg);
-  const currentCardBg = cardList.card?.bg || previewCardBg || 'rgba(15,23,42,0.55)';
+  const currentCardBg = cardList.card?.bg || DEFAULT_DESIGN_CONFIG_V2.cardList.card.bg;
   const liveCardListBg = getCardListBgStyle(currentCardBg);
 
   const handleSelectBg = (val) => {

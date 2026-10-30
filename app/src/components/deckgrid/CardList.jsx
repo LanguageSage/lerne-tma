@@ -1,3 +1,4 @@
+import { DEFAULT_DESIGN_CONFIG_V2 } from '../../design/designConfig.js';
 import { getDesignTextStyle } from '../../utils/cardStyles';
 import { tr } from '../../i18n/locale';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
@@ -28,7 +29,7 @@ import { reclassifyDeck } from '../../services/reclassificationService.js';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
-import { getTextShadow, getCardListBgStyle } from '../../utils/style';
+import { getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
@@ -49,53 +50,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const { handleBatchMoveCards, handleBatchCopyCards, handleBatchDeleteCards } = useCardActions();
 
 
-  const previewCardFont = useSettingsStore(s => s.previewCardFont);
-  const previewCardTextColor = useSettingsStore(s => s.previewCardTextColor);
-  const previewBackTextColor = useSettingsStore(s => s.previewBackTextColor);
-  const previewCardFontSize = useSettingsStore(s => s.previewCardFontSize);
-  const previewBackFontSize = useSettingsStore(s => s.previewBackFontSize);
-  const previewCardFontWeight = useSettingsStore(s => s.previewCardFontWeight);
-  const previewCardFontStyle = useSettingsStore(s => s.previewCardFontStyle);
-  const previewTextShadow = useSettingsStore(s => s.previewTextShadow);
-  const previewCardBg = useSettingsStore(s => s.previewCardBg);
-  const previewCardLines = useSettingsStore(s => s.previewCardLines);
-  const previewCardTextAlign = useSettingsStore(s => s.previewCardTextAlign);
-  const effectiveCardListConfig = useSettingsStore(s => s.activeDesignConfig?.cardList);
-
-  const effectiveCardBg = effectiveCardListConfig?.card?.bg || previewCardBg || 'dark_obsidian';
+  const effectiveCardListConfig = useSettingsStore(s => s.activeDesignConfig?.cardList) || DEFAULT_DESIGN_CONFIG_V2.cardList;
+  const effectiveCardBg = effectiveCardListConfig.card.bg;
   const cardListBg = React.useMemo(() => getCardListBgStyle(effectiveCardBg), [effectiveCardBg]);
-
-  const frontColor = previewCardTextColor || '#ffffff';
-  const frontTypographyStyle = React.useMemo(() => {
-    const v2 = effectiveCardListConfig?.frontText;
-    if (v2) return getDesignTextStyle(v2);
-
-    return {
-      fontFamily: previewCardFont || undefined,
-      color: frontColor,
-      fontSize: previewCardFontSize ? `${previewCardFontSize}rem` : undefined,
-      textShadow: getTextShadow(previewTextShadow, frontColor),
-      fontWeight: previewCardFontWeight || 600,
-      fontStyle: previewCardFontStyle || undefined,
-      textAlign: previewCardTextAlign || 'left',
-    };
-  }, [effectiveCardListConfig, previewCardFont, frontColor, previewCardFontSize, previewTextShadow, previewCardFontWeight, previewCardFontStyle, previewCardTextAlign]);
-
-  const effectiveBackColor = previewBackTextColor || '#cbd5e1';
-  const backTypographyStyle = React.useMemo(() => {
-    const v2 = effectiveCardListConfig?.backText;
-    if (v2) return getDesignTextStyle(v2);
-
-    return {
-      fontFamily: previewCardFont || undefined,
-      color: effectiveBackColor,
-      fontSize: previewBackFontSize ? `${previewBackFontSize}rem` : undefined,
-      textShadow: getTextShadow(previewTextShadow, effectiveBackColor),
-      fontWeight: 500,
-      fontStyle: previewCardFontStyle || undefined,
-      textAlign: previewCardTextAlign || 'left',
-    };
-  }, [effectiveCardListConfig, previewCardFont, effectiveBackColor, previewBackFontSize, previewTextShadow, previewCardFontStyle, previewCardTextAlign]);
+  const frontTypographyStyle = getDesignTextStyle(effectiveCardListConfig.frontText);
+  const backTypographyStyle = getDesignTextStyle(effectiveCardListConfig.backText);
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -1035,7 +994,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       frontTypographyStyle={frontTypographyStyle}
                       backTypographyStyle={backTypographyStyle}
                       cardListBg={cardListBg}
-                      previewCardLines={effectiveCardListConfig?.frontText?.lines ?? previewCardLines}
+                      previewCardLines={effectiveCardListConfig.frontText.lines}
                       isSelectMode={isSelectMode}
                       isSelected={selectedCardIds.has(c.id)}
                       onToggleSelect={handleToggleSelectCard}

@@ -41,7 +41,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
   const [previewRevision, setPreviewRevision] = useState(0);
   const [subTab, setSubTab] = useState('palette');
   const ex = config?.exercises || {};
-  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background || s.cardBgFront);
+  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
   const isInputPreview = ['freeText', 'editableText', 'speech'].includes(previewType);
 
   return (

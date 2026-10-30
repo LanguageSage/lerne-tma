@@ -11,7 +11,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { parseClozeData, cleanBracketSyntax } from '../../utils/clozeParser';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import { getCardStyle, getBackCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 
 import { CardBackground } from '../common/CardBackground';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
@@ -29,27 +29,8 @@ export const TrainerView = () => {
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
   const effectiveConfig = useSettingsStore(s => s.activeDesignConfig);
-  const cardBgFront = useSettingsStore(s => s.cardBgFront);
-  const cardBgBack = useSettingsStore(s => s.cardBgBack);
-  const cardFont = useSettingsStore(s => s.cardFont);
-  const cardTextColor = useSettingsStore(s => s.cardTextColor);
-  const cardFontSize = useSettingsStore(s => s.cardFontSize);
-  const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
-  const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
-  const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
-  const cardTextAlign = useSettingsStore(s => s.cardTextAlign);
-  const contextFont = useSettingsStore(s => s.contextFont);
-  const contextTextColor = useSettingsStore(s => s.contextTextColor);
-  const contextFontSize = useSettingsStore(s => s.contextFontSize);
-  const contextFontWeight = useSettingsStore(s => s.contextFontWeight);
-  const contextFontStyle = useSettingsStore(s => s.contextFontStyle);
-  const contextTextShadow = useSettingsStore(s => s.contextTextShadow);
-  const contextTextAlign = useSettingsStore(s => s.contextTextAlign);
-
-  const styleSettings = useMemo(() => ({
-    cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
-  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign]);
+  const cardBgFront = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
+  const cardBgBack = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
 
   const { playAudio, stopAudio } = useAudio(autoPlay, showToast);
 
@@ -154,9 +135,9 @@ export const TrainerView = () => {
   };
 
   const v2Styles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
-  const cardStyle = useMemo(() => v2Styles?.referenceText || getCardStyle(styleSettings), [v2Styles, styleSettings]);
-  const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styleSettings), [v2Styles, styleSettings]);
-  const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styleSettings), [v2Styles, styleSettings]);
+  const cardStyle = v2Styles.referenceText;
+  const backCardStyle = v2Styles.backText;
+  const contextStyle = v2Styles.contextText;
 
   if (isFinished || !currentCard) {
     return (
@@ -310,7 +291,6 @@ export const TrainerView = () => {
                     playAudio={playAudio}
                     onTrainerAnswer={handleTrainerAnswer}
                     onNextCard={handleNextCard}
-                    styles={styleSettings}
                     fallback={
                       <StudyCardTrainer
                         card={currentCard}
@@ -321,7 +301,6 @@ export const TrainerView = () => {
                         playAudio={playAudio}
                         onTrainerAnswer={handleTrainerAnswer}
                         onNextCard={handleNextCard}
-                        styles={styleSettings}
                         isPureTrainerMode={true}
                       />
                     }

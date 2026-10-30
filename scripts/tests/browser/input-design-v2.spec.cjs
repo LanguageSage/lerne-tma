@@ -243,7 +243,7 @@ test('Free Text service failure stays neutral and retry succeeds', async ({ page
   await colors(field, freeText.correct);
 });
 
-test('standalone renderer resolves effective V2 for all three types and supports explicit legacy fallback', async ({ page, context }) => {
+test('standalone renderer resolves effective V2 for all three types and uses active V2 for explicit null, ignoring flat V1 styles', async ({ page, context }) => {
   await setup(page, context, cards.wordBank);
   await page.evaluate(async () => {
     const React = (await import('/node_modules/.vite/deps/react.js')).default;
@@ -265,8 +265,8 @@ test('standalone renderer resolves effective V2 for all three types and supports
     if (type === 'wordBank') await frontType(harness.locator('.word-bank-text-area'));
     else await inputType(harness.locator('textarea'));
     await page.evaluate(card => window.renderInputDesign(card, true), card);
-    await expect(harness.locator(type === 'wordBank' ? '.word-bank-text-area' : 'textarea'))
-      .toHaveCSS('color', type === 'wordBank' ? 'rgb(255, 0, 255)' : 'rgb(255, 255, 0)');
+    if (type === 'wordBank') await frontType(harness.locator('.word-bank-text-area'));
+    else await inputType(harness.locator('textarea'));
   }
 });
 

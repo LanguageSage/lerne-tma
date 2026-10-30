@@ -57,8 +57,8 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const { uploadStudyImage } = useMediaUpload();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
-  const cardBgFront = useSettingsStore(s => s.cardBgFront);
-  const cardBgBack = useSettingsStore(s => s.cardBgBack);
+  const cardBgFront = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
+  const cardBgBack = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
   const studyMode = useSettingsStore(s => s.studyMode);
   const setStudyMode = useSettingsStore(s => s.setStudyMode);
   const randomEnabledModes = useSettingsStore(s => s.randomEnabledModes);
@@ -67,33 +67,12 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const setSpeechFollowupEnabled = useSettingsStore(s => s.setSpeechFollowupEnabled);
   const autoplayLoop = useSettingsStore(s => s.autoplayLoop);
   const alwaysRegenerateAudio = useSettingsStore(s => s.alwaysRegenerateAudio);
-  const cardFont = useSettingsStore(s => s.cardFont);
-  const cardTextColor = useSettingsStore(s => s.cardTextColor);
-  const cardFontSize = useSettingsStore(s => s.cardFontSize);
-  const cardFontWeight = useSettingsStore(s => s.cardFontWeight);
-  const cardFontStyle = useSettingsStore(s => s.cardFontStyle);
-  const cardTextShadow = useSettingsStore(s => s.cardTextShadow);
-  const cardTextAlign = useSettingsStore(s => s.cardTextAlign);
-  const backTextColor = useSettingsStore(s => s.backTextColor);
-  const contextFont = useSettingsStore(s => s.contextFont);
-  const contextTextColor = useSettingsStore(s => s.contextTextColor);
-  const contextFontSize = useSettingsStore(s => s.contextFontSize);
-  const contextFontWeight = useSettingsStore(s => s.contextFontWeight);
-  const contextFontStyle = useSettingsStore(s => s.contextFontStyle);
-  const contextTextShadow = useSettingsStore(s => s.contextTextShadow);
-  const contextTextAlign = useSettingsStore(s => s.contextTextAlign);
   const showLessonCompletion = useSettingsStore(s => s.showLessonCompletion);
   const [isCompletionDismissed, setIsCompletionDismissed] = React.useState(false);
 
   React.useEffect(() => {
     setIsCompletionDismissed(false);
   }, [sessionRevision]);
-
-  const styleSettings = React.useMemo(() => ({
-    cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign,
-    backTextColor,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
-  }), [cardFont, cardTextColor, cardFontSize, cardFontWeight, cardFontStyle, cardTextShadow, cardTextAlign, backTextColor, contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign]);
 
   const {
     playAudio,
@@ -267,7 +246,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const { currentStep, completeStep } = stepFlow;
   const canGrade = canGradeStudyFlow(stepFlow, hasRequiredActions);
   const isAutoSpeechReview = Boolean(autoSpeechActions);
-  const renderSpeechFollowup = useCallback(({ card: actionCard, stepFlow: actionFlow, audioControls: controls, styles }) => {
+  const renderSpeechFollowup = useCallback(({ card: actionCard, stepFlow: actionFlow, audioControls: controls }) => {
     if (!speechFollowupTarget || actionFlow.currentStep?.action !== STUDY_ACTION.SPEAK) return null;
     return (
       <StudyCardSpeech
@@ -275,7 +254,6 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
         card={actionCard}
         reviewKey={actionFlow.reviewKey}
         targetText={speechFollowupTarget}
-        styles={styles}
         stopAudio={controls?.stopAudio}
         onSuccess={actionFlow.completeStep}
         onSkip={() => actionFlow.completeStep({ skipped: true, action: 'speak' })}
@@ -790,7 +768,6 @@ ${targetCard.back}`;
               sessionVoice={sessionVoice}
               isAudioLoading={isAudioLoading}
               isAutoplayActive={isAutoplayActive}
-              styles={styleSettings}
               resolvedBgFront={resolvedBgFront}
               resolvedBgBack={resolvedBgBack}
               studyMode={effectiveStudyMode}

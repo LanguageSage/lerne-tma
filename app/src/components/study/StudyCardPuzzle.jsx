@@ -19,7 +19,7 @@ import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { triggerHaptic } from '../../utils/platform';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
-import { getCardStyle, getBackCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { designConfigToCssVariables } from '../../design/designTokens.js';
 import { getInteractiveExerciseContent, parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { evaluatePuzzleOrder, puzzleBoundaryId } from '../../utils/puzzleEvaluation.js';
@@ -91,7 +91,6 @@ export const StudyCardPuzzle = React.memo(({
   isFlipped,
   onTrainerAnswer,
   renderAudioPlayer,
-  styles = {},
   designConfig,
   savedState,
   onSaveState
@@ -105,7 +104,7 @@ export const StudyCardPuzzle = React.memo(({
   const { completed, result } = evaluation.state;
 
   const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
-  const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styles), [v2Styles, styles]);
+  const backCardStyle = v2Styles.backText;
   const designVars = useMemo(() => designConfig ? designConfigToCssVariables(designConfig) : {}, [designConfig]);
 
   const puzzleData = useMemo(() => {
@@ -210,8 +209,7 @@ export const StudyCardPuzzle = React.memo(({
     handleDragCancel();
   };
 
-  const wordStyle = v2Styles ? { ...v2Styles.frontText, color: undefined }
-    : { ...getCardStyle(styles), fontSize: `${styles.cardFontSize ?? 1}rem` };
+  const wordStyle = { ...v2Styles.frontText, color: undefined };
 
 
   if (!puzzleData) return null;
@@ -266,7 +264,7 @@ export const StudyCardPuzzle = React.memo(({
               className="text-back"
               style={{
                 ...backCardStyle,
-                textAlign: v2Styles ? backCardStyle.textAlign : 'center',
+                textAlign: backCardStyle.textAlign,
                 width: '100%',
                 opacity: 0.95
               }}

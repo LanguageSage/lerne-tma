@@ -229,21 +229,6 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
   },
 
   exercises: {
-    /** Deprecated stored field; renderers use front.mainText. Retain until data migration. */
-    bodyText: {
-      font: 'Comfortaa',
-      size: 1.7,
-      weight: '700',
-      style: 'normal',
-      color: '#fde047',
-      lineHeight: 1.35,
-    },
-
-    /**
-     * Deprecated stored field. Explicit state colors are authoritative; never
-     * recompute them from this old flag, which defaulted to auto for all users.
-     */
-    paletteMode: 'auto',
     baseColor: '#fde047',   // Quiz icon harmony; explicit state colors remain authoritative.
 
     /** Quiz / choice options */

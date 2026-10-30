@@ -310,3 +310,39 @@ scoped preview с явным config сохраняет изоляцию.
 наследуют основной текст, старые опубликованные V2 JSON сохраняют прежнее поведение.
 Хранение/доставка/восстановление — в [sync](sync.md#личное-оформление-design-v2).
 Полный аудит и условия удаления Legacy: [этап 3](../../docs/DESIGN_V2_STAGE3_PERSONAL_MIGRATION.md).
+
+### Design V2: встроенные пресеты без Legacy (этап 4A)
+
+`design/designPresets.js` хранит 10 встроенных пресетов непосредственно в V2;
+`DesignToolbar` использует их без V1-конвертера. Применяются прежние секции
+front/back/cardList; опубликованное оформление и упражнения не перезаписываются.
+V1 definitions в appConstants и функции адаптации встроенных пресетов удалены.
+`migrateLegacyDesignSettings` остаётся для личной миграции и восстановления
+старых пользовательских копий. Проверки и границы следующего удаления:
+[этап 4A](../../docs/DESIGN_V2_STAGE4A_NATIVE_PRESETS.md).
+
+### Design V2: runtime без V1 typography fallback (этап 4B)
+
+StudyCard и все дочерние упражнения, Speech, TrainerView получают текстовые
+роли через getDesignStylesFromV2. Старые getCardStyle/getBackCardStyle/
+getContextStyle удалены; StudyView/TrainerView больше не собирают flat
+styleSettings. resolveActiveDesign возвращает стандартный V2 при отсутствии
+документов; явный null в ExerciseRenderer/Speech выбирает активный V2.
+Пустые backgrounds по-прежнему наследуют личные фоны.
+[Этап 4B и проверки](../../docs/DESIGN_V2_STAGE4B_RUNTIME_CLEANUP.md).
+
+### Design V2: редакторы и список без V1 fallback (этап 4C)
+
+CardForm/CardContentEditor используют только V2 typography. CardList получает
+фон, обе текстовые роли и lines из активного V2 или defaults V2. Настройки
+Front/Back/Exercise и CardForm наследуют пустой background от личного V2;
+CardListDesignSection больше не читает previewCardBg. Миграционный конвертер,
+backups и legacy-хранилища сохранены. Аудит deprecated V2 полей и оставшихся
+вызовов конвертера: [этап 4C](../../docs/DESIGN_V2_STAGE4C_EDITORS_CLEANUP.md).
+
+### Этап 4D: завершение flat V1 runtime
+
+StudyView/TrainerView наследуют background от личного V2. Store больше не
+содержит flat V1 design fields; exercises.bodyText/paletteMode удалены из
+V2 schema как неиспользуемые. Старые V2 global background/glass поля остаются
+рабочими. [PostgreSQL recovery и остаток миграции](../../docs/DESIGN_V2_STAGE4D_STORE_AND_RECOVERY.md).

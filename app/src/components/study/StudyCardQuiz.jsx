@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
-import { getCardStyle, getDesignStylesFromV2, getHarmonizedOptionStyles } from '../../utils/cardStyles';
+import { getDesignStylesFromV2, getHarmonizedOptionStyles } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { evaluateQuizOption, quizPartId } from '../../utils/quizEvaluation.js';
@@ -13,7 +13,6 @@ export const StudyCardQuiz = ({
   quizData,
   onTrainerAnswer,
   renderAudioPlayer,
-  styles = {},
   designConfig,
   savedState,
   onSaveState
@@ -25,9 +24,9 @@ export const StudyCardQuiz = ({
   const [optionOrder] = useState(() => savedState?.optionOrder || quizData.options.map(option => option.id));
   const options = useMemo(() => optionOrder.map(id => quizData.options.find(option => option.id === id)).filter(Boolean), [optionOrder, quizData.options]);
 
-  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig)?.frontText, [designConfig]);
-  const cardStyle = useMemo(() => v2Text || getCardStyle(styles), [v2Text, styles]);
-  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(designConfig?.exercises?.baseColor || styles?.cardTextColor), [designConfig?.exercises?.baseColor, styles?.cardTextColor]);
+  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
+  const cardStyle = v2Text;
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(designConfig?.exercises?.baseColor), [designConfig?.exercises?.baseColor]);
 
   useEffect(() => {
     onSaveState?.({ selectedOptionId, optionOrder, evaluationState: evaluation.state });
@@ -85,7 +84,7 @@ export const StudyCardQuiz = ({
             fontWeight: cardStyle.fontWeight || 700,
             lineHeight: 1.35,
             letterSpacing: '-0.01em',
-            textAlign: (styles?.cardTextAlign && styles.cardTextAlign !== 'center') ? styles.cardTextAlign : 'left',
+            textAlign: cardStyle.textAlign,
             marginBottom: renderAudioPlayer ? '12px' : '0',
             width: '100%',
             whiteSpace: 'pre-wrap',

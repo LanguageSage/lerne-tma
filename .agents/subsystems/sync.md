@@ -142,3 +142,12 @@ Auth profile сохраняется до уведомления подписчи
 Регрессии: `personalDesignMigration.test.js`, `test_personal_design_migration.py`,
 `personal-design-migration.spec.cjs`. Матрица данных, поведение конфликта,
 порядок rollout и ограничения: [отчёт этапа 3](../../docs/DESIGN_V2_STAGE3_PERSONAL_MIGRATION.md).
+
+### Этап 4D: только V2 в runtime store
+
+Flat V1 design state/userDesign и копирование этих полей из server snapshot
+удалены из useSettingsStore. Миграция и восстановление используют сохранённые
+источники через personalDesignMigration; backups/старые ключи не удаляются.
+Настоящий PostgreSQL recovery проверен runner personal_design_postgres.py:
+7 тестов, concurrent CAS, pg_dump/pg_restore и JS conversion backup.
+[Отчёт и границы cutoff](../../docs/DESIGN_V2_STAGE4D_STORE_AND_RECOVERY.md).

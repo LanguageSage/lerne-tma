@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Languages } from 'lucide-react';
-import { getCardStyle, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { designConfigToCssVariables } from '../../design/designTokens.js';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
@@ -101,7 +101,6 @@ export const StudyCardTrainer = React.memo(({
   clozeData,
   onTrainerAnswer,
   renderAudioPlayer,
-  styles = {},
   designConfig,
   savedState,
   onSaveState,
@@ -120,7 +119,7 @@ export const StudyCardTrainer = React.memo(({
   const dropdownRef = useRef(null);
 
   const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
-  const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles]);
+  const cardStyle = v2Styles.frontText;
   const designVars = useMemo(() => designConfig ? designConfigToCssVariables(designConfig) : {}, [designConfig]);
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
@@ -419,7 +418,7 @@ export const StudyCardTrainer = React.memo(({
 
           return (
             <div key={`line-${idx}`} style={{ width: '100%', marginBottom: 0 }}>
-              <div style={{ lineHeight: v2Styles ? 'inherit' : 1.75 }}>
+              <div style={{ lineHeight: 'inherit' }}>
                 {renderSnippetWithGaps(line)}
               </div>
             </div>
@@ -439,7 +438,7 @@ export const StudyCardTrainer = React.memo(({
   return (
     <div
       className="interactive-mode-container trainer-exercise"
-      data-design-v2={Boolean(v2Styles)}
+      data-design-v2
       onClick={e => e.stopPropagation()}
       style={{
         cursor: 'default',

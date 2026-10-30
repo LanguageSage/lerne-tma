@@ -4,7 +4,7 @@ import { normalizeDesignConfig } from '../designConfig.js';
 import { designConfigToCssVariables } from '../designTokens.js';
 import { getDesignStylesFromV2, getDesignTextStyle, getHarmonizedContextColor } from '../../utils/cardStyles.js';
 import { CARD_BACKGROUND_PRESETS, getTextShadow, getContextShadow, getResolvedStyle } from '../../utils/style.js';
-import { migrateLegacyDesignSettings, adaptDesignPresetsToV2 } from '../legacyAdapter.js';
+import { migrateLegacyDesignSettings } from '../legacyAdapter.js';
 
 test('old V2 retains an unspecified background; explicit backgrounds round-trip without legacy keys', () => {
   assert.equal(normalizeDesignConfig({ schemaVersion: 2 }).front.card.background, '');
@@ -22,7 +22,7 @@ test('old V2 retains an unspecified background; explicit backgrounds round-trip 
   }
 });
 
-test('manual import and preset conversion retain their background in actual V2 fields', () => {
+test('manual import retains its background in actual V2 fields', () => {
   const flat = { cardBgFront: 'liquid_morning', cardBgBack: 'custom_saved.mp4', cardTextColor: '#abcdef' };
   const frozen = structuredClone(flat);
   const config = migrateLegacyDesignSettings(flat);
@@ -30,9 +30,6 @@ test('manual import and preset conversion retain their background in actual V2 f
   assert.equal(config.back.card.background, 'custom_saved.mp4');
   assert.deepEqual(flat, frozen);
   assert.equal(config.global._legacyBgFront, undefined);
-  const [preset] = adaptDesignPresetsToV2([{ id: 'test', name: 'test', settings: flat }]);
-  assert.equal(preset.configV2.front.card.background, 'liquid_morning');
-  assert.equal(preset.legacyBgFront, undefined);
   assert.equal(getResolvedStyle('auto', 23), 'holographic');
   assert.equal(getResolvedStyle('auto', 0), 'standard');
   assert.equal(getResolvedStyle('dark_mocha', 23), 'dark_mocha');
@@ -50,7 +47,6 @@ test('all V2 text roles implement shadows, auto context and explicit context con
   }
   config.back.context.color = '#112233';
   assert.equal(getDesignStylesFromV2(config).contextText.color, '#112233');
-  assert.equal(getDesignStylesFromV2(null), null);
 });
 
 test('glows support harmonized HSL, rgba and currentColor; list uses the same full typography', () => {
@@ -64,4 +60,10 @@ test('glows support harmonized HSL, rgba and currentColor; list uses the same fu
   assert.equal(vars['--design-cl-front-style'], 'italic');
   assert.equal(vars['--design-cl-front-shadow'], getDesignTextStyle(config.cardList.frontText).textShadow);
   assert.equal(getDesignTextStyle(config.cardList.frontText).lineHeight, 1.8);
+});
+
+test('missing runtime config uses V2 defaults for every text role', () => {
+  const expected = getDesignStylesFromV2(normalizeDesignConfig(null));
+  assert.deepEqual(getDesignStylesFromV2(null), expected);
+  assert.deepEqual(getDesignStylesFromV2(undefined), expected);
 });

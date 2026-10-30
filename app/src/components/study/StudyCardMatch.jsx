@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { Link2 } from 'lucide-react';
-import { getCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles.js';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { evaluateMatchPair, matchPartId } from '../../utils/matchEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
@@ -24,7 +24,6 @@ export const StudyCardMatch = React.memo(({
   onTrainerAnswer,
   onNextCard,
   renderAudioPlayer,
-  styles = {},
   designConfig,
   isPureTrainerMode = false,
   savedState,
@@ -39,9 +38,9 @@ export const StudyCardMatch = React.memo(({
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const isChecked = evaluation.state.completed;
   const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
-  const v2Text = v2Styles?.frontText;
-  const cardStyle = useMemo(() => v2Text || getCardStyle(styles), [v2Text, styles]);
-  const contextStyle = useMemo(() => v2Styles?.matchRightText || getContextStyle(styles), [v2Styles, styles]);
+  const v2Text = v2Styles.frontText;
+  const cardStyle = v2Text;
+  const contextStyle = v2Styles.matchRightText;
   const pairs = useMemo(() => matchData?.pairs || [], [matchData?.pairs]);
   const [shuffledRight] = useState(() => {
     if (savedState?.shuffledRight?.length) return savedState.shuffledRight;
@@ -210,8 +209,7 @@ export const StudyCardMatch = React.memo(({
                   fontWeight: 600,
                   textAlign: 'left',
                   ...cardStyle,
-                  color: !v2Text && !isCorrect && !isWrong && !isSelected && !isChecked
-                    ? (cardStyle.color || textColor) : textColor,
+                  color: textColor,
                   minWidth: 0,
                   cursor: isChecked || isMatched ? 'default' : 'pointer',
                   position: 'relative',

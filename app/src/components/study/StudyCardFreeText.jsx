@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale.js';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale.js';
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { PenLine, Eye, Check, LoaderCircle, Mic, Pause, Play, RotateCcw } from 'lucide-react';
-import { getCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles.js';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
@@ -14,7 +14,7 @@ import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
 export const StudyCardFreeText = React.memo(({
   card, freeTextData, editableTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
-  styles = {}, isPureTrainerMode = false, savedState, onSaveState, reviewKey,
+  isPureTrainerMode = false, savedState, onSaveState, reviewKey,
   designConfig,
   assessmentMode = false,
 }) => {
@@ -55,10 +55,10 @@ export const StudyCardFreeText = React.memo(({
   const isCompleted = result?.accepted === true;
   const isExhausted = Boolean((assessmentMode && state.attemptCount > 0) || (state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries));
   const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
-  const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles]);
-  const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styles), [v2Styles, styles]);
+  const cardStyle = v2Styles.frontText;
+  const contextStyle = v2Styles.contextText;
   // Input colors belong to freeText states; typography uses the existing context role.
-  const inputStyle = v2Styles ? { ...contextStyle, color: undefined } : contextStyle;
+  const inputStyle = { ...contextStyle, color: undefined };
   const answerStatus = isCompleted ? 'is-correct'
     : ['needs_retry', 'incorrect'].includes(result?.verdict) && userInput === state.lastAnswer ? 'is-incorrect' : '';
 

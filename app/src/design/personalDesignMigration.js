@@ -174,7 +174,6 @@ export function resolveActiveDesign(state) {
   const personal = state.personalDesignV2?.config;
   const source = state.isLocalDesignPreviewActive && state.adminDraftDesignV2
     ? state.adminDraftDesignV2 : state.publishedDesignV2?.config || personal;
-  if (!source) return null;
   const config = normalizeDesignConfig(source);
   for (const side of ['front', 'back']) {
     if (!config[side].card.background && personal?.[side]?.card?.background) {

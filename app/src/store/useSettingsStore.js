@@ -7,9 +7,6 @@ import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignR
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence.js';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
-import { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP, migrateLegacyDesignSettings } from '../design/legacyAdapter.js';
-
-export { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP };
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
 const DESIGN_V2_CACHE_KEY = 'lerne:published-design:v2';
@@ -155,11 +152,6 @@ export const debouncedSaveSettings = (get) => {
   }, 1000);
 };
 
-const getInitialDesignState = (record = initialPersonalRecord) => ({
-  ...DEFAULT_DESIGN_SETTINGS, ...legacyFromRaw(record?.backups.local),
-  userDesign: legacyFromRaw(record?.backups.local).userDesign ?? null,
-});
-
 const getStoredTtsVoices = () => {
   try {
     const value = storage.get('lerne_tts_voices');
@@ -302,7 +294,6 @@ export const useSettingsStore = create((set, get) => {
     },
 
     // --- Design Settings & Setters ---
-    ...getInitialDesignState(),
     personalDesignV2: initialPersonalRecord?.document ?? null,
     designAccountId: getUserId(),
     designMigrationError: initialMigrationError,
@@ -315,11 +306,11 @@ export const useSettingsStore = create((set, get) => {
       saveTimer = null;
       try {
         const record = openPersonalDesignRecord(getUserId());
-        set({ ...getInitialDesignState(record), personalDesignV2: record?.document ?? null,
+        set({ personalDesignV2: record?.document ?? null,
           designAccountId: getUserId(), designMigrationError: null, isAdmin,
           adminDraftDesignV2: loadCachedAdminDraft(), isLocalDesignPreviewActive: loadCachedLocalPreviewState() });
       } catch (error) {
-        set({ ...DEFAULT_DESIGN_SETTINGS, userDesign: null, personalDesignV2: null,
+        set({ personalDesignV2: null,
           designAccountId: getUserId(), designMigrationError: error.message,
           adminDraftDesignV2: null, isLocalDesignPreviewActive: false, isAdmin: false });
       }
@@ -370,17 +361,6 @@ export const useSettingsStore = create((set, get) => {
       serverSettings = { ...serverSettings, ...autoplay };
       const updates = {};
 
-      // Apply design settings
-      Object.keys(DESIGN_STORAGE_MAP).forEach((stateKey) => {
-        if (serverSettings[stateKey] !== undefined) {
-          const defaultVal = DEFAULT_DESIGN_SETTINGS[stateKey];
-          const val = typeof defaultVal === 'number' 
-            ? Number(serverSettings[stateKey]) 
-            : serverSettings[stateKey];
-          updates[stateKey] = val;
-        }
-      });
-
       // Apply study/SRS settings
       Object.entries(STUDY_STORAGE_MAP).forEach(([stateKey, storageKey]) => {
         if (serverSettings[stateKey] !== undefined) {
@@ -397,11 +377,6 @@ export const useSettingsStore = create((set, get) => {
           updates[stateKey] = val;
         }
       });
-
-      if (serverSettings.userDesign !== undefined) {
-        updates.userDesign = serverSettings.userDesign;
-
-      }
 
       // Sync native interface language if present and changed
       if (serverSettings.native_language) {
@@ -597,7 +572,7 @@ export const useSettingsStore = create((set, get) => {
      *  лицевая/обратная/список черновика; возвращает прежний черновик для отмены. */
     importLegacyPersonalDesign: () => {
       const state = get();
-      const config = state.personalDesignV2?.config ?? migrateLegacyDesignSettings(state);
+      const config = state.personalDesignV2?.config ?? DEFAULT_DESIGN_CONFIG_V2;
       return state.applyDraftSections(config, ['front', 'back', 'cardList']);
     },
 

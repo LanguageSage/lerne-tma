@@ -1,7 +1,7 @@
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP, migrateLegacyDesignSettings } from '../legacyAdapter.js';
-import { getCardStyle, getBackCardStyle, getContextStyle, getDesignStylesFromV2 } from '../../utils/cardStyles.js';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { normalizeDesignConfig } from '../designConfig.js';
 import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord,
   reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign } from '../personalDesignMigration.js';
@@ -42,13 +42,12 @@ test('every stored V1 field changes its V2 representation; inherited answer and 
     cardFontStyle: 'italic', cardTextShadow: 'outline', contextTextAlign: 'right',
     previewCardFont: 'monospace', previewCardFontStyle: 'italic', previewTextShadow: 'neon' };
   const config = migrateLegacyDesignSettings(flat);
-  const expected = getBackCardStyle(flat), front = getCardStyle(flat);
   for (const key of ['font', 'size', 'weight', 'style', 'shadow']) {
     assert.equal(config.back.answerText[key], config.front.mainText[key], key);
   }
-  assert.equal(config.back.answerText.font, expected.fontFamily);
-  assert.equal(`${config.back.answerText.size}rem`, expected.fontSize);
-  assert.equal(config.back.referenceText.font, front.fontFamily);
+  assert.equal(config.back.answerText.font, 'Georgia');
+  assert.equal(`${config.back.answerText.size}rem`, '2.2rem');
+  assert.equal(config.back.referenceText.font, 'Georgia');
   assert.equal(config.back.answerText.align, 'right');
   assert.equal(config.cardList.backText.font, 'monospace');
   assert.equal(config.cardList.backText.weight, '500');
@@ -245,7 +244,7 @@ test('inherited Free Text color and independent Match right typography migrate i
   const flat = { ...DEFAULT_DESIGN_SETTINGS, cardFont: 'Georgia', cardTextColor: '#ff00ff',
     contextFont: 'monospace', contextTextColor: '#ffff00', contextFontSize: 1.6, contextFontStyle: 'italic' };
   const config = migrateLegacyDesignSettings(flat), styles = getDesignStylesFromV2(config);
-  assert.equal(config.exercises.freeText.input.color, getContextStyle(flat).color);
+  assert.equal(config.exercises.freeText.input.color, '#ffff00');
   assert.equal(config.exercises.match.item.color, '#ff00ff');
   assert.equal(styles.matchRightText.fontFamily, 'monospace');
   assert.equal(styles.matchRightText.fontSize, '1.6rem');
@@ -282,4 +281,21 @@ test('an older server V2 snapshot cannot discard the newer cached personal desig
   assert.equal(migrated.back.context.weight, '600');
   assert.equal(migrated.cardList.frontText.weight, '400');
   assert.equal(migrated.back.answerText.size, 2.4);
+});
+
+test('no personal, published or preview document still resolves a complete V2 config', () => {
+  assert.deepEqual(resolveActiveDesign({}), normalizeDesignConfig(null));
+});
+
+
+test('runtime store does not recreate flat V1 state when reading an old server snapshot', () => {
+  useSettingsStore.getState().syncUserSettingsFromServer({ cardFont: 'Georgia',
+    cardBgFront: 'liquid_emerald', userDesign: { cardFont: 'serif' } });
+  const state = useSettingsStore.getState();
+  for (const key of [...Object.keys(DESIGN_STORAGE_MAP), 'userDesign']) {
+    assert.equal(Object.hasOwn(state, key), false, key);
+  }
+  assert.equal(state.personalDesignV2.config.front.mainText.font, 'Georgia');
+  assert.equal(state.personalDesignV2.config.front.card.background, 'liquid_emerald');
+  assert.equal(state.personalDesignV2.preset.front.mainText.font, 'serif');
 });

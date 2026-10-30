@@ -45,6 +45,13 @@ async function setup(page, context) {
       cardFont: 'Georgia', cardFontSize: 1.15, backCardFont: 'Georgia', backCardFontSize: 1.15,
       backTextColor: '#fed7aa', contextFont: 'Georgia', contextFontSize: 1,
       contextTextColor: '#a5f3fc', previewCardLines: 0 });
+    const { normalizeDesignConfig } = await import('/src/design/designConfig.js');
+    useSettingsStore.getState().setPersonalDesignV2(normalizeDesignConfig({
+      front: { mainText: { font: 'Georgia', size: 1.15 } },
+      back: { answerText: { font: 'Georgia', size: 1.15, color: '#fed7aa' },
+        context: { font: 'Georgia', size: 1, color: '#a5f3fc' } },
+      cardList: { frontText: { lines: 0 } },
+    }));
     useDeckStore.setState({ currentDeck: deck });
   }, { deck });
   return errors;

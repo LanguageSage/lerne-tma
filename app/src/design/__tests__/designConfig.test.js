@@ -19,8 +19,6 @@ import {
 
 import {
   migrateLegacyDesignSettings,
-  legacyPresetToDesignConfigV2,
-  adaptDesignPresetsToV2,
 } from '../legacyAdapter.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -346,54 +344,6 @@ test('normalize: deeply nested unknown keys rejected', () => {
   assert.strictEqual(result.exercises.choice.normal.bg, '#000');
 });
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 7. legacyPresetToDesignConfigV2
-// ─────────────────────────────────────────────────────────────────────────────
-
-test('legacyPreset: null preset returns defaults', () => {
-  const v2 = legacyPresetToDesignConfigV2(null);
-  assert.strictEqual(v2.schemaVersion, 2);
-});
-
-test('legacyPreset: preset without settings returns defaults', () => {
-  const v2 = legacyPresetToDesignConfigV2({ id: 'test', name: 'Test' });
-  assert.strictEqual(v2.schemaVersion, 2);
-});
-
-test('legacyPreset: converts preset settings correctly', () => {
-  const preset = {
-    id: 'strict_dark',
-    name: 'Строгий тёмный',
-    settings: {
-      cardFont: 'Inter',
-      cardTextColor: '#ffffff',
-      cardFontSize: 1.8,
-    }
-  };
-  const v2 = legacyPresetToDesignConfigV2(preset);
-  assert.strictEqual(v2.front.mainText.font, 'Inter');
-  assert.strictEqual(v2.front.mainText.color, '#ffffff');
-  assert.strictEqual(v2.front.mainText.size, 1.8);
-});
-
-test('adaptDesignPresetsToV2: returns array with id, name, configV2', () => {
-  const presets = [
-    { id: 'p1', name: 'Preset 1', settings: { cardFont: 'Roboto' } },
-    { id: 'p2', name: 'Preset 2', settings: { cardTextColor: '#aabbcc' } },
-  ];
-  const adapted = adaptDesignPresetsToV2(presets);
-  assert.strictEqual(adapted.length, 2);
-  assert.strictEqual(adapted[0].id, 'p1');
-  assert.strictEqual(adapted[0].configV2.front.mainText.font, 'Roboto');
-  assert.strictEqual(adapted[1].configV2.front.mainText.color, '#aabbcc');
-});
-
-test('adaptDesignPresetsToV2: empty array safe', () => {
-  const adapted = adaptDesignPresetsToV2([]);
-  assert.strictEqual(adapted.length, 0);
-});
-
-
 test('new global fields survive JSON export/import and keep learning settings independent', () => {
   const draft = mergeDesignConfig(DEFAULT_DESIGN_CONFIG_V2, { global: {
     background: { mode: 'linear', color1: '#123456', colorCount: 2, angle: 270 },
@@ -431,4 +381,16 @@ test('normalization gives independent defaults and leaves input untouched', () =
   first.global.buttons.primary.hover.color1 = '#000000';
   assert.equal(JSON.stringify(input), before);
   assert.notEqual(normalizeDesignConfig({}).global.buttons.primary.hover.color1, '#000000');
+});
+
+
+test('obsolete exercise fields are discarded without changing remaining config or input', () => {
+  const source = structuredClone(DEFAULT_DESIGN_CONFIG_V2);
+  source.exercises.bodyText = { font: 'Georgia', size: 8, color: '#ff0000' };
+  source.exercises.paletteMode = 'manual';
+  const normalized = normalizeDesignConfig(source);
+  assert.equal('bodyText' in normalized.exercises, false);
+  assert.equal('paletteMode' in normalized.exercises, false);
+  assert.deepEqual(normalized, DEFAULT_DESIGN_CONFIG_V2);
+  assert.equal(source.exercises.bodyText.font, 'Georgia');
 });

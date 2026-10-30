@@ -6,11 +6,8 @@ import React, { useRef, useState } from 'react';
 import { Save, Upload, Download, RotateCcw, Globe, ChevronDown, Copy, Check, Eye, Undo2, CloudDownload, History } from 'lucide-react';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { normalizeDesignConfig } from '../../../design/designConfig.js';
-import { DESIGN_PRESETS } from '../../../constants/appConstants';
-import { adaptDesignPresetsToV2 } from '../../../design/legacyAdapter.js';
+import { DESIGN_PRESETS } from '../../../design/designPresets.js';
 import { tr } from '../../../i18n/locale';
-
-const ADAPTED_PRESETS = adaptDesignPresetsToV2(DESIGN_PRESETS);
 
 export const DesignToolbar = ({ activeSection, onResetSection }) => {
   const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
@@ -149,7 +146,7 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
           </button>
           {presetOpen && (
             <div className="design-preset-menu">
-              {[...ADAPTED_PRESETS, ...(personalPreset ? [{ id: 'personal', name: tr('Мой дизайн'), configV2: personalPreset }] : [])].map(preset => (
+              {[...DESIGN_PRESETS, ...(personalPreset ? [{ id: 'personal', name: tr('Мой дизайн'), configV2: personalPreset }] : [])].map(preset => (
                 <button
                   key={preset.id}
                   className="design-preset-item"

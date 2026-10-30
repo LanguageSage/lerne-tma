@@ -37,7 +37,7 @@ import { getPhysicalSideAudioSource, getPhysicalSideText, getStudyRolePhysicalSi
 // Re-export for backward compatibility
 // eslint-disable-next-line react-refresh/only-export-components
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
-import { getCardStyle, getBackCardStyle, getContextStyle, getHarmonizedOptionStyles, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { getHarmonizedOptionStyles, getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
@@ -57,7 +57,6 @@ export const StudyCard = React.memo(({
   sessionVoice = null, // from useSessionVoice in StudyView
   isAudioLoading,
   isAutoplayActive,
-  styles,
   resolvedBgFront,
   resolvedBgBack,
   studyMode = 'classic',
@@ -231,11 +230,11 @@ export const StudyCard = React.memo(({
   const effectiveConfig = useSettingsStore(state => state.activeDesignConfig);
   const v2Styles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
 
-  const cardStyle = useMemo(() => v2Styles?.frontText || getCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const backCardStyle = useMemo(() => v2Styles?.backText || getBackCardStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextTextAlign, styles?.cardTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const contextStyle = useMemo(() => v2Styles?.contextText || getContextStyle(styles), [v2Styles, styles?.cardFont, styles?.cardTextColor, styles?.backTextColor, styles?.cardFontSize, styles?.cardFontWeight, styles?.cardFontStyle, styles?.cardTextShadow, styles?.contextFont, styles?.contextTextColor, styles?.contextFontSize, styles?.contextFontWeight, styles?.contextFontStyle, styles?.contextTextShadow, styles?.contextTextAlign]); // eslint-disable-line react-hooks/exhaustive-deps
-  const referenceStyle = useMemo(() => v2Styles?.referenceText || cardStyle, [v2Styles, cardStyle]);
-  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(effectiveConfig?.exercises?.baseColor || styles?.cardTextColor), [effectiveConfig, styles?.cardTextColor]);
+  const cardStyle = v2Styles.frontText;
+  const backCardStyle = v2Styles.backText;
+  const contextStyle = v2Styles.contextText;
+  const referenceStyle = v2Styles.referenceText;
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(effectiveConfig?.exercises?.baseColor), [effectiveConfig]);
 
   // Interactive Exercise Type Detection
   const exerciseType = useMemo(() => {
@@ -353,7 +352,7 @@ export const StudyCard = React.memo(({
 
   // A future step renderer can reuse speech/listening UI without a new card type.
   const requiredActionContent = stepFlow?.currentStep && stepFlow.currentStep.action !== 'answer'
-    ? renderRequiredAction?.({ card, stepFlow, audioControls, styles })
+    ? renderRequiredAction?.({ card, stepFlow, audioControls })
     : null;
 
   const handleClozeClick = (option, e) => {
@@ -519,7 +518,6 @@ export const StudyCard = React.memo(({
                   onTrainerAnswer={onTrainerAnswer}
                   onNextCard={onNextCard}
                   renderAudioPlayer={renderFrontAudioPlayer}
-                  styles={styles}
                   designConfig={effectiveConfig}
                   savedState={reviewKey ? exerciseStates[reviewKey] : undefined}
                   onSaveState={handleSaveExerciseState}
@@ -534,7 +532,7 @@ export const StudyCard = React.memo(({
                   {topBlocks.length > 0 && (
                     <ExerciseInfoBlocks blocks={topBlocks} />
                   )}
-                  <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: v2Styles ? cardStyle.lineHeight : 1.35 }}>
+                  <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: cardStyle.lineHeight }}>
                     {(() => {
                       const parts = clozeData.maskedText.split('_____');
                       const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
@@ -587,14 +585,7 @@ export const StudyCard = React.memo(({
                       const isCorrect = correctSelected === opt;
 
                       let btnClass = 'btn-cloze-option';
-                      let customStyle = v2Styles ? { ...v2Styles.frontText, color: undefined } : {
-                        fontFamily: contextStyle.fontFamily,
-                        fontSize: contextStyle.fontSize || `${styles?.cardFontSize}rem`,
-                        fontWeight: contextStyle.fontWeight,
-                        fontStyle: contextStyle.fontStyle,
-                        textShadow: contextStyle.textShadow,
-                        color: contextStyle.color
-                      };
+                      let customStyle = { ...v2Styles.frontText, color: undefined };
 
                       if (isCorrect) { btnClass += ' correct'; delete customStyle.color; }
                       if (isWrong) { btnClass += ' wrong shake-animation'; delete customStyle.color; }
@@ -639,7 +630,7 @@ export const StudyCard = React.memo(({
                   stopAudio={audioControls?.stopAudio}
                   isAudioLoading={isAudioLoading}
                   isAutoplayActive={isAutoplayActive}
-                  styles={styles}
+
                 />
               )}
               </>}

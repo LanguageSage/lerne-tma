@@ -16,7 +16,7 @@ function fitEditorTextarea(area) {
   area.style.height = `${area.scrollHeight + area.offsetHeight - area.clientHeight}px`;
 }
 
-export function CardContentEditor({ value, onChange, card = {}, styles, textStyle, autoFocus = false, modeAction }) {
+export function CardContentEditor({ value, onChange, card = {}, styles, autoFocus = false, modeAction }) {
   useInterfaceLocale();
   const [showPreview, setShowPreview] = useState(false);
   const [error, setError] = useState('');
@@ -118,7 +118,7 @@ export function CardContentEditor({ value, onChange, card = {}, styles, textStyl
   const previewCard = { ...card, front: value };
   const exerciseType = detectExerciseType(previewCard);
   const effectiveConfig = styles?.activeDesignConfig;
-  const previewTextStyle = getDesignStylesFromV2(effectiveConfig)?.frontText || textStyle;
+  const previewTextStyle = getDesignStylesFromV2(effectiveConfig).frontText;
   const renderCommands = group => <div key={group.id} className="card-editor-command-group"
     role="group" aria-label={tr(group.label)}>
     <span className="sub-label">{tr(group.label)}</span>

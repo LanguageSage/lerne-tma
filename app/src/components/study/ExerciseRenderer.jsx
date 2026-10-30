@@ -37,7 +37,6 @@ export const ExerciseRenderer = React.memo(({
   onNextCard,
   renderAudioPlayer,
   playAudio,
-  styles = {},
   designConfig,
   savedState,
   onSaveState,
@@ -47,9 +46,9 @@ export const ExerciseRenderer = React.memo(({
   assessmentMode = false
 }) => {
   // Standalone trainer callers use the effective app design; scoped previews
-  // explicitly supply their draft (null intentionally selects V1 fallback).
+  // explicitly supply their V2 draft. Null/undefined selects the active V2.
   const activeDesign = useSettingsStore(state => state.activeDesignConfig);
-  const effectiveDesign = designConfig === undefined ? activeDesign : designConfig;
+  const effectiveDesign = designConfig ?? activeDesign;
   const content = useMemo(() => {
     return parseExerciseContent(card?.front || card?.front_text || '');
   }, [card?.front, card?.front_text]);
@@ -141,7 +140,6 @@ export const ExerciseRenderer = React.memo(({
           wordBankData={wordBankData}
           designConfig={effectiveDesign}
           onTrainerAnswer={onTrainerAnswer}
-          styles={styles}
           savedState={savedState}
           onSaveState={onSaveState}
           footerActionTarget={footerActionTarget}
@@ -160,7 +158,6 @@ export const ExerciseRenderer = React.memo(({
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
           renderAudioPlayer={renderAudioPlayer}
-          styles={styles}
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
@@ -181,7 +178,6 @@ export const ExerciseRenderer = React.memo(({
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
           renderAudioPlayer={renderAudioPlayer}
-          styles={styles}
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
@@ -201,7 +197,6 @@ export const ExerciseRenderer = React.memo(({
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
           renderAudioPlayer={renderAudioPlayer}
-          styles={styles}
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
@@ -222,7 +217,6 @@ export const ExerciseRenderer = React.memo(({
           playAudio={playAudio}
           onTrainerAnswer={onTrainerAnswer}
           renderAudioPlayer={renderAudioPlayer}
-          styles={styles}
           savedState={savedState}
           onSaveState={onSaveState}
         />
@@ -243,7 +237,6 @@ export const ExerciseRenderer = React.memo(({
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
           renderAudioPlayer={renderAudioPlayer}
-          styles={styles}
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
@@ -264,7 +257,6 @@ export const ExerciseRenderer = React.memo(({
           renderAudioPlayer={renderAudioPlayer}
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
-          styles={styles}
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}

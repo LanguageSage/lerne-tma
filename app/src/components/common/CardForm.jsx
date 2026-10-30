@@ -5,7 +5,7 @@ import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, 
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { CardContentEditor } from './CardContentEditor';
-import { getTextShadow, getContextShadow, getResolvedStyle } from '../../utils/style';
+import { getResolvedStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useMediaUpload } from '../../hooks/useMediaUpload';
@@ -37,11 +37,7 @@ export const CardForm = ({
   useInterfaceLocale();
   const { t } = useTranslation();
   const settings = useSettingsStore();
-  const { 
-    cardFont, cardTextColor, cardFontWeight, cardFontStyle, cardFontSize, cardTextShadow, cardTextAlign,
-    cardBgFront, cardBgBack,
-    contextFont, contextTextColor, contextFontSize, contextFontWeight, contextFontStyle, contextTextShadow, contextTextAlign
-  } = settings;
+  const personalConfig = settings.personalDesignV2?.config;
 
   const effectiveConfig = settings.activeDesignConfig;
   const v2Styles = getDesignStylesFromV2(effectiveConfig);
@@ -80,13 +76,13 @@ export const CardForm = ({
     };
   }, []);
 
-  useEffect(() => { autoResize(backRef); }, [cardData?.back, cardFontSize, cardFont, cardFontWeight, cardFontStyle,
+  useEffect(() => { autoResize(backRef); }, [cardData?.back,
     v2Styles?.backText.fontFamily, v2Styles?.backText.fontSize, v2Styles?.backText.fontWeight, v2Styles?.backText.fontStyle, v2Styles?.backText.lineHeight]);
-  useEffect(() => { autoResize(contextRef); }, [cardData?.context, contextFontSize, contextFont, contextFontWeight, contextFontStyle,
+  useEffect(() => { autoResize(contextRef); }, [cardData?.context,
     v2Styles?.contextText.fontFamily, v2Styles?.contextText.fontSize, v2Styles?.contextText.fontWeight, v2Styles?.contextText.fontStyle, v2Styles?.contextText.lineHeight]);
 
-  const resolvedBgFront = getResolvedStyle(cardBgFront, cardData?.id || 0);
-  const resolvedBgBack = getResolvedStyle(cardBgBack, cardData?.id || 0);
+  const resolvedBgFront = getResolvedStyle(personalConfig?.front?.card?.background, cardData?.id || 0);
+  const resolvedBgBack = getResolvedStyle(personalConfig?.back?.card?.background, cardData?.id || 0);
 
   const timerRef = useRef(null);
   const pickerRef = useRef(null);
@@ -294,12 +290,6 @@ export const CardForm = ({
                 disabled={loading}
                 variant="action"
               />}
-              textStyle={{
-                fontFamily: cardFont, fontWeight: cardFontWeight, fontStyle: cardFontStyle,
-                color: cardTextColor, fontSize: `${cardFontSize}rem`,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                textAlign: cardTextAlign || 'center'
-              }}
             />
           </div>
 
@@ -650,13 +640,6 @@ export const CardForm = ({
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
               style={{
-                fontFamily: cardFont,
-                fontWeight: cardFontWeight,
-                fontStyle: cardFontStyle,
-                color: cardTextColor,
-                fontSize: `${cardFontSize}rem`,
-                textShadow: getTextShadow(cardTextShadow, cardTextColor),
-                textAlign: cardTextAlign || 'center',
                 ...v2Styles?.backText,
                 overflow: 'hidden',
                 height: 'auto',
@@ -686,13 +669,6 @@ export const CardForm = ({
                 e.target.style.height = `${e.target.scrollHeight}px`;
               }}
               style={{
-                fontFamily: contextFont,
-                fontSize: `${contextFontSize}rem`,
-                color: contextTextColor,
-                fontWeight: contextFontWeight,
-                fontStyle: contextFontStyle,
-                textShadow: getContextShadow(contextTextShadow, contextTextColor),
-                textAlign: contextTextAlign || 'left',
                 ...v2Styles?.contextText,
                 overflow: 'hidden',
                 height: 'auto',

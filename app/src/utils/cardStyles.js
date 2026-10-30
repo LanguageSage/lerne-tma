@@ -1,44 +1,5 @@
-import { getTextShadow, getContextShadow } from './style.js';
-
-/**
- * Shared card style computation for all study mode components.
- * Replaces duplicated cardStyle/contextStyle objects in StudyCard, StudyCardTrainer, StudyCardPuzzle, StudyCardSpeech.
- */
-
-export const getCardStyle = (styles) => {
-  if (!styles) return {};
-  const textColor = styles.cardTextColor || '#ffffff';
-  return {
-    fontFamily: styles.cardFont || undefined,
-    color: styles.cardTextColor || undefined,
-    fontSize: styles.cardFontSize ? `${styles.cardFontSize}rem` : undefined,
-    fontWeight: styles.cardFontWeight || undefined,
-    fontStyle: styles.cardFontStyle || undefined,
-    textShadow: styles.cardTextShadow ? getTextShadow(styles.cardTextShadow, textColor) : undefined,
-    textAlign: styles.cardTextAlign || 'center',
-  };
-};
-
-export const getBackCardStyle = (styles) => {
-  if (!styles) return {};
-  // Back side uses back-specific font settings (not inherited from front)
-  // Falls back to cardFont only if explicit back font not set (V1 backwards compat)
-  const backColor = styles.backTextColor || styles.cardTextColor || '#ffffff';
-  const backFont = styles.backCardFont || styles.cardFont || undefined;
-  const backSize = styles.backCardFontSize ?? styles.cardFontSize;
-  const backWeight = styles.backCardFontWeight || styles.cardFontWeight || undefined;
-  const backStyle = styles.backCardFontStyle || styles.cardFontStyle || undefined;
-  const backShadow = styles.backCardTextShadow || styles.cardTextShadow;
-  return {
-    fontFamily: backFont,
-    color: styles.backTextColor || styles.cardTextColor || undefined,
-    fontSize: backSize ? `${backSize}rem` : undefined,
-    fontWeight: backWeight,
-    fontStyle: backStyle,
-    textShadow: backShadow ? getTextShadow(backShadow, backColor) : undefined,
-    textAlign: styles.contextTextAlign || 'left',
-  };
-};
+import { getTextShadow } from './style.js';
+import { DEFAULT_DESIGN_CONFIG_V2 } from '../design/designConfig.js';
 
 /**
  * Derives a soft, high-contrast, harmonized color for context / example sentences
@@ -57,26 +18,6 @@ export const getHarmonizedContextColor = (baseColor) => {
   const targetLightness = 84;
 
   return `hsl(${h}, ${targetSaturation}%, ${targetLightness}%)`;
-};
-
-export const getContextStyle = (styles) => {
-  if (!styles) return {};
-  const baseColor = styles.backTextColor || styles.cardTextColor || '#ffffff';
-  let color = styles.contextTextColor;
-  if (!color || color === 'auto' || color.toLowerCase() === baseColor.toLowerCase()) {
-    color = getHarmonizedContextColor(baseColor);
-  }
-
-  const effect = styles.contextTextShadow || styles.cardTextShadow;
-  return {
-    fontFamily: styles.contextFont || styles.cardFont || undefined,
-    color,
-    fontSize: styles.contextFontSize ? `${styles.contextFontSize}rem` : (styles.cardFontSize ? `${styles.cardFontSize * 0.9}rem` : undefined),
-    fontWeight: styles.contextFontWeight || styles.cardFontWeight || undefined,
-    fontStyle: styles.contextFontStyle || styles.cardFontStyle || undefined,
-    textShadow: effect ? getContextShadow(effect, color) : undefined,
-    textAlign: styles.contextTextAlign || 'left',
-  };
 };
 
 /**
@@ -183,8 +124,8 @@ export const getMatchRightTypography = config => ({
 });
 
 export const getDesignStylesFromV2 = (designConfig) => {
-  if (!designConfig) return null;
-  const { front, back } = designConfig;
+  const config = designConfig || DEFAULT_DESIGN_CONFIG_V2;
+  const { front, back } = config;
   const contextColor = back?.context?.color === 'auto'
     ? getHarmonizedContextColor(back?.answerText?.color) : back?.context?.color;
   return {
@@ -192,6 +133,6 @@ export const getDesignStylesFromV2 = (designConfig) => {
     backText: getDesignTextStyle(back?.answerText),
     contextText: getDesignTextStyle(back?.context, contextColor),
     referenceText: getDesignTextStyle(back?.referenceText),
-    matchRightText: getDesignTextStyle(getMatchRightTypography(designConfig)),
+    matchRightText: getDesignTextStyle(getMatchRightTypography(config)),
   };
 };
