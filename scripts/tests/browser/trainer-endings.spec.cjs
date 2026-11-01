@@ -19,9 +19,12 @@ async function openCard(page, context, language = 'ru', editor = false, design =
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Test', is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'endings-fixture', refresh_token: 'endings-refresh' }));
   }, language);
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, first_name: 'Test', is_guest: false } });
     if (pathname === '/api/init') return route.fulfill({ json: {
       decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {},
       user_info: { user_id: 1, first_name: 'Test', is_guest: false },
