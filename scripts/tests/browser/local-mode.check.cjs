@@ -30,6 +30,7 @@ test('LOCAL isolates sessions, IndexedDB and network; banner fits supported widt
     if (pathname === '/api/auth/sync') return route.fulfill({ json: { status: 'ok', user: profile } });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [], folders: [], settings: {}, prompts: [], user_settings: {}, user_info: profile } });
     if (pathname === '/api/decks' || pathname === '/api/folders') return route.fulfill({ json: [] });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname === '/api/auth/v2/identities') return route.fulfill({ json: { providers: [] } });
     return route.fulfill({ json: {} });
   });

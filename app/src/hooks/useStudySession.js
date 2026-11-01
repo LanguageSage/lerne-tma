@@ -1,10 +1,11 @@
 import { tr } from '../i18n/locale';
 import { captureStudyKnowledgeAttempt } from '../services/knowledgeCaptureService.js';
-import { getUserId } from '../utils/auth.js';
+import { getUserId, getSessionIdentity } from '../utils/auth.js';
 import { useCallback } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
+import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { playGradeSound } from '../utils/gradeSounds';
@@ -19,11 +20,13 @@ const watchRequest = (trackNavigation = false, onInvalidate = () => {}) => {
   const deckId = useDeckStore.getState().currentDeck?.id;
   const view = useUiStore.getState().view;
   const userId = getUserId();
+  const identity = getSessionIdentity();
   let valid = true;
-  const isCurrent = () => valid && getUserId() === userId;
+  const isCurrent = () => valid && getUserId() === userId && getSessionIdentity() === identity;
   const check = () => {
     const latest = useSessionStore.getState();
-    if (valid && (latest.sessionRevision !== initial.sessionRevision
+    if (valid && (getSessionIdentity() !== identity || getUserId() !== userId
+      || latest.sessionRevision !== initial.sessionRevision
       || useDeckStore.getState().currentDeck?.id !== deckId || useUiStore.getState().view !== view
       || (trackNavigation && reviewKey(latest) !== reviewKey(initial)))) {
       valid = false;
@@ -150,7 +153,12 @@ export const useStudySession = () => {
             res = await api.get(endpoint);
             if (!scope.isCurrent()) return;
           } catch (err) {
-            if (scope.isCurrent()) session.setApiError(err.response?.data?.detail || err.message);
+            if (err.code === 'ERR_CANCELED') return;
+            if (err.response?.status === 401 || scope.isCurrent()) {
+              if (err.response?.status === 401) {
+                useAuthStore.getState().deferNavigation({ deckId, reviewContext: session.isLearningMore ? 'forced' : 'scheduled' });
+              } else session.setApiError(err.response?.data?.detail || err.message);
+            }
             return;
           } finally {
             if (scope.isCurrent()) setLoading(false);
@@ -173,7 +181,9 @@ export const useStudySession = () => {
       }
     } catch (err) {
       console.error("fetchNextCard Error:", err);
-      session.setApiError(err.response?.data?.detail || err.message);
+      if (err.response?.status === 401) {
+        useAuthStore.getState().deferNavigation({ deckId, reviewContext: session.isLearningMore ? 'forced' : 'scheduled' });
+      } else session.setApiError(err.response?.data?.detail || err.message);
     }
     setLoading(false);
   }, [setLoading, prefetchMedia, showLocalCard]);
@@ -243,7 +253,7 @@ export const useStudySession = () => {
         }
       }
     } catch (err) {
-      const detail = err.response?.data?.detail || err.message;
+      const detail = err.response?.status === 401 ? tr('Требуется авторизация') : err.response?.data?.detail || err.message;
       failure = { card, grade, isExtended, exerciseEvidence, message: typeof detail === 'string' ? detail : JSON.stringify(detail) };
       if (useUiStore.getState().view !== 'study' && getUserId() === userId) {
         showToast(tr('Оценка карточки №{{p0}} не подтверждена: {{p1}}. Проверьте прогресс перед повторной оценкой.', { p0: card.id, p1: failure.message }));

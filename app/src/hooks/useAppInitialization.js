@@ -1,7 +1,7 @@
 import { tr } from '../i18n/locale';
 import { getInterfaceLanguage, setInterfaceLanguage, normalizeInterfaceLanguage } from '../i18n/locale';
 import { useEffect } from 'react';
-import { getAccessToken, getUserId, getUserProfile, storage, cloudStorage } from '../utils/auth';
+import { getAccessToken, getUserId, getUserProfile, getSessionIdentity, storage, cloudStorage } from '../utils/auth';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useAuthStore } from '../store/useAuthStore';
@@ -35,13 +35,15 @@ export const useAppInitialization = (checkStartParam) => {
         useSettingsStore.getState().activateSettingsAccount();
       }
       const profile = getUserProfile();
-      setUserProfile(profile);
+      setUserProfile(useAuthStore.getState().userProfile);
 
       // Instant UI restore from cache if available (synchronous)
       if (!isOfflineMode()) loadCachedInitData();
 
       // CloudStorage language restoration in background (non-blocking)
       (async () => {
+        const identity = getSessionIdentity();
+        const account = getUserId();
         try {
           const [cloudHasSelected, cloudLang, cloudNativeSel, cloudNativeLang] = await Promise.all([
             cloudStorage.get('lerne_has_selected_language'),
@@ -49,6 +51,7 @@ export const useAppInitialization = (checkStartParam) => {
             cloudStorage.get('lerne_native_language_selected'),
             cloudStorage.get('lerne_native_language')
           ]);
+          if (identity !== getSessionIdentity() || account !== getUserId()) return;
           if (cloudHasSelected === 'true' && cloudLang) {
             const { useLanguageStore } = await import('../store/useLanguageStore');
             useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
@@ -66,7 +69,7 @@ export const useAppInitialization = (checkStartParam) => {
       const initPromise = fetchInitData();
 
       // 2. Sync profile in parallel
-      if (profile) syncProfile(profile).catch(() => console.warn('Profile sync unavailable'));
+      if (profile && useAuthStore.getState().status === 'authenticated') syncProfile(profile).catch(() => console.warn('Profile sync unavailable'));
 
       // 3. Perform background sync in offline mode if online
       if (isOfflineMode() && navigator.onLine) {
@@ -74,7 +77,7 @@ export const useAppInitialization = (checkStartParam) => {
         useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
 
-      await initPromise;
+      try { await initPromise; } finally { useUiStore.setState({ loading: false, hasInitialized: true }); }
     };
 
     init();
@@ -108,8 +111,9 @@ export const useAppInitialization = (checkStartParam) => {
     };
 
     // Listen for online event (reconnection)
-    const handleOnline = () => {
+    const handleOnline = async () => {
       console.log("[Sync] Network online detected. Triggering auto-sync...");
+      await useAuthStore.getState().restoreSession();
       if (isOfflineMode()) {
         syncService.sync().catch(e => console.error("Online event sync failed:", e));
       } else {
@@ -171,24 +175,7 @@ export const useAppInitialization = (checkStartParam) => {
         if (data.settings) setAdminSettings(data.settings);
         if (data.prompts) setUserPrompts(data.prompts);
 
-        if (data.user_info && data.user_info.user_id) {
-          const current = useUiStore.getState().userProfile || {};
-          const sUser = data.user_info;
-          const validCachedName = sUser.first_name && sUser.first_name !== 'Пользователь' ? sUser.first_name : null;
-          const validLocalName = current.first_name && current.first_name !== 'Пользователь' ? current.first_name : null;
-          const resolvedName = validLocalName || validCachedName || sUser.username || current.username || null;
-          const resolvedPhoto = current.photo_url || sUser.photo_url || null;
-
-          const hasIdentifyingInfo = Boolean(resolvedName || sUser.username || current.username);
-          const restoredProfile = {
-            ...current,
-            ...sUser,
-            first_name: resolvedName,
-            photo_url: resolvedPhoto,
-            is_guest: hasIdentifyingInfo ? Boolean(sUser.is_guest) : true
-          };
-          setUserProfile(restoredProfile);
-        }
+        // Cached profile metadata is display data, never proof of a session.
       }
     } catch (e) {
       console.warn('Cached init data unavailable', { type: e?.name });
@@ -302,8 +289,7 @@ export const useAppInitialization = (checkStartParam) => {
           is_guest: hasIdentifyingInfo ? Boolean(sUser.is_guest) : true
         };
 
-        setUserProfile(mergedProfile);
-        storage.set('lerne_user_profile', JSON.stringify(mergedProfile));
+        useAuthStore.getState().setUserProfile(mergedProfile);
       }
 
       if (res.data.user_info?.has_selected_language || res.data.user_info?.active_language) {
@@ -355,7 +341,7 @@ export const useAppInitialization = (checkStartParam) => {
       if (!isCurrent()) return;
       useDeckStore.getState().setLibraryLoadError(err);
       if (!isAuthError) {
-        // Auth errors are silent — user can log in manually via the profile/settings button
+        // The shared API lifecycle already requested the existing login form.
         const decksNow = useDeckStore.getState().decks;
         if (!decksNow || decksNow.length === 0) {
           showToast(tr("Ошибка загрузки данных."));
@@ -422,8 +408,7 @@ export const useAppInitialization = (checkStartParam) => {
           is_guest: hasIdentifyingInfo ? Boolean(serverUser.is_guest) : true
         };
 
-        setUserProfile(mergedProfile);
-        storage.set('lerne_user_profile', JSON.stringify(mergedProfile));
+        useAuthStore.getState().setUserProfile(mergedProfile);
 
         if (mergedProfile.has_selected_language || mergedProfile.active_language) {
           langState.syncLanguageFromExternal(

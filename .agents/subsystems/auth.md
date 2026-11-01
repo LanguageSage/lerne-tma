@@ -66,6 +66,33 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 
 ## Session and provider recovery
 
+- Auth lifecycle is owned by `utils/auth.js` credential notifications and
+  `useAuthStore.status` (`restoring`, `authenticated`, `offline`, `required`,
+  `anonymous`). `savedProfile`/`getSavedUserProfile` and `getUserId` retain only
+  offline ownership when credentials are absent; `getUserProfile` returns null
+  without credentials. URL hints, unsafe Telegram metadata and development IDs
+  never establish a session. `/auth/v2/me` confirms restoration.
+- Refresh flights are keyed by credential. Web Locks serialize tabs; older
+  WebViews use an atomic 20-second lease in the existing account Dexie
+  `syncState` record `auth-v2-refresh-lease`, with a 10-second HTTP timeout.
+  Terminal invalidation happens inside the lock. Login epochs persist through
+  refresh and retire late success/error/provider responses after account changes,
+  including re-login to the same account. A cancelled request cannot fall back
+  into another account's offline database.
+- Only terminal protected-resource 401 (no refresh, rejected refresh, or rejected
+  replay) requests the existing login modal. Credential clearing synchronously
+  updates Zustand and its UI mirror; saved offline data/cache remain available.
+  Provider rejection, 403, network/timeout and 5xx do not log out. A deferred
+  deck/card/study intent is stored in namespaced sessionStorage, consumed once
+  after the library reload, and discarded for a different owner. Grades are
+  never automatically replayed after login.
+- Regression reproduction, changed files, exact checks and limitations:
+  [AUTH_SESSION_RECOVERY](../../docs/AUTH_SESSION_RECOVERY.md).
+  `scripts/tests/browser/auth-recovery.spec.cjs` is part of the critical gate;
+  it exercises desktop/Pixel 7 Chromium, Web Locks and its Dexie fallback,
+  missing credentials/cache, refresh failure, offline data preservation and
+  navigation resumption through reload.
+
 - Verified Telegram bot/Mini App display fields travel with the internal
   `VerifiedIdentity`. Explicit auth migration 91 adds nullable
   `TMAAuthChallenge.verified_profile` for the bot/browser round trip. Login/link
