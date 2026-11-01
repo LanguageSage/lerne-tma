@@ -39,7 +39,8 @@ def create_all_tables():
     if _tables_created:
         return
     from api.migrations import (run_migrations, run_local_bootstrap_migrations,
-                                run_knowledge_mastery_migration, run_card_notes_migration)
+                                run_knowledge_mastery_migration, run_card_notes_migration,
+                                run_card_rating_migration)
     try:
         models_to_create = [
             TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
@@ -63,6 +64,7 @@ def create_all_tables():
         run_knowledge_mastery_migration(tma_db)
         if is_local():
             run_card_notes_migration(tma_db)
+            run_card_rating_migration(tma_db)
         try:
             tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
         except Exception as e:
@@ -173,6 +175,21 @@ class TMACardNote(BaseModel):
     class Meta:
         table_name = 'tma_card_note'
         indexes = ((('user_id', 'card'), False),)
+
+
+class TMACardRating(BaseModel):
+    """One private like/dislike per user and card; the optional reason only explains a dislike."""
+    id = AutoField()
+    card = ForeignKeyField(TMA_Card, column_name='card_id', backref='ratings', on_delete='CASCADE')
+    user_id = BigIntegerField()
+    rating = SmallIntegerField(constraints=[Check('rating IN (-1, 1)')])
+    reason = CharField(max_length=16, null=True)
+    created_at = DateTimeField(default=datetime.datetime.now)
+    updated_at = DateTimeField(default=datetime.datetime.now)
+
+    class Meta:
+        table_name = 'tma_card_rating'
+        indexes = ((('user_id', 'card'), True),)
 
 
 class TMAUserMessage(BaseModel):

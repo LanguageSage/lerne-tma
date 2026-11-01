@@ -38,6 +38,7 @@ export const CardActionModal = ({
   const deckCards = useDeckStore(s => s.deckCards);
   const cardsByDeck = useDeckStore(s => s.cardsByDeck);
   const showToast = useUiStore(s => s.showToast);
+  const view = useUiStore(s => s.view);
 
   const targetDeckId = card?.deck_id != null ? card.deck_id : currentDeck?.id;
   const actionDeck = decks?.find(d => String(d.id) === String(targetDeckId)) || currentDeck;
@@ -323,6 +324,12 @@ export const CardActionModal = ({
                   <div className="action-menu-icon"><Info size={20} /></div>
                   <div className="action-menu-text"><strong>{tr('Информация о карточке')}</strong></div>
                 </button>
+                {view === 'study' && (
+                  <p className="study-card-controls-hint">
+                    <span className="study-card-keyboard-hint">{tr('Пробел — переворот · ←/→ — карточки')}<br /></span>
+                    {tr('Свайпы по свободной области: ↑ ответ · ↓ вопрос · ←/→ карточки')}
+                  </p>
+                )}
               </div>
             )}
 

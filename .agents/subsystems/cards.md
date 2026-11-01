@@ -253,6 +253,14 @@ Checks: `test_card_notes.py`, `test_critical_http.py` and disposable PostgreSQL
 `card_notes_postgres.py`.
 
 
+`TMACardRating` / `tma_card_rating` stores private like/dislike ratings (rating = 1 or -1)
+and optional dislike reasons (`unclear`, `error`, `too_hard`, `boring`) per user and card.
+Ratings are accessed via `/api/card-ratings/deck/{deck_id}` and PUT `/api/card-ratings/{card_id}`.
+Writing a text comment from the dislike/like panel reuses `/api/messages/{id}` with `card_id`.
+Migration 92 creates `tma_card_rating` transactionally with unique `(user_id, card_id)` index,
+card FK cascade, RLS, and revoked public Data API grants.
+Checks: `scripts/tests/test_card_ratings.py`, `scripts/tests/browser/card-rating.spec.cjs`.
+
 Card-core 0.1.3 keeps 0.1.2 parsing rules and releases LF bytes reproducibly.
 Build/provenance procedure: `api/card_core/README.md`, `scripts/build_card_core.py`.
 The shared synthetic release corpus is `scripts/tests/test_shared_card_regressions.py`;

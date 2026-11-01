@@ -1,0 +1,131 @@
+.study-card-rating {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end; /* Right edge matches the actions button above. */
+  gap: 8px;
+  min-width: 0;
+}
+
+.card-rating-pill {
+  display: inline-flex;
+  gap: 4px;
+  padding: 0 4px;
+  border: 1px solid var(--design-divider, rgba(148, 163, 184, 0.25));
+  border-radius: 999px;
+}
+
+.card-rating-btn,
+.card-rating-close {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 50%;
+  background: transparent;
+  color: var(--design-secondary-color, #94a3b8);
+  cursor: pointer;
+}
+
+.card-rating-btn.is-like.is-on { color: #2dd4bf; background: rgba(45, 212, 191, 0.14); border-color: rgba(45, 212, 191, 0.4); }
+.card-rating-btn.is-dislike.is-on { color: #fb923c; background: rgba(251, 146, 60, 0.14); border-color: rgba(251, 146, 60, 0.4); }
+.card-rating-btn.is-on svg { fill: currentColor; }
+.card-rating-btn:disabled { opacity: 0.6; cursor: default; }
+
+.card-rating-notice,
+.card-rating-panel {
+  box-sizing: border-box;
+  align-self: stretch;
+  border-radius: 14px;
+  color: #cbd5e1;
+  font-size: 0.8rem;
+}
+
+.card-rating-notice {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 4px 12px;
+  padding: 4px 12px;
+  background: rgba(45, 212, 191, 0.1);
+  border: 1px solid rgba(45, 212, 191, 0.3);
+  color: #99f6e4;
+}
+
+.card-rating-notice span { flex: 1 1 auto; }
+
+.card-rating-panel {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 12px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.card-rating-panel-head { display: flex; align-items: center; gap: 6px; min-height: 44px; }
+.card-rating-panel-head span { color: #94a3b8; flex: 1 1 auto; }
+.card-rating-close { margin-right: -10px; border-radius: 12px; }
+
+.card-rating-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+
+.card-rating-chip {
+  min-height: 36px;
+  padding: 6px 12px;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 999px;
+  background: transparent;
+  color: #cbd5e1;
+  font: inherit;
+  cursor: pointer;
+}
+
+.card-rating-chip.is-on { background: rgba(139, 92, 246, 0.25); border-color: #8b5cf6; color: #fff; }
+
+.card-rating-panel textarea {
+  width: 100%;
+  box-sizing: border-box;
+  resize: vertical;
+  padding: 8px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  border-radius: 10px;
+  background: rgba(15, 23, 42, 0.6);
+  color: #e2e8f0;
+  font: inherit;
+  font-size: 1rem; /* Avoids the iOS focus zoom. */
+}
+
+.card-rating-actions { display: flex; align-items: center; justify-content: flex-end; gap: 8px; }
+
+.card-rating-link {
+  min-height: 44px;
+  padding: 0 6px;
+  border: 0;
+  background: transparent;
+  color: #a78bfa;
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.card-rating-link.is-muted { color: #94a3b8; font-weight: 500; }
+
+.card-rating-send {
+  min-height: 44px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #6d4fc9, #8b4fc2);
+  color: #fff;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.card-rating-send:disabled { opacity: 0.45; cursor: default; }
+.card-rating-note { margin: 0; color: #64748b; font-size: 0.72rem; line-height: 1.4; }
+.card-rating-error { margin: 0; color: #fca5a5; font-size: 0.8rem; text-align: right; }
+
+.study-card-rating :focus-visible { outline: 2px solid #2dd4bf; outline-offset: 2px; }
