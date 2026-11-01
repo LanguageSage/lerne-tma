@@ -258,7 +258,7 @@ and optional dislike reasons (`unclear`, `error`, `too_hard`, `boring`) per user
 Ratings are accessed via `/api/card-ratings/deck/{deck_id}` and PUT `/api/card-ratings/{card_id}`.
 Writing a text comment from the dislike/like panel reuses `/api/messages/{id}` with `card_id`.
 Migration 92 creates `tma_card_rating` transactionally with unique `(user_id, card_id)` index,
-card FK cascade, RLS, and revoked public Data API grants.
+card FK cascade, RLS, and revoked public Data API grants. Production uses `scripts/migrate_card_ratings.py --apply` with `CARD_RATINGS_MIGRATION_DATABASE_URL`.
 Checks: `scripts/tests/test_card_ratings.py`, `scripts/tests/browser/card-rating.spec.cjs`.
 
 Card-core 0.1.3 keeps 0.1.2 parsing rules and releases LF bytes reproducibly.

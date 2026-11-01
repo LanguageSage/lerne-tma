@@ -46,9 +46,9 @@ export async function saveRating(userId, cardId, rating, reason = null) {
   try {
     await api.put(`/card-ratings/${cardId}`, { rating, reason: reasonValue });
   } catch (error) {
-    // If the server does not have migration 92 deployed yet (404),
+    // If the server does not have migration 92 deployed yet (503 or 404),
     // keep the local vote active so testing against remote environments works smoothly.
-    if (error.response?.status === 404) {
+    if (error.response?.status === 404 || error.response?.status === 503) {
       return;
     }
     store(userId, cardId, previous);

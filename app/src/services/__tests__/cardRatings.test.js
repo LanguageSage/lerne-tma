@@ -51,6 +51,24 @@ test('saveRating optimistically updates state, calls API, and rollback on error'
   await saveRating(1, 100, null);
   assert.equal(getRating(1, 100), undefined);
 
+  // 5. 503 or 404 from backend without migration 92 keeps local vote without throwing
+  apiPut = async () => {
+    const err = new Error('Card ratings unavailable: migration 92 is required');
+    err.response = { status: 503 };
+    throw err;
+  };
+  await saveRating(1, 100, 1, null);
+  assert.equal(getRating(1, 100)?.rating, 1);
+
+  apiPut = async () => {
+    const err = new Error('Not found');
+    err.response = { status: 404 };
+    throw err;
+  };
+  await saveRating(1, 100, -1, 'boring');
+  assert.equal(getRating(1, 100)?.rating, -1);
+  assert.equal(getRating(1, 100)?.reason, 'boring');
+
   assert.ok(notifications > 0);
   unsubscribe();
 });

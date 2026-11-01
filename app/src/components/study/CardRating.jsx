@@ -44,7 +44,11 @@ export function CardRating({ card, deckId }) {
   const run = async action => {
     setError('');
     try { await action(); }
-    catch { setError(tr('Не удалось сохранить оценку. Повторите попытку.')); }
+    catch {
+      setError(tr('Не удалось сохранить оценку. Повторите попытку.'));
+      setPanel(null);
+      setNotice(null);
+    }
   };
   const vote = next => {
     if (userId == null || isGuest) {
@@ -54,18 +58,18 @@ export function CardRating({ card, deckId }) {
     if (busy) return;
     run(async () => {
       if (rating === next) {
-        await save(null);
         setPanel(null); setNotice(null);
+        await save(null);
         return;
       }
-      await save(next);
       setPanel(next === -1 ? 'dislike' : null);
       setNotice(next === 1 ? { previous: value } : null);
+      await save(next);
     });
   };
   const undo = () => run(async () => {
-    await save(notice.previous?.rating ?? null, notice.previous?.reason);
     setNotice(null);
+    await save(notice.previous?.rating ?? null, notice.previous?.reason);
   });
   const toggleReason = reason => !busy && run(() => save(-1, value?.reason === reason ? null : reason));
   const send = async event => {

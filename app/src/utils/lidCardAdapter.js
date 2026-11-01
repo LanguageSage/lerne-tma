@@ -1,9 +1,6 @@
 import { stripMarkdown } from './text.js';
-import lidTranslations from '../data/lidTranslations.json' with { type: 'json' };
 import { shuffleFY } from './shuffle.js';
 import { getAudioUrl } from './media.js';
-
-const norm = (s) => (s || '').replace(/\s+/g, ' ').trim().toLowerCase();
 
 /**
  * Parses a Russian back translation text into clean question and option translations.
@@ -80,14 +77,12 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
 
   const OPT_LETTERS = ['a', 'b', 'c', 'd', 'e', 'f'];
 
-  // 2. Resolve verified Russian translation data
-  const normQ = norm(questionDe);
-  const localTrans = lidTranslations[normQ] || lidTranslations[normQ.slice(0, 30)] || null;
+  // 2. Resolve Russian translation data directly from card / API
   const apiTrans = card.translationRu || card.translation_ru || null;
   const { question: parsedRuQ, optionsRu: parsedOptionsRu } = parseBackTranslation(rawBack);
 
-  const questionRu = apiTrans?.question || localTrans?.question || parsedRuQ || '';
-  const contextRu = apiTrans?.context || localTrans?.context || '';
+  const questionRu = apiTrans?.question || parsedRuQ || '';
+  const contextRu = apiTrans?.context || '';
 
   // 3. Form tightly-coupled pairs: { textDe, textRu, isCorrect }
   const optionPairs = optionLines.map((line, idx) => {
@@ -96,7 +91,6 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
     const cleanText = line.replace(/^\*|\*$/g, '').trim();
 
     const optRu = (apiTrans && apiTrans[origLetter]) ||
-                  (localTrans && localTrans[origLetter]) ||
                   parsedOptionsRu[idx] ||
                   '';
 
@@ -139,25 +133,9 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
 
   // 5. Official BAMF catalog question number:
   // 1..100 (Politik), 101..200 (Geschichte), 201..300 (Mensch), 1..10 (Bundesland)
-  let bamfNumber = card.bamf_num || null;
-  if (!bamfNumber) {
-    const qNorm = norm(questionDe);
-    const trData = card.translationRu || lidTranslations[qNorm] || lidTranslations[qNorm.slice(0, 25)];
-    if (trData && trData.num) {
-      bamfNumber = trData.num;
-    }
-  }
-  if (!bamfNumber) {
-    const qAlpha = questionDe.replace(/[^a-zA-Z0-9\u00C0-\u017F]/g, '').toLowerCase();
-    for (const [key, trVal] of Object.entries(lidTranslations)) {
-      if (trVal?.num) {
-        const kAlpha = key.replace(/[^a-zA-Z0-9\u00C0-\u017F]/g, '').toLowerCase();
-        if (kAlpha === qAlpha || (kAlpha.length > 15 && (kAlpha.includes(qAlpha) || qAlpha.includes(kAlpha)))) {
-          bamfNumber = trVal.num;
-          break;
-        }
-      }
-    }
+  let bamfNumber = card.bamf_num || card.bamfNumber || null;
+  if (!bamfNumber && card.translationRu?.num) {
+    bamfNumber = card.translationRu.num;
   }
   if (!bamfNumber) {
     const pos = card.position || 0;
@@ -192,5 +170,3 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
     rawCard: card
   };
 };
-
-

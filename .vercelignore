@@ -75,6 +75,7 @@ __pycache__/
 # Logs and media leftovers
 *.log
 *.mp3
+!/app/src/assets/grade-sounds/*.mp3
 
 # AI & IDE metadata
 .gemini/

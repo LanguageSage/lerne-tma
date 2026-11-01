@@ -12,30 +12,6 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/lid", tags=["lid"])
 
-_LID_DATA_PATH = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', 'app', 'src', 'data', 'lidTranslations.json'))
-_LID_TRANSLATIONS_LOOKUP = {}
-
-def _load_lid_translations():
-    global _LID_TRANSLATIONS_LOOKUP
-    if _LID_TRANSLATIONS_LOOKUP:
-        return
-    norm = lambda s: re.sub(r'\s+', ' ', (s or '').replace('\n', ' ')).strip().lower()
-    alphanorm = lambda s: re.sub(r'[^a-zA-Z0-9\u00C0-\u017F]', '', (s or '').lower())
-    if os.path.exists(_LID_DATA_PATH):
-        try:
-            with open(_LID_DATA_PATH, 'r', encoding='utf-8') as f:
-                data = json.load(f)
-                for key, tr in data.items():
-                    norm_k = norm(key)
-                    _LID_TRANSLATIONS_LOOKUP[norm_k] = tr
-                    if len(norm_k) >= 25:
-                        _LID_TRANSLATIONS_LOOKUP[norm_k[:25]] = tr
-                    _LID_TRANSLATIONS_LOOKUP[alphanorm(key)] = tr
-        except Exception as e:
-            logger.warning(f"Could not load LiD translations in router: {e}")
-
-_load_lid_translations()
-
 STATE_CODE_TO_NAME = {
     'BW': 'Baden-Württemberg',
     'BY': 'Bayern',
@@ -57,6 +33,26 @@ STATE_CODE_TO_NAME = {
 
 MASTER_UID = 642478257
 
+def parse_back_translation(back_text: str):
+    if not back_text:
+        return None
+    parts = re.split(r'\n\s*\n', back_text.strip())
+    question = parts[0].strip() if parts else ""
+    opt_block = "\n".join(parts[1:]).strip() if len(parts) > 1 else ""
+    lines = [l.strip() for l in opt_block.split('\n') if l.strip()]
+    cleaned_opts = []
+    for line in lines:
+        cleaned = re.sub(r'^[0-9]{1,2}[.)]\s*', '', line)
+        cleaned = re.sub(r'^(?:✅|\*|▫️|-)\s*', '', cleaned)
+        cleaned = re.sub(r'^(?:✅|\*|▫️|-)\s*', '', cleaned).strip()
+        cleaned_opts.append(cleaned)
+    letters = ['a', 'b', 'c', 'd', 'e', 'f']
+    res = {'question': question}
+    for idx, opt in enumerate(cleaned_opts):
+        letter = letters[idx] if idx < len(letters) else str(idx + 1)
+        res[letter] = opt
+    return res
+
 # ИНВАРИАНТ: Данные вопросов и медиа берутся СТРОГО из существующих tma_card / tma_media. Сторонние JSON-файлы запрещены.
 def serialize_card(card, deck_name=""):
     img = getattr(card, 'image_path', '') or ''
@@ -64,25 +60,11 @@ def serialize_card(card, deck_name=""):
     pos = getattr(card, 'position', 0) or 0
     d_name = deck_name or (card.deck.name if hasattr(card, 'deck') and card.deck else "")
 
-    norm = lambda s: re.sub(r'\s+', ' ', (s or '').replace('\n', ' ')).strip().lower()
-    alphanorm = lambda s: re.sub(r'[^a-zA-Z0-9\u00C0-\u017F]', '', (s or '').lower())
-    raw_first = (card.front_text or '').split('\n\n')[0] if '\n\n' in (card.front_text or '') else (card.front_text or '').split('\n')[0]
-    first_line = norm(raw_first)
-    trans_ru = (
-        _LID_TRANSLATIONS_LOOKUP.get(first_line)
-        or _LID_TRANSLATIONS_LOOKUP.get(first_line[:25])
-        or _LID_TRANSLATIONS_LOOKUP.get(alphanorm(raw_first))
-        or None
-    )
+    trans_ru = parse_back_translation(card.back_text or "")
 
     # Calculate BAMF catalog question number (1..300 general, or Land code):
-    bamf_num = 0
-    if trans_ru and trans_ru.get('num'):
-        try:
-            bamf_num = int(trans_ru['num'])
-        except (ValueError, TypeError):
-            bamf_num = trans_ru['num']
-    elif pos > 0:
+    bamf_num = getattr(card, 'bamf_num', None) or 0
+    if not bamf_num and pos > 0:
         d_lower = d_name.lower()
         if '1.' in d_name or 'politik' in d_lower:
             bamf_num = pos
