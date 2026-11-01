@@ -112,7 +112,7 @@ async def start_handler(update: Update, context):
                                              'last_name': user.last_name, 'username': user.username}))
                 confirm_challenge(state, proof)
                 keyboard = InlineKeyboardMarkup([
-                    [InlineKeyboardButton("🚀 Вернуться в Lerne", url=TMA_URL)]
+                    [InlineKeyboardButton("🚀 Вернуться в Lerne", url=f"{TMA_URL}/?auth_return=telegram")]
                 ])
                 await safe_send_reply(update,
                     f"✅ <b>Вход через Telegram подтверждён.</b>\n\n"

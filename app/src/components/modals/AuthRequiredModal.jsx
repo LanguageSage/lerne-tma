@@ -19,9 +19,16 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
   const busy = emailLoading || isStarting || isPolling;
   const telegramPurpose = showTelegramPrompt ? 'link' : 'login';
   const webTelegram = getPlatform() === 'web';
+  // A plain bot URL can open Telegram's browser, which cannot read Chrome's
+  // pending challenge. This marker only offers navigation; it never signs in.
+  const returnToBrowser = webTelegram && /Android/i.test(navigator.userAgent)
+    && new URLSearchParams(window.location.search).get('auth_return') === 'telegram'
+    && !isPolling && !authError;
+  const browserUrl = `intent://${window.location.host}/#Intent;scheme=${window.location.protocol.slice(0, -1)};action=android.intent.action.VIEW;category=android.intent.category.BROWSABLE;S.browser_fallback_url=${encodeURIComponent(window.location.origin + '/')};end`;
+  const chromeUrl = browserUrl.replace('#Intent;', '#Intent;package=com.android.chrome;');
   const telegramChallenge = preparedTelegramChallenge?.purpose === telegramPurpose ? preparedTelegramChallenge : null;
   useEffect(() => {
-    if (!isOpen || !webTelegram || busy) return;
+    if (!isOpen || !webTelegram || busy || returnToBrowser) return;
     // Keep the URL fresh while the dialog waits for a gesture. StrictMode and
     // fast clicks share the store's single in-flight preflight request.
     const prepare = () => { prepareTelegramChallenge(telegramPurpose).catch(() => {}); };
@@ -31,7 +38,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
     }
     const timer = setTimeout(prepare, Date.parse(telegramChallenge.expiresAt) - Date.now() - 10000);
     return () => clearTimeout(timer);
-  }, [isOpen, webTelegram, busy, telegramPurpose, telegramChallenge, prepareTelegramChallenge]);
+  }, [isOpen, webTelegram, busy, returnToBrowser, telegramPurpose, telegramChallenge, prepareTelegramChallenge]);
   useEffect(() => {
     if (!isOpen) return;
     const previous = document.activeElement;
@@ -88,11 +95,18 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
           <button className="close-btn" onClick={close} disabled={emailLoading || isStarting} aria-label={tr('Закрыть')}><X size={20} /></button>
         </div>
         <div style={{ margin: '14px auto', width: 56, height: 56, borderRadius: 18, display: 'grid', placeItems: 'center', background: 'rgba(168,85,247,.2)' }}><Lock color="#d8b4fe" /></div>
-        <h3 id="auth-title" style={{ color: 'white', margin: '0 0 8px' }}>{showTelegramPrompt ? tr('Защитите доступ к аккаунту') : recovery ? tr('Восстановление пароля') : title}</h3>
-        <p style={{ color: '#94a3b8', lineHeight: 1.5, fontSize: '.9rem' }}>{showTelegramPrompt
+        <h3 id="auth-title" style={{ color: 'white', margin: '0 0 8px' }}>{returnToBrowser ? tr('Продолжите вход в браузере') : showTelegramPrompt ? tr('Защитите доступ к аккаунту') : recovery ? tr('Восстановление пароля') : title}</h3>
+        <p style={{ color: '#94a3b8', lineHeight: 1.5, fontSize: '.9rem' }}>{returnToBrowser
+          ? tr('Вернитесь в браузер, где вы начали вход в Lerne.')
+          : showTelegramPrompt
           ? tr('Добавьте Telegram к этому аккаунту: через него можно восстановить пароль и получать напоминания о занятиях. Настройки напоминаний доступны в профиле.')
           : recovery ? tr('Войдите через Telegram или Google, ранее привязанный к этому аккаунту. Затем задайте новый пароль в профиле. Если ничего не привязано, восстановление без писем недоступно.')
           : tr('Выберите способ входа. После привязки Telegram и Google будут вести к одному аккаунту и тем же колодам.')}</p>
+        {returnToBrowser ? <>
+          <a className="btn btn-primary" href={browserUrl} style={{ ...buttonStyle, boxSizing: 'border-box', textDecoration: 'none' }}>{tr('Открыть в браузере')}</a>
+          <a className="btn btn-secondary" href={chromeUrl} style={{ ...buttonStyle, boxSizing: 'border-box', textDecoration: 'none', marginTop: 10 }}>{tr('Открыть в Chrome')}</a>
+          <p style={{ color: '#94a3b8', lineHeight: 1.5, fontSize: '.84rem' }}>{tr('Если браузер не открылся, закройте это окно и вернитесь к исходной вкладке Lerne. Вход завершится там.')}</p>
+        </> : <>
         {authError && <p role="alert" style={{ color: '#f87171', fontSize: '.82rem' }}>{authError}</p>}
         {isPolling && !authError && <div style={{ margin: '12px 0', padding: 12, borderRadius: 12, color: '#e9d5ff', background: 'rgba(168,85,247,.12)', fontSize: '.84rem' }}>
           <RefreshCw size={16} className="spin" style={{ verticalAlign: 'middle', marginRight: 8 }} />{tr('Подтвердите вход в открывшемся окне и вернитесь в приложение.')}
@@ -134,6 +148,7 @@ export const AuthRequiredModal = ({ isOpen, onClose, title = tr('Вход в а�
           <span style={{ color: '#94a3b8', fontSize: '.74rem', lineHeight: 1.4 }}>{tr('Письма пока не отправляются. Проверьте адрес и добавьте резервный способ входа после регистрации.')}</span>
         </form>}
         {recovery && <button className="btn btn-secondary" disabled={busy} onClick={() => setRecovery(false)}>{tr('Назад ко входу')}</button>}
+        </>}
         <button className="btn-secondary btn-full" disabled={emailLoading || isStarting} onClick={close} style={{ marginTop: 14, padding: 10, borderRadius: 12 }}>{tr('Позже')}</button>
       </motion.div>
     </div>

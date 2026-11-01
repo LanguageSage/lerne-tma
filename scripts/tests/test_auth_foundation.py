@@ -376,8 +376,8 @@ class AuthDatabaseTests(unittest.TestCase):
         # Only the Telegram transport/types are stubbed; execute the real bot
         # handler, challenge service and profile endpoint without network I/O.
         telegram = SimpleNamespace(Update=object, WebAppInfo=object,
-                                   InlineKeyboardButton=lambda *a, **kw: None,
-                                   InlineKeyboardMarkup=lambda *a, **kw: None)
+                                   InlineKeyboardButton=lambda *a, **kw: kw,
+                                   InlineKeyboardMarkup=lambda rows: rows)
         with patch.dict(sys.modules, {'telegram': telegram,
                                      'telegram.ext': SimpleNamespace(Application=None)}):
             from api.routers import bot
@@ -392,6 +392,8 @@ class AuthDatabaseTests(unittest.TestCase):
             challenge = service.create_challenge('telegram', 'login')
             context = SimpleNamespace(args=['auth_' + challenge.state])
             asyncio.run(bot.start_handler(update, context))
+            self.assertEqual(reply.call_args.kwargs['reply_markup'][0][0]['url'],
+                             bot.TMA_URL + '/?auth_return=telegram')
             result = service.exchange_challenge(challenge.id, challenge.secret)
             tokens = result['tokens']
             profile = get_authenticated_profile(tokens.account_id)

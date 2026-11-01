@@ -3,7 +3,7 @@ const { test, expect } = require('./isolated-fixture.cjs');
 test.use({ launchOptions: { args: ['--enable-automation'], ignoreDefaultArgs: ['--disable-popup-blocking'] } });
 
 // Isolated browser/provider/transport boundaries. No real accounts or backend.
-async function setup(page, context, { miniApp = false, rejectProof = false, blocked = false, holdChallenge = false, holdExchange = false, autoConfirm = true } = {}) {
+async function setup(page, context, { miniApp = false, rejectProof = false, blocked = false, holdChallenge = false, holdExchange = false, autoConfirm = true, path = '/' } = {}) {
   const state = { authenticated: false, confirmed: false, confirmedExchanges: 0, miniCalls: 0, refreshes: 0, expired: false, errors: [], challenges: [], exchanges: [], opens: [] };
   let releaseChallenge;
   const challengeGate = holdChallenge ? new Promise(resolve => { releaseChallenge = resolve; }) : Promise.resolve();
@@ -80,7 +80,7 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
     if (pathname === '/api/auth/sync') return route.fulfill({ json: { status: 'ok', user: profile } });
     return route.fulfill({ json: {} });
   });
-  await page.goto('/');
+  await page.goto(path);
   return state;
 }
 
@@ -239,6 +239,51 @@ test('two Telegram return tabs exchange the shared challenge once', async ({ pag
   }
   expect(state.confirmedExchanges).toBe(1);
   expect(state.challenges).toHaveLength(1);
+});
+
+test('Telegram isolated Android browser hands login back to the original Chrome storage', async ({ page, context, browser }, testInfo) => {
+  const state = await setup(page, context, { autoConfirm: false });
+  const providerPromise = context.waitForEvent('page');
+  await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
+  await providerPromise;
+  await page.close();
+  state.confirmed = true;
+  // Separate context models Telegram's browser: neither Chrome's credentials
+  // nor its pending secret are visible here; plain links have no signed initData.
+  const embeddedContext = await browser.newContext({ baseURL: 'http://127.0.0.1:5199',
+    userAgent: 'Mozilla/5.0 (Linux; Android 14; Pixel 7) AppleWebKit/537.36 Chrome/130.0.0.0 Mobile Safari/537.36',
+    viewport: { width: 393, height: 851 }, isMobile: true, hasTouch: true });
+  try {
+    const embedded = await embeddedContext.newPage();
+    const isolated = await setup(embedded, embeddedContext, { path: '/?auth_return=telegram', autoConfirm: false });
+    const resume = embedded.getByRole('link', { name: 'Открыть в браузере', exact: true });
+    await expect(resume).toBeVisible();
+    await expect(embedded.getByRole('link', { name: 'Войти через Telegram', exact: true })).toHaveCount(0);
+    expect(isolated.challenges).toHaveLength(0);
+    expect(await embedded.evaluate(() => localStorage.getItem('lerne_auth_v2_session'))).toBeNull();
+    const intent = await resume.getAttribute('href');
+    expect(intent).toContain('action=android.intent.action.VIEW;');
+    expect(intent).not.toContain('package=');
+    const chromeIntent = await embedded.getByRole('link', { name: 'Открыть в Chrome', exact: true }).getAttribute('href');
+    expect(chromeIntent).toBe(intent.replace('#Intent;', '#Intent;package=com.android.chrome;'));
+    expect(intent).not.toMatch(/secret|auth_return|access_token|refresh_token/);
+    for (const language of ['ru', 'en']) {
+      await embedded.evaluate(async language => (await import('/src/i18n/locale.js')).setInterfaceLanguage(language), language);
+      for (const width of [320, 375, 430]) {
+        await embedded.setViewportSize({ width, height: 851 });
+        expect(await embedded.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+        await embedded.screenshot({ path: testInfo.outputPath(`telegram-return-${language}-${width}.png`) });
+      }
+    }
+    // The OS launch is a device boundary. Follow the exact intent destination
+    // in Chrome's original context, retaining the real app/store exchange.
+    const returned = await context.newPage();
+    await returned.goto('http://' + intent.slice('intent://'.length).split('#Intent')[0]);
+    await expect(returned.locator('.user-name')).toHaveText('Learner');
+    await expect(returned.getByRole('dialog')).toHaveCount(0);
+    expect(state.confirmedExchanges).toBe(1);
+    expect(state.challenges).toHaveLength(1);
+  } finally { await embeddedContext.close(); }
 });
 
 test('pending native login exposes last-resort link, survives reload and expires', async ({ page, context }, testInfo) => {

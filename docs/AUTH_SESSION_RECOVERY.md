@@ -28,6 +28,23 @@ challenge хранится в namespaced localStorage; Web Locks сериали�
 auth recovery — 22 PASS, ESLint изменённого store и production build — PASS. Физический Android
 и настоящий Telegram аккаунт в автоматической проверке не использовались.
 
+Уточнение пользователя: возврат открывается во встроенном браузере Telegram,
+а не в Chrome. Это отдельное хранилище, поэтому исправления общей pending записи
+недостаточно. Бот теперь добавляет к подтверждённому возврату только маркер
+`auth_return=telegram`. На Android без исходного pending/signed initData форма
+показывает две кнопки: браузер по умолчанию (Android VIEW/BROWSABLE intent без
+package) и Chrome (с package), а также инструкцию ручного возврата. Новый вход
+в Telegram на этом экране не запускается. Маркер не является доказательством
+входа; секреты и токены не передаются между браузерами или через URL.
+Синтаксис intent соответствует [документации Chrome](https://developer.chrome.com/docs/android/intents).
+Дополнительный browser test использует два независимых browser context, проверяет
+обе ссылки и завершает настоящий клиентский exchange в исходном контексте.
+Foundation backend tests: 46 PASS, включая контракт кнопки бота. Запуск Android
+приложения по intent остаётся границей проверки на физическом телефоне.
+Финальный provider suite: 13 PASS; после добавления второй кнопки целевой handoff
+test повторно PASS. RU/EN screenshots проверены на 320/375px, отсутствие overflow
+также проверено на 430px. Production build и targeted ESLint — PASS.
+
 ## Проверенные причины
 
 До изменения runtime добавлены и запущены две регрессии на исходном коде:

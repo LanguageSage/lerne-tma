@@ -2039,5 +2039,10 @@
   "Оценка уже сохранена. Текст уйдёт как предложение по карточке.": "Your rating is already saved. The text will be sent as a suggestion for this card.",
   "Не удалось сохранить оценку. Повторите попытку.": "Could not save the rating. Try again.",
   "Не удалось отправить предложение. Повторите попытку.": "Could not send the suggestion. Try again.",
-  "Предложение отправлено": "Suggestion sent"
+  "Предложение отправлено": "Suggestion sent",
+  "Продолжите вход в браузере": "Continue signing in with your browser",
+  "Вернитесь в браузер, где вы начали вход в Lerne.": "Return to the browser where you started signing in to Lerne.",
+  "Открыть в браузере": "Open in browser",
+  "Если браузер не открылся, закройте это окно и вернитесь к исходной вкладке Lerne. Вход завершится там.": "If your browser did not open, close this window and return to your original Lerne tab. Sign-in will finish there.",
+  "Открыть в Chrome": "Open in Chrome"
 }
