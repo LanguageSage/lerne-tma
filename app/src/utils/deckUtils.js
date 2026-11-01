@@ -70,12 +70,18 @@ export const getFolderContentStats = (folderId, foldersList = [], decksList = []
 
 export const getSortedFolderTree = (foldersList = [], excludeId = null, excludeDescendantIds = []) => {
   const result = [];
+  const folderIds = new Set(foldersList.map(f => f.id));
+  const visited = new Set();
   const traverse = (parentId, depth) => {
-    const children = foldersList.filter(f => f.parent_id === parentId);
+    // An accessible branch may omit its parent; older caches also omit root parent_id.
+    const children = foldersList.filter(f => parentId === null
+      ? f.parent_id == null || !folderIds.has(f.parent_id)
+      : f.parent_id === parentId);
     for (const child of children) {
-      if (child.id === excludeId || excludeDescendantIds.includes(child.id)) {
+      if (visited.has(child.id) || child.id === excludeId || excludeDescendantIds.includes(child.id)) {
         continue;
       }
+      visited.add(child.id);
       result.push({
         ...child,
         depth: depth,

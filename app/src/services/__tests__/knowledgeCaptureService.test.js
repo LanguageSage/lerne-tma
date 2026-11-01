@@ -7,6 +7,8 @@ import * as dbService from '../knowledgeDbService.js';
 
 // Mock Vite env
 globalThis.import = { meta: { env: { VITE_KNOWLEDGE_LAYER_ENABLED: 'true' } } };
+globalThis.window = { location: { search: '' } };
+globalThis.localStorage = { getItem: key => key === 'lerne_user_id' ? '123' : null };
 
 import { captureStudyKnowledgeAttempt, knowledgeRatingForGrade } from '../knowledgeCaptureService.js';
 import { createFreeTextEvaluationSession } from '../../utils/freeTextEvaluationState.js';

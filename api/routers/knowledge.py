@@ -23,15 +23,15 @@ def deck_knowledge_content(deck_id: int, user_id: int = Depends(get_user_id)):
     from api.services.collaborative_service import get_effective_user_role
     if not get_effective_user_role(user_id, 'deck', deck_id):
         raise HTTPException(403, 'Нет доступа к колоде')
-    cards = models.TMA_Card.select(models.TMA_Card.id).where(
-        models.TMA_Card.deck_id == deck_id, models.TMA_Card.is_deleted == False)
+    cards = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(
+        models.TMA_Card.deck_id == deck_id, models.TMA_Card.is_deleted == False)]
     mappings = list(models.TMACardKnowledgeItem.select().where(
         models.TMACardKnowledgeItem.card_id.in_(cards)).dicts())
     ids = {m['knowledge_item'] for m in mappings}
     for mapping in mappings:
         mapping['knowledge_item_id'] = mapping.pop('knowledge_item')
     items = list(models.TMAKnowledgeItem.select().where(models.TMAKnowledgeItem.id.in_(ids)).dicts())
-    return {'knowledge_items': items, 'card_knowledge_items': mappings}
+    return {'card_ids': cards, 'knowledge_items': items, 'card_knowledge_items': mappings}
 
 
 class AttemptInsertIntegrityError(Exception):
@@ -103,7 +103,14 @@ def _compare_domain_payload(existing: models.TMAKnowledgeAttempt, item: Knowledg
 
 @router.post("/attempts/sync", response_model=KnowledgeAttemptSyncResponse)
 def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int = Depends(get_user_id)):
+    from api.services.collaborative_service import get_effective_user_role
     results = []
+    card_ids = {item.card_id for item in request.attempts if item.card_id is not None}
+    cards = {c.id: c for c in models.TMA_Card.select().where(
+        models.TMA_Card.id.in_(card_ids), models.TMA_Card.is_deleted == False)}
+    primary_pairs = {(m.card_id, m.knowledge_item_id) for m in models.TMACardKnowledgeItem.select().where(
+        models.TMACardKnowledgeItem.card_id.in_(card_ids), models.TMACardKnowledgeItem.role == 'primary')}
+    deck_roles = {}
     
     ki_ids = {item.knowledge_item_id for item in request.attempts}
     valid_kis = set()
@@ -112,13 +119,13 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
         valid_kis = {ki.id for ki in valid_ki_query}
         
     review_ids = {item.review_id for item in request.attempts if item.review_id is not None}
-    valid_reviews = set()
+    valid_reviews = {}
     if review_ids:
-        valid_review_query = models.TMAReviewHistory.select(models.TMAReviewHistory.id).where(
+        valid_review_query = models.TMAReviewHistory.select().where(
             (models.TMAReviewHistory.id.in_(review_ids)) & 
             (models.TMAReviewHistory.user_id == user_id)
         )
-        valid_reviews = {rev.id for rev in valid_review_query}
+        valid_reviews = {rev.id: rev.card_id for rev in valid_review_query}
 
     for item in request.attempts:
         if not item.client_event_id:
@@ -127,6 +134,17 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
                 status="rejected", 
                 error_code="missing_client_event_id"
             ))
+            continue
+
+        # Acknowledging immutable history must survive a later unmapping/access revocation.
+        existing = models.TMAKnowledgeAttempt.get_or_none(
+            models.TMAKnowledgeAttempt.user_id == user_id,
+            models.TMAKnowledgeAttempt.client_event_id == item.client_event_id)
+        if existing:
+            same = _compare_domain_payload(existing, item)
+            results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
+                status='duplicate' if same else 'event_conflict',
+                error_code=None if same else 'payload_mismatch'))
             continue
             
         if item.knowledge_item_id not in valid_kis:
@@ -137,7 +155,8 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
             ))
             continue
             
-        if item.review_id is not None and item.review_id not in valid_reviews:
+        if item.review_id is not None and (item.review_id not in valid_reviews
+                                          or valid_reviews[item.review_id] != item.card_id):
             results.append(KnowledgeAttemptSyncResult(
                 client_event_id=item.client_event_id, 
                 status="rejected", 
@@ -145,17 +164,19 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
             ))
             continue
             
+        is_assessment = (item.evaluation_data or {}).get('evaluation_type') == 'assessment'
+        card = cards.get(item.card_id)
+        if card and card.deck_id not in deck_roles:
+            deck_roles[card.deck_id] = get_effective_user_role(user_id, 'deck', card.deck_id)
+        if not card or not deck_roles.get(card.deck_id) or (item.card_id, item.knowledge_item_id) not in primary_pairs:
+            results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
+                status='rejected', error_code='assessment_not_accessible' if is_assessment else 'card_knowledge_not_accessible'))
+            continue
+
         evaluation_data_str = json.dumps(item.evaluation_data) if item.evaluation_data else None
-        if (item.evaluation_data or {}).get('evaluation_type') == 'assessment':
-            from api.services.collaborative_service import get_effective_user_role
-            card = models.TMA_Card.get_or_none(models.TMA_Card.id == item.card_id, models.TMA_Card.is_deleted == False)
-            mapping = models.TMACardKnowledgeItem.get_or_none(
-                models.TMACardKnowledgeItem.card_id == item.card_id,
-                models.TMACardKnowledgeItem.knowledge_item == item.knowledge_item_id,
-                models.TMACardKnowledgeItem.role == 'primary')
+        if is_assessment:
             assessment = (item.evaluation_data or {}).get('assessment')
-            if not card or not mapping or not isinstance(assessment, dict) or assessment.get('deck_id') != card.deck_id \
-                or not get_effective_user_role(user_id, 'deck', card.deck_id):
+            if not isinstance(assessment, dict) or assessment.get('deck_id') != card.deck_id:
                 results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
                     status='rejected', error_code='assessment_not_accessible'))
                 continue

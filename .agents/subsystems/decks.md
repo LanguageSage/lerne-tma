@@ -56,6 +56,13 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
 
 ## Relevant tests
 
+- Списки назначения папок используют `getSortedFolderTree` в `app/src/utils/deckUtils.js`.
+  Корень без `parent_id` в старом кеше и доступная ветка без родителя в каталоге
+  остаются доступны для выбора; порядок, вложенность и исключения назначения
+  сохраняются. Регрессии: `app/src/utils/__tests__/deckUtils.test.js` и
+  `scripts/tests/browser/folder-choices.spec.cjs` (реальная модалка, перемещение,
+  375/1280px, RU/UK, подменённые API без записи в рабочую БД).
+
 - `fetchDeckCards` связывает запрос с `getUserId()` и существующим
   `libraryRequestId` (включая его увеличение в `resetDeckStore`). Дедупликация
   действует только для актуального запроса; устаревшие success/error/retry не

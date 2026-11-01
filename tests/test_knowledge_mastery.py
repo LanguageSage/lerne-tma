@@ -248,10 +248,18 @@ class TestMasterySync(unittest.TestCase):
         TMAUser.create(user_id=2, username='b')
         self.ki1 = TMAKnowledgeItem.create(name='one')
         self.ki2 = TMAKnowledgeItem.create(name='two')
+        self.cards = {}
+        for user_id in (1, 2):
+            deck = TMA_Deck.create(user_id=user_id, name='Synthetic practice')
+            for ki in (self.ki1, self.ki2):
+                card = TMA_Card.create(deck=deck, front_text='Synthetic', back_text='Answer')
+                TMACardKnowledgeItem.create(card_id=card.id, knowledge_item=ki, role='primary')
+                self.cards[user_id, ki.id] = card.id
 
     def send(self, event_id, data, *, user_id=1, ki=None, event_time=None):
         item = KnowledgeAttemptSyncItem(client_event_id=event_id,
                                         knowledge_item_id=ki or self.ki1.id,
+                                        card_id=self.cards[user_id, ki or self.ki1.id],
                                         event_time=event_time, evaluation_data=data)
         return sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[item]),
                                        user_id=user_id).results[0].status

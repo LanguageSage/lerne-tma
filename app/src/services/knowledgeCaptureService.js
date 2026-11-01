@@ -1,5 +1,7 @@
 import { getPrimaryKnowledgeItemForCard, enqueueKnowledgeAttempt, createKnowledgeAttempt } from './knowledgeDbService.js';
 import { detectExerciseType } from '../utils/exerciseDetector.js';
+import { getLocalDb } from './localDb.js';
+import { getUserId } from '../utils/auth.js';
 
 const STANDARD_GRADE_RATINGS = ['again', 'hard', 'good', 'easy'];
 
@@ -11,10 +13,11 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
   // Feature flag via env (defaults to true if not explicitly 'false')
   if (import.meta.env && import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED === 'false') return;
 
-  if (!card || !userId) return;
+  if (!card || !userId || String(getUserId()) !== String(userId)) return;
 
   try {
-    const primaryKi = await getPrimaryKnowledgeItemForCard(card.id);
+    const database = getLocalDb();
+    const primaryKi = await getPrimaryKnowledgeItemForCard(card.id, database);
     if (!primaryKi) {
       console.log(`[KnowledgeCapture] no_primary_knowledge_item for card ${card.id}`);
       return;
@@ -71,7 +74,8 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
       evaluation_data: evaluationData
     });
 
-    await enqueueKnowledgeAttempt(attempt);
+    if (String(getUserId()) !== String(userId)) return;
+    await enqueueKnowledgeAttempt(attempt, database);
   } catch (error) {
     // Rule 6: Knowledge Layer никогда не должен блокировать обучение
     console.error("[KnowledgeCapture] Error capturing attempt:", error);

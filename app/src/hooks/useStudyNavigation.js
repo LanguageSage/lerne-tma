@@ -8,6 +8,7 @@ import { useCardActions } from './useCardActions';
 import { createAssessment, canResumeAssessment } from '../utils/assessment.js';
 import { prepareAssessmentKnowledge, saveAssessment, loadAssessment } from '../services/assessmentService.js';
 import { getUserId } from '../utils/auth.js';
+import { prepareDeckKnowledge } from '../services/knowledgeContentService.js';
 
 /**
  * Hook for initiating study sessions from deck grids, card lists, and search results.
@@ -20,6 +21,7 @@ export function useStudyNavigation() {
   const { fetchNextCard, refreshCard } = useCardActions();
 
   const startStudy = useCallback(async (deck, { reviewContext = 'scheduled' } = {}) => {
+    const userId = getUserId();
     setIsOpeningDeck(true);
     try {
       const currentView = useUiStore.getState().view;
@@ -28,6 +30,7 @@ export function useStudyNavigation() {
       }
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
+      const revision = useSessionStore.getState().sessionRevision;
       useSessionStore.getState().setIsLearningMore(reviewContext === 'forced');
       const state = useDeckStore.getState();
       const hasCards = state.currentDeck?.id === deck.id && state.deckCards && state.deckCards.length > 0;
@@ -37,6 +40,7 @@ export function useStudyNavigation() {
         await state.fetchDeckCards(deck.id);
       }
 
+      if (getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       setView('study');
       const assessment = createAssessment(deck, useDeckStore.getState().deckCards || [], getUserId());
       if (assessment) {
@@ -48,6 +52,8 @@ export function useStudyNavigation() {
         useSessionStore.getState().setAssessment(active);
         return;
       }
+      await prepareDeckKnowledge(deck.id).catch(err => console.warn('[Knowledge] Content unavailable:', err));
+      if (getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       await fetchNextCard(deck.id, true);
     } catch (err) {
       useSessionStore.getState().setApiError(err.response?.data?.detail || err.message);
@@ -58,6 +64,7 @@ export function useStudyNavigation() {
   }, [fetchNextCard, setCurrentDeck, setIsOpeningDeck, setView]);
 
   const startStudyCard = useCallback(async (deck, cardId) => {
+    const userId = getUserId();
     try {
       const currentView = useUiStore.getState().view;
       if (currentView !== 'study' && currentView !== 'trainer') {
@@ -65,6 +72,9 @@ export function useStudyNavigation() {
       }
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
+      const revision = useSessionStore.getState().sessionRevision;
+      await prepareDeckKnowledge(deck.id).catch(err => console.warn('[Knowledge] Content unavailable:', err));
+      if (getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       
       const deckState = useDeckStore.getState();
       let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (deckState.deckCards || []);

@@ -11,6 +11,7 @@ SRS-прогресс карточки — [study](study.md); free-text verdict �
 | --- | --- |
 | Capture после grade | `app/src/hooks/useStudySession.js`, `app/src/services/knowledgeCaptureService.js` |
 | Локальные KI / mappings / Attempts | `app/src/services/knowledgeDbService.js`, `app/src/services/localDb.js` |
+| Загрузка KI перед обычным study / assessment | `app/src/services/knowledgeContentService.js`, `app/src/hooks/useStudyNavigation.js` |
 | Отправка и lifecycle | `app/src/services/knowledgeSyncService.js`, `app/src/services/knowledgeSyncOrchestrator.js`, `app/src/hooks/useKnowledgeSync.js` |
 | Diagnostics UI/client | `app/src/components/settings/KnowledgeDiagnostics.jsx`, `app/src/services/knowledgeDiagnosticsService.js`, `app/src/services/knowledgeDiagnosticsClient.js` |
 | Sync / diagnostics API | `api/routers/knowledge.py` |
@@ -19,10 +20,10 @@ SRS-прогресс карточки — [study](study.md); free-text verdict �
 
 ## Data flow
 
-1. Завершённое упражнение передаёт evidence в study session; grade вызывает `captureStudyKnowledgeAttempt`.
+1. Обычный `startStudy` / `startStudyCard` и assessment загружают KI/mappings через общий `prepareDeckKnowledge`. Offline использует кэш; ошибка Knowledge не блокирует обычное обучение. Завершённое упражнение передаёт evidence в study session; только подтверждённый grade вызывает `captureStudyKnowledgeAttempt`.
 2. Capture находит primary KI, формирует self-rating или hybrid `evaluation_data` и ставит событие в Dexie outbox.
 3. useKnowledgeSync запускает orchestrator для аккаунта; startup/online/visibility/periodic triggers инициируют drain.
-4. knowledgeSyncService → `/knowledge/attempts/sync`; сервер проверяет payload, ownership и идемпотентность `client_event_id`.
+4. knowledgeSyncService → `/knowledge/attempts/sync`; для нового события сервер проверяет активную карточку, доступ к её колоде и точное primary KI для всех типов evidence. Если указан review, он должен принадлежать этому пользователю и карточке. Новые cardless события отклоняются; формат v1/v2/v3 не меняется. Идентичный повтор уже принятого события подтверждается даже после снятия mapping/доступа, изменённый payload возвращает `event_conflict`.
 5. Созданный raw Attempt обновляет mastery-v1 projection; duplicate не должен повторно добавлять contribution.
 6. Подтверждённые created/duplicate события удаляются из outbox; транспортная ошибка возвращает batch в pending.
 7. Diagnostics API читает raw Attempts и projections; rebuild вычисляет state из истории Attempts.
@@ -37,6 +38,8 @@ SRS-прогресс карточки — [study](study.md); free-text verdict �
 - Counters приходят из exercise lifecycle, self-rating — из grade; `interaction_count` остаётся описательным evidence.
 - Capture failures не должны блокировать обучение; feature flag `VITE_KNOWLEDGE_LAYER_ENABLED` управляет клиентским слоем.
 - Очередь Attempts и orchestrator отделены от `/sync/v2/*`; lifecycle должен учитывать смену аккаунта.
+- Загрузка контента и операции capture/outbox закрепляют исходную Dexie-базу до первого await; sync передаёт `_expectedUserId` существующему auth interceptor. После logout закрытая база сохраняет syncing-события для существующего stale recovery при следующем входе. Ответ sync обрабатывает только IDs отправленного batch; отсутствующие результаты возвращаются в pending.
+- GET `/knowledge/decks/{deck_id}` дополнительно отдаёт `card_ids` активных карточек, включая неразмеченные. Загрузчик атомарно заменяет mappings этих и локально кэшированных карточек колоды, не удаляя outbox. Старый ответ без `card_ids` поддерживается по локальным карточкам и возвращённым mappings. KI обновляются при наличии сети также в offline-first/native режиме.
 
 ## Common symptoms
 
@@ -62,6 +65,9 @@ rg -n 'startKnowledgeSync|stopKnowledgeSync|currentGeneration|pending' app/src/s
 
 - Schema/server: `tests/test_knowledge_item_schema.py`, `tests/test_knowledge_sync.py`, `tests/test_knowledge_mastery.py`, `tests/test_knowledge_diagnostics.py`.
 - Capture/outbox: `app/src/services/__tests__/knowledgeCaptureService.test.js`, `app/src/services/__tests__/knowledgeDbService.test.js`.
+- Сквозные client-service регрессии: `app/src/services/__tests__/knowledgeFlow.test.js` (cold cache, offline, missing KI, remapping, rollback, late response, logout/account switch, partial sync).
+- Реальный study hook → API adapter/Dexie → capture: синтетические Knowledge-сценарии в `scripts/tests/browser/study-latency.spec.cjs`. API transport изолирован; это не browser → PostgreSQL E2E.
+- Opt-in Chromium/hooks → TCP HTTP/Uvicorn с настоящими routers/auth → одноразовая native PostgreSQL: `python scripts/tests/run_knowledge_http_postgres.py --bin-dir <PG-bin>`. Проверяет grade/capture/mastery, offline entity+Knowledge sync, восемь конкурентных отправок с наблюдением PG advisory waiters, подмену происхождения, remapping/unmapping и смену аккаунта с поздним ответом. Не входит в изолированный `npm run check`; требует PostgreSQL binaries и Chromium. Границы и доказательства: [HTTP/PostgreSQL отчёт](../../docs/LERNE_ADAPTIVE_HTTP_POSTGRES.md).
 - Transport/lifecycle: `app/src/services/__tests__/knowledgeSyncService.test.js`, `app/src/services/__tests__/knowledgeSyncOrchestrator.test.js`.
 - Diagnostics client: `app/src/services/__tests__/knowledgeDiagnosticsService.test.js`.
 Не все service tests входят в `app/package.json` test script; выбирайте нужный файл и проверяйте его setup.
