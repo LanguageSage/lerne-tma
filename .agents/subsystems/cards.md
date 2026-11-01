@@ -336,6 +336,14 @@ styleSettings. resolveActiveDesign возвращает стандартный V
 Пустые backgrounds по-прежнему наследуют личные фоны.
 [Этап 4B и проверки](../../docs/DESIGN_V2_STAGE4B_RUNTIME_CLEANUP.md).
 
+Диктовка в `StudyCardFreeText` следует тому же V2-контракту: renderer передаёт
+active config, прямой вызов без `designConfig`/с `null` использует defaults V2.
+Удалённый flat `styles` не включает Legacy. Браузерная fixture в
+`scripts/tests/browser/free-text-dictation.spec.cjs` задаёт опубликованный V2
+через store и передаёт его компоненту; typography prompt/context и semantic
+input colors проверяются отдельно, включая конфликтующие V1 props,
+неопубликованный draft, обновление публикации и размеры 320–1280 px.
+
 ### Design V2: редакторы и список без V1 fallback (этап 4C)
 
 CardForm/CardContentEditor используют только V2 typography. CardList получает

@@ -1,6 +1,17 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context, { recognition = 'supported', assessmentMode = false, admin = false } = {}) {
+// Native V2 roles: typography and semantic input colors have separate owners.
+const dictationDesign = {
+  front: { mainText: { color: '#fed7aa', font: 'Georgia' } },
+  back: { context: { color: '#fed7aa', font: 'Georgia' } },
+  exercises: { freeText: { input: { color: '#cbd5e1' } } },
+};
+const retiredStyles = { cardTextColor: '#ff00ff', cardFont: 'monospace',
+  contextTextColor: '#00ff00', contextFont: 'monospace' };
+
+async function setup(page, context, { recognition = 'supported', assessmentMode = false, admin = false,
+  evaluationResults = null, maxRetries = 3, supportHistoryUnknown = false,
+  design = dictationDesign, configProp = 'active', styles = null } = {}) {
   const errors = [];
   const answers = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -32,7 +43,8 @@ async function setup(page, context, { recognition = 'supported', assessmentMode 
   await page.route('**/api/**', route => {
     if (new URL(route.request().url()).pathname === '/api/ai/evaluate-answer') {
       answers.push(route.request().postDataJSON());
-      return route.fulfill({ json: { grading_policy: { max_retries: 3 }, result: {
+      return route.fulfill({ json: { grading_policy: { max_retries: maxRetries }, result: evaluationResults
+        ? evaluationResults[Math.min(answers.length - 1, evaluationResults.length - 1)] : {
         verdict: 'correct', accepted: true, evaluator: 'exact',
       } } });
     }
@@ -55,25 +67,31 @@ async function setup(page, context, { recognition = 'supported', assessmentMode 
     import { useDeckStore } from '/src/store/useDeckStore.js';
     import { useSettingsStore } from '/src/store/useSettingsStore.js';
     useSettingsStore.setState({ isAdmin: ${JSON.stringify(admin)} });
-    import { applyPublishedDesignTokens } from '/src/design/designTokens.js';
     import { DEFAULT_DESIGN_CONFIG_V2 } from '/src/design/designConfig.js';
     import '/src/index.css';
     import '/src/App.css';
-    applyPublishedDesignTokens(DEFAULT_DESIGN_CONFIG_V2);
+    useSettingsStore.getState().setPublishedDesignV2({
+      config: ${JSON.stringify(design)} ?? DEFAULT_DESIGN_CONFIG_V2, revision: 1,
+    });
     useDeckStore.setState({ currentDeck: { id: 1, target_language: 'de', review: 'review-1' } });
     window.changeReview = review => useDeckStore.setState(state => ({ currentDeck: { ...state.currentDeck, review } }));
     window.changeSpeechLanguage = language => useDeckStore.setState(state => ({ currentDeck: { ...state.currentDeck, language } }));
     function Harness() {
       const { review, language } = useDeckStore(state => state.currentDeck);
+      const activeDesign = useSettingsStore(state => state.activeDesignConfig);
       return React.createElement('main', { className: 'study-card', style: { maxWidth: 560, margin: '24px auto', padding: 16 } },
         React.createElement(StudyCardFreeText, {
           card: { id: 81, target_language: language }, reviewKey: review,
           freeTextData: { prompt: 'Was machen Sie am Wochenende? Расскажите о ваших планах на выходные.', exampleAnswer: 'Ich besuche meinen Freund.' },
-          styles: { cardTextColor: '#fed7aa', cardFont: 'Georgia', contextTextColor: '#fed7aa', contextFont: 'Georgia' },
+          ...(${JSON.stringify(configProp)} === 'omitted' ? {} : {
+            designConfig: ${JSON.stringify(configProp)} === 'null' ? null : activeDesign,
+          }),
+          ...(${JSON.stringify(styles)} ? { styles: ${JSON.stringify(styles)} } : {}),
           savedState: window.savedDictation[review],
           onSaveState: state => { window.savedDictation[review] = state; },
           onTrainerAnswer: (...args) => { window.dictationEvidence = args; },
           assessmentMode: ${JSON.stringify(assessmentMode)},
+          supportHistoryUnknown: ${JSON.stringify(supportHistoryUnknown)},
         }));
     }
     ReactDOM.createRoot(document.getElementById('root')).render(React.createElement(React.StrictMode, null, React.createElement(Harness)));
@@ -86,6 +104,124 @@ async function setup(page, context, { recognition = 'supported', assessmentMode 
 async function speak(page, chunks) {
   await page.evaluate(chunks => window.testRecognition.onresult({ results: chunks.map(transcript => [{ transcript }]) }), chunks);
 }
+
+for (const configProp of ['omitted', 'null']) {
+  test(`dictation without designConfig (${configProp}) uses V2 defaults and ignores retired Legacy styles`, async ({ page, context }) => {
+    const { errors, answers } = await setup(page, context, { design: null, configProp, styles: retiredStyles });
+    await expect(page.locator('.free-text-prompt')).toHaveCSS('color', 'rgb(253, 224, 71)');
+    await expect(page.locator('.free-text-prompt')).toHaveCSS('font-family', 'Comfortaa');
+    await expect(page.locator('textarea')).toHaveCSS('font-family', 'Inter');
+    await expect(page.locator('textarea')).toHaveCSS('color', 'rgb(226, 232, 240)');
+    await page.locator('.free-text-dictate').click();
+    await speak(page, ['Ich besuche meinen Freund.']);
+    await page.locator('.free-text-dictate').click();
+    await expect(page.locator('textarea')).toHaveValue('Ich besuche meinen Freund.');
+    await page.locator('button[type=submit]').click();
+    await expect(page.locator('textarea')).toBeDisabled();
+    await expect(page.locator('textarea')).toHaveCSS('color', 'rgb(74, 222, 128)');
+    expect(answers).toHaveLength(1);
+    expect(errors).toEqual([]);
+  });
+}
+
+test('dictation uses published V2 roles over conflicting Legacy styles and an unpublished draft', async ({ page, context }) => {
+  const { errors } = await setup(page, context, { styles: retiredStyles });
+  await page.locator('textarea').fill('Mein Entwurf.');
+  await page.evaluate(async () => {
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    useSettingsStore.getState().commitAdminDraft({
+      front: { mainText: { color: '#ff0000', font: 'monospace' } },
+    }, { autoPreview: false });
+  });
+  await expect(page.locator('.free-text-prompt')).toHaveCSS('color', 'rgb(254, 215, 170)');
+  await expect(page.locator('.free-text-prompt')).toHaveCSS('font-family', 'Georgia');
+  await expect(page.locator('textarea')).toHaveCSS('font-family', 'Georgia');
+  // The context's orange typography must not override the semantic input color.
+  await expect(page.locator('textarea')).toHaveCSS('color', 'rgb(203, 213, 225)');
+  await page.evaluate(async () => {
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const store = useSettingsStore.getState();
+    const config = structuredClone(store.publishedDesignV2.config);
+    config.front.mainText.color = '#aaccee';
+    config.back.context.font = 'serif';
+    config.exercises.freeText.input.color = '#b6ddee';
+    store.setPublishedDesignV2({ config, revision: 2 });
+  });
+  await expect(page.locator('.free-text-prompt')).toHaveCSS('color', 'rgb(170, 204, 238)');
+  await expect(page.locator('textarea')).toHaveCSS('font-family', 'serif');
+  await expect(page.locator('textarea')).toHaveCSS('color', 'rgb(182, 221, 238)');
+  await expect(page.locator('textarea')).toHaveValue('Mein Entwurf.');
+  expect(errors).toEqual([]);
+});
+
+test('support counts visible feedback once between retries and freezes before final feedback', async ({ page, context }) => {
+  const { errors } = await setup(page, context, { evaluationResults: [
+    { verdict: 'needs_retry', accepted: false, hint: 'Synthetic hint', explanation: 'Synthetic explanation' },
+    { verdict: 'correct', accepted: true },
+  ] });
+  await page.locator('textarea').fill('first');
+  await page.locator('button[type=submit]').click();
+  await expect(page.getByText('Synthetic hint', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(() => window.savedDictation['review-1'].evaluationState.supportState.hint_count)).toBe(1);
+  await page.locator('textarea').fill('second');
+  await page.locator('button[type=submit]').click();
+  await expect.poll(() => page.evaluate(() => window.dictationEvidence?.[1]?.supportEvidence?.hint_count)).toBe(1);
+  const evidence = await page.evaluate(() => window.dictationEvidence[1]);
+  expect(evidence.supportEvidence).toEqual({ tracking_complete: false, hint_count: 1,
+    translation_view_count: null, answer_reveal_count: 0, other_help_count: null,
+    capture_point: 'exercise_completion', answer_attempt_count: 2 });
+  await page.evaluate(() => window.changeReview('review-2'));
+  await page.evaluate(() => window.changeReview('review-1'));
+  await expect(page.locator('textarea')).toBeDisabled();
+  expect(await page.evaluate(() => window.savedDictation['review-1'].evaluationState.answerSupportEvidence)).toEqual(evidence.supportEvidence);
+  expect(errors).toEqual([]);
+});
+
+test('opening and reopening an example are real actions after the frozen failed result', async ({ page, context }) => {
+  const { errors } = await setup(page, context, { maxRetries: 1, evaluationResults: [
+    { verdict: 'incorrect', accepted: false, hint: 'Synthetic hint' },
+  ] });
+  await page.locator('textarea').fill('first');
+  await page.locator('button[type=submit]').click();
+  await expect(page.getByRole('button', { name: 'Показать пример ответа' })).toBeVisible();
+  const frozen = await page.evaluate(() => window.dictationEvidence[1]);
+  expect(frozen.supportEvidence.hint_count).toBe(0);
+  for (const count of [1, 2]) {
+    await page.getByRole('button', { name: 'Показать пример ответа' }).click();
+    await expect(page.locator('.free-text-example')).toBeVisible();
+    await expect.poll(() => page.evaluate(() => window.savedDictation['review-1'].evaluationState.supportState.answer_reveal_count)).toBe(count);
+    expect(await page.evaluate(() => window.dictationEvidence[1])).toEqual(frozen);
+    await page.getByRole('button', { name: 'Скрыть пример ответа' }).click();
+  }
+  expect(errors).toEqual([]);
+});
+
+test('Assessment reports only first classified check and excludes its subsequent hint', async ({ page, context }) => {
+  const { errors } = await setup(page, context, { assessmentMode: true, evaluationResults: [
+    { verdict: 'incorrect', accepted: false, hint: 'Synthetic exam hint' },
+  ] });
+  await page.locator('textarea').fill('first');
+  await page.locator('button[type=submit]').click();
+  await expect(page.locator('textarea')).toBeDisabled();
+  await expect.poll(() => page.evaluate(() => window.dictationEvidence?.[1]?.supportEvidence?.capture_point)).toBe('first_assessment_result');
+  const frozen = await page.evaluate(() => window.dictationEvidence[1]);
+  expect(frozen.supportEvidence.hint_count).toBe(0);
+  await expect.poll(() => page.evaluate(() => window.savedDictation['review-1'].evaluationState.supportState.hint_count)).toBe(1);
+  expect(await page.evaluate(() => window.dictationEvidence[1])).toEqual(frozen);
+  expect(errors).toEqual([]);
+});
+
+test('resumed unfinished Assessment with missing help history reports unknown instead of zero', async ({ page, context }) => {
+  const { errors } = await setup(page, context, { assessmentMode: true, supportHistoryUnknown: true });
+  await page.locator('textarea').fill('first after reload');
+  await page.locator('button[type=submit]').click();
+  await expect.poll(() => page.evaluate(() => window.dictationEvidence?.[1]?.supportEvidence?.capture_point)).toBe('first_assessment_result');
+  const support = await page.evaluate(() => window.dictationEvidence[1].supportEvidence);
+  expect(support.hint_count).toBeNull();
+  expect(support.answer_reveal_count).toBeNull();
+  expect(support.tracking_complete).toBe(false);
+  expect(errors).toEqual([]);
+});
 
 test('dictation survives long silence, pauses, resumes, permits correction and submits manually', async ({ page, context }) => {
   const { errors, answers } = await setup(page, context);
