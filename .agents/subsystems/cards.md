@@ -344,6 +344,13 @@ active config, прямой вызов без `designConfig`/с `null` испо�
 input colors проверяются отдельно, включая конфликтующие V1 props,
 неопубликованный draft, обновление публикации и размеры 320–1280 px.
 
+`trainer-endings.spec.cjs` также задаёт опубликованный нативный V2, а не flat
+V1-поля: цвет окончания принадлежит `exercises.clozeGap`, отдельно от
+`front.mainText`. Регрессии проверяют конфликтующие V1-настройки, defaults V2
+при отсутствии/null config, изоляцию draft и обновление публикации без потери
+ввода. Причина прежнего orange failure и аудит остальных упражнений:
+[контракт окончаний](../../docs/DESIGN_V2_ENDINGS_CONTRACT_AUDIT.md).
+
 ### Design V2: редакторы и список без V1 fallback (этап 4C)
 
 CardForm/CardContentEditor используют только V2 typography. CardList получает
