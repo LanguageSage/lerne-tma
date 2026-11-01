@@ -1,6 +1,7 @@
 import api from '../../services/api';
 import { storage, getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from './initCacheHelper';
+import { useLanguageStore } from '../useLanguageStore';
 
 let reorderTimeout = null;
 let cardReorderTimeout = null;
@@ -259,7 +260,6 @@ export const createDeckSlice = (set, get) => {
 
   createDeck: async (name, folderId = null, targetLang = null, deckType = 'standard') => {
     try {
-      const { useLanguageStore } = await import('../useLanguageStore');
       const targetLanguage = targetLang || useLanguageStore.getState().activeLanguage || 'de';
       await api.post('/decks', { name, folder_id: folderId, target_language: targetLanguage, deck_type: deckType });
       const { fetchDecks } = get();

@@ -1,6 +1,7 @@
 import { tr } from '../../i18n/locale';
 import api from '../../services/api';
 import { getPublicShareUrl, executeShare } from '../../utils/share';
+import { syncService } from '../../services/syncService';
 
 export const createShareSlice = (set, get) => ({
   handleShareDeck: async (deckId) => {
@@ -8,7 +9,6 @@ export const createShareSlice = (set, get) => ({
       let targetId = deckId;
       if (targetId < 0) {
         try {
-          const { syncService } = await import('../../services/syncService');
           await syncService.sync();
           const currentDeck = get().decks.find(d => d.id === targetId || d.local_id === targetId);
           if (currentDeck && currentDeck.id > 0) {
@@ -43,7 +43,6 @@ export const createShareSlice = (set, get) => ({
       let targetId = folderId;
       if (targetId < 0) {
         try {
-          const { syncService } = await import('../../services/syncService');
           await syncService.sync();
           const currentFolder = get().folders.find(f => f.id === targetId || f.local_id === targetId);
           if (currentFolder && currentFolder.id > 0) {

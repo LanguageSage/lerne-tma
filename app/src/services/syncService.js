@@ -2,6 +2,7 @@ import { tr } from '../i18n/locale.js';
 import { prepareLocalDb, getNextTempId } from './localDb.js';
 import { networkApi } from './api.js';
 import { getAccessToken, getUserId } from '../utils/auth.js';
+import { syncCardNotes } from './cardNotes.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
@@ -176,7 +177,6 @@ export const syncService = {
       await syncLearningPreferences(db);
       const response = await networkApi.get('/sync/v2/pull', options);
       await applySnapshot(db, response.data, userId);
-      const { syncCardNotes } = await import('./cardNotes.js');
       let notesPending = false;
       try { await syncCardNotes(db, userId); }
       catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.

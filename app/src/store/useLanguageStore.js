@@ -2,6 +2,7 @@ import { tr, getInterfaceLanguage } from '../i18n/locale';
 import { create } from 'zustand';
 import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
+import { useDeckStore } from './useDeckStore';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'de', name: 'Deutsch', flag: '🇩🇪', get label() { return tr("Немецкий"); }, get desc() { return tr("Изучение грамматики, артиклей der/die/das и падежей"); } },
@@ -43,7 +44,6 @@ export const useLanguageStore = create((set, get) => ({
       
       // Automatically refresh decks and folders for newly selected language
       try {
-        const { useDeckStore } = await import('./useDeckStore');
         await useDeckStore.getState().fetchDecks(true);
       } catch (err) {
         console.error("Error refreshing decks after language change:", err);

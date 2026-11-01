@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { setInterfaceLanguage, normalizeInterfaceLanguage } from '../i18n/locale.js';
 import { storage, getUserId } from '../utils/auth.js';
 import api, { networkApi } from '../services/api.js';
 import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord,
@@ -362,14 +363,12 @@ export const useSettingsStore = create((set, get) => {
       if (serverSettings.native_language) {
         const currentLang = storage.get('native_language');
         if (currentLang !== serverSettings.native_language) {
-          import('../i18n/locale.js').then(({ setInterfaceLanguage, normalizeInterfaceLanguage }) => {
-            const lang = normalizeInterfaceLanguage(serverSettings.native_language);
-            if (lang) {
-              setInterfaceLanguage(lang);
-              storage.set('native_language', lang);
-              storage.set('native_language_selected', 'true');
-            }
-          }).catch(() => {});
+          const lang = normalizeInterfaceLanguage(serverSettings.native_language);
+          if (lang) {
+            setInterfaceLanguage(lang);
+            storage.set('native_language', lang);
+            storage.set('native_language_selected', 'true');
+          }
         }
       }
 

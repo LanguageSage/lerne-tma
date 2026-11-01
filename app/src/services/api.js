@@ -4,6 +4,7 @@ import { isOfflineMode, resolveLocalRequest, prepareLocalDb, getLocalDb } from '
 import { offlineApi } from './offlineApi.js';
 import { API_BASE_URL } from './apiConfig.js';
 import { IS_LOCAL } from '../utils/localMode.js';
+import { syncService } from './syncService.js';
 
 const baseURL = API_BASE_URL;
 
@@ -232,7 +233,6 @@ const api = new Proxy(axiosInstance, {
         try {
           const needsRefresh = isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
           if (needsRefresh) {
-            const { syncService } = await import('./syncService');
             const synced = await syncService.sync();
             if (!synced.success) throw new Error(synced.reason);
             const resolved = await resolveLocalRequest(url, args[0]);
@@ -241,7 +241,6 @@ const api = new Proxy(axiosInstance, {
           }
           const response = await Reflect.get(target, propKey, receiver).call(target, url, ...args);
           if (needsRefresh) {
-            const { syncService } = await import('./syncService');
             await syncService.sync();
           }
           return response;

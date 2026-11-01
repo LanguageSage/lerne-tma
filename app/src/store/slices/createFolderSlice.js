@@ -1,5 +1,6 @@
 import api from '../../services/api';
 import { getInitialCachedData, saveToInitCache, sortFolders } from './initCacheHelper';
+import { useLanguageStore } from '../useLanguageStore';
 
 let folderReorderTimeout = null;
 
@@ -37,7 +38,6 @@ export const createFolderSlice = (set, get) => ({
 
   createFolder: async (name, parentId = null, color = null, targetLang = null) => {
     try {
-      const { useLanguageStore } = await import('../useLanguageStore');
       const targetLanguage = targetLang || useLanguageStore.getState().activeLanguage || 'de';
       await api.post('/folders', { name, parent_id: parentId, color, target_language: targetLanguage });
       const { fetchFolders } = get();

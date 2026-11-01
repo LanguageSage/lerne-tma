@@ -1,4 +1,5 @@
 import api from '../../services/api';
+import { useLanguageStore } from '../useLanguageStore';
 
 export const createLibrarySlice = (set, get) => ({
   libraryCategories: [],
@@ -11,7 +12,6 @@ export const createLibrarySlice = (set, get) => ({
 
   fetchExternalDecks: async () => {
     try {
-      const { useLanguageStore } = await import('../useLanguageStore');
       const activeLang = useLanguageStore.getState().activeLanguage || 'de';
       const res = await api.get(`/decks/external?target_language=${activeLang}`);
       set({ externalDecks: res.data });

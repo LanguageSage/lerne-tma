@@ -7,6 +7,7 @@ import { useUiStore } from '../store/useUiStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { useLanguageStore } from '../store/useLanguageStore';
 import { isOfflineMode } from '../services/localDb';
 import { syncService } from '../services/syncService';
 import { remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
@@ -53,7 +54,6 @@ export const useAppInitialization = (checkStartParam) => {
           ]);
           if (identity !== getSessionIdentity() || account !== getUserId()) return;
           if (cloudHasSelected === 'true' && cloudLang) {
-            const { useLanguageStore } = await import('../store/useLanguageStore');
             useLanguageStore.getState().syncLanguageFromExternal(cloudLang, true);
           }
           if (!localStorage.getItem('native_language') && cloudNativeSel === 'true' && cloudNativeLang) {
@@ -293,7 +293,6 @@ export const useAppInitialization = (checkStartParam) => {
       }
 
       if (res.data.user_info?.has_selected_language || res.data.user_info?.active_language) {
-        const { useLanguageStore } = await import('../store/useLanguageStore');
         if (!isCurrent()) return;
         useLanguageStore.getState().syncLanguageFromExternal(
           res.data.user_info.active_language || 'de',
@@ -369,7 +368,6 @@ export const useAppInitialization = (checkStartParam) => {
     const revision = useAuthStore.getState().sessionRevision;
     const languageAtStart = getInterfaceLanguage();
     try {
-      const { useLanguageStore } = await import('../store/useLanguageStore');
       const langState = useLanguageStore.getState();
 
       const validFirstName = (currentProfile.first_name && currentProfile.first_name !== 'Пользователь')
