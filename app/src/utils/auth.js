@@ -12,13 +12,25 @@ const PROFILE_KEY = 'lerne_user_profile';
 
 let memorySession = null;
 let resetHandled = false;
+const sessionListeners = new Set();
+let loginRequired = false;
+export const subscribeAuthSession = listener => {
+  sessionListeners.add(listener);
+  return () => sessionListeners.delete(listener);
+};
+export const notifyAuthSession = () => {
+  if (getAuthSession()) loginRequired = false;
+  sessionListeners.forEach(listener => listener({ loginRequired }));
+};
+export const getSessionIdentity = (session = getAuthSession()) =>
+  session?.client_session_id || session?.session_id || session?.refresh_token || session?.access_token || null;
 
 export const getAuthSession = () => {
   try {
     // Read shared storage on every request: another tab may rotate or clear it.
     const value = localStorage.getItem(localStorageKey(SESSION_KEY));
     const parsed = value ? JSON.parse(value) : null;
-    if (parsed?.access_token && parsed?.refresh_token) {
+    if (parsed?.access_token || parsed?.refresh_token) {
       memorySession = parsed;
       return memorySession;
     }
@@ -29,32 +41,35 @@ export const getAuthSession = () => {
 
 export const getAccessToken = () => getAuthSession()?.access_token || null;
 
-export const saveAuthSession = (session) => {
+export const saveAuthSession = (session, { previousSession } = {}) => {
   if (!session?.access_token || !session?.refresh_token) throw new Error('Invalid authentication session');
-  memorySession = session;
-  storage.set(SESSION_KEY, JSON.stringify(session));
+  memorySession = { ...session, client_session_id: previousSession
+    ? getSessionIdentity(previousSession)
+    : (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`) };
+  loginRequired = false;
+  storage.set(SESSION_KEY, JSON.stringify(memorySession));
+  notifyAuthSession();
 };
 
-export const clearAuthSession = () => {
+export const clearAuthSession = ({ preserveProfile = false } = {}) => {
   memorySession = null;
   storage.remove(SESSION_KEY);
-  storage.remove(PROFILE_KEY);
-  storage.remove('lerne_user_id');
-  storage.remove('lerne_init_cache');
-  storage.remove('lerne_last_sync_time');
-  storage.remove('lerne_current_deck_id');
+  if (!preserveProfile) {
+    storage.remove(PROFILE_KEY);
+    storage.remove('lerne_user_id');
+    storage.remove('lerne_init_cache');
+    storage.remove('lerne_last_sync_time');
+    storage.remove('lerne_current_deck_id');
+  }
+  notifyAuthSession();
 };
 
-const FALLBACK_USER_ID = import.meta.env?.VITE_TMA_USER_ID_FALLBACK;
-const LOCAL_HOST_PATTERNS = [
-  /^localhost$/i,
-  /^127\./,
-  /^10\./,
-  /^192\.168\./,
-  /^172\.(1[6-9]|2\d|3[0-1])\./
-];
-
-const isLocalHost = (hostname) => LOCAL_HOST_PATTERNS.some(pattern => pattern.test(hostname));
+// Compare before clearing: late responses and other tabs cannot log out a newer login.
+export const requireAuthSession = (expectedIdentity = getSessionIdentity()) => {
+  if (expectedIdentity !== getSessionIdentity() || loginRequired) return;
+  loginRequired = true;
+  clearAuthSession({ preserveProfile: true });
+};
 
 export const parseUserId = (value) => {
   const id = parseInt(value, 10);
@@ -78,104 +93,32 @@ export const getUserProfile = () => {
         `${window.location.pathname}${query ? `?${query}` : ''}${window.location.hash}`);
     }
 
-    // A verified v2 account can differ from its linked Telegram identity.
-    // URL/testing hints must never replace that account or delete its tokens.
-    if (getAuthSession()) {
-      const value = storage.get(PROFILE_KEY);
-      return value ? JSON.parse(value) : null;
-    }
-    if (IS_LOCAL) return null;
-    if (storage.get('lerne_force_guest') === 'true') return null;
-
-    // 1. Check URL (?user_id=123) for testing or switching accounts
-    const urlIdStr = params?.get('user_id');
-    if (urlIdStr) {
-      const urlId = parseUserId(urlIdStr);
-      if (urlId !== null) {
-        const savedId = storage.get('lerne_user_id');
-        if (savedId && String(savedId) !== String(urlId)) {
-          storage.remove('lerne_init_cache');
-          storage.remove('lerne_current_deck_id');
-          storage.remove(SESSION_KEY);
-          memorySession = null;
-        }
-        const profile = {
-          user_id: urlId,
-          first_name: params.get('first_name') || params.get('account') || null,
-          last_name: params.get('last_name') || null,
-          username: params.get('username') || null,
-          photo_url: params.get('photo') || params.get('photo_url') || null,
-          is_guest: false
-        };
-        storage.set('lerne_user_id', String(urlId));
-        storage.set(PROFILE_KEY, JSON.stringify(profile));
-        return profile;
-      }
-    }
-
-    // 2. Telegram WebApp user (when running in Telegram Mini App)
-    const tg = typeof window !== 'undefined' ? window.Telegram?.WebApp : null;
-    if (!isResetRequested && tg?.initDataUnsafe?.user?.id) {
-      const u = tg.initDataUnsafe.user;
-      const tgId = parseUserId(u.id);
-      if (tgId !== null) {
-        const savedId = storage.get('lerne_user_id');
-        if (savedId && String(savedId) !== String(tgId)) {
-          storage.remove('lerne_init_cache');
-          storage.remove('lerne_current_deck_id');
-          storage.remove(SESSION_KEY);
-          memorySession = null;
-        }
-        const profile = {
-          user_id: tgId,
-          first_name: u.first_name,
-          last_name: u.last_name,
-          username: u.username,
-          photo_url: u.photo_url,
-          is_guest: false
-        };
-        storage.set('lerne_user_id', String(tgId));
-        storage.set(PROFILE_KEY, JSON.stringify(profile));
-        return profile;
-      }
-    }
-
-    // 3. Saved localStorage profile
-    const value = storage.get(PROFILE_KEY);
-    if (value) {
-      const parsed = JSON.parse(value);
-      if (parsed?.user_id) return parsed;
-    }
-
-    // 4. Saved lerne_user_id in localStorage
-    const savedId = storage.get('lerne_user_id');
-    if (savedId) {
-      const id = parseUserId(savedId);
-      if (id !== null) return { user_id: id, is_guest: true };
-    }
-
-    // 5. Localhost Vite dev fallback
-    if (storage.get('lerne_force_guest') === 'true') return null;
-    const fallbackId = parseUserId(FALLBACK_USER_ID) || 642478257;
-    if (typeof window !== 'undefined' && import.meta.env?.DEV && isLocalHost(window.location.hostname) && !window.Capacitor?.isNativePlatform?.()) {
-      const profile = { user_id: fallbackId, is_guest: false, first_name: 'Aruna Андрей', username: 'Aruna27' };
-      storage.set('lerne_user_id', String(fallbackId));
-      storage.set(PROFILE_KEY, JSON.stringify(profile));
-      return profile;
-    }
-
-    return null;
+    const session = getAuthSession();
+    const profile = getSavedUserProfile();
+    if (!session || !profile) return null;
+    if (session.account_id != null && String(session.account_id) !== String(profile.user_id)) return null;
+    return profile;
   } catch {
     return null;
   }
 };
 
-export const getUserId = () => getUserProfile()?.user_id ?? null;
+// Saved identity selects the offline database; it is never an HTTP credential.
+export const getSavedUserProfile = () => {
+  try {
+    const profile = JSON.parse(storage.get(PROFILE_KEY) || 'null');
+    if (profile?.user_id) return profile;
+    const userId = parseUserId(storage.get('lerne_user_id'));
+    return userId ? { user_id: userId, is_guest: true } : null;
+  } catch { return null; }
+};
+export const getUserId = () => getAuthSession()?.account_id ?? getSavedUserProfile()?.user_id ?? null;
 
 export const saveUserProfile = (profile) => {
   if (!profile?.user_id) return;
   storage.set(PROFILE_KEY, JSON.stringify({ ...profile, is_guest: false }));
   storage.set('lerne_user_id', String(profile.user_id));
+  notifyAuthSession();
 };
 
 export const resetUserSession = () => {

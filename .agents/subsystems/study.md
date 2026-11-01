@@ -28,6 +28,14 @@
 
 ## Source of truth
 
+- Protected-resource 401 uses the shared auth lifecycle rather than a technical
+  StudyError. The selected deck/card/review context survives login/provider
+  reload via the auth store's one-time, owner-scoped navigation descriptor.
+  Grades are never automatically resubmitted. Account switching resets visible
+  study history while retaining owner-scoped pending grades/errors and Dexie
+  data. See [auth recovery](../../docs/AUTH_SESSION_RECOVERY.md) and critical
+  `scripts/tests/browser/auth-recovery.spec.cjs`.
+
 - Состояние сессии — `useSessionStore.js`; сохранённый SRS-прогресс — `TMAProgress`, история — `TMAReviewHistory` в `api/models.py`.
 - Online/offline движки должны согласовывать `review_context` и интервалы; параметры находятся в [SRS_SYSTEM](../../project_docs/ARCHITECTURE/SRS_SYSTEM.md).
 - Forced review использует порядок `position/id`, exclusions и один проход `forcedSeenIds`, независимо от scheduled queue.

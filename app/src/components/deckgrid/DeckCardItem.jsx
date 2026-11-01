@@ -6,6 +6,7 @@ import { CSS } from '@dnd-kit/utilities';
 import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users, Dumbbell } from 'lucide-react';
 
 import { useUiStore } from '../../store/useUiStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
@@ -88,7 +89,9 @@ export const DeckCardItem = React.memo(({
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);
     useUiStore.getState().setView('deck_intro');
-    fetchDeckCards(deck.id);
+    fetchDeckCards(deck.id).catch(error => {
+      if (error.response?.status === 401) useAuthStore.getState().deferNavigation({ deckId: deck.id, view: 'deck_intro' });
+    });
   };
 
   const handleShare = async (e) => {

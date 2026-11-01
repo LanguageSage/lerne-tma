@@ -4,6 +4,7 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { Layers, ChevronRight } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
+import { useAuthStore } from '../../store/useAuthStore';
 import { useDeckStore } from '../../store/useDeckStore';
 
 export const LearningShortcutsBar = ({
@@ -23,7 +24,9 @@ export const LearningShortcutsBar = ({
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);
     useUiStore.getState().setView('deck_intro');
-    if (fetchDeckCards) fetchDeckCards(deck.id);
+    if (fetchDeckCards) fetchDeckCards(deck.id).catch(error => {
+      if (error.response?.status === 401) useAuthStore.getState().deferNavigation({ deckId: deck.id, view: 'deck_intro' });
+    });
   };
 
   return (

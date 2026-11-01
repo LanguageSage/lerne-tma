@@ -201,6 +201,7 @@ export const createDeckSlice = (set, get) => {
           } catch (err) {
             if (!isCurrent()) return;
             lastError = err;
+            if (err.code === 'ERR_CANCELED' || [401, 403].includes(err.response?.status)) break;
             if (attempt < attempts) {
               await new Promise(r => setTimeout(r, 150 * attempt));
             }

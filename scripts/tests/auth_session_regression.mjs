@@ -51,6 +51,24 @@ test('another tab can rotate, switch account, and log out without a stale memory
   assert.equal(f.getAccessToken(), null);
 });
 
+test('saved profile and init cache without credentials are offline context, never a signed-in profile', () => {
+  const f = fixture();
+  f.saveUserProfile({ user_id: 101, first_name: 'Saved', is_guest: false });
+  f.values.set('lerne_init_cache', JSON.stringify({ user_id: 101, decks: [{ id: 1 }] }));
+  assert.equal(f.getUserProfile(), null);
+  assert.equal(f.getUserId(), 101, 'offline data must remain assigned to its owner');
+  assert.ok(f.values.has('lerne_init_cache'));
+});
+
+test('partial stored credentials remain restoration candidates rather than disappearing', () => {
+  const f = fixture();
+  f.values.set('lerne_auth_v2_session', JSON.stringify({ refresh_token: 'remaining-refresh' }));
+  assert.equal(f.getAuthSession().refresh_token, 'remaining-refresh');
+  assert.equal(f.getAccessToken(), null);
+  f.values.set('lerne_auth_v2_session', JSON.stringify({ access_token: 'remaining-access' }));
+  assert.equal(f.getAccessToken(), 'remaining-access');
+});
+
 test('explicit reset is consumed once so the subsequent login survives requests', () => {
   const f = fixture({ search: '?guest=1' });
   assert.equal(f.getUserProfile(), null);

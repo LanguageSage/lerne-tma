@@ -33,10 +33,18 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test',
   let resetAllDatabasesCount = 0;
   let currentUserId = null;
   let accessToken = null;
+  const listeners = new Set();
+  const notify = (required = false) => listeners.forEach(fn => fn({ loginRequired: required }));
   const context = { IS_LOCAL: local || IS_LOCAL, localStorageKey, create: createStore, tr: value => value, api,
-    getUserProfile: () => (currentUserId ? { user_id: currentUserId } : null),
-    saveUserProfile(p) { currentUserId = p?.user_id; },
-    saveAuthSession(session) { accessToken = session.access_token; }, clearAuthSession() { currentUserId = null; accessToken = null; },
+    getUserProfile: () => (accessToken && currentUserId ? { user_id: currentUserId } : null),
+    getSavedUserProfile: () => (currentUserId ? { user_id: currentUserId } : null),
+    saveUserProfile(p) { currentUserId = p?.user_id; notify(); },
+    getAuthSession: () => accessToken ? { access_token: accessToken } : null,
+    getSessionIdentity: () => accessToken,
+    subscribeAuthSession: fn => { listeners.add(fn); return () => listeners.delete(fn); },
+    notifyAuthSession: () => notify(),
+    requireAuthSession: () => { accessToken = null; notify(true); },
+    saveAuthSession(session) { accessToken = session.access_token; notify(); }, clearAuthSession() { currentUserId = null; accessToken = null; notify(); },
     getUserId: () => currentUserId, getAccessToken: () => accessToken,
     closeLocalDb: (id) => { closedDbUserIds.push(id); },
     resetAllDatabases: () => { resetAllDatabasesCount++; },
@@ -44,6 +52,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test',
     prepareExternalLink: () => ({ navigate() {}, close() {} }),
     useUiStore: { getState: () => ui, setState: value => Object.assign(ui, value) },
     useLanguageStore: { getState: () => ({ syncLanguageFromExternal() {} }) },
+    useSessionStore: { getState: () => ({ resetSession() {} }) },
     useDeckStore: { getState: () => ({
       async fetchDecks() {},
       async fetchFolders() {},
@@ -78,6 +87,19 @@ test('normal login closes modal; linked Telegram does not prompt again', async (
   const f = fixture({ methods: ['email_password', 'telegram'] });
   await f.store.getState().loginWithEmailPassword('fixture@example.test', 'synthetic password', true);
   assert.equal(f.store.getState().showTelegramPrompt, false);
+  assert.equal(f.ui.isAuthModalOpen, false);
+});
+
+test('retiring polling during login completion cannot preflight another login challenge', async () => {
+  const f = fixture(), get = f.api.get;
+  let resolve;
+  f.api.get = path => path === '/auth/v2/me' ? new Promise(done => { resolve = done; }) : get(path);
+  f.store.setState({ isPolling: true });
+  const login = f.store.getState().finishLogin({ access_token: 'session' });
+  assert.equal(await f.store.getState().prepareTelegramChallenge(), null);
+  assert.equal(f.calls.length, 0);
+  resolve({ data: { user_id: -123 } }); await login;
+  assert.equal(f.calls.length, 0);
   assert.equal(f.ui.isAuthModalOpen, false);
 });
 
@@ -173,6 +195,61 @@ test('restoration is shared while pending and publishes the canonical profile be
   await first;
   assert.equal(f.store.getState().isRestoring, false);
   assert.equal(f.store.getState().userProfile.user_id, -123);
+});
+
+test('web restoration without credentials opens the existing login form and clears stale UI identity', async () => {
+  const f = fixture();
+  f.currentUserId = 101;
+  f.store.setState({ userProfile: { user_id: 101 } });
+  await f.store.getState().restoreSession();
+  assert.equal(f.store.getState().userProfile, null);
+  assert.equal(f.ui.isAuthModalOpen, true);
+});
+
+test('a new session restores independently of a pending response for the previous login', async () => {
+  const f = fixture(); f.context.saveAuthSession({ access_token: 'old' });
+  const requests = [];
+  f.api.get = () => new Promise(resolve => requests.push(resolve));
+  const old = f.store.getState().restoreSession();
+  f.context.saveAuthSession({ access_token: 'new' });
+  const current = f.store.getState().restoreSession();
+  assert.notEqual(current, old); assert.equal(requests.length, 2);
+  requests[0]({ data: { user_id: 101 } }); await old;
+  assert.equal(f.store.getState().isRestoring, true);
+  requests[1]({ data: { user_id: 202 } }); await current;
+  assert.equal(f.store.getState().userProfile.user_id, 202);
+  assert.equal(f.store.getState().status, 'authenticated');
+});
+
+test('clearing credentials outside Zustand immediately clears both UI identities', async () => {
+  const f = fixture();
+  await f.store.getState().finishLogin({ access_token: 'session' });
+  f.context.clearAuthSession();
+  assert.equal(f.store.getState().userProfile, null);
+  assert.equal(f.ui.userProfile, null);
+  assert.equal(f.store.getState().authMethods, null);
+});
+
+test('a late provider exchange cannot replace a login established in another tab', async () => {
+  const f = fixture();
+  await f.store.getState().startGoogleLogin();
+  let resolve;
+  f.api.post = () => new Promise(done => { resolve = done; });
+  const exchange = f.store.getState().checkPendingSession();
+  f.context.saveAuthSession({ access_token: 'other-tab' });
+  resolve({ data: { access_token: 'late' } });
+  assert.equal(await exchange, false);
+  assert.equal(f.context.getAccessToken(), 'other-tab');
+  assert.equal(f.store.getState().isPolling, false);
+});
+
+test('deferred navigation is consumed once and never applied to another account', () => {
+  const f = fixture(); f.currentUserId = 101;
+  f.store.getState().deferNavigation({ deckId: 21 });
+  assert.equal(f.store.getState().takePendingNavigation().deckId, 21);
+  assert.equal(f.store.getState().takePendingNavigation(), null);
+  f.store.getState().deferNavigation({ deckId: 21 }); f.currentUserId = 202;
+  assert.equal(f.store.getState().takePendingNavigation(), null);
 });
 
 test('late restoration response cannot restore a logged-out account', async () => {
