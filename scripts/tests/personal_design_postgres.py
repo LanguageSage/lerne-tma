@@ -43,7 +43,7 @@ def main():
         started = True
         sys.path.insert(0, str(Path(__file__).resolve().parent))
         from test_personal_design_migration import PersonalDesignMigrationTests, models, design
-        from api.services.user_settings import save_user_settings, read_user_settings, read_design_backup
+        from api.services.user_settings import save_user_settings, read_user_settings
         from fastapi import HTTPException
         from peewee import PostgresqlDatabase
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port, user='design_test')
@@ -97,21 +97,15 @@ def main():
         recovered = PostgresqlDatabase('design_recovered', host='127.0.0.1', port=port, user='design_test')
         with recovered.bind_ctx([models.TMASetting]):
             assert read_user_settings(1) == before
-            assert read_design_backup(1)['raw'] == original
-            # Exercise the actual JS backup converter before saving a new revision.
-            converter = "import {migrateLegacyDesignSettings as convert} from './app/src/design/legacyAdapter.js'; process.stdout.write(JSON.stringify(convert(JSON.parse(process.argv[1]))));"
-            converted = subprocess.run(['node', '--input-type=module', '-e', converter, original],
-                                       cwd=root, env=safe, check=True, capture_output=True, text=True, timeout=30)
-            config = json.loads(converted.stdout)
-            restored = save_user_settings(1, {'designV2': {**before['designV2'], 'config': config}})['designV2']
+            restored = save_user_settings(1, {'designV2': {**before['designV2'],
+                'config': {'front': {'mainText': {'font': 'Georgia'}}}}})['designV2']
             assert restored['revision'] == 3
             assert restored['config']['front']['mainText']['font'] == 'Georgia'
-            assert restored['config']['front']['card']['background'] == 'liquid_emerald'
-            assert read_design_backup(1)['raw'] == original
+            assert 'cardFont' not in read_user_settings(1)
         recovered.close()
         (scratch / 'result.json').write_text(json.dumps({'tests': result.testsRun, 'concurrent': statuses,
-            'physical_restore': True, 'converted_backup_revision': 3}, indent=2), encoding='utf-8')
-        print(f'PASS: migration, concurrency, physical restore, JS backup conversion; artifacts: {scratch}')
+            'physical_restore': True, 'v2_revision': 3}, indent=2), encoding='utf-8')
+        print(f'PASS: migration, concurrency, physical restore, V2 revision recovery; artifacts: {scratch}')
     finally:
         if db is not None and not db.is_closed():
             db.close()

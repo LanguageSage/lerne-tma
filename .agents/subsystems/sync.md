@@ -151,3 +151,14 @@ Flat V1 design state/userDesign и копирование этих полей и
 Настоящий PostgreSQL recovery проверен runner personal_design_postgres.py:
 7 тестов, concurrent CAS, pg_dump/pg_restore и JS conversion backup.
 [Отчёт и границы cutoff](../../docs/DESIGN_V2_STAGE4D_STORE_AND_RECOVERY.md).
+
+### Этап 5: отказ от V1 личного оформления (2026-11-01)
+
+По решению пользователя V1 больше не переносится и не восстанавливается.
+legacyAdapter удалён, новый personal record создаётся непосредственно в V2.
+Удалены старый import/restore и backup endpoint. Старые browser keys удаляются
+после записи V2; сервер фильтрует flat V1 поля и атомарно очищает их вместе
+с USER_DESIGN_V1_BACKUP при сохранении настроек. Настройки обучения и
+актуальные V2 config/preset/offline edits сохраняются. Общие publication backups
+не затрагиваются. Исторические условия cutoff этапов 3–4D отменены этим решением.
+[Реализация и проверки](../../docs/DESIGN_V2_STAGE5_LEGACY_REMOVAL.md).

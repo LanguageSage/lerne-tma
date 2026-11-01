@@ -1,4 +1,3 @@
-import { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP, migrateLegacyDesignSettings } from './legacyAdapter.js';
 import { normalizeDesignConfig } from './designConfig.js';
 import { localStorageKey } from '../utils/localMode.js';
 
@@ -8,36 +7,58 @@ const read = key => localStorage.getItem(localStorageKey(key));
 const write = (key, value) => {
   const raw = JSON.stringify(value);
   localStorage.setItem(localStorageKey(key), raw);
-  if (read(key) !== raw) throw new Error('Design backup could not be verified');
+  if (read(key) !== raw) throw new Error('Design record could not be verified');
+};
+const retiredStorageKeys = [
+  'lerne_card_bg_front',
+  'lerne_card_bg_back',
+  'lerne_card_font',
+  'lerne_card_text_color',
+  'lerne_card_font_size',
+  'lerne_card_text_align',
+  'lerne_back_text_color',
+  'lerne_context_font',
+  'lerne_context_text_color',
+  'lerne_context_font_size',
+  'lerne_context_text_align',
+  'lerne_card_text_shadow',
+  'lerne_context_text_shadow',
+  'lerne_card_font_weight',
+  'lerne_card_font_style',
+  'lerne_context_font_weight',
+  'lerne_context_font_style',
+  'lerne_preview_card_font',
+  'lerne_preview_card_text_color',
+  'lerne_preview_back_text_color',
+  'lerne_preview_card_font_size',
+  'lerne_preview_back_font_size',
+  'lerne_preview_card_font_weight',
+  'lerne_preview_card_font_style',
+  'lerne_preview_text_shadow',
+  'lerne_preview_card_text_align',
+  'lerne_preview_card_lines',
+  'lerne_preview_card_bg',
+  'lerne_user_design',
+  'lerne_design_version',
+  'lerne_settings_version',
+  'lerne:design-v1-source',
+  'lerne_back_card_font',
+  'lerne_back_card_font_size',
+  'lerne_back_card_font_weight',
+  'lerne_back_card_font_style',
+  'lerne_back_card_text_shadow',
+];
+const discardRetiredStorage = () => {
+  for (const key of retiredStorageKeys) localStorage.removeItem(localStorageKey(key));
 };
 const recordKey = owner => `lerne:personal-design:v2:${owner}`;
-const CLAIM_KEY = 'lerne:design-v1-source';
-const EXTRA_KEYS = ['lerne_user_design', 'lerne_design_version', 'lerne_settings_version',
-  'lerne:admin-draft:v2', 'lerne:local-design-preview'];
-
 export function isPersonalDesignDocument(doc) {
   return object(doc) && doc.schemaVersion === 2 && Number.isInteger(doc.revision) && doc.revision >= 0
     && object(doc.config) && (doc.preset === null || object(doc.preset));
 }
 
-export function legacyFromRaw(raw = {}) {
-  const flat = {};
-  for (const [key, storageKey] of Object.entries(DESIGN_STORAGE_MAP)) {
-    if (raw[storageKey] == null) continue;
-    const value = raw[storageKey];
-    flat[key] = typeof DEFAULT_DESIGN_SETTINGS[key] === 'number' ? Number(value) : value;
-  }
-  if (raw.lerne_user_design != null) {
-    try { flat.userDesign = JSON.parse(raw.lerne_user_design); } catch { /* raw backup retains invalid JSON */ }
-  }
-  return flat;
-}
-
-export function documentFromLegacy(flat) {
-  return { schemaVersion: 2, revision: 0,
-    config: migrateLegacyDesignSettings(flat),
-    preset: object(flat?.userDesign) ? migrateLegacyDesignSettings(flat.userDesign) : null };
-}
+const emptyDocument = () => ({ schemaVersion: 2, revision: 0,
+  config: normalizeDesignConfig(null), preset: null });
 
 export function readPersonalDesignRecord(owner) {
   const raw = read(recordKey(owner));
@@ -53,28 +74,26 @@ export function savePersonalDesignRecord(record) {
   return record;
 }
 
-/** One atomic record contains source backup and target. Never remove the source keys.
- * The unscoped V1 source is claimed once, so a later login cannot inherit another account's design.
- */
+/** New accounts start directly in V2; V1 sources are never read. */
 export function openPersonalDesignRecord(owner) {
   if (owner == null) return null;
   const existing = readPersonalDesignRecord(owner);
-  if (existing) return existing;
-  let claim;
-  const claimed = read(CLAIM_KEY);
-  if (claimed) {
-    claim = JSON.parse(claimed);
-    if (!object(claim.raw) || typeof claim.owner !== 'string') throw new Error('Invalid design source backup');
-  } else {
-    const raw = Object.fromEntries([...Object.values(DESIGN_STORAGE_MAP), ...EXTRA_KEYS]
-      .map(key => [key, read(key)]));
-    claim = { owner: String(owner), raw };
-    write(CLAIM_KEY, claim);
+  if (existing) {
+    const { local, server, serverUpdates, ...backups } = existing.backups;
+    const hadRestoreSources = backups.serverRestores?.some(item => Object.hasOwn(item, 'settings'));
+    if (hadRestoreSources) backups.serverRestores = backups.serverRestores.map(({ document }) => ({ document }));
+    if (local !== undefined || server !== undefined || serverUpdates !== undefined || hadRestoreSources) {
+      existing.backups = backups;
+      savePersonalDesignRecord(existing);
+    }
+    discardRetiredStorage();
+    return existing;
   }
-  const local = claim.owner === String(owner) ? claim.raw : {};
-  const document = documentFromLegacy(legacyFromRaw(local));
-  return savePersonalDesignRecord({ version: 1, owner: String(owner), document,
-    backups: { local }, pending: true, edited: false, serverSeen: false, base: structuredClone(document) });
+  const document = emptyDocument();
+  const record = savePersonalDesignRecord({ version: 1, owner: String(owner), document,
+    backups: {}, pending: true, edited: false, serverSeen: false, base: structuredClone(document) });
+  discardRetiredStorage();
+  return record;
 }
 
 /** Rebase only local edits onto a newer server revision. Remote and original local
@@ -98,11 +117,8 @@ export function reconcilePersonalDesign(record, settings) {
   const next = structuredClone(record);
   const remote = settings.designV2;
   if (!next.serverSeen) {
-    next.backups.server = structuredClone(settings);
     next.serverSeen = true;
-    const target = remote ? structuredClone(remote) : documentFromLegacy({
-      ...legacyFromRaw(next.backups.local), ...settings,
-    });
+    const target = remote ? structuredClone(remote) : emptyDocument();
     next.document = next.edited ? { ...target,
       config: mergeEdits(next.base.config, next.document.config, target.config),
       preset: mergeEdits(next.base.preset, next.document.preset, target.preset) } : target;
@@ -112,7 +128,7 @@ export function reconcilePersonalDesign(record, settings) {
     const sameContent = equal(next.document.config, remote.config) && equal(next.document.preset, remote.preset);
     if (remote.revision < next.document.revision) {
       next.backups.serverRestores ??= [];
-      next.backups.serverRestores.push({ settings: structuredClone(settings), document: next.document });
+      next.backups.serverRestores.push({ document: next.document });
       next.document = { ...next.document, revision: remote.revision };
       next.pending = true;
     } else if (!next.pending || sameContent || !next.edited && remote.revision > next.document.revision) {
@@ -126,20 +142,10 @@ export function reconcilePersonalDesign(record, settings) {
           preset: mergeEdits(next.base.preset, next.document.preset, remote.preset) }
         : { ...next.document, revision: remote.revision };
     }
-  } else if (next.document.revision === 0 && next.base?.revision === 0) {
-    const target = documentFromLegacy({ ...legacyFromRaw(next.backups.local), ...settings });
-    if (!equal(target, next.base)) {
-      next.backups.serverUpdates ??= [];
-      next.backups.serverUpdates.push({ settings: structuredClone(settings), document: next.document });
-      next.document = next.edited ? { ...target,
-        config: mergeEdits(next.base.config, next.document.config, target.config),
-        preset: mergeEdits(next.base.preset, next.document.preset, target.preset) } : target;
-      next.base = structuredClone(target);
-    }
   } else if (next.document.revision > 0) {
     // Restoring a server snapshot from before migration must not strand a newer local design.
     next.backups.serverRestores ??= [];
-    next.backups.serverRestores.push({ settings: structuredClone(settings), document: next.document });
+    next.backups.serverRestores.push({ document: next.document });
     next.document = { ...next.document, revision: 0 };
     next.pending = true;
   }

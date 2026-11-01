@@ -1,9 +1,8 @@
 import { create } from 'zustand';
 import { storage, getUserId } from '../utils/auth.js';
 import api, { networkApi } from '../services/api.js';
-import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord, legacyFromRaw,
-  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign,
-  documentFromLegacy } from '../design/personalDesignMigration.js';
+import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord,
+  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign } from '../design/personalDesignMigration.js';
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence.js';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
@@ -37,8 +36,7 @@ const LOCAL_DESIGN_PREVIEW_KEY = 'lerne:local-design-preview';
 
 function loadCachedAdminDraft() {
   try {
-    const raw = storage.get(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY))
-      ?? readPersonalDesignRecord(getUserId())?.backups.local[DESIGN_V2_DRAFT_CACHE_KEY];
+    const raw = storage.get(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY));
     if (!raw) return null;
     return normalizeDesignConfig(JSON.parse(raw));
   } catch {
@@ -58,8 +56,7 @@ function saveCachedAdminDraft(config) {
 
 function loadCachedLocalPreviewState() {
   try {
-    return (storage.get(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY))
-      ?? readPersonalDesignRecord(getUserId())?.backups.local[LOCAL_DESIGN_PREVIEW_KEY]) === 'true';
+    return (storage.get(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY))) === 'true';
   } catch {
     return false;
   }
@@ -75,7 +72,7 @@ function saveCachedLocalPreviewState(active) {
   } catch { /* quota exceeded — silently ignore */ }
 }
 
-// Back up V1 before reading defaults or applying any version-dependent initialization.
+// Open the account-scoped V2 document.
 let initialPersonalRecord = null;
 let initialMigrationError = null;
 try { initialPersonalRecord = openPersonalDesignRecord(getUserId()); }
@@ -325,23 +322,6 @@ export const useSettingsStore = create((set, get) => {
       debouncedSaveSettings(get);
     },
 
-    restorePersonalDesignFromBackup: async (source = 'local') => {
-      const account = getUserId(), generation = settingsGeneration;
-      const record = readPersonalDesignRecord(account);
-      if (!record) throw new Error('No design backup for this account');
-      let flat;
-      if (source === 'local') flat = legacyFromRaw(record.backups.local);
-      else if (source === 'server') {
-        const response = await networkApi.get('/user/settings/design-backup', { _expectedUserId: account });
-        if (account !== getUserId() || generation !== settingsGeneration) return false;
-        if (typeof response.data?.raw !== 'string') throw new Error('No server design backup');
-        flat = JSON.parse(response.data.raw);
-      } else throw new Error('Unknown design backup source');
-      const restored = documentFromLegacy(flat);
-      get().setPersonalDesignV2(restored.config, restored.preset);
-      return true;
-    },
-
     syncUserSettingsFromServer: (serverSettings) => {
       if (!serverSettings || typeof serverSettings !== 'object' || Array.isArray(serverSettings)) return;
       if (get().designAccountId !== getUserId()) get().activateSettingsAccount();
@@ -566,14 +546,6 @@ export const useSettingsStore = create((set, get) => {
         console.warn('Failed to load admin draft:', e);
         return { success: false, error: e?.response?.data?.detail || e.message };
       }
-    },
-
-    /** Однократно переносит прежние личные настройки шрифтов/цветов этого браузера в разделы
-     *  лицевая/обратная/список черновика; возвращает прежний черновик для отмены. */
-    importLegacyPersonalDesign: () => {
-      const state = get();
-      const config = state.personalDesignV2?.config ?? DEFAULT_DESIGN_CONFIG_V2;
-      return state.applyDraftSections(config, ['front', 'back', 'cardList']);
     },
 
     /** Возвращает draft к текущему published design. */

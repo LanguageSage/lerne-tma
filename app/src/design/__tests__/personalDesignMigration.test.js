@@ -1,9 +1,7 @@
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
-import { DEFAULT_DESIGN_SETTINGS, DESIGN_STORAGE_MAP, migrateLegacyDesignSettings } from '../legacyAdapter.js';
-import { getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { normalizeDesignConfig } from '../designConfig.js';
-import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord,
+import { openPersonalDesignRecord, readPersonalDesignRecord,
   reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign } from '../personalDesignMigration.js';
 
 let owner = 1, failKey = null;
@@ -18,7 +16,7 @@ const storage = { get: key => localStorage.getItem(key), set: (key, value) => lo
 const networkApi = { get: async () => ({ data: {} }), post: async () => { throw Error('offline'); } };
 mock.module('../../utils/auth.js', { namedExports: { storage, getUserId: () => owner } });
 mock.module('../../services/api.js', { defaultExport: networkApi, namedExports: { networkApi } });
-const { useSettingsStore, collectUserSettings } = await import('../../store/useSettingsStore.js');
+const { useSettingsStore } = await import('../../store/useSettingsStore.js');
 
 beforeEach(() => {
   memory.clear(); failKey = null; owner = 1;
@@ -31,271 +29,95 @@ afterEach(() => { failKey = null; useSettingsStore.getState().activateSettingsAc
 
 const remoteDoc = (revision = 1, config = normalizeDesignConfig({})) => ({ schemaVersion: 2, revision, config, preset: null });
 
-test('every stored V1 field changes its V2 representation; inherited answer and list typography survive', () => {
-  const original = migrateLegacyDesignSettings(DEFAULT_DESIGN_SETTINGS);
-  for (const [key, value] of Object.entries(DEFAULT_DESIGN_SETTINGS)) {
-    const alternative = typeof value === 'number' ? value + 1 : key.includes('Bg') ? '#123456'
-      : key.toLowerCase().includes('color') ? '#123456' : `${value}-custom`;
-    assert.notDeepEqual(migrateLegacyDesignSettings({ ...DEFAULT_DESIGN_SETTINGS, [key]: alternative }), original, key);
-  }
-  const flat = { ...DEFAULT_DESIGN_SETTINGS, cardFont: 'Georgia', cardFontSize: 2.2, cardFontWeight: '500',
-    cardFontStyle: 'italic', cardTextShadow: 'outline', contextTextAlign: 'right',
-    previewCardFont: 'monospace', previewCardFontStyle: 'italic', previewTextShadow: 'neon' };
-  const config = migrateLegacyDesignSettings(flat);
-  for (const key of ['font', 'size', 'weight', 'style', 'shadow']) {
-    assert.equal(config.back.answerText[key], config.front.mainText[key], key);
-  }
-  assert.equal(config.back.answerText.font, 'Georgia');
-  assert.equal(`${config.back.answerText.size}rem`, '2.2rem');
-  assert.equal(config.back.referenceText.font, 'Georgia');
-  assert.equal(config.back.answerText.align, 'right');
-  assert.equal(config.cardList.backText.font, 'monospace');
-  assert.equal(config.cardList.backText.weight, '500');
-  assert.equal(config.cardList.backText.style, 'italic');
-  assert.equal(config.cardList.backText.shadow, 'neon');
-  assert.equal(migrateLegacyDesignSettings({ cardFontSize: '2.4' }).front.mainText.size, 2.4);
-});
-
-test('backup is exact, version resets do not run, and reopening is idempotent', () => {
-  memory.clear();
-  storage.set('lerne_card_font', 'serif'); storage.set('lerne_design_version', 'old');
-  storage.set('lerne_user_design', '{"cardBgFront":"custom_saved","cardFontSize":2.4,"extra":"keep"}');
-  const first = openPersonalDesignRecord(1);
-  assert.equal(first.backups.local.lerne_user_design, storage.get('lerne_user_design'));
-  assert.equal(first.document.config.front.mainText.font, 'serif');
-  assert.equal(first.document.preset.front.card.background, 'custom_saved');
-  assert.equal(first.document.preset.front.mainText.size, 2.4);
-  assert.deepEqual(openPersonalDesignRecord(1), first);
-  assert.equal(storage.get('lerne_design_version'), 'old');
-  assert.equal(storage.get('lerne_card_font'), 'serif');
-});
-
-test('failed backup or target write cannot consume V1; retry resumes from the original source', () => {
-  memory.clear(); storage.set('lerne_card_font', 'serif');
-  for (const key of ['lerne:design-v1-source', 'lerne:personal-design:v2:1']) {
-    failKey = key;
-    assert.throws(() => openPersonalDesignRecord(1), /quota/);
-    assert.equal(storage.get('lerne_card_font'), 'serif');
-  }
-  failKey = null;
-  assert.equal(openPersonalDesignRecord(1).document.config.front.mainText.font, 'serif');
-});
-
-test('corrupt presets, future V2 documents and damaged target records retain original bytes', () => {
-  memory.clear(); storage.set('lerne_user_design', '{broken');
-  const record = openPersonalDesignRecord(1);
-  assert.equal(record.backups.local.lerne_user_design, '{broken');
+test('old local settings are ignored; new accounts start in V2 without source backups', () => {
+  localStorage.setItem('lerne_card_font', 'Georgia');
+  localStorage.setItem('lerne_user_design', '{broken');
+  const record = openPersonalDesignRecord(2);
+  assert.deepEqual(record.document.config, normalizeDesignConfig(null));
   assert.equal(record.document.preset, null);
-  assert.throws(() => reconcilePersonalDesign(record, { designV2: { schemaVersion: 3 } }), /Unsupported/);
-  storage.set('lerne:personal-design:v2:1', '{broken-target');
-  assert.throws(() => openPersonalDesignRecord(1));
-  assert.equal(storage.get('lerne:personal-design:v2:1'), '{broken-target');
+  assert.deepEqual(record.backups, {});
+  assert.equal(localStorage.getItem('lerne:design-v1-source'), null);
+  assert.equal(localStorage.getItem('lerne_card_font'), null);
+  assert.equal(localStorage.getItem('lerne_user_design'), null);
 });
 
-test('first authoritative server settings override local V1; original local and server sources remain', () => {
+test('old server settings cannot change V2 or study settings', () => {
   const record = openPersonalDesignRecord(1);
-  const server = { cardFont: 'serif', cardBgFront: 'dark_mocha', userDesign: { cardFont: 'monospace' }, unknown: [1] };
-  const next = reconcilePersonalDesign(record, server);
-  assert.equal(next.document.config.front.mainText.font, 'serif');
-  assert.equal(next.document.preset.front.mainText.font, 'monospace');
-  assert.deepEqual(next.backups.server, server);
-  assert.deepEqual(next.backups.local, record.backups.local);
+  const next = reconcilePersonalDesign(record, { cardFont: 'Georgia', userDesign: { cardFont: 'serif' } });
+  assert.deepEqual(next.document.config, normalizeDesignConfig(null));
+  assert.deepEqual(next.backups, {});
+  assert.equal(next.pending, true);
 });
 
-test('published design wins; empty background keeps personal; preview wins without mutating either', () => {
-  const personal = migrateLegacyDesignSettings({ cardFont: 'serif', cardBgFront: 'dark_mocha' });
-  const published = { front: { mainText: { font: 'monospace' } } };
-  const state = { personalDesignV2: remoteDoc(1, personal), publishedDesignV2: { config: published } };
-  assert.equal(resolveActiveDesign(state).front.mainText.font, 'monospace');
-  assert.equal(resolveActiveDesign(state).front.card.background, 'dark_mocha');
-  assert.equal(published.front.card, undefined);
-  state.adminDraftDesignV2 = { front: { card: { background: '#123456' } } }; state.isLocalDesignPreviewActive = true;
-  assert.equal(resolveActiveDesign(state).front.card.background, '#123456');
+test('published V2 wins and empty backgrounds inherit personal V2', () => {
+  const personal = normalizeDesignConfig({ front: { card: { background: 'dark_mocha' } } });
+  const published = normalizeDesignConfig({ front: { mainText: { font: 'Georgia' } } });
+  const active = resolveActiveDesign({ personalDesignV2: { config: personal }, publishedDesignV2: { config: published } });
+  assert.equal(active.front.mainText.font, 'Georgia');
+  assert.equal(active.front.card.background, 'dark_mocha');
+  assert.equal(published.front.card.background, '');
 });
 
-test('offline edit before the first server read survives reconciliation, including a saved preset', () => {
-  const record = openPersonalDesignRecord(1);
-  const local = editPersonalDesign(record, { ...record.document.config, front: {
-    ...record.document.config.front, mainText: { ...record.document.config.front.mainText, font: 'serif' } } },
-  normalizeDesignConfig({ front: { mainText: { font: 'Georgia' } } }));
-  const next = reconcilePersonalDesign(local, { designV2: remoteDoc(5) });
-  assert.equal(next.document.config.front.mainText.font, 'serif');
-  assert.equal(next.document.preset.front.mainText.font, 'Georgia');
-  assert.equal(next.document.revision, 5); assert.equal(next.pending, true);
-});
-
-test('two device conflict rebases local edits, keeps remote edits and stores both conflicting snapshots', () => {
+test('offline edit rebases against another device and preserves unrelated fields', () => {
   let record = reconcilePersonalDesign(openPersonalDesignRecord(1), { designV2: remoteDoc() });
-  record = editPersonalDesign(record, normalizeDesignConfig({ front: { mainText: { font: 'serif' } } }));
-  const remote = remoteDoc(2, normalizeDesignConfig({ back: { answerText: { color: '#123456' } },
-    front: { mainText: { font: 'monospace' } } }));
+  record = editPersonalDesign(record, { front: { mainText: { font: 'Georgia' } } });
+  const remote = remoteDoc(2, normalizeDesignConfig({ back: { answerText: { color: '#123456' } } }));
   const next = reconcilePersonalDesign(record, { designV2: remote });
-  assert.equal(next.document.config.front.mainText.font, 'serif');
+  assert.equal(next.document.config.front.mainText.font, 'Georgia');
   assert.equal(next.document.config.back.answerText.color, '#123456');
   assert.equal(next.document.revision, 2);
-  assert.equal(next.backups.conflicts.length, 1);
-  assert.deepEqual(next.backups.conflicts[0].remote, remote);
-  assert.deepEqual(next.backups.conflicts[0].local, record.document);
+  assert.equal(next.pending, true);
 });
 
-test('lost POST acknowledgement is recognized on the next read; edits during POST stay pending', () => {
-  let record = reconcilePersonalDesign(openPersonalDesignRecord(1), {});
-  const remote = { ...record.document, revision: 1 };
-  assert.equal(reconcilePersonalDesign(record, { designV2: remote }).pending, false);
+test('lost acknowledgement and edits during save preserve pending changes', () => {
+  let record = openPersonalDesignRecord(1);
   const sent = record.document;
-  record = editPersonalDesign(record, { front: { mainText: { font: 'serif' } } });
-  const next = acknowledgePersonalDesign(record, sent, remote);
-  assert.equal(next.pending, true); assert.equal(next.document.revision, 1);
-  assert.equal(next.document.config.front.mainText.font, 'serif');
+  record = editPersonalDesign(record, { front: { mainText: { font: 'Georgia' } } });
+  const next = acknowledgePersonalDesign(record, sent, { ...sent, revision: 1 });
+  assert.equal(next.pending, true);
+  assert.equal(next.document.config.front.mainText.font, 'Georgia');
+  assert.throws(() => acknowledgePersonalDesign(record, sent, remoteDoc(1, normalizeDesignConfig({ front: { mainText: { font: 'serif' } } }))));
 });
 
-test('account switch cannot claim another account source or consume late settings/admin responses', async () => {
-  const first = openPersonalDesignRecord(1);
+test('V2 record write failure remains observable and retry succeeds', () => {
+  failKey = 'lerne:personal-design:v2:2';
+  assert.throws(() => openPersonalDesignRecord(2), /quota/);
+  failKey = null;
+  const record = openPersonalDesignRecord(2);
+  assert.deepEqual(readPersonalDesignRecord(2), record);
+});
+
+test('account switch isolates V2; late server response cannot change the new account', async () => {
   let release;
   networkApi.get = () => new Promise(resolve => { release = resolve; });
   const fetching = useSettingsStore.getState().fetchUserSettingsFromServer();
   owner = 2; useSettingsStore.getState().activateSettingsAccount();
-  release({ data: { cardFont: 'private-A' } }); await fetching;
-  assert.deepEqual(openPersonalDesignRecord(2).backups.local, {});
+  release({ data: { designV2: remoteDoc(1, normalizeDesignConfig({ front: { mainText: { font: 'private-A' } } })) } });
+  await fetching;
   assert.notEqual(useSettingsStore.getState().activeDesignConfig.front.mainText.font, 'private-A');
-  assert.deepEqual(readPersonalDesignRecord(1), first);
-  const restoring = useSettingsStore.getState().loadAdminDraftFromServer();
-  owner = 1; useSettingsStore.getState().activateSettingsAccount();
-  release({ data: { config: { front: { mainText: { font: 'private-B' } } } } });
-  assert.equal((await restoring).success, false);
-  assert.equal(useSettingsStore.getState().adminDraftDesignV2, null);
+  assert.equal(useSettingsStore.getState().designAccountId, 2);
 });
 
-test('store persists first, keeps pending after network loss, and syncs acknowledged V2 without V1 writes', async () => {
-  let server = {};
-  networkApi.get = async () => ({ data: { ...server, _designMigrationVersion: 1 } });
-  const state = useSettingsStore.getState();
-  state.setPersonalDesignV2({ front: { mainText: { font: 'serif' } } });
-  assert.equal(readPersonalDesignRecord(1).document.config.front.mainText.font, 'serif');
-  assert.equal(await state.saveCurrentSettingsToServer(), false);
-  assert.equal(readPersonalDesignRecord(1).pending, true);
-  networkApi.post = async (_url, payload, options) => {
-    assert.equal(options._expectedUserId, 1);
-    for (const key of Object.keys(DESIGN_STORAGE_MAP)) assert.equal(payload[key], undefined, key);
-    assert.equal(payload.userDesign, undefined);
-    server = { ...payload, designV2: { ...payload.designV2, revision: 1 } };
-    return { data: { settings: server, designMigrationVersion: 1 } };
-  };
-  assert.equal(await state.saveCurrentSettingsToServer(), true);
-  assert.equal(readPersonalDesignRecord(1).pending, false);
-  assert.equal(useSettingsStore.getState().activeDesignConfig.front.mainText.font, 'serif');
-  assert.equal(collectUserSettings(useSettingsStore.getState()).designV2.revision, 1);
-});
 
-test('local restore uses the preserved source and a newer server revision rather than resetting migration', async () => {
+test('existing V2 survives removal of obsolete source copies and keeps study keys', () => {
   const record = openPersonalDesignRecord(1);
-  const next = reconcilePersonalDesign(record, { designV2: remoteDoc(6,
-    normalizeDesignConfig({ front: { mainText: { font: 'serif' } } })) });
-  savePersonalDesignRecord(next); useSettingsStore.setState({ personalDesignV2: next.document });
-  await useSettingsStore.getState().restorePersonalDesignFromBackup();
-  const restored = readPersonalDesignRecord(1);
-  assert.equal(restored.document.revision, 6); assert.equal(restored.pending, true);
-  assert.deepEqual(restored.backups.local, record.backups.local);
-  assert.equal(restored.document.config.front.mainText.font, DEFAULT_DESIGN_SETTINGS.cardFont);
+  record.document.config.front.mainText.font = 'Georgia';
+  record.backups = { local: { lerne_card_font: 'old' }, server: { cardFont: 'old' } };
+  localStorage.setItem('lerne:personal-design:v2:1', JSON.stringify(record));
+  localStorage.setItem('lerne_card_font', 'old');
+  localStorage.setItem('lerne_autoplay', 'true');
+  const reopened = openPersonalDesignRecord(1);
+  assert.equal(reopened.document.config.front.mainText.font, 'Georgia');
+  assert.deepEqual(reopened.backups, {});
+  assert.equal(localStorage.getItem('lerne_card_font'), null);
+  assert.equal(localStorage.getItem('lerne_autoplay'), 'true');
 });
 
-test('older backend cannot receive a migration before advertising atomic backup support', async () => {
-  let posts = 0;
-  networkApi.post = async () => { posts++; return { data: {} }; };
-  assert.equal(await useSettingsStore.getState().saveCurrentSettingsToServer(), false);
-  assert.equal(posts, 0);
-  assert.equal(readPersonalDesignRecord(1).pending, true);
-});
-
-test('acknowledgement after account A -> B -> A cannot acknowledge a different session', async () => {
-  networkApi.get = async () => ({ data: { _designMigrationVersion: 1 } });
-  let release, sent;
-  networkApi.post = async (_url, payload) => {
-    sent = payload.designV2;
-    return new Promise(resolve => { release = resolve; });
-  };
-  const saving = useSettingsStore.getState().saveCurrentSettingsToServer();
-  while (!release) await new Promise(resolve => setTimeout(resolve, 0));
-  owner = 2; useSettingsStore.getState().activateSettingsAccount();
-  owner = 1; useSettingsStore.getState().activateSettingsAccount();
-  release({ data: { designMigrationVersion: 1, settings: { designV2: { ...sent, revision: 1 } } } });
-  assert.equal(await saving, false);
-  assert.equal(readPersonalDesignRecord(1).pending, true);
-  assert.equal(readPersonalDesignRecord(1).document.revision, 0);
-});
-
-test('restoring a server snapshot from before V2 preserves local design and restarts only server revision', () => {
-  const record = reconcilePersonalDesign(openPersonalDesignRecord(1), { designV2: remoteDoc(6) });
-  const next = reconcilePersonalDesign(record, { cardFont: 'old-snapshot' });
-  assert.equal(next.pending, true); assert.equal(next.document.revision, 0);
-  assert.deepEqual(next.document.config, record.document.config);
-  assert.equal(next.backups.serverRestores[0].document.revision, 6);
-  assert.deepEqual(next.backups.serverRestores[0].settings, { cardFont: 'old-snapshot' });
-});
-
-test('invalid or older acknowledgement cannot mark a different/newer design as migrated', () => {
-  const record = reconcilePersonalDesign(openPersonalDesignRecord(1), { designV2: remoteDoc(6) });
-  assert.throws(() => acknowledgePersonalDesign(record, record.document, remoteDoc(7,
-    normalizeDesignConfig({ front: { mainText: { font: 'wrong' } } }))), /different/);
-  assert.deepEqual(acknowledgePersonalDesign(record, record.document, remoteDoc(5)), record);
-});
-
-test('inherited Free Text color and independent Match right typography migrate into V2 roles', () => {
-  const flat = { ...DEFAULT_DESIGN_SETTINGS, cardFont: 'Georgia', cardTextColor: '#ff00ff',
-    contextFont: 'monospace', contextTextColor: '#ffff00', contextFontSize: 1.6, contextFontStyle: 'italic' };
-  const config = migrateLegacyDesignSettings(flat), styles = getDesignStylesFromV2(config);
-  assert.equal(config.exercises.freeText.input.color, '#ffff00');
-  assert.equal(config.exercises.match.item.color, '#ff00ff');
-  assert.equal(styles.matchRightText.fontFamily, 'monospace');
-  assert.equal(styles.matchRightText.fontSize, '1.6rem');
-  assert.equal(styles.matchRightText.color, '#ffff00');
-  assert.equal(styles.matchRightText.fontStyle, 'italic');
-  const defaults = normalizeDesignConfig({ front: { mainText: { font: 'Georgia' } } });
-  assert.equal(getDesignStylesFromV2(defaults).matchRightText.fontFamily, 'Georgia');
-  assert.equal(getDesignStylesFromV2(defaults).matchRightText.color, defaults.exercises.match.item.color);
-});
-
-test('fresh V1 updates arriving before server migration are preserved together with pending local V2 edits', () => {
-  let record = reconcilePersonalDesign(openPersonalDesignRecord(1), { cardFont: 'serif', cardTextColor: '#123456' });
-  record = editPersonalDesign(record, { ...record.document.config,
-    front: { ...record.document.config.front, mainText: { ...record.document.config.front.mainText, size: 2.5 } } });
-  const next = reconcilePersonalDesign(record, { cardFont: 'monospace', cardTextColor: '#abcdef' });
-  assert.equal(next.document.config.front.mainText.font, 'monospace');
-  assert.equal(next.document.config.front.mainText.color, '#abcdef');
-  assert.equal(next.document.config.front.mainText.size, 2.5);
-  assert.equal(next.backups.serverUpdates.length, 1);
-  assert.equal(next.backups.server.cardFont, 'serif');
-});
-
-test('an older server V2 snapshot cannot discard the newer cached personal design', () => {
-  const latest = remoteDoc(6, normalizeDesignConfig({ front: { mainText: { font: 'serif' } } }));
-  const record = reconcilePersonalDesign(openPersonalDesignRecord(1), { designV2: latest });
-  const restored = reconcilePersonalDesign(record, { designV2: remoteDoc(2) });
-  assert.deepEqual(restored.document.config, latest.config);
-  assert.equal(restored.document.revision, 2); assert.equal(restored.pending, true);
-  assert.equal(restored.backups.serverRestores[0].document.revision, 6);
-  assert.deepEqual(reconcilePersonalDesign(restored, { designV2: latest }).document, latest);
-  const migrated = migrateLegacyDesignSettings({ cardFontWeight: 500, contextFontWeight: 600,
-    previewCardFontWeight: 400, backCardFontSize: '2.4' });
-  assert.equal(migrated.front.mainText.weight, '500');
-  assert.equal(migrated.back.context.weight, '600');
-  assert.equal(migrated.cardList.frontText.weight, '400');
-  assert.equal(migrated.back.answerText.size, 2.4);
-});
-
-test('no personal, published or preview document still resolves a complete V2 config', () => {
-  assert.deepEqual(resolveActiveDesign({}), normalizeDesignConfig(null));
-});
-
-
-test('runtime store does not recreate flat V1 state when reading an old server snapshot', () => {
-  useSettingsStore.getState().syncUserSettingsFromServer({ cardFont: 'Georgia',
-    cardBgFront: 'liquid_emerald', userDesign: { cardFont: 'serif' } });
-  const state = useSettingsStore.getState();
-  for (const key of [...Object.keys(DESIGN_STORAGE_MAP), 'userDesign']) {
-    assert.equal(Object.hasOwn(state, key), false, key);
-  }
-  assert.equal(state.personalDesignV2.config.front.mainText.font, 'Georgia');
-  assert.equal(state.personalDesignV2.config.front.card.background, 'liquid_emerald');
-  assert.equal(state.personalDesignV2.preset.front.mainText.font, 'serif');
+test('lower server revision preserves pending V2 content for re-upload', () => {
+  let record = reconcilePersonalDesign(openPersonalDesignRecord(1), { designV2: remoteDoc(3) });
+  record = editPersonalDesign(record, { front: { mainText: { font: 'Georgia' } } });
+  const next = reconcilePersonalDesign(record, { designV2: remoteDoc(1) });
+  assert.equal(next.pending, true);
+  assert.equal(next.document.revision, 1);
+  assert.equal(next.document.config.front.mainText.font, 'Georgia');
 });

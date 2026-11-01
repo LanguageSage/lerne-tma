@@ -66,8 +66,8 @@ async function setup(page, context, card, config = design) {
     useSettingsStore.setState({ cardFont: 'Georgia', cardTextColor: '#ff00ff', cardFontSize: 1.8,
       contextFont: 'monospace', contextTextColor: '#ffff00', contextFontSize: 1.6,
       studyMode: 'classic', autoPlayAudio: false, autoShowAnswer: false });
-    const { migrateLegacyDesignSettings } = await import('/src/design/legacyAdapter.js');
-    useSettingsStore.getState().setPersonalDesignV2(migrateLegacyDesignSettings(useSettingsStore.getState()));
+    const { normalizeDesignConfig } = await import('/src/design/designConfig.js');
+    useSettingsStore.getState().setPersonalDesignV2(normalizeDesignConfig({ exercises: { freeText: { input: { color: '#ffff00' } } }, front: { mainText: { font: 'Georgia', color: '#ff00ff', size: 1.8, weight: '900' }, card: { background: 'dark_mocha' } }, back: { answerText: { font: 'Georgia', color: '#ff00ff', size: 1.8 }, context: { font: 'monospace', color: '#ffff00', size: 1.6 }, card: { background: 'dark_emerald' } } }));
     useDeckStore.setState({ currentDeck: deck, cards: [card] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.getState().setView('study');
@@ -186,7 +186,7 @@ for (const type of Object.keys(cards)) test(`${type} editor preview matches real
   expect(writes.filter(w => /evaluate-answer|grade|knowledge|publish/.test(w.path))).toEqual([]);
 });
 
-for (const type of Object.keys(cards)) test(`${type} preserves migrated personal typography without published V2`, async ({ page, context }) => {
+for (const type of Object.keys(cards)) test(`${type} preserves native personal V2 typography without published V2`, async ({ page, context }) => {
   await setup(page, context, cards[type], null);
   if (type === 'wordBank') {
     await expect(page.locator('.word-bank-text-area')).toHaveCSS('font-family', 'Georgia');

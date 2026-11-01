@@ -17,9 +17,6 @@ import {
   patchDesignValue,
 } from '../designConfig.js';
 
-import {
-  migrateLegacyDesignSettings,
-} from '../legacyAdapter.js';
 
 // ─────────────────────────────────────────────────────────────────────────────
 // 1. DEFAULT_DESIGN_CONFIG_V2 — структурная валидность
@@ -233,92 +230,6 @@ test('patchDesignValue: does not mutate original', () => {
   patchDesignValue(config, 'front.mainText.color', '#new');
   assert.strictEqual(config.front.mainText.color, orig);
 });
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 5. migrateLegacyDesignSettings — V1 flat → V2
-// ─────────────────────────────────────────────────────────────────────────────
-
-const LEGACY_FLAT = {
-  cardBgFront: 'liquid_emerald',
-  cardBgBack: 'liquid_emerald',
-  cardFont: 'Comfortaa',
-  cardTextColor: '#fde047',
-  cardFontSize: 1.7,
-  cardFontWeight: '700',
-  cardFontStyle: 'normal',
-  cardTextAlign: 'left',
-  cardTextShadow: 'glow',
-  backTextColor: '#cbd5e1',
-  contextFont: 'Inter',
-  contextTextColor: 'auto',
-  contextFontSize: 1.4,
-  contextFontWeight: '400',
-  contextFontStyle: 'normal',
-  contextTextAlign: 'left',
-  contextTextShadow: 'glow',
-  previewCardFont: 'Comfortaa',
-  previewCardTextColor: '#cbdeb5',
-  previewBackTextColor: '#b1e7e0',
-  previewCardFontSize: 1.19,
-  previewBackFontSize: 0.98,
-  previewCardFontWeight: '700',
-  previewCardFontStyle: 'normal',
-  previewTextShadow: 'none',
-  previewCardTextAlign: 'left',
-  previewCardLines: 3,
-  previewCardBg: 'dark_obsidian',
-};
-
-test('migrate: converts front mainText fields', () => {
-  const v2 = migrateLegacyDesignSettings(LEGACY_FLAT);
-  assert.strictEqual(v2.front.mainText.font, 'Comfortaa');
-  assert.strictEqual(v2.front.mainText.color, '#fde047');
-  assert.strictEqual(v2.front.mainText.size, 1.7);
-  assert.strictEqual(v2.front.mainText.weight, '700');
-  assert.strictEqual(v2.front.mainText.align, 'left');
-  assert.strictEqual(v2.front.mainText.shadow, 'glow');
-});
-
-test('migrate: converts back answerText color', () => {
-  const v2 = migrateLegacyDesignSettings(LEGACY_FLAT);
-  assert.strictEqual(v2.back.answerText.color, '#cbd5e1');
-});
-
-test('migrate: converts context fields', () => {
-  const v2 = migrateLegacyDesignSettings(LEGACY_FLAT);
-  assert.strictEqual(v2.back.context.font, 'Inter');
-  assert.strictEqual(v2.back.context.size, 1.4);
-  assert.strictEqual(v2.back.context.color, 'auto');
-});
-
-test('migrate: converts cardList frontText fields', () => {
-  const v2 = migrateLegacyDesignSettings(LEGACY_FLAT);
-  assert.strictEqual(v2.cardList.frontText.font, 'Comfortaa');
-  assert.strictEqual(v2.cardList.frontText.color, '#cbdeb5');
-  assert.strictEqual(v2.cardList.frontText.size, 1.19);
-  assert.strictEqual(v2.cardList.frontText.lines, 3);
-});
-
-test('migrate: result is always valid V2 (schemaVersion = 2)', () => {
-  const v2 = migrateLegacyDesignSettings(LEGACY_FLAT);
-  assert.strictEqual(v2.schemaVersion, 2);
-  assert.ok(v2.global);
-  assert.ok(v2.exercises);
-});
-
-test('migrate: null input returns defaults', () => {
-  const v2 = migrateLegacyDesignSettings(null);
-  assert.strictEqual(v2.schemaVersion, 2);
-});
-
-test('migrate: empty object returns defaults', () => {
-  const v2 = migrateLegacyDesignSettings({});
-  assert.strictEqual(v2.schemaVersion, 2);
-});
-
-// ─────────────────────────────────────────────────────────────────────────────
-// 6. Invalid/dangerous imports
-// ─────────────────────────────────────────────────────────────────────────────
 
 test('normalize: null config safe', () => {
   assert.doesNotThrow(() => normalizeDesignConfig(null));

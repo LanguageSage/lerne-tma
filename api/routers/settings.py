@@ -6,7 +6,7 @@ from api import models
 from api import services
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
-from api.services.user_settings import read_user_settings, save_user_settings, read_design_backup
+from api.services.user_settings import read_user_settings, save_user_settings
 
 router = APIRouter(
     tags=["settings"],
@@ -27,10 +27,6 @@ def get_user_settings_endpoint(user_id: int = Depends(get_user_id)):
         logger.error(f"Error fetching user settings for {user_id}: {e}")
         raise HTTPException(status_code=500, detail="Failed to read user settings")
 
-
-@router.get('/user/settings/design-backup')
-def get_user_design_backup(user_id: int = Depends(get_user_id)):
-    return read_design_backup(user_id)
 
 @router.post("/user/settings")
 def save_user_settings_endpoint(data: dict, user_id: int = Depends(get_user_id)):

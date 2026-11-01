@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { normalizeDesignConfig } from '../designConfig.js';
 import { designConfigToCssVariables } from '../designTokens.js';
 import { getDesignStylesFromV2, getDesignTextStyle, getHarmonizedContextColor } from '../../utils/cardStyles.js';
-import { CARD_BACKGROUND_PRESETS, getTextShadow, getContextShadow, getResolvedStyle } from '../../utils/style.js';
-import { migrateLegacyDesignSettings } from '../legacyAdapter.js';
+import { CARD_BACKGROUND_PRESETS, getTextShadow, getContextShadow } from '../../utils/style.js';
 
 test('old V2 retains an unspecified background; explicit backgrounds round-trip without legacy keys', () => {
   assert.equal(normalizeDesignConfig({ schemaVersion: 2 }).front.card.background, '');
@@ -22,18 +21,6 @@ test('old V2 retains an unspecified background; explicit backgrounds round-trip 
   }
 });
 
-test('manual import retains its background in actual V2 fields', () => {
-  const flat = { cardBgFront: 'liquid_morning', cardBgBack: 'custom_saved.mp4', cardTextColor: '#abcdef' };
-  const frozen = structuredClone(flat);
-  const config = migrateLegacyDesignSettings(flat);
-  assert.equal(config.front.card.background, 'liquid_morning');
-  assert.equal(config.back.card.background, 'custom_saved.mp4');
-  assert.deepEqual(flat, frozen);
-  assert.equal(config.global._legacyBgFront, undefined);
-  assert.equal(getResolvedStyle('auto', 23), 'holographic');
-  assert.equal(getResolvedStyle('auto', 0), 'standard');
-  assert.equal(getResolvedStyle('dark_mocha', 23), 'dark_mocha');
-});
 
 test('all V2 text roles implement shadows, auto context and explicit context consistently', () => {
   const config = normalizeDesignConfig({ back: { answerText: { color: '#ffaa00' }, context: { color: 'auto' } } });

@@ -1,4 +1,4 @@
-"""Personal Design V2 writes use the existing settings row and a permanent source backup."""
+"""Personal Design V2 writes are revisioned; retired V1 fields are discarded atomically."""
 import datetime
 import json
 
@@ -7,13 +7,50 @@ from peewee import PostgresqlDatabase, SqliteDatabase
 
 from api import models
 
+LEGACY_DESIGN_FIELDS = frozenset({
+    'cardBgFront',
+    'cardBgBack',
+    'cardFont',
+    'cardTextColor',
+    'cardFontSize',
+    'cardTextAlign',
+    'backTextColor',
+    'contextFont',
+    'contextTextColor',
+    'contextFontSize',
+    'contextTextAlign',
+    'cardTextShadow',
+    'contextTextShadow',
+    'cardFontWeight',
+    'cardFontStyle',
+    'contextFontWeight',
+    'contextFontStyle',
+    'previewCardFont',
+    'previewCardTextColor',
+    'previewBackTextColor',
+    'previewCardFontSize',
+    'previewBackFontSize',
+    'previewCardFontWeight',
+    'previewCardFontStyle',
+    'previewTextShadow',
+    'previewCardTextAlign',
+    'previewCardLines',
+    'previewCardBg',
+    'userDesign',
+    'backCardFont',
+    'backCardFontSize',
+    'backCardFontWeight',
+    'backCardFontStyle',
+    'backCardTextShadow',
+})
+
 
 def read_user_settings(user_id):
     setting = models.TMASetting.get_or_none(models.TMASetting.key == f"USER_SETTINGS_{user_id}")
     value = json.loads(setting.value) if setting and setting.value else {}
     if not isinstance(value, dict):
         raise ValueError('Invalid stored user settings')
-    return value
+    return {key: item for key, item in value.items() if key not in LEGACY_DESIGN_FIELDS}
 
 
 def _validate_design(design):
@@ -44,7 +81,8 @@ def save_user_settings(user_id, data):
         current = json.loads(setting.value)
         if not isinstance(current, dict):
             raise ValueError('Invalid stored user settings')
-        updates = dict(data)
+        current = {key: value for key, value in current.items() if key not in LEGACY_DESIGN_FIELDS}
+        updates = {key: value for key, value in data.items() if key not in LEGACY_DESIGN_FIELDS}
         if incoming is not None:
             previous = current.get('designV2')
             if previous is not None:
@@ -53,19 +91,12 @@ def save_user_settings(user_id, data):
             same = previous and all(incoming[k] == previous[k] for k in ('config', 'preset'))
             if not same and incoming['revision'] != revision:
                 raise HTTPException(409, 'Personal design revision conflict; fetch and retry')
-            if previous is None:
-                # Unique key + transaction: backup and migration both commit, or neither does.
-                models.TMASetting.get_or_create(key=f'USER_DESIGN_V1_BACKUP_{user_id}',
-                    defaults={'value': setting.value, 'updated_at': now})
             updates['designV2'] = {**incoming, 'revision': revision if same else revision + 1}
-        # Older clients may still save V1/study fields; they cannot remove an existing V2 document.
+        models.TMASetting.delete().where(
+            models.TMASetting.key == f'USER_DESIGN_V1_BACKUP_{user_id}').execute()
+        # Older clients may still save study fields; they cannot remove an existing V2 document.
         current.update(updates)
         setting.value = json.dumps(current, ensure_ascii=False)
         setting.updated_at = now
         setting.save()
         return current
-
-
-def read_design_backup(user_id):
-    setting = models.TMASetting.get_or_none(models.TMASetting.key == f'USER_DESIGN_V1_BACKUP_{user_id}')
-    return {'raw': setting.value} if setting else {}

@@ -3,7 +3,7 @@
  * Preset picker, Save draft, Publish (с confirm), Copy JSON, Import JSON, Reset section, Revert.
  */
 import React, { useRef, useState } from 'react';
-import { Save, Upload, Download, RotateCcw, Globe, ChevronDown, Copy, Check, Eye, Undo2, CloudDownload, History } from 'lucide-react';
+import { Save, Upload, Download, RotateCcw, Globe, ChevronDown, Copy, Check, Eye, Undo2, CloudDownload } from 'lucide-react';
 import { useSettingsStore } from '../../../store/useSettingsStore';
 import { normalizeDesignConfig } from '../../../design/designConfig.js';
 import { DESIGN_PRESETS } from '../../../design/designPresets.js';
@@ -22,7 +22,6 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
 
   const applyDraftSections = useSettingsStore(s => s.applyDraftSections);
   const loadAdminDraftFromServer = useSettingsStore(s => s.loadAdminDraftFromServer);
-  const importLegacyPersonalDesign = useSettingsStore(s => s.importLegacyPersonalDesign);
 
   const [presetOpen, setPresetOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -54,11 +53,6 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
     if (result?.found) setUndoDraft(result.previous ?? null);
     setToolMessage(!result?.success ? (result?.error || tr('Ошибка загрузки'))
       : result.found ? tr('Черновик восстановлен с сервера') : tr('На сервере нет сохранённого черновика'));
-  };
-
-  const handleImportLegacy = () => {
-    setUndoDraft(importLegacyPersonalDesign());
-    setToolMessage(tr('Прежние личные настройки перенесены в черновик'));
   };
 
   const handleSaveDraft = async () => {
@@ -214,9 +208,6 @@ export const DesignToolbar = ({ activeSection, onResetSection }) => {
         </button>
         <button type="button" className="design-toolbar-btn" onClick={handleRestoreFromServer} title={tr('Восстановить с сервера')} aria-label={tr('Восстановить с сервера')}>
           <CloudDownload size={15} /> {tr('Восстановить с сервера')}
-        </button>
-        <button type="button" className="design-toolbar-btn" onClick={handleImportLegacy} title={tr('Импорт прежних настроек')} aria-label={tr('Импорт прежних настроек')}>
-          <History size={15} /> {tr('Импорт прежних настроек')}
         </button>
       </div>
 
