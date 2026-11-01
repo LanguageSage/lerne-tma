@@ -1,7 +1,8 @@
 # Lerne Adaptive — архитектурная основа перед паузой диагностики
 
 Дата фиксации: **01.11.2026**. Ветка: **`codex/adaptive-knowledge`**.
-База checkout: `e0dff51c0e8588846d2a973a02a8ba2bdf0c3c7e` **плюс существующие
+Состояние checkout при итоговой сверке: `df39e7482bbe9f3e7cfac4bfd12bda34eb0d445a`
+**плюс существующие
 незакоммиченные изменения Free Text/Trainer/supportEvidence**. Описанное состояние
 не следует приписывать одному этому commit или работающему deployment.
 
@@ -39,6 +40,7 @@ Mastery, SRS и интерфейс не изменяются; миграции �
 | [Free Text support](LERNE_ADAPTIVE_SUPPORT_EVIDENCE.md), [Trainer support](LERNE_ADAPTIVE_TRAINER_SUPPORT_EVIDENCE.md) | Частичное наблюдение помощи уже реализовано для Free Text и Trainer choice/input; прежнее «учёта помощи нет» уточнено, полнота всё ещё не достигнута |
 | [KI-08.1](KI-08.1.md), [KI-08.2](KI-08.2.md), [KI-08.3](KI-08.3.md) | Общие feedback/lifecycle/counters, Trainer/WordBank, Match/Quiz, Puzzle; результаты тестов относятся к датам этапов |
 | [Assessment](ASSESSMENT.md), [Free Text reliability](FREE_TEXT_RELIABILITY.md) | Первый результат экзамена, локальное сохранение, evaluator/unavailable и границы проверки диктовки |
+| [Trainer endings / Design V2 audit](DESIGN_V2_ENDINGS_CONTRACT_AUDIT.md) | Последующее исправление устаревших browser fixtures; прежние failures в support-отчётах не объявляются текущими failures |
 
 Внешние архитектурные документы и production-сведения, приведённые в этих
 отчётах, здесь не проверялись заново. Новых чтений production, внешнего AI или
@@ -161,6 +163,10 @@ Match считает attempts как неверные пары + финальн�
 Capture определяет `card_type` в classic-режиме; он не гарантирует фактическую
 механику предъявления при переключении study mode.
 
+В v3 не переносятся final evaluator/verdict, checker confidence и полный part
+summary; в v2 evaluator/verdict опциональны в summary, но confidence не сохраняется.
+Тип карточки не восстанавливает качество проверки.
+
 ### Target relevance
 
 **Реализовано:** Free Text сохраняет literal `primary / secondary / none`:
@@ -229,6 +235,10 @@ outbox не дополняются; rerender/StrictMode/remount старого f
 наблюдаемое окно всех существенных источников и известное отсутствие помощи.
 Одного `tracking_complete=true` из клиентского JSON недостаточно: нужны проверка
 реального покрытия и доверие к источнику. Текущие поля такой вывод не разрешают.
+
+Даже полный внутренний учёт устанавливает лишь «без зарегистрированной помощи
+в приложении» в объявленном окне: приложение не наблюдает всю внешнюю помощь.
+Будущий вывод independent должен сохранять это ограничение.
 
 ## 6. Единый смысл будущего диагностического события
 
@@ -411,6 +421,7 @@ retention, объёме и минимально достаточном evidence.
 | Нет authoritative result receipt; AI/ASR не калиброваны | Auth/primary guards не подтверждают языковую правильность, hint reading или устную продукцию |
 | Новые cardless origins не поддержаны; Game в другой ветке | Для Game/диалога нужны admission, identity и versioning, а не обход карточного guard |
 | Grade и ordinary capture не атомарны; новый event UUID не равен replay | Возможен SRS без Attempt; повторная grade с новым ID не защищена сетевой идемпотентностью как то же учебное наблюдение |
+| Локальный enqueue сравнивает лишь часть полей при совпавшем ID | Отличающийся evaluation_data может локально остаться без обнаруженного конфликта; серверное полное duplicate/conflict сравнение обязательно, локальная проверка слабее |
 | Admission pending после remap зависит от текущего mapping | Новый старый payload может быть rejected; нельзя автоматически переназначать KI |
 | Нет retention/decay/адаптивного scheduler и validated general diagnostic engine | Timestamp/evidence mass не доказывают сохранение знания; автоматический пропуск тем не обоснован |
 | Полные Assessment reports локальны; часть тестов требует ignored snapshots | Нет server archive полного отчёта; не все локальные D14 checks воспроизводятся на чистом clone без подготовки |
@@ -425,8 +436,9 @@ retention, объёме и минимально достаточном evidence.
   Trainer-пилот использовал deterministic checker и три локальных D14 карточки
   в disposable PG; Free Text AI verdicts были синтетическими.
 - UI/Node/backend suites и просмотр снимков описаны в соответствующих отчётах.
-  Отчёты также фиксируют отдельные воспроизведённые baseline failures Legacy/V2
-  browser fixtures; их нельзя заменять заявлением «всё приложение зелёное».
+  Ранние support-отчёты фиксируют baseline failures Legacy/V2 fixtures;
+  последующий Design V2 audit сообщает об их исправлении и прошедших целевых
+  suites. Это не новый запуск здесь и не доказательство всех свойств приложения.
 
 Эти результаты **не являются новым запуском тестов этого документа**. Здесь
 выполнены статическая сверка ключевых владельцев и статусов, проверка локальных
