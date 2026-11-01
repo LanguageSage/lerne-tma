@@ -1,20 +1,8 @@
-import api from './api.js';
-import { getLocalDb, isOfflineMode } from './localDb.js';
+import { getLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { assessmentAttempt } from '../utils/assessment.js';
 
-export async function prepareAssessmentKnowledge(deckId) {
-  const database = getLocalDb();
-  const userId = getUserId();
-  if (!isOfflineMode() && navigator.onLine) {
-    const { data } = await api.get(`/knowledge/decks/${deckId}`);
-    if (getUserId() !== userId) throw new Error('Account changed');
-    await database.transaction('rw', database.knowledge_items, database.card_knowledge_items, async () => {
-      await database.knowledge_items.bulkPut(data.knowledge_items);
-      await database.card_knowledge_items.bulkPut(data.card_knowledge_items);
-    });
-  }
-}
+export { prepareDeckKnowledge as prepareAssessmentKnowledge } from './knowledgeContentService.js';
 
 // Result and durable knowledge outbox commit together. No SRS rating is invented.
 export async function saveAssessment(session, result) {

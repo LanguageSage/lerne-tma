@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import os
 import unittest
@@ -40,6 +41,81 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_trainer_scaffolding_and_support_do_not_reinterpret_word_order_mastery(self):
+        task_support = {'answer_options_present': False, 'source_text_present': True,
+                        'authored_example_present': False, 'sentence_frame_present': True,
+                        'source_vocabulary_present': True}
+        for plain in [hybrid(1, 'good'), hybrid(2, 'good'),
+                      {'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'correct', 'correct': True},
+                      {'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'incorrect', 'correct': False}]:
+            for hints, translations in ((0, 0), (1, 2), (None, None)):
+                detailed = json.loads(json.dumps(plain))
+                detailed['card_type'] = 'trainer'
+                container = detailed['exercise_evidence'] if detailed['schema_version'] == 2 else detailed
+                container.update(task_support=task_support, support_evidence={'tracking_complete': False,
+                    'hint_count': hints, 'translation_view_count': translations, 'answer_reveal_count': None,
+                    'other_help_count': None, 'capture_point': 'exercise_completion' if detailed['schema_version'] == 2
+                    else 'first_assessment_result', 'answer_attempt_count': 1})
+                self.assertEqual(score_knowledge_attempt(detailed), score_knowledge_attempt(plain))
+
+    def test_support_facts_never_change_mastery_v1(self):
+        for plain in [self_rating('good'), hybrid(1, 'good'), hybrid(2, 'good'),
+                      {**hybrid(2, 'again'), 'exercise_evidence': {'auto_evaluated': True, 'completed': False}},
+                      *[{'schema_version': 3, 'evaluation_type': 'assessment', 'status': status,
+                         'correct': status == 'correct'} for status in ('correct', 'incorrect', 'skipped')]]:
+            for count in (None, 0, 1, 10):
+                detailed = json.loads(json.dumps(plain))
+                container = detailed['exercise_evidence'] if detailed['schema_version'] == 2 else detailed
+                container['support_evidence'] = {'tracking_complete': False, 'hint_count': count,
+                    'translation_view_count': count, 'answer_reveal_count': count, 'other_help_count': None,
+                    'capture_point': 'exercise_completion', 'answer_attempt_count': 1}
+                container['task_support'] = {'answer_options_present': True, 'sentence_frame_present': None,
+                    'source_vocabulary_present': None, 'source_text_present': True, 'authored_example_present': True}
+                self.assertEqual(score_knowledge_attempt(plain), score_knowledge_attempt(detailed))
+
+    def test_assessment_target_relevance_never_changes_mastery_v1(self):
+        for status in ('correct', 'incorrect', 'skipped'):
+            plain = {'schema_version': 3, 'evaluation_type': 'assessment',
+                     'status': status, 'correct': status == 'correct'}
+            for relevance in ('primary', 'secondary', 'none'):
+                self.assertEqual(score_knowledge_attempt(plain),
+                                 score_knowledge_attempt({**plain, 'target_relevance': relevance}))
+
+    def test_final_target_relevance_is_descriptive_for_all_legacy_v2_outcomes(self):
+        for completed in (True, False):
+            for count in (1, 2):
+                plain = hybrid(count, 'good')
+                plain['exercise_evidence']['completed'] = completed
+                for relevance in ('primary', 'secondary', 'none'):
+                    detailed = {**plain, 'exercise_evidence': {**plain['exercise_evidence'],
+                        'grading_summary': {'final_target_relevance': relevance}}}
+                    self.assertEqual(score_knowledge_attempt(plain), score_knowledge_attempt(detailed))
+
+    def test_diagnostic_contract_legacy_golden_values_are_unchanged(self):
+        samples = [
+            (self_rating('good'), .75, .5),
+            (hybrid(1, 'good'), .95, 1),
+            (hybrid(2, 'good'), .79, 1),
+            ({'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'correct', 'correct': True}, 1, 1),
+            ({'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'incorrect', 'correct': False}, 0, 1),
+        ]
+        for payload, expected_score, expected_weight in samples:
+            with self.subTest(payload=payload):
+                contribution = score_knowledge_attempt(payload)
+                self.assertAlmostEqual(contribution.score, expected_score)
+                self.assertEqual(contribution.weight, expected_weight)
+
+    def test_diagnostic_contract_no_observation_does_not_rewrite_legacy_scoring(self):
+        skipped = {'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'skipped', 'correct': False}
+        exhausted = hybrid(2, 'again')
+        exhausted['exercise_evidence']['completed'] = False
+        self.assertIsNone(score_knowledge_attempt(skipped))
+        self.assertIsNone(score_knowledge_attempt(exhausted))
+        # Diagnostic prose/annotations cannot be used as an admission or scoring guard.
+        annotated = {**hybrid(1, 'good'), 'diagnostic_outcome': 'unverified'}
+        annotated['exercise_evidence']['grading_summary'] = {'final_target_relevance': 'secondary'}
+        self.assertEqual(score_knowledge_attempt(annotated), score_knowledge_attempt(hybrid(1, 'good')))
+
     def test_assessment_wrong_is_negative_correct_positive_and_skip_unscored(self):
         for correct in (True, False):
             evidence = score_knowledge_attempt({'schema_version': 3, 'evaluation_type': 'assessment',
@@ -248,10 +324,18 @@ class TestMasterySync(unittest.TestCase):
         TMAUser.create(user_id=2, username='b')
         self.ki1 = TMAKnowledgeItem.create(name='one')
         self.ki2 = TMAKnowledgeItem.create(name='two')
+        self.cards = {}
+        for user_id in (1, 2):
+            deck = TMA_Deck.create(user_id=user_id, name='Synthetic practice')
+            for ki in (self.ki1, self.ki2):
+                card = TMA_Card.create(deck=deck, front_text='Synthetic', back_text='Answer')
+                TMACardKnowledgeItem.create(card_id=card.id, knowledge_item=ki, role='primary')
+                self.cards[user_id, ki.id] = card.id
 
     def send(self, event_id, data, *, user_id=1, ki=None, event_time=None):
         item = KnowledgeAttemptSyncItem(client_event_id=event_id,
                                         knowledge_item_id=ki or self.ki1.id,
+                                        card_id=self.cards[user_id, ki or self.ki1.id],
                                         event_time=event_time, evaluation_data=data)
         return sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[item]),
                                        user_id=user_id).results[0].status

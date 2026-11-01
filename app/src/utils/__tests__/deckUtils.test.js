@@ -1,7 +1,30 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 
-import { getFolderContentStats } from '../deckUtils.js';
+import { getFolderContentStats, getSortedFolderTree } from '../deckUtils.js';
+
+test('folder choices include cached roots without parent_id and their descendants', () => {
+  const folders = [
+    { id: 1, name: 'Cached root' },
+    { id: 2, name: 'Child', parent_id: 1 },
+    { id: 3, name: 'Server root', parent_id: null },
+  ];
+  const tree = getSortedFolderTree(folders);
+  assert.deepEqual(tree.map(f => [f.id, f.depth]), [[1, 0], [2, 1], [3, 0]]);
+  assert.equal(tree[1].displayName.trim(), 'Child');
+  assert.equal(folders[0].depth, undefined);
+});
+
+test('folder choices retain accessible branches whose parent is outside the catalog', () => {
+  const folders = [
+    { id: 1, name: 'Shared branch', parent_id: 99 },
+    { id: 2, name: 'Child', parent_id: 1 },
+    { id: 3, name: 'Other root', parent_id: null },
+  ];
+  assert.deepEqual(getSortedFolderTree(folders).map(f => [f.id, f.depth]), [[1, 0], [2, 1], [3, 0]]);
+  assert.deepEqual(getSortedFolderTree(folders, 1, [2]).map(f => f.id), [3]);
+  assert.deepEqual(getSortedFolderTree(folders, 3).map(f => f.id), [1, 2]);
+});
 
 test('getFolderContentStats: empty folder with no subfolders and no decks is empty', () => {
   const folders = [{ id: 1, name: 'Root Folder', parent_id: null }];

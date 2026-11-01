@@ -64,6 +64,87 @@ function holdRefresh(page) {
   return page.route('**/api/study/card/*', route => { pending.push(route); }).then(() => pending);
 }
 
+async function knowledgeSetup(page, context, { mapped = true, unavailable = false } = {}) {
+  await setup(page, context);
+  await page.route('**/api/knowledge/decks/1*', route => route.fulfill(unavailable
+    ? { status: 503, json: { detail: 'Unavailable' } }
+    : { json: { card_ids: [1, 2, 3], knowledge_items: mapped ? [{ id: 10, name: 'Synthetic skill' }] : [],
+      card_knowledge_items: mapped ? [{ card_id: 1, knowledge_item_id: 10, role: 'primary' }] : [] } }));
+  await page.route('**/api/decks/1/next*', route => route.fulfill({ json: cards[0] }));
+  await page.evaluate(async () => {
+    const { stopKnowledgeSync } = await import('/src/services/knowledgeSyncOrchestrator.js');
+    stopKnowledgeSync();
+  });
+}
+
+test('ordinary cold start loads KI; only confirmed grade creates one attempt; sync acknowledges it', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  await page.evaluate(() => studyNavigation.startStudy(deckStore.getState().currentDeck));
+  let gradeRoute;
+  await page.route('**/api/study/grade', route => { gradeRoute = route; });
+  const outbox = () => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray());
+  await page.evaluate(() => { window.gradePromise = studyActions.submitGrade(2); studyActions.submitGrade(2); });
+  await expect.poll(() => Boolean(gradeRoute)).toBe(true);
+  expect(await outbox()).toHaveLength(0);
+  await gradeRoute.fulfill({ json: { status: 'success' } });
+  await page.evaluate(() => window.gradePromise);
+  await expect.poll(async () => (await outbox()).length).toBe(1);
+  const [attempt] = await outbox();
+  expect(attempt.knowledge_item_id).toBe(10);
+  expect(attempt.evaluation_data.rating).toBe('good');
+  await page.route('**/api/knowledge/attempts/sync', route => route.fulfill({ json: { results:
+    route.request().postDataJSON().attempts.map(a => ({ client_event_id: a.client_event_id, status: 'created' })) } }));
+  const result = await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(1));
+  expect(result.succeededCount).toBe(1);
+  expect(await outbox()).toHaveLength(0);
+});
+
+test('opening an individual ordinary card also prepares KI before grading', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  await page.route('**/api/study/grade', route => route.fulfill({ json: { status: 'success' } }));
+  await page.evaluate(() => studyNavigation.startStudyCard(deckStore.getState().currentDeck, 1));
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await expect.poll(() => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(1);
+});
+
+for (const unavailable of [false, true]) {
+  test(`ordinary study continues without evidence when KI ${unavailable ? 'request fails' : 'mapping is absent'}`, async ({ page, context }) => {
+    await knowledgeSetup(page, context, { mapped: false, unavailable });
+    let grades = 0;
+    await page.route('**/api/study/grade', route => { grades++; return route.fulfill({ json: { status: 'success' } }); });
+    await page.evaluate(() => studyNavigation.startStudy(deckStore.getState().currentDeck));
+    await page.evaluate(() => studyActions.submitGrade(2));
+    expect(grades).toBe(1);
+    expect(await page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(0);
+    expect(await page.evaluate(() => sessionStore.getState().card.id)).toBe(2);
+  });
+}
+
+test('offline ordinary grade persists progress, review and attempt until reconnect', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  await page.evaluate(async ({ deck, cards }) => {
+    await studyNavigation.startStudy(deck);
+    const database = (await import('/src/services/localDb.js')).getLocalDb();
+    await database.decks.put({ ...deck, user_id: 1 });
+    await database.cards.bulkPut(cards);
+  }, { deck, cards });
+  await context.setOffline(true);
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await expect.poll(() => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(1);
+  const persisted = await page.evaluate(async () => {
+    const database = (await import('/src/services/localDb.js')).getLocalDb();
+    return { progress: await database.progress.get([1, 1]),
+      reviews: await database.syncState.filter(row => row.key.startsWith('review:')).toArray() };
+  });
+  expect(persisted.progress.is_dirty).toBe(1);
+  expect(persisted.progress.last_reviewed).toBeTruthy();
+  expect(persisted.reviews).toHaveLength(1);
+  await context.setOffline(false);
+  await page.route('**/api/knowledge/attempts/sync', route => route.fulfill({ json: { results:
+    route.request().postDataJSON().attempts.map(a => ({ client_event_id: a.client_event_id, status: 'duplicate' })) } }));
+  expect((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(1))).succeededCount).toBe(1);
+});
+
 test('Next/Back show cached cards with HTTP pending; refresh updates the matching history and cache', async ({ page, context }) => {
   await setup(page, context);
   const pending = await holdRefresh(page);

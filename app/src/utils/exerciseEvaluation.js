@@ -1,3 +1,5 @@
+import { createSupportSession, captureSupportEvidence } from './supportEvidence.js';
+
 /** Public part feedback deliberately excludes solutions and submitted values. */
 export const createExerciseEvaluation = (parts = [], { requiredPartIds = [] } = {}) => {
   const feedback = parts.map(({ id, status, errorType, errorCode, hint }) => (
@@ -11,18 +13,28 @@ export const createExerciseEvaluation = (parts = [], { requiredPartIds = [] } = 
 };
 
 /** Checks count attempts; successful incremental progress can defer the attempt until completion. */
-export function createExerciseEvaluationSession(initial = {}) {
+export function createExerciseEvaluationSession(initial = {}, {
+  trackSupport = false, assessmentMode = false, taskSupport, supportHistoryUnknown = false,
+} = {}) {
+  const restored = initial && Object.keys(initial).length > 0;
+  const support = trackSupport ? createSupportSession(initial.supportState,
+    restored || supportHistoryUnknown ? [] : ['hint_count', 'translation_view_count']) : null;
   let state = {
     result: null, attemptCount: 0, mistakeCount: 0, completed: false,
-    incorrectParts: [], errorTypesSeen: [], errorCodesSeen: [], ...initial,
+    incorrectParts: [], errorTypesSeen: [], errorCodesSeen: [], ...structuredClone(initial),
     interactionCount: initial.interactionCount ?? initial.attemptCount ?? 0,
   };
-  const snapshot = () => structuredClone(state);
+  const snapshot = () => structuredClone({ ...state, ...(support ? { supportState: support.snapshot() } : {}) });
+  const supportFields = () => state.answerSupportEvidence ? {
+    supportEvidence: structuredClone(state.answerSupportEvidence),
+    ...(state.taskSupport ? { taskSupport: structuredClone(state.taskSupport) } : {}),
+  } : {};
   const part = id => state.result?.parts.find(item => item.id === String(id));
   const isLocked = id => state.completed || part(id)?.status === 'correct';
   const union = (previous, next) => [...new Set([...previous, ...next].filter(Boolean))];
   return {
-    snapshot, part, isLocked,
+    snapshot, part, isLocked, supportFields,
+    recordSupport(kind) { support?.record(kind); },
     clearCurrentFeedback() {
       // Completed feedback is also the final verdict used by evidence().
       if (!state.completed) state = { ...state, result: null };
@@ -35,6 +47,7 @@ export function createExerciseEvaluationSession(initial = {}) {
     },
     check(result, { interactionCorrect = result.accepted, countAttempt = true } = {}) {
       if (state.completed) return null;
+      const supportBeforeAnswer = support?.snapshot();
       const wrong = result.parts.filter(item => item.status === 'incorrect');
       state = {
         ...state, result, completed: result.accepted,
@@ -45,6 +58,12 @@ export function createExerciseEvaluationSession(initial = {}) {
         errorTypesSeen: union(state.errorTypesSeen, wrong.map(item => item.errorType)),
         errorCodesSeen: union(state.errorCodesSeen, wrong.map(item => item.errorCode)),
       };
+      // A check's own feedback is shown later; it cannot alter that check's conditions.
+      if (supportBeforeAnswer && (assessmentMode ? !state.answerSupportEvidence : state.completed)) state = {
+        ...state, answerSupportEvidence: captureSupportEvidence(supportBeforeAnswer,
+          assessmentMode ? 'first_assessment_result' : 'exercise_completion', state.attemptCount),
+        taskSupport: structuredClone(taskSupport),
+      };
       return snapshot();
     },
     evidence() {
@@ -52,6 +71,7 @@ export function createExerciseEvaluationSession(initial = {}) {
       return {
         isCorrect: true, completed: true, isFirstTry: state.attemptCount === 1,
         attemptCount: state.attemptCount, mistakeCount: state.mistakeCount,
+        ...supportFields(),
         gradingSummary: {
           final_verdict: state.result.verdict,
           error_types_seen: [...state.errorTypesSeen],

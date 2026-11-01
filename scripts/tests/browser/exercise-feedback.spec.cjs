@@ -17,9 +17,12 @@ async function openStudy(page, context, card, locale = 'ru') {
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Test', is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'feedback-fixture', refresh_token: 'feedback-refresh' }));
   }, locale);
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, first_name: 'Test', is_guest: false } });
     if (pathname === '/api/init') return route.fulfill({ json: {
       decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {},
       user_info: { user_id: 1, first_name: 'Test', is_guest: false },
@@ -190,6 +193,10 @@ test('real renderer reports only cumulative success, preserves counters on remou
   await page.getByRole('button', { name: 'Check answers', exact: true }).click();
   expect(await page.evaluate(() => window.feedbackTest.answers)).toEqual([{
     isCorrect: true, completed: true, isFirstTry: false, attemptCount: 2, mistakeCount: 1,
+    supportEvidence: { tracking_complete: false, hint_count: 1, translation_view_count: 0,
+      answer_reveal_count: null, other_help_count: null, capture_point: 'exercise_completion', answer_attempt_count: 2 },
+    taskSupport: { answer_options_present: false, source_text_present: false, authored_example_present: false,
+      sentence_frame_present: true, source_vocabulary_present: false },
     gradingSummary: { final_verdict: 'correct', error_types_seen: ['other'],
       error_codes_seen: ['exercise.input_mismatch'], incorrect_parts: ['1'], final_evaluator: 'rules' },
   }]);

@@ -10,6 +10,8 @@ import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { triggerHaptic } from '../../utils/platform';
 import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
+import { trainerTaskSupport } from '../../utils/supportEvidence.js';
+import { assessmentTrainerEvidence } from '../../utils/assessment.js';
 import { AnswerVictoryAnimation } from './AnswerVictoryAnimation.jsx';
 import './StudyCardTrainer.css';
 
@@ -105,14 +107,18 @@ export const StudyCardTrainer = React.memo(({
   savedState,
   onSaveState,
   footerActionTarget,
-  assessmentMode = false
+  assessmentMode = false,
+  supportHistoryUnknown = false,
 }) => {
   useInterfaceLocale();
   const [selectedOptions, setSelectedOptions] = useState(savedState?.selectedOptions || {}); // { gapId: chosenOption }
   const [openDropdownGapId, setOpenDropdownGapId] = useState(null);
   const [dropdownPos, setDropdownPos] = useState({});
   const [showTranslation, setShowTranslation] = useState(savedState?.showTranslation || false);
-  const evaluation = useExerciseEvaluation(savedState?.evaluationState);
+  const evaluation = useExerciseEvaluation(savedState?.evaluationState, {
+    trackSupport: true, assessmentMode, supportHistoryUnknown, taskSupport: trainerTaskSupport(card, clozeData),
+  });
+  const feedbackSeen = useRef(evaluation.state.interactionCount);
   const completed = evaluation.state.completed || (assessmentMode && evaluation.state.attemptCount > 0);
 
   const gapRefs = useRef({});
@@ -123,6 +129,14 @@ export const StudyCardTrainer = React.memo(({
   const designVars = useMemo(() => designConfig ? designConfigToCssVariables(designConfig) : {}, [designConfig]);
 
   const gaps = useMemo(() => clozeData?.gaps || [], [clozeData?.gaps]);
+
+  useEffect(() => {
+    if (evaluation.state.interactionCount <= feedbackSeen.current) return;
+    feedbackSeen.current = evaluation.state.interactionCount;
+    for (const part of evaluation.state.result?.parts || []) {
+      if (part.hint && gaps.some(gap => String(gap.id) === part.id)) evaluation.recordSupport('hint_count');
+    }
+  }, [evaluation, gaps]);
 
   // Saved under StudyCard's existing reviewKey, including all partial retry evidence.
   useEffect(() => {
@@ -230,10 +244,7 @@ export const StudyCardTrainer = React.memo(({
     const submission = evaluation.check(evaluateTrainerGaps(gaps, selectedOptions));
     if (!submission) return;
     if (assessmentMode) {
-      onTrainerAnswer?.(card.id, { isCorrect: submission.state.result.accepted, completed: true,
-        isFirstTry: true, attemptCount: 1, mistakeCount: submission.state.result.accepted ? 0 : 1,
-        gradingSummary: { final_verdict: submission.state.result.verdict,
-          error_types_seen: submission.state.errorTypesSeen, error_codes_seen: submission.state.errorCodesSeen } });
+      onTrainerAnswer?.(card.id, assessmentTrainerEvidence(submission));
     }
     if (submission.evidence) {
       playSuccessSound();
@@ -466,6 +477,7 @@ export const StudyCardTrainer = React.memo(({
             }}
             onClick={(e) => {
               e.stopPropagation();
+              if (!showTranslation) evaluation.recordSupport('translation_view_count');
               setShowTranslation(prev => !prev);
               triggerHaptic('light');
             }}

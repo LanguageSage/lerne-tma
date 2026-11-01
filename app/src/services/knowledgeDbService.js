@@ -1,4 +1,4 @@
-import { db } from './localDb.js';
+import { db, getLocalDb } from './localDb.js';
 
 
 // ----------------------------------------------------------------------
@@ -44,8 +44,8 @@ export async function upsertCardKnowledgeItems(mappings) {
   return db.card_knowledge_items.bulkPut(mappings);
 }
 
-export async function getCardKnowledgeMappings(cardId) {
-  return db.card_knowledge_items.where('card_id').equals(cardId).toArray();
+export async function getCardKnowledgeMappings(cardId, database = getLocalDb()) {
+  return database.card_knowledge_items.where('card_id').equals(cardId).toArray();
 }
 
 export async function getKnowledgeItemsForCard(cardId) {
@@ -55,11 +55,11 @@ export async function getKnowledgeItemsForCard(cardId) {
   return getKnowledgeItems(kiIds);
 }
 
-export async function getPrimaryKnowledgeItemForCard(cardId) {
-  const mappings = await getCardKnowledgeMappings(cardId);
+export async function getPrimaryKnowledgeItemForCard(cardId, database = getLocalDb()) {
+  const mappings = await getCardKnowledgeMappings(cardId, database);
   const primaryMapping = mappings.find(m => m.role === 'primary');
   if (!primaryMapping) return null;
-  return getKnowledgeItem(primaryMapping.knowledge_item_id);
+  return database.knowledge_items.get(primaryMapping.knowledge_item_id);
 }
 
 // ----------------------------------------------------------------------
@@ -121,7 +121,7 @@ export function createKnowledgeAttempt(payload) {
   };
 }
 
-export async function enqueueKnowledgeAttempt(event) {
+export async function enqueueKnowledgeAttempt(event, database = getLocalDb()) {
   const uId = validateUserId(event.user_id);
   const clientEventId = event.client_event_id;
   if (!clientEventId) throw new Error("client_event_id is required for idempotency");
@@ -136,11 +136,11 @@ export async function enqueueKnowledgeAttempt(event) {
   };
 
   try {
-    await db.knowledge_attempt_outbox.add(newEvent);
+    await database.knowledge_attempt_outbox.add(newEvent);
     return newEvent;
   } catch (error) {
     if (error.name === 'ConstraintError') {
-      const existing = await db.knowledge_attempt_outbox.get(clientEventId);
+      const existing = await database.knowledge_attempt_outbox.get(clientEventId);
       if (existing) {
         // Idempotency check: if domain payload differs, reject
         const fieldsToCheck = ['knowledge_item_id', 'card_id', 'score', 'result'];
@@ -156,41 +156,41 @@ export async function enqueueKnowledgeAttempt(event) {
   }
 }
 
-export async function getPendingKnowledgeAttempts(userId, limit = 50) {
+export async function getPendingKnowledgeAttempts(userId, limit = 50, database = getLocalDb()) {
   const uId = validateUserId(userId);
-  return db.knowledge_attempt_outbox
+  return database.knowledge_attempt_outbox
     .where('user_id').equals(uId)
     .filter(event => event.sync_status === 'pending')
     .limit(limit)
     .toArray();
 }
 
-export async function markKnowledgeAttemptSyncing(clientEventId) {
-  return db.knowledge_attempt_outbox.update(clientEventId, { sync_status: 'syncing' });
+export async function markKnowledgeAttemptSyncing(clientEventId, database = getLocalDb()) {
+  return database.knowledge_attempt_outbox.update(clientEventId, { sync_status: 'syncing' });
 }
 
-export async function markKnowledgeAttemptFailed(clientEventId, error) {
-  const attempt = await db.knowledge_attempt_outbox.get(clientEventId);
+export async function markKnowledgeAttemptFailed(clientEventId, error, database = getLocalDb()) {
+  const attempt = await database.knowledge_attempt_outbox.get(clientEventId);
   if (!attempt) return;
-  return db.knowledge_attempt_outbox.update(clientEventId, {
+  return database.knowledge_attempt_outbox.update(clientEventId, {
     sync_status: 'failed',
     last_error: error ? String(error) : 'Unknown error',
     retry_count: (attempt.retry_count || 0) + 1
   });
 }
 
-export async function markKnowledgeAttemptPending(clientEventId) {
-  return db.knowledge_attempt_outbox.update(clientEventId, { sync_status: 'pending' });
+export async function markKnowledgeAttemptPending(clientEventId, database = getLocalDb()) {
+  return database.knowledge_attempt_outbox.update(clientEventId, { sync_status: 'pending' });
 }
 
-export async function deleteKnowledgeAttempt(clientEventId) {
-  return db.knowledge_attempt_outbox.delete(clientEventId);
+export async function deleteKnowledgeAttempt(clientEventId, database = getLocalDb()) {
+  return database.knowledge_attempt_outbox.delete(clientEventId);
 }
 
-export async function resetStaleKnowledgeAttempts(staleTimeMs = 5 * 60 * 1000) {
+export async function resetStaleKnowledgeAttempts(staleTimeMs = 5 * 60 * 1000, database = getLocalDb()) {
   const threshold = new Date(Date.now() - staleTimeMs).toISOString();
   
-  const syncingEvents = await db.knowledge_attempt_outbox
+  const syncingEvents = await database.knowledge_attempt_outbox
     .filter(event => (event.sync_status === 'syncing') && (event.created_locally_at < threshold))
     .toArray();
 
@@ -200,6 +200,6 @@ export async function resetStaleKnowledgeAttempts(staleTimeMs = 5 * 60 * 1000) {
   }));
 
   if (updates.length > 0) {
-    await db.knowledge_attempt_outbox.bulkPut(updates);
+    await database.knowledge_attempt_outbox.bulkPut(updates);
   }
 }

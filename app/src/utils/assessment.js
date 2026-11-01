@@ -1,4 +1,30 @@
 import { parseDeckMetadata } from './deckUtils.js';
+import { isValidAnswerEvaluationResult } from './freeTextEvaluationState.js';
+
+const validTargetRelevance = value => ['primary', 'secondary', 'none'].includes(value);
+
+export function assessmentTrainerEvidence(submission) {
+  const state = submission.state;
+  return { isCorrect: state.result.accepted, completed: true,
+    isFirstTry: true, attemptCount: 1, mistakeCount: state.result.accepted ? 0 : 1,
+    ...(submission.supportEvidence ? { supportEvidence: structuredClone(submission.supportEvidence),
+      taskSupport: structuredClone(submission.taskSupport) } : {}),
+    gradingSummary: { final_verdict: state.result.verdict,
+      error_types_seen: [...state.errorTypesSeen], error_codes_seen: [...state.errorCodesSeen] } };
+}
+
+// Assessment captures the first classified check, even when Classic would allow retries.
+export function assessmentFreeTextEvidence(result, support = {}) {
+  if (!isValidAnswerEvaluationResult(result) || result.verdict === 'unavailable') return null;
+  return { isCorrect: result.accepted, completed: true, isFirstTry: true,
+    attemptCount: 1, mistakeCount: result.accepted ? 0 : 1,
+    ...(support.supportEvidence ? { supportEvidence: structuredClone(support.supportEvidence),
+      ...(support.taskSupport ? { taskSupport: structuredClone(support.taskSupport) } : {}) } : {}),
+    gradingSummary: { final_verdict: result.verdict, final_evaluator: result.evaluator,
+      error_types_seen: result.error_type ? [result.error_type] : [],
+      error_codes_seen: result.error_code ? [result.error_code] : [],
+      ...(validTargetRelevance(result.target_relevance) ? { final_target_relevance: result.target_relevance } : {}) } };
+}
 
 export const readCardMetadata = card => {
   try { return typeof card.metadata === 'string' ? JSON.parse(card.metadata) : card.metadata || {}; }
@@ -59,11 +85,16 @@ export function recordAssessmentResult(session, cardId, evidence) {
   const card = session.cards[session.index];
   if (!card || card.id !== cardId || session.results[cardId]) return session;
   const skipped = evidence.skipped === true;
+  if (!skipped && evidence.gradingSummary?.final_verdict === 'unavailable') return session;
   const status = skipped ? 'skipped' : evidence.isCorrect === true ? 'correct' : 'incorrect';
   const result = { cardId, ordinal: session.index + 1, status,
     competencyIds: readCardMetadata(card).assessment.competency_ids,
     errorTypes: evidence.gradingSummary?.error_types_seen || [],
-    errorCodes: evidence.gradingSummary?.error_codes_seen || [], at: new Date().toISOString() };
+    errorCodes: evidence.gradingSummary?.error_codes_seen || [], at: new Date().toISOString(),
+    ...(!skipped && validTargetRelevance(evidence.gradingSummary?.final_target_relevance)
+      ? { targetRelevance: evidence.gradingSummary.final_target_relevance } : {}),
+    ...(!skipped && evidence.supportEvidence ? { supportEvidence: structuredClone(evidence.supportEvidence),
+      ...(evidence.taskSupport ? { taskSupport: structuredClone(evidence.taskSupport) } : {}) } : {}) };
   return { ...session, results: { ...session.results, [cardId]: result } };
 }
 
@@ -87,5 +118,9 @@ export function assessmentAttempt(session, result, knowledgeItemId) {
     evaluation_data: { schema_version: 3, evaluation_type: 'assessment', status: result.status,
       correct: result.status === 'correct', assessment: { session_id: session.id, deck_id: session.deckId,
         ordinal: result.ordinal, required_count: session.config.required_count, competency_ids: result.competencyIds },
-      error_types_seen: result.errorTypes, error_codes_seen: result.errorCodes } };
+      error_types_seen: result.errorTypes, error_codes_seen: result.errorCodes,
+      ...(result.status !== 'skipped' && validTargetRelevance(result.targetRelevance)
+        ? { target_relevance: result.targetRelevance } : {}),
+      ...(result.status !== 'skipped' && result.supportEvidence ? { support_evidence: structuredClone(result.supportEvidence),
+        ...(result.taskSupport ? { task_support: structuredClone(result.taskSupport) } : {}) } : {}) } };
 }
