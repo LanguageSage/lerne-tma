@@ -1,4 +1,5 @@
 import datetime
+import json
 import math
 import os
 import unittest
@@ -40,6 +41,38 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_trainer_scaffolding_and_support_do_not_reinterpret_word_order_mastery(self):
+        task_support = {'answer_options_present': False, 'source_text_present': True,
+                        'authored_example_present': False, 'sentence_frame_present': True,
+                        'source_vocabulary_present': True}
+        for plain in [hybrid(1, 'good'), hybrid(2, 'good'),
+                      {'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'correct', 'correct': True},
+                      {'schema_version': 3, 'evaluation_type': 'assessment', 'status': 'incorrect', 'correct': False}]:
+            for hints, translations in ((0, 0), (1, 2), (None, None)):
+                detailed = json.loads(json.dumps(plain))
+                detailed['card_type'] = 'trainer'
+                container = detailed['exercise_evidence'] if detailed['schema_version'] == 2 else detailed
+                container.update(task_support=task_support, support_evidence={'tracking_complete': False,
+                    'hint_count': hints, 'translation_view_count': translations, 'answer_reveal_count': None,
+                    'other_help_count': None, 'capture_point': 'exercise_completion' if detailed['schema_version'] == 2
+                    else 'first_assessment_result', 'answer_attempt_count': 1})
+                self.assertEqual(score_knowledge_attempt(detailed), score_knowledge_attempt(plain))
+
+    def test_support_facts_never_change_mastery_v1(self):
+        for plain in [self_rating('good'), hybrid(1, 'good'), hybrid(2, 'good'),
+                      {**hybrid(2, 'again'), 'exercise_evidence': {'auto_evaluated': True, 'completed': False}},
+                      *[{'schema_version': 3, 'evaluation_type': 'assessment', 'status': status,
+                         'correct': status == 'correct'} for status in ('correct', 'incorrect', 'skipped')]]:
+            for count in (None, 0, 1, 10):
+                detailed = json.loads(json.dumps(plain))
+                container = detailed['exercise_evidence'] if detailed['schema_version'] == 2 else detailed
+                container['support_evidence'] = {'tracking_complete': False, 'hint_count': count,
+                    'translation_view_count': count, 'answer_reveal_count': count, 'other_help_count': None,
+                    'capture_point': 'exercise_completion', 'answer_attempt_count': 1}
+                container['task_support'] = {'answer_options_present': True, 'sentence_frame_present': None,
+                    'source_vocabulary_present': None, 'source_text_present': True, 'authored_example_present': True}
+                self.assertEqual(score_knowledge_attempt(plain), score_knowledge_attempt(detailed))
+
     def test_assessment_target_relevance_never_changes_mastery_v1(self):
         for status in ('correct', 'incorrect', 'skipped'):
             plain = {'schema_version': 3, 'evaluation_type': 'assessment',

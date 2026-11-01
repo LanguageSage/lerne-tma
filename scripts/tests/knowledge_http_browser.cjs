@@ -1,4 +1,5 @@
-// Opt-in companion to run_knowledge_http_postgres.py. No API route fulfil/mocks.
+// Opt-in real Knowledge/auth/DB transport. Only the Free Text AI verdict is synthetic;
+// Trainer uses its actual deterministic checker.
 const { chromium } = require('@playwright/test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -68,6 +69,7 @@ async function main() {
       localStorage.setItem('offline_mode', 'false');
     }, fixture.a);
     const page = await context.newPage();
+    page.on('pageerror', error => console.error('Browser error:', error.message));
     await page.goto(fixture.web + '/knowledge-harness.html');
     await page.evaluate(async () => {
       const React = (await import('/node_modules/.vite/deps/react.js')).default;
@@ -237,16 +239,45 @@ async function main() {
     assert.equal(stateB.state_matches_rebuild, true);
     assert.equal(stateB.materialized_state.evidence_event_count, 1);
     results.browser_http_account_switch_late_response_replay = 'PASS';
-    // Synthetic evaluator result; actual state -> capture -> Dexie -> HTTP -> PostgreSQL.
+    // Actual Free Text clicks/feedback -> capture -> Dexie -> HTTP -> PostgreSQL.
+    // Only the checker is synthetic; it never calls an external AI provider.
+    let freeChecks = 0;
+    await page.route('**/api/ai/evaluate-answer', route => {
+      freeChecks++;
+      return route.fulfill({ json: { grading_policy: { max_retries: 3 }, result: freeChecks === 1
+        ? { verdict: 'needs_retry', accepted: false, evaluator: 'rules', hint: 'Synthetic informative hint' }
+        : { verdict: 'accepted_minor', accepted: true, evaluator: 'rules', target_relevance: 'secondary',
+          error_type: 'typo', error_code: 'synthetic.typo' } } });
+    });
+    await page.evaluate(async ({ cardA }) => {
+      const RefreshRuntime = (await import('/@react-refresh')).default;
+      RefreshRuntime.injectIntoGlobalHook(window);
+      window.$RefreshReg$ = () => {};
+      window.$RefreshSig$ = () => type => type;
+      window.__vite_plugin_react_preamble_installed__ = true;
+      const React = (await import('/node_modules/.vite/deps/react.js')).default;
+      const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+      const { ExerciseRenderer } = await import('/src/components/study/ExerciseRenderer.jsx');
+      const root = document.createElement('div'); root.id = 'free-ui'; document.body.append(root);
+      window.freeRoot = createRoot(root);
+      window.freeRoot.render(React.createElement(ExerciseRenderer, {
+        card: { id: cardA, front: '@free\nSynthetic prompt', back: 'Synthetic example' },
+        reviewKey: 'http-free-support', onSaveState: state => { window.freeSaved = state; },
+        onTrainerAnswer: (_cardId, evidence) => { window.freeEvidence = evidence; },
+      }));
+    }, fixture);
+    const freeInput = page.locator('#free-ui textarea');
+    await freeInput.fill('synthetic first');
+    await page.locator('#free-ui button[type=submit]').click();
+    await page.waitForFunction(() => window.freeSaved?.evaluationState?.supportState?.hint_count === 1);
+    await freeInput.fill('synthetic second');
+    await page.locator('#free-ui button[type=submit]').click();
+    await page.waitForFunction(() => window.freeSaved?.isCompleted === true && window.freeEvidence);
     const captured = await page.evaluate(async ({ cardA, deckA }) => {
       await (await import('/src/services/knowledgeContentService.js')).prepareDeckKnowledge(deckA);
-      const session = (await import('/src/utils/freeTextEvaluationState.js')).createFreeTextEvaluationSession();
-      await session.submit('synthetic answer', async () => ({ result: {
-        verdict: 'accepted_minor', accepted: true, evaluator: 'rules', target_relevance: 'secondary',
-        error_type: 'typo', error_code: 'synthetic.typo' } }));
       await (await import('/src/services/knowledgeCaptureService.js')).captureStudyKnowledgeAttempt({
         userId: (await import('/src/utils/auth.js')).getUserId(), card: { id: cardA, front: '@free\nSynthetic' },
-        grade: 2, exerciseEvidence: session.evidence() });
+        grade: 2, exerciseEvidence: window.freeEvidence });
       return (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray())[0];
     }, fixture);
     assert.match(captured.client_event_id, /^[a-f0-9-]+$/);
@@ -261,6 +292,10 @@ async function main() {
     const persisted = JSON.parse(sql(`SELECT evaluation_data FROM tma_knowledge_attempt WHERE user_id=${uidA} AND client_event_id='${captured.client_event_id}'`));
     assert.deepEqual(persisted, captured.evaluation_data);
     assert.equal(persisted.exercise_evidence.grading_summary.final_target_relevance, 'secondary');
+    assert.equal(persisted.exercise_evidence.support_evidence.hint_count, 1);
+    assert.equal(persisted.exercise_evidence.support_evidence.translation_view_count, null);
+    assert.equal(persisted.exercise_evidence.support_evidence.tracking_complete, false);
+    assert.equal(persisted.exercise_evidence.support_evidence.answer_attempt_count, 2);
     assert.equal((await state()).materialized_state.evidence_event_count, rawBefore + 1);
     const afterCapture = (await state()).materialized_state;
     assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [captured] })).results[0].status, 'duplicate');
@@ -269,7 +304,13 @@ async function main() {
     changed.evaluation_data.exercise_evidence.grading_summary.final_target_relevance = 'primary';
     assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [changed] })).results[0].status, 'event_conflict');
     assert.deepEqual((await state()).materialized_state, afterCapture);
+    const changedSupport = structuredClone(captured);
+    changedSupport.evaluation_data.exercise_evidence.support_evidence.hint_count++;
+    assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [changedSupport] })).results[0].status, 'event_conflict');
+    assert.deepEqual((await state()).materialized_state, afterCapture);
     results.free_text_final_target_relevance_raw_postgres = 'PASS';
+    results.free_text_support_ui_raw_postgres = 'PASS';
+    await page.evaluate(() => window.freeRoot.unmount());
 
     // Classified Free Text -> Assessment conversion -> durable v3 -> real HTTP/PG.
     const assessmentBefore = (await state()).materialized_state;
@@ -282,16 +323,18 @@ async function main() {
       const fresh = id => ({ id, userId, deckId: deckA, index: 0, results: {}, config: { required_count: 1 },
         cards: [{ id: cardA, metadata: { assessment: { competency_ids: ['synthetic'] } } }] });
       for (const [index, relevance] of ['primary', 'secondary', 'none', 'unknown'].entries()) {
-        const checker = createFreeTextEvaluationSession();
+        const checker = createFreeTextEvaluationSession(undefined, { trackSupport: true, assessmentMode: true });
+        checker.recordSupport('hint_count');
         await checker.submit('first synthetic answer', async () => ({ result: {
           verdict: 'needs_retry', accepted: false, evaluator: 'ai', target_relevance: relevance,
           error_type: 'grammar', error_code: 'synthetic.grammar' } }));
         const first = recordAssessmentResult(fresh(`http-assessment-${index}`), cardA,
-          assessmentFreeTextEvidence(checker.snapshot().result));
+          assessmentFreeTextEvidence(checker.snapshot().result, checker.supportFields()));
         // Later accepted check must not replace the first result/relevance.
+        checker.recordSupport('hint_count');
         await checker.submit('second synthetic answer', async () => ({ result: {
           verdict: 'correct', accepted: true, evaluator: 'ai', target_relevance: 'primary' } }));
-        const later = recordAssessmentResult(first, cardA, assessmentFreeTextEvidence(checker.snapshot().result));
+        const later = recordAssessmentResult(first, cardA, assessmentFreeTextEvidence(checker.snapshot().result, checker.supportFields()));
         await saveAssessment(later, later.results[cardA]);
       }
       const unavailable = assessmentFreeTextEvidence({ verdict: 'unavailable', accepted: false, target_relevance: 'primary' });
@@ -306,6 +349,11 @@ async function main() {
     for (const event of assessmentEvents) {
       assert.equal(event.client_event_id, `${event.evaluation_data.assessment.session_id}:${fixture.cardA}`);
       assert.equal(event.evaluation_data.schema_version, 3);
+      if (/http-assessment-[0-3]:/.test(event.client_event_id)) {
+        assert.equal(event.evaluation_data.support_evidence.hint_count, 1);
+        assert.equal(event.evaluation_data.support_evidence.answer_attempt_count, 1);
+        assert.equal(event.evaluation_data.support_evidence.capture_point, 'first_assessment_result');
+      } else assert.equal(Object.hasOwn(event.evaluation_data, 'support_evidence'), false);
       if (/http-assessment-[0-2]:/.test(event.client_event_id)) {
         assert.equal(event.evaluation_data.target_relevance, ['primary', 'secondary', 'none'][Number(event.evaluation_data.assessment.session_id.slice(-1))]);
         assert.equal(event.evaluation_data.status, 'incorrect');
@@ -344,6 +392,139 @@ async function main() {
     assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [invalid] })).results[0].error_code, 'invalid_assessment_evidence');
     assert.deepEqual((await state()).materialized_state, assessmentAfter);
     results.assessment_target_relevance_offline_raw_postgres = 'PASS';
+    results.assessment_support_offline_raw_postgres = 'PASS';
+
+    // Actual deterministic Trainer UI -> immutable v2/v3 -> real HTTP/PostgreSQL.
+    const trainerBefore = (await state()).materialized_state;
+    const trainerReviews = Number(sql(`SELECT COUNT(*) FROM tmareviewhistory WHERE user_id=${uidA}`));
+    await page.evaluate(async () => {
+      const React = (await import('/node_modules/.vite/deps/react.js')).default;
+      const { createRoot } = (await import('/node_modules/.vite/deps/react-dom_client.js')).default;
+      const { ExerciseRenderer } = await import('/src/components/study/ExerciseRenderer.jsx');
+      const host = document.createElement('div'); host.id = 'trainer-ui'; document.body.append(host);
+      const root = createRoot(host);
+      window.mountHttpTrainer = (card, assessmentMode, key) => {
+        window.httpTrainerSaved = null; window.httpTrainerAnswers = [];
+        root.render(React.createElement(ExerciseRenderer, { key, reviewKey: key, card, assessmentMode,
+          onSaveState: state => { window.httpTrainerSaved = state; },
+          onTrainerAnswer: (_id, evidence) => window.httpTrainerAnswers.push(evidence) }));
+      };
+      window.unmountHttpTrainer = () => root.unmount();
+    });
+    const trainerCard = { id: fixture.cardA, deck_id: fixture.deckA, front: 'Visible {*A|B} [[form]].',
+      back: 'Synthetic translation', metadata: { assessment: { competency_ids: ['synthetic'] } } };
+    for (const version of [2, 3]) {
+      await page.evaluate(({ card, version }) => window.mountHttpTrainer(card, version === 3, `trainer-http-${version}`), { card: trainerCard, version });
+      await page.locator('#trainer-ui .trainer-choice-gap').click();
+      await page.getByRole('dialog').getByRole('button', { name: 'B', exact: true }).click();
+      if (version === 2) await page.locator('#trainer-ui .trainer-toggle-trans-btn').click();
+      else assert.equal(await page.locator('#trainer-ui .trainer-toggle-trans-btn').count(), 0);
+      await page.locator('#trainer-ui input[type=text]').fill('wrong');
+      await page.locator('#trainer-ui .trainer-footer-action').click();
+      await page.waitForFunction(() => window.httpTrainerSaved?.evaluationState.supportState.hint_count === 2);
+      if (version === 2) {
+        assert.equal(await page.evaluate(() => window.httpTrainerAnswers.length), 0);
+        await page.locator('#trainer-ui .trainer-choice-gap').click();
+        await page.getByRole('dialog').getByRole('button', { name: 'A', exact: true }).click();
+        await page.locator('#trainer-ui input[type=text]').fill('form');
+        await page.locator('#trainer-ui .trainer-footer-action').click();
+      }
+      await page.waitForFunction(() => window.httpTrainerAnswers.length === 1);
+      await page.evaluate(async ({ card, version, userId }) => {
+        const evidence = window.httpTrainerAnswers[0];
+        if (version === 2) {
+          await (await import('/src/services/knowledgeCaptureService.js')).captureStudyKnowledgeAttempt({
+            userId, card, grade: 2, exerciseEvidence: evidence });
+        } else {
+          const { recordAssessmentResult } = await import('/src/utils/assessment.js');
+          const first = recordAssessmentResult({ id: 'http-trainer-support', userId, deckId: card.deck_id,
+            index: 0, cards: [card], results: {}, config: { required_count: 1 } }, card.id, evidence);
+          const later = recordAssessmentResult(first, card.id, { isCorrect: true });
+          await (await import('/src/services/assessmentService.js')).saveAssessment(later, later.results[card.id]);
+        }
+      }, { card: trainerCard, version, userId: fixture.a.profile.user_id });
+    }
+    const trainerEvents = await page.evaluate(async () => (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray()));
+    assert.equal(trainerEvents.length, 2);
+    for (const event of trainerEvents) {
+      const isV2 = event.evaluation_data.schema_version === 2;
+      const payload = isV2 ? event.evaluation_data.exercise_evidence : event.evaluation_data;
+      assert.deepEqual(payload.support_evidence, { tracking_complete: false, hint_count: isV2 ? 2 : 0,
+        translation_view_count: isV2 ? 1 : 0, answer_reveal_count: null, other_help_count: null,
+        capture_point: isV2 ? 'exercise_completion' : 'first_assessment_result', answer_attempt_count: isV2 ? 2 : 1 });
+      assert.equal(payload.task_support.sentence_frame_present, true);
+      assert.equal(payload.task_support.source_vocabulary_present, true);
+    }
+    await context.setOffline(true);
+    assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+      (await import('/src/utils/auth.js')).getUserId()))).transportFailed, true);
+    await page.evaluate(async () => { const db = await import('/src/services/localDb.js'); db.closeLocalDb(); await db.getLocalDb().open(); });
+    assert.equal(await countQueue(), 2);
+    await context.setOffline(false);
+    assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+      (await import('/src/utils/auth.js')).getUserId()))).succeededCount, 2);
+    const trainerAfter = (await state()).materialized_state;
+    assert.equal(trainerAfter.evidence_event_count, trainerBefore.evidence_event_count + 2);
+    assert.ok(Math.abs(trainerAfter.positive_evidence - trainerBefore.positive_evidence - .79) < 1e-10);
+    assert.ok(Math.abs(trainerAfter.negative_evidence - trainerBefore.negative_evidence - 1.21) < 1e-10);
+    assert.equal(Number(sql(`SELECT COUNT(*) FROM tmareviewhistory WHERE user_id=${uidA}`)), trainerReviews);
+    for (const event of trainerEvents) {
+      const raw = JSON.parse(sql(`SELECT evaluation_data FROM tma_knowledge_attempt WHERE user_id=${uidA} AND client_event_id='${event.client_event_id}'`));
+      assert.deepEqual(raw, event.evaluation_data);
+      assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [event] })).results[0].status, 'duplicate');
+      assert.equal((await request(fixture.b, '/knowledge/attempts/sync', { attempts: [event] })).results[0].status, 'rejected');
+      const changed = structuredClone(event);
+      (changed.evaluation_data.schema_version === 2 ? changed.evaluation_data.exercise_evidence : changed.evaluation_data).support_evidence.hint_count++;
+      assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [changed] })).results[0].status, 'event_conflict');
+      assert.deepEqual(JSON.parse(sql(`SELECT evaluation_data FROM tma_knowledge_attempt WHERE user_id=${uidA} AND client_event_id='${event.client_event_id}'`)), raw);
+    }
+    assert.deepEqual((await state()).materialized_state, trainerAfter);
+    assert.equal((await state()).state_matches_rebuild, true);
+    results.trainer_support_v2_v3_ui_offline_raw_postgres = 'PASS';
+
+    if (fixture.d14Support) {
+      for (const card of fixture.d14Support) {
+        number(card.id); number(card.deck_id);
+        await page.evaluate(async card => {
+          await (await import('/src/services/knowledgeContentService.js')).prepareDeckKnowledge(card.deck_id);
+          window.mountHttpTrainer(card, true, `d14-${card.sourceId}`);
+        }, card);
+        const gapData = await page.evaluate(async card => (await import('/src/utils/clozeParser.js')).parseClozeData(card, 'classic'), card);
+        for (const gap of gapData.gaps) {
+          if (gap.mode === 'choice') {
+            await page.locator('#trainer-ui .trainer-choice-gap').click();
+            await page.getByRole('dialog').getByRole('button', { name: gap.correctAnswer, exact: true }).click();
+          } else await page.locator('#trainer-ui input[type=text]').fill(gap.correctAnswer);
+        }
+        await page.locator('#trainer-ui .trainer-footer-action').click();
+        await page.waitForFunction(() => window.httpTrainerAnswers.length === 1);
+        const [event] = await page.evaluate(async ({ card, userId }) => {
+          const { recordAssessmentResult } = await import('/src/utils/assessment.js');
+          const session = recordAssessmentResult({ id: `http-d14-${card.sourceId}`, userId, deckId: card.deck_id,
+            cards: [card], index: 0, results: {}, config: { required_count: 1 } }, card.id, window.httpTrainerAnswers[0]);
+          await (await import('/src/services/assessmentService.js')).saveAssessment(session, session.results[card.id]);
+          const db = (await import('/src/services/localDb.js')).getLocalDb();
+          return db.knowledge_attempt_outbox.toArray();
+        }, { card, userId: fixture.a.profile.user_id });
+        const evidence = event.evaluation_data;
+        assert.equal(evidence.correct, true);
+        assert.equal(evidence.task_support.answer_options_present, card.sourceId === 358365);
+        assert.equal(evidence.task_support.source_text_present, card.sourceId === 358385);
+        assert.equal(evidence.task_support.sentence_frame_present, true);
+        assert.equal(evidence.task_support.source_vocabulary_present, true);
+        assert.equal(evidence.support_evidence.tracking_complete, false);
+        assert.equal(Object.hasOwn(evidence, 'independent'), false);
+        assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+          (await import('/src/utils/auth.js')).getUserId()))).succeededCount, 1);
+        const raw = JSON.parse(sql(`SELECT evaluation_data FROM tma_knowledge_attempt WHERE user_id=${uidA} AND client_event_id='${event.client_event_id}'`));
+        assert.deepEqual(raw, evidence);
+        assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [event] })).results[0].status, 'duplicate');
+        assert.equal((await request(fixture.b, '/knowledge/attempts/sync', { attempts: [event] })).results[0].status, 'rejected');
+      }
+      assert.equal((await state()).state_matches_rebuild, true);
+      results.d14_trainer_local_clones_raw_postgres = 'PASS';
+    }
+    await page.evaluate(() => window.unmountHttpTrainer());
     console.log('PASS: account switch, late real HTTP response and durable replay');
   } finally {
     if (release) await release();

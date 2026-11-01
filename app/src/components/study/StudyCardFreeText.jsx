@@ -9,6 +9,7 @@ import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { assessmentFreeTextEvidence } from '../../utils/assessment.js';
+import { freeTextTaskSupport } from '../../utils/supportEvidence.js';
 import { useSettingsStore } from '../../store/useSettingsStore.js';
 import './StudyCardFreeText.css';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
@@ -18,6 +19,7 @@ export const StudyCardFreeText = React.memo(({
   isPureTrainerMode = false, savedState, onSaveState, reviewKey,
   designConfig,
   assessmentMode = false,
+  supportHistoryUnknown = false,
 }) => {
   useInterfaceLocale();
   const currentKey = reviewKey ?? (card?.id != null ? String(card.id) : null);
@@ -26,8 +28,10 @@ export const StudyCardFreeText = React.memo(({
   const [showExample, setShowExample] = useState(savedState?.showExample || false);
   const isAdmin = useSettingsStore(s => s.isAdmin);
   const [diagnosticsEnabled, setDiagnosticsEnabled] = useState(false);
-  const { state, submit, evidence, diagnostics } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey,
-    null, isAdmin && diagnosticsEnabled);
+  const { state, submit, recordSupport, evidence, diagnostics } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey,
+    null, isAdmin && diagnosticsEnabled, { trackSupport: Boolean(freeTextData), assessmentMode,
+      supportHistoryUnknown, taskSupport: freeTextTaskSupport(card) });
+  const feedbackSeen = useRef({ key: currentKey, count: savedState?.evaluationState?.attemptCount ?? 0 });
   const reported = useRef(Boolean(savedState?.isCompleted));
   const submitting = useRef(false);
   const dictationBase = useRef('');
@@ -68,11 +72,23 @@ export const StudyCardFreeText = React.memo(({
   }, [userInput, showExample, isCompleted, state, onSaveState]);
 
   useEffect(() => {
-    if (evidence && !reported.current) {
+    if (!assessmentMode && evidence && !reported.current) {
       reported.current = true;
       onTrainerAnswer?.(card?.id, evidence);
     }
-  }, [evidence, onTrainerAnswer, card?.id]);
+  }, [assessmentMode, evidence, onTrainerAnswer, card?.id]);
+
+  // Count actual rendered informative feedback once, not requests, rerenders or unavailable checks.
+  useEffect(() => {
+    if (feedbackSeen.current.key !== currentKey) {
+      feedbackSeen.current = { key: currentKey, count: savedState?.evaluationState?.attemptCount ?? 0 };
+    }
+    if (state.attemptCount <= feedbackSeen.current.count) return;
+    feedbackSeen.current.count = state.attemptCount;
+    if (['needs_retry', 'incorrect'].includes(result?.verdict) && (result.hint || result.explanation)) {
+      recordSupport('hint_count');
+    }
+  }, [currentKey, savedState?.evaluationState?.attemptCount, state.attemptCount, result, recordSupport]);
 
   if (!card || (!freeTextData && !editableTextData)) return null;
   const isEditable = Boolean(editableTextData);
@@ -97,7 +113,7 @@ export const StudyCardFreeText = React.memo(({
     submitting.current = false;
     if (!outcome) return;
     if (assessmentMode) {
-      const firstEvidence = assessmentFreeTextEvidence(outcome.result);
+      const firstEvidence = assessmentFreeTextEvidence(outcome.result, outcome);
       if (firstEvidence) {
         reported.current = true;
         onTrainerAnswer?.(card.id, firstEvidence);
@@ -198,7 +214,10 @@ export const StudyCardFreeText = React.memo(({
         </details>}
       </div>}
       {canShowExample && exampleAnswer && <button type="button" className="btn free-text-action"
-        onClick={() => { setShowExample(value => !value); triggerHaptic('light'); }}>
+        onClick={() => {
+          if (!showExample) recordSupport('answer_reveal_count');
+          setShowExample(value => !value); triggerHaptic('light');
+        }}>
         <Eye size={16} />{showExample ? tr('Скрыть пример ответа') : tr('Показать пример ответа')}
       </button>}
       {showExample && canShowExample && <div className="free-text-example" style={contextStyle}>

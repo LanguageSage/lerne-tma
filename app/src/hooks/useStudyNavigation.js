@@ -47,7 +47,8 @@ export function useStudyNavigation() {
         await prepareAssessmentKnowledge(deck.id);
         const saved = await loadAssessment(assessment.userId, deck.id);
         const resume = canResumeAssessment(saved, assessment);
-        const active = resume ? saved : assessment;
+        // An unfinished card's in-memory help history did not survive leaving the view.
+        const active = resume ? { ...saved, supportHistoryUnknownCardId: saved.cards[saved.index]?.id } : assessment;
         await saveAssessment(active);
         useSessionStore.getState().setAssessment(active);
         return;

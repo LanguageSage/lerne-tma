@@ -190,6 +190,10 @@ test('real renderer reports only cumulative success, preserves counters on remou
   await page.getByRole('button', { name: 'Check answers', exact: true }).click();
   expect(await page.evaluate(() => window.feedbackTest.answers)).toEqual([{
     isCorrect: true, completed: true, isFirstTry: false, attemptCount: 2, mistakeCount: 1,
+    supportEvidence: { tracking_complete: false, hint_count: 1, translation_view_count: 0,
+      answer_reveal_count: null, other_help_count: null, capture_point: 'exercise_completion', answer_attempt_count: 2 },
+    taskSupport: { answer_options_present: false, source_text_present: false, authored_example_present: false,
+      sentence_frame_present: true, source_vocabulary_present: false },
     gradingSummary: { final_verdict: 'correct', error_types_seen: ['other'],
       error_codes_seen: ['exercise.input_mismatch'], incorrect_parts: ['1'], final_evaluator: 'rules' },
   }]);

@@ -87,6 +87,13 @@ test('actual D14 entry, one attempt, skips, 46-core score, skill evidence and pe
   expect(evidence.every(e => e.schema_version === 3 && e.assessment.competency_ids.length === 1)).toBe(true);
   for (const [index, card] of cards.entries()) {
     const data = evidence.find(e => e.assessment.ordinal === index + 1);
+    if ([358365, 358375, 358385].includes(card.id)) {
+      expect(data.support_evidence).toEqual({ tracking_complete: false, hint_count: 0, translation_view_count: 0,
+        answer_reveal_count: null, other_help_count: null, capture_point: 'first_assessment_result', answer_attempt_count: 1 });
+      expect(data.task_support).toMatchObject({ answer_options_present: card.id === 358365,
+        sentence_frame_present: true, source_vocabulary_present: true, source_text_present: card.id === 358385 });
+      expect(data.status).toBe('incorrect');
+    }
     if (index < 46 && detectExerciseType(card) === 'free_text') {
       expect(data.target_relevance).toBe(wrong.has(card.id) ? 'secondary' : 'primary');
     } else expect(Object.hasOwn(data, 'target_relevance')).toBe(false);

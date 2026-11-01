@@ -8,6 +8,7 @@ from peewee import IntegrityError
 from api.dependencies.auth import get_user_id
 from api import models
 from api.services import knowledge_diagnostics
+from api.services.knowledge_support import valid_support_fields
 from api.services.knowledge_mastery import (
     apply_created_attempt, knowledge_transaction, lock_knowledge_pair, normalize_event_time,
 )
@@ -199,6 +200,11 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
                     status='rejected', error_code='invalid_assessment_evidence'))
                 continue
         
+        if not valid_support_fields(item.evaluation_data or {}):
+            results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
+                status='rejected', error_code='invalid_support_evidence'))
+            continue
+
         try:
             with knowledge_transaction():
                 lock_knowledge_pair(user_id, item.knowledge_item_id)

@@ -1,3 +1,5 @@
+import { createSupportSession, captureSupportEvidence } from './supportEvidence.js';
+
 /** One owner of educational attempts. Transport failures and duplicate submits never count. */
 export const isValidAnswerEvaluationResult = result => (
   ['correct', 'accepted_minor', 'needs_retry', 'incorrect', 'unavailable'].includes(result?.verdict)
@@ -9,19 +11,33 @@ export const canRevealFreeTextAnswer = state => Boolean(!state?.loading && (
   || (state?.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries)
 ));
 
-export function createFreeTextEvaluationSession(initial = {}) {
+export function createFreeTextEvaluationSession(initial = {}, {
+  trackSupport = false, assessmentMode = false, taskSupport, supportHistoryUnknown = false,
+} = {}) {
+  // Legacy/restored progress has an unobserved prefix. Never synthesize zeroes for it.
+  const restored = initial && Object.keys(initial).length > 0;
+  const support = trackSupport ? createSupportSession(initial?.supportState,
+    restored || supportHistoryUnknown ? [] : ['hint_count', 'answer_reveal_count']) : null;
   let state = {
     attemptCount: 0, mistakeCount: 0, result: null, lastAnswer: null,
-    gradingPolicy: null, errors: [], ...initial, loading: false,
+    gradingPolicy: null, errors: [], ...structuredClone(initial), loading: false,
   };
-  const snapshot = () => ({ ...state, errors: [...state.errors] });
+  const snapshot = () => structuredClone({ ...state, errors: [...state.errors],
+    ...(support ? { supportState: support.snapshot() } : {}) });
+  const supportFields = () => state.answerSupportEvidence ? {
+    supportEvidence: structuredClone(state.answerSupportEvidence),
+    ...(state.taskSupport ? { taskSupport: structuredClone(state.taskSupport) } : {}),
+  } : {};
   return {
     snapshot,
+    recordSupport(kind) { support?.record(kind); },
+    supportFields,
     async submit(answer, evaluate) {
       if (state.loading || state.result?.accepted
         || (typeof answer === 'string' && !answer.trim())
         || (state.gradingPolicy && state.attemptCount >= state.gradingPolicy.max_retries)
         || (answer === state.lastAnswer && state.result?.verdict !== 'unavailable')) return null;
+      const supportBeforeAnswer = support?.snapshot();
       state = { ...state, loading: true };
       try {
         if (typeof answer !== 'string') throw new TypeError('Invalid answer');
@@ -42,6 +58,14 @@ export function createFreeTextEvaluationSession(initial = {}) {
               type: result.error_type, code: result.error_code,
               minor: result.verdict === 'accepted_minor',
             }] : state.errors,
+          };
+          // Freeze before this check's feedback is displayed. Later help cannot rewrite it.
+          const terminal = result.accepted || (state.gradingPolicy
+            && state.attemptCount >= state.gradingPolicy.max_retries);
+          if (supportBeforeAnswer && (assessmentMode ? !state.answerSupportEvidence : terminal)) state = { ...state,
+            answerSupportEvidence: captureSupportEvidence(supportBeforeAnswer,
+              assessmentMode ? 'first_assessment_result' : 'exercise_completion', state.attemptCount),
+            taskSupport: structuredClone(taskSupport),
           };
         }
       } catch (error) {
@@ -64,6 +88,7 @@ export function createFreeTextEvaluationSession(initial = {}) {
           attemptCount: state.attemptCount,
           mistakeCount: state.mistakeCount,
           completed: true,
+          ...supportFields(),
           gradingSummary: {
             final_verdict: state.result.verdict,
             error_types_seen: [...new Set(state.errors.map(e => e.type))],
@@ -89,6 +114,7 @@ export function createFreeTextEvaluationSession(initial = {}) {
           attemptCount: state.attemptCount,
           mistakeCount: state.mistakeCount,
           completed: false,
+          ...supportFields(),
           gradingSummary: {
             final_verdict: state.result.verdict,
             error_types_seen: [...new Set(state.errors.map(e => e.type))],

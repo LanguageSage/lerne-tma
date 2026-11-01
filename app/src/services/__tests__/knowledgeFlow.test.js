@@ -15,6 +15,13 @@ const { syncKnowledgeAttempts } = await import('../knowledgeSyncService.js');
 const { enqueueKnowledgeAttempt, resetStaleKnowledgeAttempts } = await import('../knowledgeDbService.js');
 const { saveAssessment, loadAssessment } = await import('../assessmentService.js');
 const { assessmentFreeTextEvidence, recordAssessmentResult } = await import('../../utils/assessment.js');
+const { createFreeTextEvaluationSession } = await import('../../utils/freeTextEvaluationState.js');
+const { freeTextTaskSupport } = await import('../../utils/supportEvidence.js');
+const { trainerTaskSupport } = await import('../../utils/supportEvidence.js');
+const { createExerciseEvaluationSession } = await import('../../utils/exerciseEvaluation.js');
+const { parseClozeData } = await import('../../utils/clozeParser.js');
+const { evaluateTrainerGaps } = await import('../../utils/trainerEvaluation.js');
+const { assessmentTrainerEvidence } = await import('../../utils/assessment.js');
 
 const content = (ki = 10) => ({ card_ids: [1, 2], knowledge_items: [{ id: ki, name: 'Synthetic skill' }],
   card_knowledge_items: [{ card_id: 1, knowledge_item_id: ki, role: 'primary' }] });
@@ -123,6 +130,58 @@ test('Assessment save leaves frozen annotated and old unannotated payloads uncha
   }
 });
 
+test('v2/v3 support survives offline, database reopen, account switch, conflict and duplicate replay', async () => {
+  await prepareDeckKnowledge(5);
+  const card = { id: 1, front: '@free\nSynthetic prompt' };
+  for (const version of [2, 3]) {
+    const checker = createFreeTextEvaluationSession(undefined, { trackSupport: true,
+      assessmentMode: version === 3, taskSupport: freeTextTaskSupport(card) });
+    checker.recordSupport('hint_count');
+    await checker.submit('synthetic', async () => ({ result: { verdict: 'correct', accepted: true } }));
+    if (version === 2) {
+      const evidence = checker.evidence();
+      const saving = captureStudyKnowledgeAttempt({ userId, card, grade: 2, exerciseEvidence: evidence });
+      evidence.supportEvidence.hint_count = 99; // Mutation while mapping lookup is in flight.
+      await saving;
+    } else {
+      const evidence = assessmentFreeTextEvidence(checker.snapshot().result, checker.supportFields());
+      const session = recordAssessmentResult({ ...assessment('none'), results: {} }, 1, evidence);
+      await saveAssessment(session, session.results[1]);
+      evidence.supportEvidence.hint_count = 99;
+    }
+    const [frozen] = await localDb.getLocalDb().knowledge_attempt_outbox.toArray();
+    const container = version === 2 ? frozen.evaluation_data.exercise_evidence : frozen.evaluation_data;
+    assert.equal(container.support_evidence.hint_count, 1);
+    assert.equal(container.support_evidence.translation_view_count, null);
+    assert.equal(container.support_evidence.tracking_complete, false);
+    checker.recordSupport('answer_reveal_count');
+    api.post.mock.mockImplementation(async () => { throw new Error('Offline'); });
+    assert.equal((await syncKnowledgeAttempts('1')).transportFailed, true);
+    localDb.closeLocalDb();
+    const database = localDb.getLocalDb();
+    assert.deepEqual((await database.knowledge_attempt_outbox.toArray())[0].evaluation_data, frozen.evaluation_data);
+    userId = '2';
+    assert.equal((await syncKnowledgeAttempts('1')).selectedCount, 0);
+    assert.equal(await localDb.getLocalDb().knowledge_attempt_outbox.count(), 0);
+    userId = '1';
+    api.post.mock.mockImplementation(async (_url, body) => {
+      assert.deepEqual(body.attempts[0].evaluation_data, frozen.evaluation_data);
+      return { data: { results: [{ client_event_id: frozen.client_event_id, status: 'event_conflict' }] } };
+    });
+    await syncKnowledgeAttempts('1');
+    const conflicted = await database.knowledge_attempt_outbox.get(frozen.client_event_id);
+    assert.deepEqual(conflicted.evaluation_data, frozen.evaluation_data);
+    // A conflict is retained as failed; an explicit diagnostic retry changes transport state only.
+    await database.knowledge_attempt_outbox.update(frozen.client_event_id, { sync_status: 'pending' });
+    api.post.mock.mockImplementation(async (_url, body) => {
+      assert.deepEqual(body.attempts[0].evaluation_data, frozen.evaluation_data);
+      return { data: { results: [{ client_event_id: frozen.client_event_id, status: 'duplicate' }] } };
+    });
+    assert.equal((await syncKnowledgeAttempts('1')).succeededCount, 1);
+    assert.equal(await database.knowledge_attempt_outbox.count(), 0);
+  }
+});
+
 test('offline without KI or with mapping but missing KI creates no evidence', async () => {
   navigator.onLine = false;
   await prepareDeckKnowledge(5);
@@ -206,6 +265,69 @@ test('late sync acknowledgement deletes only the sending account event with the 
   await syncing;
   assert.equal(await original.knowledge_attempt_outbox.count(), 0);
   assert.equal((await current.knowledge_attempt_outbox.get('same-id')).sync_status, 'pending');
+});
+
+test('Trainer v2/v3 frozen support survives offline/reopen/conflict and late acknowledgement across accounts', async () => {
+  await prepareDeckKnowledge(5);
+  const card = { id: 1, front: 'Visible [[form]].', back: 'Synthetic translation',
+    metadata: { assessment: { competency_ids: ['synthetic'] } } };
+  const cloze = parseClozeData(card, 'classic');
+  for (const version of [2, 3]) {
+    const owner = createExerciseEvaluationSession(undefined, { trackSupport: true, assessmentMode: version === 3,
+      taskSupport: trainerTaskSupport(card, cloze) });
+    owner.recordSupport('translation_view_count');
+    owner.check(evaluateTrainerGaps(cloze.gaps, { 0: 'wrong' }));
+    let session;
+    if (version === 2) {
+      owner.recordSupport('hint_count');
+      owner.check(evaluateTrainerGaps(cloze.gaps, { 0: 'form' }));
+      await captureStudyKnowledgeAttempt({ userId, card, grade: 2, exerciseEvidence: owner.evidence() });
+    } else {
+      const submission = { state: owner.snapshot(), ...owner.supportFields() };
+      const evidence = assessmentTrainerEvidence(submission);
+      session = recordAssessmentResult({ id: 'trainer-flow', userId: 1, deckId: 5, index: 0,
+        results: {}, config: { required_count: 1 }, cards: [card] }, 1, evidence);
+      await saveAssessment(session, session.results[1]);
+      owner.recordSupport('hint_count');
+      owner.check(evaluateTrainerGaps(cloze.gaps, { 0: 'form' }));
+      const later = recordAssessmentResult(session, 1, assessmentTrainerEvidence({ state: owner.snapshot(), ...owner.supportFields() }));
+      await saveAssessment(later, later.results[1]);
+    }
+    const [frozen] = await localDb.getLocalDb().knowledge_attempt_outbox.toArray();
+    const payload = version === 2 ? frozen.evaluation_data.exercise_evidence : frozen.evaluation_data;
+    assert.equal(payload.support_evidence.hint_count, version === 2 ? 1 : 0);
+    assert.equal(payload.support_evidence.translation_view_count, 1);
+    assert.equal(payload.support_evidence.answer_reveal_count, null);
+    assert.equal(payload.task_support.sentence_frame_present, true);
+    api.post.mock.mockImplementation(async () => { throw new Error('Offline'); });
+    assert.equal((await syncKnowledgeAttempts('1')).transportFailed, true);
+    localDb.closeLocalDb();
+    const original = localDb.getLocalDb();
+    assert.deepEqual((await original.knowledge_attempt_outbox.toArray())[0].evaluation_data, frozen.evaluation_data);
+    api.post.mock.mockImplementation(async () => ({ data: { results: [{ client_event_id: frozen.client_event_id, status: 'event_conflict' }] } }));
+    await syncKnowledgeAttempts('1');
+    assert.deepEqual((await original.knowledge_attempt_outbox.get(frozen.client_event_id)).evaluation_data, frozen.evaluation_data);
+    await original.knowledge_attempt_outbox.update(frozen.client_event_id, { sync_status: 'pending' });
+    const sent = deferred(), response = deferred();
+    api.post.mock.mockImplementation((_url, body) => {
+      assert.deepEqual(body.attempts[0].evaluation_data, frozen.evaluation_data);
+      sent.resolve(); return response.promise;
+    });
+    const syncing = syncKnowledgeAttempts('1');
+    await sent.promise;
+    userId = '2';
+    const current = localDb.getLocalDb();
+    await enqueueKnowledgeAttempt({ ...frozen, user_id: '2', sync_status: 'pending' });
+    if (session) await assert.rejects(saveAssessment(session, session.results[1]), /Account changed/);
+    response.resolve({ data: { results: [{ client_event_id: frozen.client_event_id, status: 'duplicate' }] } });
+    await syncing;
+    assert.equal(await original.knowledge_attempt_outbox.count(), 0);
+    const isolated = await current.knowledge_attempt_outbox.get(frozen.client_event_id);
+    assert.equal(isolated.sync_status, 'pending');
+    assert.deepEqual(isolated.evaluation_data, frozen.evaluation_data);
+    await current.knowledge_attempt_outbox.clear();
+    userId = '1';
+  }
 });
 
 test('account switch after selection cancels sending and restores the original queue', async () => {

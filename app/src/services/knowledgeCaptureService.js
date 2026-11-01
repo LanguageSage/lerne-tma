@@ -17,6 +17,10 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
 
   try {
     const database = getLocalDb();
+    const supportFields = exerciseEvidence?.supportEvidence ? {
+      support_evidence: structuredClone(exerciseEvidence.supportEvidence),
+      ...(exerciseEvidence.taskSupport ? { task_support: structuredClone(exerciseEvidence.taskSupport) } : {}),
+    } : {};
     const primaryKi = await getPrimaryKnowledgeItemForCard(card.id, database);
     if (!primaryKi) {
       console.log(`[KnowledgeCapture] no_primary_knowledge_item for card ${card.id}`);
@@ -48,6 +52,7 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
           attempt_count: exerciseEvidence.attemptCount,
           mistake_count: exerciseEvidence.mistakeCount,
           partial_score: null,
+          ...supportFields,
           ...(exerciseEvidence.gradingSummary ? { grading_summary: exerciseEvidence.gradingSummary } : {})
         }
       };

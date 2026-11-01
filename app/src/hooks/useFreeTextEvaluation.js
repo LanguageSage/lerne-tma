@@ -2,11 +2,11 @@ import { useEffect, useRef, useState } from 'react';
 import { createFreeTextEvaluationSession } from '../utils/freeTextEvaluationState.js';
 import { evaluateFreeTextAnswer } from '../services/answerEvaluationService.js';
 
-export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAnswer = null, diagnosticsEnabled = false) {
+export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAnswer = null, diagnosticsEnabled = false, supportOptions = {}) {
   const currentKey = reviewKey ?? cardId;
   const [diagnosticState, setDiagnosticState] = useState(null);
   const [sessionState, setSessionState] = useState(() => {
-    const session = createFreeTextEvaluationSession(savedState);
+    const session = createFreeTextEvaluationSession(savedState, supportOptions);
     return { key: currentKey, session, state: session.snapshot() };
   });
 
@@ -14,7 +14,7 @@ export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAns
   let effectiveState = sessionState.state;
 
   if (sessionState.key !== currentKey) {
-    effectiveSession = createFreeTextEvaluationSession(savedState);
+    effectiveSession = createFreeTextEvaluationSession(savedState, supportOptions);
     effectiveState = effectiveSession.snapshot();
     setSessionState({ key: currentKey, session: effectiveSession, state: effectiveState });
   }
@@ -47,9 +47,13 @@ export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAns
     if (!mounted.current || !next) return null;
     if (currentKeyRef.current !== activeKey) return null;
     setSessionState(prev => prev.key === activeKey ? { ...prev, state: next } : prev);
-    return { evidence: activeSession.evidence(), result: next.result };
+    return { evidence: activeSession.evidence(), result: next.result, ...activeSession.supportFields() };
   };
 
-  return { state: effectiveState, submit, evidence: effectiveSession.evidence(),
+  const recordSupport = kind => {
+    effectiveSession.recordSupport(kind);
+    setSessionState(prev => prev.key === currentKey ? { ...prev, state: effectiveSession.snapshot() } : prev);
+  };
+  return { state: effectiveState, submit, recordSupport, evidence: effectiveSession.evidence(),
     diagnostics: diagnosticState?.key === currentKey ? diagnosticState.data : null };
 }

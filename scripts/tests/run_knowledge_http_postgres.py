@@ -1,7 +1,8 @@
 """Opt-in real HTTP + native PostgreSQL + Chromium Knowledge contract test.
 
 Creates its own cluster under local/test-data; never reads .env/local.json or
-connects to an existing database. No route/auth/scoring/transport mocks.
+connects to an existing database. No Knowledge-route/auth/scoring/transport mocks;
+the Free Text AI verdict is synthetic, Trainer uses its actual checker.
 Production startup/lifespan is intentionally not imported: only real routers.
 """
 import argparse
@@ -218,6 +219,7 @@ def run_backend(client, db, models, report):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path)
+    parser.add_argument('--d14-support', action='store_true', help='Opt-in local D14 snapshot clones in the disposable cluster')
     parser.add_argument('--serve', nargs=2, type=int, metavar=('PG_PORT', 'HTTP_PORT'))
     args = parser.parse_args()
     # Clean environment before API imports; neither .env nor existing LOCAL config participates.
@@ -285,6 +287,19 @@ def main():
         import httpx
         with httpx.Client(base_url=target, timeout=25, trust_env=False) as client:
             fixture = run_backend(client, db, models, report['results'])
+        if args.d14_support:
+            snapshot = json.loads((ROOT / 'local/test-data/lesson-qa/corrected.snapshot.json').read_text(encoding='utf-8'))
+            source_ids = (358365, 358375, 358385)
+            sources = [next(card for card in snapshot['cards'] if card['id'] == source_id) for source_id in source_ids]
+            # Protocol fixtures only: never assign production numeric KI IDs or edit source mappings.
+            deck = models.TMA_Deck.create(user_id=fixture['a']['profile']['user_id'], name='Disposable D14 support subset')
+            fixture['d14Support'] = []
+            for source in sources:
+                card = models.TMA_Card.create(deck=deck, front_text=source['front_text'], back_text=source['back_text'],
+                                               metadata=source.get('metadata'))
+                models.TMACardKnowledgeItem.create(card_id=card.id, knowledge_item_id=fixture['ki'], role='primary')
+                fixture['d14Support'].append({'sourceId': source['id'], 'id': card.id, 'deck_id': deck.id,
+                    'front': card.front_text, 'back': card.back_text, 'metadata': json.loads(card.metadata or '{}')})
         manifest = run_root / 'fixture.json'
         fixture.update(api=target, web=f'http://127.0.0.1:{web_port}', pgPort=pg_port,
                        pgUser=PG_USER, pgDatabase=PG_DATABASE, psql=str(binaries / ('psql' + suffix)),

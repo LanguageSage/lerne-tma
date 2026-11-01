@@ -43,7 +43,8 @@ export const ExerciseRenderer = React.memo(({
   footerActionTarget,
   fallback = null,
   reviewKey,
-  assessmentMode = false
+  assessmentMode = false,
+  supportHistoryUnknown = false,
 }) => {
   // Standalone trainer callers use the effective app design; scoped previews
   // explicitly supply their V2 draft. Null/undefined selects the active V2.
@@ -173,6 +174,7 @@ export const ExerciseRenderer = React.memo(({
           reviewKey={reviewKey}
           card={exerciseCard}
           freeTextData={freeTextData}
+          supportHistoryUnknown={supportHistoryUnknown}
           designConfig={effectiveDesign}
           onFlip={onFlip}
           onTrainerAnswer={onTrainerAnswer}
@@ -227,6 +229,7 @@ export const ExerciseRenderer = React.memo(({
       return withInformation(
         <StudyCardTrainer
           assessmentMode={assessmentMode}
+          supportHistoryUnknown={supportHistoryUnknown}
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           clozeData={clozeData}

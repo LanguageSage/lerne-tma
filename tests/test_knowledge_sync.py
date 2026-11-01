@@ -77,6 +77,51 @@ class TestKnowledgeSyncAPI(unittest.TestCase):
         self.assertEqual(TMAReviewHistory.select().count(), 0)
         self.assertEqual(TMAProgress.select().count(), 0)
 
+    def test_support_is_raw_immutable_optional_and_user_scoped_in_v2_v3(self):
+        for version in (2, 3):
+            support = {'tracking_complete': False, 'hint_count': 2, 'translation_view_count': None,
+                       'answer_reveal_count': 0, 'other_help_count': None,
+                       'capture_point': 'exercise_completion' if version == 2 else 'first_assessment_result',
+                       'answer_attempt_count': 2 if version == 2 else 1}
+            if version == 3:
+                item = self.assessment_item('support-v3', support_evidence=support)
+            else:
+                item = self.item(client_event_id='support-v2', knowledge_item_id=self.ki1.id,
+                    evaluation_data={'schema_version': 2, 'evaluation_type': 'hybrid', 'rating': 'good',
+                        'exercise_evidence': {'auto_evaluated': True, 'completed': True,
+                                             'attempt_count': 2, 'first_try_correct': False, 'support_evidence': support}})
+            request = KnowledgeAttemptSyncRequest(attempts=[item])
+            self.assertEqual(sync_knowledge_attempts(request, 1).results[0].status, 'created')
+            raw = TMAKnowledgeAttempt.get(TMAKnowledgeAttempt.client_event_id == item.client_event_id)
+            self.assertEqual(json.loads(raw.evaluation_data), item.evaluation_data)
+            before = TMAUserKnowledgeState.get().evidence_event_count
+            self.assertEqual(sync_knowledge_attempts(request, 1).results[0].status, 'duplicate')
+            changed = item.model_copy(deep=True)
+            container = changed.evaluation_data if version == 3 else changed.evaluation_data['exercise_evidence']
+            container['support_evidence']['hint_count'] += 1
+            self.assertEqual(sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[changed]), 1).results[0].status, 'event_conflict')
+            self.assertEqual(TMAKnowledgeAttempt.get_by_id(raw.id).evaluation_data, raw.evaluation_data)
+            self.assertEqual(TMAUserKnowledgeState.get().evidence_event_count, before)
+            self.assertEqual(sync_knowledge_attempts(request, 2).results[0].status, 'rejected')
+
+    def test_support_validation_preserves_unknown_and_rejects_false_completeness(self):
+        base = {'tracking_complete': False, 'hint_count': None, 'translation_view_count': None,
+                'answer_reveal_count': None, 'other_help_count': None,
+                'capture_point': 'first_assessment_result', 'answer_attempt_count': 1}
+        unknown = self.assessment_item('unknown-support', support_evidence=base)
+        self.assertEqual(sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[unknown]), 1).results[0].status, 'created')
+        invalid = [None, {}, {**base, 'tracking_complete': True}, {**base, 'tracking_complete': 'false'},
+                   {**base, 'hint_count': -1}, {**base, 'hint_count': True}, {**base, 'hint_count': 1.5},
+                   {**base, 'capture_point': 'exercise_completion'}, {**base, 'answer_attempt_count': 2}]
+        for index, support in enumerate(invalid):
+            item = self.assessment_item(f'bad-support-{index}', support_evidence=support)
+            self.assertEqual(sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[item]), 1).results[0].error_code,
+                             'invalid_support_evidence')
+        skipped = self.assessment_item('skip-support', status='skipped', support_evidence=base)
+        self.assertEqual(sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[skipped]), 1).results[0].error_code,
+                         'invalid_support_evidence')
+        self.assertEqual(TMAKnowledgeAttempt.select().count(), 1)
+
     def test_assessment_relevance_validation_cannot_create_diagnostic_skip_or_unavailable(self):
         invalid = [{'target_relevance': value} for value in (None, '', 'unknown', 'PRIMARY', True, [], {})]
         invalid += [{'status': 'skipped', 'target_relevance': 'primary'},

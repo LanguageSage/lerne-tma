@@ -30,6 +30,8 @@ SRS-прогресс карточки — [study](study.md); free-text verdict �
 
 ## Source of truth
 
+- Optional `support_evidence`/`task_support` подключены к Free Text и Trainer choice/input: общий владелец `utils/supportEvidence.js` внутри `freeTextEvaluationState` либо opt-in `exerciseEvaluation`; остальные exercise sessions не включают наблюдение. Trainer регистрирует реальные открытия перевода и inline hints по пропускам, заданные позиции/лексика хранятся отдельно (`trainerTaskSupport`). v2 фиксирует до feedback завершающей проверки, v3 — до feedback первого classified результата (`assessmentTrainerEvidence` сохраняет прежнюю correctness policy). Покрытие неполное; ноль не означает самостоятельность. При resume незавершённого Assessment без live истории текущая карточка получает unknown prefix через `supportHistoryUnknownCardId`, передаваемый обоим типам. Старые события не дополняются; Mastery/SRS не читают поля. Контракты, источники, проверки и ограничения: [Free Text](../../docs/LERNE_ADAPTIVE_SUPPORT_EVIDENCE.md), [Trainer / локальный D14](../../docs/LERNE_ADAPTIVE_TRAINER_SUPPORT_EVIDENCE.md).
+
 - v2 Free Text сохраняет последний classified `target_relevance` как optional `exercise_evidence.grading_summary.final_target_relevance` (primary/secondary/none). Missing не заменяется none; none может быть default checker. Поле не используется scoring, не backfill-ится в старый outbox и не добавлено в v3. Проверки и ограничения: [отчёт](../../docs/LERNE_ADAPTIVE_FINAL_TARGET_RELEVANCE.md).
 
 - Схема сервера: `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` в `api/models.py`.
