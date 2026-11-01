@@ -9,11 +9,11 @@ import api from '../../services/api';
 import { isOfflineMode, db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { openExternalLink, closeApp } from '../../utils/platform';
-import { resetUserSession, getUserId, storage } from '../../utils/auth';
+import { resetUserSession, getUserId } from '../../utils/auth';
 
 export const ProfileTab = ({ userId }) => {
   useInterfaceLocale();
-  const { userProfile, setUserProfile, showToast, setSettingsTab } = useUiStore();
+  const { userProfile, showToast, setSettingsTab } = useUiStore();
   const validInitialName = (userProfile?.first_name && userProfile.first_name !== 'Пользователь') 
     ? userProfile.first_name 
     : '';
@@ -48,8 +48,7 @@ export const ProfileTab = ({ userId }) => {
       
       if (res.data.status === 'ok') {
         const updatedProfile = { ...(userProfile || {}), first_name: name, email: email, phone: phone };
-        setUserProfile(updatedProfile);
-        storage.set('lerne_user_profile', JSON.stringify(updatedProfile));
+        useAuthStore.getState().setUserProfile(updatedProfile);
         showToast(tr("Профиль обновлен!"), "success");
       }
     } catch {

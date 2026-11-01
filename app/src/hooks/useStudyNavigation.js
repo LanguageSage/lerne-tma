@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale';
-import { useCallback } from 'react';
+import { useCallback, useEffect } from 'react';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
@@ -7,7 +7,8 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from './useCardActions';
 import { createAssessment, canResumeAssessment } from '../utils/assessment.js';
 import { prepareAssessmentKnowledge, saveAssessment, loadAssessment } from '../services/assessmentService.js';
-import { getUserId } from '../utils/auth.js';
+import { useAuthStore } from '../store/useAuthStore';
+import { getUserId, getSessionIdentity } from '../utils/auth.js';
 
 /**
  * Hook for initiating study sessions from deck grids, card lists, and search results.
@@ -20,6 +21,7 @@ export function useStudyNavigation() {
   const { fetchNextCard, refreshCard } = useCardActions();
 
   const startStudy = useCallback(async (deck, { reviewContext = 'scheduled' } = {}) => {
+    const identity = getSessionIdentity();
     setIsOpeningDeck(true);
     try {
       const currentView = useUiStore.getState().view;
@@ -37,6 +39,7 @@ export function useStudyNavigation() {
         await state.fetchDeckCards(deck.id);
       }
 
+      if (identity !== getSessionIdentity()) return;
       setView('study');
       const assessment = createAssessment(deck, useDeckStore.getState().deckCards || [], getUserId());
       if (assessment) {
@@ -50,14 +53,20 @@ export function useStudyNavigation() {
       }
       await fetchNextCard(deck.id, true);
     } catch (err) {
-      useSessionStore.getState().setApiError(err.response?.data?.detail || err.message);
-      setView('study');
+      if (err.code === 'ERR_CANCELED') return;
+      if (err.response?.status === 401) {
+        useAuthStore.getState().deferNavigation({ deckId: deck.id, reviewContext });
+      } else {
+        useSessionStore.getState().setApiError(err.response?.data?.detail || err.message);
+        setView('study');
+      }
     } finally {
       setIsOpeningDeck(false);
     }
   }, [fetchNextCard, setCurrentDeck, setIsOpeningDeck, setView]);
 
   const startStudyCard = useCallback(async (deck, cardId) => {
+    const identity = getSessionIdentity();
     try {
       const currentView = useUiStore.getState().view;
       if (currentView !== 'study' && currentView !== 'trainer') {
@@ -96,6 +105,7 @@ export function useStudyNavigation() {
         cards = useDeckStore.getState().deckCards || [];
       }
 
+      if (identity !== getSessionIdentity()) return;
       localCard = cards.find(c => String(c.id) === String(cardId));
       if (localCard) {
         if (!localCard.image_url && (localCard.image_path || localCard.media_url)) {
@@ -122,6 +132,11 @@ export function useStudyNavigation() {
           useSessionStore.getState().addToHistory(res.data);
         }
       } catch (apiErr) {
+        if (apiErr.code === 'ERR_CANCELED') return;
+        if (apiErr.response?.status === 401) {
+          useAuthStore.getState().deferNavigation({ deckId: deck.id, cardId });
+          return;
+        }
         console.warn("api.get study card failed in startStudyCard:", apiErr);
         if (!localCard) {
           if (apiErr?.response?.status === 404) {
@@ -135,6 +150,11 @@ export function useStudyNavigation() {
         }
       }
     } catch (err) {
+      if (err.code === 'ERR_CANCELED') return;
+      if (err.response?.status === 401) {
+        useAuthStore.getState().deferNavigation({ deckId: deck.id, cardId });
+        return;
+      }
       console.error("startStudyCard Error:", err);
       showToast(tr("Ошибка при открытии карточки"));
       setView('cards');
@@ -142,6 +162,29 @@ export function useStudyNavigation() {
       setIsOpeningDeck(false);
     }
   }, [setCurrentDeck, setIsOpeningDeck, setView, showToast, refreshCard]);
+
+  useEffect(() => {
+    const resume = (state) => {
+      if (state.status !== 'authenticated' || state.isPolling) return;
+      const action = state.takePendingNavigation();
+      if (!action) return;
+      const deck = useDeckStore.getState().decks.find(item => String(item.id) === String(action.deckId));
+      if (!deck) return; // Another account or a removed/inaccessible deck is never opened.
+      if (action.view === 'deck_intro') {
+        setCurrentDeck(deck);
+        setView('deck_intro');
+        useDeckStore.getState().fetchDeckCards(deck.id).catch(error => {
+          if (error.response?.status === 401) state.deferNavigation(action);
+          else if (error.code !== 'ERR_CANCELED') showToast(tr('Не удалось загрузить данные с сервера'));
+        });
+      } else if (action.cardId) startStudyCard(deck, action.cardId);
+      else startStudy(deck, { reviewContext: action.reviewContext });
+    };
+    // Login fetches the library before incrementing its completion revision.
+    return useAuthStore.subscribe((state, previous) => {
+      if (state.sessionRevision !== previous.sessionRevision && state.status === 'authenticated') resume(state);
+    });
+  }, [startStudy, startStudyCard, setCurrentDeck, setView, showToast]);
 
   return {
     startStudy,

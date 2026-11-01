@@ -11,6 +11,7 @@ async function setup(page, context, identified = false) {
     // Reproduce production: unauthenticated guest in browser without dev fallback
     if (identified) {
       localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Learner', is_guest: false }));
+      localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-test-access', refresh_token: 'isolated-test-refresh' }));
     } else {
       localStorage.setItem('lerne_force_guest', 'true');
     }
@@ -49,7 +50,7 @@ test('fresh browser with 401 offers login instead of reporting an empty account'
   await expect(page.locator('.guest-banner')).toBeVisible();
   await expect(page.locator('.empty-decks-state')).toContainText('Войдите в аккаунт');
   await expect(page.getByText('У вас пока нет колод', { exact: true })).toHaveCount(0);
-  await page.locator('.empty-decks-state').getByRole('button', { name: 'Войти в аккаунт', exact: true }).click();
+  // Terminal startup 401 already opens the existing login form.
   await expect(page.getByRole('dialog', { name: 'Вход в аккаунт', exact: true })).toBeVisible();
   await expect(page.locator('.auth-telegram')).toBeVisible();
   await page.getByRole('button', { name: 'Позже', exact: true }).click();
@@ -84,7 +85,7 @@ test('identified empty account retains profile and the create-deck action', asyn
 
 test('login from a fresh browser restores the profile and existing decks', async ({ page, context }) => {
   const errors = await setup(page, context);
-  await page.locator('.user-signin-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Email', exact: true }).fill('isolated@example.test');
   await dialog.getByLabel('Пароль', { exact: true }).fill('isolated-test-password');

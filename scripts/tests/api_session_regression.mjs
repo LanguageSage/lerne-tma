@@ -11,9 +11,9 @@ const source = readFileSync(new URL('../../app/src/services/api.js', import.meta
   .replace(/^export .*;\r?$/gm, '');
 
 function fixture() {
-  let session = { access_token: 'old', refresh_token: 'refresh-old' }, userId = 101;
+  let session = { access_token: 'old', refresh_token: 'refresh-old', client_session_id: 'session-a' }, userId = 101;
   const calls = [];
-  const f = { calls, refreshes: 0, clears: 0,
+  const f = { calls, refreshes: 0, clears: 0, prompts: 0,
     offlineRead: async () => ({ data: [] }),
     transport: async config => ({ data: { ok: true }, status: 200, headers: {}, config }),
     refresh: async () => ({ data: { access_token: 'fresh', refresh_token: 'refresh-fresh' } }),
@@ -21,14 +21,19 @@ function fixture() {
     set userId(value) { userId = value; },
   };
   const context = { IS_LOCAL,
-    axios: { create: config => axios.create({ ...config, adapter: async config => {
+    axios: { isCancel: axios.isCancel, CanceledError: axios.CanceledError, create: config => axios.create({ ...config, adapter: async config => {
       calls.push(config);
       return f.transport(config);
     } }), post: async (...args) => { f.refreshes++; return f.refresh(...args); } },
     API_BASE_URL: '/api', getAccessToken: () => session?.access_token,
-    getAuthSession: () => session, saveAuthSession: value => { session = value; },
+    getAuthSession: () => session, saveAuthSession: (value, { previousSession } = {}) => { session = { ...value, client_session_id: previousSession?.client_session_id || 'session-a' }; },
+    getSessionIdentity: (value = session) => value?.client_session_id || value?.refresh_token || null,
+    requireAuthSession: expected => {
+      if (expected !== (session?.client_session_id || session?.refresh_token || null)) return;
+      f.clears++; if (!f.prompts) f.prompts++; session = null;
+    },
     clearAuthSession: () => { f.clears++; session = null; }, getUserId: () => userId,
-    isOfflineMode: () => false, navigator: { onLine: true }, console,
+    isOfflineMode: () => false, navigator: { onLine: true, locks: { request: async (_name, callback) => callback() } }, console,
     offlineApi: { handle: (...args) => f.offlineRead(...args) },
   };
   vm.runInNewContext(`${source}\nglobalThis.subject = axiosInstance; globalThis.proxySubject = api;`, context);
@@ -69,7 +74,7 @@ test('late 401 after rotation replays with the current token without another rot
   };
   const request = f.api.get('/auth/v2/me');
   await started.promise;
-  f.session = { access_token: 'fresh', refresh_token: 'refresh-fresh' };
+  f.session = { access_token: 'fresh', refresh_token: 'refresh-fresh', client_session_id: 'session-a' };
   gate.resolve();
   assert.equal((await request).status, 200);
   assert.equal(f.refreshes, 0);
@@ -129,4 +134,81 @@ test('HTTP 500 and 401 never become successful offline library responses', async
     f.offlineRead = async () => { assert.fail('HTTP errors must not use offline fallback'); };
     await assert.rejects(f.proxy.get('/folders'));
   }
+});
+
+test('401 without either credential requests login once for parallel failures', async () => {
+  const f = fixture(); f.session = null;
+  f.transport = unauthorized;
+  await Promise.allSettled(['/init', '/decks', '/folders'].map(url => f.api.get(url)));
+  assert.equal(f.prompts, 1);
+  assert.equal(f.refreshes, 0);
+});
+
+test('401 with an access token but no refresh token is terminal', async () => {
+  const f = fixture(); f.session = { access_token: 'old', client_session_id: 'session-a' };
+  f.transport = unauthorized;
+  await assert.rejects(f.api.get('/init'));
+  assert.equal(f.session, null); assert.equal(f.refreshes, 0); assert.equal(f.prompts, 1);
+});
+
+test('a remaining refresh token restores a missing access token', async () => {
+  const f = fixture(); f.session = { refresh_token: 'refresh-old', client_session_id: 'session-a' };
+  f.transport = async config => config.headers.Authorization === 'Bearer fresh'
+    ? { data: {}, status: 200, config } : unauthorized(config);
+  assert.equal((await f.api.get('/auth/v2/me')).status, 200);
+  assert.equal(f.refreshes, 1); assert.equal(f.prompts, 0);
+});
+
+test('a second 401 after successful rotation is terminal', async () => {
+  const f = fixture(); f.transport = unauthorized;
+  await assert.rejects(f.api.get('/init'));
+  assert.equal(f.refreshes, 1);
+  assert.equal(f.session, null);
+  assert.equal(f.prompts, 1);
+});
+
+test('account change during refresh cannot save old tokens or clear the new login', async () => {
+  const f = fixture(), started = deferred(), gate = deferred();
+  f.transport = unauthorized;
+  f.refresh = async () => { started.resolve(); await gate.promise; return { data: { access_token: 'late', refresh_token: 'late-r' } }; };
+  const request = f.api.get('/init');
+  await started.promise;
+  f.userId = 202; f.session = { access_token: 'account-b', refresh_token: 'refresh-b', client_session_id: 'session-b' };
+  gate.resolve(); await assert.rejects(request);
+  assert.equal(f.session.access_token, 'account-b');
+  assert.equal(f.clears, 0); assert.equal(f.prompts, 0);
+});
+
+for (const status of [403, 500, 503]) {
+  test(`HTTP ${status} preserves credentials without showing login`, async () => {
+    const f = fixture();
+    f.transport = async config => { throw Object.assign(new Error('Fixture failure'), { config, response: { status } }); };
+    await assert.rejects(f.api.get('/init'));
+    assert.equal(f.clears, 0); assert.equal(f.prompts, 0); assert.equal(f.refreshes, 0);
+  });
+}
+
+test('timeout keeps credentials and never opens login', async () => {
+  const f = fixture();
+  f.transport = async config => { throw Object.assign(new Error('timeout'), { config, code: 'ECONNABORTED' }); };
+  await assert.rejects(f.api.get('/init'));
+  assert.equal(f.session.access_token, 'old'); assert.equal(f.prompts, 0);
+});
+
+test('a late network failure cannot fall back to another account offline database', async () => {
+  const f = fixture(), started = deferred(), gate = deferred();
+  f.transport = async config => { started.resolve(); await gate.promise; throw Object.assign(new Error('Network Error'), { config }); };
+  f.offlineRead = () => assert.fail('stale account must never read the new offline database');
+  const request = f.proxy.get('/init'); await started.promise;
+  f.userId = 202; f.session = { access_token: 'account-b', refresh_token: 'refresh-b' };
+  gate.resolve(); await assert.rejects(request);
+  assert.equal(f.session.access_token, 'account-b');
+});
+
+test('a late successful response is retired after re-login to the same account', async () => {
+  const f = fixture(), started = deferred(), gate = deferred();
+  f.transport = async config => { started.resolve(); await gate.promise; return { data: { old: true }, status: 200, config }; };
+  const request = f.api.get('/init'); await started.promise;
+  f.session = { access_token: 'new-login', refresh_token: 'new-refresh', client_session_id: 'new-login-id' };
+  gate.resolve(); await assert.rejects(request, error => error.code === 'ERR_CANCELED');
 });

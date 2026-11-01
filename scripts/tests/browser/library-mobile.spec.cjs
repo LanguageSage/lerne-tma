@@ -96,7 +96,7 @@ async function setup(page, context, options = {}) {
 }
 
 async function login(page) {
-  await page.locator('.user-signin-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   const dialog = page.getByRole('dialog');
   await dialog.getByRole('textbox', { name: 'Email', exact: true }).fill('mobile@example.test');
   await dialog.getByLabel('Пароль', { exact: true }).fill('synthetic password');

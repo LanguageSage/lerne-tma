@@ -82,7 +82,7 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
 for (const provider of ['Telegram', 'Google']) {
   test(`${provider} opens once and session survives reload with expired access`, async ({ page, context }) => {
     const state = await setup(page, context);
-    await page.locator('.user-signin-button').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
     const [popup] = await Promise.all([
       context.waitForEvent('page'),
       (provider === 'Telegram' ? page.getByRole('link', { name: 'Войти через Telegram', exact: true })
@@ -128,7 +128,7 @@ test('Chrome popup policy blocks an unsolicited script popup', async ({ page, co
 
 test('native Telegram link works with window.open blocked, including keyboard and mobile layout', async ({ page, context }, testInfo) => {
   const state = await setup(page, context, { blocked: true });
-  await page.locator('.user-signin-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   const telegram = page.getByRole('link', { name: 'Войти через Telegram', exact: true });
   await expect(telegram).toHaveAttribute('href', 'https://t.me/fixture_bot?start=auth_fixture');
   for (const locale of ['ru', 'en']) {
@@ -158,7 +158,7 @@ test('native Telegram link works with window.open blocked, including keyboard an
 for (const blocked of [false, true]) {
   test(`early click shares preflight and ${blocked ? 'blocked popup navigates current tab and restores' : 'uses one reserved tab'}`, async ({ page, context }) => {
     const state = await setup(page, context, { blocked, holdChallenge: true });
-    await page.locator('.user-signin-button').click();
+    await expect(page.getByRole('dialog')).toBeVisible();
     await expect.poll(() => state.challenges.length).toBe(1);
     await page.getByRole('button', { name: 'Войти через Telegram', exact: true }).click();
     await expect.poll(() => state.opens.length).toBe(1);
@@ -185,7 +185,7 @@ for (const blocked of [false, true]) {
 
 test('rapid repeat clicks do not open more tabs or challenges', async ({ page, context }) => {
   const state = await setup(page, context, { autoConfirm: false });
-  await page.locator('.user-signin-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   const telegram = page.getByRole('link', { name: 'Войти через Telegram', exact: true });
   await expect(telegram).toBeVisible();
   await telegram.dblclick();
@@ -199,7 +199,7 @@ test('rapid repeat clicks do not open more tabs or challenges', async ({ page, c
 
 test('pending native login exposes last-resort link, survives reload and expires', async ({ page, context }, testInfo) => {
   const state = await setup(page, context, { autoConfirm: false });
-  await page.locator('.user-signin-button').click();
+  await expect(page.getByRole('dialog')).toBeVisible();
   const popupPromise = context.waitForEvent('page');
   await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
   const firstPopup = await popupPromise;
