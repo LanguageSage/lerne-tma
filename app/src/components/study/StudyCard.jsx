@@ -43,6 +43,7 @@ import { triggerHaptic } from '../../utils/platform';
 import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardActionButton } from '../modals/CardActionModal';
+import { CardRating } from './CardRating';
 import { useCardNotes } from '../../hooks/useCardNotes';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 
@@ -874,10 +875,7 @@ export const StudyCard = React.memo(({
             </div>
             <CardActionButton card={card} size={20} className="study-card-actions-button" refreshNotes />
           </div>
-          <p className="study-card-controls-hint">
-            <span className="study-card-keyboard-hint">{tr('Пробел — переворот · ←/→ — карточки')}<br /></span>
-            {tr('Свайпы по свободной области: ↑ ответ · ↓ вопрос · ←/→ карточки')}
-          </p>
+          <CardRating key={card?.id} card={card} deckId={card?.deck_id ?? deckId} />
         </div>
         {loading && (
           <div className="card-loading-overlay">
