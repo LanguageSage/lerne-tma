@@ -25,6 +25,10 @@ import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
 import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
+import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { parseWordBankData } from '../../utils/wordBankParser.js';
+import { parseQuizData } from '../../utils/quizParser.js';
+import { parseClozeData } from '../../utils/clozeParser.js';
 import { useStudyStepFlow } from '../../hooks/useStudyStepFlow.js';
 import { canGradeStudyFlow, isSuccessfulStudyAnswer, STUDY_ACTION } from '../../utils/studySteps.js';
 
@@ -447,40 +451,36 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     return startStudy(deck, { reviewContext });
   };
 
-  const buildStudyContext = async (targetCard, mode) => {
+  const buildStudyContext = (targetCard, mode) => {
     try {
-      const { detectExerciseType } = await import('../../utils/exerciseDetector.js');
       const computedType = detectExerciseType(targetCard, mode);
       
       if (computedType === 'word_bank') {
-         const { parseWordBankData } = await import('../../utils/wordBankParser.js');
-         const wbData = parseWordBankData(targetCard);
-         if (wbData) {
-           return `Упражнение Wordbank (заполнение пропусков из списка).
+        const wbData = parseWordBankData(targetCard);
+        if (wbData) {
+          return `Упражнение Wordbank (заполнение пропусков из списка).
 Текст упражнения:
 ${wbData.maskedText}
 
 Доступные варианты: ${wbData.options.map(o => o.value).join(' | ')}
 Правильные ответы:
 ${wbData.gaps.map(g => `${g.id}: ${g.correctAnswer}`).join('\n')}`;
-         }
+        }
       } else if (computedType === 'quiz') {
-         const { parseQuizData } = await import('../../utils/quizParser.js');
-         const quizData = parseQuizData(targetCard);
-         if (quizData) {
-           return `Тест (Quiz).
+        const quizData = parseQuizData(targetCard);
+        if (quizData) {
+          return `Тест (Quiz).
 Вопрос: ${quizData.question}
 Варианты ответов:
 ${quizData.options.map((o, i) => `${i + 1}. ${o.text}${o.isCorrect ? ' (Правильный ответ)' : ''}`).join('\n')}`;
-         }
+        }
       } else if (computedType === 'cloze' || computedType === 'trainer') {
-         const { parseClozeData } = await import('../../utils/clozeParser.js');
-         const clozeData = parseClozeData(targetCard, mode, []);
-         if (clozeData) {
-            return `Упражнение на заполнение пропуска.
+        const clozeData = parseClozeData(targetCard, mode, []);
+        if (clozeData) {
+          return `Упражнение на заполнение пропуска.
 Текст: ${clozeData.maskedText}
 Правильный ответ: ${clozeData.correctAnswer}`;
-         }
+        }
       }
     } catch (e) {
       console.warn("Failed to build detailed AI context", e);

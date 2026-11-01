@@ -29,7 +29,7 @@ export function CardQuestionComposer({
   };
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    event?.preventDefault?.();
     const request = question.trim();
     if (!request || isSubmitting) return;
     setIsSubmitting(true);
@@ -60,7 +60,7 @@ export function CardQuestionComposer({
           <span>{triggerLabel}</span>
         </button>
       ) : (
-        <form className="card-question-form" onSubmit={handleSubmit}>
+        <div className="card-question-form" role="region" aria-label={title}>
           <label className="card-question-label" htmlFor={inputId}>
             <span aria-hidden="true">{icon}</span>
             <span>{title}</span>
@@ -71,6 +71,12 @@ export function CardQuestionComposer({
             className="card-question-input"
             value={question}
             onChange={(event) => setQuestion(event.target.value)}
+            onKeyDown={(event) => {
+              if ((event.ctrlKey || event.metaKey) && event.key === 'Enter') {
+                event.preventDefault();
+                handleSubmit(event);
+              }
+            }}
             placeholder={placeholder}
             disabled={isSubmitting || disabled}
             rows={3}
@@ -79,11 +85,11 @@ export function CardQuestionComposer({
             <button type="button" className="card-question-button secondary" onClick={handleCancel} disabled={isSubmitting || disabled}>
               {tr('Отмена')}
             </button>
-            <button type="submit" className="card-question-button primary" disabled={!question.trim() || isSubmitting || disabled}>
+            <button type="button" className="card-question-button primary" onClick={handleSubmit} disabled={!question.trim() || isSubmitting || disabled}>
               {isSubmitting ? tr('Выполняется...') : submitLabel}
             </button>
           </div>
-        </form>
+        </div>
       )}
     </div>
   );

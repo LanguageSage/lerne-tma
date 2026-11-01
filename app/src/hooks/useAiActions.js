@@ -7,6 +7,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
+import { useDeckStore } from '../store/useDeckStore';
 import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { cleanMedia } from '../utils/media';
 
@@ -149,8 +150,6 @@ export const useAiActions = () => {
       }
 
       try {
-        const { useLanguageStore } = await import('../store/useLanguageStore');
-        const { useDeckStore } = await import('../store/useDeckStore');
         const currentDeck = useDeckStore.getState().currentDeck;
         const targetLang = currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de';
         const nativeLang = getInterfaceLanguage();
@@ -248,8 +247,6 @@ export const useAiActions = () => {
 
     setLoading(true);
     try {
-      const { useLanguageStore } = await import('../store/useLanguageStore');
-      const { useDeckStore } = await import('../store/useDeckStore');
       const decks = useDeckStore.getState().decks || [];
       const currentDeck = useDeckStore.getState().currentDeck;
       const targetDeck = deckId ? decks.find(d => String(d.id) === String(deckId)) || currentDeck : currentDeck;
