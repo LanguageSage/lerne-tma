@@ -3,11 +3,14 @@ const { test, expect } = require('./isolated-fixture.cjs');
 test.use({ launchOptions: { args: ['--enable-automation'], ignoreDefaultArgs: ['--disable-popup-blocking'] } });
 
 // Isolated browser/provider/transport boundaries. No real accounts or backend.
-async function setup(page, context, { miniApp = false, rejectProof = false, blocked = false, holdChallenge = false, autoConfirm = true } = {}) {
-  const state = { authenticated: false, confirmed: false, miniCalls: 0, refreshes: 0, expired: false, errors: [], challenges: [], exchanges: [], opens: [] };
+async function setup(page, context, { miniApp = false, rejectProof = false, blocked = false, holdChallenge = false, holdExchange = false, autoConfirm = true } = {}) {
+  const state = { authenticated: false, confirmed: false, confirmedExchanges: 0, miniCalls: 0, refreshes: 0, expired: false, errors: [], challenges: [], exchanges: [], opens: [] };
   let releaseChallenge;
   const challengeGate = holdChallenge ? new Promise(resolve => { releaseChallenge = resolve; }) : Promise.resolve();
   state.releaseChallenge = releaseChallenge;
+  let releaseExchange;
+  const exchangeGate = holdExchange ? new Promise(resolve => { releaseExchange = resolve; }) : Promise.resolve();
+  state.releaseExchange = releaseExchange;
   await page.exposeFunction('fixtureOpen', () => state.opens.push('open'));
   page.on('pageerror', error => state.errors.push(error.message));
   await context.addInitScript(({ miniApp, blocked }) => {
@@ -49,6 +52,8 @@ async function setup(page, context, { miniApp = false, rejectProof = false, bloc
     if (pathname.endsWith('/exchange')) {
       state.exchanges.push(request.postDataJSON());
       if (!state.confirmed) return fail(401, 'invalid_challenge');
+      state.confirmedExchanges++;
+      await exchangeGate;
       state.authenticated = true;
       return route.fulfill({ json: tokens });
     }
@@ -197,6 +202,45 @@ test('rapid repeat clicks do not open more tabs or challenges', async ({ page, c
   await expect(page.locator('.user-name')).toHaveText('Learner');
 });
 
+test('Android Chrome return in a new tab completes the original Telegram login', async ({ page, context }) => {
+  await page.setViewportSize({ width: 393, height: 851 });
+  const state = await setup(page, context, { autoConfirm: false });
+  const providerPromise = context.waitForEvent('page');
+  await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
+  await providerPromise;
+  // Android may discard the originating tab while Telegram opens the return
+  // URL in a new tab without an opener or copied sessionStorage.
+  await page.close();
+  state.confirmed = true;
+  const returned = await context.newPage();
+  await returned.goto('/');
+  await expect(returned.locator('.user-name')).toHaveText('Learner');
+  await expect(returned.getByRole('dialog')).toHaveCount(0);
+  expect(state.challenges).toHaveLength(1);
+  expect(state.confirmedExchanges).toBe(1);
+  expect(await returned.evaluate(() => sessionStorage.getItem('lerne_auth_v2_pending'))).toBeNull();
+  expect(state.errors).toEqual([]);
+});
+
+test('two Telegram return tabs exchange the shared challenge once', async ({ page, context }) => {
+  const state = await setup(page, context, { autoConfirm: false, holdExchange: true });
+  const providerPromise = context.waitForEvent('page');
+  await page.getByRole('link', { name: 'Войти через Telegram', exact: true }).click();
+  await providerPromise;
+  await page.close();
+  state.confirmed = true;
+  const first = await context.newPage(), second = await context.newPage();
+  await Promise.all([first.goto('/'), second.goto('/')]);
+  await expect.poll(() => state.confirmedExchanges).toBe(1);
+  state.releaseExchange();
+  for (const returned of [first, second]) {
+    await expect(returned.locator('.user-name')).toHaveText('Learner');
+    await expect(returned.getByRole('dialog')).toHaveCount(0);
+  }
+  expect(state.confirmedExchanges).toBe(1);
+  expect(state.challenges).toHaveLength(1);
+});
+
 test('pending native login exposes last-resort link, survives reload and expires', async ({ page, context }, testInfo) => {
   const state = await setup(page, context, { autoConfirm: false });
   await expect(page.getByRole('dialog')).toBeVisible();
@@ -222,8 +266,8 @@ test('pending native login exposes last-resort link, survives reload and expires
   await expect(link).toBeVisible();
   await page.evaluate(() => {
     const key = 'lerne_auth_v2_pending';
-    const pending = JSON.parse(sessionStorage.getItem(key));
-    sessionStorage.setItem(key, JSON.stringify({ ...pending, expiresAt: '2000-01-01T00:00:00Z' }));
+    const pending = JSON.parse(localStorage.getItem(key));
+    localStorage.setItem(key, JSON.stringify({ ...pending, expiresAt: '2000-01-01T00:00:00Z' }));
   });
   await page.getByRole('button', { name: 'Я подтвердил, продолжить' }).click();
   await expect(page.getByRole('dialog').getByRole('alert')).toContainText('Время подтверждения истекло');

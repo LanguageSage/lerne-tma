@@ -10,7 +10,7 @@ import { createStore } from '../../app/node_modules/zustand/esm/vanilla.mjs';
 const source = readFileSync(new URL('../../app/src/store/useAuthStore.js', import.meta.url), 'utf8')
   .replace(/^import .*;\r?\n/gm, '').replace('export const useAuthStore', 'const useAuthStore');
 function fixture({ methods = ['email_password'], email = 'fixture@example.test', local = false } = {}) {
-  const pending = new Map(), timers = new Map(), calls = [];
+  const pending = new Map(), tabStorage = new Map(), timers = new Map(), calls = [];
   let nextTimer = 0;
   const ui = { setIsAuthModalOpen: value => { ui.isAuthModalOpen = value; }, showToast() {},
     openSettings: tab => { ui.settingsTab = tab; } };
@@ -58,8 +58,10 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test',
       async fetchFolders() {},
       resetDeckStore: () => { deckStoreResetCount++; },
     }) },
-    sessionStorage: { getItem: key => pending.get(key), setItem: (key, value) => pending.set(key, value),
+    localStorage: { getItem: key => pending.get(key), setItem: (key, value) => pending.set(key, value),
       removeItem: key => pending.delete(key) },
+    sessionStorage: { getItem: key => tabStorage.get(key), setItem: (key, value) => tabStorage.set(key, value),
+      removeItem: key => tabStorage.delete(key) },
     setInterval: callback => { timers.set(++nextTimer, callback); return nextTimer; },
     clearInterval: id => timers.delete(id), window: {},
     document: { hidden: false, addEventListener() {} },
@@ -204,6 +206,18 @@ test('web restoration without credentials opens the existing login form and clea
   await f.store.getState().restoreSession();
   assert.equal(f.store.getState().userProfile, null);
   assert.equal(f.ui.isAuthModalOpen, true);
+});
+
+test('restoring a login established in another tab closes the waiting login modal', async () => {
+  const f = fixture();
+  f.store.getState().setAuthModalOpen(true);
+  f.accessToken = 'other-tab-session';
+  assert.equal(await f.store.getState().prepareTelegramChallenge(), null);
+  assert.equal(f.calls.length, 0);
+  await f.store.getState().restoreSession();
+  assert.equal(f.store.getState().status, 'authenticated');
+  assert.equal(f.ui.isAuthModalOpen, false);
+  assert.equal(f.store.getState().authModalOpen, false);
 });
 
 test('a new session restores independently of a pending response for the previous login', async () => {
@@ -377,6 +391,47 @@ test('reload resumes pending login with its manual URL and exchanges it', async 
   assert.equal(await after.store.getState().checkPendingSession(), true);
   assert.equal(after.store.getState().isPolling, false);
   assert.equal(after.timers.size, 0);
+});
+
+test('legacy tab-only challenge migrates to shared storage on return', async () => {
+  const f = fixture();
+  const key = localStorageKey('lerne_auth_v2_pending');
+  f.context.sessionStorage.setItem(key, JSON.stringify({ id: 'old-tab', secret: 'synthetic',
+    purpose: 'login', expiresAt: new Date(Date.now() + 300000).toISOString() }));
+  f.api.post = async () => { throw { response: { status: 401, data: { detail: 'invalid_challenge' } } }; };
+  await f.store.getState().restoreSession();
+  assert.equal(JSON.parse(f.pending.get(key)).id, 'old-tab');
+  assert.equal(f.context.sessionStorage.getItem(key), undefined);
+  assert.equal(f.store.getState().isPolling, true);
+});
+
+test('return in a new tab retains the chosen deck continuation', async () => {
+  const before = fixture();
+  before.store.getState().deferNavigation({ deckId: 21, mode: 'scheduled' });
+  await before.store.getState().startTelegramLinking();
+  const after = fixture();
+  before.pending.forEach((value, key) => after.pending.set(key, value));
+  await after.store.getState().restoreSession();
+  assert.equal(after.store.getState().takePendingNavigation().deckId, 21);
+  assert.equal(after.store.getState().takePendingNavigation(), null);
+});
+
+test('restricted shared storage retains same-tab provider recovery', async () => {
+  const f = fixture();
+  f.context.localStorage = { getItem() { throw new Error('blocked'); }, setItem() { throw new Error('blocked'); }, removeItem() {} };
+  await f.store.getState().startTelegramLinking();
+  assert.equal(await f.store.getState().checkPendingSession(), true);
+  assert.equal(f.store.getState().userProfile.user_id, -123);
+});
+
+test('pending challenge belonging to a previous session cannot replace the current account', async () => {
+  const f = fixture();
+  await f.store.getState().startTelegramLinking();
+  f.accessToken = 'new-account'; // Shared credentials can change before a storage event arrives.
+  const count = f.calls.length;
+  assert.equal(await f.store.getState().checkPendingSession(), false);
+  assert.equal(f.calls.length, count);
+  assert.equal(f.store.getState().isPolling, false);
 });
 
 for (const detail of ['invalid_provider_proof', 'provider_proof_replayed']) {

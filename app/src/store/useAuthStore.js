@@ -33,12 +33,30 @@ const stopPolling = () => {
 };
 
 const pendingAuth = () => {
-  try { return JSON.parse(sessionStorage.getItem(PENDING_KEY) || 'null'); } catch { return null; }
+  // Telegram's return link may open a new Chrome tab without sessionStorage.
+  // Keep the short-lived exchange secret on this origin, alongside credentials.
+  try {
+    const shared = localStorage.getItem(PENDING_KEY);
+    if (shared) return JSON.parse(shared);
+  } catch { /* Shared storage may be unavailable in a restricted WebView. */ }
+  try {
+    const legacy = sessionStorage.getItem(PENDING_KEY);
+    if (legacy) {
+      try {
+        localStorage.setItem(PENDING_KEY, legacy);
+        sessionStorage.removeItem(PENDING_KEY);
+      } catch { /* Retain tab-local recovery if shared storage is blocked. */ }
+    }
+    return JSON.parse(legacy || 'null');
+  } catch { return null; }
 };
 const savePending = (value) => {
-  try { sessionStorage.setItem(PENDING_KEY, JSON.stringify(value)); } catch { /* unavailable */ }
+  const encoded = JSON.stringify({ ...value, sessionIdentity: getSessionIdentity() });
+  try { localStorage.setItem(PENDING_KEY, encoded); }
+  catch { try { sessionStorage.setItem(PENDING_KEY, encoded); } catch { /* unavailable */ } }
 };
 const clearPending = () => {
+  try { localStorage.removeItem(PENDING_KEY); } catch { /* unavailable */ }
   try { sessionStorage.removeItem(PENDING_KEY); } catch { /* unavailable */ }
 };
 const authMessage = (error, fallback) => {
@@ -88,6 +106,9 @@ export const useAuthStore = create((set, get) => ({
   preparedTelegramChallenge: null,
 
   prepareTelegramChallenge: (purpose = 'login') => {
+    // A sibling tab may have completed login before this tab's /me returns.
+    if (purpose === 'login' && getAuthSession()
+        && (get().isRestoring || get().status === 'restoring')) return Promise.resolve(null);
     // A successful exchange retires polling before /me finishes. Do not start
     // another login challenge while the existing modal is completing that login.
     if (purpose === 'login' && loginCompletion
@@ -111,7 +132,9 @@ export const useAuthStore = create((set, get) => ({
   },
 
   waitForChallenge: (pending) => {
-    savePending(pending);
+    let navigation = null;
+    try { navigation = JSON.parse(sessionStorage.getItem(NAVIGATION_KEY) || 'null'); } catch { /* unavailable */ }
+    savePending({ ...pending, navigation: pending.purpose === 'login' ? navigation : null });
     set({ isPolling: true, authError: null, authUrl: pending.authUrl });
     get().beginPolling();
   },
@@ -140,6 +163,7 @@ export const useAuthStore = create((set, get) => ({
           if (!response.data?.user_id) throw new Error('Invalid account profile');
           get().setUserProfile(response.data);
           set({ status: 'authenticated' });
+          if (!pendingAuth() && !get().showTelegramPrompt) get().setAuthModalOpen(false);
           if (useUiStore.getState().hasInitialized) {
             await useDeckStore.getState().fetchDecks(true);
             if (generation === authGeneration) set(state => ({ sessionRevision: state.sessionRevision + 1 }));
@@ -285,7 +309,7 @@ export const useAuthStore = create((set, get) => ({
       }
       get().waitForChallenge({ ...challenge, recovery });
       // Never retry window.open after a request. A blocked/closed reservation
-      // navigates this tab; sessionStorage preserves the exchange on return.
+      // navigates this tab; shared pending storage preserves the return exchange.
       if (!await openExternalLink(challenge.authUrl, preparedWindow, { allowPopup: false, sameTabFallback: true })) {
         set({ authError: tr('Окно входа не открылось. Нажмите ссылку ниже, подтвердите вход и вернитесь в приложение.') });
       }
@@ -349,46 +373,63 @@ export const useAuthStore = create((set, get) => ({
 
   checkPendingSession: async () => {
     if (exchangeInFlight) return false;
-    const pending = pendingAuth();
-    if (!pending?.id || !pending?.secret) {
-      get().cancelPendingAuth();
-      return false;
-    }
-    const expiresAt = Date.parse(pending.expiresAt || '');
-    if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
-      clearPending();
-      stopPolling();
-      set({ isPolling: false, authError: tr('Время подтверждения истекло. Начните вход ещё раз.'), authUrl: null, preparedTelegramChallenge: null });
-      return false;
-    }
     exchangeInFlight = true;
-    const generation = authGeneration;
     try {
-      const response = await api.post(`/auth/v2/challenges/${pending.id}/exchange`, { secret: pending.secret });
-      if (generation !== authGeneration || pendingAuth()?.id !== pending.id) return false;
-      if (pending.purpose === 'link') {
-        clearPending();
-        stopPolling();
-        await get().refreshAuthMethods();
-        set({ isPolling: false, authModalOpen: false, showTelegramPrompt: false, authUrl: null, preparedTelegramChallenge: null });
-        useUiStore.getState().setIsAuthModalOpen(false);
-        useUiStore.getState().showToast(tr('Способ входа привязан.'), 'success');
-      } else {
-        await get().finishLogin(response.data, { recovery: pending.recovery });
-      }
-      return true;
-    } catch (error) {
-      // A challenge is expected to be unconfirmed while the app polls.
-      if (generation !== authGeneration || pendingAuth()?.id !== pending.id) return false;
-      const detail = error.response?.data?.detail;
-      if (detail === 'invalid_challenge' || !error.response || error.response.status >= 500) return false;
-      clearPending();
-      stopPolling();
-      set({ isPolling: false, authUrl: null, preparedTelegramChallenge: null });
-      const message = authMessage(error, tr('Не удалось завершить вход.'));
-      set({ authError: message });
-      useUiStore.getState().showToast(message, 'error');
-      return false;
+      // The bot may return to another tab while the original keeps polling.
+      // Re-read pending state inside the lock: exchange secrets are one-use.
+      const exchange = async () => {
+        const pending = pendingAuth();
+        if (!pending?.id || !pending?.secret) {
+          stopPolling();
+          set({ isPolling: false, authUrl: null });
+          return false;
+        }
+        if ('sessionIdentity' in pending && pending.sessionIdentity !== getSessionIdentity()) {
+          get().cancelPendingAuth();
+          return false;
+        }
+        const expiresAt = Date.parse(pending.expiresAt || '');
+        if (!Number.isFinite(expiresAt) || expiresAt <= Date.now()) {
+          clearPending();
+          stopPolling();
+          set({ isPolling: false, authError: tr('Время подтверждения истекло. Начните вход ещё раз.'), authUrl: null, preparedTelegramChallenge: null });
+          return false;
+        }
+        const generation = authGeneration;
+        try {
+          const response = await api.post(`/auth/v2/challenges/${pending.id}/exchange`, { secret: pending.secret });
+          if (generation !== authGeneration || pendingAuth()?.id !== pending.id) return false;
+          if (pending.purpose === 'link') {
+            clearPending();
+            stopPolling();
+            await get().refreshAuthMethods();
+            set({ isPolling: false, authModalOpen: false, showTelegramPrompt: false, authUrl: null, preparedTelegramChallenge: null });
+            useUiStore.getState().setIsAuthModalOpen(false);
+            useUiStore.getState().showToast(tr('Способ входа привязан.'), 'success');
+          } else {
+            if (pending.navigation) {
+              try { sessionStorage.setItem(NAVIGATION_KEY, JSON.stringify(pending.navigation)); } catch { /* unavailable */ }
+            }
+            await get().finishLogin(response.data, { recovery: pending.recovery });
+          }
+          return true;
+        } catch (error) {
+          // A challenge is expected to be unconfirmed while the app polls.
+          if (generation !== authGeneration || pendingAuth()?.id !== pending.id) return false;
+          const detail = error.response?.data?.detail;
+          if (detail === 'invalid_challenge' || !error.response || error.response.status >= 500) return false;
+          clearPending();
+          stopPolling();
+          set({ isPolling: false, authUrl: null, preparedTelegramChallenge: null });
+          const message = authMessage(error, tr('Не удалось завершить вход.'));
+          set({ authError: message });
+          useUiStore.getState().showToast(message, 'error');
+          return false;
+        }
+      };
+      return await (typeof navigator !== 'undefined' && navigator.locks?.request
+        ? navigator.locks.request(localStorageKey('lerne-auth-v2-exchange'), exchange)
+        : exchange());
     } finally {
       exchangeInFlight = false;
     }
@@ -431,6 +472,19 @@ export const useAuthStore = create((set, get) => ({
     document.addEventListener('visibilitychange', resume);
     window.addEventListener('focus', resume);
     window.addEventListener('storage', event => {
+      if (event.key === PENDING_KEY) {
+        const pending = pendingAuth();
+        if (pending && Date.parse(pending.expiresAt) > Date.now()
+            && (!('sessionIdentity' in pending) || pending.sessionIdentity === getSessionIdentity())) {
+          telegramPreparation = null;
+          set({ isPolling: true, authUrl: pending.authUrl, preparedTelegramChallenge: null });
+          get().beginPolling();
+        } else {
+          stopPolling();
+          set({ isPolling: false, authUrl: null });
+        }
+        return;
+      }
       if (event.key !== localStorageKey('lerne_auth_v2_session') && event.key !== localStorageKey('lerne_user_profile') && event.key !== null) return;
       const before = observedIdentity;
       notifyAuthSession();
