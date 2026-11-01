@@ -51,6 +51,7 @@ test('saveRating optimistically updates state, calls API, and rollback on error'
   await saveRating(1, 100, null);
   assert.equal(getRating(1, 100), undefined);
 
+  assert.ok(notifications > 0);
   unsubscribe();
 });
 
