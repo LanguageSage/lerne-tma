@@ -2,6 +2,7 @@ import unittest
 import os
 import sys
 import datetime
+import json
 from peewee import SqliteDatabase
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
@@ -47,6 +48,45 @@ class TestKnowledgeSyncAPI(unittest.TestCase):
 
     def item(self, **kwargs):
         return KnowledgeAttemptSyncItem(**{'card_id': self.card.id, **kwargs})
+
+    def assessment_item(self, session_id, **evidence):
+        return self.item(client_event_id=f'{session_id}:{self.card.id}', knowledge_item_id=self.ki1.id,
+                         evaluation_data={'schema_version': 3, 'evaluation_type': 'assessment',
+                                          'status': 'incorrect', 'correct': False,
+                                          'assessment': {'session_id': session_id, 'deck_id': self.deck.id,
+                                                         'ordinal': 1, 'required_count': 1,
+                                                         'competency_ids': ['synthetic']}, **evidence})
+
+    def test_assessment_optional_relevance_is_raw_immutable_and_user_scoped(self):
+        for index, relevance in enumerate((None, 'primary', 'secondary', 'none')):
+            item = self.assessment_item(f'relevance-{index}', **({} if relevance is None else {'target_relevance': relevance}))
+            request = KnowledgeAttemptSyncRequest(attempts=[item])
+            self.assertEqual(sync_knowledge_attempts(request, 1).results[0].status, 'created')
+            raw = TMAKnowledgeAttempt.get(TMAKnowledgeAttempt.client_event_id == item.client_event_id)
+            self.assertEqual(json.loads(raw.evaluation_data), item.evaluation_data)
+            before = TMAUserKnowledgeState.get().evidence_event_count
+            self.assertEqual(sync_knowledge_attempts(request, 1).results[0].status, 'duplicate')
+            changed = item.model_copy(update={'evaluation_data': {**item.evaluation_data, 'target_relevance': 'secondary' if relevance == 'primary' else 'primary'}})
+            self.assertEqual(sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[changed]), 1).results[0].status, 'event_conflict')
+            self.assertEqual(TMAKnowledgeAttempt.get_by_id(raw.id).evaluation_data, raw.evaluation_data)
+            self.assertEqual(TMAUserKnowledgeState.get().evidence_event_count, before)
+            # Same event ID must not acknowledge the other account's private event.
+            self.assertEqual(sync_knowledge_attempts(request, 2).results[0].error_code, 'assessment_not_accessible')
+        self.assertEqual(TMAKnowledgeAttempt.select().count(), 4)
+        self.assertEqual(TMAUserKnowledgeState.get().negative_evidence, 4)
+        self.assertEqual(TMAReviewHistory.select().count(), 0)
+        self.assertEqual(TMAProgress.select().count(), 0)
+
+    def test_assessment_relevance_validation_cannot_create_diagnostic_skip_or_unavailable(self):
+        invalid = [{'target_relevance': value} for value in (None, '', 'unknown', 'PRIMARY', True, [], {})]
+        invalid += [{'status': 'skipped', 'target_relevance': 'primary'},
+                    {'status': 'unavailable', 'target_relevance': 'none'}]
+        for index, evidence in enumerate(invalid):
+            item = self.assessment_item(f'invalid-relevance-{index}', **evidence)
+            result = sync_knowledge_attempts(KnowledgeAttemptSyncRequest(attempts=[item]), 1).results[0]
+            self.assertEqual((result.status, result.error_code), ('rejected', 'invalid_assessment_evidence'))
+        self.assertEqual(TMAKnowledgeAttempt.select().count(), 0)
+        self.assertEqual(TMAUserKnowledgeState.select().count(), 0)
 
     def test_ordinary_origin_checks_leave_no_attempt_or_mastery(self):
         secondary = TMAKnowledgeItem.create(name='Secondary')

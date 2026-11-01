@@ -13,6 +13,8 @@ const { prepareDeckKnowledge } = await import('../knowledgeContentService.js');
 const { captureStudyKnowledgeAttempt } = await import('../knowledgeCaptureService.js');
 const { syncKnowledgeAttempts } = await import('../knowledgeSyncService.js');
 const { enqueueKnowledgeAttempt, resetStaleKnowledgeAttempts } = await import('../knowledgeDbService.js');
+const { saveAssessment, loadAssessment } = await import('../assessmentService.js');
+const { assessmentFreeTextEvidence, recordAssessmentResult } = await import('../../utils/assessment.js');
 
 const content = (ki = 10) => ({ card_ids: [1, 2], knowledge_items: [{ id: ki, name: 'Synthetic skill' }],
   card_knowledge_items: [{ card_id: 1, knowledge_item_id: ki, role: 'primary' }] });
@@ -21,6 +23,11 @@ const attempt = (id = 'same-id') => ({ client_event_id: id, user_id: userId, kno
     evaluation_type: 'self_rating', rating: 'good' } });
 const capture = () => captureStudyKnowledgeAttempt({ userId, card: { id: 1, deck_id: 5, front: 'Synthetic' }, grade: 2 });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
+
+const assessment = relevance => recordAssessmentResult({ id: 'synthetic-exam', userId: 1, deckId: 5, index: 0,
+  config: { required_count: 1 }, results: {},
+  cards: [{ id: 1, metadata: { assessment: { competency_ids: ['synthetic'] } } }] }, 1,
+assessmentFreeTextEvidence({ verdict: 'incorrect', accepted: false, evaluator: 'ai', target_relevance: relevance }));
 
 beforeEach(() => {
   userId = '1';
@@ -73,6 +80,47 @@ test('offline capture survives network failure and duplicate acknowledgement on 
   api.post.mock.mockImplementation(async () => ({ data: { results: [{ client_event_id: event.client_event_id, status: 'duplicate' }] } }));
   assert.equal((await syncKnowledgeAttempts('1')).succeededCount, 1);
   assert.equal(await database.knowledge_attempt_outbox.count(), 0);
+});
+
+test('Assessment relevance survives durable offline replay and account isolation', async () => {
+  await prepareDeckKnowledge(5);
+  const session = assessment('secondary');
+  await saveAssessment(session, session.results[1]);
+  const original = localDb.getLocalDb();
+  const [frozen] = await original.knowledge_attempt_outbox.toArray();
+  assert.equal(frozen.evaluation_data.target_relevance, 'secondary');
+  api.post.mock.mockImplementation(async () => { throw new Error('Offline'); });
+  assert.equal((await syncKnowledgeAttempts('1')).transportFailed, true);
+  localDb.closeLocalDb();
+  assert.deepEqual(await loadAssessment(1, 5), session);
+  const database = localDb.getLocalDb();
+  assert.deepEqual((await database.knowledge_attempt_outbox.toArray())[0].evaluation_data, frozen.evaluation_data);
+  userId = '2';
+  await assert.rejects(saveAssessment(session, session.results[1]), /Account changed/);
+  assert.equal((await syncKnowledgeAttempts('1')).selectedCount, 0);
+  assert.equal(await localDb.getLocalDb().knowledge_attempt_outbox.count(), 0);
+  userId = '1';
+  api.post.mock.mockImplementation(async (_url, body) => {
+    assert.deepEqual(body.attempts[0].evaluation_data, frozen.evaluation_data);
+    assert.equal(body.attempts[0].client_event_id, frozen.client_event_id);
+    return { data: { results: [{ client_event_id: frozen.client_event_id, status: 'duplicate' }] } };
+  });
+  assert.equal((await syncKnowledgeAttempts('1')).succeededCount, 1);
+  assert.equal(await database.knowledge_attempt_outbox.count(), 0);
+});
+
+test('Assessment save leaves frozen annotated and old unannotated payloads unchanged', async () => {
+  await prepareDeckKnowledge(5);
+  const database = localDb.getLocalDb();
+  for (const relevance of ['none', undefined]) {
+    const session = assessment(relevance);
+    await saveAssessment(session, session.results[1]);
+    const [frozen] = await database.knowledge_attempt_outbox.toArray();
+    const changed = assessment('primary');
+    await saveAssessment(changed, changed.results[1]);
+    assert.deepEqual((await database.knowledge_attempt_outbox.toArray())[0], frozen);
+    await database.knowledge_attempt_outbox.clear();
+  }
 });
 
 test('offline without KI or with mapping but missing KI creates no evidence', async () => {

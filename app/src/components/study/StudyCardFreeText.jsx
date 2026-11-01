@@ -8,6 +8,7 @@ import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
+import { assessmentFreeTextEvidence } from '../../utils/assessment.js';
 import { useSettingsStore } from '../../store/useSettingsStore.js';
 import './StudyCardFreeText.css';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
@@ -95,13 +96,12 @@ export const StudyCardFreeText = React.memo(({
     const outcome = await submit(answer);
     submitting.current = false;
     if (!outcome) return;
-    if (assessmentMode && outcome.result.verdict !== 'unavailable') {
-      reported.current = true;
-      onTrainerAnswer?.(card.id, { isCorrect: outcome.result.accepted, completed: true, isFirstTry: true,
-        attemptCount: 1, mistakeCount: outcome.result.accepted ? 0 : 1,
-        gradingSummary: { final_verdict: outcome.result.verdict, final_evaluator: outcome.result.evaluator,
-          error_types_seen: outcome.result.error_type ? [outcome.result.error_type] : [],
-          error_codes_seen: outcome.result.error_code ? [outcome.result.error_code] : [] } });
+    if (assessmentMode) {
+      const firstEvidence = assessmentFreeTextEvidence(outcome.result);
+      if (firstEvidence) {
+        reported.current = true;
+        onTrainerAnswer?.(card.id, firstEvidence);
+      }
       return;
     }
     if (outcome.evidence) {

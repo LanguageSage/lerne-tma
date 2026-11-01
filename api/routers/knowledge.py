@@ -192,6 +192,8 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
                 or not isinstance(competencies, list) or not competencies \
                 or any(not isinstance(c, str) or not c.strip() for c in competencies) \
                 or not isinstance(session_id, str) or not session_id \
+                or ('target_relevance' in evidence and (outcome == 'skipped' \
+                    or evidence['target_relevance'] not in ('primary', 'secondary', 'none'))) \
                 or item.client_event_id != f'{session_id}:{item.card_id}' or item.review_id is not None:
                 results.append(KnowledgeAttemptSyncResult(client_event_id=item.client_event_id,
                     status='rejected', error_code='invalid_assessment_evidence'))

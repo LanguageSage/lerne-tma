@@ -12,7 +12,7 @@ import { captureStudyKnowledgeAttempt } from '../knowledgeCaptureService.js';
 import { createExerciseEvaluationSession } from '../../utils/exerciseEvaluation.js';
 import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { createFreeTextEvaluationSession } from '../../utils/freeTextEvaluationState.js';
-import { recordAssessmentResult, assessmentAttempt } from '../../utils/assessment.js';
+import { assessmentFreeTextEvidence, recordAssessmentResult, assessmentAttempt } from '../../utils/assessment.js';
 
 globalThis.window = { location: { search: '' } };
 globalThis.localStorage = { getItem: key => key === 'lerne_user_id' ? '7001' : null };
@@ -236,13 +236,14 @@ test('current assessment: repeat result does not replace first result or create 
   assert.deepEqual(assessmentAttempt(first, first.results[9101], 8101), assessmentAttempt(replay, replay.results[9101], 8101));
 });
 
-test('current assessment: evaluator, confidence and error target are dropped by result conversion', () => {
-  const session = recordAssessmentResult(assessmentSession(), 9101, { isCorrect: true,
-    gradingSummary: { final_evaluator: 'ai', final_verdict: 'accepted_minor', confidence: .91,
-      target_relevance: 'secondary', error_types_seen: ['typo'], error_codes_seen: ['synthetic.typo'] } });
+test('current assessment: checker relevance survives conversion; confidence and support remain unknown', () => {
+  const evidence = assessmentFreeTextEvidence({ verdict: 'accepted_minor', accepted: true, evaluator: 'ai',
+    confidence: .91, target_relevance: 'secondary', error_type: 'typo', error_code: 'synthetic.typo' });
+  const session = recordAssessmentResult(assessmentSession(), 9101, evidence);
   const raw = assessmentAttempt(session, session.results[9101], 8101).evaluation_data;
   assert.deepEqual(raw.error_types_seen, ['typo']);
-  for (const field of ['confidence', 'target_relevance', 'final_evaluator', 'support']) assert.equal(raw[field], undefined);
+  assert.equal(raw.target_relevance, 'secondary');
+  for (const field of ['confidence', 'final_evaluator', 'support']) assert.equal(raw[field], undefined);
 });
 
 

@@ -40,6 +40,14 @@ def hybrid(count, rating):
 
 
 class TestMasteryScorer(unittest.TestCase):
+    def test_assessment_target_relevance_never_changes_mastery_v1(self):
+        for status in ('correct', 'incorrect', 'skipped'):
+            plain = {'schema_version': 3, 'evaluation_type': 'assessment',
+                     'status': status, 'correct': status == 'correct'}
+            for relevance in ('primary', 'secondary', 'none'):
+                self.assertEqual(score_knowledge_attempt(plain),
+                                 score_knowledge_attempt({**plain, 'target_relevance': relevance}))
+
     def test_final_target_relevance_is_descriptive_for_all_legacy_v2_outcomes(self):
         for completed in (True, False):
             for count in (1, 2):

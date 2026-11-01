@@ -270,6 +270,80 @@ async function main() {
     assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [changed] })).results[0].status, 'event_conflict');
     assert.deepEqual((await state()).materialized_state, afterCapture);
     results.free_text_final_target_relevance_raw_postgres = 'PASS';
+
+    // Classified Free Text -> Assessment conversion -> durable v3 -> real HTTP/PG.
+    const assessmentBefore = (await state()).materialized_state;
+    const assessmentReviews = Number(sql(`SELECT COUNT(*) FROM tmareviewhistory WHERE user_id=${uidA}`));
+    const assessmentEvents = await page.evaluate(async ({ cardA, deckA }) => {
+      const { assessmentFreeTextEvidence, recordAssessmentResult } = await import('/src/utils/assessment.js');
+      const { saveAssessment } = await import('/src/services/assessmentService.js');
+      const { createFreeTextEvaluationSession } = await import('/src/utils/freeTextEvaluationState.js');
+      const userId = (await import('/src/utils/auth.js')).getUserId();
+      const fresh = id => ({ id, userId, deckId: deckA, index: 0, results: {}, config: { required_count: 1 },
+        cards: [{ id: cardA, metadata: { assessment: { competency_ids: ['synthetic'] } } }] });
+      for (const [index, relevance] of ['primary', 'secondary', 'none', 'unknown'].entries()) {
+        const checker = createFreeTextEvaluationSession();
+        await checker.submit('first synthetic answer', async () => ({ result: {
+          verdict: 'needs_retry', accepted: false, evaluator: 'ai', target_relevance: relevance,
+          error_type: 'grammar', error_code: 'synthetic.grammar' } }));
+        const first = recordAssessmentResult(fresh(`http-assessment-${index}`), cardA,
+          assessmentFreeTextEvidence(checker.snapshot().result));
+        // Later accepted check must not replace the first result/relevance.
+        await checker.submit('second synthetic answer', async () => ({ result: {
+          verdict: 'correct', accepted: true, evaluator: 'ai', target_relevance: 'primary' } }));
+        const later = recordAssessmentResult(first, cardA, assessmentFreeTextEvidence(checker.snapshot().result));
+        await saveAssessment(later, later.results[cardA]);
+      }
+      const unavailable = assessmentFreeTextEvidence({ verdict: 'unavailable', accepted: false, target_relevance: 'primary' });
+      if (unavailable !== null) throw new Error('Unavailable became an Assessment result');
+      const skipped = recordAssessmentResult(fresh('http-assessment-skip'), cardA, { skipped: true });
+      await saveAssessment(skipped, skipped.results[cardA]);
+      const trainer = recordAssessmentResult(fresh('http-assessment-trainer'), cardA, { isCorrect: true });
+      await saveAssessment(trainer, trainer.results[cardA]);
+      return (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray());
+    }, fixture);
+    assert.equal(assessmentEvents.length, 6);
+    for (const event of assessmentEvents) {
+      assert.equal(event.client_event_id, `${event.evaluation_data.assessment.session_id}:${fixture.cardA}`);
+      assert.equal(event.evaluation_data.schema_version, 3);
+      if (/http-assessment-[0-2]:/.test(event.client_event_id)) {
+        assert.equal(event.evaluation_data.target_relevance, ['primary', 'secondary', 'none'][Number(event.evaluation_data.assessment.session_id.slice(-1))]);
+        assert.equal(event.evaluation_data.status, 'incorrect');
+      } else assert.equal(Object.hasOwn(event.evaluation_data, 'target_relevance'), false);
+    }
+    await context.setOffline(true);
+    assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+      (await import('/src/utils/auth.js')).getUserId()))).transportFailed, true);
+    await page.evaluate(async () => {
+      const db = await import('/src/services/localDb.js');
+      db.closeLocalDb();
+      await db.getLocalDb().open();
+    });
+    assert.equal(await countQueue(), 6);
+    await context.setOffline(false);
+    assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+      (await import('/src/utils/auth.js')).getUserId()))).succeededCount, 6);
+    const assessmentAfter = (await state()).materialized_state;
+    assert.equal(assessmentAfter.evidence_event_count, assessmentBefore.evidence_event_count + 5);
+    assert.equal(assessmentAfter.positive_evidence, assessmentBefore.positive_evidence + 1);
+    assert.equal(assessmentAfter.negative_evidence, assessmentBefore.negative_evidence + 4);
+    assert.equal(Number(sql(`SELECT COUNT(*) FROM tmareviewhistory WHERE user_id=${uidA}`)), assessmentReviews);
+    for (const event of assessmentEvents) {
+      const raw = JSON.parse(sql(`SELECT evaluation_data FROM tma_knowledge_attempt WHERE user_id=${uidA} AND client_event_id='${event.client_event_id}'`));
+      assert.deepEqual(raw, event.evaluation_data);
+      assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [event] })).results[0].status, 'duplicate');
+      assert.equal((await request(fixture.b, '/knowledge/attempts/sync', { attempts: [event] })).results[0].error_code, 'assessment_not_accessible');
+    }
+    const rewritten = structuredClone(assessmentEvents.find(e => e.evaluation_data.target_relevance === 'secondary'));
+    rewritten.evaluation_data.target_relevance = 'primary';
+    assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [rewritten] })).results[0].status, 'event_conflict');
+    const invalid = structuredClone(rewritten);
+    invalid.evaluation_data.assessment.session_id = 'http-assessment-invalid';
+    invalid.client_event_id = `http-assessment-invalid:${fixture.cardA}`;
+    invalid.evaluation_data.target_relevance = 'unknown';
+    assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [invalid] })).results[0].error_code, 'invalid_assessment_evidence');
+    assert.deepEqual((await state()).materialized_state, assessmentAfter);
+    results.assessment_target_relevance_offline_raw_postgres = 'PASS';
     console.log('PASS: account switch, late real HTTP response and durable replay');
   } finally {
     if (release) await release();

@@ -3,6 +3,9 @@
 01.11.2026, ветка `codex/adaptive-knowledge`. Реализация одного улучшения из
 [d14-diagnostic-draft-1](LERNE_ADAPTIVE_D14_DIAGNOSTIC_CONTRACT.md).
 
+Продолжение: [сохранение relevance в v3 Assessment](LERNE_ADAPTIVE_ASSESSMENT_TARGET_RELEVANCE.md)
+реализовано следующим этапом. Ниже сохранён отчёт исходного v2-патча.
+
 ## Реализовано
 
 `freeTextEvaluationState.evidence()` сохраняет `target_relevance` текущего

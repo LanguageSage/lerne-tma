@@ -83,7 +83,7 @@ rg -n 'startKnowledgeSync|stopKnowledgeSync|currentGeneration|pending' app/src/s
 
 ## Objective assessment evidence
 
-GET /knowledge/decks/{deck_id} отдаёт разрешённые KI/mappings активных карточек для кэша. assessmentService атомарно записывает локальную сессию и schema_version=3/evaluation_type=assessment в существующий outbox. Sync проверяет доступ, primary KI, payload и stable session:card event ID. Верный/неверный ответ даёт objective evidence, skipped хранится без mastery; self-rating отсутствует. Legacy v1/v2 не изменены. Контракт: [ASSESSMENT](../../docs/ASSESSMENT.md). Регрессии: test_knowledge_sync.py и test_knowledge_mastery.py.
+GET /knowledge/decks/{deck_id} отдаёт разрешённые KI/mappings активных карточек для кэша. assessmentService атомарно записывает локальную сессию и schema_version=3/evaluation_type=assessment в существующий outbox. Sync проверяет доступ, primary KI, payload и stable session:card event ID. Верный/неверный ответ даёт objective evidence, skipped хранится без mastery; self-rating отсутствует. Legacy v1/v2 не изменены. Контракт: [ASSESSMENT](../../docs/ASSESSMENT.md). Optional raw `target_relevance` переносится из checker первой зафиксированной Free Text проверки; whitelist primary/secondary/none, unknown опускается, skip/unavailable не получают диагностику. Это заявление checker, не доверенное доказательство ошибки; Mastery v1 игнорирует поле. Frozen outbox/event ID не меняются. Детали: [v3 relevance](../../docs/LERNE_ADAPTIVE_ASSESSMENT_TARGET_RELEVANCE.md). Регрессии: assessmentEvidence.test.js, knowledgeFlow.test.js, test_knowledge_sync.py и test_knowledge_mastery.py; настоящий HTTP/PG — scripts/tests/run_knowledge_http_postgres.py.
 
 
 ## Единая проверка регрессий (этап 1.1)

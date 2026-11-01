@@ -25,13 +25,14 @@ async function setup(page, context) {
     if (request.method() !== 'GET') writes.push({ pathname, body:request.postDataJSON() });
     if (pathname === '/api/init') return route.fulfill({ json: { decks:course.decks.map(d=>d.id===deck.id?deck:{...d,stats:{total:course.cards.filter(c=>c.deck_id===d.id).length,new:1,due:0,learning:0}}), folders:[], settings:{}, prompts:{}, user_settings:{}, user_info:{ user_id:1,is_guest:false } } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json:{ user_id:1,is_guest:false } });
+    if (pathname === '/api/messages') return route.fulfill({ json:[] });
     if (pathname === '/api/knowledge/decks/7139') return route.fulfill({ json:{ knowledge_items:items, card_knowledge_items:mappings } });
     if (/^\/api\/decks\/\d+\/cards$/.test(pathname)) return route.fulfill({ json:apiCards.filter(c=>c.deck_id===Number(pathname.split('/')[3])) });
     if (pathname === '/api/decks/6985/next') return route.fulfill({json:course.cards.find(c=>c.deck_id===6985)});
     if (pathname === '/api/ai/evaluate-answer') {
       const correct = request.postDataJSON().answer !== 'Falsch.';
-      return route.fulfill({ json: { result: correct ? { verdict:'correct', accepted:true, evaluator:'exact' }
-        : { verdict:'incorrect', accepted:false, error_type:'grammar', error_code:'relative.production', hint:'Проверьте относительное предложение.', evaluator:'ai' }, grading_policy:{ mode:'open_text',max_retries:1 } } });
+      return route.fulfill({ json: { result: correct ? { verdict:'correct', accepted:true, evaluator:'exact', target_relevance:'primary' }
+        : { verdict:'incorrect', accepted:false, target_relevance:'secondary', error_type:'grammar', error_code:'relative.production', hint:'Проверьте относительное предложение.', evaluator:'ai' }, grading_policy:{ mode:'open_text',max_retries:1 } } });
     }
     return route.fulfill({ json:{} });
   });
@@ -84,6 +85,12 @@ test('actual D14 entry, one attempt, skips, 46-core score, skill evidence and pe
   expect(evidence.filter(e => e.status === 'incorrect')).toHaveLength(6);
   expect(evidence.filter(e => e.status === 'skipped')).toHaveLength(2);
   expect(evidence.every(e => e.schema_version === 3 && e.assessment.competency_ids.length === 1)).toBe(true);
+  for (const [index, card] of cards.entries()) {
+    const data = evidence.find(e => e.assessment.ordinal === index + 1);
+    if (index < 46 && detectExerciseType(card) === 'free_text') {
+      expect(data.target_relevance).toBe(wrong.has(card.id) ? 'secondary' : 'primary');
+    } else expect(Object.hasOwn(data, 'target_relevance')).toBe(false);
+  }
   for(const width of [320,375,430,768,1280]) {
     await page.setViewportSize({width,height:900});
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
@@ -114,6 +121,10 @@ test('unavailable free evaluator never locks in a score; resume survives reload'
   await expect(page.getByRole('button',{name:'Показать пример ответа',exact:true})).toHaveCount(0);
   await expect(page.getByRole('button',{name:'Следующее задание',exact:true})).toHaveCount(0);
   await page.getByRole('button',{name:'Пропустить задание',exact:true}).click();
+  const skipped = await page.evaluate(async () => (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray()));
+  expect(skipped).toHaveLength(1);
+  expect(skipped[0].evaluation_data.status).toBe('skipped');
+  expect(Object.hasOwn(skipped[0].evaluation_data, 'target_relevance')).toBe(false);
   await page.getByRole('button',{name:'Следующее задание',exact:true}).click();
   await page.reload();
   await page.locator('#deck-item-7139').click();
