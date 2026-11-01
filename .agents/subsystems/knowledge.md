@@ -30,6 +30,8 @@ SRS-прогресс карточки — [study](study.md); free-text verdict �
 
 ## Source of truth
 
+- v2 Free Text сохраняет последний classified `target_relevance` как optional `exercise_evidence.grading_summary.final_target_relevance` (primary/secondary/none). Missing не заменяется none; none может быть default checker. Поле не используется scoring, не backfill-ится в старый outbox и не добавлено в v3. Проверки и ограничения: [отчёт](../../docs/LERNE_ADAPTIVE_FINAL_TARGET_RELEVANCE.md).
+
 - Схема сервера: `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` в `api/models.py`.
 - Схема клиента: Dexie `knowledge_items`, `card_knowledge_items`, `knowledge_attempt_outbox`, `user_knowledge_state`.
 - Primary mapping определяет, какой KI получает evidence; без него capture не создаёт Attempt.
@@ -70,6 +72,7 @@ rg -n 'startKnowledgeSync|stopKnowledgeSync|currentGeneration|pending' app/src/s
 - Opt-in Chromium/hooks → TCP HTTP/Uvicorn с настоящими routers/auth → одноразовая native PostgreSQL: `python scripts/tests/run_knowledge_http_postgres.py --bin-dir <PG-bin>`. Проверяет grade/capture/mastery, offline entity+Knowledge sync, восемь конкурентных отправок с наблюдением PG advisory waiters, подмену происхождения, remapping/unmapping и смену аккаунта с поздним ответом. Не входит в изолированный `npm run check`; требует PostgreSQL binaries и Chromium. Границы и доказательства: [HTTP/PostgreSQL отчёт](../../docs/LERNE_ADAPTIVE_HTTP_POSTGRES.md).
 - Transport/lifecycle: `app/src/services/__tests__/knowledgeSyncService.test.js`, `app/src/services/__tests__/knowledgeSyncOrchestrator.test.js`.
 - Diagnostics client: `app/src/services/__tests__/knowledgeDiagnosticsService.test.js`.
+- D14 draft diagnostic contract: [rubrics и границы](../../docs/LERNE_ADAPTIVE_D14_DIAGNOSTIC_CONTRACT.md), `app/src/services/__tests__/adaptiveDiagnosticContract.test.js` (отдельно test-only reference semantics и текущие capture/assessment), golden compatibility в `tests/test_knowledge_mastery.py`. Никакого runtime diagnostic admission/scoring эти тесты не добавляют.
 Не все service tests входят в `app/package.json` test script; выбирайте нужный файл и проверяйте его setup.
 
 ## Related docs

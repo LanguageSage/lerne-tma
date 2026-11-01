@@ -70,6 +70,8 @@ export function createFreeTextEvaluationSession(initial = {}) {
             error_codes_seen: [...new Set(state.errors.map(e => e.code).filter(Boolean))],
             minor_errors: [...new Set(state.errors.filter(e => e.minor).map(e => e.type))],
             final_evaluator: state.result.evaluator,
+            ...(['primary', 'secondary', 'none'].includes(state.result.target_relevance)
+              ? { final_target_relevance: state.result.target_relevance } : {}),
           },
         };
       }
@@ -93,6 +95,8 @@ export function createFreeTextEvaluationSession(initial = {}) {
             error_codes_seen: [...new Set(state.errors.map(e => e.code).filter(Boolean))],
             minor_errors: [...new Set(state.errors.filter(e => e.minor).map(e => e.type))],
             final_evaluator: state.result.evaluator,
+            ...(['primary', 'secondary', 'none'].includes(state.result.target_relevance)
+              ? { final_target_relevance: state.result.target_relevance } : {}),
           },
         };
       }

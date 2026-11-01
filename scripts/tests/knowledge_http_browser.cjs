@@ -237,6 +237,39 @@ async function main() {
     assert.equal(stateB.state_matches_rebuild, true);
     assert.equal(stateB.materialized_state.evidence_event_count, 1);
     results.browser_http_account_switch_late_response_replay = 'PASS';
+    // Synthetic evaluator result; actual state -> capture -> Dexie -> HTTP -> PostgreSQL.
+    const captured = await page.evaluate(async ({ cardA, deckA }) => {
+      await (await import('/src/services/knowledgeContentService.js')).prepareDeckKnowledge(deckA);
+      const session = (await import('/src/utils/freeTextEvaluationState.js')).createFreeTextEvaluationSession();
+      await session.submit('synthetic answer', async () => ({ result: {
+        verdict: 'accepted_minor', accepted: true, evaluator: 'rules', target_relevance: 'secondary',
+        error_type: 'typo', error_code: 'synthetic.typo' } }));
+      await (await import('/src/services/knowledgeCaptureService.js')).captureStudyKnowledgeAttempt({
+        userId: (await import('/src/utils/auth.js')).getUserId(), card: { id: cardA, front: '@free\nSynthetic' },
+        grade: 2, exerciseEvidence: session.evidence() });
+      return (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray())[0];
+    }, fixture);
+    assert.match(captured.client_event_id, /^[a-f0-9-]+$/);
+    const rawBefore = (await state()).materialized_state.evidence_event_count;
+    await context.setOffline(true);
+    assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+      (await import('/src/utils/auth.js')).getUserId()))).transportFailed, true);
+    assert.equal(await countQueue(), 1);
+    await context.setOffline(false);
+    assert.equal((await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(
+      (await import('/src/utils/auth.js')).getUserId()))).succeededCount, 1);
+    const persisted = JSON.parse(sql(`SELECT evaluation_data FROM tma_knowledge_attempt WHERE user_id=${uidA} AND client_event_id='${captured.client_event_id}'`));
+    assert.deepEqual(persisted, captured.evaluation_data);
+    assert.equal(persisted.exercise_evidence.grading_summary.final_target_relevance, 'secondary');
+    assert.equal((await state()).materialized_state.evidence_event_count, rawBefore + 1);
+    const afterCapture = (await state()).materialized_state;
+    assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [captured] })).results[0].status, 'duplicate');
+    assert.deepEqual((await state()).materialized_state, afterCapture);
+    const changed = structuredClone(captured);
+    changed.evaluation_data.exercise_evidence.grading_summary.final_target_relevance = 'primary';
+    assert.equal((await request(fixture.a, '/knowledge/attempts/sync', { attempts: [changed] })).results[0].status, 'event_conflict');
+    assert.deepEqual((await state()).materialized_state, afterCapture);
+    results.free_text_final_target_relevance_raw_postgres = 'PASS';
     console.log('PASS: account switch, late real HTTP response and durable replay');
   } finally {
     if (release) await release();
