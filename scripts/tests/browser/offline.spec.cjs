@@ -1,4 +1,24 @@
 const { test, expect } = require('./isolated-fixture.cjs');
+const cardKeyCorpus = require('../../../tests/fixtures/card_key_normalization.json');
+
+test('offline duplicate keys follow the shared Unicode contract', async ({ page, context }) => {
+  await harness(page, context);
+  const actual = await page.evaluate(async corpus => {
+    const { normalizeCardKey } = await import('/src/services/offlineApi.js');
+    return {
+      keys: corpus.cases.map(({ text }) => normalizeCardKey(text)),
+      repeated: corpus.cases.map(({ text }) => normalizeCardKey(normalizeCardKey(text))),
+      equivalent: corpus.equivalent_pairs.map(([a, b]) => normalizeCardKey(a) !== '' && normalizeCardKey(a) === normalizeCardKey(b)),
+      distinct: corpus.distinct_pairs.map(([a, b]) => normalizeCardKey(a) !== normalizeCardKey(b)),
+    };
+  }, cardKeyCorpus);
+  expect(actual).toEqual({
+    keys: cardKeyCorpus.cases.map(({ key }) => key),
+    repeated: cardKeyCorpus.cases.map(({ key }) => key),
+    equivalent: cardKeyCorpus.equivalent_pairs.map(() => true),
+    distinct: cardKeyCorpus.distinct_pairs.map(() => true),
+  });
+});
 
 async function harness(page, context, firstModule = 'api') {
   const assets = new Map();
