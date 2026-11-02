@@ -105,7 +105,7 @@ test('explicit quiz without a repeated heading works after source editing and sa
   await expect(page.locator('.btn-check-quiz')).toHaveCount(0);
 });
 
-for (const fixture of require('../../../local/test-data/fixtures/quiz_boundaries.json').examples) {
+for (const fixture of require('../../../tests/fixtures/quiz_boundaries.json').examples) {
   test(`numbered Quiz condition stays in the question: ${fixture.name}`, async ({ page, context }, testInfo) => {
     const front = fixture.preamble + fixture.question + fixture.gap
       + fixture.answers.map((text, i) => `${i === fixture.correct ? '[*]' : '[ ]'} ${text}`).join('\n');

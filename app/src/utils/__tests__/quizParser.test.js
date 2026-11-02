@@ -33,7 +33,7 @@ test('explicit Quiz supports a question in information blocks without repeating 
   assert.equal(parseQuizData({ front: '::source\n[*] Eins\n[ ] Zwei\n::exercise\nNormaler Text' }), null);
 });
 
-const boundaries = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/fixtures/quiz_boundaries.json', import.meta.url), 'utf8'));
+const boundaries = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/quiz_boundaries.json', import.meta.url), 'utf8'));
 const boundaryFormats = {
   checkboxes: (text, i, correct) => `${i === correct ? '[*]' : '[ ]'} ${text}`,
   letters: (text, i, correct) => `${String.fromCharCode(65 + i)})${i === correct ? '*' : ''}${text}`,
@@ -103,7 +103,7 @@ const b1Cases = [
   },
   {
     task: 'Общий подарок: соотнеси бюджет и стоимость',
-    question: 'A: «Wir haben zusammen nur 30 Euro gesammelt.»\n\nВыбери разумное продолжение:',
+    question: 'A: «Wir haben zusammen nur 20 Euro gesammelt.»\n\nВыбери разумное продолжение:',
     answers: [
       'Dann kaufen wir den Gutschein für 50 Euro.',
       'Dann sammeln wir das Geld erst morgen, obwohl es schon da ist.',
@@ -262,8 +262,8 @@ test('editor includes legacy unprefixed answers before a starred answer like stu
 });
 
 test('B1-29-D02 compact A)Text labels preserve the full question and both answer notations', () => {
-  const fixture = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/fixtures/quiz_b1_29_d02.json', import.meta.url), 'utf8'));
-  const question = `A: «Wir haben zusammen nur 30 Euro gesammelt.»\n\nВыбери разумное продолжение:`;
+  const fixture = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/quiz_compact_labels.json', import.meta.url), 'utf8'));
+  const question = `A: «Wir haben zusammen nur 20 Euro gesammelt.»\n\nВыбери разумное продолжение:`;
   assert.equal(fixture.question, question);
 
   for (const starBeforeLabel of [true, false]) {

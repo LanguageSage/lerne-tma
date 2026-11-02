@@ -38,3 +38,10 @@ class DeployManifestTests(unittest.TestCase):
         self.assertEqual(ignored_paths(patterns, ['api', 'app']), set())
         broken = patterns.replace('!api\n', '!/api/\n').replace('!app\n', '!/app/\n')
         self.assertEqual(ignored_paths(broken, ['api', 'app']), {'api', 'app'})
+
+    def test_tracked_synthetic_fixtures_never_enter_production_upload(self):
+        report = inspect()
+        self.assertFalse(any(p.startswith('tests/') for p in report['source_files']))
+        paths = ['tests/fixtures/future.json', 'tests/fixtures/generate_lessons.py',
+                 'app/src/utils/__tests__/lessonQa.test.js']
+        self.assertEqual(ignored_paths((ROOT / '.vercelignore').read_text(), paths), set(paths))

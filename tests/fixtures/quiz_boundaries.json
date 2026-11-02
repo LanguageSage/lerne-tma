@@ -1,0 +1,40 @@
+{
+  "examples": [
+    {
+      "name": "numbered_fixture_1",
+      "preamble": "::source\nFictional fixture.\n\n::exercise\n",
+      "question": "Zwei Roboter:\n1. Der Roboter wird morgen malen.\n2. Das Bild wird morgen gemalt.\nWelche Formen?",
+      "answers": [
+        "1: Passiv; 2: Futur",
+        "Beide: Futur",
+        "1: Futur; 2: Passiv"
+      ],
+      "correct": 2,
+      "gap": "\n\n"
+    },
+    {
+      "name": "numbered_fixture_2",
+      "preamble": "::source\nFictional fixture.\n\n::exercise\n",
+      "question": "1. Ein Roboter [Lücke] malen.\n2. Zwei Roboter [Lücke] malen.",
+      "answers": [
+        "1 wird, 2 werden",
+        "1 werden, 2 wird",
+        "Beide wird"
+      ],
+      "correct": 0,
+      "gap": "\n\n\n\n"
+    }
+  ],
+  "ambiguous": [
+    "Frage?\n1. Ein Satz.\n2. Noch ein Satz.\nWelche Antwort?\n*Berlin\nBonn",
+    "Frage?\nA) Bonn\nWeitere Frage?\n*Berlin\nHamburg",
+    "Frage?\nA) Bonn\nWeitere Frage?\nB) *Berlin\nC) Hamburg",
+    "Frage?\n[ ] Bonn\nZusätzlicher Text\n[*] Berlin",
+    "Frage?\n[ ] Bonn\n[*] Berlin\nNachbemerkung",
+    "Frage?\n[ ] Bonn\n[*] Berlin\nA) Hamburg",
+    "Frage?\n[*] Berlin",
+    "Frage?\nA) Bonn\n2. *Berlin",
+    "Frage?\n1. Ein Satz.\n2. Noch ein Satz.\n1) Bonn\n2) *Berlin",
+    "Frage?\n\nBonn\n*Berlin\n\nWeitere Frage?\nHamburg"
+  ]
+}

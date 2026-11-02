@@ -1,8 +1,8 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
-const course = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../local/test-data/lesson-qa/corrected.snapshot.json'), 'utf8'));
-const deck = { ...course.decks.find(d => d.id === 7139), stats: { total: 48, new: 48, due: 0, learning: 0 } };
+const course = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../tests/fixtures/lesson-qa/corrected.json'), 'utf8'));
+const deck = { ...course.decks.find(d => d.id === 114), stats: { total: 48, new: 48, due: 0, learning: 0 } };
 const cards = course.cards.filter(c => c.deck_id === deck.id).sort((a,b) => a.position - b.position || a.id - b.id);
 // Match the real get_cards_for_study DTO: parsed metadata, front/back, no position.
 const apiCards = course.cards.map(({front_text,back_text,metadata,position:_position,...card}) => ({...card,front:front_text,back:back_text,metadata:JSON.parse(metadata||'{}')}));
@@ -26,9 +26,9 @@ async function setup(page, context) {
     if (pathname === '/api/init') return route.fulfill({ json: { decks:course.decks.map(d=>d.id===deck.id?deck:{...d,stats:{total:course.cards.filter(c=>c.deck_id===d.id).length,new:1,due:0,learning:0}}), folders:[], settings:{}, prompts:{}, user_settings:{}, user_info:{ user_id:1,is_guest:false } } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json:{ user_id:1,is_guest:false } });
     if (pathname === '/api/messages') return route.fulfill({ json:[] });
-    if (pathname === '/api/knowledge/decks/7139') return route.fulfill({ json:{ knowledge_items:items, card_knowledge_items:mappings } });
+    if (pathname === '/api/knowledge/decks/114') return route.fulfill({ json:{ knowledge_items:items, card_knowledge_items:mappings } });
     if (/^\/api\/decks\/\d+\/cards$/.test(pathname)) return route.fulfill({ json:apiCards.filter(c=>c.deck_id===Number(pathname.split('/')[3])) });
-    if (pathname === '/api/decks/6985/next') return route.fulfill({json:course.cards.find(c=>c.deck_id===6985)});
+    if (pathname === '/api/decks/101/next') return route.fulfill({json:course.cards.find(c=>c.deck_id===101)});
     if (pathname === '/api/ai/evaluate-answer') {
       const correct = request.postDataJSON().answer !== 'Falsch.';
       return route.fulfill({ json: { result: correct ? { verdict:'correct', accepted:true, evaluator:'exact', target_relevance:'primary' }
@@ -37,7 +37,7 @@ async function setup(page, context) {
     return route.fulfill({ json:{} });
   });
   await page.goto('/?user_id=1');
-  await page.locator('#deck-item-7139').click();
+  await page.locator('#deck-item-114').click();
   await page.getByRole('button', { name:'Начать занятие',exact:true }).click();
   await expect(page.locator('.assessment-view')).toBeVisible();
   return { writes, errors };
@@ -46,7 +46,7 @@ async function setup(page, context) {
 test('actual D14 entry, one attempt, skips, 46-core score, skill evidence and persisted completion', async ({page,context},testInfo) => {
   test.setTimeout(180000);
   const { writes,errors } = await setup(page,context);
-  const wrong = new Set([358363,358364,358365,358375,358385,358397]);
+  const wrong = new Set([20001,20002,20003,20013,20023,20035]);
   const { parseClozeData } = await import('../../../app/src/utils/clozeParser.js');
   const { detectExerciseType } = await import('../../../app/src/utils/exerciseDetector.js');
   for (const card of cards) {
@@ -87,11 +87,11 @@ test('actual D14 entry, one attempt, skips, 46-core score, skill evidence and pe
   expect(evidence.every(e => e.schema_version === 3 && e.assessment.competency_ids.length === 1)).toBe(true);
   for (const [index, card] of cards.entries()) {
     const data = evidence.find(e => e.assessment.ordinal === index + 1);
-    if ([358365, 358375, 358385].includes(card.id)) {
+    if ([20003, 20013, 20023].includes(card.id)) {
       expect(data.support_evidence).toEqual({ tracking_complete: false, hint_count: 0, translation_view_count: 0,
         answer_reveal_count: null, other_help_count: null, capture_point: 'first_assessment_result', answer_attempt_count: 1 });
-      expect(data.task_support).toMatchObject({ answer_options_present: card.id === 358365,
-        sentence_frame_present: true, source_vocabulary_present: true, source_text_present: card.id === 358385 });
+      expect(data.task_support).toMatchObject({ answer_options_present: card.id === 20003,
+        sentence_frame_present: true, source_vocabulary_present: true, source_text_present: card.id === 20023 });
       expect(data.status).toBe('incorrect');
     }
     if (index < 46 && detectExerciseType(card) === 'free_text') {
@@ -103,12 +103,12 @@ test('actual D14 entry, one attempt, skips, 46-core score, skill evidence and pe
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({path:testInfo.outputPath(`assessment-result-${width}.png`),fullPage:true});
   }
-  const target=course.decks.find(d=>d.id===6985);
+  const target=course.decks.find(d=>d.id===101);
   await page.locator('.assessment-results').getByRole('button',{name:target.name,exact:true}).click();
   await expect(page.locator('.assessment-view')).toHaveCount(0);
-  await expect.poll(()=>page.evaluate(async()=> (await import('/src/store/useDeckStore.js')).useDeckStore.getState().currentDeck.id)).toBe(6985);
+  await expect.poll(()=>page.evaluate(async()=> (await import('/src/store/useDeckStore.js')).useDeckStore.getState().currentDeck.id)).toBe(101);
   await page.reload();
-  const saved = await page.evaluate(async () => (await import('/src/services/assessmentService.js')).loadAssessment(1,7139));
+  const saved = await page.evaluate(async () => (await import('/src/services/assessmentService.js')).loadAssessment(1,114));
   expect(saved.index).toBe(48);
   expect(Object.keys(saved.results)).toHaveLength(48);
   expect(errors).toEqual([]);
@@ -134,7 +134,7 @@ test('unavailable free evaluator never locks in a score; resume survives reload'
   expect(Object.hasOwn(skipped[0].evaluation_data, 'target_relevance')).toBe(false);
   await page.getByRole('button',{name:'Следующее задание',exact:true}).click();
   await page.reload();
-  await page.locator('#deck-item-7139').click();
+  await page.locator('#deck-item-114').click();
   await page.getByRole('button',{name:'Начать занятие',exact:true}).click();
   await expect(page.locator('.assessment-view')).toContainText('47 / 48');
   await page.screenshot({path:testInfo.outputPath('assessment-resumed.png'),fullPage:true});
@@ -156,7 +156,7 @@ test('local storage failure rolls back result and outbox; retry saves the first 
   await expect(page.getByRole('alert')).toContainText('Не удалось сохранить ответ');
   const read=()=>page.evaluate(async()=>{
     const db=(await import('/src/services/localDb.js')).getLocalDb();
-    const saved=(await db.syncState.get('assessment:1:7139')).session;
+    const saved=(await db.syncState.get('assessment:1:114')).session;
     return {results:Object.keys(saved.results).length,events:await db.knowledge_attempt_outbox.count()};
   });
   expect(await read()).toEqual({results:0,events:0});

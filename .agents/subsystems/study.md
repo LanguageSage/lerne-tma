@@ -81,11 +81,11 @@ keeps drafts by review key across card navigation. The existing evaluation
 service receives the current full input; the server owns BACK and grading policy.
 The interactive surface excludes clicks, keyboard input and gestures from flips.
 
-Regression fixtures: `local/test-data/browser/fixtures/editable-real-cards.json`
-is a read-only snapshot of all 65 active editable cards on 2026-10-23, including
-359618 in deck 7164 (B1-16-D05). `editable-corpus.spec.cjs` checks every card
-through StudyCard and draft navigation; `editable-text.spec.cjs` checks the
-real 359618 text with an isolated evaluation endpoint at 320/375/430/768/1280px.
+Regression fixtures: `tests/fixtures/editable-cards.json` contains 65 synthetic
+syntax cases with fictional IDs and text. `editable-corpus.spec.cjs` checks every
+case through StudyCard and draft navigation; `editable-text.spec.cjs` checks a
+representative correction with an isolated evaluation endpoint at
+320/375/430/768/1280px.
 `free-text-dictation.spec.cjs` covers the shared component's `@free` path.
 
 Release diagnosis on 2026-10-23: public `tma-amber.vercel.app` served
@@ -232,3 +232,5 @@ V1 helpers доступны только при отсутствии V2. Оце�
 Учебная политика, ASR, SRS и хранилища не мигрировались.
 Контракт и проверки: [этап 2C](../../docs/DESIGN_V2_STAGE2C_RUNTIME.md),
 `scripts/tests/browser/design-runtime-v2.spec.cjs`.
+
+CI fixtures: `tests/fixtures/`, только вымышленные данные; приватные снимки и артефакты остаются в `local/test-data/`. Политика и воспроизводимость: [TEST_DATA](../../docs/TEST_DATA.md).

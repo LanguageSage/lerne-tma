@@ -4,9 +4,9 @@ import fs from 'node:fs';
 import { detectExerciseType } from '../exerciseDetector.js';
 
 // The same corpus is checked by scripts/tests/test_exercise_detection_corpus.py
-// against api/services/input_parser.py. Real lesson FRONT texts, no DB access.
+// against api/services/input_parser.py. Synthetic lesson FRONT texts, no DB access.
 const corpus = JSON.parse(fs.readFileSync(
-  new URL('../../../../local/test-data/fixtures/exercise_detection_corpus.json', import.meta.url), 'utf8'));
+  new URL('../../../../tests/fixtures/exercise_detection_corpus.json', import.meta.url), 'utf8'));
 
 const detect = (front) => detectExerciseType(front) || 'standard';
 

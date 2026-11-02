@@ -102,8 +102,8 @@ test('other exercise sessions retain their old evidence shape and checks', () =>
 
 if (process.env.LERNE_D14_SUPPORT === '1') {
   test('local D14 choice and inputs retain authored scaffolding without claiming independent word order', () => {
-    const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/lesson-qa/corrected.snapshot.json', import.meta.url), 'utf8'));
-    for (const id of [358365, 358375, 358385]) {
+    const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/corrected.json', import.meta.url), 'utf8'));
+    for (const id of [20003, 20013, 20023]) {
       const current = snapshot.cards.find(card => card.id === id);
       assert.ok(current);
       const cloze = parseClozeData(current, 'classic');
@@ -111,13 +111,13 @@ if (process.env.LERNE_D14_SUPPORT === '1') {
       const session = createExerciseEvaluationSession(undefined, { trackSupport: true, taskSupport });
       session.check(evaluateTrainerGaps(cloze.gaps, Object.fromEntries(cloze.gaps.map(gap => [gap.id, gap.correctAnswer]))));
       assert.equal(session.evidence().isCorrect, true);
-      assert.equal(taskSupport.answer_options_present, id === 358365);
-      assert.equal(taskSupport.source_text_present, id === 358385);
+      assert.equal(taskSupport.answer_options_present, id === 20003);
+      assert.equal(taskSupport.source_text_present, id === 20023);
       assert.equal(taskSupport.sentence_frame_present, true);
       assert.equal(taskSupport.source_vocabulary_present, true);
       assert.equal(session.evidence().supportEvidence.tracking_complete, false);
       assert.equal(Object.hasOwn(session.evidence(), 'independent'), false);
-      if (id === 358385) {
+      if (id === 20023) {
         assert.equal(cloze.gaps[0].correctAnswer, 'spricht');
         assert.match(cloze.maskedText, /___GAP_0___\.$/);
       }

@@ -1,0 +1,327 @@
+[
+  {
+    "id": 1,
+    "front": "::task\nWort1 Wort2 Wort3. Wort4 Wort5 Wort6.\n::exercise\n@edit\nWort7 Wort8 Wort9 Wort10 Wort11 Wort12 Wort13 Wort14 Wort15 Wort16.",
+    "back": "Wort7 Wort8 Wort9 Wort10 Wort11, Wort12 Wort13 Wort14 Wort15 Wort16."
+  },
+  {
+    "id": 2,
+    "front": "::task\nWort17 Wort18 Wort19 Wort20 Wort21, Wort22 Wort23.\n::exercise\n@edit\nWort24 Wort25 Wort26 Wort27 Wort28, Wort12 Wort29 Wort30 Wort31.",
+    "back": "Wort24 Wort25 Wort26 Wort27 Wort28, Wort12 Wort30 Wort31."
+  },
+  {
+    "id": 3,
+    "front": "::task\nWort1 Wort32 Wort33 в Wort34 Wort35, Wort5 Wort36 Wort32 Wort37 Wort38.\n::exercise\n@edit\nWort39 Wort40 Wort41 Wort42, Wort29 Wort43 Wort44 Wort45 Wort46.",
+    "back": "Wort39 Wort40 Wort41 Wort42, Wort43 Wort29 Wort44 Wort45 Wort46."
+  },
+  {
+    "id": 4,
+    "front": "::task\nWort1 Wort2 Wort47 Wort48 Wort49.\n::exercise\n@edit\nWort50 Wort51 Wort52 Wort53, Wort12 Wort40 Wort54 Wort15 Wort55.",
+    "back": "Wort50 Wort51 Wort52 Wort53, Wort12 Wort40 Wort54 Wort56."
+  },
+  {
+    "id": 5,
+    "front": "::task\nWort57 Wort58 Wort59 Wort60 Wort61. Wort1 Wort2 Wort62 Wort63.\n::exercise\n@edit\nWort24 Wort64 Wort65 Wort66, Wort12 Wort67 Wort68 Wort40 Wort69 Wort70.",
+    "back": "Wort24 Wort64 Wort65 Wort66, Wort12 Wort26 Wort68 Wort40 Wort69 Wort70."
+  },
+  {
+    "id": 6,
+    "front": "::task\nWort1 Wort71 Wort72 Wort47 в Wort73 Wort74.\n::exercise\n@edit\nWort75 Wort76 Wort77 Wort78, Wort12 Wort79 Wort9 Wort80 Wort81 Wort82 Wort15 Wort83.",
+    "back": "Wort75 Wort76 Wort77 Wort78, Wort12 Wort79 Wort84 Wort80 Wort81 Wort82 Wort15 Wort83."
+  },
+  {
+    "id": 7,
+    "front": "::task\nWort1 Wort32 Wort33 в Wort34 Wort35, Wort22 Wort85.\n::exercise\n@edit\nWort39 Wort40 Wort86 Wort15 Wort87, Wort88 Wort89 Wort90 Wort13 Wort91.",
+    "back": "Wort39 Wort40 Wort86 Wort15 Wort87, Wort90 Wort88 Wort89 Wort13 Wort91."
+  },
+  {
+    "id": 8,
+    "front": "::task\nWort1 Wort92 Wort93 Wort94 с Wort12 … Wort15, Wort5 Wort36 Wort95 Wort96.\n::exercise\n@edit\nWort7 Wort97 Wort40 Wort98 Wort99, Wort12 Wort100 Wort67 Wort101 Wort102.",
+    "back": "Wort7 Wort97 Wort40 Wort98 Wort99, Wort12 Wort67 Wort101 Wort15 Wort103."
+  },
+  {
+    "id": 9,
+    "front": "::task\nWort1 Wort2 Wort3:\n\n::exercise\n@edit\nWort7 Wort104 Wort105 Wort106 Wort107 Wort108.",
+    "back": "Wort7 Wort104 Wort105, Wort106 Wort107 Wort108."
+  },
+  {
+    "id": 10,
+    "front": "::task\nWort109 и Wort110 Wort111:\n\n::exercise\n@edit\nWort75 Wort112, Wort106 Wort15 Wort40 Wort113 Wort114.",
+    "back": "Wort75 Wort112, Wort106 Wort40 Wort113 Wort15 Wort114."
+  },
+  {
+    "id": 11,
+    "front": "::task\nWort1 Wort32 Wort33 Wort115 Wort116 Wort117:\n\n::exercise\n@edit\nWort118 Wort119 Wort15 Wort120, Wort121 Wort122 Wort65 Wort123.",
+    "back": "Wort118 Wort119 Wort15 Wort120, Wort122 Wort121 Wort65 Wort123."
+  },
+  {
+    "id": 12,
+    "front": "::task\nWort109 Wort71 Wort111 и Wort110:\n\n::exercise\n@edit\nWort124 Wort125 Wort65 Wort126, Wort106 Wort40 Wort127 Wort15 Wort128.",
+    "back": "Wort124 Wort125 Wort65 Wort126, Wort106 Wort40 Wort127 Wort128."
+  },
+  {
+    "id": 13,
+    "front": "::task\nWort1 Wort32 Wort115 Wort129 и Wort130 Wort131:\n\n::exercise\n@edit\nWort118 Wort132 Wort133 Wort134, Wort121 Wort135 Wort136.",
+    "back": "Wort118 Wort132 Wort133 Wort134, Wort135 Wort121 Wort136."
+  },
+  {
+    "id": 14,
+    "front": "::task\nWort1 Wort111 в Wort137, Wort138 Wort139 Wort140:\n\n::exercise\n@edit\nWort75 Wort141, Wort106 Wort88 Wort142 Wort15 Wort143.",
+    "back": "Wort75 Wort141, Wort106 Wort40 Wort142 Wort15 Wort143."
+  },
+  {
+    "id": 15,
+    "front": "::task\nWort144 Wort145, Wort146 Wort147 Wort5 Wort148 о Wort149. Wort1:\n\n::exercise\n@edit\nWort124 Wort150 Wort151, Wort106 Wort40 Wort152 Wort153 Wort15 Wort154.",
+    "back": "Wort124 Wort150 Wort151, Wort106 Wort40 Wort152 Wort15 Wort154."
+  },
+  {
+    "id": 16,
+    "front": "::task\nWort1 Wort2 Wort32 Wort33 в Wort34 Wort35:\n\n::exercise\n@edit\nWort118 Wort119 Wort155, Wort156 Wort157 Wort132 Wort158.",
+    "back": "Wort118 Wort119 Wort155, Wort157 Wort156 Wort132 Wort158."
+  },
+  {
+    "id": 17,
+    "front": "::task\nWort1 Wort2 Wort32 Wort33 в Wort159:\n\n::exercise\n@edit\nWort124 Wort160 Wort161 Wort162 Wort163, Wort164 Wort15 Wort65 Wort165 Wort166.",
+    "back": "Wort124 Wort160 Wort161 Wort162 Wort163, Wort164 Wort65 Wort165 Wort15 Wort166."
+  },
+  {
+    "id": 18,
+    "front": "::task\nWort1 Wort167 Wort32: Wort168 Wort145 «Wort169 Wort170 Wort171 Wort172 Wort173, Wort174 Wort175 Wort176».\n\n::exercise\n@edit\nWort124 Wort177 Wort178 Wort179, Wort164 Wort180 Wort15 Wort181.",
+    "back": "Wort124 Wort182 Wort178, Wort164 Wort180 Wort183."
+  },
+  {
+    "id": 19,
+    "front": "::task\nWort1 Wort184 и Wort32 Wort33:\n\n::exercise\n@edit\nWort185 Wort40 Wort186 Wort187 Wort15 Wort188 Wort29 Wort189 Wort190 Wort132 Wort158.",
+    "back": "Wort185 Wort40 Wort186 Wort187 Wort15 Wort188, Wort189 Wort29 Wort190 Wort132 Wort158."
+  },
+  {
+    "id": 20,
+    "front": "::task\nWort191 Wort192 Wort193 Wort194:\n\n::exercise\n@edit\nWort185 Wort40 Wort195 Wort187 Wort15 Wort196 Wort197 Wort156 Wort13 Wort198.",
+    "back": "Wort185 Wort40 Wort195 Wort187 Wort15 Wort196, Wort197 Wort156 Wort13 Wort198."
+  },
+  {
+    "id": 21,
+    "front": "::task\nWort1 Wort2 Wort32 в Wort34 Wort35:\n\n::exercise\n@edit\nWort185 Wort132 Wort199 Wort187 Wort200, Wort100 Wort201 Wort202 Wort203 Wort204.",
+    "back": "Wort185 Wort132 Wort199 Wort187 Wort200, Wort201 Wort100 Wort202 Wort203 Wort204."
+  },
+  {
+    "id": 22,
+    "front": "::task\nWort109 и Wort110 Wort205 Wort206:\n\n::exercise\n@edit\nWort207 Wort208 Wort142 Wort15 Wort209 Wort121 Wort210 Wort211 Wort77 Wort212.",
+    "back": "Wort207 Wort208 Wort142 Wort213, Wort210 Wort121 Wort211 Wort77 Wort212."
+  },
+  {
+    "id": 23,
+    "front": "::task\nWort1 Wort32 и Wort130 Wort214 Wort215:\n\n::exercise\n@edit\nWort185 Wort132 Wort216 Wort15 Wort114, Wort29 Wort217 Wort79 Wort162 Wort218.",
+    "back": "Wort185 Wort132 Wort216 Wort15 Wort114, Wort217 Wort29 Wort79 Wort162 Wort218."
+  },
+  {
+    "id": 24,
+    "front": "::task\nWort1 Wort2 Wort219 Wort63:\n\n::exercise\n@edit\nWort185 Wort67 Wort15 Wort220, Wort221 Wort121 Wort222 Wort223 Wort224.",
+    "back": "Wort185 Wort222 Wort15 Wort220, Wort221 Wort121 Wort222 Wort223 Wort224."
+  },
+  {
+    "id": 25,
+    "front": "::task\nWort225 Wort3 и Wort32 Wort33:\n\n::exercise\n@edit\nWort207 Wort40 Wort54 Wort187 Wort226 Wort189 Wort29 Wort190 Wort65 Wort227.",
+    "back": "Wort207 Wort40 Wort54 Wort187 Wort226, Wort189 Wort29 Wort190 Wort65 Wort227."
+  },
+  {
+    "id": 26,
+    "front": "::task\nWort228: Wort229 Wort230 Wort231 Wort172 Wort232 Wort233 Wort234.  \nWort235 Wort236 Wort19 Wort237, Wort238 Wort5 Wort239 Wort240 Wort241:\n\n::exercise\n@edit\nWort50 Wort242 Wort243 Wort132 Wort244, Wort106 Wort65 Wort245 Wort226.",
+    "back": "Wort50 Wort242 Wort243 Wort132 Wort244, Wort164 Wort65 Wort245 Wort187 Wort226."
+  },
+  {
+    "id": 27,
+    "front": "::task\nWort228: Wort147 Wort246 Wort247, Wort5 Wort248 Wort249.  \nWort1 Wort2 Wort250 Wort251:\n\n::exercise\n@edit\nWort124 Wort252 Wort132 Wort199 Wort253, Wort164 Wort40 Wort254 Wort15 Wort189.",
+    "back": "Wort124 Wort252 Wort132 Wort199 Wort253, Wort106 Wort40 Wort254 Wort15 Wort189."
+  },
+  {
+    "id": 28,
+    "front": "::task\nWort144 Wort145 «Wort169 Wort255 Wort256, Wort174 Wort257 Wort258». Wort1 Wort259 Wort260 Wort251:\n\n::exercise\n@edit\nWort124 Wort243 Wort40 Wort261, Wort106 Wort40 Wort262 Wort15 Wort263.",
+    "back": "Wort124 Wort243 Wort40 Wort261, Wort12 Wort40 Wort262 Wort15 Wort263."
+  },
+  {
+    "id": 29,
+    "front": "::task\nWort228: «Wort264 Wort265 Wort266, Wort5 Wort267 с Wort268».  \nWort269 Wort270 Wort271 Wort272 Wort273, Wort274 Wort275 Wort139.\n\n::exercise\n@edit\nWort75 Wort252 Wort276, Wort164 Wort79 Wort277 Wort142 Wort15 Wort278.",
+    "back": "Wort75 Wort252 Wort276, Wort106 Wort79 Wort277 Wort142 Wort15 Wort278."
+  },
+  {
+    "id": 30,
+    "front": "::task\nWort144 Wort145: «Wort57 Wort279, Wort5 Wort280 Wort281».  \nWort1 Wort2 Wort282.\n\n::exercise\n@edit\nWort24 Wort283 Wort284, Wort106 Wort40 Wort41 Wort153 Wort15 Wort285.",
+    "back": "Wort24 Wort283 Wort284, Wort106 Wort40 Wort41 Wort15 Wort285."
+  },
+  {
+    "id": 31,
+    "front": "::task\nWort228: Wort147 Wort286 Wort60 Wort287 Wort172 Wort288.  \nWort289 Wort5 Wort290 Wort291 Wort292:\n\n::exercise\n@edit\nWort124 Wort293 Wort79 Wort162 Wort294, Wort106 Wort15 Wort295.",
+    "back": "Wort124 Wort293 Wort79 Wort162 Wort294, Wort164 Wort15 Wort295."
+  },
+  {
+    "id": 32,
+    "front": "::task\nWort144: «Я Wort296 Wort297 Wort298, Wort174 Wort299 Wort300 Wort301 Wort302».  \nWort1:\n\n::exercise\n@edit\nWort7 Wort303 Wort304 Wort305 Wort40 Wort306, Wort12 Wort65 Wort307 Wort308 Wort15 Wort83.",
+    "back": "Wort7 Wort303 Wort304 Wort305 Wort40 Wort306, Wort309 Wort121 Wort65 Wort307 Wort308 Wort310."
+  },
+  {
+    "id": 33,
+    "front": "::task\nWort144: «Wort169 Wort311, а Wort312 Wort313 Wort5 Wort314».  \nWort1:\n\n::exercise\n@edit\nWort124 Wort315 Wort316, Wort106 Wort40 Wort41 Wort15 Wort317.",
+    "back": "Wort124 Wort315 Wort316, Wort106 Wort318 Wort40 Wort41 Wort180 Wort319 Wort320."
+  },
+  {
+    "id": 34,
+    "front": "::task\nWort1 Wort71 Wort111:\n\n::exercise\n@edit\nWort124 Wort293 Wort321, Wort106 Wort322 Wort15.",
+    "back": "Wort124 Wort293 Wort321, Wort106 Wort323."
+  },
+  {
+    "id": 35,
+    "front": "::task\nWort1 Wort32 Wort33:\n\n::exercise\n@edit\nWort185 Wort9 Wort80 Wort324 Wort15 Wort325, Wort121 Wort326 Wort327 Wort77 Wort328.",
+    "back": "Wort185 Wort9 Wort80 Wort324 Wort15 Wort325, Wort326 Wort121 Wort327 Wort77 Wort328."
+  },
+  {
+    "id": 36,
+    "front": "::task\nWort329 Wort193 Wort194:\n\n::exercise\n@edit\nWort24 Wort320 Wort65 Wort123 Wort253 Wort106 Wort40 Wort330 Wort15 Wort331.",
+    "back": "Wort24 Wort320 Wort65 Wort123 Wort253, Wort106 Wort40 Wort330 Wort15 Wort331."
+  },
+  {
+    "id": 37,
+    "front": "::task\nWort1 Wort23: «Wort264 Wort332, Wort5 Wort333».\n\n::exercise\n@edit\nWort75 Wort334, Wort106 Wort153 Wort155.",
+    "back": "Wort75 Wort334, Wort106 Wort155."
+  },
+  {
+    "id": 38,
+    "front": "::task\nWort1 и Wort130 Wort335 Wort215:\n\n::exercise\n@edit\nWort185 Wort222 Wort220 Wort15, Wort336 Wort156 Wort337.",
+    "back": "Wort185 Wort222 Wort15 Wort220, Wort336 Wort156 Wort337."
+  },
+  {
+    "id": 39,
+    "front": "::task\nWort144 Wort145: «Wort169 Wort246 Wort338, Wort5 Wort248 Wort339».  \nWort340 Wort341 Wort342, Wort110 Wort2 Wort250 Wort270.\n\n::exercise\n@edit\nWort124 Wort343 Wort40 Wort344, Wort164 Wort345 Wort346 Wort15 Wort189.",
+    "back": "Wort124 Wort343 Wort40 Wort344, Wort106 Wort345 Wort346 Wort15 Wort189."
+  },
+  {
+    "id": 40,
+    "front": "::task\nWort1 Wort347 Wort348:\n\n::exercise\n@edit\nWort124 Wort349 Wort132 Wort350 Wort327, Wort164 Wort202 Wort351 Wort352.",
+    "back": "Wort124 Wort349 Wort132 Wort350 Wort327, Wort164 Wort202 Wort353."
+  },
+  {
+    "id": 41,
+    "front": "::task\nWort1 Wort32 и Wort194:\n\n::exercise\n@edit\nWort118 Wort132 Wort354 Wort15 Wort355 Wort121 Wort356 Wort65 Wort307.",
+    "back": "Wort118 Wort132 Wort354 Wort15 Wort355, Wort356 Wort121 Wort65 Wort307."
+  },
+  {
+    "id": 42,
+    "front": "::task\nWort1 и Wort130: «Я Wort265 Wort357, Wort5 Wort248 Wort358».\n\n::exercise\n@edit\nWort7 Wort8 Wort40 E-Wort359 Wort360, Wort106 Wort361 Wort132 Wort362 Wort15 Wort320.",
+    "back": "Wort7 Wort8 Wort40 E-Wort359 Wort360, Wort106 Wort132 Wort362 Wort15 Wort331."
+  },
+  {
+    "id": 43,
+    "front": "::task\nWort144: «Wort169 Wort363, а Wort364 Wort313 Wort5 Wort365».  \nWort366: Wort124 Wort367 Wort368, Wort106 Wort132 Wort41 Wort15 Wort317.\n\n::exercise\n@edit\nWort124 Wort367 Wort368, Wort106 Wort132 Wort41 Wort15 Wort317.",
+    "back": "Wort124 Wort367 Wort368, Wort106 Wort318 Wort88 Wort369 Wort180 Wort370."
+  },
+  {
+    "id": 44,
+    "front": "::task\nWort144: «Wort57 Wort371 Wort372, Wort174 Wort373 Wort374 Wort375».  \nWort376 Wort377 Wort378 Wort379.\n\n::exercise\n@edit\nWort24 Wort189 Wort65 Wort380, Wort106 Wort40 Wort381 Wort382 Wort383 Wort15 Wort384.",
+    "back": "Wort24 Wort189 Wort65 Wort380, Wort12 Wort40 Wort381 Wort382 Wort383 Wort15 Wort384."
+  },
+  {
+    "id": 45,
+    "front": "::task\nWort385: «Я Wort386 Wort387, Wort174 Wort388 Wort389 Wort390 Wort391 Wort392».  \nWort1 Wort23:\n\n::exercise\n@edit\nWort7 Wort393 Wort132 Wort394, Wort12 Wort202 Wort395 Wort15 Wort83.",
+    "back": "Wort7 Wort393 Wort132 Wort394, Wort309 Wort40 Wort396 Wort202 Wort395 Wort310."
+  },
+  {
+    "id": 46,
+    "front": "::task\nWort1 Wort347 Wort63:  \nWort169 Wort5 Wort397 Wort391.\n\n::exercise\n@edit\nWort124 Wort112 Wort161 Wort398, Wort106 Wort399 Wort15 Wort285.",
+    "back": "Wort124 Wort112 Wort161 Wort398, Wort106 Wort202 Wort15 Wort285."
+  },
+  {
+    "id": 47,
+    "front": "::task\nWort1 Wort400 Wort401 Wort49:\n\n::exercise\n@edit\nWort185 Wort40 Wort402 Wort187 Wort15 Wort196, Wort121 Wort252 Wort40 Wort254 Wort403.",
+    "back": "Wort185 Wort40 Wort402 Wort187 Wort15 Wort196, Wort252 Wort121 Wort40 Wort254 Wort403."
+  },
+  {
+    "id": 48,
+    "front": "::task\nWort144: «Wort404 Wort405 Wort406 Wort407 Wort408 Wort371 Wort409».  \nWort1 и Wort130:\n\n::exercise\n@edit\nWort185 Wort187 Wort410 Wort15 Wort29 Wort189 Wort190 Wort132 Wort411.",
+    "back": "Wort185 Wort187 Wort412, Wort189 Wort29 Wort190 Wort132 Wort411."
+  },
+  {
+    "id": 49,
+    "front": "::task\nWort1 Wort2 Wort413, Wort146 Wort414 Wort415:\n\n::exercise\n@edit\nWort124 Wort416 Wort65 Wort417 Wort106 Wort65 Wort418 Wort419.",
+    "back": "Wort124 Wort416 Wort65 Wort417, Wort106 Wort65 Wort418 Wort419."
+  },
+  {
+    "id": 50,
+    "front": "::task\nWort144: «Wort57 Wort420, Wort5 Wort421 Wort422».  \nWort1 Wort423 Wort378 Wort379.\n\n::exercise\n@edit\nWort24 Wort283 Wort316, Wort164 Wort132 Wort424 Wort15 Wort285.",
+    "back": "Wort24 Wort283 Wort316, Wort106 Wort132 Wort424 Wort15 Wort285."
+  },
+  {
+    "id": 51,
+    "front": "::task\nWort1 Wort47:  \nWort425: Wort299 Wort426 Wort427, Wort5 Wort428 Wort429 Wort430.\n\n::exercise\n@edit\nWort75 Wort431 Wort321, Wort106 Wort222 Wort15 Wort432 Wort433.",
+    "back": "Wort75 Wort431 Wort321, Wort106 Wort222 Wort432 Wort15 Wort433."
+  },
+  {
+    "id": 52,
+    "front": "::task\nWort1, Wort434 Wort130:\n\n::exercise\n@edit\nWort207 Wort65 Wort123 Wort187 Wort15 Wort435, Wort100 Wort436 Wort203 Wort40 Wort198.",
+    "back": "Wort207 Wort65 Wort123 Wort187 Wort200, Wort436 Wort100 Wort203 Wort40 Wort198."
+  },
+  {
+    "id": 53,
+    "front": "::task\nWort144: «Wort437 Wort438 Wort439, Wort174 Wort373 Wort111».  \nWort1 Wort2 Wort23.\n\n::exercise\n@edit\nWort75 Wort440 Wort40 Wort441, Wort106 Wort132 Wort442 Wort15 Wort384.",
+    "back": "Wort75 Wort440 Wort40 Wort441, Wort12 Wort132 Wort442 Wort15 Wort384."
+  },
+  {
+    "id": 54,
+    "front": "::task\nWort144: «Я Wort265 Wort443, Wort238 Wort444 Wort5 Wort365 Wort357».  \nWort1:\n\n::exercise\n@edit\nWort7 Wort8 Wort40 Wort445 Wort360, Wort106 Wort40 Wort212 Wort15 Wort317.",
+    "back": "Wort7 Wort8 Wort40 Wort445 Wort360, Wort106 Wort318 Wort88 Wort446 Wort40 E-Wort359 Wort319 Wort252."
+  },
+  {
+    "id": 55,
+    "front": "::task\nWort1 Wort71 Wort111 в Wort447 с Wort448 Wort449.\n\n::exercise\n@edit\nWort75 Wort141 Wort450, Wort106 Wort40 Wort451 Wort15 Wort452.",
+    "back": "Wort75 Wort141 Wort450, Wort106 Wort40 Wort451 Wort453."
+  },
+  {
+    "id": 56,
+    "front": "::task\nWort1 Wort32 Wort33 Wort115 Wort116 Wort117.\n\n::exercise\n@edit\nWort185 Wort454 Wort455 Wort15 Wort217, Wort100 Wort456 Wort77 E-Wort359.",
+    "back": "Wort185 Wort454 Wort455 Wort15 Wort217, Wort456 Wort100 Wort77 E-Wort359."
+  },
+  {
+    "id": 57,
+    "front": "::task\nWort1 Wort47 Wort457.\n\n::exercise\n@edit\nWort124 Wort141, Wort106 Wort399 Wort15 Wort285.",
+    "back": "Wort124 Wort141, Wort106 Wort202 Wort15 Wort285."
+  },
+  {
+    "id": 58,
+    "front": "::task\nWort1 Wort23: «Я Wort458, а Wort459 Wort313 Wort5 Wort460».\n\n::exercise\n@edit\nWort7 Wort141 Wort461, Wort106 Wort462 Wort463 Wort15 Wort317.",
+    "back": "Wort7 Wort141 Wort461, Wort106 Wort318 Wort462 Wort463 Wort180 Wort370."
+  },
+  {
+    "id": 59,
+    "front": "::task\nWort1 Wort32 Wort33 в Wort464 Wort465.\n\n::exercise\n@edit\nWort185 Wort213, Wort100 Wort456 Wort77 E-Wort359.",
+    "back": "Wort185 Wort213, Wort456 Wort100 Wort77 E-Wort359."
+  },
+  {
+    "id": 60,
+    "front": "::task\nWort1 Wort236: Wort415 Wort466 «Wort264 Wort467, Wort468 Wort5 Wort469».\n\n::exercise\n@edit\nWort75 Wort141, Wort106 Wort470 Wort15 Wort471.",
+    "back": "Wort75 Wort141, Wort106 Wort472 Wort15 Wort471."
+  },
+  {
+    "id": 61,
+    "front": "::task\nWort1 Wort111 в Wort473 Wort33.\n\n::exercise\n@edit\nWort118 Wort132 Wort474 Wort15 Wort475, Wort121 Wort252 Wort40 Wort476 Wort477.",
+    "back": "Wort118 Wort132 Wort474 Wort15 Wort475, Wort252 Wort121 Wort40 Wort476 Wort477."
+  },
+  {
+    "id": 62,
+    "front": "::task\nWort1 Wort111 в Wort478 Wort479.\n\n::exercise\n@edit\nWort24 Wort320 Wort132 Wort324 Wort480, Wort106 Wort222 Wort15 Wort481.",
+    "back": "Wort24 Wort320 Wort132 Wort324 Wort480, Wort106 Wort26 Wort15 Wort481."
+  },
+  {
+    "id": 63,
+    "front": "::task\nWort1 Wort482 с Wort448 Wort449.\n\n::exercise\n@edit\nWort75 Wort52 Wort483 Wort484, Wort164 Wort15 Wort209.",
+    "back": "Wort75 Wort52 Wort483 Wort484, Wort164 Wort213."
+  },
+  {
+    "id": 64,
+    "front": "::task\nWort1 Wort111 в Wort485 Wort486.\n\n::exercise\n@edit\nWort124 Wort315 Wort487, Wort106 Wort488 Wort369 Wort15 Wort285.",
+    "back": "Wort124 Wort315 Wort487, Wort106 Wort488 Wort41 Wort15 Wort285."
+  },
+  {
+    "id": 65,
+    "front": "::task\nWort1 Wort23: Wort489 Wort490, Wort174 Wort5 Wort491 Wort492.\n\n::exercise\n@edit\nWort24 Wort493 Wort53, Wort106 Wort77 Wort494 Wort15 Wort495.",
+    "back": "Wort24 Wort493 Wort53, Wort12 Wort77 Wort494 Wort15 Wort495."
+  }
+]
