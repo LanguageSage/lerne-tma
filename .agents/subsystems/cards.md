@@ -44,6 +44,28 @@
 - В online-режиме результат сохраняет сервер, в offline — Dexie; перенос данных описан в [sync](sync.md).
 - Порядок карточек, удаление и повторный импорт определяются серверной логикой и соответствующими offline handlers.
 
+## Ключ дубликата online/offline
+
+`api/services/cards.py:normalize_card_key` и
+`app/src/services/offlineApi.js:normalizeCardKey` используют один контракт для
+строк FRONT (null/пустая строка дают пустой ключ): NFKC → оставить только Unicode
+категории Letter/Mark/Number (`L`, `M`, `N`) → locale-independent lowercase →
+NFKC. Последняя нормализация соединяет знаки после фильтрации/смены регистра
+(например, `J` + caron → `ǰ`) и делает ключ стабильным при повторном применении.
+Пробелы, пунктуация, `_`, символы и emoji игнорируются; границы слов не учитываются
+(`Guten Tag` = `guten-tag`). Диакритика и `ß` сохраняются: `schön` ≠ `schon`,
+`Maße` ≠ `Masse` ≠ `Mae`. Casefold и транслитерация не применяются.
+
+Ключ вычисляется только при сравнении в batch copy/move; пустой ключ не считается
+совпадением. FRONT/BACK/context, сохранённые записи и схема БД не нормализуются и
+не мигрируют. Режимы skip/overwrite/keep сохраняют своё назначение; overwrite
+по-прежнему явно заменяет содержимое совпавшей карточки исходным текстом.
+Общий синтетический корпус: `tests/fixtures/card_key_normalization.json`;
+Python: `scripts/tests/test_card_key_normalization.py`; реальный JS/Dexie:
+Unicode cases в `scripts/tests/browser/offline.spec.cjs` (critical CI).
+`api/admin_contract.json` обновляет только import fingerprint: это совместимое
+исправление сравнения, без изменения wire format, схемы и версии import v2.
+
 ## Theory
 
 - `@theory` отдельной строкой в FRONT задаёт `card_type: theory`. Маркер остаётся в исходнике для редактирования и экспорта. `exerciseContentParser.js` / `input_parser.py` исключают его из визуального и TTS-представления, возвращая `isTheory` / `is_theory`; буквальное упоминание внутри непрерывного информационного блока не задаёт тип.
