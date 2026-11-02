@@ -19,6 +19,7 @@
 | Парсеры упражнений | `app/src/utils/wordBankParser.js`, `app/src/utils/clozeParser.js`, `app/src/utils/matchParser.js`, `app/src/utils/quizParser.js`, `app/src/utils/freeTextParser.js` |
 | Structured Cards V2 (Authoring → DSL) | `api/services/structured_cards_v2.py`, `api/services/structured_cards_legacy.py`, `api/services/author_service.py`, `lerne-admin:src/lerne_admin/services/structured_preview.py` |
 | Сеть / хранение | `api/routers/cards.py`, `api/services/cards.py`, `api/services/card_content_service.py`, `app/src/services/offlineApi.js` |
+| Перенос между колодами | `api/services/card_transfer.py` (`batch_copy_cards`, `batch_move_cards`, `normalize_card_key`); совместимые реэкспорты в `cards.py` и `api.services` |
 
 ## Data flow
 
@@ -46,7 +47,7 @@
 
 ## Ключ дубликата online/offline
 
-`api/services/cards.py:normalize_card_key` и
+`api/services/card_transfer.py:normalize_card_key` (также доступен из `cards.py`) и
 `app/src/services/offlineApi.js:normalizeCardKey` используют один контракт для
 строк FRONT (null/пустая строка дают пустой ключ): NFKC → оставить только Unicode
 категории Letter/Mark/Number (`L`, `M`, `N`) → locale-independent lowercase →
@@ -65,6 +66,28 @@ Python: `scripts/tests/test_card_key_normalization.py`; реальный JS/Dexi
 Unicode cases в `scripts/tests/browser/offline.spec.cjs` (critical CI).
 `api/admin_contract.json` обновляет только import fingerprint: это совместимое
 исправление сравнения, без изменения wire format, схемы и версии import v2.
+
+## Серверные границы карточек
+
+`cards.py` сохраняет публичный вход для существующих роутеров и импортов.
+Ответственности распределены так:
+
+| Функции | Ответственность / зависимости |
+| --- | --- |
+| `save_card`, `delete_card`, `set_card_flag`, `batch_delete_cards` | Сохранение содержимого через `card_content_service`, удаление, личные флаги; модели, permissions, media, история и метки синхронизации |
+| `batch_copy_cards`, `batch_move_cards`, `normalize_card_key` → `card_transfer.py` | Перенос между колодами: порядок, skip/overwrite/keep, одна транзакция и обновление колод/родительских папок; только модели, Peewee, permissions и проверка аудио |
+| `_build_card_dict`, `format_card_for_study`, `get_cards_for_study`, `get_next_card` | Проекция карточки/прогресса, media URL, metadata и выбор карточки через существующий SRS |
+| `get_duplicate_cards`, `get_next_duplicate_card` | Существующий поиск по точному FRONT и выбор дубликата; не использует нормализацию переноса |
+| `prepare_ai_batch`, `_ai_batch_hash`, `_replay_ai_batch`, `save_ai_batch_result`, `bulk_save_cards` | Авторизация, сохранение через `save_card`, форматирование результата и идемпотентные квитанции `TMAOfflineBatch` |
+| `get_deck_stats_counts`, `_norm`, `search_all_in_scope` | Статистика и поиск в доступной области; нормализация поиска отличается от ключа дубликата |
+
+`card_transfer.py` не импортирует `cards.py`, SRS, AI или сериализацию карточки.
+Copy требует чтения источника и записи назначения; move — записи обоих.
+Move сохраняет ID/прогресс, overwrite мягко удаляет источник; copy не переносит
+личный прогресс. Проверки прав, аудио, порядок операций и границы транзакций
+перенесены без изменения. Реэкспорты не добавляют второй слой реализации.
+Сохранение/AI-импорт оставлены вместе: их текущие вызовы `save_card` и форматирование
+создали бы обратную зависимость при таком же простом выделении.
 
 ## Theory
 
@@ -119,7 +142,11 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Граница Quiz проверяется целым блоком: `[ ]`/`[*]`/`[x]` имеют приоритет перед нумерацией условия; весь остаток должен состоять из вариантов (допускается legacy-звёздочка вместо checkbox). Буквенные/цифровые/маркированные варианты образуют конечный согласованный блок, включая пустые строки между вариантами; legacy без обозначений требуют отдельного последнего абзаца. Смешанные буквенные/цифровые обозначения, повторные номера, разрыв вариантов текстом и незавершённые блоки не угадываются: обучение использует обычный текстовый путь, редактор — исходные текстовые поля или Raw. Python `find_quiz_option_start`/`parse_quiz_options` в `api/card_core/lerne_card_core/input_parser.py` повторяет правила для `detect_card_type` и серверного «Разбора теста»; `detect_ai_input_type` остаётся эвристикой нового AI-ввода. Синтетические fixtures двух примеров: `tests/fixtures/quiz_boundaries.json`; JS `quizParser.test.js`, Python `test_exercise_detection_corpus.py`, browser `card-editor.spec.cjs` (320/1330 px, сохранение точного FRONT). Пакет 0.1.1 обновляет parser hashes; схема хранения и версия card JSON-контракта прежние.
 - Structured Cards V2 и компиляция в DSL: `scripts/tests/test_structured_cards_v2.py`, `scripts/tests/test_author_service.py`, `scripts/tests/test_card_content_service.py`.
 - Редактор в браузере: `scripts/tests/browser/card-editor-source.spec.cjs`, `scripts/tests/browser/card-editor.spec.cjs`.
-- Batch: `scripts/tests/test_bulk_import_idempotency.py`, `scripts/tests/test_bulk_save_partial_failure.py`.
+- Перенос: `scripts/tests/test_card_transfer.py` (импорты, порядок, дубликаты внутри
+  выбора, неизменность прогресса/истории, авторизация всего выбора, rollback,
+  timestamps родителей, legacy/collab/v2 pull, move в ту же колоду),
+  `test_card_key_normalization.py` и Unicode batch cases в `browser/offline.spec.cjs`.
+- Batch import: `scripts/tests/test_bulk_import_idempotency.py`, `scripts/tests/test_bulk_save_partial_failure.py`.
 - Возврат в список: `scripts/tests/test_card_scroll_restoration.mjs`.
 Перед запуском integration/browser scripts проверяйте окружение и fixtures.
 

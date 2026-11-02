@@ -50,6 +50,7 @@ class ContractTests(unittest.TestCase):
         original = Path.read_text
         for relative, before, after in (
             ('api/services/cards.py', 'validate_new_audio_path(card.audio_path, previous_audio)', 'pass'),
+            ('api/services/card_transfer.py', 'validate_new_audio_path(card.audio_path, existing_match.audio_path)', 'pass'),
             ('api/services/decks.py', 'learning_states.get(d.id, False)', 'learning_states.get(d.id, True)'),
         ):
             with self.subTest(source=relative):

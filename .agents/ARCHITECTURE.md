@@ -95,6 +95,8 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 
 - Исходный текст карточки и синтаксис упражнений принадлежат [cards](subsystems/cards.md).
   Рендеринг, feedback и completion принадлежат [study](subsystems/study.md).
+  Перенос copy/move между колодами изолирован в `api/services/card_transfer.py`;
+  `cards.py` сохраняет прежние импорты, сохранение и подготовку данных обучения.
 - SRS рассчитывает повторения карточек; Knowledge mastery строится из Attempts.
   Это разные модели прогресса с разными механизмами сохранения.
 - Авторизация запроса проходит через `api/dependencies/auth.py`; доступ к сущности проверяется сервером.
