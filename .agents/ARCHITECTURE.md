@@ -20,7 +20,7 @@ LOCAL API и не перенося SRS. Контракт: [MATERIAL_TRANSFER](..
 | UI | `app/src/components/` | Колоды, редактор, обучение, настройки |
 | Hooks | `app/src/hooks/` | Пользовательские действия и жизненный цикл сессий |
 | Zustand | `app/src/store/` | Общее состояние и доменные действия |
-| API-клиент | `app/src/services/api.js` | Авторизация, refresh, выбор сети или offline API |
+| API-клиент | `app/src/services/api.js`, `app/src/services/networkApi.js` | Offline proxy; единый сетевой клиент с авторизацией и refresh |
 | Локальная БД | `app/src/services/localDb.js` | Dexie / IndexedDB, отдельная БД аккаунта |
 | FastAPI | `api/main.py`, `api/routers/` | Регистрация маршрутов, запросы и зависимости |
 | Серверная логика | `api/services/` | CRUD, синхронизация, оценивание и проекции |

@@ -1,4 +1,4 @@
-import { networkApi } from './api.js';
+import { networkApi } from './networkApi.js';
 import { prepareLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
 

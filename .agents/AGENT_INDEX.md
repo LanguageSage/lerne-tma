@@ -23,7 +23,7 @@
 | Autoplay, auto-show, плеер/оценки сворачиваются, Next/Back тормозит | Study: controls | [study](subsystems/study.md) |
 | LiD, экзамен, ticket, отдельная quiz policy | Study: LiD | [study](subsystems/study.md) |
 | IndexedDB, Dexie, offline, dirty, отрицательный ID, потеря локальной правки | Sync: entities | [sync](subsystems/sync.md) |
-| v2 push/pull, request_id, mappings, review_count, повторный пакет | Sync: transport | [sync](subsystems/sync.md) |
+| v2 push/pull, request_id, mappings, review_count, повторный пакет, networkApi, циклы импортов | Sync: transport | [sync](subsystems/sync.md) |
 | Изменения между устройствами, user settings, collab-pull | Sync: adjacent flows | [sync](subsystems/sync.md) |
 | AI generation/enrichment, промпт, провайдер, неверный JSON, таймаут | AI: generation | [ai](subsystems/ai.md) |
 | evaluate-answer, free text, grading_policy, accepted_answers, typo | AI: answer evaluation | [ai](subsystems/ai.md) |

@@ -9,7 +9,7 @@ Knowledge Attempts отправляются отдельным механизм�
 
 | Задача | Файлы от корня репозитория |
 | --- | --- |
-| Выбор online/offline transport | `app/src/services/api.js`, `app/src/services/apiConfig.js` |
+| Выбор online/offline transport | `app/src/services/api.js`, `app/src/services/networkApi.js`, `app/src/services/apiConfig.js` |
 | БД аккаунта, схема, aliases | `app/src/services/localDb.js` |
 | Offline endpoints и локальные изменения | `app/src/services/offlineApi.js` |
 | Пакеты / ack / pull snapshot | `app/src/services/syncService.js` |
@@ -31,6 +31,39 @@ Knowledge Attempts отправляются отдельным механизм�
 8. `card_notes` (Dexie v5) is a separate personal-note outbox. `api.js` routes its mutations through `offlineApi.js` to `cardNotes.js`: persist first, then use the existing authenticated network client. Existing entity sync resolves temporary card IDs before flushing this outbox. UUIDs, tombstones, local revisions and a per-account write lock protect retries/edits; account switching cannot consume another account's responses. The study card reads visible notes from Dexie; its first server read loads the deck's notes in one batch and subsequent card changes reuse that result. Explicit refresh fetches again. Card/progress snapshots never include notes. Tests: `app/src/services/__tests__/cardNotes.test.js`, `scripts/tests/browser/card-notes.spec.cjs`.
    An annotation error leaves its draft dirty and returns `card_notes_pending`, without blocking committed entity/review synchronization or unrelated offline API actions. Manual profile sync shows this partial result explicitly; the notes panel retains its pending/error/retry states.
    A flush attempts every matching note, acknowledges only successful unchanged local revisions, and reports the first error after the loop. Rejected/network-failed records remain dirty across restarts and retry with the same UUID; one record cannot block other notes. Existing entity sync is unchanged.
+
+## Клиентские зависимости транспорта
+
+`networkApi.js` владеет единственным Axios instance, auth-interceptors,
+refresh flights и Dexie refresh lease. `api.js` оборачивает его offline proxy
+и сохраняет прежние default export и named export `networkApi` (тот же instance).
+`syncService.js` и `cardNotes.js` импортируют транспорт напрямую.
+
+```text
+api -> networkApi, offlineApi, syncService, localDb, auth, axios
+syncService -> networkApi, cardNotes, localDb, auth, locale
+offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale
+cardNotes -> networkApi, localDb, auth
+networkApi -> localDb, auth, apiConfig, localMode, axios
+localDb -> auth, localMode, dexie, @capacitor/core
+auth -> locale, localMode
+mediaCache -> apiConfig
+apiConfig -> media, localMode
+media -> localMode
+srsEngine -> locale
+locale -> messages/en.json, messages/uk.json
+```
+
+`localMode`, `search` и JSON — локальные листья; npm packages — внешние
+зависимости. Циклов в этой транзитивной области нет. Транспорт не импортирует
+offline routing или outboxes, включая транзитивные связи.
+Архитектурная регрессия: `app/src/services/__tests__/networkDependencies.test.js`
+(AST, относительные imports/re-exports/dynamic imports и проверка всех путей).
+Поведение interceptors: `scripts/tests/api_session_regression.mjs`.
+`browser/offline.spec.cjs` проверяет реальный ESM singleton при загрузке API,
+sync или notes первым, общий refresh и неизменный повтор пакета после 401,
+offline → online доставку заметок, Web Locks/Dexie lease и смену аккаунта
+с незавершёнными sync/note запросами. Эти тесты входят в `npm run check`.
 
 ## Source of truth
 

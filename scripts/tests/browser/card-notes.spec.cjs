@@ -5,7 +5,7 @@ let harnessPath;
 let sequence = 0;
 test.afterEach(() => { if (harnessPath) rmSync(harnessPath, { force: true }); });
 
-async function setup(page, context) {
+async function setup(page, context, initialNotesRoute) {
   const server = new Map();
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -24,6 +24,8 @@ async function setup(page, context) {
     server.set(row.id, row);
     return route.fulfill({ json: row });
   });
+  // StudyCard preloads deck notes on mount, before the notes dialog opens.
+  if (initialNotesRoute) await page.route('**/api/card-notes/**', initialNotesRoute);
   harnessPath = resolve(__dirname, '../../../app', `.card-notes-harness-${process.pid}-${++sequence}.jsx`);
   writeFileSync(harnessPath, `
     import React from 'react'; import { createRoot } from 'react-dom/client';
@@ -111,9 +113,8 @@ test('private note CRUD, durable offline queue, retry, and menu order', async ({
 });
 
 test('503 before migration preserves notes across reload and retry', async ({ page, context }) => {
-  const { server, errors } = await setup(page, context);
   const unavailable = route => route.fulfill({ status: 503, json: { detail: 'Card notes unavailable' } });
-  await page.route('**/api/card-notes/**', unavailable);
+  const { server, errors } = await setup(page, context, unavailable);
   await openNotes(page);
   await expect(page.getByRole('alert')).toContainText('Не удалось загрузить записи');
   await page.getByLabel('Новая запись').fill('Сохранить до применения миграции');

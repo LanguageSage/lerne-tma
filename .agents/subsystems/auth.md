@@ -11,7 +11,7 @@ Telegram/Google/email-password, challenge/exchange, привязка identity, r
 | --- | --- |
 | Вход / профиль | `app/src/components/modals/AuthRequiredModal.jsx`, `app/src/components/settings/ProfileTab.jsx` |
 | Клиентский lifecycle | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js`, `app/src/utils/platform.js` |
-| Bearer / 401 refresh | `app/src/services/api.js` |
+| Bearer / 401 refresh | `app/src/services/networkApi.js` (реэкспорт через `api.js`) |
 | Смена аккаунта | `app/src/services/localDb.js`, `app/src/store/useDeckStore.js`, `app/src/hooks/useAppInitialization.js` |
 | HTTP / Telegram bot | `api/routers/auth_v2.py`, `api/routers/bot.py`, `api/dependencies/auth.py` |
 | Auth domain | `api/auth/providers.py`, `api/auth/service.py`, `api/auth/transactions.py`, `api/auth/dependencies.py` |
