@@ -14,6 +14,7 @@ COMPONENTS = {
               'api/services/structured_cards_legacy.py', 'api/services/deck_passport.py'],
     'import': ['api/services/author_service.py', 'api/services/card_text_update.py',
                'api/services/card_content_service.py', 'api/services/cards.py',
+               'api/services/card_transfer.py',
                'api/services/decks.py', 'api/services/folders.py'],
 }
 
