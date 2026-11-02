@@ -61,6 +61,8 @@ jobs:
           npm --prefix app ci
           python -m pip install -r requirements-test.txt
           npx --no-install playwright install --with-deps chromium
+      - name: Verify deterministic synthetic lesson fixtures
+        run: python tests/fixtures/generate_lessons.py --check
       - name: Run the same gate as local development
         run: npm run check
       - name: Preserve browser failure evidence
