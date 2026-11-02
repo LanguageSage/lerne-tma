@@ -6,7 +6,7 @@ import { setImmediate } from 'node:timers';
 let userId = 1;
 let online = false;
 const networkApi = { get: async () => ({ data: [] }), put: async () => { throw Error('offline'); } };
-mock.module('../api.js', { namedExports: { networkApi } });
+mock.module('../networkApi.js', { namedExports: { networkApi } });
 mock.module('../../utils/auth.js', { namedExports: { getUserId: () => userId, getAccessToken: () => 'test' } });
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 globalThis.window = { location: { search: '' }, dispatchEvent() {} };

@@ -6,7 +6,8 @@ import assert from 'node:assert/strict';
 import { IS_LOCAL } from '../../app/src/utils/localMode.js';
 import axios from '../../app/node_modules/axios/index.js';
 
-const source = readFileSync(new URL('../../app/src/services/api.js', import.meta.url), 'utf8')
+const source = ['networkApi.js', 'api.js'].map(name => readFileSync(
+  new URL(`../../app/src/services/${name}`, import.meta.url), 'utf8')).join('\n')
   .replace(/^import .*;\r?\n/gm, '')
   .replace(/^export .*;\r?$/gm, '');
 
@@ -193,6 +194,43 @@ test('timeout keeps credentials and never opens login', async () => {
   f.transport = async config => { throw Object.assign(new Error('timeout'), { config, code: 'ECONNABORTED' }); };
   await assert.rejects(f.api.get('/init'));
   assert.equal(f.session.access_token, 'old'); assert.equal(f.prompts, 0);
+});
+
+test('transport preserves timeout budgets, explicit Bearer and GET cache busting', async () => {
+  const f = fixture();
+  for (const [url, timeout] of [
+    ['/decks', 30000], ['/cards/save', 45000], ['/cards/bulk-save', 120000],
+    ['/ai/enrich-batch', 150000], ['/cards/ai-generate-batch', 150000],
+  ]) {
+    const response = await f.api.post(url, {});
+    assert.equal(response.config.timeout, timeout);
+    assert.equal(response.config.headers.Authorization, 'Bearer old');
+  }
+  const response = await f.api.get('/auth/v2/me?x=1&_t=123', { headers: { Authorization: 'Bearer explicit' } });
+  assert.match(response.config.url, /^\/auth\/v2\/me\?x=1&_t=\d+$/);
+  assert.notEqual(response.config.url, '/auth/v2/me?x=1&_t=123');
+  assert.equal(response.config.headers.Authorization, 'Bearer explicit');
+});
+
+test('expected-account mismatch cancels before sending without offline fallback', async () => {
+  const f = fixture();
+  f.offlineRead = () => assert.fail('cancelled requests must not use offline fallback');
+  await assert.rejects(f.proxy.get('/decks', { _expectedUserId: 202 }), error => error.code === 'ERR_CANCELED');
+  assert.equal(f.calls.length, 0);
+  assert.equal(f.refreshes, 0);
+});
+
+test('timeout exposes the existing 504 detail and skips offline fallback', async () => {
+  const f = fixture();
+  f.offlineRead = () => assert.fail('normalized timeout must retain its error');
+  f.transport = async config => { throw Object.assign(new Error('timeout'), { config, code: 'ECONNABORTED' }); };
+  await assert.rejects(f.proxy.post('/cards/ai-generate', {}), error => {
+    assert.equal(error.response.status, 504);
+    assert.equal(error.response.data.detail, error.customTimeoutMsg);
+    assert.match(error.customTimeoutMsg, /45с/);
+    return true;
+  });
+  assert.equal(f.clears, 0);
 });
 
 test('a late network failure cannot fall back to another account offline database', async () => {

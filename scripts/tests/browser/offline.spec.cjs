@@ -1,6 +1,6 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 
-async function harness(page, context) {
+async function harness(page, context, firstModule = 'api') {
   const assets = new Map();
   await context.route('**/*', async route => {
     const url = route.request().url();
@@ -21,18 +21,144 @@ async function harness(page, context) {
     localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test_access_token', refresh_token: 'test_refresh_token' }));
   });
   await page.goto('/offline-harness');
-  await loadModules(page);
+  await loadModules(page, firstModule);
 }
 
-async function loadModules(page) {
-  await page.evaluate(async () => {
+async function loadModules(page, firstModule = 'api') {
+  await page.evaluate(async firstModule => {
+    await import(`/src/services/${firstModule}.js`);
     window.api = (await import('/src/services/api.js')).default;
     window.network = (await import('/src/services/api.js')).networkApi;
     window.sync = (await import('/src/services/syncService.js')).syncService;
     window.getDb = (await import('/src/services/localDb.js')).getLocalDb;
     window.snapshot = { status: 'success', folders: [], decks: [], cards: [], progress: [], server_time: new Date().toISOString() };
+  }, firstModule);
+}
+
+for (const firstModule of ['api', 'syncService', 'cardNotes']) {
+  test(`${firstModule} loaded first shares auth refresh and delivers the offline note queue`, async ({ page, context }) => {
+    await harness(page, context, firstModule);
+    expect(await page.evaluate(async () => {
+      const direct = (await import('/src/services/networkApi.js')).networkApi;
+      return network === direct && api.defaults === direct.defaults && api.interceptors === direct.interceptors;
+    })).toBe(true);
+    await context.setOffline(true);
+    const drafts = await page.evaluate(async firstModule => {
+      // Also exercise the existing Dexie refresh lease on WebViews without Web Locks.
+      if (firstModule === 'cardNotes') Object.defineProperty(navigator, 'locks', { value: undefined });
+      await api.post('/decks', { name: 'Queued before reconnect' });
+      return Promise.all(['First', 'Second'].map(text => api.put('/card-notes/10', { text }).then(r => r.data)));
+    }, firstModule);
+    await context.setOffline(false);
+    let refreshes = 0, expired = 0;
+    let releaseRefresh;
+    const initialRequests = new Promise(resolve => { releaseRefresh = resolve; });
+    const delivered = new Map();
+    const pushes = [];
+    await page.route('**/api/**', async route => {
+      const request = route.request();
+      const path = new URL(request.url()).pathname;
+      if (path === '/api/sync/v2/push') pushes.push(request.postDataJSON());
+      if (path === '/api/auth/v2/refresh') {
+        refreshes++;
+        expect(request.postDataJSON()).toEqual({ refresh_token: 'test_refresh_token' });
+        await initialRequests;
+        return route.fulfill({ json: { access_token: 'fresh', refresh_token: 'fresh-refresh', account_id: 1 } });
+      }
+      if (request.headers().authorization === 'Bearer test_access_token') {
+        if (++expired === 3) releaseRefresh();
+        return route.fulfill({ status: 401, json: { detail: 'expired' } });
+      }
+      expect(request.headers().authorization).toBe('Bearer fresh');
+      if (path === '/api/sync/v2/push') return route.fulfill({ json: { status: 'success', mappings: {
+        folders: {}, decks: { [request.postDataJSON().decks[0].id]: 20 }, cards: {},
+      } } });
+      if (path === '/api/sync/v2/pull') return route.fulfill({ json: {
+        status: 'success', folders: [], decks: [{ id: 20, name: 'Queued before reconnect' }],
+        cards: [], progress: [], server_time: '2026-11-02T10:00:00Z',
+      } });
+      if (path.startsWith('/api/card-notes/') && request.method() === 'PUT') {
+        const id = path.split('/').pop();
+        const row = { id, card_id: 10, user_id: 1, revision: 1, ...request.postDataJSON() };
+        delivered.set(id, row);
+        return route.fulfill({ json: row });
+      }
+      if (path === '/api/card-notes/10') return route.fulfill({ json: [...delivered.values()] });
+      if (path === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1 } });
+      throw new Error(`Unexpected request: ${path}`);
+    });
+    const result = await page.evaluate(async () => {
+      const { refreshCardNotes } = await import('/src/services/cardNotes.js');
+      const [me, synced] = await Promise.all([api.get('/auth/v2/me'), sync.sync(), refreshCardNotes(10)]);
+      return { me: me.data, synced, rows: await getDb().card_notes.toArray(),
+        pending: await getDb().syncState.get('pending'),
+        lease: await getDb().syncState.get('auth-v2-refresh-lease') };
+    });
+    expect(refreshes).toBe(1);
+    expect(expired).toBe(3);
+    expect(result.me.user_id).toBe(1);
+    expect(result.synced).toMatchObject({ success: true, card_notes_pending: false });
+    expect([...delivered.keys()].sort()).toEqual(drafts.map(row => row.id).sort());
+    expect(result.rows).toHaveLength(2);
+    expect(result.rows.every(row => row.is_dirty === 0)).toBe(true);
+    expect(pushes).toHaveLength(2);
+    expect(pushes[0].request_id).toBeTruthy();
+    expect(pushes[1]).toEqual(pushes[0]);
+    expect(result.pending).toBeUndefined();
+    expect(result.lease).toBeUndefined();
   });
 }
+
+test('shared transport rejects late sync and note acknowledgements after account switching', async ({ page, context }) => {
+  await harness(page, context, 'syncService');
+  await context.setOffline(true);
+  await page.evaluate(async () => {
+    await api.post('/decks', { name: 'Account one pending' });
+    await api.put('/card-notes/10', { text: 'Account one private note' });
+    window.firstDb = getDb();
+  });
+  await context.setOffline(false);
+  let started = 0, release;
+  const gate = new Promise(resolve => { release = resolve; });
+  await page.route('**/api/**', async route => {
+    const path = new URL(route.request().url()).pathname;
+    started++;
+    await gate;
+    if (path === '/api/sync/v2/push') {
+      const batch = route.request().postDataJSON();
+      return route.fulfill({ json: { status: 'success', mappings: {
+        folders: {}, decks: { [batch.decks[0].id]: 20 }, cards: {},
+      } } });
+    }
+    if (path.startsWith('/api/card-notes/')) return route.fulfill({ json: {
+      id: path.split('/').pop(), card_id: 10, user_id: 1, text: 'Late note', revision: 1,
+    } });
+    throw new Error(`Unexpected request: ${path}`);
+  });
+  const pending = page.evaluate(async () => {
+    const { syncCardNotes } = await import('/src/services/cardNotes.js');
+    const [synced, notes] = await Promise.allSettled([sync.sync(), syncCardNotes(firstDb, 1)]);
+    return { synced: synced.value, noteError: notes.reason?.code };
+  });
+  await expect.poll(() => started).toBe(2);
+  await page.evaluate(async () => {
+    const { saveAuthSession, saveUserProfile } = await import('/src/utils/auth.js');
+    saveAuthSession({ access_token: 'account-two', refresh_token: 'account-two-refresh', account_id: 2 });
+    saveUserProfile({ user_id: 2 });
+  });
+  release();
+  expect(await pending).toMatchObject({ synced: { success: false }, noteError: 'ERR_CANCELED' });
+  const state = await page.evaluate(async () => ({
+    pending: await firstDb.syncState.get('pending'), notes: await firstDb.card_notes.toArray(),
+    otherDecks: await getDb().decks.count(), otherNotes: await getDb().card_notes.count(),
+    token: JSON.parse(localStorage.getItem('lerne_auth_v2_session')).access_token,
+  }));
+  expect(state.pending.request_id).toBeTruthy();
+  expect(state.notes[0]).toMatchObject({ text: 'Account one private note', is_dirty: 1 });
+  expect(state.otherDecks).toBe(0);
+  expect(state.otherNotes).toBe(0);
+  expect(state.token).toBe('account-two');
+});
 
 test('offline viewer learning stays personal and never writes deck metadata', async ({ page, context }) => {
   await harness(page, context);

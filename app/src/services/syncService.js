@@ -1,6 +1,6 @@
 import { tr } from '../i18n/locale.js';
 import { prepareLocalDb, getNextTempId } from './localDb.js';
-import { networkApi } from './api.js';
+import { networkApi } from './networkApi.js';
 import { getAccessToken, getUserId } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
 
