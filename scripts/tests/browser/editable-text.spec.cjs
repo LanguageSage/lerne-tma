@@ -1,7 +1,7 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 
-const realCards = require('../../../local/test-data/browser/fixtures/editable-real-cards.json');
-const original = realCards.find(card => card.id === 359618);
+const realCards = require('../../../tests/fixtures/editable-cards.json');
+const original = realCards.find(card => card.id === 1);
 const source = original.front.split('@edit\n')[1];
 const correction = original.back;
 const card = { ...original, id: 1, deck_id: 1, position: 0, queue: 'new',
@@ -15,6 +15,8 @@ for (const width of [320, 375, 430, 768, 1280]) {
       localStorage.setItem('native_language_selected', 'true');
       localStorage.setItem('lerne_has_selected_language', 'true');
       localStorage.setItem('lerne_target_language', 'de');
+      localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+      localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-test', refresh_token: 'isolated-test' }));
     });
     await page.route('**/api/**', route => {
       const path = new URL(route.request().url()).pathname;
@@ -25,6 +27,8 @@ for (const width of [320, 375, 430, 768, 1280]) {
         user_info: { user_id: 1, first_name: 'Test', is_guest: false },
       } });
       if (path === '/api/decks/1/cards') return route.fulfill({ json: [card] });
+      if (path === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+      if (path === '/api/messages') return route.fulfill({ json: [] });
       if (path === '/api/study/card/1' || path === '/api/decks/1/next') return route.fulfill({ json: card });
       if (path === '/api/cards/duplicates') return route.fulfill({ json: [] });
       if (path === '/api/ai/evaluate-answer') {

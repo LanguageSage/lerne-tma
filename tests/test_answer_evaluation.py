@@ -551,20 +551,20 @@ class ServerContextTests(unittest.TestCase):
         self.assertNotIn('@free', ctx['task'])
         self.assertEqual(policy.max_retries, 2)
 
-    def test_real_relative_clause_dialogue_keeps_task_and_source_for_grading(self):
+    def test_synthetic_relative_clause_dialogue_keeps_task_and_source_for_grading(self):
         from pathlib import Path
         snapshot = json.loads((Path(__file__).resolve().parents[1] /
-            'local/test-data/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
-        real = next(c for c in snapshot['cards'] if c['id'] == 349555)
-        self.card.front_text = real['front_text']
-        self.card.back_text = real['back_text']
+            'tests/fixtures/lesson-qa/before.json').read_text(encoding='utf-8'))
+        synthetic = next(c for c in snapshot['cards'] if c['id'] == 10004)
+        self.card.front_text = synthetic['front_text']
+        self.card.back_text = synthetic['back_text']
         self.card.save()
         ctx, _ = self.load()
-        self.assertIn('Welchen Deutschkurs suchst du?', ctx['task'])
+        self.assertIn('Welches Museum suchst du?', ctx['task'])
         self.assertIn('Reagieren Sie in einem Gespräch.', ctx['task'])
         self.assertIn('Ответьте, используя Relativsatz.', ctx['task'])
         self.assertNotIn('@free', ctx['task'])
-        self.assertEqual(ctx['expected_answers'][0], real['back_text'])
+        self.assertEqual(ctx['expected_answers'][0], synthetic['back_text'])
 
     def test_denies_other_user_but_allows_collaborative_viewer(self):
         from fastapi import HTTPException

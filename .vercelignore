@@ -31,6 +31,7 @@ pyproject.toml
 # Exclude local admin tools, scripts, and launchers
 tools/
 scripts/
+tests/
 run_admin.bat
 run_dev.bat
 run_tma.ps1

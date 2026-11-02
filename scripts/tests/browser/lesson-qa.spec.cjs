@@ -1,11 +1,11 @@
 const { test, expect } = require('@playwright/test');
 const fs = require('node:fs');
 const path = require('node:path');
-const snapshot = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../local/test-data/lesson-qa/relativsaetze.snapshot.json'), 'utf8'));
+const snapshot = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../tests/fixtures/lesson-qa/before.json'), 'utf8'));
 const cardById = id => ({ ...snapshot.cards.find(c => c.id === id), front: snapshot.cards.find(c => c.id === id).front_text,
   back: snapshot.cards.find(c => c.id === id).back_text, queue: 'new' });
 
-async function setup(page, context, deckId = 7139, authenticated = false) {
+async function setup(page, context, deckId = 114, authenticated = true) {
   const total = snapshot.cards.filter(c => c.deck_id === deckId).length;
   const deck = { ...snapshot.decks.find(d => d.id === deckId), stats: { total, new: total, due: 0, learning: 0 }, role: 'owner' };
   const writes = [], errors = [];
@@ -25,6 +25,7 @@ async function setup(page, context, deckId = 7139, authenticated = false) {
     if (request.method() !== 'GET') writes.push({ path: pathname, body: request.postData() });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+    if (pathname === '/api/messages') return route.fulfill({ json: [] });
     if (pathname.endsWith('/cards') || pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname.endsWith('/next')) return route.fulfill({ json: { finished: true } });
     return route.fulfill({ json: {} });
@@ -51,19 +52,19 @@ async function show(page, card) {
   await expect(page.locator('.card-front')).toBeVisible();
 }
 
-test('real puzzle 348683 never renders its raw target as an information block', async ({ page, context }, testInfo) => {
-  await setup(page, context, 6985);
-  await show(page, cardById(348683));
+test('synthetic puzzle 10001 never renders its raw target as an information block', async ({ page, context }, testInfo) => {
+  await setup(page, context, 101);
+  await show(page, cardById(10001));
   await expect(page.locator('.btn-puzzle-chip')).toHaveCount(9);
   await expect(page.locator('.exercise-info-blocks')).not.toContainText('@puzzle');
-  await expect(page.locator('.exercise-info-blocks')).not.toContainText('Das ist die Frau, die bei der Bank arbeitet.');
-  await page.screenshot({ path: testInfo.outputPath('puzzle-348683.png'), fullPage: true });
+  await expect(page.locator('.exercise-info-blocks')).not.toContainText('Heute besucht der kleine Roboter ein ganz neues Museum.');
+  await page.screenshot({ path: testInfo.outputPath('puzzle-10001.png'), fullPage: true });
 });
 
-test('all 48 real D14 cards can be answered, manually graded, advanced and completed in an isolated session', async ({ page, context }, testInfo) => {
+test('all 48 synthetic D14 cards can be answered, manually graded, advanced and completed in an isolated session', async ({ page, context }, testInfo) => {
   test.setTimeout(180000);
-  const { writes } = await setup(page, context, 7139, true);
-  const cards = snapshot.cards.filter(c => c.deck_id === 7139).sort((a, b) => a.position - b.position || a.id - b.id).map(c => cardById(c.id));
+  const { writes } = await setup(page, context, 114, true);
+  const cards = snapshot.cards.filter(c => c.deck_id === 114).sort((a, b) => a.position - b.position || a.id - b.id).map(c => cardById(c.id));
   await page.route('**/api/study/grade', route => {
     const body = route.request().postDataJSON();
     const next = cards.find(c => ![...(body.exclude_ids || []), body.card_id].includes(c.id));
@@ -83,7 +84,7 @@ test('all 48 real D14 cards can be answered, manually graded, advanced and compl
   const { parseClozeData } = await import('../../../app/src/utils/clozeParser.js');
   for (const card of cards) {
     await expect.poll(() => page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().card?.id)).toBe(card.id);
-    if (card.id === 358408) {
+    if (card.id === 20046) {
       await page.getByRole('textbox', { name: 'Ваш ответ' }).fill('Ich suche eine Stelle, bei der ich viel lernen kann.');
       await page.getByRole('button', { name: 'Проверить ответ', exact: true }).click();
       await expect(page.getByRole('textbox', { name: 'Ваш ответ' })).toBeDisabled();
@@ -110,7 +111,7 @@ test('all 48 real D14 cards can be answered, manually graded, advanced and compl
   await page.screenshot({ path: testInfo.outputPath('d14-session-completed.png'), fullPage: true });
 });
 
-for (const deck of snapshot.decks) test(`render every real card in deck ${deck.id}`, async ({ page, context }, testInfo) => {
+for (const deck of snapshot.decks) test(`render every synthetic card in deck ${deck.id}`, async ({ page, context }, testInfo) => {
   test.setTimeout(180000);
   const { errors, writes } = await setup(page, context, deck.id);
   const { detectExerciseType } = await import('../../../app/src/utils/exerciseDetector.js');
@@ -127,6 +128,8 @@ for (const deck of snapshot.decks) test(`render every real card in deck ${deck.i
     } else if (type === 'quiz') await expect(page.locator('.quiz-option-item')).toHaveCount(parseQuizData(card).options.length);
     else if (type === 'puzzle') await expect(page.locator('.btn-puzzle-chip').first()).toBeVisible();
     else if (type === 'free_text') await expect(page.locator('.free-text-exercise textarea')).toBeVisible();
+    else if (type === 'editable_text') await expect(page.locator('.editable-text-exercise textarea')).toBeVisible();
+    else if (type === 'word_bank') await expect(page.locator('.word-bank-options')).toBeVisible();
     else if (type === 'match') await expect(page.getByText('Сопоставьте части предложений:', { exact: true })).toBeVisible();
     else await expect(page.locator('.text-front').first()).toBeVisible();
     // A UI count alone cannot detect a raw answer leaked beside the renderer.
@@ -140,31 +143,31 @@ for (const deck of snapshot.decks) test(`render every real card in deck ${deck.i
   expect(writes.filter(w => /grade|knowledge|sync\/push/.test(w.path))).toEqual([]);
 });
 
-test('D14 real input rejects empty and wrong answers, accepts reference and proceeds', async ({ page, context }, testInfo) => {
+test('D14 synthetic input rejects empty and wrong answers, accepts reference and proceeds', async ({ page, context }, testInfo) => {
   await setup(page, context);
-  await show(page, cardById(358397));
+  await show(page, cardById(20035));
   const input = page.locator('.cloze-masked-text input[type=text]');
   await expect(input).toHaveValue('');
-  await input.fill('den bei einer Bank arbeitet');
+  await input.fill('den im Museum arbeitet');
   await page.getByRole('button', { name: 'Проверить ответы', exact: true }).click();
   await expect(input).toBeEnabled();
   // Classic cards without requiredActions retain manual SRS grading. A failed
   // exercise must not submit a grade automatically; this is not an exam lock.
   await expect(page.locator('.grade-buttons')).toBeVisible();
-  await input.fill('der bei einer Bank arbeitet');
+  await input.fill('der im Museum arbeitet');
   await page.getByRole('button', { name: 'Проверить ответы', exact: true }).click();
   await expect(input).toBeDisabled();
   await expect(page.locator('.grade-buttons')).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath('d14-input-success.png'), fullPage: true });
-  await show(page, cardById(358398));
+  await show(page, cardById(20036));
   await expect(page.locator('.cloze-masked-text input[type=text]')).toHaveValue('');
 });
 
-test('D14 real free answer stays ungraded when evaluator is unavailable; content alone is not success', async ({ page, context }, testInfo) => {
+test('D14 synthetic free answer stays ungraded when evaluator is unavailable; content alone is not success', async ({ page, context }, testInfo) => {
   await page.setViewportSize({ width: 375, height: 900 });
   const { writes } = await setup(page, context);
   await page.route('**/api/ai/evaluate-answer', route => route.fulfill({ json: { result: { verdict: 'unavailable', accepted: false }, grading_policy: { mode: 'controlled_text', max_retries: 3 } } }));
-  await show(page, cardById(358408));
+  await show(page, cardById(20046));
   const input = page.getByRole('textbox', { name: 'Ваш ответ' });
   await expect(page.getByRole('button', { name: 'Проверить ответ', exact: true })).toBeDisabled();
   await input.fill('Das ist Unsinn.');
@@ -179,18 +182,18 @@ test('D14 real free answer stays ungraded when evaluator is unavailable; content
 
 test('D14 currently permits manual grades and answer reveal before solving', async ({ page, context }) => {
   await setup(page, context);
-  await show(page, cardById(358397));
+  await show(page, cardById(20035));
   await expect(page.locator('.grade-buttons button').first()).toBeEnabled();
   await page.getByRole('button', { name: 'Перевернуть карточку', exact: true }).click();
   await expect(page.locator('.card-back')).toBeVisible();
   await expect(page.locator('.card-back')).toContainText('Nominativ');
 });
 
-test('real puzzle instruction and long D14 input fit phone, tablet and desktop widths', async ({ page, context }, testInfo) => {
+test('synthetic puzzle instruction and long D14 input fit phone, tablet and desktop widths', async ({ page, context }, testInfo) => {
   await setup(page, context);
   for (const width of [320, 375, 430, 768, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    for (const id of [348683, 358405]) {
+    for (const id of [10001, 20043]) {
       await show(page, cardById(id));
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       await page.screenshot({ path: testInfo.outputPath(`${id}-${width}.png`), fullPage: true });
@@ -198,14 +201,14 @@ test('real puzzle instruction and long D14 input fit phone, tablet and desktop w
   }
 });
 
-test('skipping every real D14 card finishes without invented correct answers or grades', async ({ page, context }, testInfo) => {
+test('skipping every synthetic D14 card finishes without invented correct answers or grades', async ({ page, context }, testInfo) => {
   test.setTimeout(120000);
   const { writes } = await setup(page, context);
   // This navigation button floats forever; make only the decorative animation
   // deterministic while retaining Playwright's visibility/enabled/hit checks.
   await page.addStyleTag({ content: '.nav-arrow-btn { animation: none !important; }' });
-  const cards = snapshot.cards.filter(c => c.deck_id === 7139).sort((a, b) => a.position - b.position || a.id - b.id).map(c => cardById(c.id));
-  await page.route('**/api/decks/7139/next*', route => {
+  const cards = snapshot.cards.filter(c => c.deck_id === 114).sort((a, b) => a.position - b.position || a.id - b.id).map(c => cardById(c.id));
+  await page.route('**/api/decks/114/next*', route => {
     const excluded = (new URL(route.request().url()).searchParams.get('exclude_ids') || '').split(',').map(Number);
     return route.fulfill({ json: cards.find(c => !excluded.includes(c.id)) || { finished: true } });
   });

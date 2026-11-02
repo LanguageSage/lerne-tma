@@ -6,8 +6,8 @@ import { auditLesson } from '../lessonQa.js';
 import { parseQuizData } from '../quizParser.js';
 import { evaluateQuizOption } from '../quizEvaluation.js';
 
-const course = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/lesson-qa/corrected.snapshot.json', import.meta.url)));
-const deck = course.decks.find(d => d.id === 7139);
+const course = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/corrected.json', import.meta.url)));
+const deck = course.decks.find(d => d.id === 114);
 const cards = course.cards.filter(c => c.deck_id === deck.id);
 const start = () => createAssessment(deck, cards, 1, 'session');
 const complete = status => {
@@ -41,12 +41,12 @@ test('first answer is immutable; stale/different card callbacks do nothing', () 
   assert.equal(assessmentSummary(next).score, 0);
 });
 test('corrected course has explicit policies, valid assessment mechanics and preserved IDs', () => {
-  const source = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/lesson-qa/pre-change-backup.json', import.meta.url)));
+  const source = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/source-ids.json', import.meta.url)));
   assert.deepEqual(course.cards.map(c => c.id), source.cards.map(c => c.id));
   const report = auditLesson(course);
   assert.equal(report.counts.ERROR, 0);
   assert.equal(report.findings.some(f => f.code === 'assessment.runtime_missing'), false);
-  const options = parseQuizData(course.cards.find(c => c.id === 348708)).options;
+  const options = parseQuizData(course.cards.find(c => c.id === 10002)).options;
   assert.equal(evaluateQuizOption(options, options.find(o => o.text.includes(', den ich')).id).accepted, true);
   assert.equal(evaluateQuizOption(options, options.find(o => o.text.includes(', der ich')).id).accepted, false);
 });

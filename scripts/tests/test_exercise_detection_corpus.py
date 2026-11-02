@@ -12,7 +12,7 @@ from api.services.input_parser import (
     detect_ai_input_type, detect_card_type, find_quiz_option_start, parse_exercise_content, parse_quiz_options,
 )
 
-CORPUS = json.loads((Path(__file__).resolve().parents[2] / 'local' / 'test-data' / 'fixtures'
+CORPUS = json.loads((Path(__file__).resolve().parents[2] / 'tests' / 'fixtures'
                      / 'exercise_detection_corpus.json').read_text(encoding='utf-8'))
 
 
@@ -33,7 +33,7 @@ class ExerciseDetectionCorpusTests(unittest.TestCase):
             self.assertEqual(detect_card_type(f'::source\nFrage?\n::exercise\n{body}'), 'standard')
 
     def test_quiz_boundaries_match_editor_and_study_fixtures(self):
-        fixtures = json.loads((Path(__file__).resolve().parents[2] / 'local/test-data/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
+        fixtures = json.loads((Path(__file__).resolve().parents[2] / 'tests/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
         formats = {
             'checkboxes': lambda text, i, correct: f"{'[*]' if i == correct else '[ ]'} {text}",
             'letters': lambda text, i, correct: f"{chr(65 + i)}){'*' if i == correct else ''}{text}",

@@ -145,11 +145,11 @@ test('Trainer repeated checks count displayed hints once per gap and exclude fin
   expect(errors).toEqual([]);
 });
 
-// Explicit local pilot: real lesson material stays in ignored local/test-data.
+// Optional support-evidence pilot uses the same tracked synthetic fixtures as CI.
 if (process.env.LERNE_D14_SUPPORT === '1') {
-  for (const id of [358365, 358375, 358385]) {
+  for (const id of [20003, 20013, 20023]) {
     test(`local D14 ${id}: authored slots and vocabulary remain static support`, async ({ page, context }, testInfo) => {
-      const snapshot = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../local/test-data/lesson-qa/corrected.snapshot.json'), 'utf8'));
+      const snapshot = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../tests/fixtures/lesson-qa/corrected.json'), 'utf8'));
       const card = snapshot.cards.find(card => card.id === id);
       expect(card).toBeTruthy();
       await page.setViewportSize({ width: 375, height: 900 });
@@ -164,8 +164,8 @@ if (process.env.LERNE_D14_SUPPORT === '1') {
       await expect.poll(() => page.evaluate(() => window.trainerAnswers.length)).toBe(1);
       const evidence = await page.evaluate(() => window.trainerAnswers[0]);
       expect(evidence.isCorrect).toBe(true);
-      expect(evidence.taskSupport).toMatchObject({ answer_options_present: id === 358365,
-        sentence_frame_present: true, source_vocabulary_present: true, source_text_present: id === 358385 });
+      expect(evidence.taskSupport).toMatchObject({ answer_options_present: id === 20003,
+        sentence_frame_present: true, source_vocabulary_present: true, source_text_present: id === 20023 });
       expect(evidence.supportEvidence.tracking_complete).toBe(false);
       expect(evidence).not.toHaveProperty('independent');
       await page.screenshot({ path: testInfo.outputPath(`d14-${id}-375.png`), fullPage: true });

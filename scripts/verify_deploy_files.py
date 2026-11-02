@@ -72,6 +72,8 @@ def inspect(root=ROOT):
                'api/example.sqlite', 'app/private.db', 'api/admin_task_state.json',
                'local/test-data/lesson-qa/pre-change-backup.json', '.venv/pyvenv.cfg',
                'api/__pycache__/models.pyc', 'app/node_modules/example/index.js']
+    blocked += [p for p in names if p.startswith('tests/fixtures/')]
+    blocked += ['tests/fixtures/future.json', 'tests/fixtures/generate_lessons.py']
     patterns = (root / '.vercelignore').read_text(encoding='utf-8')
     ignored = ignored_paths(patterns, sorted(set(names + required + blocked)))
     missing = [p for p in required if p not in names or not (root / p).is_file() or p in ignored]

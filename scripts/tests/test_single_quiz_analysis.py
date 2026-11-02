@@ -176,7 +176,7 @@ class SingleQuizTests(unittest.TestCase):
                          [(False, 'Auto'), (True, 'Bus'), (False, 'Zug')])
 
     def test_numbered_conditions_do_not_inflate_ai_answer_count_or_change_front(self):
-        fixtures = json.loads((fixture['ROOT'] / 'local/test-data/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
+        fixtures = json.loads((fixture['ROOT'] / 'tests/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
         for example in fixtures['examples']:
             with self.subTest(example=example['name']):
                 front = example['preamble'] + example['question'] + example['gap'] + '\n'.join(
@@ -188,7 +188,7 @@ class SingleQuizTests(unittest.TestCase):
                 self.assertEqual(self.mock_chat.call_args.kwargs['user_message'], front)
 
     def test_ambiguous_quiz_is_rejected_before_contacting_ai(self):
-        fixtures = json.loads((fixture['ROOT'] / 'local/test-data/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
+        fixtures = json.loads((fixture['ROOT'] / 'tests/fixtures/quiz_boundaries.json').read_text(encoding='utf-8'))
         for front in fixtures['ambiguous']:
             with self.subTest(front=front):
                 self.mock_chat.reset_mock()

@@ -1,9 +1,9 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 const { writeFileSync, rmSync } = require('node:fs');
 const { resolve, basename } = require('node:path');
-const cards = require('../../../local/test-data/browser/fixtures/editable-real-cards.json');
+const cards = require('../../../tests/fixtures/editable-cards.json');
 
-test('real editable corpus: detection, rendering, draft navigation and reset', async ({ page, context }, testInfo) => {
+test('synthetic editable corpus: detection, rendering, draft navigation and reset', async ({ page, context }, testInfo) => {
   const harness = resolve(__dirname, '../../../app', `.editable-corpus-${process.pid}.jsx`);
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));

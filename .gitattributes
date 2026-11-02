@@ -1,0 +1,2 @@
+# Release provenance verifies exact LF bytes on every checkout, including Windows.
+/api/card_core/** text eol=lf

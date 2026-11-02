@@ -9,16 +9,16 @@ import { parseQuizData } from '../quizParser.js';
 import { evaluateQuizOption } from '../quizEvaluation.js';
 import { calculateSessionStats } from '../sessionStats.js';
 
-const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../local/test-data/lesson-qa/relativsaetze.snapshot.json', import.meta.url)));
+const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/before.json', import.meta.url)));
 const lesson = front => ({ decks: [{ id: 1, name: 'Fixture', metadata: {} }], cards: [{ id: 2, deck_id: 1, front, back: '' }] });
 
-test('viewing or skipping all real D14 cards cannot invent a perfect score; generic stats include bonus reviews', () => {
-  const d14 = snapshot.cards.filter(c => c.deck_id === 7139);
+test('viewing or skipping all synthetic D14 cards cannot invent a perfect score; generic stats include bonus reviews', () => {
+  const d14 = snapshot.cards.filter(c => c.deck_id === 114);
   assert.equal(calculateSessionStats({ reviewsCount: 0, studyHistory: d14 }), null);
   assert.equal(calculateSessionStats({ reviewsCount: 48, correctCount: 46, mistakeCount: 2 }).accuracy, '96%');
 });
 
-test('every real trainer rejects empty/foreign input, accepts every authored variant; quizzes obey their authored keys', () => {
+test('every synthetic trainer rejects empty/foreign input, accepts every authored variant; quizzes obey their authored keys', () => {
   for (const card of snapshot.cards) {
     const type = detectExerciseType(card);
     if (type === 'trainer') {
@@ -44,29 +44,29 @@ test('Markdown preserves multiple authored choice answers, rejects distractors a
 });
 
 test('review evidence: explicitly permitted D14 and D13 alternatives are currently rejected by exact input', () => {
-  for (const [id, alternative] of [[358402, 'in der mein Sohn lernt'], [358406, 'Ich suche eine Wohnung, die sehr hell ist.'],
-    [358330, 'Das ist die Firma, in der mein Bruder arbeitet.'], [358335, 'Ein Freund, dem ich oft helfe, hat ihn repariert.']]) {
+  for (const [id, alternative] of [[20040, 'wo mein Roboter arbeitet'], [20044, 'Ich suche ein Museum, das heute geöffnet ist.'],
+    [11201, 'Das ist das Museum, wo mein Roboter arbeitet.'], [11202, 'Ein Roboter, dem ich häufig helfe, malt das Bild.']]) {
     const card = snapshot.cards.find(c => c.id === id);
     assert.equal(evaluateTrainerGaps(parseClozeData(card, 'classic').gaps, { 0: alternative }).accepted, false, String(id));
   }
 });
 
-test('review evidence: real quiz 348708 accepts the grammatically wrong starred key and rejects den', () => {
-  const { options } = parseQuizData(snapshot.cards.find(c => c.id === 348708));
+test('review evidence: synthetic quiz 10002 accepts the grammatically wrong starred key and rejects den', () => {
+  const { options } = parseQuizData(snapshot.cards.find(c => c.id === 10002));
   const wrong = options.find(o => o.text.includes(', der ich'));
   const right = options.find(o => o.text.includes(', den ich'));
   assert.equal(evaluateQuizOption(options, wrong.id).accepted, true);
   assert.equal(evaluateQuizOption(options, right.id).accepted, false);
 });
 
-test('all 678 real course cards run through runtime parsers without mutating the source', () => {
+test('all 678 synthetic course cards run through runtime parsers without mutating the source', () => {
   const before = JSON.stringify(snapshot);
   const report = auditLesson(snapshot);
   assert.deepEqual(report.checked, { decks: 14, cards: 678 });
   assert.equal(JSON.stringify(snapshot), before);
   assert.equal(report.findings.filter(f => f.code.startsWith('parser.') || f.code === 'answer.authored_rejected').length, 0);
-  assert.ok(report.findings.some(f => f.card_id === 349141 && f.code === 'content.possible_placeholder'));
-  assert.ok(report.findings.some(f => f.deck_id === 7139 && f.code === 'assessment.runtime_missing'));
+  assert.ok(report.findings.some(f => f.card_id === 10003 && f.code === 'content.possible_placeholder'));
+  assert.ok(report.findings.some(f => f.deck_id === 114 && f.code === 'assessment.runtime_missing'));
 });
 
 test('broken word bank and multiple interactive blocks are errors; task directives are literal', () => {

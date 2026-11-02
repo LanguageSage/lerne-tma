@@ -1,0 +1,34 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "Puzzle und Quiz: Reihenfolge und Auswahl",
+    "passport": {"schema_version": 1, "intro": {"level": "B1", "topic": "Sprache und Alltag"}}
+  },
+  "cards": [
+    {
+      "id": "flies-puzzle",
+      "type": "puzzle",
+      "info": [{"type": "task", "text": "Ordnen Sie die Wörter."}],
+      "data": {
+        "tokens": ["Wenn", "Fliegen", "hinter", "Fliegen", "fliegen,", "fliegen", "Fliegen", "Fliegen", "nach."],
+        "translation": "Когда мухи летят за мухами, мухи летят вслед за мухами."
+      },
+      "explanation": "Одинаковые токены различаются позицией в исходном предложении.",
+      "metadata": {"tags": ["word-order"]}
+    },
+    {
+      "id": "capital-quiz",
+      "type": "quiz",
+      "info": [{"type": "source", "text": "Deutschland hat sechzehn Bundesländer."}],
+      "data": {
+        "prompt": "Welche Stadt ist die Hauptstadt Deutschlands?\nWählen Sie eine Antwort.",
+        "options": [
+          {"text": "München"},
+          {"text": "Berlin", "correct": true},
+          {"text": "Hamburg"}
+        ]
+      },
+      "explanation": "Berlin ist die Hauptstadt Deutschlands."
+    }
+  ]
+}

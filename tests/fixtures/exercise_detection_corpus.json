@@ -1,0 +1,586 @@
+{
+  "description": "Synthetic tokens; all 83 parser shapes and recorded classifications retained.",
+  "cards": [
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 1,
+      "front": "::task\nWort1 Wort2 Wort3 Wort4. Wort5 Wort6 Wort7 Wort8 Wort9?\n\n::exercise\nWort10 Wort11 Wort12 Wort13 Wort14?\nWort15 Wort16 Wort17 Wort18 Wort19.\nWort20 Wort21 Wort22.\n*Wort23 Wort24 Wort25 Wort26 Wort17 Wort18 Wort19."
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 2,
+      "front": "::exercise\n*Wort27 Wort28 Wort29 Wort30 Wort31, Wort32 Wort33 Wort3 Wort34.* Wort35 Wort36 Wort37 Wort38 Wort39 Wort40 Wort41 Wort42 Wort43 Wort44?"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 3,
+      "front": "::exercise\nWort45 Wort46 Wort47 в Wort48, **Wort49 с Wort50**.\n\n*Wort51 Wort52 Wort53 Wort54. Wort55 Wort56 Wort57 Wort58.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 4,
+      "front": "::exercise\nWort59 Wort60 Wort61 Wort62 Wort63.\n\n*Wort1 Wort64 Wort65 Wort66 Wort67, Wort68 Wort64 Wort69 Wort66 Wort70.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 5,
+      "front": "::exercise\nWort59 Wort71, Wort72 **Wort73** и Wort74:\n\n*Wort75 Wort76 Wort77 Wort78 Wort65 Wort79, Wort73 Wort80 Wort81 Wort65 Wort82.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 6,
+      "front": "::exercise\nWort83 **Wort46 Wort47**, Wort84 Wort85 Wort86 Wort87 Wort88 Wort89 Wort90 Wort91 Wort92 Wort93 Wort94:\n\n*Wort20 Wort95 Wort96 Wort97 Wort98. **Wort55** Wort99 Wort57 Wort100.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 7,
+      "front": "::exercise\nWort101 *Wort102* **Wort41 Wort103**, Wort104 Wort105 Wort106 и Wort107:\n\n*Wort108 Wort96 Wort109 Wort77 Wort110 Wort111.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 8,
+      "front": "::exercise\nWort112 Wort113 **Wort46 Wort114 Wort47**, Wort115 Wort116 с *Wort55*:\n\n*Wort50 Wort77 Wort117 Wort118 Wort53, Wort119 Wort120 Wort58 Wort121 Wort122.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 9,
+      "front": "::exercise\nWort123 и Wort124 Wort113 Wort125 Wort126 Wort127:\n\n*Wort51 Wort128 Wort129 Wort130. Wort55 Wort131 Wort33 Wort100.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 10,
+      "front": "::source\n**Wort132:** Wort133 Wort134, Wort135 Wort136 Wort137 Wort138 Wort139 в Wort140. Wort141 Wort142 Wort143 Wort144.\n**Wort145 1:** *Wort146 Wort147 Wort148 Wort149 Wort150 Wort151 Wort152 Wort153?*\n**Wort154 Wort155 1:** Wort156 + Wort157 (2–3 Wort158).\n::exercise\n**Wort145 1:** *Wort159 Wort151 Wort152 Wort153 Wort11 Wort160 Wort161 Wort162 Wort163, Wort150?*\n**Wort154 Wort155 2:** Wort164 Wort165 Wort63 Wort166 и Wort167 Wort168 (2–3 Wort158), Wort169 Wort170 Wort139 Wort171."
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 11,
+      "front": "::exercise\nWort59 Wort71, Wort172 Wort173 Wort174 Wort175:\n\n*Wort176 Wort177 Wort77 E-Wort178 Wort179. Wort108 Wort33 Wort177 Wort69 Wort180.*"
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 12,
+      "front": "::exercise\n**Wort145 1:** *Wort181 Wort182 Wort53 Wort183 Wort184 Wort185. Wort186 Wort187 Wort147 Wort188 Wort189 Wort190?*\n\nWort191 **2–3 Wort192 Wort193**: Wort194, Wort195 Wort196 Wort197 Wort198; Wort199, Wort200 Wort201 Wort202 Wort203. Wort204 **Wort205 ... Wort206** Wort139 **Wort207** и Wort208 Wort74."
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 13,
+      "front": "Wort50 Wort209 Wort210 [[Wort53]], Wort211 Wort209 Wort212 Wort213.\n\n*Wort53\nWort53 Wort210\nWort210 Wort53"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 14,
+      "front": "Wort214 Wort53 Wort215 Wort216. Wort55 [[Wort217]] Wort33 Wort218.\n\n*Wort217\nWort219\nWort211"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 15,
+      "front": "Wort176 Wort177 Wort220 Wort221. Wort55 [[Wort222]] Wort33 Wort223 Wort224.\n\n*Wort222\nWort225\nWort226"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 16,
+      "front": "Wort50 Wort58 Wort16 {*Wort227|Wort58 Wort227|Wort227 Wort58}, Wort190 Wort57 Wort228 Wort229 Wort182.\n\n*Wort227\nWort58 Wort227\nWort227 Wort58"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 17,
+      "front": "Wort50 Wort209 Wort210 [[Wort53]], Wort211 Wort209 Wort212 Wort213.\nWort101 Wort230 Wort87 Wort231 Wort232.\n\n*Wort53\nWort53 Wort209\nWort209 Wort53"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 18,
+      "front": "Wort214 Wort53 Wort215 Wort216. Wort55 [[Wort217]] Wort33 Wort218.\nWort233 Wort230 в Wort234 Wort235.\n\n*Wort217\nWort211\nWort219"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 19,
+      "front": "::task\nWort236 Wort223 Wort237 Wort183 Wort238.\n\n::exercise\n\nWort239 Wort229 Wort240 [[Wort241]] Wort58 Wort242 Wort243 Wort244 Wort245.\n\n*Wort241\nWort96\nWort53\nWort129"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 20,
+      "front": "::task\nWort236 Wort223 Wort237 Wort183 Wort238.\n\n::exercise\n\nWort20 Wort246 [[Wort247]] Wort65, Wort248 Wort80 Wort249 Wort66 Wort250 Wort251 Wort252 8 Wort253 Wort254 Wort255.\n\n*Wort247\nWort256\nWort257\nWort258"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 21,
+      "front": "::task\nWort236 Wort223 Wort237 Wort183 Wort238.\n\n::exercise\n\nWort259 [[Wort260]] Wort261 Wort3 Wort262 Wort263 Wort264.\n\n*Wort260\nWort265\nWort266\nWort267"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 22,
+      "front": "::task\nWort236 Wort223 Wort237 Wort183 Wort238.\n\n::exercise\n\nWort20 Wort268 [[Wort269]] Wort3 Wort270.\n\n*Wort269\nWort129\nWort241\nWort271"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 23,
+      "front": "::task\nWort236 Wort223 Wort237 Wort183 Wort238.\n\n::exercise\n\nWort1 [[Wort272]] Wort229 Wort273 Wort8 Wort274, Wort248 Wort80 Wort240 Wort275 Wort183 Wort276 „Wort277“ Wort278.\n\nWort279 1\nWort279 2\n*Wort279 3"
+    },
+    {
+      "python": "quiz",
+      "js": "trainer",
+      "known_divergence": true,
+      "source_card_id": 24,
+      "front": "::task\nWort280 Wort281 Wort155 Wort282.\n\n::exercise\nWort176 Wort283 Wort228 Wort80 Wort284{Wort285} Wort286. Wort35 Wort135 Wort287?\n\nWort286 — Wort288, Wort289 Wort290 Wort291 -e.\n*«Wort228» Wort292 Wort293 → «Wort80 Wort286» → Wort291 -Wort285."
+    },
+    {
+      "python": "standard",
+      "js": "quiz",
+      "known_divergence": true,
+      "source_card_id": 25,
+      "front": "::task\nWort294-Wort295: Wort10 Wort296 Wort77 Wort297? Wort298 Wort1 Wort77 Wort299 Wort300.\n\n::exercise\n1. 40 Wort301 Wort302 Wort29 Wort303 Wort304...\n- Wort305 Wort221\n- *Wort306 Wort221\n\n2. Wort307 Wort308 Wort77 Wort309 Wort302 Wort29 Wort303 Wort310 Wort311...\n- *Wort3 Wort312 Wort313 Wort183 Wort314\n- Wort315 Wort312 Wort313 Wort183 Wort314\n\n3. Wort316 60 Wort301 Wort302 Wort29 Wort303 Wort99 Wort317...\n- *Wort100 Wort228 Wort318 Wort319\n- Wort320 Wort228 Wort318 Wort319"
+    },
+    {
+      "python": "standard",
+      "js": "quiz",
+      "known_divergence": true,
+      "source_card_id": 26,
+      "front": "::exercise\nWort321, Wort322 Wort323 Wort324 Wort325.\n\n1. Wort326 Wort327 Wort53 Wort328.\n2. *Wort223 Wort329 Wort327\n3. Wort20 Wort117 Wort53 Wort330.\n4. Wort77 Wort331 Wort117"
+    },
+    {
+      "python": "standard",
+      "js": "quiz",
+      "known_divergence": true,
+      "source_card_id": 27,
+      "front": "::task\nWort332 Wort333 2 — Wort117 9.\nWort332 Wort1 Wort29 Wort334 Wort335 Wort336 Wort1 Wort77 Wort337 Wort338.\n\n::source\nWort339 Wort340,\nWort151 Wort341 Wort342 Wort343 Wort57 Wort344 Wort345 Wort77 Wort346 Wort244.\nWort347 Wort348 Wort1 Wort349 Wort350:\n\nWort351: Wort352 Wort1 Wort65 Wort353 Wort306 Wort354. Wort355 Wort1 Wort356 Wort357 Wort358 Wort359. Wort360 Wort1 Wort354, Wort223 Wort361 Wort357 Wort152 Wort362 Wort363 Wort53, Wort308 Wort364. Wort365 Wort366 Wort151 Wort77 Wort367 Wort368 Wort357 Wort229 Wort369. Wort370 Wort335 Wort371 Wort372 Wort1 Wort356 Wort54 Wort335 Wort373 Wort69 Wort17 Wort374. Wort20 Wort375 Wort376 Wort345 Wort377 Wort378. Wort379 Wort380 Wort357 Wort229 Wort369.\n\nWort381: Wort382 Wort383 Wort335 Wort384 Wort263 Wort385, Wort386 Wort57 Wort387 Wort3 Wort388 Wort151 Wort80 Wort381. Wort347 Wort389 Wort1 Wort390 Wort391 Wort392 Wort393 Wort151 Wort77 Wort388. Wort394 Wort1 Wort395 Wort396 Wort244, Wort397 Wort69 Wort398 Wort53, Wort399 Wort65 Wort400 Wort401, Wort206 Wort402 Wort403 Wort229 Wort404.\n\nWort384 Wort385: Wort405 Wort1 Wort77 Wort406 Wort407 Wort29 Wort408 Wort183 Wort184 Wort409 Wort410, Wort385 Wort57 Wort306 Wort384. Wort411 Wort412 Wort356 Wort65 Wort413 Wort77 Wort414 Wort415. Wort416 Wort77 Wort417 Wort418 Wort150 Wort419 Wort420 Wort421 Wort422, Wort77 Wort423 Wort424 Wort308 Wort77 Wort414 Wort425. Wort426 Wort1 Wort66 Wort427 Wort19, Wort428 Wort1, Wort429 Wort261 Wort430 Wort335 Wort431 Wort432 Wort99.\n\nWort433 Wort345 Wort434 Wort435.\n\n::exercise\nWort436 Wort437 Wort255 Wort160 ...\n\na) Wort77 Wort110 Wort438 Wort439.\nb) *Wort440 Wort421 Wort422.\nc) Wort148 Wort77 Wort414 Wort422."
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 28,
+      "front": "::exercise\nWort321 **Wort441** Wort442 Wort443 Wort444:\n\n1. *Wort20 Wort445 Wort446 Wort447. **Wort259** Wort448 Wort33 Wort311.*\n2. *Wort176 Wort448 Wort311, **Wort449** Wort77 Wort445 Wort447 Wort446.*\n3. ***Wort50** Wort33 Wort450 Wort131, Wort451 Wort33 Wort263.*\n4. *Wort176 Wort451 Wort263. **Wort452** Wort453 Wort33 Wort454.*\n5. *Wort20 Wort455 Wort53 Wort65 Wort77 Wort456, **Wort68** Wort80 Wort457.*\n6. *Wort458 Wort459 Wort29 Wort457 Wort460. **Wort461** Wort462 Wort77 Wort463 Wort464.*\n\nWort465: **Wort157 / Wort466 / Wort467 / Wort468 / Wort469 / Wort470 Wort471**."
+    },
+    {
+      "python": "standard",
+      "js": "quiz",
+      "known_divergence": true,
+      "source_card_id": 29,
+      "front": "::exercise\nВ Wort472 Wort473 Wort474 Wort475 Wort476. Wort477 Wort478 с Wort479 Wort480; Wort481 Wort91 Wort482 **Wort483 Wort484**.\n\n1. *Wort51 Wort485 Wort53 Wort486. Wort487 ...*\n2. *Wort20 Wort445 Wort96 Wort488 Wort489 Wort490 Wort65 Wort491. Wort492 ...*\n3. *Wort75 Wort386 Wort419 Wort213 Wort493. Wort494 ...*\n\nA. *Wort190 Wort57 Wort66 Wort427.*\nB. *Wort495 Wort223 Wort485 Wort306 Wort424.*\nC. *Wort496 Wort57 Wort58 Wort497.*"
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 30,
+      "front": "::exercise\nWort498 Wort139 Wort499 Wort500 Wort158 Wort87 Wort501 «Я Wort502 Wort503 Wort92-Wort504 Wort505». Wort204 **Wort506 Wort500 Wort507 Wort444**:\n\n1. *Wort73* — Wort508 Wort509 Wort510, Wort157 Wort41 Wort511.\n2. *Wort449* — Wort508 Wort509 Wort510, Wort157 Wort41 Wort511.\n3. *Wort512* — **Wort46** Wort114 Wort47, Wort513 Wort157.\n\nWort514 Wort515: *Wort263 Wort427 Wort516, Wort58 Wort227*."
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 31,
+      "front": "::exercise\nWort517 Wort518 «Я Wort519 Wort87 Wort520 Wort87 Wort521». Wort522 **Wort125 Wort523**:\n\n1. *Wort51 Wort524 Wort53 Wort525.*\n2. *Wort326 Wort526 Wort53 Wort527.*\n\nWort528 **Wort48** Wort529 с Wort530 Wort531 с **Wort449**, Wort532 *Wort335*. Wort533 с *Wort176 Wort534 Wort228 Wort229 Wort182 Wort212 Wort213,*."
+    },
+    {
+      "python": "standard",
+      "js": "quiz",
+      "known_divergence": true,
+      "source_card_id": 32,
+      "front": "::exercise\nWort535 **Wort207** Wort139 **Wort188**, Wort169 Wort536 Wort86 Wort537 Wort483 Wort484:\n\n1. *_____ Wort57 Wort344 Wort538 Wort386, Wort539 Wort57 Wort121 Wort540.*\n2. *Wort75 Wort386 Wort344 Wort538. _____ Wort539 Wort57 Wort121 Wort540.*"
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 33,
+      "front": "::exercise\nWort541 Wort542 Wort71 с Wort543 Wort544.\n\n1. *..., Wort206 Wort69 Wort545 Wort16.*\n2. *Wort546 Wort545 Wort69 Wort16.*\n3. *Wort547 Wort69 Wort16 Wort545, ...*\n\nWort548: **Wort549 Wort550 + Wort551 Wort63 / Wort552 Wort87 Wort553 1 + V2 / Wort554 Wort550 + Wort230 в Wort555**."
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 34,
+      "front": "::exercise\nWort541 Wort556 Wort557 с Wort558.\n\n1. Wort559 Wort74 в Wort560\n2. Wort561 Wort562 Wort563 Wort41 Wort564\n3. Wort565 Wort566 Wort483 Wort567 Wort568\n4. Wort569 к Wort570 Wort571\n\nA. *Wort572*  B. *Wort449*  C. *Wort102*  D. *Wort188*"
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 35,
+      "front": "::exercise\nWort573 **Wort46 Wort47** Wort92 Wort574. Wort575 Wort576 *Wort577*, Wort115 *Wort578*:\n\n- *Wort53 / Wort77 Wort579 / Wort580 Wort407 Wort80 Wort213*\n- *Wort53 / Wort69 / Wort581*\n\nWort582 Wort104 Wort583 Wort584."
+    },
+    {
+      "python": "standard",
+      "js": "quiz",
+      "known_divergence": true,
+      "source_card_id": 36,
+      "front": "::exercise\nWort585 Wort586 Wort89 Wort587 Wort588. Wort589 Wort590 Wort591 Wort230?\n\n1. *..., Wort73 Wort33 Wort592 Wort16 Wort593.*\n2. *..., Wort449 Wort33 Wort16 Wort593 Wort592.*\n3. *Wort259 Wort592 Wort33 Wort263 Wort427 Wort516.*"
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 37,
+      "front": "::task\nWort594 Wort125 Wort595 и Wort596 грамматику.\n\n::exercise\nWort326 Wort597 Wort53 Wort598.\nWort80 Wort599 Wort597\n\nWort600 Wort601 Wort48 и Wort602 Wort202 Wort89 Wort90 и грамматике?"
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 38,
+      "front": "::task\nWort603 4 Wort604 Wort605 Wort606 Wort607.\n::exercise\nWort35 Wort608 Wort609 Wort610 Wort92 3–4 Wort611, Wort172 Wort612 в грамматике?"
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 39,
+      "front": "::task\nWort613 Wort614 Wort615 Wort511 Wort616 и Wort617 Wort102.\n::source\nWort618 Wort33 Wort29 Wort619 Wort620 Wort269, Wort621 Wort33 Wort3 Wort338.\nWort176 Wort622 Wort29 Wort619. Wort108 Wort621 Wort33 Wort3 Wort338.\n::exercise\nWort623 Wort624 Wort625 Wort626 Wort627 Wort628 Wort629 («Wort41»). Wort630 грамматика Wort631?"
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 40,
+      "front": "::task\nWort603 Wort632 Wort633 Wort634 Wort92 Wort144.\n::source\nWort635 Wort636 (Wort172 Wort637 Wort638 Wort639)\n::exercise\nWort640 Wort500 Wort641 Wort642 Wort643 Wort644 Wort645 грамматики?"
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 41,
+      "front": "::task\nWort603 Wort646 Wort647 Wort616, Wort102, Wort648 и Wort308.\n::exercise\nWort35 Wort649 Wort444 Wort616, Wort102, Wort648 и Wort308 Wort89 Wort90 и грамматике?"
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 42,
+      "front": "::exercise\nWort650 Wort46 пропуска в Wort555 Wort47:\nWort176 Wort651 Wort77 Wort652 Wort653, Wort252 Wort654 Wort162 Wort655 ___ ___.\nWort656 «Wort657 я Wort658 Wort135 Wort659»."
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 43,
+      "front": "::exercise\nWort650 Wort537 Wort483 пропуск Wort660 Wort661 Wort662 Wort663:\nWort1 Wort664 Wort223 Wort665, Wort252 Wort58 ________."
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 44,
+      "front": "::source\nВ Wort666 Wort667:\n*Wort668 Wort33 Wort177 Wort8 Wort669 Wort97, Wort448 Wort33 Wort670 Wort128.*\n::exercise\nWort59 грамматику, Wort104 Wort671."
+    },
+    {
+      "python": "trainer",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 45,
+      "front": "::source\n*Wort214 Wort53 Wort672. Wort75 Wort19 Wort188 Wort8 Wort673 Wort218.*\n::exercise\nWort498 Wort674 Wort202 Wort671 с *Wort207*. Wort675 Wort676 в грамматике?"
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 46,
+      "front": "Wort677 Wort678."
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 47,
+      "front": "Wort679, Wort680 Wort681 Wort682 Wort65 Wort29 Wort683 Wort401 Wort361 Wort684 Wort685 Wort213 …"
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 48,
+      "front": "Wort326 Wort686 Wort96 Wort3 Wort117 Wort345 Wort344."
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 49,
+      "front": "Wort687 Wort688 Wort33 Wort689…"
+    },
+    {
+      "python": "standard",
+      "js": "standard",
+      "type": "standard",
+      "source_card_id": 50,
+      "front": "Wort176 Wort690 Wort77 Wort691 Wort215, Wort206 Wort33 Wort592 Wort653 Wort692 Wort693 Wort66 Wort694 Wort695."
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 51,
+      "front": "Wort214 | Wort227 | Wort55 | Wort217 | Wort33 | Wort218\n\n*Wort55 Wort217 Wort33 Wort218, Wort58 Wort227.\n*Wort214 Wort227. Wort55 Wort217 Wort33 Wort218."
+    },
+    {
+      "python": "quiz",
+      "js": "standard",
+      "known_divergence": true,
+      "source_card_id": 52,
+      "front": "::exercise\nWort573 Wort696 Wort63 Wort92 Wort38. Wort697 Wort39 Wort40 Wort698 Wort699:\n\n*Wort176 Wort217 Wort218, Wort207 ...*\n\n**Wort33 | Wort215 | Wort450 | Wort131**"
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 53,
+      "front": "::source\n*Wort75 Wort700 Wort77 Wort691. Wort108 Wort163 Wort57 Wort228 Wort229 Wort701.*\n::exercise\nК Wort702 Wort703 *Wort102*?\n\nA. К Wort704 с Wort705 Wort113 Wort706 Wort707.\n*B. К Wort629 Wort41 Wort707 Wort708.\nC. К Wort709 Wort710 в Wort711 Wort708."
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 54,
+      "front": "::source\n*Wort20 Wort712 Wort53 Wort713. ____ Wort11 Wort33 Wort714 Wort715 Wort716 Wort717.*\n::exercise\nWort656 Wort718 **Wort115 Wort719**, а Wort172 Wort720, Wort721 Wort722.\n\n*A. *Wort108*\nB. *Wort452*\nC. *Wort723*"
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 55,
+      "front": "Wort724 Wort725 Wort76 Wort726 Wort727 Wort670 14. Wort728 Wort729 Wort730 Wort731, Wort429 Wort58 Wort151 Wort80 Wort732 Wort8 …\n\nWort733 Wort734.\n*Wort735 Wort734.\nWort736 Wort734.\nWort737 Wort734."
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 56,
+      "front": "Wort687 Wort738 Wort725 Wort228 Wort739 Wort740 ?\n\nWort741 Wort725\nWort742 Wort725\n*Wort743 Wort725\nWort744 Wort725"
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 57,
+      "front": "Wort745 Wort746 Wort747 Wort748 Wort749 Wort80 Wort750 Wort151 Wort751-Wort752\n                  Wort753?\n\n3\n4\n*5\n6"
+    },
+    {
+      "python": "quiz",
+      "js": "quiz",
+      "type": "quiz",
+      "source_card_id": 58,
+      "front": "Wort20 Wort743 Wort725 Wort53 Wort16 Wort754 Wort151 …\n\nWort755 Wort756.\nWort757 Wort758 Wort335 Wort757 Wort759.\n16 Wort760.\n*Wort761, Wort762 Wort335 Wort763."
+    },
+    {
+      "python": "trainer",
+      "js": "trainer",
+      "type": "trainer",
+      "source_card_id": 59,
+      "front": "Wort764 Wort765 Wort766 {Wort488} Wort767."
+    },
+    {
+      "python": "trainer",
+      "js": "trainer",
+      "type": "trainer",
+      "source_card_id": 60,
+      "front": "::task\nWort298 Wort1 Wort77 Wort768 Wort769.\n\n::source\nWort326 Wort770 Wort771\n\n::exercise\nWort772 Wort773 Wort244 Wort774, {*Wort29|Wort80|Wort229} Wort209 Wort121 Wort775 Wort776 Wort96 Wort335 Wort302 {*Wort229|Wort29|Wort80} Wort209 Wort361 Wort3 Wort777 Wort778, Wort779 Wort77 Wort780."
+    },
+    {
+      "python": "trainer",
+      "js": "trainer",
+      "type": "trainer",
+      "source_card_id": 61,
+      "front": "::task\nWort35 Wort781?\n\n::exercise\nWort20 Wort782 Wort53 {*Wort783/Wort784}."
+    },
+    {
+      "python": "trainer",
+      "js": "trainer",
+      "type": "trainer",
+      "source_card_id": 62,
+      "front": "::task\nWort785 Wort1 Wort183 Wort786 Wort66 Wort24 Wort787 Wort788 (Wort788 — Wort80).\n\n::exercise\nWort75 Wort386 Wort244 Wort789 Wort790.\nWort791 Wort223 Wort790 {*Wort757 Wort787|Wort244 Wort792} Wort788?"
+    },
+    {
+      "python": "trainer",
+      "js": "trainer",
+      "type": "trainer",
+      "source_card_id": 63,
+      "front": "::task\nWort280 Wort550 Wort793 Wort47, Wort794 с Wort795 Wort796 Wort797.\n::source\nWort798: Wort513 я Wort799 Wort800, Wort801 Wort802 Wort92 Wort803.\nWort804 Wort805 с Wort806 Wort807 Wort797.\n::exercise\n{*Wort618|Wort426} Wort33 Wort77 Wort808 Wort809 Wort269, Wort810 Wort33 Wort223 Wort811."
+    },
+    {
+      "python": "free_text",
+      "js": "free_text",
+      "type": "free_text",
+      "source_card_id": 64,
+      "front": "@free\nWort812 Wort1 Wort757 Wort813 Wort228 „Wort308“."
+    },
+    {
+      "python": "free_text",
+      "js": "free_text",
+      "type": "free_text",
+      "source_card_id": 65,
+      "front": "::task\nWort814 Wort815 Wort816 Wort817 Wort708.\n\n::exercise\n@free\nWort10 Wort818 Wort147 Wort766 Wort151 Wort819 Wort820 Wort691?"
+    },
+    {
+      "python": "free_text",
+      "js": "free_text",
+      "type": "free_text",
+      "source_card_id": 66,
+      "front": "::task\nWort821 Wort822 Wort202 Wort823 Wort824 Wort825 Wort826 с «Wort50».\n::source\nWort827: Wort20 Wort828 Wort53 Wort527. Wort55 Wort829 Wort57 Wort29 Wort249.\n::exercise\n@free\nWort50..."
+    },
+    {
+      "python": "free_text",
+      "js": "free_text",
+      "type": "free_text",
+      "source_card_id": 67,
+      "front": "::exercise\n@free\nWort830 Wort87 Wort831 с Wort832 Wort629: „Wort326 Wort701 Wort833 Wort77 Wort691 Wort8 Wort834.“"
+    },
+    {
+      "python": "free_text",
+      "js": "free_text",
+      "type": "free_text",
+      "source_card_id": 68,
+      "front": "::source\nWort835 Wort836 в Wort837 Wort838. Wort656 Wort839, Wort840 Wort136 Wort841 Wort842 Wort843. Wort844 Wort483 Wort845 Wort846 Wort847 с Wort429 и Wort107.\n::exercise\n@free\nWort848: Wort849 Wort1 Wort850 Wort689, Wort1, Wort851 Wort852, Wort853 Wort386."
+    },
+    {
+      "python": "puzzle",
+      "js": "puzzle",
+      "type": "puzzle",
+      "source_card_id": 69,
+      "front": "@puzzle\nWort176 Wort269 Wort851 Wort854 Wort855."
+    },
+    {
+      "python": "puzzle",
+      "js": "puzzle",
+      "type": "puzzle",
+      "source_card_id": 70,
+      "front": "::task\nWort856 Wort857.\n\n::exercise\n@puzzle\nWort80 Wort858 Wort526"
+    },
+    {
+      "python": "puzzle",
+      "js": "puzzle",
+      "type": "puzzle",
+      "source_card_id": 71,
+      "front": "@puzzle\nWort181 / Wort859 / Wort860 / Wort861 / Wort757 / Wort862 / Wort863."
+    },
+    {
+      "python": "puzzle",
+      "js": "puzzle",
+      "type": "puzzle",
+      "source_card_id": 72,
+      "front": "::task\nWort864 Wort529 в Wort107. Wort865 с «Wort75».\n::exercise\n@puzzle\nWort75 Wort386 Wort8 Wort866 Wort77 Wort417 Wort867."
+    },
+    {
+      "python": "puzzle",
+      "js": "puzzle",
+      "type": "puzzle",
+      "source_card_id": 73,
+      "front": "::task\nWort856 Wort868 к Wort869: „Wort326 Wort870 Wort871 Wort223 Wort599 Wort872 Wort16 Wort357.“ Wort533 Wort51 Wort599 Wort872.\nWort873 Wort874 Wort875 (Wort876 Wort877 Wort878 Wort879): Wort16 | Wort51 Wort599 Wort872 | Wort880. | Wort749\n::exercise\n@puzzle\nWort51 Wort599 Wort872 Wort749 Wort16 Wort880."
+    },
+    {
+      "python": "match",
+      "js": "match",
+      "type": "match",
+      "source_card_id": 74,
+      "front": "@match\nWort33 => Wort269\nWort209 => Wort269\nWort57 => Wort881"
+    },
+    {
+      "python": "match",
+      "js": "match",
+      "type": "match",
+      "source_card_id": 75,
+      "front": "::task\nWort613 Wort882 с Wort883 Wort662 Wort386 в Wort884 Wort885 (Wort886).\n\n::exercise\n@match\nWort33 => Wort886\nWort147 => Wort818\nWort209 / Wort69 / Wort58 => Wort886\nWort57 => Wort887\nWort682 => Wort888\nWort69 / Wort1 => Wort887"
+    },
+    {
+      "python": "match",
+      "js": "match",
+      "type": "match",
+      "source_card_id": 76,
+      "front": "::task\nWort613 Wort889 Wort890 и Wort891 Wort892 Wort893.\n\n::exercise\n@match\nWort894 => Wort483 Wort895 Wort91\nWort896 => Wort897\nWort898 => Wort899 Wort876 Wort900 Wort901"
+    },
+    {
+      "python": "match",
+      "js": "match",
+      "type": "match",
+      "source_card_id": 77,
+      "front": "::task\nWort613 Wort47 с Wort596 Wort902 Wort903.\n::exercise\n@match\nWort176 Wort904 Wort77 Wort905, Wort648 Wort33 Wort217. => Wort906 Wort907 Wort908 Wort909\nWort618 Wort33 Wort809 Wort177, Wort904 Wort33 Wort77 Wort905. => Wort906 Wort907 Wort910 Wort911"
+    },
+    {
+      "python": "match",
+      "js": "match",
+      "type": "match",
+      "source_card_id": 78,
+      "front": "::exercise\n@match\n1 => Wort912 Wort913 Wort914?\n2 => Wort915?**"
+    },
+    {
+      "python": "word_bank",
+      "js": "word_bank",
+      "type": "word_bank",
+      "source_card_id": 79,
+      "front": "@wordbank\n\nWort916 Wort917 Wort12 Wort918,\n\nWort33 Wort177 Wort434 Wort919 Wort183 Wort920 Wort921 Wort620 Wort335 Wort922 Wort654 Wort215 <<31>> Wort29 Wort923.\n\nWort924 Wort925 Wort33 Wort926 Wort335 Wort177 Wort251 <<32>> Wort927 Wort228 Wort928.\n\nWort929 Wort177 Wort33 Wort244 Wort727 Wort930 Wort490 Wort77 Wort931 <<33>> Wort77 Wort932 Wort933 Wort934 (Wort935, 3 Wort748 Wort936) Wort937.\n\n<<34>> Wort177 Wort33 Wort122 Wort183 Wort938 Wort438 Wort939 Wort930 Wort25 Wort940 Wort308 Wort941 Wort942.\n\nWort176 Wort131 Wort943, <<35>> Wort58 Wort252 Wort944 Wort211.\n\nWort945 <<36>> Wort33 Wort121 Wort766 Wort946, Wort345 Wort947 Wort948 Wort949 Wort1 Wort950 Wort951 Wort335 Wort952 Wort345 Wort953 Wort1 Wort386.\n\nWort668 Wort1 Wort954 <<37>>, Wort955 Wort33 Wort654 Wort956, Wort397 Wort1 Wort957 Wort939 Wort850 Wort958 Wort959.\n\nWort960 Wort961 Wort57 Wort757 Wort30 <<38>>, Wort252 Wort344 Wort962 Wort263 Wort963.\n\nWort1 Wort964 Wort654 <<39>> Wort965 E-Wort178 Wort966 Wort967-Wort968@t-Wort969.Wort970 Wort150 Wort971 Wort966 0172 / 334 56 89.\n\nWort972 <<40>> Wort131 Wort33 Wort438 Wort66 20 Wort253 Wort263 Wort964.\n\nWort973 Wort974\n\nWort975 Wort976\n\n@options\nWort407 | Wort977 | Wort357 | Wort572 | Wort9 | Wort978 | Wort979 | Wort345 | Wort386 | Wort958 | Wort215 | Wort306 | Wort449 | Wort397 | Wort955"
+    },
+    {
+      "python": "word_bank",
+      "js": "word_bank",
+      "type": "word_bank",
+      "source_card_id": 80,
+      "front": "::task\nWort980 Wort1 Wort77 Wort768 Wort981 Wort183 Wort334.\n\n::exercise\n@wordbank\n● Wort982? Wort687 Wort129 (a) Wort983 Wort984 Wort985?\n▲ Wort986 Wort987. Wort20 Wort988 <<b>> Wort215 Wort284 Wort335 <<c>> Wort850 Wort29 Wort989 Wort990.\n● Wort982 <<d>> Wort147 Wort393 Wort991?\n▲ Wort992, Wort77 Wort993 <<e>> Wort29 Wort683 Wort994 Wort228 Wort850 Wort995 Wort996. Wort982 Wort223 Wort997 <<f>> Wort380 Wort987. Wort176 <<g>> Wort261 Wort998 Wort999. Wort51 <<h>> Wort850 Wort987 Wort1000.\n● <<i>> Wort58 Wort65 Wort1001 Wort525 Wort1002?\n▲ Wort1003. Wort1004 Wort1005 Wort8 Wort1006, Wort73 Wort58 <<j>>, Wort248 Wort57 Wort1007 Wort516 <<k>>. Wort1008! Wort51 Wort129 Wort244 Wort26! Wort176 <<l>> Wort850 Wort1009 Wort1010 Wort65 Wort1011, Wort746 Wort130 Wort80 Wort1012 Wort1013 Wort11. Wort214 <<m>> Wort1014 Wort306 Wort1015 Wort1016.\n\n@options\nWort129 | Wort96 | Wort1017 | Wort1018 | Wort129 | Wort1019 | Wort96 | Wort1020 | Wort1021 | Wort1022 | Wort1023 | Wort96"
+    },
+    {
+      "python": "word_bank",
+      "js": "word_bank",
+      "type": "word_bank",
+      "source_card_id": 81,
+      "front": "::task\nWort980 Wort1 Wort77 Wort299 Wort1024 Wort345 Wort77 Wort1025.\n\n::exercise\n@wordbank\nWort960 Wort19 Wort1 Wort1026 <<1>> Wort77 Wort1027. Wort108 Wort19 Wort1 <<2>> Wort29 Wort787 Wort1028 Wort335 Wort402 Wort1029. Wort1030 500 Wort1031 Wort1032 Wort1 <<3>> Wort29 Wort1033. Wort1034 Wort1 <<4>> Wort77 Wort1035. Wort960 Wort190 Wort1 <<5>> Wort29 Wort1036. Wort986 Wort1037 Wort1038 Wort1 Wort223 Wort276 „Wort277“.\n\n@options\nWort1039 | Wort1040 | Wort1041 | Wort1040 | Wort1042 | Wort1043 | Wort1044"
+    },
+    {
+      "python": "word_bank",
+      "js": "word_bank",
+      "type": "word_bank",
+      "source_card_id": 82,
+      "front": "::task\nWort864 Wort529. Wort865 с Wort1045 «Wort1046 Wort1047...»\n::exercise\n@wordbank\nWort1046 Wort1047 <<1>> <<2>> <<3>>.\n\n@options\nWort765 | Wort80 Wort1048 | Wort413"
+    },
+    {
+      "python": "word_bank",
+      "js": "word_bank",
+      "type": "word_bank",
+      "source_card_id": 83,
+      "front": "::task\nWort864 Wort115 Wort1049 Wort529 Wort92 Wort1050 Wort38. Wort697: «Wort20 Wort1051 Wort538 Wort957. ...»\n::exercise\n@wordbank\nWort20 Wort1051 Wort538 Wort957. <<1>> <<2>> <<3>> <<4>>.\n\n@options\nWort1052 | Wort1053 | Wort77 Wort1054 | Wort311"
+    }
+  ]
+}

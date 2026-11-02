@@ -288,8 +288,8 @@ def main():
         with httpx.Client(base_url=target, timeout=25, trust_env=False) as client:
             fixture = run_backend(client, db, models, report['results'])
         if args.d14_support:
-            snapshot = json.loads((ROOT / 'local/test-data/lesson-qa/corrected.snapshot.json').read_text(encoding='utf-8'))
-            source_ids = (358365, 358375, 358385)
+            snapshot = json.loads((ROOT / 'tests/fixtures/lesson-qa/corrected.json').read_text(encoding='utf-8'))
+            source_ids = (20003, 20013, 20023)
             sources = [next(card for card in snapshot['cards'] if card['id'] == source_id) for source_id in source_ids]
             # Protocol fixtures only: never assign production numeric KI IDs or edit source mappings.
             deck = models.TMA_Deck.create(user_id=fixture['a']['profile']['user_id'], name='Disposable D14 support subset')

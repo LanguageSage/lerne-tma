@@ -508,8 +508,8 @@ async function main() {
         }, { card, userId: fixture.a.profile.user_id });
         const evidence = event.evaluation_data;
         assert.equal(evidence.correct, true);
-        assert.equal(evidence.task_support.answer_options_present, card.sourceId === 358365);
-        assert.equal(evidence.task_support.source_text_present, card.sourceId === 358385);
+        assert.equal(evidence.task_support.answer_options_present, card.sourceId === 20003);
+        assert.equal(evidence.task_support.source_text_present, card.sourceId === 20023);
         assert.equal(evidence.task_support.sentence_frame_present, true);
         assert.equal(evidence.task_support.source_vocabulary_present, true);
         assert.equal(evidence.support_evidence.tracking_complete, false);

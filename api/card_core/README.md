@@ -34,7 +34,7 @@ numbered question statements, labelled answers must form a complete suffix, and
 unlabelled legacy answers require a separate final paragraph. Ambiguous blocks
 remain plain source text. Correctness markers now preserve bold formatting just
 like the JS parser. Storage and card JSON contracts are unchanged. Shared examples
-and fallback cases: `local/test-data/fixtures/quiz_boundaries.json` at the TMA root.
+and fallback cases: `tests/fixtures/quiz_boundaries.json` at the TMA root.
 
 0.1.2 accepts an explicit `::exercise` containing Quiz options without repeating
 the question from `::task` or `::source`. `parse_quiz_options` and the boundary

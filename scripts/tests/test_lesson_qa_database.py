@@ -1,4 +1,4 @@
-"""Real course fixtures in the existing isolated SQLite/SRS harness only."""
+"""Synthetic course fixtures in the existing isolated SQLite/SRS harness only."""
 import json
 import unittest
 import os
@@ -48,10 +48,10 @@ class LessonQaDatabaseTests(unittest.TestCase):
         self.assertEqual(models.TMAReviewHistory.select().count(), 0)
         self.assertEqual(models.TMAProgress.select().count(), 0)
 
-    def test_real_d14_forced_traversal_srs_history_and_completion(self):
-        snapshot = json.loads((ROOT / 'local/test-data/lesson-qa/relativsaetze.snapshot.json').read_text(encoding='utf-8'))
-        deck = models.TMA_Deck.create(id=7139, user_id=1, name='D14 isolated')
-        fixtures = sorted((c for c in snapshot['cards'] if c['deck_id'] == 7139), key=lambda c: (c['position'], c['id']))
+    def test_synthetic_d14_forced_traversal_srs_history_and_completion(self):
+        snapshot = json.loads((ROOT / 'tests/fixtures/lesson-qa/before.json').read_text(encoding='utf-8'))
+        deck = models.TMA_Deck.create(id=114, user_id=1, name='D14 isolated')
+        fixtures = sorted((c for c in snapshot['cards'] if c['deck_id'] == 114), key=lambda c: (c['position'], c['id']))
         for c in fixtures:
             models.TMA_Card.create(id=c['id'], deck=deck, position=c['position'],
                 front_text=c['front_text'], back_text=c['back_text'], context=c['context'], metadata=c['metadata'])

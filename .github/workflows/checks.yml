@@ -39,6 +39,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v4
         with:
           node-version: '24'
@@ -59,6 +61,8 @@ jobs:
           npm --prefix app ci
           python -m pip install -r requirements-test.txt
           npx --no-install playwright install --with-deps chromium
+      - name: Verify deterministic synthetic lesson fixtures
+        run: python tests/fixtures/generate_lessons.py --check
       - name: Run the same gate as local development
         run: npm run check
       - name: Preserve browser failure evidence
@@ -67,6 +71,6 @@ jobs:
         with:
           name: regression-browser-results
           path: |
-            playwright-report/
-            test-results/
+            local/test-data/playwright-report/
+            local/test-data/playwright/
           retention-days: 7
