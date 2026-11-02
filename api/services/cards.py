@@ -13,18 +13,21 @@ from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-import re
 import unicodedata
 from .media import resolve_media_url, _build_media_exists_map
 from .utils import add_to_history, resolve_deck_metadata
 from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
 
 def normalize_card_key(text: str) -> str:
-    """Нормализует текст для надежного поиска дубликатов: NFKC, lowercase, без пунктуации и спецсимволов."""
+    """Comparison only: NFKC → Unicode letters/marks/numbers → lowercase → NFKC.
+
+    Matches offlineApi.normalizeCardKey; ä/a and ß/ss remain distinct.
+    """
     if not text:
         return ""
     normalized = unicodedata.normalize('NFKC', str(text))
-    return re.sub(r'[\W_]+', '', normalized).lower()
+    compact = ''.join(char for char in normalized if unicodedata.category(char)[0] in 'LMN')
+    return unicodedata.normalize('NFKC', compact.lower())
 
 def save_card(data, user_id, *, _batch=None):
     """Сохраняет или обновляет карточку."""

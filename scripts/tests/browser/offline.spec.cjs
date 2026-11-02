@@ -20,6 +20,53 @@ test('offline duplicate keys follow the shared Unicode contract', async ({ page,
   });
 });
 
+for (const operation of ['copy', 'move']) {
+  for (const mode of ['skip', 'overwrite', 'keep']) {
+    test(`offline Unicode batch ${operation}/${mode} preserves raw content`, async ({ page, context }) => {
+      await harness(page, context);
+      await context.setOffline(true);
+      const actual = await page.evaluate(async ({ batch, operation, mode }) => {
+        const source = (await api.post('/decks', { name: 'Source' })).data;
+        const target = (await api.post('/decks', { name: 'Target' })).data;
+        const existing = (await api.post('/cards/save', { deck_id: target.id,
+          front: batch.target_front, back: 'Original back', context: 'Original context' })).data;
+        const sources = [];
+        for (const [i, front] of batch.source_fronts.entries()) {
+          sources.push((await api.post('/cards/save', { deck_id: source.id,
+            front, back: `Back ${i}`, context: `Context ${i}` })).data);
+        }
+        const db = getDb();
+        const originals = await db.cards.bulkGet(sources.map(card => card.id));
+        const result = (await api.post(`/cards/batch-${operation}`, {
+          card_ids: sources.map(card => card.id), target_deck_id: target.id, on_duplicate: mode,
+        })).data;
+        const content = card => ({ front: card.front_text, back: card.back_text, context: card.context });
+        return { result,
+          fronts: (await db.cards.where('deck_id').equals(target.id).filter(card => !card.is_deleted).toArray())
+            .map(card => card.front_text).sort(),
+          existing: content(await db.cards.get(existing.id)),
+          sources: (await db.cards.bulkGet(sources.map(card => card.id))).map(content),
+          copyUnchanged: operation !== 'copy' || JSON.stringify(originals) === JSON.stringify(await db.cards.bulkGet(sources.map(card => card.id))),
+        };
+      }, { batch: cardKeyCorpus.batch, operation, mode });
+      const { target_front: targetFront, source_fronts: fronts } = cardKeyCorpus.batch;
+      const changed = fronts.length - Number(mode !== 'keep');
+      expect(actual.result).toEqual({ status: 'success', count: changed + Number(mode === 'overwrite'),
+        [operation === 'copy' ? 'created' : 'moved']: changed,
+        updated: Number(mode === 'overwrite'), skipped: Number(mode === 'skip') });
+      expect(actual.fronts).toEqual([
+        mode === 'overwrite' ? fronts[0] : targetFront,
+        ...(mode === 'keep' ? fronts : fronts.slice(1)),
+      ].sort());
+      expect(actual.existing).toEqual(mode === 'overwrite'
+        ? { front: fronts[0], back: 'Back 0', context: 'Context 0' }
+        : { front: targetFront, back: 'Original back', context: 'Original context' });
+      expect(actual.sources).toEqual(fronts.map((front, i) => ({ front, back: `Back ${i}`, context: `Context ${i}` })));
+      expect(actual.copyUnchanged).toBe(true);
+    });
+  }
+}
+
 async function harness(page, context, firstModule = 'api') {
   const assets = new Map();
   await context.route('**/*', async route => {

@@ -32,7 +32,9 @@ async function requireContentWrite(db, entity, item) {
 
 export const normalizeCardKey = (text) => {
   if (!text) return '';
-  return String(text).normalize('NFKC').replace(/[\W_]+/g, '').toLowerCase();
+  // Comparison only: retain Unicode letters, marks and numbers (including ä/ß).
+  // Final NFKC composes marks introduced by filtering/lowercase, e.g. J + caron.
+  return String(text).normalize('NFKC').replace(/[^\p{L}\p{M}\p{N}]+/gu, '').toLowerCase().normalize('NFKC');
 };
 
 async function cardView(db, card, userId, reviewContext = 'scheduled') {
