@@ -14,6 +14,7 @@
 | Состояние | `app/src/store/useDeckStore.js`, `app/src/store/slices/createDeckSlice.js`, `app/src/store/slices/createFolderSlice.js` |
 | Библиотека / sharing / trash | `app/src/store/slices/createLibrarySlice.js`, `app/src/store/slices/createShareSlice.js`, `app/src/store/slices/createTrashSlice.js` |
 | Колоды и папки на сервере | `api/routers/decks.py`, `api/services/decks.py`, `api/routers/folders.py`, `api/services/folders.py` |
+| Импорт и обновление из библиотеки | `api/services/library_import.py` (совместимые реэкспорты в `api/services/decks.py` и `api/services/__init__.py`) |
 | Sharing / trash / collaboration | `api/routers/share.py`, `api/services/sharing_service.py`, `api/routers/trash.py`, `api/services/trash.py`, `api/routers/collaborative.py`, `api/services/collaborative_service.py` |
 
 ## Data flow
@@ -55,6 +56,20 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
 ```
 
 ## Relevant tests
+
+- `api/services/library_import.py` владеет `import_deck`, `import_decks_batch`,
+  `sync_deck_with_library` и двумя внутренними помощниками копирования/metadata.
+  Он использует модели, общие utils и существующий collaborative permission guard,
+  без зависимости от `decks.py` или `folders.py`. JSON-импорт, каталог/кеш библиотеки,
+  guest merge и операции с папками остаются у прежних владельцев. Старые импорты
+  функций (включая внутренних помощников из `decks.py`) сохранены прямым реэкспортом.
+  Транзакционные границы, частичные ошибки batch, категория логов и поведение
+  `merge/replace/copy`, корзины и обновления из библиотеки не изменены.
+  Регрессии: `python scripts/test_backend.py scripts/tests/test_library_import.py` —
+  синтетическая SQLite, реальные services/HTTP routes, права назначения,
+  сохранение прогресса/истории, откат bulk-вставки и legacy/collab/v2 pull.
+  `test_material_permissions.py` дополнительно проверяет запрет импорта в
+  опубликованную ветку; новый модуль входит в import fingerprint admin-контракта.
 
 - Списки назначения папок используют `getSortedFolderTree` в `app/src/utils/deckUtils.js`.
   Корень без `parent_id` в старом кеше и доступная ветка без родителя в каталоге

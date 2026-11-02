@@ -42,6 +42,7 @@ SUITES = (
     'scripts/tests/test_bulk_import_idempotency.py',
     'scripts/tests/test_card_key_normalization.py',
     'scripts/tests/test_card_transfer.py',
+    'scripts/tests/test_library_import.py',
     'scripts/tests/test_card_text_update.py',
     'scripts/tests/test_folder_text_update.py',
     'scripts/tests/test_offline_sync.py',

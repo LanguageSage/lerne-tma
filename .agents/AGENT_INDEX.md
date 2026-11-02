@@ -14,7 +14,7 @@
 | Сохранение карточки, `card_content_service`, `card_transfer`, batch move/delete/copy, bulk-save, `import_id`, дубликаты | Cards: CRUD / batch | [cards](subsystems/cards.md) |
 | Пропала карточка в списке, поиск, возврат и прокрутка CardList | Cards: list / navigation | [cards](subsystems/cards.md) |
 | Колода, папка, порядок, видимость, язык обучения, кнопка «Учить» | Decks / folders | [decks](subsystems/decks.md) |
-| Sharing, библиотека, импорт JSON, корзина, soft delete | Decks: imports / lifecycle | [decks](subsystems/decks.md) |
+| Sharing, библиотека, library_import, импорт JSON, корзина, soft delete | Decks: imports / lifecycle | [decks](subsystems/decks.md) |
 | Co-op, collaborator, совместный доступ | Decks: permissions | [decks](subsystems/decks.md) |
 | SRS, SM-2, интервалы, оценка, queue, next_review | Study / SRS | [study](subsystems/study.md) |
 | Личная заметка, предложение по карточке, ответ администратора, бирюзовая точка | Cards: annotations | [cards](subsystems/cards.md) |
