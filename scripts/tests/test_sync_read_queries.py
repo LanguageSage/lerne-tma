@@ -100,8 +100,10 @@ def services_at_ref(ref):
 
 class SyncFixture(unittest.TestCase):
     def setUp(self):
-        self.db = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1},
-                                 thread_safe=False, check_same_thread=False)
+        # The test connection keeps the shared in-memory fixture alive while
+        # HTTP handlers open and close their own worker connections.
+        self.db = SqliteDatabase(f'file:sync-read-{uuid4().hex}?mode=memory&cache=shared', uri=True,
+                                 pragmas={'foreign_keys': 1})
         self.previous = models.tma_db.obj, models.lerne_db.obj
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
