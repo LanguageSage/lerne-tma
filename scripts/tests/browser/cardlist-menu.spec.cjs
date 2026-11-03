@@ -154,9 +154,107 @@ test('deck menu and nested folders fit mobile and desktop', async ({ page, conte
     const bounds = await menu.boundingBox();
     expect(bounds.x).toBeGreaterThanOrEqual(0);
     expect(bounds.x + bounds.width).toBeLessThanOrEqual(width + 1);
+    await menu.getByText('🧹 Сбросить прогресс').scrollIntoViewIfNeeded();
     await expect(menu.getByText('🧹 Сбросить прогресс')).toBeInViewport();
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.screenshot({ path: testInfo.outputPath(`menu-${width}.png`), fullPage: true });
     await page.getByTitle('Опции колоды', { exact: true }).click();
   }
+});
+
+test('header controls stay inside viewport and menu stays above the add button', async ({ page, context }, testInfo) => {
+  await setup(page, context);
+  const defects = [];
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    const menu = await open(page);
+    await menu.getByText('📁 Переместить в', { exact: true }).click();
+    await menu.getByText('📋 Скопировать в', { exact: true }).click();
+    await page.screenshot({ path: testInfo.outputPath(`header-menu-${width}.png`), fullPage: true });
+    const result = await page.evaluate(() => {
+      const buttons = [...document.querySelectorAll('.view-cards .header-compact button')]
+        .filter(el => !el.closest('.deck-dropdown-menu'));
+      const clipped = buttons.some(el => { const r = el.getBoundingClientRect(); return r.left < 0 || r.right > innerWidth; });
+      const menu = document.querySelector('.deck-dropdown-menu');
+      const fab = document.querySelector('.fab-add-card').getBoundingClientRect();
+      const r = menu.getBoundingClientRect();
+      const x = (Math.max(r.left, fab.left) + Math.min(r.right, fab.right)) / 2;
+      const y = (Math.max(r.top, fab.top) + Math.min(r.bottom, fab.bottom)) / 2;
+      const overlap = x < Math.min(r.right, fab.right) && y < Math.min(r.bottom, fab.bottom);
+      return { clipped, covered: overlap && !menu.contains(document.elementFromPoint(x, y)),
+        overflow: document.getElementById('app-container').scrollWidth > document.getElementById('app-container').clientWidth };
+    });
+    if (result.clipped || result.covered || result.overflow) defects.push({ width, ...result });
+    await page.getByTitle('Опции колоды', { exact: true }).click();
+  }
+  expect(defects).toEqual([]);
+});
+
+test.describe('touch and keyboard', () => {
+  test.use({ hasTouch: true });
+  test('long folders scroll by touch, keyboard reaches final actions, Escape restores focus', async ({ page, context }, testInfo) => {
+    test.setTimeout(90000);
+    await setup(page, context);
+    await page.evaluate(async () => {
+      const { useDeckStore } = await import('/src/store/useDeckStore.js');
+      useDeckStore.setState({ folders: Array.from({ length: 20 }, (_, i) => ({ id: i + 20,
+        name: `Папка ${String(i).padStart(2, '0')} — Donaudampfschifffahrtsgesellschaft`, parent_id: null })) });
+    });
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 640 });
+      const trigger = page.getByTitle('Опции колоды', { exact: true });
+      await trigger.tap();
+      const menu = page.locator('.deck-dropdown-menu');
+      await menu.getByText('📁 Переместить в', { exact: true }).tap();
+      const sub = menu.locator('.dropdown-sub-menu');
+      const rect = await sub.boundingBox();
+      const client = await context.newCDPSession(page);
+      const x = rect.x + rect.width / 2, y = rect.y + rect.height - 12;
+      await client.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y }] });
+      for (let offset = 10; offset <= 80; offset += 10) {
+        await client.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - offset }] });
+      }
+      await client.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] });
+      await client.detach();
+      await expect.poll(() => sub.evaluate(el => el.scrollTop)).toBeGreaterThan(0);
+      await trigger.focus();
+      await page.keyboard.press('Tab');
+      await page.keyboard.press('Escape');
+      await expect(menu).toHaveCount(0);
+      await expect(trigger).toBeFocused();
+      await page.keyboard.press('Enter');
+      await menu.getByText('📁 Переместить в', { exact: true }).click();
+      await trigger.focus();
+      let reachedReset = false;
+      for (let step = 0; step < 40; step++) {
+        await page.keyboard.press('Tab');
+        const focused = page.locator(':focus');
+        await expect(focused).toBeInViewport({ ratio: 1 });
+        if ((await focused.textContent()).includes('Сбросить прогресс')) { reachedReset = true; break; }
+      }
+      expect(reachedReset).toBe(true);
+      await expect(menu.getByText('🧹 Сбросить прогресс')).toBeInViewport({ ratio: 1 });
+      await expect.poll(() => page.evaluate(() => {
+        const app = document.getElementById('app-container');
+        return app.scrollWidth <= app.clientWidth;
+      })).toBe(true);
+      await page.screenshot({ path: testInfo.outputPath(`long-keyboard-${width}.png`), fullPage: true });
+      await page.keyboard.press('Escape');
+      await trigger.tap();
+      await page.touchscreen.tap(20, 20);
+      await expect(menu).toHaveCount(0);
+      await page.evaluate(async () => {
+        const { useUiStore } = await import('/src/store/useUiStore.js');
+        useUiStore.setState({ userProfile: { first_name: 'ОченьДлинноеИмяDonaudampfschifffahrtsgesellschaft', is_guest: false } });
+      });
+      await expect.poll(() => page.evaluate(() => {
+        const app = document.getElementById('app-container');
+        return app.scrollWidth <= app.clientWidth;
+      })).toBe(true);
+      await page.evaluate(async () => {
+        const { useUiStore } = await import('/src/store/useUiStore.js');
+        useUiStore.setState({ userProfile: { is_guest: true } });
+      });
+    }
+  });
 });

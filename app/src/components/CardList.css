@@ -1,4 +1,71 @@
 /* Card List */
+.view-cards .header-compact {
+  align-items: flex-start;
+}
+
+.view-cards .header-compact > .back-btn {
+  flex-shrink: 0;
+}
+
+.view-cards .header-actions {
+  flex: 1;
+  min-width: 0;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
+
+.view-cards .user-badge-container {
+  min-width: 0;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+
+.view-cards .user-info {
+  min-width: 0;
+}
+
+.view-cards .user-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.view-cards .avatar-wrapper {
+  flex-shrink: 0;
+}
+
+/* The dropdown cannot escape its sticky header's stacking context. */
+.view-cards .header-compact:has(.deck-dropdown-menu) {
+  z-index: 1001;
+}
+
+.view-cards .deck-dropdown-menu {
+  box-sizing: border-box;
+  width: min(280px, calc(100vw - 32px));
+  min-width: 0;
+  max-height: var(--deck-menu-available-height, calc(100dvh - 180px));
+  overscroll-behavior: contain;
+}
+
+.view-cards .deck-dropdown-menu > *,
+.view-cards .dropdown-sub-menu > * {
+  flex-shrink: 0;
+}
+
+.view-cards .dropdown-item,
+.view-cards .dropdown-sub-item {
+  min-height: 44px;
+  overflow-wrap: anywhere;
+}
+
+.view-cards .dropdown-sub-menu {
+  overscroll-behavior: contain;
+}
+
+.view-cards .deck-dropdown-menu button:focus-visible {
+  outline: 2px solid #c084fc;
+  outline-offset: -2px;
+}
+
 .card-list {
   display: flex;
   flex-direction: column;

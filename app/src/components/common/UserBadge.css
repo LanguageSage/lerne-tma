@@ -82,6 +82,7 @@
 
 /* Guest Banner */
 .guest-banner {
+  box-sizing: border-box;
   width: 100%;
   background: linear-gradient(90deg, rgba(255, 152, 0, 0.2), rgba(255, 87, 34, 0.2));
   backdrop-filter: blur(10px);
