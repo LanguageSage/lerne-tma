@@ -16,9 +16,9 @@ import os
 import unittest
 import uuid
 from pathlib import Path
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
-from scripts.load_testing.config import BASE_USER_ID, USERS_CACHE_FILE
+from scripts.load_testing.config import BASE_USER_ID, USERS_CACHE_FILE, LOCAL_TEST_DATA
 from scripts.load_testing.metrics import (
     RequestSample,
     StageMetrics,
@@ -35,10 +35,13 @@ from scripts.load_testing.compare import format_comparison_markdown
 from scripts.load_testing.safety import (
     SecurityError,
     is_production_environment,
+    is_safe_sqlite_path,
+    validate_pre_connection_safety,
     sanitize_text,
     sanitize_url,
     validate_database_safety,
     validate_target_url,
+    verify_remote_isolation,
 )
 from scripts.load_testing.seeder import (
     _assert_environment_safety,
@@ -50,6 +53,18 @@ from scripts.load_testing.seeder import (
 
 class TestSecurityValidation(unittest.TestCase):
     """Tests for requirement 8: production URL, misconfiguration, incorrect DB, and redaction."""
+
+    def setUp(self):
+        self.env_patcher = patch.dict(os.environ, {
+            "SUPABASE_DB_URL": "",
+            "ENVIRONMENT": "development",
+            "LERNE_MODE": "LOCAL",
+            "VERCEL": "",
+            "VERCEL_ENV": "",
+            "NODE_ENV": "",
+        })
+        self.env_patcher.start()
+        self.addCleanup(self.env_patcher.stop)
 
     def test_production_urls_strictly_forbidden(self):
         forbidden_urls = [
@@ -165,7 +180,7 @@ class TestSecurityValidation(unittest.TestCase):
         # 2. SQLite in test-data
         mock_sqlite_file = MagicMock()
         mock_sqlite_file._driver_name = "SqliteDatabase"
-        mock_sqlite_file.database = "c:/repo/local/test-data/scratch.sqlite3"
+        mock_sqlite_file.database = str(LOCAL_TEST_DATA / "scratch.sqlite3")
         res_file = validate_database_safety(mock_sqlite_file)
         self.assertEqual(res_file["driver"], "sqlite")
 
@@ -181,6 +196,150 @@ class TestSecurityValidation(unittest.TestCase):
         res_pg = validate_database_safety(mock_pg)
         self.assertEqual(res_pg["driver"], "postgresql")
         self.assertEqual(res_pg["database"], "lerne_tma_local")
+
+    def test_sqlite_canonical_validation_rejects_traversal_and_deceptions(self):
+        # 1. Relative traversal with ..
+        traversal_paths = [
+            "local/test-data/../outside.sqlite3",
+            "local/test-data/../../etc/passwd",
+            "local/test-data/subdir/../../outside.db",
+            f"{LOCAL_TEST_DATA}/../escape.db",
+        ]
+        for bad_path in traversal_paths:
+            with self.subTest(path=bad_path):
+                mock_sqlite = MagicMock(_driver_name="SqliteDatabase", database=bad_path)
+                with self.assertRaises(SecurityError):
+                    validate_database_safety(mock_sqlite)
+
+        # 2. Deceptive substring spoofing (contains "local" or "test" but outside allowed dirs)
+        deceptive_paths = [
+            "C:/fake_local_dir/db.sqlite",
+            "C:/test_folder/database.db",
+            "local/test-data-evil/test.db",
+            "C:/Windows/temp/local/test.db",
+        ]
+        for bad_path in deceptive_paths:
+            with self.subTest(path=bad_path):
+                mock_sqlite = MagicMock(_driver_name="SqliteDatabase", database=bad_path)
+                with self.assertRaises(SecurityError):
+                    validate_database_safety(mock_sqlite)
+
+        # 3. Directory itself rather than file
+        mock_dir = MagicMock(_driver_name="SqliteDatabase", database=str(LOCAL_TEST_DATA))
+        with self.assertRaises(SecurityError):
+            validate_database_safety(mock_dir)
+
+        # 4. Valid canonical paths accepted
+        valid_paths = [
+            ":memory:",
+            "",
+            str(LOCAL_TEST_DATA / "test_run.sqlite3"),
+            str(LOCAL_TEST_DATA / "subfolder" / "nested.sqlite3"),
+        ]
+        for good_path in valid_paths:
+            with self.subTest(path=good_path):
+                mock_good = MagicMock(_driver_name="SqliteDatabase", database=good_path)
+                res = validate_database_safety(mock_good)
+                self.assertEqual(res["driver"], "sqlite")
+
+    def test_pre_connection_safety_and_check_order(self):
+        # 1. Environment indicates production
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            with self.assertRaises(SecurityError):
+                validate_pre_connection_safety()
+
+        # 2. SUPABASE_DB_URL points to forbidden host
+        with patch.dict(os.environ, {"SUPABASE_DB_URL": "postgresql://u:p@db.xyz.supabase.co:5432/postgres"}):
+            with self.assertRaises(SecurityError):
+                validate_pre_connection_safety()
+
+        # 3. SUPABASE_DB_URL has unapproved database name
+        with patch.dict(os.environ, {"SUPABASE_DB_URL": "postgresql://u:p@127.0.0.1:5432/real_customer_db"}):
+            with self.assertRaises(SecurityError):
+                validate_pre_connection_safety()
+
+        # 4. LERNE_LOCAL_DB_PATH has traversal
+        with patch.dict(os.environ, {"LERNE_LOCAL_DB_PATH": "local/test-data/../outside.db"}):
+            with self.assertRaises(SecurityError):
+                validate_pre_connection_safety()
+
+        # 5. seeder.get_db refuses before database initialization
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}), \
+             patch("api.database.initialize_database") as mock_init:
+            from scripts.load_testing.seeder import get_db
+            with self.assertRaises(SecurityError):
+                get_db()
+            mock_init.assert_not_called()
+
+    def test_fail_closed_runner_on_db_validation_error(self):
+        import asyncio
+        from scripts.load_testing.runner import run_load_test
+
+        with patch("scripts.load_testing.runner.validate_database_safety", side_effect=SecurityError("DB check failed")):
+            with self.assertRaises(SecurityError) as ctx:
+                asyncio.run(run_load_test(
+                    target_url="http://127.0.0.1:8000",
+                    sample_db=True,
+                    seed_if_missing=False,
+                ))
+            self.assertIn("Database safety validation failed", str(ctx.exception))
+
+    def test_remote_api_isolation_checks(self):
+        import asyncio
+
+        # Case 1: /api/debug returns 404 (production gate failure: debug route not mounted)
+        mock_client = MagicMock()
+        mock_resp_404 = MagicMock(status_code=404, headers={})
+        mock_client.get = AsyncMock(return_value=mock_resp_404)
+
+        with self.assertRaises(SecurityError) as ctx:
+            asyncio.run(verify_remote_isolation(mock_client, "http://staging.internal:8000"))
+        self.assertIn("returned 404 Not Found", str(ctx.exception))
+
+        # Case 2: returns production headers
+        mock_resp_prod = MagicMock(status_code=401, headers={"x-vercel-id": "fra1::123"})
+        mock_client.get = AsyncMock(return_value=mock_resp_prod)
+
+        with self.assertRaises(SecurityError) as ctx:
+            asyncio.run(verify_remote_isolation(mock_client, "http://staging.internal:8000"))
+        self.assertIn("production platform header", str(ctx.exception))
+
+        # Case 3: debug is 401, but synthetic user /api/init returns 401 (database unverified)
+        mock_resp_debug = MagicMock(status_code=401, headers={})
+        mock_resp_unauth = MagicMock(status_code=401, headers={})
+        async def mock_get(url, **kwargs):
+            if "/api/debug" in url:
+                return mock_resp_debug
+            if "/api/init" in url:
+                return mock_resp_unauth
+            return MagicMock(status_code=200, headers={})
+        mock_client.get = AsyncMock(side_effect=mock_get)
+
+        synthetic_vu = {"username": "load_vu_1", "access_token": "la_validtesttoken123"}
+        with self.assertRaises(SecurityError) as ctx:
+            asyncio.run(verify_remote_isolation(
+                mock_client, "http://staging.internal:8000", synthetic_user=synthetic_vu
+            ))
+        self.assertIn("failed to authenticate against", str(ctx.exception))
+
+        # Case 4: debug is 401, synthetic user returns 200 with synthetic markers
+        mock_resp_init = MagicMock(
+            status_code=200,
+            headers={},
+            json=lambda: {"decks": [{"name": "[SYNTHETIC_LOAD_TEST] Shared Test Deck"}], "user": "load_vu_1"},
+        )
+        async def mock_get_ok(url, **kwargs):
+            if "/api/debug" in url:
+                return mock_resp_debug
+            if "/api/init" in url:
+                return mock_resp_init
+            return MagicMock(status_code=200, headers={})
+        mock_client.get = AsyncMock(side_effect=mock_get_ok)
+
+        res = asyncio.run(verify_remote_isolation(
+            mock_client, "http://staging.internal:8000", synthetic_user=synthetic_vu
+        ))
+        self.assertEqual(res["status"], "verified_isolated")
 
     def test_secret_redaction(self):
         # 1. Bearer token in text
@@ -204,6 +363,18 @@ class TestSecurityValidation(unittest.TestCase):
 
 class TestCleanupConfirmedMarkers(unittest.TestCase):
     """Tests requirement 5: cleanup deletes ONLY confirmed synthetic data."""
+
+    def setUp(self):
+        self.env_patcher = patch.dict(os.environ, {
+            "SUPABASE_DB_URL": "",
+            "ENVIRONMENT": "development",
+            "LERNE_MODE": "LOCAL",
+            "VERCEL": "",
+            "VERCEL_ENV": "",
+            "NODE_ENV": "",
+        })
+        self.env_patcher.start()
+        self.addCleanup(self.env_patcher.stop)
 
     def test_cleanup_refusal_when_safety_fails(self):
         with patch.dict(os.environ, {"ENVIRONMENT": "production"}):

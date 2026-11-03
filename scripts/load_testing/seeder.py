@@ -28,21 +28,28 @@ from scripts.load_testing.config import (
     USERS_CACHE_FILE,
     LOCAL_TEST_DATA,
 )
-from scripts.load_testing.safety import validate_database_safety, SecurityError
+from scripts.load_testing.safety import (
+    validate_pre_connection_safety,
+    validate_database_safety,
+    SecurityError,
+)
 
 logger = logging.getLogger("load_tester.seeder")
 
 
 def get_db():
+    validate_pre_connection_safety()
     from api import models
-    if not models.tma_db.obj:
+    if not getattr(models.tma_db, "obj", None):
         from api.database import initialize_database
         initialize_database()
+    validate_database_safety(models.tma_db)
     return models.tma_db
 
 
 def _assert_environment_safety(db=None) -> Dict[str, Any]:
     """Strictly validates environment and connected database. Never auto-switches LERNE_MODE."""
+    validate_pre_connection_safety()
     if db is None:
         db = get_db()
     return validate_database_safety(db)
@@ -57,6 +64,7 @@ def seed_synthetic_data(
 
     Returns a list of dicts with user info, tokens, and target deck/card IDs.
     """
+    validate_pre_connection_safety()
     db = get_db()
     db_info = _assert_environment_safety(db)
     logger.info(f"Database safety verified: {db_info['driver']} on {db_info['host']} (db: {db_info['database']})")
@@ -230,6 +238,7 @@ def cleanup_synthetic_data() -> int:
     Requires two-way confirmation: ID range AND synthetic markers (username pattern,
     deck name prefix, session authentication_method). Real records are never touched.
     """
+    validate_pre_connection_safety()
     db = get_db()
     db_info = _assert_environment_safety(db)
     logger.info(f"Cleanup safety verified: {db_info['driver']} on {db_info['host']} (db: {db_info['database']})")
@@ -354,6 +363,7 @@ def cleanup_synthetic_data() -> int:
 
 def get_synthetic_status() -> Dict[str, Any]:
     """Returns current count of confirmed synthetic test entities."""
+    validate_pre_connection_safety()
     db = get_db()
     db_info = _assert_environment_safety(db)
 

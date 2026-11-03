@@ -36,8 +36,11 @@ from scripts.load_testing.metrics import StageMetrics
 from scripts.load_testing.scenarios import create_scenario
 from scripts.load_testing.seeder import seed_synthetic_data
 from scripts.load_testing.safety import (
+    validate_pre_connection_safety,
     validate_target_url,
     validate_database_safety,
+    verify_remote_isolation,
+    is_loopback_url,
     sanitize_url,
     sanitize_text,
     SecurityError,
@@ -76,13 +79,15 @@ class DbConnectionSampler:
             from api import models
             db_obj = getattr(models.tma_db, "obj", None)
             if db_obj and "postgres" in type(db_obj).__name__.lower():
-                # Verify safety before sampling
+                # Verify safety before sampling - fail-closed
                 db_safety = validate_database_safety(models.tma_db)
                 self.monitored_database = db_safety.get("database", "current_database()")
                 self._db = models.tma_db
                 self.running = True
                 self._task = asyncio.create_task(self._sample_loop(metrics))
                 logger.info(f"DB connection monitoring active on database: {self.monitored_database}")
+        except SecurityError:
+            raise
         except Exception as exc:
             logger.debug(f"DB connection sampler not started: {exc}")
             self._db = None
@@ -213,10 +218,14 @@ async def run_load_test(
     sample_db: bool = True,
     allowed_remote_hosts: Optional[List[str]] = None,
     confirm_isolated_remote: bool = False,
+    remote_isolation_token: Optional[str] = None,
 ) -> Dict[str, Any]:
     """Top-level test orchestrator with strict production-safety validation."""
     tiers = tiers or DEFAULT_CONCURRENCY_TIERS
     scenarios = scenarios or list(ALL_SCENARIOS)
+
+    # 0. Pre-connection safety gate
+    validate_pre_connection_safety()
 
     # 1. Validate Target URL & Safety Gates
     safe_target_url = validate_target_url(
@@ -227,16 +236,22 @@ async def run_load_test(
     )
     logger.info(f"Target URL security verified: {safe_target_url}")
 
-    # 2. Validate Connected Database Safety if DB sampling or local mode is enabled
+    # 2. Strict Fail-Closed Database Safety Validation
     db_safety_info = {}
-    try:
-        from api import models
-        if getattr(models.tma_db, "obj", None):
+    from api import models
+    has_db_obj = getattr(models.tma_db, "obj", None) is not None
+    should_verify_db = in_process or sample_db or has_db_obj or bool(os.environ.get("SUPABASE_DB_URL"))
+
+    if should_verify_db:
+        try:
             db_safety_info = validate_database_safety(models.tma_db)
-            logger.info(f"Database security verified: {db_safety_info.get('driver')} (db: {db_safety_info.get('database')})")
-    except Exception as exc:
-        if sample_db:
-            logger.warning(f"Database security validation check notice: {exc}")
+            logger.info(
+                f"Database security verified: {db_safety_info.get('driver')} (db: {db_safety_info.get('database')})"
+            )
+        except Exception as exc:
+            # Strictly fail-closed: an error or inability to confirm safe environment forbids execution.
+            logger.error(f"FATAL: Database security validation failed: {exc}")
+            raise SecurityError(f"Database safety validation failed: {exc}") from exc
 
     max_vus = max(tiers)
 
@@ -267,6 +282,18 @@ async def run_load_test(
         logger.info(f"Connecting to verified target: {base_url}")
 
     async with httpx.AsyncClient(transport=transport, base_url=base_url, timeout=timeout) as client:
+        # 5. Remote stand verifiable isolation check (environment + database)
+        if not in_process and not is_loopback_url(safe_target_url):
+            logger.info(f"Initiating active isolation verification for remote target: {safe_target_url}")
+            first_user = available_users[0] if available_users else None
+            await verify_remote_isolation(
+                client=client,
+                target_url=safe_target_url,
+                synthetic_user=first_user,
+                isolation_token=remote_isolation_token,
+            )
+            logger.info("Remote server environment and database isolation successfully verified.")
+
         # Pre-flight health check
         healthy = await _check_health(client, base_url)
         if not healthy and not in_process:
@@ -361,6 +388,12 @@ def parse_args():
         action="store_true",
         help="Affirmative confirmation that the specified remote target is an isolated non-production environment.",
     )
+    parser.add_argument(
+        "--remote-isolation-token",
+        type=str,
+        default=None,
+        help="Optional staging isolation proof token for remote environments",
+    )
     return parser.parse_args()
 
 
@@ -374,6 +407,8 @@ def main():
     output = Path(args.output) if args.output else None
 
     try:
+        validate_pre_connection_safety()
+
         if args.seed:
             seed_synthetic_data(user_count=max(tiers), force=True)
 
@@ -389,6 +424,7 @@ def main():
             sample_db=not args.no_db_sample,
             allowed_remote_hosts=args.allow_remote_host,
             confirm_isolated_remote=args.confirm_isolated_remote,
+            remote_isolation_token=args.remote_isolation_token,
         ))
     except SecurityError as sec_err:
         logger.error(f"Security validation blocked load test execution: {sec_err}")
