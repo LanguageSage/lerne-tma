@@ -2,6 +2,11 @@
 from functools import wraps
 
 from fastapi import HTTPException
+try:
+    # FastAPI >=0.137 stores included routers as a tree, with effective prefixes.
+    from fastapi.routing import iter_route_contexts
+except ImportError:
+    iter_route_contexts = iter
 from starlette.concurrency import run_in_threadpool
 from starlette.routing import Match
 
@@ -43,7 +48,7 @@ def db_worker(function=None, *, retry_reads=False):
 
 def uses_db_worker(request):
     """Match the same first full route as Starlette, before call_next routes it."""
-    for route in request.app.routes:
+    for route in iter_route_contexts(request.app.routes):
         if route.matches(request.scope)[0] == Match.FULL:
             return getattr(getattr(route, 'endpoint', None), '_db_worker', False)
     return False
