@@ -9,6 +9,8 @@ from fastapi.responses import RedirectResponse
 import logging
 from PIL import Image, UnidentifiedImageError
 
+from starlette.concurrency import run_in_threadpool
+from api.db_workers import db_phases, db_worker, run_db
 from api import models
 from api.dependencies.auth import get_user_id
 from api.utils.image import optimize_image, upload_image_to_supabase
@@ -133,6 +135,7 @@ def get_range_response(request: Request, content: bytes, media_type: str) -> Res
         )
 
 @router.post("/upload-image")
+@db_phases
 async def upload_image(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id)
@@ -154,18 +157,18 @@ async def upload_image(
 
     # --- ОПТИМИЗАЦИЯ ---
     # Вызываем наш оптимизатор. Он вернет сжатые байты и новый MIME-тип (image/webp)
-    optimized_content, media_type = optimize_image(content)
+    optimized_content, media_type = await run_in_threadpool(optimize_image, content)
     filename = f"upload_{user_id}_{uuid.uuid4().hex[:12]}.webp" # Всегда .webp
     if is_local():
-        return {**_save_local_media('images', filename, optimized_content), 'media_type': media_type,
+        return {**(await run_db(_save_local_media, 'images', filename, optimized_content)), 'media_type': media_type,
                 'original_size': len(content), 'optimized_size': len(optimized_content)}
 
     # 1. Загрузка в Supabase Storage bucket 'images'
-    cloud_url = upload_image_to_supabase(optimized_content, filename, media_type)
+    cloud_url = await run_in_threadpool(upload_image_to_supabase, optimized_content, filename, media_type)
 
     # 2. Сохраняем запись в TMAMedia (content=None если файл успешно загружен в облачный бакет)
     try:
-        models.TMAMedia.create(
+        await run_db(models.TMAMedia.create,
             filename=filename,
             folder='images',
             content=None if cloud_url else optimized_content
@@ -182,7 +185,65 @@ async def upload_image(
         "optimized_size": len(optimized_content)
     }
 
+def _load_tts_settings():
+    return {s.key: s.value for s in models.TMASetting.select()}
+
+
+def _prepare_card_audio_request(card_id, side, data, user_id):
+    card = models.TMA_Card.get_or_none(
+        (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False)
+    )
+    if not card:
+        raise HTTPException(status_code=404, detail="Card not found")
+
+    from api.services.collaborative_service import can_edit_audio
+    if not can_edit_audio(user_id, 'deck', card.deck_id):
+        raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
+
+    card_source_text = card.front_text if side == 'front' else card.back_text
+    field = 'audio_back_path' if side == 'back' else 'audio_path'
+    previous_path = getattr(card, field)
+    text_value = data.get('text')
+    if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
+        text_value = card_source_text
+    if not text_value or not text_value.strip():
+        raise HTTPException(status_code=400, detail="Text is required")
+
+    lang = _clean_param(data.get('lang'), 'de')
+    voice = _clean_param(data.get('voice'))
+    rate = _normalize_tts_rate(_clean_param(data.get('rate'))) or '+0%'
+    if not voice:
+        settings = {s.key: s.value for s in models.TMASetting.select()}
+        clean_lang = lang.lower().split('-')[0]
+        voice = settings.get(f'TTS_VOICE_{clean_lang.upper()}') or settings.get('TTS_VOICE') or LANG_DEFAULT_VOICES.get(clean_lang, LANG_DEFAULT_VOICES['de'])
+        rate = _normalize_tts_rate(settings.get('TTS_SPEED_RU' if clean_lang == 'ru' else 'TTS_SPEED')) or rate
+
+    return card_source_text, field, previous_path, text_value.strip(), voice, rate
+
+
+def _persist_card_audio(card_id, side, user_id, card_source_text, field, previous_path, path):
+    from api.services.collaborative_service import can_edit_audio
+    # Access or the containing deck may have changed while TTS was running.
+    card = models.TMA_Card.get_or_none(
+        (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
+    if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
+        raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
+    text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
+    changed = models.TMA_Card.update(**{
+        field: path, 'updated_at': models.datetime.datetime.now()
+    }).where(
+        (models.TMA_Card.id == card_id) &
+        (models.TMA_Card.deck_id == card.deck_id) &
+        (models.TMA_Card.is_deleted == False) &
+        (text_field == card_source_text) &
+        (getattr(models.TMA_Card, field) == previous_path)
+    ).execute()
+    if changed != 1:
+        raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
+
+
 @router.post("/generate-audio")
+@db_phases
 async def generate_audio_endpoint(
     data: dict = Body(None), 
     text: str = Query(None),
@@ -211,8 +272,7 @@ async def generate_audio_endpoint(
     # 1. Пытаемся получить настройки из БД
     db_settings = {}
     try:
-        for s in models.TMASetting.select():
-            db_settings[s.key] = s.value
+        db_settings = await run_db(_load_tts_settings)
     except Exception as e:
         logger.error(f"Error fetching settings for audio: {e}")
 
@@ -271,6 +331,7 @@ async def generate_audio_endpoint(
 
 
 @router.post("/generate-card-audio")
+@db_phases
 async def generate_card_audio_endpoint(
     data: dict = Body(...),
     user_id: int = Depends(get_user_id),
@@ -281,33 +342,8 @@ async def generate_card_audio_endpoint(
     if not card_id or side not in ('front', 'back'):
         raise HTTPException(status_code=400, detail="card_id and a valid side are required")
 
-    card = models.TMA_Card.get_or_none(
-        (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False)
-    )
-    if not card:
-        raise HTTPException(status_code=404, detail="Card not found")
-
-    from api.services.collaborative_service import can_edit_audio
-    if not can_edit_audio(user_id, 'deck', card.deck_id):
-        raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
-
-    card_source_text = card.front_text if side == 'front' else card.back_text
-    field = 'audio_back_path' if side == 'back' else 'audio_path'
-    previous_path = getattr(card, field)
-    text_value = data.get('text')
-    if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
-        text_value = card_source_text
-    if not text_value or not text_value.strip():
-        raise HTTPException(status_code=400, detail="Text is required")
-
-    lang = _clean_param(data.get('lang'), 'de')
-    voice = _clean_param(data.get('voice'))
-    rate = _normalize_tts_rate(_clean_param(data.get('rate'))) or '+0%'
-    if not voice:
-        settings = {s.key: s.value for s in models.TMASetting.select()}
-        clean_lang = lang.lower().split('-')[0]
-        voice = settings.get(f'TTS_VOICE_{clean_lang.upper()}') or settings.get('TTS_VOICE') or LANG_DEFAULT_VOICES.get(clean_lang, LANG_DEFAULT_VOICES['de'])
-        rate = _normalize_tts_rate(settings.get('TTS_SPEED_RU' if clean_lang == 'ru' else 'TTS_SPEED')) or rate
+    card_source_text, field, previous_path, text_value, voice, rate = await run_db(
+        _prepare_card_audio_request, card_id, side, data, user_id)
 
     try:
         from api.utils.audio import generate_audio
@@ -321,23 +357,8 @@ async def generate_card_audio_endpoint(
         path = result
         url = result
 
-        # Access or the containing deck may have changed while TTS was running.
-        card = models.TMA_Card.get_or_none(
-            (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
-        if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
-            raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
-        text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
-        changed = models.TMA_Card.update(**{
-            field: path, 'updated_at': models.datetime.datetime.now()
-        }).where(
-            (models.TMA_Card.id == card_id) &
-            (models.TMA_Card.deck_id == card.deck_id) &
-            (models.TMA_Card.is_deleted == False) &
-            (text_field == card_source_text) &
-            (getattr(models.TMA_Card, field) == previous_path)
-        ).execute()
-        if changed != 1:
-            raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
+        await run_db(_persist_card_audio, card_id, side, user_id,
+                     card_source_text, field, previous_path, path)
         return {'path': path, 'url': url}
     except HTTPException:
         raise
@@ -348,6 +369,7 @@ async def generate_card_audio_endpoint(
 
 
 @router.post("/upload-audio")
+@db_phases
 async def upload_audio_file(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id)
@@ -363,7 +385,7 @@ async def upload_audio_file(
 
     filename = f"aud_{user_id}_{uuid.uuid4().hex[:12]}.mp3"
     if is_local():
-        return _save_local_media('audio', filename, content)
+        return await run_db(_save_local_media, 'audio', filename, content)
     
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_KEY")
@@ -421,6 +443,7 @@ _media_cache = MediaMemoryCache()
 
 
 @router.get("/audio/{filename:path}")
+@db_phases
 def get_audio(filename: str, request: Request):
     """Serve audio locally if present in temp/pending storage, else redirect to Supabase Storage CDN."""
     if is_local():
@@ -444,8 +467,16 @@ def get_audio(filename: str, request: Request):
     direct_url = f"{supabase_url}/storage/v1/object/public/audio/{clean_filename}"
     return RedirectResponse(url=direct_url, status_code=307)
 
+@db_worker(retry_reads=True)
+def _load_media_content(folder, filename):
+    media = models.TMAMedia.get_or_none(
+        (models.TMAMedia.filename == filename) & (models.TMAMedia.folder == folder))
+    return bytes(media.content) if media and media.content is not None else None
+
+
 @router.get("/images/{filename:path}")
-def get_image(filename: str, request: Request):
+@db_phases
+async def get_image(filename: str, request: Request):
     if is_local():
         return _local_media_response('images', filename, request, 'image/webp')
     clean_filename = os.path.basename(filename)
@@ -456,29 +487,15 @@ def get_image(filename: str, request: Request):
 
     logger.debug(f"MEDIA: Requesting image: {clean_filename}")
     try:
-        media = models.TMAMedia.get_or_none(
-            (models.TMAMedia.filename == clean_filename) & 
-            (models.TMAMedia.folder == 'images')
-        )
-    except Exception as e:
-        logger.warning(f"DB connection reset in get_image, reconnecting: {e}")
-        try:
-            models.tma_db.close()
-            models.tma_db.connect(reuse_if_open=True)
-            media = models.TMAMedia.get_or_none(
-                (models.TMAMedia.filename == clean_filename) & 
-                (models.TMAMedia.folder == 'images')
-            )
-        except Exception as retry_err:
-            logger.error(f"Retry in get_image failed: {retry_err}")
-            raise HTTPException(status_code=500, detail="Database connection error")
+        content = await _load_media_content('images', clean_filename)
+    except Exception as exc:
+        logger.error('Image lookup failed: %s', exc)
+        raise HTTPException(status_code=500, detail="Database connection error") from exc
 
-    if not media or not media.content:
+    if not content:
         supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
         direct_url = f"{supabase_url}/storage/v1/object/public/images/{storage_object_path(clean_filename)}"
         return RedirectResponse(url=direct_url, status_code=307)
-    
-    content = bytes(media.content)
     
     # Handle legacy/archived zstandard-compressed images
     if content.startswith(b'\x28\xb5\x2f\xfd'):
@@ -506,6 +523,7 @@ def get_image(filename: str, request: Request):
     return get_range_response(request, content, media_type)
 
 @router.post("/upload-video")
+@db_phases
 async def upload_video(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id)
@@ -521,9 +539,9 @@ async def upload_video(
 
     filename = f"vid_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
     if is_local():
-        return _save_local_media('videos', filename, content)
+        return await run_db(_save_local_media, 'videos', filename, content)
     try:
-        models.TMAMedia.create(
+        await run_db(models.TMAMedia.create,
             filename=filename,
             folder='videos',
             content=content
@@ -538,6 +556,7 @@ async def upload_video(
     }
 
 @router.post("/upload-background")
+@db_phases
 async def upload_background(
     file: UploadFile = File(...),
     user_id: int = Depends(get_user_id)
@@ -549,9 +568,9 @@ async def upload_background(
     
     filename = f"bg_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
     if is_local():
-        return _save_local_media('backgrounds', filename, content)
+        return await run_db(_save_local_media, 'backgrounds', filename, content)
     try:
-        models.TMAMedia.create(
+        await run_db(models.TMAMedia.create,
             filename=filename,
             folder='backgrounds',
             content=content
@@ -566,6 +585,7 @@ async def upload_background(
     }
 
 @router.get("/backgrounds")
+@db_worker(retry_reads=True)
 def list_backgrounds(user_id: int = Depends(get_user_id)):
     """List all custom background videos."""
     query = models.TMAMedia.select(models.TMAMedia.filename).where(models.TMAMedia.folder == 'backgrounds')
@@ -575,29 +595,23 @@ def list_backgrounds(user_id: int = Depends(get_user_id)):
     ]
 
 @router.get("/videos/{filename}")
-def get_video(filename: str, request: Request):
+@db_phases
+async def get_video(filename: str, request: Request):
     if is_local():
         return _local_media_response('videos', filename, request, 'video/mp4')
-    media = models.TMAMedia.get_or_none(
-        models.TMAMedia.filename == filename, 
-        models.TMAMedia.folder == 'videos'
-    )
-    if not media:
+    content = await _load_media_content('videos', filename)
+    if content is None:
         raise HTTPException(status_code=404, detail="Video not found")
-    
-    content = bytes(media.content)
+
     return get_range_response(request, content, "video/mp4")
 
 @router.get("/backgrounds/{filename}")
-def get_background_video(filename: str, request: Request):
+@db_phases
+async def get_background_video(filename: str, request: Request):
     if is_local():
         return _local_media_response('backgrounds', filename, request, 'video/mp4')
-    media = models.TMAMedia.get_or_none(
-        models.TMAMedia.filename == filename, 
-        models.TMAMedia.folder == 'backgrounds'
-    )
-    if not media:
+    content = await _load_media_content('backgrounds', filename)
+    if content is None:
         raise HTTPException(status_code=404, detail="Background not found")
-    
-    content = bytes(media.content)
+
     return get_range_response(request, content, "video/mp4")

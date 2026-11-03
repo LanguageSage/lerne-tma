@@ -26,6 +26,14 @@
 5. Offline mediaCache возвращает cached blob URL или network URL и при возможности заполняет Dexie `media`.
 6. Изображения имеют собственные retry/loading/fallback в StudyCardImage.
 
+DB ownership (C2b): media routes обходят legacy DB middleware через `db_phases`
+или `db_worker`. Upload metadata и TTS prepare/persist выполняются в отдельных
+`run_db` workers с cleanup в том же потоке; между ними нет открытого DB scope.
+TTS получает scalar snapshot, затем повторно проверяет права и условно сохраняет
+audio path, не перезаписывая более свежие текст/аудио. Чтение materializes bytes
+в worker с одним bounded read retry; cache/LOCAL files/audio redirects не открывают
+соединение. Image optimization и синхронная Storage-загрузка offload отдельно от DB.
+
 ## Source of truth
 
 - В LOCAL uploads хранят файлы во внешнем `data/media`, а `TMAMedia` — metadata; чтение идёт только через media routes, missing → 404 без Supabase redirect. Генерация TTS отключена. См. [local-development](local-development.md).
@@ -60,6 +68,11 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
 ```
 
 ## Relevant tests
+
+- `scripts/tests/test_media_db_workers.py`: ASGI + production middleware + реальная
+  thread-local SQLite; ошибки, concurrency, ownership и пользовательский результат.
+  `scripts/tests/media_db_postgres.py` повторяет набор с реальным PostgreSQL pool (2)
+  через disposable `scripts/test_supabase_security.py`.
 
 - `scripts/tests/test_material_permissions.py`: привязка audio требует
   `can_edit_audio` до генерации и после ожидания TTS; авторство/владелец строки

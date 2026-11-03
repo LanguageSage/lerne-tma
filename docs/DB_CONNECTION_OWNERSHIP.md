@@ -13,8 +13,8 @@ background tasks, startup и явные connect/close/initialize в `api/`.
 | P0 global proxy | `main.db_session_middleware` и `media.get_image` вызывали `initialize_database()` при request error: новый пул подменял proxy, пока другие потоки держали старые соединения | C2a: request-перепривязки удалены; initialization сериализована и идемпотентна, несовместимые bindings отвергаются |
 | P0 вход в worker scope | `db_workers.run_db`: ошибка Peewee `_initialize_connection` после checkout не вызывает `connection_context.__exit__`, слот остаётся занят | C2a: capture конкретного DB, discard частично открытого соединения, finally close в том же worker |
 | P0 cards | Пять оставшихся sync handlers `bulk_save_cards`, `delete_card`, `get_duplicates`, `reorder_cards`, `search_cards`: middleware открывал connection на loop, handler автоматически открывал другой на worker, finally закрывал только loop connection | C2a: весь cards router использует C1 scope и полностью материализует ответ в worker |
-| P0 оставшийся middleware | Для непомеченных маршрутов connect/close всё ещё синхронны на loop; loop connection разделяется concurrent tasks. `call_next` retry не переисполняет consumed ASGI task; reconnect loop connection не лечит worker connection | C2b: переносить маршруты небольшими группами, затем удалить DB lifecycle/retry из middleware; не просто offload отдельных connect/close |
-| P1 media | `upload_image`, `generate_audio_endpoint`, `generate_card_audio_endpoint`, `upload_audio_file`, `upload_video`, `upload_background`: SQL до/после awaited I/O; sync `get_image`, `get_video`, `get_background_video`, `list_backgrounds` без operation scope | C2b: DB prepare/persist отдельно от async media I/O; image retry пока reconnect только текущего worker, scope ещё требуется |
+| P0 оставшийся middleware | Для непомеченных маршрутов connect/close всё ещё синхронны на loop; loop connection разделяется concurrent tasks. `call_next` retry не переисполняет consumed ASGI task; reconnect loop connection не лечит worker connection | C2b: media исключён из legacy lifecycle. После переноса остальных групп удалить DB lifecycle/retry из middleware; не просто offload отдельных connect/close |
+| P1 media | Все 11 handlers: uploads, TTS, чтение файлов, backgrounds list | C2b: DB prepare/persist/materialization в workers; TTS и Storage между scopes. Ограниченный GET retry повторяет DB-фазу; upload/attach не повторяются автоматически. LOCAL files, audio redirects и image cache не требуют DB |
 | P1 bot/reminders | `save_tma_user`, `start_handler` (challenge/share details), `code_handler`/`callback_handler` и `reminder_service.send_reminder_to_user` / `check_and_send_all_reminders`: sync queries/claims среди await Telegram I/O | C2c: возвращать scalar snapshots, отдельно сохранять claims/receipts; не менять watermark/send retry |
 | P1 AI/settings | `ai._run_ai_batch` читает AI_DETECT_LEVEL на loop; `ai_service` читает config/prompts/language data внутри async generation/classification. `settings.list_models`/`test_ai_connection` читают settings/config на loop | C2d: offload DB phases, не уносить async HTTP clients в новый loop |
 | P1 sync / Adaptive | `routers/sync.py` (5 sync handlers), `knowledge.py` (6), notes (3), ratings (2), messages (5): worker SQL, но отсутствие общего connection scope; atomic само по себе connection не закрывает | C2e: operation scopes с сохранением idempotency, receipts и Knowledge/Adaptive transactions |
@@ -57,3 +57,22 @@ fail-fast exhaustion; LOCAL и fallback драйверы остаются без
 `test_db_initialization.py`: binding stability, concurrent startup, inconsistent
 proxies и retry неуспешного startup. Реальный PostgreSQL suite вызывается из
 существующего `test_supabase_security.py`; CI infrastructure не меняется.
+
+## Проверки C2b
+
+`scripts/tests/test_media_db_workers.py` проверяет реальные thread-local SQL и
+production middleware: загрузку/чтение/повторы/Range/ETag, роли, отзыв доступа,
+удаление и изменение карточки во время TTS, сохранение старой ссылки при ошибке,
+конкурентность, cleanup и ограниченный read retry. Внешние TTS/Storage синтетические;
+ORM и SQL не подменяются (кроме явной инъекции ошибки для проверки retry).
+Этот же набор запускает `media_db_postgres.py` в отдельных новых схемах disposable
+PostgreSQL с pool limit 2 через существующий `scripts/test_supabase_security.py`.
+На исходном main набор воспроизводит SQL/lifecycle на event loop.
+
+Сохранены права `can_edit_audio`, повторная проверка после TTS и условный UPDATE
+по исходным тексту/audio path. Общая галерея backgrounds, публичное чтение media,
+формат ответов и ошибки TTS не меняются. LOCAL отключает внешнюю генерацию;
+успешный TTS проверяется синтетическим провайдером, а не платным/live сервисом.
+
+C2b не завершает весь аудит: bot/reminders, AI/settings, остальные sync/auth
+маршруты, startup/init/health и удаление legacy middleware остаются открытыми.

@@ -1,4 +1,4 @@
-"""Connection ownership for the C1 blocking route bodies."""
+"""Connection ownership for blocking route bodies and async DB phases."""
 from functools import wraps
 
 from fastapi import HTTPException
@@ -56,6 +56,12 @@ def db_worker(function=None, *, retry_reads=False):
 
     offloaded._db_worker = True
     return offloaded
+
+
+def db_phases(function):
+    """Mark a route whose DB phases use run_db (or which needs no database)."""
+    function._db_worker = True
+    return function
 
 
 def uses_db_worker(request):

@@ -1,5 +1,6 @@
 """Called only by the disposable PostgreSQL security harness, never live DBs."""
 import asyncio
+import sys
 import threading
 from unittest.mock import patch
 
@@ -13,7 +14,10 @@ def verify(database_name, connection_args):
     from api.db_workers import db_worker
     # Legacy feedback imports `models` by its short name. Keep the harness on
     # its already-created fixture model module; never run schema init here.
-    with patch.object(models, 'create_all_tables'), patch.dict('sys.modules', {'models': models}):
+    # Do not snapshot/restore all sys.modules: that unloads newly imported PIL
+    # plugins while the media router still retains their original Image module.
+    assert sys.modules.setdefault('models', models) is models
+    with patch.object(models, 'create_all_tables'):
         from api.main import db_session_middleware
 
     events = []

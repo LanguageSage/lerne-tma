@@ -219,6 +219,8 @@ def run(port, bootstrap_user):
         # Reuse this process-created disposable DB; no new service or CI setup.
         from scripts.tests.db_workers_postgres import verify as verify_db_workers
         verify_db_workers(name, connection_args)
+        from scripts.tests.media_db_postgres import verify as verify_media
+        verify_media(name, connection_args)
 
         # New tables/sequences/functions stay private by default. Missing RLS
         # is detected even though ACLs already deny public access.
