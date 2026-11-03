@@ -77,3 +77,11 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
 - [Перенос в публичный бакет audio](<../../project_docs/аудио/Перенос аудиофайлов в публичный бакет audio.md>).
 - [Architectural integrity](../rules/architectural_integrity.md) — image fallback и устойчивость media endpoints.
 - [Study](study.md), [Cards](cards.md), [Sync](sync.md), [Admin architecture](../ADMIN_ARCHITECTURE.md).
+
+## CardList: граница медиаблока (этап 8)
+
+- `DeckResources.jsx` отображает галерею, `DeckAudioPlayer`, видео и ссылки без собственного состояния/store. Сохраняет DOM, стили, порядок типов, `getResourceSrc` для изображений и `url` остальных ресурсов. Индекс редактирования относится к полному массиву metadata.
+- `CardList` сохраняет координацию списка, текущую колоду/права, parsed metadata, `useDeckImageResize`, состояние выбранного изображения/индекса, `DeckMediaModal`, `ImageEditorModal` и callback загрузки. Связь с `DeckActionsMenu` остаётся в родителе.
+- Существующие владельцы: `useDeckImageResize` — высота, mouse/touch listeners и запись show_in_cards; `DeckAudioPlayer` — playback; `DeckMediaModal` — управление ресурсами; `ImageEditorModal` — преобразование; `useMediaUpload` — upload и замена ресурса через deck store с чтением актуальной колоды. Их состояние не дублируется; время жизни не меняется.
+- Более широкое выделение потребовало бы переноса модалок, hook/state и связей с актуальной колодой. Scroll restoration, DnD, SRS, Adaptive, API и существующая видимость/авторизация controls не меняются.
+- `scripts/tests/browser/cardlist-media.spec.cjs` включён в critical CI: источники, mixed-resource index при upload, сохранение metadata, resize, show-in-cards, роли, смена колоды, пустой fallback и 320/375/430/768/1280 px.
