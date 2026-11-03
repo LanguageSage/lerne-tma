@@ -17,7 +17,8 @@ background tasks, startup и явные connect/close/initialize в `api/`.
 | P1 media | Все 11 handlers: uploads, TTS, чтение файлов, backgrounds list | C2b: DB prepare/persist/materialization в workers; TTS и Storage между scopes. Ограниченный GET retry повторяет DB-фазу; upload/attach не повторяются автоматически. LOCAL files, audio redirects и image cache не требуют DB |
 | P1 bot/reminders | Профиль и challenge в Telegram webhook; выбор получателя, claim и запись результата в reminder cron | C2c: отдельные DB-фазы в workers, без legacy middleware. Существующий watermark и порядок отправки сохранены |
 | P1 AI/settings | Конфигурация, пользовательские промпты и флаг классификации в async AI. Синхронные settings handlers и асинхронная диагностика провайдера | C2d: DB-фазы в workers, AI I/O на исходном loop. AI и settings обходят legacy DB middleware |
-| P1 sync / Adaptive | `routers/sync.py` (5 sync handlers), `knowledge.py` (6), notes (3), ratings (2), messages (5): worker SQL, но отсутствие общего connection scope; atomic само по себе connection не закрывает | C2e: operation scopes с сохранением idempotency, receipts и Knowledge/Adaptive transactions |
+| P1 sync | `routers/sync.py` (5 handlers): middleware открывал соединение на event loop, SQL открывал отдельное соединение в worker | C2e-1: все пять маршрутов выполняют SQL и собирают ответ в DB worker scope |
+| P1 Knowledge / персональные данные | `knowledge.py` (6 handlers), notes (3), ratings (2), messages (5): worker SQL без общего connection scope | C2e-2 / C2e-3: отдельные изменения с проверкой Knowledge/Adaptive и персональных транзакций |
 | P1 остальные sync routers | decks (21), folders (9), collaborative (11), settings (21), share (5), trash (4), lid (1), feedback (1), debug (1): кандидаты на тот же worker leak; локальные connection_context в text-update handlers уже есть | C2f: точечная проверка каждого service/serializer, включая library `lerne_db` (сейчас оба proxy указывают на один DB) |
 | Auth | `auth_transaction` захватывает DB, owned flag, try/finally вокруг connect и transaction: собственные sync auth service операции закрывают соединение в своём потоке. Auth routers (15) и classic auth (8) всё ещё проходят legacy middleware; дополнительные profile/settings queries вне auth_transaction требуют scope | C2e/f: не оборачивать auth service во внешнюю transaction, не менять revocation commits |
 | Уже безопасные локальные границы | C1 study/cards/diagnostics; `answer_evaluation.load_answer_context` / `configured_ai`; AI batch prepare/save; reclassification claim/finish | Сохранять; внешний legacy middleware и вызываемые async config helpers всё ещё требуют проверки |
@@ -28,6 +29,17 @@ URL на один handler не считаются повторно), не чис
 Dead/unreachable legacy bot linking/setup branches не включены в рабочий scope.
 
 ## Пул и восстановление
+
+В Sync auth dependency завершает собственную транзакцию до запуска handler.
+`db_worker` открывает и закрывает соединение в потоке обработчика, включая
+сбор snapshot и запрос `access_version` в collaborative pull. `atomic()`
+в v2 и legacy push по-прежнему принадлежит сервису. Receipt v2 фиксируется
+вместе с mappings, progress и review history. Одинаковый пакет возвращает
+квитанцию, а конфликт получает 409 в пределах ключа пользователя. При обрыве
+до commit транзакция откатывается. Потеря ответа после commit разрешается
+повтором клиентского пакета с прежним request ID. Legacy push не имеет
+квитанции. Sync worker не повторяет запросы автоматически, включая pull
+с возможной инициализацией аккаунта.
 
 Cloud psycopg2 pool сохраняет `max_connections=20`, `stale_timeout=300`,
 fail-fast exhaustion; LOCAL и fallback драйверы остаются без изменения настройки.
