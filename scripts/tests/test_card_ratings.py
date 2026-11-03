@@ -31,7 +31,7 @@ class CardRatingTests(unittest.TestCase):
         database.execute_sql('DROP TABLE tma_migration_history')
 
     def rate(self, user=1, card=None, **values):
-        return router.save_rating(card or self.card.id, router.RatingWrite(**values), user)
+        return router.save_rating.__wrapped__(card or self.card.id, router.RatingWrite(**values), user)
 
     def test_upsert_keeps_one_private_row_per_user_and_clears(self):
         self.assertEqual(self.rate(user=2, rating=1)['rating'], 1)
@@ -41,11 +41,11 @@ class CardRatingTests(unittest.TestCase):
         self.assertEqual(self.rate(user=2, rating=-1)['reason'], None)
         self.rate(user=1, rating=1)
         self.assertEqual(models.TMACardRating.select().count(), 2)
-        self.assertEqual([row['rating'] for row in router.list_deck_ratings(self.deck.id, 2)], [-1])
-        self.assertEqual([row['rating'] for row in router.list_deck_ratings(self.deck.id, 1)], [1])
+        self.assertEqual([row['rating'] for row in router.list_deck_ratings.__wrapped__(self.deck.id, 2)], [-1])
+        self.assertEqual([row['rating'] for row in router.list_deck_ratings.__wrapped__(self.deck.id, 1)], [1])
         self.assertEqual(self.rate(user=2, rating=None)['rating'], None)
         self.assertEqual(self.rate(user=2, rating=None)['rating'], None)  # Retried clear is harmless.
-        self.assertEqual(router.list_deck_ratings(self.deck.id, 2), [])
+        self.assertEqual(router.list_deck_ratings.__wrapped__(self.deck.id, 2), [])
         self.assertEqual(models.TMACardRating.select().count(), 1)
 
     def test_contract_rejects_invalid_values(self):
@@ -61,14 +61,14 @@ class CardRatingTests(unittest.TestCase):
         with self.assertRaises(HTTPException):
             self.rate(user=3, rating=1)
         with self.assertRaises(HTTPException) as caught:
-            router.list_deck_ratings(self.deck.id, 3)
+            router.list_deck_ratings.__wrapped__(self.deck.id, 3)
         self.assertEqual(caught.exception.status_code, 403)
         self.card.is_deleted = True
         self.card.save()
         with self.assertRaises(HTTPException) as caught:
             self.rate(rating=1)
         self.assertEqual(caught.exception.status_code, 404)
-        self.assertEqual(router.list_deck_ratings(self.deck.id, 1), [])
+        self.assertEqual(router.list_deck_ratings.__wrapped__(self.deck.id, 1), [])
 
     def test_permanent_card_delete_cascades(self):
         self.rate(rating=-1, reason='error')
@@ -77,7 +77,7 @@ class CardRatingTests(unittest.TestCase):
 
     def test_missing_table_is_isolated_503(self):
         database.drop_tables([models.TMACardRating])
-        for action in (lambda: self.rate(rating=1), lambda: router.list_deck_ratings(self.deck.id, 1)):
+        for action in (lambda: self.rate(rating=1), lambda: router.list_deck_ratings.__wrapped__(self.deck.id, 1)):
             with self.assertRaises(HTTPException) as caught:
                 action()
             self.assertEqual(caught.exception.status_code, 503)

@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 from peewee import fn
 
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.models import TMAUserMessage, TMA_Card
 from api.services.collaborative_service import _require_cards_access
@@ -44,6 +45,7 @@ def root_for(message_id, user_id):
 
 
 @router.get('')
+@db_worker(retry_reads=True)
 def conversations(user_id: int = Depends(get_user_id)):
     require_messages()
     roots = TMAUserMessage.select().where(
@@ -62,6 +64,7 @@ def conversations(user_id: int = Depends(get_user_id)):
 
 
 @router.get('/{thread_id}')
+@db_worker(retry_reads=True)
 def conversation(thread_id: UUID, user_id: int = Depends(get_user_id)):
     require_messages()
     root = root_for(thread_id, user_id)
@@ -72,6 +75,7 @@ def conversation(thread_id: UUID, user_id: int = Depends(get_user_id)):
 
 
 @router.get('/{thread_id}/card')
+@db_worker(retry_reads=True)
 def conversation_card(thread_id: UUID, user_id: int = Depends(get_user_id)):
     """Resolve a suggestion's current card without changing study progress."""
     require_messages()
@@ -85,6 +89,7 @@ def conversation_card(thread_id: UUID, user_id: int = Depends(get_user_id)):
 
 
 @router.put('/{message_id}')
+@db_worker
 def send_message(message_id: UUID, data: MessageWrite, user_id: int = Depends(get_user_id)):
     require_messages()
     text = data.text.strip()
@@ -122,6 +127,7 @@ def send_message(message_id: UUID, data: MessageWrite, user_id: int = Depends(ge
 
 
 @router.put('/{thread_id}/read')
+@db_worker
 def mark_read(thread_id: UUID, data: ReadWrite, user_id: int = Depends(get_user_id)):
     require_messages()
     root = root_for(thread_id, user_id)
