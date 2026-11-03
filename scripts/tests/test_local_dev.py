@@ -160,7 +160,7 @@ class LocalHttpTests(unittest.TestCase):
         self.config_patch = patch.object(local_runtime, 'local_config', return_value=self.config)
         self.config_patch.start()
         self.addCleanup(self.config_patch.stop)
-        self.db = SqliteDatabase(':memory:', thread_safe=False, check_same_thread=False,
+        self.db = SqliteDatabase(str(self.config['media'] / 'fixture.sqlite3'), thread_safe=False, check_same_thread=False,
                                  pragmas={'foreign_keys': 1})
         self.previous = (models.tma_db.obj, models.lerne_db.obj)
         models.tma_db.initialize(self.db)

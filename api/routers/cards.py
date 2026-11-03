@@ -5,6 +5,7 @@ import logging
 
 from api import services
 from api.dependencies.auth import get_user_id
+from api.db_workers import db_worker
 from api.services.collaborative_service import _require_cards_access
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,8 @@ router = APIRouter(
 
 
 @router.post("/save")
-async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int = Depends(get_user_id)):
+@db_worker
+def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -27,7 +29,7 @@ async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int 
         if card:
             refresh_audio = getattr(card, '_refresh_front_audio', False)
             if auto_generate and card.front_text and (not card.audio_path or refresh_audio):
-                background_tasks.add_task(services.ensure_card_audio, card, user_id, force=refresh_audio)
+                background_tasks.add_task(_ensure_saved_card_audio, dict(card.__data__), user_id, force=refresh_audio)
             # Сразу возвращаем полные данные для StudyView
             return services.format_card_for_study(card, user_id)
         raise HTTPException(status_code=400, detail="Could not save card. Check logs.")
@@ -38,6 +40,12 @@ async def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int 
     except Exception as e:
         logger.error(f"Router save_card error: {e}")
         raise HTTPException(status_code=400, detail=str(e))
+
+async def _ensure_saved_card_audio(card_data, user_id, *, force=False):
+    # Keep async TTS/Storage clients on their event loop; only DB preparation
+    # and persistence run in workers, each with its own connection scope.
+    await services.ensure_card_audio(card_data, user_id, force=force, _offload_db=True)
+
 
 @router.post("/bulk-save")
 def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
@@ -70,7 +78,8 @@ def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
 
 
 @router.post("/batch-move")
-async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
+@db_worker
+def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -97,7 +106,8 @@ async def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
 
 
 @router.post("/batch-copy")
-async def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
+@db_worker
+def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -124,7 +134,8 @@ async def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
 
 
 @router.post("/batch-delete")
-async def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
+@db_worker
+def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -146,7 +157,8 @@ async def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
 
 @router.put("/{card_id}")
 @router.patch("/{card_id}")
-async def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
+@db_worker
+def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
     try:
         from api import models
         user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -175,7 +187,8 @@ def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=404, detail="Card not found or access denied")
 
 @router.post("/{card_id}/flag")
-async def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
+@db_worker
+def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
     flag = data.get("flag", 0)
     card = services.set_card_flag(card_id, user_id, flag)
     if card:

@@ -216,10 +216,11 @@ class TestKnowledgeSyncAPI(unittest.TestCase):
         self.assertEqual(TMAReviewHistory.select().count(), 0)
 
     def test_grade_to_attempt_to_mastery_and_retry_after_unmapping(self):
-        import asyncio
         from api.routers.study import StudyGradeRequest, submit_grade
         grade = StudyGradeRequest(card_id=self.card.id, deck_id=self.deck.id, grade=2, return_next=False)
-        self.assertEqual(asyncio.run(submit_grade(grade, user_id=1)), {'status': 'success'})
+        # Keep this unit integration on its in-memory fixture thread. Public
+        # ASGI dispatch/connection ownership is exercised by test_db_workers.py.
+        self.assertEqual(submit_grade.__wrapped__(grade, user_id=1), {'status': 'success'})
         review = TMAReviewHistory.get()
         self.assertEqual(review.rating, 2)
         self.assertIsNotNone(TMAProgress.get().last_reviewed)

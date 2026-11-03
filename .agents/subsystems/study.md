@@ -234,3 +234,18 @@ V1 helpers доступны только при отсутствии V2. Оце�
 `scripts/tests/browser/design-runtime-v2.spec.cjs`.
 
 CI fixtures: `tests/fixtures/`, только вымышленные данные; приватные снимки и артефакты остаются в `local/test-data/`. Политика и воспроизводимость: [TEST_DATA](../../docs/TEST_DATA.md).
+
+## C1: выполнение DB-операций в worker-потоках
+
+Все шесть обработчиков `api/routers/study.py` и DB-сериализатор
+`_card_to_response` выполняются через `api/db_workers.py` в worker-потоках.
+Соединение и существующие транзакции не переходят между потоками; соединение
+закрывается до возврата DTO или исключения. Для этих маршрутов middleware
+не открывает БД в event loop. Однократный retry GET при ошибке соединения
+повторяет worker-операцию с новым соединением; общий POST retry не добавлен.
+Существующий retry `submit_grade` для `connection already closed` остаётся
+в том же worker, как и SRS + ReviewHistory transaction. Study не запускает TTS.
+Тот же механизм обслуживает только `/bot/reminder-diagnostics` из bot router.
+Регрессии конкурентности, thread-local соединений, rollback, permissions,
+forced selection, TTS и retry: `scripts/tests/test_db_workers.py`. Прежние
+тесты с in-memory SQLite проверяют синхронные тела через `__wrapped__`.

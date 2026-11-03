@@ -12,6 +12,8 @@ media = importlib.import_module('api.services.media')
 
 
 class StudyLatencyTests(unittest.TestCase):
+    # Keep these serializer/SRS unit checks on their in-memory fixture thread;
+    # test_db_workers.py checks the public ASGI scheduling and TTS boundaries.
     def setUp(self):
         database.create_tables([*TABLES, models.TMAMedia])
         models.TMAUser.create(user_id=1)
@@ -34,17 +36,13 @@ class StudyLatencyTests(unittest.TestCase):
                     services, 'resolve_media_url', media.resolve_media_url, create=True), patch.object(
                     services, 'get_deck_stats_counts', return_value={}, create=True):
                 if endpoint == 'card':
-                    request = router.get_study_card(self.cards[0].id, user_id=1)
+                    result = router.get_study_card.__wrapped__(self.cards[0].id, user_id=1)
                 elif endpoint == 'next':
-                    request = router.get_next_card(self.deck.id, user_id=1)
+                    result = router.get_next_card.__wrapped__(self.deck.id, user_id=1)
                 else:
-                    request = router.submit_grade(router.StudyGradeRequest(
+                    result = router.submit_grade.__wrapped__(router.StudyGradeRequest(
                         card_id=self.cards[0].id, deck_id=self.deck.id, grade=2), user_id=1)
 
-                async def run():
-                    return await asyncio.wait_for(request, timeout=2)
-
-                result = asyncio.run(run())
                 self.assertIn(result['id'], [card.id for card in self.cards])
                 self.assertIsNone(result['audio_url'])
                 tts.assert_not_awaited()
@@ -58,8 +56,8 @@ class StudyLatencyTests(unittest.TestCase):
         with patch.object(services, 'get_next_card', return_value=(selected, progress)), patch.object(
                 services, 'resolve_media_url', media.resolve_media_url, create=True), patch.object(
                 services, 'get_deck_stats_counts', return_value={}, create=True):
-            result = asyncio.run(router.submit_grade(router.StudyGradeRequest(
-                card_id=self.cards[0].id, deck_id=self.deck.id, grade=2), user_id=1))
+            result = router.submit_grade.__wrapped__(router.StudyGradeRequest(
+                card_id=self.cards[0].id, deck_id=self.deck.id, grade=2), user_id=1)
         self.assertEqual(result['id'], selected.id)
         self.assertEqual(models.TMAReviewHistory.select().count(), 1)
 
@@ -67,16 +65,16 @@ class StudyLatencyTests(unittest.TestCase):
         for duplicate in [False, True]:
             with self.subTest(duplicate=duplicate), patch.object(services, 'get_next_card') as select, patch.object(
                     services, 'get_next_duplicate_card', create=True) as select_duplicate, patch.object(
-                    router, '_card_to_response', AsyncMock()) as serialize:
+                    router, '_card_to_response') as serialize:
                 payload = dict(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2, return_next=False)
                 if duplicate:
-                    result = asyncio.run(router.submit_duplicate_grade(payload, user_id=1))
+                    result = router.submit_duplicate_grade.__wrapped__(payload, user_id=1)
                 else:
-                    result = asyncio.run(router.submit_grade(router.StudyGradeRequest(**payload), user_id=1))
+                    result = router.submit_grade.__wrapped__(router.StudyGradeRequest(**payload), user_id=1)
                 self.assertEqual(result, {'status': 'success'})
                 select.assert_not_called()
                 select_duplicate.assert_not_called()
-                serialize.assert_not_awaited()
+                serialize.assert_not_called()
         self.assertEqual(models.TMAReviewHistory.select().count(), 2)
         progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
         self.assertIsNotNone(progress.last_reviewed)
@@ -85,10 +83,10 @@ class StudyLatencyTests(unittest.TestCase):
         from fastapi import HTTPException
         request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2, return_next=False)
         with self.assertRaises(HTTPException):
-            asyncio.run(router.submit_grade(request, user_id=2))
+            router.submit_grade.__wrapped__(request, user_id=2)
         with patch.object(models.TMAReviewHistory, 'create', side_effect=RuntimeError('history failed')):
             with self.assertRaises(HTTPException):
-                asyncio.run(router.submit_grade(request, user_id=1))
+                router.submit_grade.__wrapped__(request, user_id=1)
         self.assertEqual(models.TMAReviewHistory.select().count(), 0)
         progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
         self.assertIsNone(progress.last_reviewed)
