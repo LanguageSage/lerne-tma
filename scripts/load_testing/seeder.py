@@ -1,7 +1,7 @@
 """Synthetic test data seeder and cleaner for load testing FastAPI backend.
 
-Operates purely on synthetic accounts, isolated from any real user records.
-Enforces safety checks: only permitted in LOCAL development or isolated test environments.
+Operates purely on confirmed synthetic entities, isolated from any real user records.
+Enforces multi-layer safety checks: only permitted in LOCAL development or verified test environments.
 """
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import datetime
 import hashlib
 import json
 import logging
-import os
 import secrets
 import sys
 import uuid
@@ -29,44 +28,44 @@ from scripts.load_testing.config import (
     USERS_CACHE_FILE,
     LOCAL_TEST_DATA,
 )
+from scripts.load_testing.safety import validate_database_safety, SecurityError
 
 logger = logging.getLogger("load_tester.seeder")
 
 
-def _assert_environment_safety() -> None:
-    """Refuse to run if pointed to production or outside local/test environment."""
-    if os.environ.get("ENVIRONMENT", "").lower() == "production" or os.environ.get("VERCEL"):
-        raise RuntimeError("FATAL: Load testing seeder cannot run in production or Vercel!")
-
-    from api.local_runtime import is_local
-    if not is_local() and not os.environ.get("LERNE_LOAD_TEST_ALLOW_REMOTE"):
-        # Auto-configure LOCAL mode if not explicitly set
-        os.environ["LERNE_MODE"] = "LOCAL"
-
-
 def get_db():
     from api import models
+    if not models.tma_db.obj:
+        from api.database import initialize_database
+        initialize_database()
     return models.tma_db
 
 
-def seed_synthetic_data(user_count: int = 100, cards_per_deck: int = DEFAULT_CARDS_PER_DECK, force: bool = False) -> List[Dict[str, Any]]:
+def _assert_environment_safety(db=None) -> Dict[str, Any]:
+    """Strictly validates environment and connected database. Never auto-switches LERNE_MODE."""
+    if db is None:
+        db = get_db()
+    return validate_database_safety(db)
+
+
+def seed_synthetic_data(
+    user_count: int = 100,
+    cards_per_deck: int = DEFAULT_CARDS_PER_DECK,
+    force: bool = False
+) -> List[Dict[str, Any]]:
     """Generates synthetic users, auth sessions, decks, cards, and study progress.
 
     Returns a list of dicts with user info, tokens, and target deck/card IDs.
     """
-    _assert_environment_safety()
+    db = get_db()
+    db_info = _assert_environment_safety(db)
+    logger.info(f"Database safety verified: {db_info['driver']} on {db_info['host']} (db: {db_info['database']})")
 
-    from api import models
     from api.models import (
         TMAUser, TMA_Deck, TMA_Card, TMAProgress,
         TMAAuthAccount, TMAAuthSession, TMAAuthToken,
         TMA_Collaborator, auth_utcnow as utcnow,
     )
-
-    db = get_db()
-    if not db.obj:
-        from api.database import initialize_database
-        initialize_database()
 
     # If cache exists and has enough users and not forced, return cached data
     if not force and USERS_CACHE_FILE.exists():
@@ -226,20 +225,20 @@ def seed_synthetic_data(user_count: int = 100, cards_per_deck: int = DEFAULT_CAR
 
 
 def cleanup_synthetic_data() -> int:
-    """Removes all synthetic records created for load testing."""
-    _assert_environment_safety()
+    """Removes ONLY confirmed synthetic records created for load testing.
 
-    from api import models
+    Requires two-way confirmation: ID range AND synthetic markers (username pattern,
+    deck name prefix, session authentication_method). Real records are never touched.
+    """
+    db = get_db()
+    db_info = _assert_environment_safety(db)
+    logger.info(f"Cleanup safety verified: {db_info['driver']} on {db_info['host']} (db: {db_info['database']})")
+
     from api.models import (
         TMAUser, TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory,
         TMAAuthAccount, TMAAuthSession, TMAAuthToken,
         TMA_Collaborator, TMAOfflineBatch,
     )
-
-    db = get_db()
-    if not db.obj:
-        from api.database import initialize_database
-        initialize_database()
 
     min_id = BASE_USER_ID + 1
     max_id = BASE_USER_ID + MAX_TEST_USERS + 100
@@ -247,56 +246,100 @@ def cleanup_synthetic_data() -> int:
     deleted_counts = {}
 
     with db.connection_context(), db.atomic():
-        # 1. Auth tokens
-        sessions = list(TMAAuthSession.select(TMAAuthSession.id).where(
-            (TMAAuthSession.account >= min_id) & (TMAAuthSession.account <= max_id)
+        # 1. Identify confirmed synthetic users (MUST match both ID range and username/firstname prefix)
+        confirmed_users = list(TMAUser.select(TMAUser.user_id).where(
+            (TMAUser.user_id >= min_id) &
+            (TMAUser.user_id <= max_id) &
+            (TMAUser.username.startswith("load_vu_")) &
+            (TMAUser.first_name.startswith("VU_"))
         ))
-        session_ids = [s.id for s in sessions]
-        if session_ids:
-            deleted_counts["tokens"] = TMAAuthToken.delete().where(TMAAuthToken.session.in_(session_ids)).execute()
-            deleted_counts["sessions"] = TMAAuthSession.delete().where(TMAAuthSession.id.in_(session_ids)).execute()
+        confirmed_user_ids = [u.user_id for u in confirmed_users]
 
-        # 2. Progress and Review history
-        deleted_counts["progress"] = TMAProgress.delete().where(
-            (TMAProgress.user_id >= min_id) & (TMAProgress.user_id <= max_id)
-        ).execute()
-        deleted_counts["reviews"] = TMAReviewHistory.delete().where(
-            (TMAReviewHistory.user_id >= min_id) & (TMAReviewHistory.user_id <= max_id)
-        ).execute()
-
-        # 3. Cards in synthetic decks
-        decks = list(TMA_Deck.select(TMA_Deck.id).where(
-            (TMA_Deck.user_id >= min_id) & (TMA_Deck.user_id <= max_id)
+        # 2. Identify confirmed synthetic decks (MUST match both name prefix and owner in confirmed users)
+        confirmed_decks = list(TMA_Deck.select(TMA_Deck.id).where(
+            (TMA_Deck.name.startswith("[SYNTHETIC_LOAD_TEST]")) &
+            (TMA_Deck.user_id.in_(confirmed_user_ids))
         ))
-        deck_ids = [d.id for d in decks]
-        if deck_ids:
-            deleted_counts["cards"] = TMA_Card.delete().where(TMA_Card.deck.in_(deck_ids)).execute()
+        confirmed_deck_ids = [d.id for d in confirmed_decks]
 
-        # 4. Collaborator links and decks
-        deleted_counts["collaborators"] = TMA_Collaborator.delete().where(
-            (TMA_Collaborator.user_id >= min_id) & (TMA_Collaborator.user_id <= max_id)
-        ).execute()
-        deleted_counts["decks"] = TMA_Deck.delete().where(
-            (TMA_Deck.user_id >= min_id) & (TMA_Deck.user_id <= max_id)
-        ).execute()
+        # 3. Identify confirmed cards in those decks
+        confirmed_card_ids = []
+        if confirmed_deck_ids:
+            confirmed_cards = list(TMA_Card.select(TMA_Card.id).where(
+                TMA_Card.deck.in_(confirmed_deck_ids)
+            ))
+            confirmed_card_ids = [c.id for c in confirmed_cards]
 
-        # 5. Offline batches
-        batch_keys = []
-        for uid in range(min_id, max_id + 1):
-            batch_keys.append(f"sync:{uid}:")
-        deleted_counts["batches"] = 0
-        for uid in range(min_id, max_id + 1):
-            deleted_counts["batches"] += TMAOfflineBatch.delete().where(
-                TMAOfflineBatch.key.startswith(f"sync:{uid}:")
+        # 4. Identify confirmed synthetic sessions (MUST match account in confirmed_user_ids AND method == 'load_test')
+        confirmed_sessions = []
+        if confirmed_user_ids:
+            confirmed_sessions = list(TMAAuthSession.select(TMAAuthSession.id).where(
+                (TMAAuthSession.account.in_(confirmed_user_ids)) &
+                (TMAAuthSession.authentication_method == "load_test")
+            ))
+        confirmed_session_ids = [s.id for s in confirmed_sessions]
+
+        # Delete only confirmed records
+        if confirmed_session_ids:
+            deleted_counts["tokens"] = TMAAuthToken.delete().where(
+                TMAAuthToken.session.in_(confirmed_session_ids)
+            ).execute()
+            deleted_counts["sessions"] = TMAAuthSession.delete().where(
+                TMAAuthSession.id.in_(confirmed_session_ids)
+            ).execute()
+        else:
+            deleted_counts["tokens"] = 0
+            deleted_counts["sessions"] = 0
+
+        if confirmed_user_ids:
+            if confirmed_card_ids:
+                deleted_counts["progress"] = TMAProgress.delete().where(
+                    (TMAProgress.user_id.in_(confirmed_user_ids)) &
+                    (TMAProgress.card_id.in_(confirmed_card_ids))
+                ).execute()
+                deleted_counts["reviews"] = TMAReviewHistory.delete().where(
+                    (TMAReviewHistory.user_id.in_(confirmed_user_ids)) &
+                    (TMAReviewHistory.card_id.in_(confirmed_card_ids))
+                ).execute()
+            else:
+                deleted_counts["progress"] = 0
+                deleted_counts["reviews"] = 0
+
+            deleted_counts["collaborators"] = TMA_Collaborator.delete().where(
+                TMA_Collaborator.user_id.in_(confirmed_user_ids)
             ).execute()
 
-        # 6. Auth accounts and users
-        deleted_counts["accounts"] = TMAAuthAccount.delete().where(
-            (TMAAuthAccount.user >= min_id) & (TMAAuthAccount.user <= max_id)
-        ).execute()
-        deleted_counts["users"] = TMAUser.delete().where(
-            (TMAUser.user_id >= min_id) & (TMAUser.user_id <= max_id)
-        ).execute()
+            # Offline batches with sync:{uid}:
+            deleted_counts["batches"] = 0
+            for uid in confirmed_user_ids:
+                deleted_counts["batches"] += TMAOfflineBatch.delete().where(
+                    TMAOfflineBatch.key.startswith(f"sync:{uid}:")
+                ).execute()
+
+        if confirmed_card_ids:
+            deleted_counts["cards"] = TMA_Card.delete().where(
+                TMA_Card.id.in_(confirmed_card_ids)
+            ).execute()
+        else:
+            deleted_counts["cards"] = 0
+
+        if confirmed_deck_ids:
+            deleted_counts["decks"] = TMA_Deck.delete().where(
+                TMA_Deck.id.in_(confirmed_deck_ids)
+            ).execute()
+        else:
+            deleted_counts["decks"] = 0
+
+        if confirmed_user_ids:
+            deleted_counts["accounts"] = TMAAuthAccount.delete().where(
+                TMAAuthAccount.user.in_(confirmed_user_ids)
+            ).execute()
+            deleted_counts["users"] = TMAUser.delete().where(
+                TMAUser.user_id.in_(confirmed_user_ids)
+            ).execute()
+        else:
+            deleted_counts["accounts"] = 0
+            deleted_counts["users"] = 0
 
     if USERS_CACHE_FILE.exists():
         try:
@@ -305,33 +348,45 @@ def cleanup_synthetic_data() -> int:
             pass
 
     total = sum(deleted_counts.values())
-    logger.info(f"Cleanup complete. Deleted records: {deleted_counts} (Total: {total})")
+    logger.info(f"Cleanup complete. Deleted confirmed records: {deleted_counts} (Total: {total})")
     return total
 
 
 def get_synthetic_status() -> Dict[str, Any]:
-    """Returns current count of synthetic test entities."""
-    _assert_environment_safety()
-
-    from api import models
-    from api.models import TMAUser, TMA_Deck, TMA_Card, TMAProgress, TMAAuthSession
-
+    """Returns current count of confirmed synthetic test entities."""
     db = get_db()
-    if not db.obj:
-        from api.database import initialize_database
-        initialize_database()
+    db_info = _assert_environment_safety(db)
+
+    from api.models import TMAUser, TMA_Deck, TMAProgress, TMAAuthSession
 
     min_id = BASE_USER_ID + 1
     max_id = BASE_USER_ID + MAX_TEST_USERS + 100
 
     with db.connection_context():
-        users = TMAUser.select().where((TMAUser.user_id >= min_id) & (TMAUser.user_id <= max_id)).count()
-        decks = TMA_Deck.select().where((TMA_Deck.user_id >= min_id) & (TMA_Deck.user_id <= max_id)).count()
-        progress = TMAProgress.select().where((TMAProgress.user_id >= min_id) & (TMAProgress.user_id <= max_id)).count()
-        sessions = TMAAuthSession.select().where((TMAAuthSession.account >= min_id) & (TMAAuthSession.account <= max_id)).count()
+        users = TMAUser.select().where(
+            (TMAUser.user_id >= min_id) &
+            (TMAUser.user_id <= max_id) &
+            (TMAUser.username.startswith("load_vu_"))
+        ).count()
+        decks = TMA_Deck.select().where(
+            (TMA_Deck.name.startswith("[SYNTHETIC_LOAD_TEST]")) &
+            (TMA_Deck.user_id >= min_id) &
+            (TMA_Deck.user_id <= max_id)
+        ).count()
+        progress = TMAProgress.select().where(
+            (TMAProgress.user_id >= min_id) &
+            (TMAProgress.user_id <= max_id)
+        ).count()
+        sessions = TMAAuthSession.select().where(
+            (TMAAuthSession.account >= min_id) &
+            (TMAAuthSession.account <= max_id) &
+            (TMAAuthSession.authentication_method == "load_test")
+        ).count()
 
     cached_file_exists = USERS_CACHE_FILE.exists()
     return {
+        "verified_database": db_info["database"],
+        "database_driver": db_info["driver"],
         "synthetic_users": users,
         "synthetic_decks": decks,
         "synthetic_progress": progress,
@@ -344,7 +399,7 @@ def get_synthetic_status() -> Dict[str, Any]:
 def main():
     parser = argparse.ArgumentParser(description="Synthetic Load Test Seeder")
     parser.add_argument("--seed", action="store_true", help="Generate synthetic test data")
-    parser.add_argument("--cleanup", action="store_true", help="Remove synthetic test data")
+    parser.add_argument("--cleanup", action="store_true", help="Remove confirmed synthetic test data")
     parser.add_argument("--status", action="store_true", help="Display count of synthetic test entities")
     parser.add_argument("--users", type=int, default=100, help="Number of virtual users to seed (default: 100)")
     parser.add_argument("--cards", type=int, default=DEFAULT_CARDS_PER_DECK, help="Number of cards per deck")
@@ -353,17 +408,21 @@ def main():
 
     logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
-    if args.cleanup:
-        count = cleanup_synthetic_data()
-        print(f"Cleaned up {count} synthetic records.")
-    elif args.status:
-        status = get_synthetic_status()
-        print(json.dumps(status, indent=2))
-    elif args.seed:
-        users = seed_synthetic_data(user_count=args.users, cards_per_deck=args.cards, force=args.force)
-        print(f"Seeded {len(users)} virtual users successfully.")
-    else:
-        parser.print_help()
+    try:
+        if args.cleanup:
+            count = cleanup_synthetic_data()
+            print(f"Cleaned up {count} confirmed synthetic records.")
+        elif args.status:
+            status = get_synthetic_status()
+            print(json.dumps(status, indent=2))
+        elif args.seed:
+            users = seed_synthetic_data(user_count=args.users, cards_per_deck=args.cards, force=args.force)
+            print(f"Seeded {len(users)} virtual users successfully.")
+        else:
+            parser.print_help()
+    except SecurityError as sec_err:
+        logger.error(f"Security validation blocked execution: {sec_err}")
+        sys.exit(1)
 
 
 if __name__ == "__main__":

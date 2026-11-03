@@ -11,6 +11,8 @@ import sys
 from pathlib import Path
 from typing import Any, Dict, List, Optional, Tuple
 
+from scripts.load_testing.safety import sanitize_text, sanitize_url
+
 
 def _delta_pct(val_new: float, val_old: float) -> str:
     """Calculates percentage change."""
@@ -32,14 +34,20 @@ def format_comparison_markdown(base_data: Dict[str, Any], test_data: Dict[str, A
     base_meta = base_data.get("metadata", {})
     test_meta = test_data.get("metadata", {})
 
+    base_branch = sanitize_text(str(base_meta.get("git_branch", "unknown")))
+    base_commit = sanitize_text(str(base_meta.get("git_commit", "unknown")))
+    cand_branch = sanitize_text(str(test_meta.get("git_branch", "unknown")))
+    cand_commit = sanitize_text(str(test_meta.get("git_commit", "unknown")))
+    cand_target = sanitize_url(str(test_meta.get("target_url", "unknown")))
+
     lines = [
         "# Load Test Comparison Report",
         "",
         "## Run Metadata",
         "",
-        f"- **Baseline Run:** Branch `{base_meta.get('git_branch')}` (commit `{base_meta.get('git_commit')}`) at {base_meta.get('timestamp')}",
-        f"- **Candidate Run:** Branch `{test_meta.get('git_branch')}` (commit `{test_meta.get('git_commit')}`) at {test_meta.get('timestamp')}",
-        f"- **Target URL:** `{test_meta.get('target_url')}` | In-Process: `{test_meta.get('in_process')}`",
+        f"- **Baseline Run:** Branch `{base_branch}` (commit `{base_commit}`) at {base_meta.get('timestamp')}",
+        f"- **Candidate Run:** Branch `{cand_branch}` (commit `{cand_commit}`) at {test_meta.get('timestamp')}",
+        f"- **Target URL:** `{cand_target}` | In-Process: `{test_meta.get('in_process')}`",
         "",
         "## Concurrency & Scenario Summary",
         "",

@@ -1,15 +1,22 @@
-"""Behavioral and unit tests for the FastAPI load testing framework.
+"""Behavioral and security tests for the FastAPI load testing framework.
 
-Runs isolated tests verifying percentiles calculations, metrics aggregation,
-safety gates, scenario generation, runner execution, and comparison logic.
+Covers:
+- Production URL rejection and blacklist guards
+- Misconfiguration and remote isolation checks
+- Database safety and current_database() validation
+- Confirmed synthetic markers and cleanup refusal for non-synthetic data
+- Valid LOCAL development and isolated test execution
+- Secret and token redaction in reports and URLs
+- Percentiles and metrics aggregation
 """
 from __future__ import annotations
 
 import json
 import os
 import unittest
+import uuid
 from pathlib import Path
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 from scripts.load_testing.config import BASE_USER_ID, USERS_CACHE_FILE
 from scripts.load_testing.metrics import (
@@ -25,12 +32,257 @@ from scripts.load_testing.scenarios import (
     create_scenario,
 )
 from scripts.load_testing.compare import format_comparison_markdown
+from scripts.load_testing.safety import (
+    SecurityError,
+    is_production_environment,
+    sanitize_text,
+    sanitize_url,
+    validate_database_safety,
+    validate_target_url,
+)
 from scripts.load_testing.seeder import (
     _assert_environment_safety,
     cleanup_synthetic_data,
     get_synthetic_status,
     seed_synthetic_data,
 )
+
+
+class TestSecurityValidation(unittest.TestCase):
+    """Tests for requirement 8: production URL, misconfiguration, incorrect DB, and redaction."""
+
+    def test_production_urls_strictly_forbidden(self):
+        forbidden_urls = [
+            "https://lerne.app",
+            "https://api.lerne.app",
+            "https://lerne-tma.vercel.app",
+            "https://my-app.vercel.app/api",
+            "https://xyz.supabase.co",
+            "https://production-server.example.com",
+            "http://prod-api.internal:8000",
+        ]
+        for url in forbidden_urls:
+            with self.subTest(url=url):
+                with self.assertRaises(SecurityError):
+                    validate_target_url(url)
+
+    def test_production_environment_flag_blocks_all_urls(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            with self.assertRaises(SecurityError):
+                validate_target_url("http://127.0.0.1:8000")
+
+        with patch.dict(os.environ, {"VERCEL_ENV": "production"}):
+            with self.assertRaises(SecurityError):
+                validate_target_url("http://127.0.0.1:8000")
+
+        with patch.dict(os.environ, {"NODE_ENV": "production"}):
+            with self.assertRaises(SecurityError):
+                validate_target_url("http://127.0.0.1:8000")
+
+    def test_misconfiguration_handling(self):
+        # 1. Invalid schemes
+        with self.assertRaises(SecurityError):
+            validate_target_url("ftp://127.0.0.1:8000")
+        with self.assertRaises(SecurityError):
+            validate_target_url("file:///etc/passwd")
+
+        # 2. Empty or invalid URLs
+        with self.assertRaises(SecurityError):
+            validate_target_url("")
+        with self.assertRaises(SecurityError):
+            validate_target_url("not_a_valid_url")
+
+        # 3. Remote host without allowed list
+        with self.assertRaises(SecurityError):
+            validate_target_url("http://192.168.1.100:8000")
+
+        # 4. Remote host in allowed list but WITHOUT confirmation of isolation
+        with self.assertRaises(SecurityError):
+            validate_target_url(
+                "http://staging.internal:8000",
+                allowed_remote_hosts=["staging.internal"],
+                confirm_isolated_remote=False,
+            )
+
+    def test_correct_local_urls_permitted(self):
+        self.assertEqual(validate_target_url("http://127.0.0.1:8000"), "http://127.0.0.1:8000")
+        self.assertEqual(validate_target_url("http://localhost:8000/"), "http://localhost:8000")
+        self.assertEqual(validate_target_url("http://[::1]:8000"), "http://[::1]:8000")
+
+    def test_isolated_test_and_whitelisted_remote_permitted(self):
+        # In-process testserver
+        self.assertEqual(validate_target_url("any_url", in_process=True), "http://testserver")
+
+        # Whitelisted remote host WITH affirmative isolation confirmation
+        url = validate_target_url(
+            "http://staging-vm.internal:8080/api",
+            allowed_remote_hosts=["staging-vm.internal"],
+            confirm_isolated_remote=True,
+        )
+        self.assertEqual(url, "http://staging-vm.internal:8080/api")
+
+    def test_incorrect_database_rejected(self):
+        # 1. Mock postgres DB returning non-test database name
+        mock_db = MagicMock()
+        mock_db._driver_name = "PostgresqlDatabase"
+        mock_db.connect_params = {"host": "127.0.0.1"}
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = ["production_db"]
+        mock_db.execute_sql.return_value = mock_cursor
+        mock_db.connection_context.return_value.__enter__.return_value = None
+
+        with self.assertRaises(SecurityError) as ctx:
+            validate_database_safety(mock_db)
+        self.assertIn("NOT an approved test database", str(ctx.exception))
+
+        # 2. Mock postgres DB connected to non-whitelisted remote host
+        mock_db.connect_params = {"host": "remote-cluster.cloud.com"}
+        mock_cursor.fetchone.return_value = ["lerne_tma_local"]
+        with self.assertRaises(SecurityError) as ctx:
+            validate_database_safety(mock_db)
+        self.assertIn("neither loopback nor an allowed test host", str(ctx.exception))
+
+        # 3. Supabase URL pointing to cloud supabase
+        with patch.dict(os.environ, {"SUPABASE_DB_URL": "postgresql://user:pass@db.xyz.supabase.co:5432/postgres"}):
+            with self.assertRaises(SecurityError):
+                validate_database_safety(mock_db)
+
+        # 4. SQLite DB in unsafe path (not in test directory)
+        mock_sqlite = MagicMock()
+        mock_sqlite._driver_name = "SqliteDatabase"
+        mock_sqlite.database = "C:/Windows/System32/database.db"
+        with self.assertRaises(SecurityError):
+            validate_database_safety(mock_sqlite)
+
+    def test_correct_local_and_isolated_databases_accepted(self):
+        # 1. SQLite in-memory
+        mock_sqlite_mem = MagicMock()
+        mock_sqlite_mem._driver_name = "SqliteDatabase"
+        mock_sqlite_mem.database = ":memory:"
+        res_mem = validate_database_safety(mock_sqlite_mem)
+        self.assertEqual(res_mem["driver"], "sqlite")
+
+        # 2. SQLite in test-data
+        mock_sqlite_file = MagicMock()
+        mock_sqlite_file._driver_name = "SqliteDatabase"
+        mock_sqlite_file.database = "c:/repo/local/test-data/scratch.sqlite3"
+        res_file = validate_database_safety(mock_sqlite_file)
+        self.assertEqual(res_file["driver"], "sqlite")
+
+        # 3. Postgres on loopback with lerne_tma_local
+        mock_pg = MagicMock()
+        mock_pg._driver_name = "PostgresqlDatabase"
+        mock_pg.connect_params = {"host": "127.0.0.1"}
+        mock_cursor = MagicMock()
+        mock_cursor.fetchone.return_value = ["lerne_tma_local"]
+        mock_pg.execute_sql.return_value = mock_cursor
+        mock_pg.connection_context.return_value.__enter__.return_value = None
+
+        res_pg = validate_database_safety(mock_pg)
+        self.assertEqual(res_pg["driver"], "postgresql")
+        self.assertEqual(res_pg["database"], "lerne_tma_local")
+
+    def test_secret_redaction(self):
+        # 1. Bearer token in text
+        text_with_token = "Request with Bearer la_32charactersOfUrlSafeTokenValueHere12345678"
+        sanitized = sanitize_text(text_with_token)
+        self.assertNotIn("32charactersOfUrlSafeTokenValueHere", sanitized)
+        self.assertIn("[REDACTED]", sanitized)
+
+        # 2. Password in DSN URL
+        dsn = "postgresql://myuser:supersecretpass@127.0.0.1:5432/lerne_tma_local"
+        sanitized_dsn = sanitize_text(dsn)
+        self.assertNotIn("supersecretpass", sanitized_dsn)
+        self.assertIn("myuser:[REDACTED]@127.0.0.1", sanitized_dsn)
+
+        # 3. URL credentials stripping
+        url_with_creds = "http://admin:topsecret123@127.0.0.1:8000/api/study"
+        clean_url = sanitize_url(url_with_creds)
+        self.assertNotIn("topsecret123", clean_url)
+        self.assertEqual(clean_url, "http://127.0.0.1:8000/api/study")
+
+
+class TestCleanupConfirmedMarkers(unittest.TestCase):
+    """Tests requirement 5: cleanup deletes ONLY confirmed synthetic data."""
+
+    def test_cleanup_refusal_when_safety_fails(self):
+        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
+            with self.assertRaises(SecurityError):
+                cleanup_synthetic_data()
+
+    def test_cleanup_preserves_non_synthetic_records_in_id_range(self):
+        """Even if records share the high ID range, non-synthetic records are never deleted."""
+        from api import models
+        from peewee import SqliteDatabase
+
+        scratch_dir = Path(__file__).resolve().parents[2] / "local" / "test-data" / "test-scratch"
+        scratch_dir.mkdir(parents=True, exist_ok=True)
+        db_path = scratch_dir / f"test_cleanup_{uuid.uuid4().hex}.sqlite3"
+
+        orig_tma_obj = models.tma_db.obj
+        orig_lerne_obj = models.lerne_db.obj
+        test_db = SqliteDatabase(str(db_path), pragmas={"journal_mode": "wal"})
+        tables = [
+            models.TMAUser, models.TMA_Deck, models.TMA_Card,
+            models.TMAProgress, models.TMAReviewHistory, models.TMA_Collaborator,
+            models.TMAAuthAccount, models.TMAAuthSession, models.TMAAuthToken,
+            models.TMAOfflineBatch,
+        ]
+        test_db.bind(tables, bind_refs=False, bind_backrefs=False)
+        models.tma_db.initialize(test_db)
+        models.lerne_db.initialize(test_db)
+        test_db.connect()
+        test_db.create_tables(tables)
+
+        try:
+            # 1. Create a "real" user that happens to have an ID in the high range
+            real_uid = BASE_USER_ID + 50
+            models.TMAUser.create(user_id=real_uid, username="real_admin_user", first_name="RealAdmin")
+            models.TMAAuthAccount.create(user=real_uid)
+            real_session = models.TMAAuthSession.create(
+                id="real-session-uuid-123",
+                account=real_uid,
+                authenticated_at=models.auth_utcnow(),
+                created_at=models.auth_utcnow(),
+                expires_at=models.auth_utcnow(),
+                authentication_method="telegram",  # NOT 'load_test'
+            )
+            real_deck = models.TMA_Deck.create(user_id=real_uid, name="Production Course Material")  # NOT [SYNTHETIC_LOAD_TEST]
+
+            # 2. Create confirmed synthetic entity
+            synth_uid = BASE_USER_ID + 1
+            models.TMAUser.create(user_id=synth_uid, username="load_vu_1", first_name="VU_1")
+            models.TMAAuthAccount.create(user=synth_uid)
+            synth_session = models.TMAAuthSession.create(
+                id="synth-session-uuid-456",
+                account=synth_uid,
+                authenticated_at=models.auth_utcnow(),
+                created_at=models.auth_utcnow(),
+                expires_at=models.auth_utcnow(),
+                authentication_method="load_test",  # CONFIRMED
+            )
+            synth_deck = models.TMA_Deck.create(user_id=synth_uid, name="[SYNTHETIC_LOAD_TEST] VU 1 Deck")  # CONFIRMED
+
+            cleaned = cleanup_synthetic_data()
+
+            # Verify synthetic records were deleted
+            self.assertIsNone(models.TMAUser.get_or_none(models.TMAUser.user_id == synth_uid))
+            self.assertIsNone(models.TMA_Deck.get_or_none(models.TMA_Deck.id == synth_deck.id))
+            self.assertIsNone(models.TMAAuthSession.get_or_none(models.TMAAuthSession.id == synth_session.id))
+
+            # Verify real records were completely PRESERVED
+            self.assertIsNotNone(models.TMAUser.get_or_none(models.TMAUser.user_id == real_uid))
+            self.assertIsNotNone(models.TMA_Deck.get_or_none(models.TMA_Deck.id == real_deck.id))
+            self.assertIsNotNone(models.TMAAuthSession.get_or_none(models.TMAAuthSession.id == real_session.id))
+        finally:
+            test_db.close()
+            models.tma_db.initialize(orig_tma_obj)
+            models.lerne_db.initialize(orig_lerne_obj)
+            if db_path.exists():
+                try:
+                    db_path.unlink()
+                except OSError:
+                    pass
 
 
 class TestMetricsCalculation(unittest.TestCase):
@@ -50,7 +302,6 @@ class TestMetricsCalculation(unittest.TestCase):
         self.assertEqual(res["p99"], 42.5)
 
     def test_hundred_values_percentiles(self):
-        # 1 to 100
         vals = [float(i) for i in range(1, 101)]
         res = calculate_percentiles(vals)
         self.assertEqual(res["min"], 1.0)
@@ -97,23 +348,12 @@ class TestStageMetrics(unittest.TestCase):
         self.assertIn("GET /decks/{id}/next", data["endpoints"])
         self.assertIn("POST /study/grade", data["endpoints"])
 
-        # Table formatting does not raise
         table = stage.format_table()
         self.assertIn("Throughput", table)
         self.assertIn("GET /decks/{id}/next", table)
 
 
-class TestSafetyAndSeeder(unittest.TestCase):
-    def test_production_safety_check(self):
-        with patch.dict(os.environ, {"ENVIRONMENT": "production"}):
-            with self.assertRaises(RuntimeError):
-                _assert_environment_safety()
-
-    def test_vercel_safety_check(self):
-        with patch.dict(os.environ, {"VERCEL": "1"}):
-            with self.assertRaises(RuntimeError):
-                _assert_environment_safety()
-
+class TestScenarios(unittest.TestCase):
     def test_scenario_factory(self):
         user_info = {
             "user_id": 980000001,
@@ -184,7 +424,7 @@ class TestComparisonFormatting(unittest.TestCase):
         self.assertIn("# Load Test Comparison Report", md)
         self.assertIn("main", md)
         self.assertIn("codex/c1", md)
-        self.assertIn("+60.0%", md)  # RPS delta
+        self.assertIn("+60.0%", md)
         self.assertIn("[IMPROVED]", md)
 
 

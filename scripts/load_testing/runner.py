@@ -1,7 +1,7 @@
 """Async Load Testing Engine for FastAPI backend.
 
 Executes reproducible concurrency stages (1, 10, 50, 100 VUs) across study, read,
-sync, and mixed scenarios against synthetic test environment.
+sync, and mixed scenarios against strictly verified non-production test environments.
 """
 from __future__ import annotations
 
@@ -10,7 +10,6 @@ import asyncio
 import datetime
 import json
 import logging
-import os
 import platform
 import subprocess
 import sys
@@ -35,7 +34,14 @@ from scripts.load_testing.config import (
 )
 from scripts.load_testing.metrics import StageMetrics
 from scripts.load_testing.scenarios import create_scenario
-from scripts.load_testing.seeder import seed_synthetic_data, _assert_environment_safety
+from scripts.load_testing.seeder import seed_synthetic_data
+from scripts.load_testing.safety import (
+    validate_target_url,
+    validate_database_safety,
+    sanitize_url,
+    sanitize_text,
+    SecurityError,
+)
 
 logger = logging.getLogger("load_tester.runner")
 
@@ -56,22 +62,29 @@ def _get_git_info() -> Dict[str, str]:
 
 
 class DbConnectionSampler:
-    """Periodically samples PostgreSQL pg_stat_activity connection counts."""
+    """Periodically samples PostgreSQL pg_stat_activity connection counts for current_database()."""
 
     def __init__(self, interval: float = 0.5):
         self.interval = interval
         self.running = False
         self._task: Optional[asyncio.Task] = None
         self._db = None
+        self.monitored_database: str = "unknown"
 
     def start(self, metrics: StageMetrics):
         try:
             from api import models
-            if models.tma_db.obj and "postgres" in type(models.tma_db.obj).__name__.lower():
+            db_obj = getattr(models.tma_db, "obj", None)
+            if db_obj and "postgres" in type(db_obj).__name__.lower():
+                # Verify safety before sampling
+                db_safety = validate_database_safety(models.tma_db)
+                self.monitored_database = db_safety.get("database", "current_database()")
                 self._db = models.tma_db
                 self.running = True
                 self._task = asyncio.create_task(self._sample_loop(metrics))
-        except Exception:
+                logger.info(f"DB connection monitoring active on database: {self.monitored_database}")
+        except Exception as exc:
+            logger.debug(f"DB connection sampler not started: {exc}")
             self._db = None
 
     async def _sample_loop(self, metrics: StageMetrics):
@@ -86,16 +99,17 @@ class DbConnectionSampler:
             await asyncio.sleep(self.interval)
 
     def _query_db(self) -> Optional[Dict[str, int]]:
-        if not self._db or not self._db.obj:
+        if not self._db or not getattr(self._db, "obj", None):
             return None
         try:
             with self._db.connection_context():
+                # Dynamic matching via current_database() rather than hardcoded DB names
                 sql = (
                     "SELECT "
                     "count(*) FILTER (WHERE state = 'active') as active, "
                     "count(*) as total, "
                     "count(*) FILTER (WHERE wait_event_type IS NOT NULL) as waiting "
-                    "FROM pg_stat_activity WHERE datname = 'lerne_tma_local'"
+                    "FROM pg_stat_activity WHERE datname = current_database()"
                 )
                 cursor = self._db.execute_sql(sql)
                 row = cursor.fetchone()
@@ -120,13 +134,14 @@ class DbConnectionSampler:
 
 
 async def _check_health(client: httpx.AsyncClient, target_url: str) -> bool:
-    """Validates that the target API is responsive before launching the test."""
+    """Validates that the target API is responsive and non-production before launching test."""
     try:
         # Check standard config endpoint or root
         resp = await client.get("/api/lerne/config", timeout=3.0)
         return resp.status_code in (200, 401, 404)
     except Exception as exc:
-        logger.warning(f"Health check failed against {target_url}: {exc}")
+        sanitized_err = sanitize_text(str(exc))
+        logger.warning(f"Health check failed against {target_url}: {sanitized_err}")
         return False
 
 
@@ -142,7 +157,7 @@ async def run_worker(
         except asyncio.CancelledError:
             break
         except Exception as exc:
-            logger.debug(f"Worker iteration error: {exc}")
+            logger.debug(f"Worker iteration error: {sanitize_text(str(exc))}")
 
 
 async def execute_stage(
@@ -196,15 +211,36 @@ async def run_load_test(
     timeout: float = DEFAULT_TIMEOUT,
     seed_if_missing: bool = True,
     sample_db: bool = True,
+    allowed_remote_hosts: Optional[List[str]] = None,
+    confirm_isolated_remote: bool = False,
 ) -> Dict[str, Any]:
-    """Top-level test orchestrator."""
+    """Top-level test orchestrator with strict production-safety validation."""
     tiers = tiers or DEFAULT_CONCURRENCY_TIERS
     scenarios = scenarios or list(ALL_SCENARIOS)
 
-    max_vus = max(tiers)
-    _assert_environment_safety()
+    # 1. Validate Target URL & Safety Gates
+    safe_target_url = validate_target_url(
+        target_url=target_url,
+        in_process=in_process,
+        allowed_remote_hosts=allowed_remote_hosts,
+        confirm_isolated_remote=confirm_isolated_remote,
+    )
+    logger.info(f"Target URL security verified: {safe_target_url}")
 
-    # Ensure synthetic accounts
+    # 2. Validate Connected Database Safety if DB sampling or local mode is enabled
+    db_safety_info = {}
+    try:
+        from api import models
+        if getattr(models.tma_db, "obj", None):
+            db_safety_info = validate_database_safety(models.tma_db)
+            logger.info(f"Database security verified: {db_safety_info.get('driver')} (db: {db_safety_info.get('database')})")
+    except Exception as exc:
+        if sample_db:
+            logger.warning(f"Database security validation check notice: {exc}")
+
+    max_vus = max(tiers)
+
+    # 3. Ensure synthetic accounts
     if not USERS_CACHE_FILE.exists() or len(json.loads(USERS_CACHE_FILE.read_text(encoding="utf-8"))) < max_vus:
         if seed_if_missing:
             logger.info(f"Seeding {max_vus} synthetic users...")
@@ -215,7 +251,7 @@ async def run_load_test(
     with open(USERS_CACHE_FILE, "r", encoding="utf-8") as f:
         available_users = json.load(f)
 
-    # Initialize HTTP client
+    # 4. Initialize HTTP client
     transport = None
     app_title = "Remote FastAPI"
     if in_process:
@@ -225,11 +261,10 @@ async def run_load_test(
         base_url = "http://testserver"
         logger.info("Using in-process ASGITransport for direct FastAPI testing")
     else:
-        base_url = target_url.rstrip("/")
-        # Connection limits tuned for high concurrency
+        base_url = safe_target_url
         limits = httpx.Limits(max_keepalive_connections=max_vus + 20, max_connections=max_vus + 50)
         transport = httpx.AsyncHTTPTransport(limits=limits)
-        logger.info(f"Connecting to live target: {base_url}")
+        logger.info(f"Connecting to verified target: {base_url}")
 
     async with httpx.AsyncClient(transport=transport, base_url=base_url, timeout=timeout) as client:
         # Pre-flight health check
@@ -246,11 +281,15 @@ async def run_load_test(
             raise ConnectionError(f"Target {base_url} is unreachable.")
 
         git_info = _get_git_info()
+
+        # Metadata containing ZERO secrets, tokens, or passwords
         run_metadata = {
             "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
-            "target_url": base_url,
+            "target_url": sanitize_url(base_url),
             "in_process": in_process,
             "app_title": app_title,
+            "database_driver": db_safety_info.get("driver", "unknown"),
+            "database_name": db_safety_info.get("database", "unknown"),
             "python_version": platform.python_version(),
             "platform": platform.platform(),
             "git_branch": git_info["branch"],
@@ -285,7 +324,7 @@ async def run_load_test(
             "stages": all_results,
         }
 
-        # Save results
+        # Save results (guaranteed sanitized)
         if not output_path:
             RESULTS_DIR.mkdir(parents=True, exist_ok=True)
             ts = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -302,7 +341,7 @@ async def run_load_test(
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Lerne TMA FastAPI Load Testing Runner")
-    parser.add_argument("--target-url", default=DEFAULT_TARGET_URL, help="Target FastAPI URL")
+    parser.add_argument("--target-url", default=DEFAULT_TARGET_URL, help="Target FastAPI URL (must be non-production)")
     parser.add_argument("--in-process", action="store_true", help="Run in-process using ASGITransport")
     parser.add_argument("--users", default="1,10,50,100", help="Comma-separated VU tiers (e.g. 1,10,50,100)")
     parser.add_argument("--duration", type=float, default=DEFAULT_STAGE_DURATION, help="Stage duration in seconds")
@@ -312,6 +351,16 @@ def parse_args():
     parser.add_argument("--timeout", type=float, default=DEFAULT_TIMEOUT, help="Request timeout in seconds")
     parser.add_argument("--seed", action="store_true", help="Force reseed before running")
     parser.add_argument("--no-db-sample", action="store_true", help="Disable PostgreSQL pg_stat_activity monitoring")
+    parser.add_argument(
+        "--allow-remote-host",
+        action="append",
+        help="Explicitly allowed remote test host (e.g. staging.internal). Production domains strictly rejected.",
+    )
+    parser.add_argument(
+        "--confirm-isolated-remote",
+        action="store_true",
+        help="Affirmative confirmation that the specified remote target is an isolated non-production environment.",
+    )
     return parser.parse_args()
 
 
@@ -322,12 +371,12 @@ def main():
     tiers = [int(x.strip()) for x in args.users.split(",") if x.strip()]
     scenarios = [s.strip().lower() for s in args.scenarios.split(",") if s.strip()]
 
-    if args.seed:
-        seed_synthetic_data(user_count=max(tiers), force=True)
-
     output = Path(args.output) if args.output else None
 
     try:
+        if args.seed:
+            seed_synthetic_data(user_count=max(tiers), force=True)
+
         asyncio.run(run_load_test(
             target_url=args.target_url,
             in_process=args.in_process,
@@ -338,11 +387,16 @@ def main():
             think_time=args.think_time,
             timeout=args.timeout,
             sample_db=not args.no_db_sample,
+            allowed_remote_hosts=args.allow_remote_host,
+            confirm_isolated_remote=args.confirm_isolated_remote,
         ))
+    except SecurityError as sec_err:
+        logger.error(f"Security validation blocked load test execution: {sec_err}")
+        sys.exit(1)
     except KeyboardInterrupt:
         print("\nTest interrupted by user.")
     except Exception as e:
-        logger.error(f"Load test execution failed: {e}")
+        logger.error(f"Load test execution failed: {sanitize_text(str(e))}")
         sys.exit(1)
 
 

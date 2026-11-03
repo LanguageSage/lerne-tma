@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional
 import httpx
 
 from scripts.load_testing.metrics import RequestSample, StageMetrics
+from scripts.load_testing.safety import sanitize_text
 
 
 class BaseScenario:
@@ -55,7 +56,8 @@ class BaseScenario:
         except httpx.RemoteProtocolError:
             error_msg = "RemoteProtocolError"
         except Exception as exc:
-            error_msg = f"{type(exc).__name__}: {str(exc)[:50]}"
+            raw_err = f"{type(exc).__name__}: {str(exc)[:50]}"
+            error_msg = sanitize_text(raw_err)
         finally:
             duration_ms = (time.perf_counter() - start) * 1000.0
             self.metrics.record_connection_end()
