@@ -454,3 +454,7 @@ worker-соединения, включая ошибки. Асинхронные
 `scripts/tests/test_db_workers.py` проверяет реальные конкурентные ASGI-запросы
 с production middleware, thread-local SQLite без отключения thread safety,
 закрытие соединений, rollback и TTS; CI запускает suite через test_backend.py.
+
+C2a завершает worker scopes пяти оставшихся sync handlers cards и cleanup при
+ошибке входа в DB scope. Карта всего FastAPI, границы частей C2 и отдельные
+grade/permissions риски: [DB_CONNECTION_OWNERSHIP](../../docs/DB_CONNECTION_OWNERSHIP.md).

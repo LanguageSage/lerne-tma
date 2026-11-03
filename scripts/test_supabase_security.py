@@ -216,6 +216,9 @@ def run(port, bootstrap_user):
         print('PASS: RLS defense in depth and postgres/service_role CRUD', flush=True)
 
         verify_http(models)
+        # Reuse this process-created disposable DB; no new service or CI setup.
+        from scripts.tests.db_workers_postgres import verify as verify_db_workers
+        verify_db_workers(name, connection_args)
 
         # New tables/sequences/functions stay private by default. Missing RLS
         # is detected even though ACLs already deny public access.

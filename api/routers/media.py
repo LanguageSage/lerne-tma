@@ -463,7 +463,7 @@ def get_image(filename: str, request: Request):
     except Exception as e:
         logger.warning(f"DB connection reset in get_image, reconnecting: {e}")
         try:
-            models.initialize_database()
+            models.tma_db.close()
             models.tma_db.connect(reuse_if_open=True)
             media = models.TMAMedia.get_or_none(
                 (models.TMAMedia.filename == clean_filename) & 
