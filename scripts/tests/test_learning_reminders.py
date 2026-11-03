@@ -8,6 +8,7 @@ from pathlib import Path
 from types import SimpleNamespace
 import unittest
 import textwrap
+import threading
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
@@ -186,13 +187,69 @@ class LearningReminderTests(unittest.TestCase):
 
     def test_cron_repeated_and_overlapping_runs_do_not_duplicate(self):
         self.configure(times=['09:00', '08:00', '09:00'])
+        self.db.close()
+        loop_thread = threading.get_ident()
+        sql_threads = []
+        execute_sql = self.db.execute_sql
+
+        def track_sql(*args, **kwargs):
+            sql_threads.append(threading.get_ident())
+            return execute_sql(*args, **kwargs)
+
         async def overlap(**_kwargs):
+            self.assertTrue(self.db.is_closed())
             result = await reminders.check_and_send_all_reminders(self.bot)
             self.assertEqual(result['results']['sent'], 0)
         self.bot.bot.send_message.side_effect = overlap
-        self.assertEqual(self.cron()['results']['sent'], 1)
-        self.assertEqual(self.cron()['results']['sent'], 0)
+        with patch.object(self.db, 'execute_sql', side_effect=track_sql):
+            self.assertEqual(self.cron()['results']['sent'], 1)
+            self.assertEqual(self.cron()['results']['sent'], 0)
+        self.assertTrue(sql_threads)
+        self.assertNotIn(loop_thread, sql_threads)
         self.assertEqual(self.bot.bot.send_message.await_count, 1)
+
+    def test_cron_http_sends_once_and_persists_receipt(self):
+        self.configure()
+        application = AsyncMock()
+        application.bot = self.bot.bot
+        with patch.dict(os.environ, {'REMINDER_CRON_TOKEN': 'synthetic-cron'}), \
+                patch.object(bot, 'ptb_app', application):
+            headers = {'Authorization': 'Bearer synthetic-cron'}
+            first = self.client.post('/api/bot/cron-reminders', headers=headers)
+            repeat = self.client.get('/api/bot/cron-reminders', headers=headers)
+        self.assertEqual(first.status_code, 200)
+        self.assertEqual(first.json()['results']['sent'], 1)
+        self.assertEqual(repeat.json()['results']['sent'], 0)
+        self.bot.bot.send_message.assert_awaited_once()
+        self.assertEqual(self.bot.bot.send_message.call_args.kwargs['chat_id'], 9101)
+        row = models.TMASetting.get(models.TMASetting.key == 'LAST_REMINDER_SLOTS_101')
+        self.assertEqual(set(json.loads(row.value)), {'2026-10-28_08:00', '2026-10-28_09:00'})
+
+    def test_webhook_secret_and_verified_profile_update(self):
+        self.link()
+        reply = AsyncMock()
+        telegram_user = SimpleNamespace(id=9101, first_name='Synthetic & updated', last_name=None, username='fixture')
+        update = SimpleNamespace(effective_user=telegram_user, effective_message=SimpleNamespace(reply_text=reply))
+        application = AsyncMock()
+
+        async def dispatch(received):
+            await bot.start_handler(received, SimpleNamespace(args=[f'd_{self.deck.id}']))
+
+        application.process_update.side_effect = dispatch
+        with patch.object(bot, 'WEBHOOK_SECRET', 'synthetic-hook'), \
+                patch.object(bot, 'ptb_app', application), \
+                patch.object(bot.Update, 'de_json', return_value=update):
+            rejected = self.client.post('/api/bot_webhook', json={})
+            self.assertEqual(rejected.status_code, 403)
+            application.process_update.assert_not_called()
+            accepted = self.client.post('/api/bot_webhook', json={},
+                headers={'X-Telegram-Bot-Api-Secret-Token': 'synthetic-hook'})
+        self.assertEqual(accepted.json(), {'status': 'ok'})
+        reply.assert_awaited_once()
+        self.assertIn('Вам отправили материалы.', reply.call_args.args[0])
+        self.assertNotIn(self.deck.name, reply.call_args.args[0])
+        self.assertEqual(models.TMAUser.get_by_id(101).first_name, telegram_user.first_name)
+        self.assertIsNone(models.TMAUser.get_by_id(202).first_name)
 
     def test_uncertain_telegram_error_does_not_resend_same_slot(self):
         self.configure()
@@ -252,6 +309,7 @@ class _Clock(_RealDateTime):
 
 
 for _name in ('test_cron_repeated_and_overlapping_runs_do_not_duplicate',
+              'test_cron_http_sends_once_and_persists_receipt',
               'test_uncertain_telegram_error_does_not_resend_same_slot',
               'test_quiet_hours_minutes_and_only_due_filter',
               'test_timezone_hourly_and_next_slot_continue_to_work'):
