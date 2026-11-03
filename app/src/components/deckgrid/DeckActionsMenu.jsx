@@ -14,6 +14,30 @@ export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMe
   const [isMoveMenuOpen, setIsMoveMenuOpen] = React.useState(false);
   const [isCopyMenuOpen, setIsCopyMenuOpen] = React.useState(false);
   const deckMenuRef = React.useRef(null);
+  const triggerRef = React.useRef(null);
+  const menuId = React.useId();
+
+  React.useLayoutEffect(() => {
+    if (!isDeckMenuOpen) return;
+    const wrapper = deckMenuRef.current;
+    const updateHeight = () => {
+      const viewport = window.visualViewport;
+      const bottom = viewport ? viewport.height + viewport.offsetTop : window.innerHeight;
+      wrapper.style.setProperty('--deck-menu-available-height', `${Math.max(44, bottom - wrapper.getBoundingClientRect().bottom - 18)}px`);
+    };
+    updateHeight();
+    const observer = new ResizeObserver(updateHeight);
+    observer.observe(wrapper.closest('.header-compact'));
+    window.addEventListener('resize', updateHeight);
+    window.addEventListener('scroll', updateHeight, true);
+    window.visualViewport?.addEventListener('resize', updateHeight);
+    return () => {
+      observer.disconnect();
+      window.removeEventListener('resize', updateHeight);
+      window.removeEventListener('scroll', updateHeight, true);
+      window.visualViewport?.removeEventListener('resize', updateHeight);
+    };
+  }, [isDeckMenuOpen]);
 
   React.useEffect(() => {
     if (!isDeckMenuOpen) return;
@@ -117,8 +141,22 @@ export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMe
   };
 
   return (
-    <div style={{ position: 'relative' }} ref={deckMenuRef}>
+    <div style={{ position: 'relative' }} ref={deckMenuRef}
+      onKeyDown={event => {
+        if (event.key === 'Escape' && isDeckMenuOpen) {
+          event.stopPropagation();
+          setIsDeckMenuOpen(false);
+          triggerRef.current?.focus();
+        }
+      }}
+      onBlur={event => {
+        if (!event.currentTarget.contains(event.relatedTarget)) setIsDeckMenuOpen(false);
+      }}
+    >
       <button
+        ref={triggerRef}
+        aria-expanded={isDeckMenuOpen}
+        aria-controls={isDeckMenuOpen ? menuId : undefined}
         className={`header-action-btn ${isDeckMenuOpen ? 'active' : ''}`}
         onClick={(e) => {
           e.stopPropagation();
@@ -137,6 +175,7 @@ export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMe
       {isDeckMenuOpen && (
         <div
           className="deck-dropdown-menu glass"
+          id={menuId}
           style={{
             top: 'calc(100% + 6px)',
             bottom: 'auto',

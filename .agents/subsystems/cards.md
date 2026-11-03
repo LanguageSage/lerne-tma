@@ -149,6 +149,7 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Batch import: `scripts/tests/test_bulk_import_idempotency.py`, `scripts/tests/test_bulk_save_partial_failure.py`.
 - Возврат в список: `scripts/tests/test_card_scroll_restoration.mjs`.
 - Меню колоды: `DeckActionsMenu` владеет открытием меню/подменю, outside mouse/touch listeners и обработчиками действий. CardList передаёт колоду, права, папки и callback открытия своей медиамодалки. Регрессии в CI: `scripts/tests/browser/cardlist-menu.spec.cjs` (роли/inbox, события, действия и ошибки, 320/375/430/768/1280 px).
+  Header CardList переносит кнопки по доступной ширине; открытое меню поднимает его stacking context над FAB. `DeckActionsMenu` ограничивает высоту оставшимся viewport, сохраняет отдельную прокрутку папок, закрывается по Escape с возвратом фокуса и при уходе фокуса наружу. Browser-регрессии проверяют геометрию/hit testing, длинные папки, touch scroll и Tab на пяти размерах. Гостевой баннер использует border-box, чтобы padding не расширял app-container.
 Перед запуском integration/browser scripts проверяйте окружение и fixtures.
 
 ## Related docs
