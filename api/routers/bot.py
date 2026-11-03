@@ -9,7 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import Application
 
 from api.dependencies.auth import get_user_id
-from api.db_workers import db_worker
+from api.db_workers import db_phases, db_worker, run_db
 from api import services
 
 router = APIRouter()
@@ -46,26 +46,29 @@ async def check_user_sub(context, user_id: int):
 async def save_tma_user(user):
     """Update a profile only after its Telegram identity was authenticated."""
     try:
-        from api.models import TMAAuthIdentity, TMAUser
-        identity = TMAAuthIdentity.get_or_none(
-            (TMAAuthIdentity.provider == 'telegram') & (TMAAuthIdentity.subject == str(user.id)))
-        if identity is None:
-            return None
-        tma_user = TMAUser.get_or_none(TMAUser.user_id == identity.account_id)
-        if tma_user is None:
-            logger.error("Authenticated Telegram identity has no user row: %s", user.id)
-            return None
-        tma_user.first_name = user.first_name
-        tma_user.last_name = user.last_name
-        tma_user.username = user.username
-        tma_user.updated_at = datetime.datetime.now()
-        tma_user.is_guest = False
-        tma_user.save()
-        logger.info(f"User profile synced via bot: {user.id} ({user.first_name})")
-        return tma_user
+        await run_db(_update_telegram_profile, user.id, user.first_name, user.last_name, user.username)
     except Exception as e:
         logger.error(f"Error saving user in bot: {e}")
         return None
+
+def _update_telegram_profile(telegram_id, first_name, last_name, username):
+    from api.models import TMAAuthIdentity, TMAUser
+    identity = TMAAuthIdentity.get_or_none(
+        (TMAAuthIdentity.provider == 'telegram') & (TMAAuthIdentity.subject == str(telegram_id)))
+    if identity is None:
+        return None
+    tma_user = TMAUser.get_or_none(TMAUser.user_id == identity.account_id)
+    if tma_user is None:
+        logger.error("Authenticated Telegram identity has no user row: %s", telegram_id)
+        return None
+    tma_user.first_name = first_name
+    tma_user.last_name = last_name
+    tma_user.username = username
+    tma_user.updated_at = datetime.datetime.now()
+    tma_user.is_guest = False
+    tma_user.save()
+    logger.info(f"User profile synced via bot: {telegram_id} ({first_name})")
+
 
 # --- Handlers ---
 
@@ -111,7 +114,7 @@ async def start_handler(update: Update, context):
                     hashlib.sha256(f'telegram-bot-start:{state}:{user.id}'.encode()).hexdigest(),
                     telegram_profile_fields({'first_name': user.first_name,
                                              'last_name': user.last_name, 'username': user.username}))
-                confirm_challenge(state, proof)
+                await run_db(confirm_challenge, state, proof)
                 keyboard = InlineKeyboardMarkup([
                     [InlineKeyboardButton("🚀 Вернуться в Lerne", url=f"{TMA_URL}/?auth_return=telegram")]
                 ])
@@ -180,58 +183,9 @@ async def start_handler(update: Update, context):
 
         if args and (args[0].startswith("c_") or args[0].startswith("d_") or args[0].startswith("f_") or args[0].startswith("collab_")):
             share_id = args[0]
-            clean_id = share_id.replace("collab_", "").strip()
-            item_desc = "материалы"
-            try:
-                from api.models import TMA_Deck, TMAFolder, TMA_Card
-                from api.services.reminder_service import plural_cards
-
-                if clean_id.startswith("d_"):
-                    # 1. Поиск по share_id (например, d_a1b2c3d4e5f6)
-                    d = TMA_Deck.get_or_none((TMA_Deck.share_id == clean_id) & (TMA_Deck.is_deleted == False))
-                    # 2. Если не найдено, проверка числового id (d_36)
-                    if not d:
-                        num_part = clean_id.replace("d_", "")
-                        if num_part.isdigit():
-                            d = TMA_Deck.get_or_none((TMA_Deck.id == int(num_part)) & (TMA_Deck.is_deleted == False))
-                    
-                    if d:
-                        total_c = TMA_Card.select().where((TMA_Card.deck_id == d.id) & (TMA_Card.is_deleted == False)).count()
-                        c_info = f" ({plural_cards(total_c)})" if total_c > 0 else ""
-                        item_desc = f"колоду «<b>{html.escape(d.name)}</b>»{c_info}"
-                    else:
-                        item_desc = "колоду"
-
-                elif clean_id.startswith("f_"):
-                    f = TMAFolder.get_or_none((TMAFolder.share_id == clean_id) & (TMAFolder.is_deleted == False))
-                    if not f:
-                        num_part = clean_id.replace("f_", "")
-                        if num_part.isdigit():
-                            f = TMAFolder.get_or_none((TMAFolder.id == int(num_part)) & (TMAFolder.is_deleted == False))
-                    
-                    if f:
-                        item_desc = f"папку «<b>{html.escape(f.name)}</b>»"
-                    else:
-                        item_desc = "папку с колодами"
-
-                elif clean_id.startswith("c_"):
-                    c = TMA_Card.get_or_none((TMA_Card.share_id == clean_id) & (TMA_Card.is_deleted == False))
-                    if not c:
-                        num_part = clean_id.replace("c_", "")
-                        if num_part.isdigit():
-                            c = TMA_Card.get_or_none((TMA_Card.id == int(num_part)) & (TMA_Card.is_deleted == False))
-                    
-                    if c:
-                        card_preview = c.front_text[:30] + ("..." if len(c.front_text) > 30 else "")
-                        item_desc = f"карточку «<b>{html.escape(card_preview)}</b>»"
-                    else:
-                        item_desc = "карточку"
-            except Exception as e:
-                logger.error(f"Error resolving share details for {share_id}: {e}", exc_info=True)
-
             text = (
                 f"💌 <b>Здравствуйте, {first_name}!</b>\n\n"
-                f"Вам отправили {item_desc}.\n\n"
+                "Вам отправили материалы.\n\n"
                 "Нажмите кнопку ниже, чтобы открыть её и начать учить! 👇"
             )
             browser_url = make_browser_url(TMA_URL, user, extra_param=share_id)
@@ -348,6 +302,7 @@ if ptb_app:
 # --- Webhook Endpoint ---
 
 @router.post("/bot_webhook")
+@db_phases
 async def bot_webhook(request: Request, x_telegram_bot_api_secret_token: str | None = Header(default=None)):
     # Если секрет задан в настройках окружения — строго требуем и проверяем заголовок от Telegram.
     # Если переменная ещё не настроена — пропускаем запросы, чтобы бот не падал с 403.
@@ -372,6 +327,7 @@ async def bot_webhook(request: Request, x_telegram_bot_api_secret_token: str | N
         return {"status": "error", "message": str(e)}
 
 @router.get("/bot_setup")
+@db_phases
 async def bot_setup(request: Request):
     """Вспомогательный эндпоинт для установки вебхука и инициализации таблиц."""
     if not TOKEN:
@@ -416,6 +372,7 @@ async def bot_setup(request: Request):
     }
 
 @router.post("/bot/test-reminder")
+@db_phases
 async def test_bot_reminder(user_id: int = Depends(get_user_id)):
     """Отправляет тестовое напоминание текущему пользователю."""
     if not ptb_app:
@@ -429,6 +386,7 @@ async def test_bot_reminder(user_id: int = Depends(get_user_id)):
 
 @router.get("/bot/cron-reminders")
 @router.post("/bot/cron-reminders")
+@db_phases
 async def trigger_cron_reminders(
     x_internal_cron_token: str | None = Header(default=None),
     authorization: str | None = Header(default=None),

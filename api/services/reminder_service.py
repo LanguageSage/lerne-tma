@@ -13,6 +13,7 @@ except ImportError:
     WebAppInfo = None
 
 from peewee import fn, Case, JOIN
+from api.db_workers import run_db
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAUser, TMASetting, TMAAuthIdentity, TMAAuthAccount
 from .decks import _learning_key
 from .collaborative_service import get_user_accessible_deck_ids
@@ -236,34 +237,42 @@ def format_reminder_message(first_name: str, summary: dict, is_test: bool = Fals
     return text
 
 
+def _prepare_reminder(user_id, force):
+    user = TMAUser.get_or_none(TMAUser.user_id == user_id)
+    if not user or user.is_guest:
+        return {"status": "skipped", "message": "Guest user"}
+
+    target_chat_id = get_verified_telegram_chat_id(user_id)
+
+    if not target_chat_id:
+        return {"status": "skipped", "message": "Telegram not linked"}
+
+    settings = get_user_reminder_settings(user_id)
+    if not settings.get("enabled", False) and not force:
+        return {"status": "skipped", "message": "Notifications disabled by user"}
+
+    summary = get_user_due_summary(user_id)
+
+    # Если не принудительный тест и нет карточек для повторения/закрепления/новых — не спамим
+    if not force and summary["total_due"] == 0 and summary["total_learning"] == 0 and summary["total_new"] == 0:
+        return {"status": "skipped", "message": "No due or new cards"}
+
+    first_name = user.first_name or user.username or "Пользователь"
+    msg_text = format_reminder_message(first_name, summary, is_test=force)
+
+    return target_chat_id, msg_text, summary
+
+
 async def send_reminder_to_user(bot_app, user_id: int, force: bool = False) -> dict:
     """Отправляет персональное напоминание пользователю в Telegram."""
     if not bot_app or not bot_app.bot:
         return {"status": "error", "message": "Bot not initialized"}
 
     try:
-        user = TMAUser.get_or_none(TMAUser.user_id == user_id)
-        if not user or user.is_guest:
-            return {"status": "skipped", "message": "Guest user"}
-
-        target_chat_id = get_verified_telegram_chat_id(user_id)
-
-        if not target_chat_id:
-            return {"status": "skipped", "message": "Telegram not linked"}
-
-        settings = get_user_reminder_settings(user_id)
-        if not settings.get("enabled", False) and not force:
-            return {"status": "skipped", "message": "Notifications disabled by user"}
-
-        summary = get_user_due_summary(user_id)
-        
-        # Если не принудительный тест и нет карточек для повторения/закрепления/новых — не спамим
-        if not force and summary["total_due"] == 0 and summary["total_learning"] == 0 and summary["total_new"] == 0:
-            return {"status": "skipped", "message": "No due or new cards"}
-
-        first_name = user.first_name or user.username or "Пользователь"
-        msg_text = format_reminder_message(first_name, summary, is_test=force)
-
+        prepared = await run_db(_prepare_reminder, user_id, force)
+        if isinstance(prepared, dict):
+            return prepared
+        target_chat_id, msg_text, summary = prepared
         keyboard = InlineKeyboardMarkup([
             [InlineKeyboardButton("🚀 Учить в браузере", url=TMA_URL)]
         ])
@@ -315,6 +324,94 @@ def claim_reminder_slot(user_id: int, slot_key: str) -> bool:
     ).execute())
 
 
+def _record_reminder_slots(key, sent_slots, due_slots, user_today):
+    for slot_key, _ in due_slots:
+        if slot_key not in sent_slots:
+            sent_slots.append(slot_key)
+    row, _ = TMASetting.get_or_create(key=key, defaults={"value": "[]"})
+    row.value = json.dumps([slot for slot in sent_slots if slot.startswith(user_today.isoformat())])
+    row.updated_at = datetime.datetime.now()
+    row.save()
+
+
+def _claim_due_reminder(user_id, now_utc):
+    settings = get_user_reminder_settings(user_id)
+    if not settings.get("enabled", False):
+        return "disabled"
+
+    tzinfo, tz_name = resolve_user_tzinfo(settings)
+    user_local_now = now_utc.astimezone(tzinfo)
+    user_today = user_local_now.date()
+    if is_quiet_time(settings, user_local_now.time()):
+        return "quiet_hours"
+
+    # Считываем ранее отправленные слоты
+    last_slots_key = f"LAST_REMINDER_SLOTS_{user_id}"
+    setting_obj = TMASetting.get_or_none(TMASetting.key == last_slots_key)
+    sent_slots = []
+    if setting_obj and setting_obj.value:
+        try:
+            sent_slots = json.loads(setting_obj.value)
+            if not isinstance(sent_slots, list):
+                sent_slots = []
+        except Exception:
+            sent_slots = []
+
+    # Формируем список запланированных слотов на сегодня
+    frequency = settings.get("frequency", "twice_daily")
+    time_strings = []
+    if frequency == "hourly":
+        h_start = int(settings.get("hourly_start", "08:00").split(":")[0])
+        h_end = int(settings.get("hourly_end", "22:00").split(":")[0])
+        for h in range(h_start, h_end + 1):
+            time_strings.append(f"{h:02d}:00")
+    else:
+        time_strings = settings.get("times", ["09:00", "19:00"])
+
+    # Вычисляем слоты, которые уже наступили для пользователя на сегодня
+    due_slots = []
+    for t_str in time_strings:
+        try:
+            parts = t_str.split(":")
+            sh_h, sh_m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
+            slot_naive = datetime.datetime.combine(user_today, datetime.time(sh_h, sh_m))
+            slot_dt = slot_naive.replace(tzinfo=tzinfo)
+
+            # Проверка тихого режима
+            if is_quiet_time(settings, slot_dt.time()):
+                continue
+
+            slot_key = f"{user_today.isoformat()}_{sh_h:02d}:{sh_m:02d}"
+
+            # Слот наступил и укладывается в окно catch-up (до 12 часов)
+            if slot_dt <= user_local_now:
+                elapsed_sec = (user_local_now - slot_dt).total_seconds()
+                if elapsed_sec <= 12 * 3600 and slot_key not in sent_slots:
+                    due_slots.append((slot_key, slot_dt))
+        except Exception as t_err:
+            logger.warning(f"Error parsing time slot {t_str} for user {user_id}: {t_err}")
+
+    if not due_slots:
+        return "no_due_unsent_slots"
+
+    # Проверка фильтра "только созревшие"
+    if settings.get("only_due", False):
+        due_check = get_user_due_summary(user_id)
+        if due_check.get("total_due", 0) == 0:
+            _record_reminder_slots(last_slots_key, sent_slots, due_slots, user_today)
+            return "only_due_enabled_but_no_due_cards"
+
+    latest_slot_key, _ = max(due_slots, key=lambda slot: slot[1])
+    if not claim_reminder_slot(user_id, latest_slot_key):
+        return "slot_already_attempted"
+
+    return latest_slot_key, last_slots_key, sent_slots, due_slots, user_today
+
+
+def _reminder_user_ids():
+    return [uid for (uid,) in TMAUser.select(TMAUser.user_id).where(TMAUser.is_guest == False).tuples()]
+
+
 async def check_and_send_all_reminders(bot_app) -> dict:
     """
     Проверяет всех пользователей и рассылает напоминания согласно их расписанию и часовому поясу.
@@ -328,116 +425,30 @@ async def check_and_send_all_reminders(bot_app) -> dict:
     now_utc = datetime.datetime.now(datetime.timezone.utc)
 
     try:
-        users = list(TMAUser.select().where(TMAUser.is_guest == False))
-        for u in users:
+        user_ids = await run_db(_reminder_user_ids)
+        for user_id in user_ids:
             try:
-                settings = get_user_reminder_settings(u.user_id)
-                if not settings.get("enabled", False):
+                slot = await run_db(_claim_due_reminder, user_id, now_utc)
+                if isinstance(slot, str):
                     results["skipped"] += 1
-                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "disabled"})
+                    details.append({"user_id": user_id, "status": "skipped", "reason": slot})
                     continue
+                latest_slot_key, last_slots_key, sent_slots, due_slots, user_today = slot
 
-                tzinfo, tz_name = resolve_user_tzinfo(settings)
-                user_local_now = now_utc.astimezone(tzinfo)
-                user_today = user_local_now.date()
-                if is_quiet_time(settings, user_local_now.time()):
-                    results["skipped"] += 1
-                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "quiet_hours"})
-                    continue
-
-                # Считываем ранее отправленные слоты
-                last_slots_key = f"LAST_REMINDER_SLOTS_{u.user_id}"
-                setting_obj = TMASetting.get_or_none(TMASetting.key == last_slots_key)
-                sent_slots = []
-                if setting_obj and setting_obj.value:
-                    try:
-                        sent_slots = json.loads(setting_obj.value)
-                        if not isinstance(sent_slots, list):
-                            sent_slots = []
-                    except Exception:
-                        sent_slots = []
-
-                # Формируем список запланированных слотов на сегодня
-                frequency = settings.get("frequency", "twice_daily")
-                time_strings = []
-                if frequency == "hourly":
-                    h_start = int(settings.get("hourly_start", "08:00").split(":")[0])
-                    h_end = int(settings.get("hourly_end", "22:00").split(":")[0])
-                    for h in range(h_start, h_end + 1):
-                        time_strings.append(f"{h:02d}:00")
-                else:
-                    time_strings = settings.get("times", ["09:00", "19:00"])
-
-                # Вычисляем слоты, которые уже наступили для пользователя на сегодня
-                due_slots = []
-                for t_str in time_strings:
-                    try:
-                        parts = t_str.split(":")
-                        sh_h, sh_m = int(parts[0]), int(parts[1]) if len(parts) > 1 else 0
-                        slot_naive = datetime.datetime.combine(user_today, datetime.time(sh_h, sh_m))
-                        slot_dt = slot_naive.replace(tzinfo=tzinfo)
-
-                        # Проверка тихого режима
-                        if is_quiet_time(settings, slot_dt.time()):
-                            continue
-
-                        slot_key = f"{user_today.isoformat()}_{sh_h:02d}:{sh_m:02d}"
-
-                        # Слот наступил и укладывается в окно catch-up (до 12 часов)
-                        if slot_dt <= user_local_now:
-                            elapsed_sec = (user_local_now - slot_dt).total_seconds()
-                            if elapsed_sec <= 12 * 3600 and slot_key not in sent_slots:
-                                due_slots.append((slot_key, slot_dt))
-                    except Exception as t_err:
-                        logger.warning(f"Error parsing time slot {t_str} for user {u.user_id}: {t_err}")
-
-                if not due_slots:
-                    results["skipped"] += 1
-                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "no_due_unsent_slots"})
-                    continue
-
-                # Проверка фильтра "только созревшие"
-                if settings.get("only_due", False):
-                    due_check = get_user_due_summary(u.user_id)
-                    if due_check.get("total_due", 0) == 0:
-                        results["skipped"] += 1
-                        details.append({"user_id": u.user_id, "status": "skipped", "reason": "only_due_enabled_but_no_due_cards"})
-                        for s_key, _ in due_slots:
-                            if s_key not in sent_slots:
-                                sent_slots.append(s_key)
-                        s_obj, _ = TMASetting.get_or_create(key=last_slots_key, defaults={'value': '[]'})
-                        s_obj.value = json.dumps([s for s in sent_slots if s.startswith(user_today.isoformat())])
-                        s_obj.updated_at = datetime.datetime.now()
-                        s_obj.save()
-                        continue
-
-                latest_slot_key, _ = max(due_slots, key=lambda slot: slot[1])
-                if not claim_reminder_slot(u.user_id, latest_slot_key):
-                    results["skipped"] += 1
-                    details.append({"user_id": u.user_id, "status": "skipped", "reason": "slot_already_attempted"})
-                    continue
-
-                res = await send_reminder_to_user(bot_app, u.user_id, force=False)
+                res = await send_reminder_to_user(bot_app, user_id, force=False)
                 if res.get("status") == "success":
                     results["sent"] += 1
-                    details.append({"user_id": u.user_id, "status": "sent", "due": res.get("total_due", 0), "slot": latest_slot_key})
+                    details.append({"user_id": user_id, "status": "sent", "due": res.get("total_due", 0), "slot": latest_slot_key})
 
-                    for s_key, _ in due_slots:
-                        if s_key not in sent_slots:
-                            sent_slots.append(s_key)
-
-                    s_obj, _ = TMASetting.get_or_create(key=last_slots_key, defaults={'value': '[]'})
-                    s_obj.value = json.dumps([s for s in sent_slots if s.startswith(user_today.isoformat())])
-                    s_obj.updated_at = datetime.datetime.now()
-                    s_obj.save()
+                    await run_db(_record_reminder_slots, last_slots_key, sent_slots, due_slots, user_today)
                 else:
                     status = "error" if res.get("status") == "error" else "skipped"
                     results["errors" if status == "error" else "skipped"] += 1
-                    details.append({"user_id": u.user_id, "status": status, "reason": res.get("message")})
+                    details.append({"user_id": user_id, "status": status, "reason": res.get("message")})
             except Exception as user_err:
-                logger.error(f"Error processing user {u.user_id} in cron: {user_err}", exc_info=True)
+                logger.error(f"Error processing user {user_id} in cron: {user_err}", exc_info=True)
                 results["errors"] += 1
-                details.append({"user_id": u.user_id, "status": "error", "error": str(user_err)})
+                details.append({"user_id": user_id, "status": "error", "error": str(user_err)})
 
         results["details"] = details
         logger.info(f"Cron reminder summary: sent={results['sent']}, skipped={results['skipped']}, errors={results['errors']}")
