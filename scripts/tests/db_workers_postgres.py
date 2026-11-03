@@ -11,7 +11,9 @@ from playhouse.pool import PooledPostgresqlDatabase
 def verify(database_name, connection_args):
     from api import models
     from api.db_workers import db_worker
-    with patch.object(models, 'create_all_tables'):
+    # Legacy feedback imports `models` by its short name. Keep the harness on
+    # its already-created fixture model module; never run schema init here.
+    with patch.object(models, 'create_all_tables'), patch.dict('sys.modules', {'models': models}):
         from api.main import db_session_middleware
 
     events = []
