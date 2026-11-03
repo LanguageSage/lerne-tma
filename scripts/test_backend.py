@@ -49,6 +49,7 @@ SUITES = (
     'scripts/tests/test_sync_read_queries.py',
     'scripts/tests/test_forced_study.py',
     'scripts/tests/test_study_latency.py',
+    'scripts/tests/test_db_workers.py',
     'scripts/tests/test_interactive_markers.py',
     'scripts/tests/test_exercise_detection_corpus.py',
     'tests/test_knowledge_item_schema.py',

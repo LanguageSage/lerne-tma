@@ -18,6 +18,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from api.dependencies.auth import get_user_id
+from api.db_workers import uses_db_worker
 from api.permissions import is_admin
 
 from api import models, services
@@ -108,11 +109,14 @@ app.add_middleware(
 # Управление жизненным циклом соединений с базой данных (Peewee Connection Pool)
 @app.middleware("http")
 async def db_session_middleware(request, call_next):
+    worker_db = uses_db_worker(request)
+    # C1 routes own connections in workers; the remaining routes keep the
+    # existing middleware lifecycle. Never open/close a worker's DB on the loop.
     try:
-        if hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
+        if not worker_db and hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
             if models.tma_db.is_closed():
                 models.tma_db.connect(reuse_if_open=True)
-        if hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
+        if not worker_db and hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
             if models.lerne_db.is_closed():
                 models.lerne_db.connect(reuse_if_open=True)
     except Exception as e:
@@ -127,7 +131,7 @@ async def db_session_middleware(request, call_next):
         response = await call_next(request)
     except Exception as exc:
         exc_str = str(exc).lower()
-        if request.method in ('GET', 'HEAD') and any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof", "exceeded maximum connections"]):
+        if not worker_db and request.method in ('GET', 'HEAD') and any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof", "exceeded maximum connections"]):
             logger.warning(f"DB connection reset due to error: {exc}. Retrying HTTP request...")
             try:
                 if hasattr(models.tma_db, 'obj') and models.tma_db.obj:
@@ -145,13 +149,13 @@ async def db_session_middleware(request, call_next):
     finally:
         # Crucial: Always release DB connections back to the pool after the HTTP request is finished
         try:
-            if hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
+            if not worker_db and hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
                 if not models.tma_db.is_closed():
                     models.tma_db.close()
         except Exception:
             pass
         try:
-            if hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
+            if not worker_db and hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
                 if not models.lerne_db.is_closed():
                     models.lerne_db.close()
         except Exception:

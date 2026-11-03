@@ -9,6 +9,7 @@ try:
 except ImportError:
     import services, srs, models
 from api.dependencies.auth import get_user_id
+from api.db_workers import db_worker
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +17,7 @@ router = APIRouter(
     tags=["study"],
 )
 
-async def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
+def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
     """Формирует ответ с данными карты. Вынесено для переиспользования."""
     creator_name = None
     creator_avatar = None
@@ -108,7 +109,8 @@ async def _card_to_response(card, progress, user_id: int, review_context='schedu
     }
 
 @router.get("/study/stats")
-async def get_study_stats(user_id: int = Depends(get_user_id)):
+@db_worker(retry_reads=True)
+def get_study_stats(user_id: int = Depends(get_user_id)):
     """Возвращает аналитику интервального повторения (SRS) пользователя."""
     now = models.datetime.datetime.now()
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -228,7 +230,8 @@ async def get_study_stats(user_id: int = Depends(get_user_id)):
         }
 
 @router.get("/study/card/{card_id}")
-async def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
+@db_worker(retry_reads=True)
+def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     """Возвращает конкретную карту для изучения."""
     card = models.TMA_Card.get_or_none((models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
     if not card:
@@ -239,10 +242,11 @@ async def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
         user_id=user_id,
         defaults={"queue": "new", "next_review": models.datetime.datetime.now()}
     )
-    return await _card_to_response(card, progress, user_id)
+    return _card_to_response(card, progress, user_id)
 
 @router.get("/decks/{deck_id}/next")
-async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id), review_context: Literal['scheduled', 'forced'] = 'scheduled'):
+@db_worker(retry_reads=True)
+def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = False, user_id: int = Depends(get_user_id), review_context: Literal['scheduled', 'forced'] = 'scheduled'):
     """Выбор следующей карты для изучения (SRS)."""
     parsed_exclude = []
     if exclude_ids:
@@ -263,7 +267,7 @@ async def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool 
         return {"finished": True}
     
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
-    return await _card_to_response(card, progress, user_id, context)
+    return _card_to_response(card, progress, user_id, context)
 
 
 def _require_study_access(user_id, deck_id, card_id=None):
@@ -293,10 +297,11 @@ class StudyGradeRequest(BaseModel):
         return self
 
 @router.post("/study/grade")
-async def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
+@db_worker
+def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
     _require_study_access(user_id, data.deck_id, data.card_id)
     context = 'forced' if data.learn_more else data.review_context
-    async def run_grade():
+    def run_grade():
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
         services.update_card_progress(
             data.card_id,
@@ -316,10 +321,10 @@ async def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_
             return card
         if not card:
             return {"finished": True}
-        return await _card_to_response(card, progress, user_id, context)
+        return _card_to_response(card, progress, user_id, context)
 
     try:
-        return await run_grade()
+        return run_grade()
     except Exception as e:
         if "connection already closed" in str(e).lower():
             try:
@@ -328,7 +333,7 @@ async def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_
                 pass
             try:
                 models.tma_db.connect(reuse_if_open=True)
-                return await run_grade()
+                return run_grade()
             except Exception as retry_error:
                 logger.error(f"submit_grade RETRY ERROR: {retry_error}")
                 raise HTTPException(status_code=500, detail=str(retry_error))
@@ -336,7 +341,8 @@ async def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/study/duplicates/next")
-async def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_user_id)):
+@db_worker(retry_reads=True)
+def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_user_id)):
     """Выбор следующего дубликата для изучения."""
     parsed_exclude = []
     if exclude_ids:
@@ -347,10 +353,11 @@ async def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depend
     card, progress = services.get_next_duplicate_card(user_id, exclude_ids=parsed_exclude)
     if not card:
         return {"finished": True}
-    return await _card_to_response(card, progress, user_id)
+    return _card_to_response(card, progress, user_id)
 
 @router.post("/study/duplicates/grade")
-async def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
+@db_worker
+def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
     """Сохранение оценки для дубликата и переход к следующему."""
     services.update_card_progress(
         data['card_id'], 
@@ -363,4 +370,4 @@ async def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)
     card, progress = services.get_next_duplicate_card(user_id)
     if not card:
         return {"finished": True}
-    return await _card_to_response(card, progress, user_id)
+    return _card_to_response(card, progress, user_id)

@@ -1,5 +1,4 @@
 """Study/SRS regression tests; only the shared in-memory SQLite fixture is used."""
-import asyncio
 import datetime
 import importlib
 import json
@@ -20,6 +19,8 @@ NOW = datetime.datetime(2026, 10, 5, 12)
 
 
 class ForcedStudyTests(unittest.TestCase):
+    # Unit-level SRS checks use the synchronous body with the in-memory fixture.
+    # Real worker dispatch/connection ownership is covered by test_db_workers.py.
     def setUp(self):
         database.create_tables(TABLES)
         models.TMAUser.create(user_id=1)
@@ -49,13 +50,13 @@ class ForcedStudyTests(unittest.TestCase):
         self.assertEqual(cards.get_next_card(1, self.deck.id)[0].id, seen[0])
 
     def test_grade_route_uses_context_and_session_exclusions(self):
-        async def response(card, progress, user_id, review_context='scheduled'):
+        def response(card, progress, user_id, review_context='scheduled'):
             return {'id': card.id, 'context': review_context}
         seen = [self.cards[0].id, self.cards[1].id]
         with patch.object(router, '_card_to_response', response):
             request = router.StudyGradeRequest(card_id=seen[-1], deck_id=self.deck.id, grade=2,
                 review_context='forced', exclude_ids=seen)
-            result = asyncio.run(router.submit_grade(request, user_id=1))
+            result = router.submit_grade.__wrapped__(request, user_id=1)
         self.assertEqual(result, {'id': self.cards[2].id, 'context': 'forced'})
 
     def test_forced_order_ignores_queue_and_due_date(self):
@@ -86,11 +87,11 @@ class ForcedStudyTests(unittest.TestCase):
         from fastapi import HTTPException
         request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2)
         with self.assertRaises(HTTPException):
-            asyncio.run(router.submit_grade(request, user_id=2))
+            router.submit_grade.__wrapped__(request, user_id=2)
         other = models.TMA_Deck.create(user_id=1, name='Other')
         request.deck_id = other.id
         with self.assertRaises(HTTPException):
-            asyncio.run(router.submit_grade(request, user_id=1))
+            router.submit_grade.__wrapped__(request, user_id=1)
         self.assertEqual(models.TMAReviewHistory.select().count(), 0)
 
     def test_history_failure_rolls_back_srs(self):

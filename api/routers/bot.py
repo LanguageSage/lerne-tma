@@ -9,6 +9,7 @@ from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup, WebAppI
 from telegram.ext import Application
 
 from api.dependencies.auth import get_user_id
+from api.db_workers import db_worker
 from api import services
 
 router = APIRouter()
@@ -446,6 +447,7 @@ async def trigger_cron_reminders(
         return await services.check_and_send_all_reminders(ptb_app)
 
 @router.get("/bot/reminder-diagnostics")
-async def get_reminder_diagnostics_endpoint(user_id: int = Depends(get_user_id)):
+@db_worker(retry_reads=True)
+def get_reminder_diagnostics_endpoint(user_id: int = Depends(get_user_id)):
     """Возвращает диагностику напоминаний Telegram для текущего пользователя."""
     return services.get_user_reminder_diagnostics(user_id)

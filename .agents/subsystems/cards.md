@@ -438,3 +438,19 @@ legacyAdapter удалён, новый personal record создаётся неп
 [Реализация и проверки](../../docs/DESIGN_V2_STAGE5_LEGACY_REMOVAL.md).
 
 CI fixtures: `tests/fixtures/`, только вымышленные данные; приватные снимки и артефакты остаются в `local/test-data/`. Политика и воспроизводимость: [TEST_DATA](../../docs/TEST_DATA.md).
+
+## C1: выполнение DB-операций в worker-потоках
+
+Шесть прежних async-обработчиков `save_card`, `batch_move_cards`,
+`batch_copy_cards`, `batch_delete_cards`, `update_card`, `set_flag` выполняют
+синхронное тело через `api/db_workers.py`: один worker владеет соединением
+Peewee, проверками доступа, транзакциями сервисов и сериализацией ответа.
+Middleware пропускает своё DB-соединение только для помеченных маршрутов.
+Фоновая TTS сохранения получает снимок полей карточки; подготовка и сохранение
+в `ensure_card_audio(..., _offload_db=True)` открывают и закрывают отдельные
+worker-соединения, включая ошибки. Асинхронные TTS/Storage-клиенты остаются на
+исходном event loop; соединения не удерживаются во время сети. Условия auto-generate/force
+и защита от устаревшего результата TTS сохраняются.
+`scripts/tests/test_db_workers.py` проверяет реальные конкурентные ASGI-запросы
+с production middleware, thread-local SQLite без отключения thread safety,
+закрытие соединений, rollback и TTS; CI запускает suite через test_backend.py.
