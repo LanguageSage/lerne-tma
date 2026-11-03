@@ -257,6 +257,10 @@ Database schema, SRS/progress, receipts, permissions and deployment config are u
 
 ## Personal notes and messages
 
+All Notes, Ratings and Messages routes keep their SQL, existing transactions and
+row serialization inside a DB worker. Auth resolves the account in its own scope.
+The disposable PostgreSQL gate exercises these routes over HTTP with two pool slots.
+
 Сообщения, открытые из карточки, сохраняют `messageSourceView` отдельно от
 черновика: отправка и загрузка ветки не стирают точку возврата. Кнопка «Назад»,
 browser/native Back возвращают в исходный экран без сброса учебной сессии.

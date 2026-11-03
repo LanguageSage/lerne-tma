@@ -6,6 +6,7 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, Field
 from api.models import TMACardNote, TMA_Card, TMA_Deck
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.services.collaborative_service import _require_cards_access, get_effective_user_role
 
@@ -34,6 +35,7 @@ def serialize(note):
 
 
 @router.get('/deck/{deck_id}')
+@db_worker(retry_reads=True)
 def list_deck_notes(deck_id: int, user_id: int = Depends(get_user_id)):
     if not TMACardNote.table_exists():
         raise HTTPException(503, 'Card notes unavailable: migration 90 is required')
@@ -48,6 +50,7 @@ def list_deck_notes(deck_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.get('/{card_id}')
+@db_worker(retry_reads=True)
 def list_notes(card_id: int, user_id: int = Depends(get_user_id)):
     require_card(card_id, user_id)
     return [serialize(row) for row in TMACardNote.select().where(
@@ -56,6 +59,7 @@ def list_notes(card_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.put('/{card_id}/{note_id}')
+@db_worker
 def save_note(card_id: int, note_id: UUID, data: NoteWrite,
               user_id: int = Depends(get_user_id)):
     require_card(card_id, user_id)

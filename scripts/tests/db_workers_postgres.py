@@ -39,7 +39,7 @@ def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
     from api.db_workers import db_worker
-    from api.routers import knowledge, sync
+    from api.routers import card_notes, card_ratings, knowledge, messages, sync
     # Legacy feedback imports `models` by its short name. Keep the harness on
     # its already-created fixture model module; never run schema init here.
     # Do not snapshot/restore all sys.modules: that unloads newly imported PIL
@@ -71,6 +71,7 @@ def verify(database_name, connection_args):
             return super()._close(connection, close_conn=close_conn)
 
         def execute_sql(self, sql, *args, **kwargs):
+            events.append(('sql', threading.get_ident(), None))
             cursor = super().execute_sql(sql, *args, **kwargs)
             if disconnect_review.is_set() and sql.startswith('INSERT INTO "tmareviewhistory"'):
                 disconnect_review.clear()
@@ -87,6 +88,8 @@ def verify(database_name, connection_args):
     app.middleware('http')(db_session_middleware)
     app.include_router(sync.router, prefix='/api')
     app.include_router(knowledge.router, prefix='/api')
+    for router in (card_notes.router, card_ratings.router, messages.router):
+        app.include_router(router, prefix='/api')
 
     @app.get('/hold')
     @db_worker
@@ -151,6 +154,7 @@ def verify(database_name, connection_args):
             assert (await client.get('/read')).status_code == 200
             await verify_sync(client, pool, headers, accounts[1].account_id, disconnect_review)
             await verify_knowledge(client, pool, headers, [account.account_id for account in accounts])
+            await verify_communications(client, pool, headers, [account.account_id for account in accounts])
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -356,3 +360,106 @@ async def verify_knowledge(client, pool, headers, account_ids):
             assert data['materialized_state']['evidence_event_count'] == 1
     print('PASS: pooled Knowledge HTTP ownership, replay, authorization, projection rollback and diagnostics',
           flush=True)
+
+
+async def verify_communications(client, pool, headers, accounts):
+    from api import models
+    from api.db_workers import run_db
+
+    def seed():
+        deck = models.TMA_Deck.create(user_id=accounts[0], name='Shared communication fixture')
+        card = models.TMA_Card.create(deck=deck, front_text='Front', back_text='Back')
+        grant = models.TMA_Collaborator.create(target_type='deck', target_id=deck.id,
+                                              user_id=accounts[1], role='viewer')
+        return deck.id, card.id, grant.id
+
+    deck, card, grant = await run_db(seed)
+    note_id, root_id, reply_id = (str(uuid4()) for _ in range(3))
+    notes = f'/card-notes/{card}'
+    note = f'{notes}/{note_id}'
+    ratings = f'/card-ratings/{card}'
+    rating_list = f'/card-ratings/deck/{deck}'
+    root = f'/messages/{root_id}'
+
+    async def request(method, path, data=None, account=1, status=200):
+        auth = headers[account] if account is not None else {}
+        response = await client.request(method, '/api' + path, headers=auth, json=data)
+        assert response.status_code == status, (path, response.text)
+        return response.json() if status == 200 else None
+
+    await request('GET', notes, account=None, status=401)
+    await request('PUT', note, {'text': ' '}, status=422)
+    first = await request('PUT', note, {'text': 'Private note'})
+    assert first['id'] == note_id and first['user_id'] == accounts[1]
+    await request('PUT', note, {'text': 'Collision'}, account=0, status=404)
+    assert await request('GET', notes, account=0) == []
+    assert await request('GET', f'/card-notes/deck/{deck}') == [first]
+
+    # A failed update must roll back the preceding UUID insert.
+    def reject_update():
+        pool.execute_sql("""CREATE FUNCTION fail_note_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'fixture update failure'; END $$""")
+        pool.execute_sql("""CREATE TRIGGER fail_note_fixture BEFORE UPDATE ON tma_card_note
+            FOR EACH ROW EXECUTE FUNCTION fail_note_fixture()""")
+
+    await run_db(reject_update)
+    failed_note = str(uuid4())
+    try:
+        await request('PUT', f'{notes}/{failed_note}', {'text': 'Rollback'}, status=500)
+        assert not await run_db(models.TMACardNote.get_or_none, models.TMACardNote.id == failed_note)
+        assert not pool._in_use
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION fail_note_fixture() CASCADE')
+
+    root_data = {'text': 'Suggestion', 'card_id': card}
+    limiter = to_thread.current_default_thread_limiter()
+    tokens = limiter.total_tokens
+    limiter.total_tokens = 2
+    try:
+        edited = await asyncio.gather(*(request('PUT', note, {'text': 'Updated'}) for _ in range(4)))
+        assert sorted(row['revision'] for row in edited) == list(range(first['revision'] + 1,
+                                                                     first['revision'] + 5))
+        votes = await asyncio.gather(*(request('PUT', ratings, {'rating': 1}) for _ in range(4)))
+        assert all(row['rating'] == 1 for row in votes)
+        threads = await asyncio.gather(*(request('PUT', root, root_data) for _ in range(4)))
+        assert all(row == threads[0] for row in threads)
+    finally:
+        limiter.total_tokens = tokens
+
+    assert (await request('PUT', note, {'is_deleted': True}))['is_deleted']
+    assert (await request('PUT', note, {'text': 'Late edit'}))['is_deleted']
+    assert (await request('GET', notes))[0]['is_deleted']
+    assert (await request('PUT', ratings, {'rating': -1, 'reason': 'unclear'}))['reason'] == 'unclear'
+    await request('PUT', ratings, {'rating': 1, 'reason': 'unclear'}, status=422)
+    assert await request('GET', rating_list, account=0) == []
+    assert len(await request('GET', rating_list)) == 1
+    for _ in range(2):
+        assert (await request('PUT', ratings, {'rating': None}))['rating'] is None
+    assert await request('GET', rating_list) == []
+
+    assert await request('GET', '/messages', account=0) == []
+    await request('GET', root, account=0, status=404)
+    await request('PUT', root, {'text': 'Conflicting retry'}, status=409)
+    assert await request('GET', root + '/card') == {'id': card, 'deck_id': deck}
+    reply_path = f'/messages/{reply_id}'
+    reply = await request('PUT', reply_path, {'text': 'My reply', 'thread_id': root_id})
+    await request('PUT', f'/messages/{uuid4()}', {'text': 'Other account', 'thread_id': root_id},
+                  account=0, status=404)
+    assert await request('GET', root) == [threads[0], reply]
+    await run_db(models.TMAUserMessage.create, id=str(uuid4()), user_id=accounts[1],
+                 sender='admin', kind='reply', text='Admin reply', thread=root_id)
+    assert (await request('GET', '/messages'))[0]['unread_count'] == 1
+    for read, unread in ((True, 0), (True, 0), (False, 1)):
+        await request('PUT', root + '/read', {'read': read})
+        assert (await request('GET', '/messages'))[0]['unread_count'] == unread
+
+    await run_db(models.TMA_Collaborator.delete_by_id, grant)
+    for path in (notes, f'/card-notes/deck/{deck}', rating_list, root + '/card'):
+        await request('GET', path, status=403)
+    await request('PUT', note, {'text': 'Revoked'}, status=403)
+    await request('PUT', ratings, {'rating': 1}, status=403)
+    await request('PUT', f'/messages/{uuid4()}', root_data, status=403)
+    assert await request('PUT', root, root_data) == threads[0]
+    assert len(await request('GET', root)) == 3
+    assert not pool._in_use
+    print('PASS: pooled Notes, Ratings and Messages HTTP, concurrency, rollback and isolation', flush=True)

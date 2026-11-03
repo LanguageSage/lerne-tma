@@ -5,6 +5,7 @@ from typing import Literal, Optional
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, ConfigDict, model_validator
 from api.models import TMACardRating, TMA_Card, TMA_Deck
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.services.collaborative_service import _require_cards_access, get_effective_user_role
 
@@ -35,6 +36,7 @@ def serialize(row):
 
 
 @router.get('/deck/{deck_id}')
+@db_worker(retry_reads=True)
 def list_deck_ratings(deck_id: int, user_id: int = Depends(get_user_id)):
     require_table()
     if not TMA_Deck.select().where((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False)).exists():
@@ -47,6 +49,7 @@ def list_deck_ratings(deck_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.put('/{card_id}')
+@db_worker
 def save_rating(card_id: int, data: RatingWrite, user_id: int = Depends(get_user_id)):
     _require_cards_access([card_id], user_id, write=False)
     if not TMA_Card.select().where((TMA_Card.id == card_id) & (TMA_Card.is_deleted == False)).exists():

@@ -52,15 +52,15 @@ class CardCommunicationTests(unittest.TestCase):
         database.execute_sql('DROP TABLE tma_migration_history')
 
     def save(self, user=1, note_id=None, card=None, **values):
-        return router.save_note(card or self.card.id, note_id or uuid4(),
+        return router.save_note.__wrapped__(card or self.card.id, note_id or uuid4(),
             router.NoteWrite(**{'text': 'Remember', **values}), user)
 
     def test_private_notes_viewer_edit_retry_and_purge(self):
         note = self.save(user=2)
-        self.assertEqual(router.list_notes(self.card.id, 1), [])
-        self.assertEqual(router.list_notes(self.card.id, 2)[0]['text'], 'Remember')
-        self.assertEqual(router.list_deck_notes(self.deck.id, 1), [])
-        self.assertEqual(len(router.list_deck_notes(self.deck.id, 2)), 1)
+        self.assertEqual(router.list_notes.__wrapped__(self.card.id, 1), [])
+        self.assertEqual(router.list_notes.__wrapped__(self.card.id, 2)[0]['text'], 'Remember')
+        self.assertEqual(router.list_deck_notes.__wrapped__(self.deck.id, 1), [])
+        self.assertEqual(len(router.list_deck_notes.__wrapped__(self.deck.id, 2)), 1)
         self.save(user=2, note_id=note['id'], text='Updated')
         self.assertEqual(models.TMACardNote.select().count(), 1)
         with self.assertRaises(HTTPException) as caught:
@@ -70,20 +70,20 @@ class CardCommunicationTests(unittest.TestCase):
         self.assertTrue(deleted['is_deleted'])
         self.assertTrue(self.save(user=2, note_id=note['id'])['is_deleted'])
         with self.assertRaises(HTTPException):
-            router.list_notes(self.card.id, 3)
+            router.list_notes.__wrapped__(self.card.id, 3)
         self.card.delete_instance()
         self.assertEqual(models.TMACardNote.select().count(), 0)
 
     def test_deck_batch_requires_read_access(self):
         with self.assertRaises(HTTPException) as caught:
-            router.list_deck_notes(self.deck.id, 3)
+            router.list_deck_notes.__wrapped__(self.deck.id, 3)
         self.assertEqual(caught.exception.status_code, 403)
 
     def test_full_ai_answer_fits_personal_note(self):
         text = 'Question\n\n' + 'Answer ' * 2000
         note = self.save(text=text)
         self.assertEqual(note['text'], text.strip())
-        self.assertEqual(router.list_deck_notes(self.deck.id, 1)[0]['text'], text.strip())
+        self.assertEqual(router.list_deck_notes.__wrapped__(self.deck.id, 1)[0]['text'], text.strip())
 
     def test_messages_thread_read_receipt_retry_and_deleted_card_history(self):
         message_id, reply_id = str(uuid4()), str(uuid4())
@@ -105,47 +105,47 @@ class CardCommunicationTests(unittest.TestCase):
     def test_message_api_private_thread_suggestion_retry_and_receipts(self):
         root_id, reply_id = uuid4(), uuid4()
         request = messages.MessageWrite(text='Fix typo', card_id=self.card.id)
-        first = messages.send_message(root_id, request, 2)
+        first = messages.send_message.__wrapped__(root_id, request, 2)
         self.assertEqual((first['kind'], first['card_id'], first['link']),
                          ('suggestion', self.card.id, f'/cards/{self.card.id}'))
-        self.assertEqual(messages.send_message(root_id, request, 2)['id'], str(root_id))
-        self.assertEqual(messages.conversation_card(root_id, 2), {'id': self.card.id, 'deck_id': self.card.deck_id})
+        self.assertEqual(messages.send_message.__wrapped__(root_id, request, 2)['id'], str(root_id))
+        self.assertEqual(messages.conversation_card.__wrapped__(root_id, 2), {'id': self.card.id, 'deck_id': self.card.deck_id})
         self.assertEqual(models.TMAProgress.select().count(), 0)
-        self.assertEqual(messages.conversations(2)[0]['incoming_count'], 0)
+        self.assertEqual(messages.conversations.__wrapped__(2)[0]['incoming_count'], 0)
         self.assertEqual(models.TMAUserMessage.select().count(), 1)
-        self.assertEqual(messages.conversations(1), [])
-        for action in (lambda: messages.conversation(root_id, 1),
-                       lambda: messages.conversation_card(root_id, 1),
-                       lambda: messages.mark_read(root_id, messages.ReadWrite(read=True), 1),
-                       lambda: messages.send_message(reply_id,
+        self.assertEqual(messages.conversations.__wrapped__(1), [])
+        for action in (lambda: messages.conversation.__wrapped__(root_id, 1),
+                       lambda: messages.conversation_card.__wrapped__(root_id, 1),
+                       lambda: messages.mark_read.__wrapped__(root_id, messages.ReadWrite(read=True), 1),
+                       lambda: messages.send_message.__wrapped__(reply_id,
                            messages.MessageWrite(text='Steal', thread_id=root_id), 1)):
             with self.assertRaises(HTTPException) as caught:
                 action()
             self.assertEqual(caught.exception.status_code, 404)
         with self.assertRaises(HTTPException):
-            messages.send_message(root_id, messages.MessageWrite(text='Changed', card_id=self.card.id), 2)
+            messages.send_message.__wrapped__(root_id, messages.MessageWrite(text='Changed', card_id=self.card.id), 2)
         models.TMAUserMessage.create(id=str(reply_id), user_id=2, sender='admin',
                                      kind='reply', text='Done', thread=str(root_id))
-        self.assertEqual(len(messages.conversation(root_id, 2)), 2)
-        user_reply = messages.send_message(uuid4(),
+        self.assertEqual(len(messages.conversation.__wrapped__(root_id, 2)), 2)
+        user_reply = messages.send_message.__wrapped__(uuid4(),
             messages.MessageWrite(text='Thank you', thread_id=root_id), 2)
         self.assertEqual((user_reply['kind'], user_reply['thread_id']), ('reply', str(root_id)))
-        self.assertEqual(len(messages.conversation(root_id, 2)), 3)
-        self.assertEqual(messages.conversations(2)[0]['unread_count'], 1)
-        self.assertEqual(messages.conversations(2)[0]['incoming_count'], 1)
-        messages.mark_read(root_id, messages.ReadWrite(read=True), 2)
-        self.assertEqual(messages.conversations(2)[0]['unread_count'], 0)
-        messages.mark_read(root_id, messages.ReadWrite(read=False), 2)
-        self.assertEqual(messages.conversations(2)[0]['unread_count'], 1)
+        self.assertEqual(len(messages.conversation.__wrapped__(root_id, 2)), 3)
+        self.assertEqual(messages.conversations.__wrapped__(2)[0]['unread_count'], 1)
+        self.assertEqual(messages.conversations.__wrapped__(2)[0]['incoming_count'], 1)
+        messages.mark_read.__wrapped__(root_id, messages.ReadWrite(read=True), 2)
+        self.assertEqual(messages.conversations.__wrapped__(2)[0]['unread_count'], 0)
+        messages.mark_read.__wrapped__(root_id, messages.ReadWrite(read=False), 2)
+        self.assertEqual(messages.conversations.__wrapped__(2)[0]['unread_count'], 1)
         self.card.is_deleted = True
         self.card.save()
         with self.assertRaises(HTTPException) as caught:
-            messages.conversation_card(root_id, 2)
+            messages.conversation_card.__wrapped__(root_id, 2)
         self.assertEqual(caught.exception.status_code, 404)
 
     def test_suggestion_requires_card_access(self):
         with self.assertRaises(HTTPException):
-            messages.send_message(uuid4(), messages.MessageWrite(text='Other', card_id=99999), 2)
+            messages.send_message.__wrapped__(uuid4(), messages.MessageWrite(text='Other', card_id=99999), 2)
         self.assertEqual(models.TMAUserMessage.select().count(), 0)
 
     def test_migration_rerun_and_wrong_schema_fail_closed(self):
