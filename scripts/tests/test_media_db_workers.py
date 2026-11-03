@@ -24,7 +24,7 @@ from api.routers import media
 from scripts.tests import test_db_workers as fixtures
 
 
-class MediaDbWorkerTests(unittest.TestCase):
+class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
     database_factory = None
 
     def setUp(self):
@@ -71,32 +71,6 @@ class MediaDbWorkerTests(unittest.TestCase):
             self.db.close_all()
         models.tma_db.initialize(self.previous[0])
         models.lerne_db.initialize(self.previous[1])
-
-    def assert_released(self):
-        active = {}
-        for action, thread, connection in self.db.events:
-            self.assertNotEqual(thread, threading.get_ident(), 'SQL/lifecycle ran on event loop')
-            if action == 'open':
-                self.assertNotIn(connection, active)
-                active[connection] = thread
-            else:
-                self.assertEqual(active.get(connection), thread, 'Connection crossed threads')
-                if action == 'close':
-                    del active[connection]
-        self.assertFalse(active, 'A media phase leaked its connection')
-        if hasattr(self.db, '_in_use'):
-            self.assertFalse(self.db._in_use)
-
-    def run_asgi(self, operation):
-        self.db.events.clear()
-        async def run():
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(
-                    app=self.app, raise_app_exceptions=False), base_url='http://fixture') as client:
-                return await operation(client)
-        try:
-            return asyncio.run(run())
-        finally:
-            self.assert_released()
 
     async def saved_card(self):
         return await run_db(lambda: models.TMA_Card.get_by_id(self.card.id).__data__.copy())

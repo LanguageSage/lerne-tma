@@ -23,6 +23,7 @@ TTS — [media](media.md); feedback lifecycle — [study](study.md); persistence
 2. Ответ обновляет черновик карточки; сохранение проходит через существующий cards flow.
 3. BatchCardModal → generate-batch/enrich-batch → prepare_ai_batch → AI → save_ai_batch_result → результат по исходным строкам.
 4. Pending import удерживает payload/`import_id` при неизвестном результате запроса; серверная квитанция позволяет повтор.
+   AI и settings обходят legacy DB middleware. Async AI получает настройки и данные промпта через короткие `run_db` scopes. Вызов провайдера идёт после освобождения соединения. Settings CRUD выполняет запросы и материализует ответ в одном worker.
 5. Free-text клиент → `/ai/evaluate-answer`; сервер загружает карточку, accepted answers, grading policy и primary KI.
 6. Детерминированные правила пробуют exact/typo; затем bounded AI fallback возвращает валидированный verdict или unavailable.
 7. Verdict идёт в существующий study lifecycle; Attempt сохраняется при grade через Knowledge capture.

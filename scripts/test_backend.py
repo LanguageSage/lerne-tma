@@ -51,6 +51,7 @@ SUITES = (
     'scripts/tests/test_study_latency.py',
     'scripts/tests/test_db_workers.py',
     'scripts/tests/test_media_db_workers.py',
+    'scripts/tests/test_ai_settings_db_workers.py',
     'scripts/tests/test_db_initialization.py',
     'scripts/tests/test_interactive_markers.py',
     'scripts/tests/test_exercise_detection_corpus.py',
