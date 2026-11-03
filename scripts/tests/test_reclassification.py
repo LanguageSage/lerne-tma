@@ -191,6 +191,13 @@ class ReclassificationTests(unittest.TestCase):
 
 
 class StrictProviderTests(unittest.IsolatedAsyncioTestCase):
+    def setUp(self):
+        # Provider-only tests mock configuration, but still enter a real DB scope.
+        from peewee import SqliteDatabase
+
+        self.addCleanup(models.tma_db.initialize, models.tma_db.obj)
+        models.tma_db.initialize(SqliteDatabase(':memory:'))
+
     async def test_provider_errors_short_invalid_or_unconfigured_result_raise(self):
         for response, success in [('secret error', False), ('["A1"]', True), ('["A1", "oops"]', True), ('truncated [', True)]:
             with self.subTest(response=response), patch.object(ai_service, 'get_ai_config', return_value=('google', 'fixture', 'gemini-fixture')), \

@@ -1,4 +1,4 @@
-"""Run media regressions in fresh schemas of the disposable security-test DB."""
+"""Run DB phase regressions in fresh schemas of the disposable security-test DB."""
 import threading
 import unittest
 from uuid import uuid4
@@ -9,6 +9,7 @@ from playhouse.pool import PooledPostgresqlDatabase
 
 def verify(database_name, connection_args):
     from scripts.tests.test_media_db_workers import MediaDbWorkerTests
+    from scripts.tests.test_ai_settings_db_workers import AiSettingsDbWorkerTests
     assert database_name.startswith('lerne_security_test_')
     admin = PostgresqlDatabase(database_name, **connection_args)
     schemas = []
@@ -40,14 +41,13 @@ def verify(database_name, connection_args):
         schemas.append(schema)
         return Pool(schema)
 
-    class PostgresMediaTests(MediaDbWorkerTests):
-        database_factory = staticmethod(factory)
-
     try:
-        result = unittest.TextTestRunner(verbosity=1).run(
-            unittest.defaultTestLoader.loadTestsFromTestCase(PostgresMediaTests))
-        assert result.wasSuccessful() and not result.skipped, 'PostgreSQL media regressions failed'
-        print('PASS: media contracts, concurrent requests, TTS scopes and cleanup with PostgreSQL pool limit 2', flush=True)
+        for case in (MediaDbWorkerTests, AiSettingsDbWorkerTests):
+            postgres_case = type("Postgres" + case.__name__, (case,), {"database_factory": staticmethod(factory)})
+            result = unittest.TextTestRunner(verbosity=1).run(
+                unittest.defaultTestLoader.loadTestsFromTestCase(postgres_case))
+            assert result.wasSuccessful() and not result.skipped, f'PostgreSQL {case.__name__} failed'
+            print(f'PASS: {case.__name__} with PostgreSQL pool limit 2', flush=True)
     finally:
         with admin.connection_context():
             for schema in schemas:

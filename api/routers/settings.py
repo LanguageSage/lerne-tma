@@ -15,11 +15,13 @@ router = APIRouter(
 logger = logging.getLogger(__name__)
 
 # User Settings (Custom Prompts Manager)
-from api import ai_service
+from api import ai_service, ai_clients
+from api.db_workers import db_phases, db_worker, run_db
 
 
 
 @router.get("/user/settings")
+@db_worker
 def get_user_settings_endpoint(user_id: int = Depends(get_user_id)):
     try:
         return {**read_user_settings(user_id), '_designMigrationVersion': 1}
@@ -29,6 +31,7 @@ def get_user_settings_endpoint(user_id: int = Depends(get_user_id)):
 
 
 @router.post("/user/settings")
+@db_worker
 def save_user_settings_endpoint(data: dict, user_id: int = Depends(get_user_id)):
     try:
         if not isinstance(data, dict):
@@ -42,10 +45,12 @@ def save_user_settings_endpoint(data: dict, user_id: int = Depends(get_user_id))
         raise HTTPException(status_code=500, detail="Failed to save user settings")
 
 @router.get("/user/reminder-settings")
+@db_worker
 def get_user_reminder_settings_endpoint(user_id: int = Depends(get_user_id)):
     return services.get_user_reminder_settings(user_id)
 
 @router.post("/user/reminder-settings")
+@db_worker
 def save_user_reminder_settings_endpoint(data: dict, user_id: int = Depends(get_user_id)):
     success = services.save_user_reminder_settings(user_id, data)
     if success:
@@ -53,6 +58,7 @@ def save_user_reminder_settings_endpoint(data: dict, user_id: int = Depends(get_
     raise HTTPException(status_code=500, detail="Failed to save reminder settings")
 
 @router.get("/user/prompts")
+@db_worker
 def get_user_prompts(target_language: str = "de", native_language: str = None, user_id: int = Depends(get_user_id)):
     custom_prompts = []
     active_standard_prompt_id = None
@@ -139,6 +145,7 @@ def get_user_prompts(target_language: str = "de", native_language: str = None, u
     }
 
 @router.post("/user/prompts")
+@db_worker
 def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
     prompt_id = data.get('id')
     name = data.get('name', 'Мой промпт')
@@ -177,6 +184,7 @@ def save_user_prompt(data: dict, user_id: int = Depends(get_user_id)):
     return {"status": "ok", "id": p.id}
 
 @router.delete("/user/prompts/{prompt_id}")
+@db_worker
 def delete_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
     p = models.TMACustomPrompt.get_or_none((models.TMACustomPrompt.id == prompt_id) & (models.TMACustomPrompt.user_id == user_id))
     if not p:
@@ -185,6 +193,7 @@ def delete_user_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
     return {"status": "ok"}
 
 @router.post("/user/prompts/{prompt_id}/activate")
+@db_worker
 def activate_user_prompt(prompt_id: int, data: dict = None, user_id: int = Depends(get_user_id)):
     target_lang = (data.get('target_language') if data else 'de') or 'de'
     target_type = (data.get('prompt_type') if data else None)
@@ -207,6 +216,7 @@ def activate_user_prompt(prompt_id: int, data: dict = None, user_id: int = Depen
     return {"status": "ok"}
 
 @router.post("/user/prompts/deactivate")
+@db_worker
 def deactivate_user_prompts(data: dict = None, user_id: int = Depends(get_user_id)):
     target_lang = (data.get('target_language') if data else 'de') or 'de'
     ptype = (data.get('prompt_type') if data else 'standard') or 'standard'
@@ -218,6 +228,7 @@ def deactivate_user_prompts(data: dict = None, user_id: int = Depends(get_user_i
     return {"status": "ok"}
 
 @router.post("/user/prompts/preset/{preset_id}/activate")
+@db_worker
 def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Depends(get_user_id)):
     target_lang = (data.get('target_language') if data else 'de') or 'de'
     native_lang = (data.get('native_language') if data else None)
@@ -264,6 +275,7 @@ def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Dep
 
 # Admin Settings
 @router.get("/admin/settings")
+@db_worker
 def get_admin_settings(user_id: int = Depends(get_user_id)):
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
@@ -273,6 +285,7 @@ def get_admin_settings(user_id: int = Depends(get_user_id)):
     return settings
 
 @router.post("/admin/settings")
+@db_worker
 def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
@@ -300,30 +313,35 @@ def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
         logger.error(f"Error saving settings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
+def _model_list_settings(provider, url):
+    if not provider:
+        provider_rec = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PROVIDER")
+        provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
+
+    if not url:
+        url_rec = models.TMASetting.get_or_none(models.TMASetting.key == "OLLAMA_URL")
+        url = url_rec.value if url_rec else None
+
+    return provider, url
+
+
 @router.get("/settings/models")
+@db_phases
 async def list_models(provider: str = None, url: str = None, user_id: int = Depends(get_user_id)):
     """Unified endpoint for model listing, used by AITab."""
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
-    import ai_service
-    if not provider:
-        provider_rec = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PROVIDER")
-        provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
-    
-    if not url:
-        url_rec = models.TMASetting.get_or_none(models.TMASetting.key == "OLLAMA_URL")
-        url = url_rec.value if url_rec else None
-    
+    if not provider or not url:
+        provider, url = await run_db(_model_list_settings, provider, url)
     return await ai_service.get_provider_models(provider, url)
 
 @router.get("/settings/test-ai")
+@db_phases
 async def test_ai_connection(user_id: int = Depends(get_user_id)):
     """Unified test endpoint for AITab: tests all configured keys individually."""
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
-    import ai_service
-    import ai_clients
-    provider, ai_key, model = ai_service.get_ai_config()
+    provider, ai_key, model = await run_db(ai_service.get_ai_config)
     
     if not model:
         model = "gemini-2.0-flash" if provider == "google" else "llama3-8b-8192"
@@ -362,18 +380,21 @@ async def test_ai_connection(user_id: int = Depends(get_user_id)):
     }
 
 @router.get("/admin/presets")
+@db_worker
 def get_admin_presets(user_id: int = Depends(get_user_id)):
     if not is_admin(user_id): raise HTTPException(403, 'Admin only')
     return []
 
 # Community Moderation
 @router.get("/admin/community/decks")
+@db_worker
 def get_community_decks(user_id: int = Depends(get_user_id)):
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can view community decks")
     return services.get_community_content(user_id)
 
 @router.post("/admin/community/promote/{deck_id}")
+@db_worker
 def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can promote decks")
@@ -384,6 +405,7 @@ def promote_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 
 # Admin Prompt Management Endpoints
 @router.get("/admin/prompts/all")
+@db_worker
 def get_all_prompts(user_id: int = Depends(get_user_id)):
     if not is_admin(user_id): raise HTTPException(403, 'Admin only')
     """Returns all custom prompts from all users along with author user details."""
@@ -428,6 +450,7 @@ def get_all_prompts(user_id: int = Depends(get_user_id)):
     }
 
 @router.post("/admin/prompts/set-global/{prompt_id}")
+@db_worker
 def set_global_default_prompt(prompt_id: int, user_id: int = Depends(get_user_id)):
     if not is_admin(user_id): raise HTTPException(403, 'Admin only')
     """Sets a specific prompt ID as the global default system prompt for all users."""
@@ -457,6 +480,7 @@ def set_global_default_prompt(prompt_id: int, user_id: int = Depends(get_user_id
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/design/global")
+@db_worker
 def get_global_design(user_id: int = Depends(get_user_id)):
     """Returns the current globally published Design Config V2.
     Public endpoint — all authenticated users can read it.
@@ -472,6 +496,7 @@ def get_global_design(user_id: int = Depends(get_user_id)):
 
 
 @router.post("/admin/design/publish")
+@db_worker
 def publish_global_design(data: dict, user_id: int = Depends(get_user_id)):
     """Publishes a new global Design Config V2 for all users.
     Admin-only. Server creates revision and updatedAt (not trusted from client).
@@ -521,6 +546,7 @@ def publish_global_design(data: dict, user_id: int = Depends(get_user_id)):
 
 
 @router.get("/admin/design/draft")
+@db_worker
 def get_admin_design_draft(user_id: int = Depends(get_user_id)):
     """Returns the admin's current design draft (not published).
     Admin-only."""
@@ -537,6 +563,7 @@ def get_admin_design_draft(user_id: int = Depends(get_user_id)):
 
 
 @router.post("/admin/design/draft")
+@db_worker
 def save_admin_design_draft(data: dict, user_id: int = Depends(get_user_id)):
     """Saves the admin's design draft (not published to users).
     Admin-only. Client sends: {"config": {...}}"""

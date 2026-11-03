@@ -5,6 +5,7 @@ import logging
 import asyncio
 from api import ai_service, models, services
 from api.dependencies.auth import get_user_id
+from api.db_workers import db_phases, run_db
 from api.services.cefr_metadata import build_ai_cefr_payload
 from api.services.answer_contract import AnswerEvaluation, GradingPolicy
 
@@ -30,6 +31,7 @@ class AnswerEvaluationResponse(BaseModel):
 
 
 @router.post('/ai/evaluate-answer', response_model=AnswerEvaluationResponse)
+@db_phases
 async def evaluate_free_text(request: AnswerEvaluationRequest, user_id: int = Depends(get_user_id)):
     from starlette.concurrency import run_in_threadpool
     from api.services.answer_evaluation import load_answer_context, evaluate_answer
@@ -55,6 +57,7 @@ class PhraseRequest(BaseModel):
     user_request: Optional[str] = None
 
 @router.get("/admin/models/{provider}")
+@db_phases
 async def list_models(provider: str, url: str = None):
     """Lists available models for a given provider."""
     return await ai_service.get_provider_models(provider, url)
@@ -66,6 +69,7 @@ class TestAIRequest(BaseModel):
     ollama_url: str = None
 
 @router.post("/admin/test-ai")
+@db_phases
 async def test_ai_connection(request: TestAIRequest):
     """Tests if the AI provider is reachable and working."""
     import ai_clients
@@ -106,6 +110,11 @@ class EnrichBatchRequest(BatchOptions):
     cards: list[dict] = Field(min_length=1, max_length=30)
 
 
+def _ai_batch_detect_level():
+    setting = models.TMASetting.get_or_none(models.TMASetting.key == 'AI_DETECT_LEVEL')
+    return not setting or setting.value.lower() != 'false'
+
+
 async def _run_ai_batch(request, user_id, mode):
     request_data = {**request.model_dump(mode='json', exclude={'import_id'}), 'mode': mode}
     import_id = str(request.import_id) if request.import_id else None
@@ -128,8 +137,7 @@ async def _run_ai_batch(request, user_id, mode):
             if not res.get('cards'):
                 raise HTTPException(502, 'ИИ не вернул карточки. Ничего не сохранено.')
             if mode == 'generate':
-                setting = models.TMASetting.get_or_none(models.TMASetting.key == 'AI_DETECT_LEVEL')
-                if not setting or setting.value.lower() != 'false':
+                if await run_db(_ai_batch_detect_level):
                     try:
                         levels = await asyncio.wait_for(ai_service.classify_phrases_batch(
                             [c['front'] for c in res['cards']], target_lang), timeout=10)
@@ -151,12 +159,14 @@ async def _run_ai_batch(request, user_id, mode):
 
 @router.post("/ai/enrich-batch")
 @router.post("/cards/ai-enrich-batch")
+@db_phases
 async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends(get_user_id)):
     return await _run_ai_batch(request, user_id, 'enrich')
 
 
 @router.post("/ai/generate")
 @router.post("/cards/ai-generate")
+@db_phases
 async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_id)):
     return await ai_service.generate_card_fields(
         user_id=user_id,
@@ -170,6 +180,7 @@ async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_
 
 @router.post("/ai/generate-batch")
 @router.post("/cards/ai-generate-batch")
+@db_phases
 async def generate_batch_cards(request: BatchRequest, user_id: int = Depends(get_user_id)):
     return await _run_ai_batch(request, user_id, 'generate')
 
@@ -183,6 +194,7 @@ class ClassifyBatchRequest(BaseModel):
 
 
 @router.post("/cards/classify-batch")
+@db_phases
 async def classify_cards_batch_endpoint(request: ClassifyBatchRequest, user_id: int = Depends(get_user_id)):
     from api.services.reclassification import classify_batch
     return await classify_batch(request, user_id)

@@ -7,6 +7,8 @@ import asyncio
 logger = logging.getLogger(__name__)
 
 from api.models import TMASetting, TMACustomPrompt
+from api.db_workers import run_db
+from threading import Lock
 from api.ai_clients import AIService
 # Service imports — no circular dependency since none of these import ai_service
 from api.services.language_service import (
@@ -25,18 +27,22 @@ from api.services.input_parser import (
 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
 
 _AI_CONFIG_CACHE = {"data": None, "ts": 0}
+_AI_CONFIG_LOCK = Lock()
 _AI_CONFIG_CACHE_TTL = 60  # 60 seconds cache
 
 def invalidate_ai_config_cache():
     """Invalidates the in-memory AI configuration cache."""
-    _AI_CONFIG_CACHE["data"] = None
-    _AI_CONFIG_CACHE["ts"] = 0
+    global _AI_CONFIG_CACHE
+    with _AI_CONFIG_LOCK:
+        _AI_CONFIG_CACHE = {"data": None, "ts": 0}
 
 def get_ai_config(force_refresh: bool = False):
     import os
     now = time.time()
-    if not force_refresh and _AI_CONFIG_CACHE["data"] is not None and (now - _AI_CONFIG_CACHE["ts"] < _AI_CONFIG_CACHE_TTL):
-        return _AI_CONFIG_CACHE["data"]
+    with _AI_CONFIG_LOCK:
+        cache = _AI_CONFIG_CACHE
+        if not force_refresh and cache["data"] is not None and now - cache["ts"] < _AI_CONFIG_CACHE_TTL:
+            return cache["data"]
 
     provider_rec = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")
     provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
@@ -55,9 +61,35 @@ def get_ai_config(force_refresh: bool = False):
     model = model_rec.value if model_rec else None
     
     config = (provider, ai_key, model)
-    _AI_CONFIG_CACHE["data"] = config
-    _AI_CONFIG_CACHE["ts"] = now
+    with _AI_CONFIG_LOCK:
+        if cache is _AI_CONFIG_CACHE and now >= cache["ts"]:
+            cache.update(data=config, ts=now)
     return config
+
+def _generation_settings(native_language, default_native):
+    if not native_language:
+        row = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
+        native_language = row.value if row else default_native
+    return (native_language or default_native).lower(), get_ai_config()
+
+
+def _active_prompt(user_id, target_lang, prompt_type=None):
+    prompt = TMACustomPrompt
+    query = prompt.select(prompt.name, prompt.translation_prompt, prompt.context_prompt).where(
+        (prompt.user_id == user_id) & (prompt.is_active == True) &
+        ((prompt.target_language == target_lang) |
+         (prompt.target_language.is_null() if target_lang == 'de' else False)))
+    if prompt_type:
+        preferred = query.where(prompt.prompt_type == prompt_type).dicts().first()
+        if preferred:
+            return preferred
+    return query.dicts().first()
+
+
+def _full_card_prompt_settings(user_id, target_lang, prompt_type):
+    setting = TMASetting.get_or_none(TMASetting.key == "AI_DETECT_LEVEL")
+    return _active_prompt(user_id, target_lang, prompt_type), not setting or setting.value.lower() != "false"
+
 
 def extract_json_from_text(text: str, default_front: str) -> dict:
     """Decode complete JSON, never salvage fields from a broken response."""
@@ -132,7 +164,6 @@ async def generate_card_fields(
             preserve_exercise_marker,
             restore_exercise_content,
         )
-        from api.models import TMACustomPrompt, TMASetting
 
         clean_phrase = str(phrase or "").strip()
         clean_user_request = str(user_request or "").strip()
@@ -140,18 +171,13 @@ async def generate_card_fields(
         exercise_phrase = parsed_content["exercise"] if parsed_content["has_blocks"] else clean_phrase
         input_type = detect_ai_input_type(clean_phrase)
 
-        if not native_language:
-            native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
-            native_language = native_rec.value if native_rec else "uk"
-            
         target_lang = (target_language or "de").lower()
-        native_lang = (native_language or "uk").lower()
+        native_lang, (provider, ai_key, ai_model) = await run_db(_generation_settings, native_language, "uk")
         
         lang_config = get_language_config(target_lang, native_lang)
         native_config = get_native_config(native_lang)
         lang_name = lang_config["name"]
         
-        provider, ai_key, ai_model = get_ai_config()
         
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
@@ -250,31 +276,15 @@ async def generate_card_fields(
         is_trainer_request = input_type == 'trainer'
         target_ptype = 'exam' if is_quiz_request else ('trainer' if is_trainer_request else 'standard')
 
-        custom_prompt = TMACustomPrompt.get_or_none(
-            (TMACustomPrompt.user_id == user_id) & 
-            (TMACustomPrompt.is_active == True) &
-            (TMACustomPrompt.prompt_type == target_ptype) &
-            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
-        )
-        
-        if not custom_prompt:
-            custom_prompt = TMACustomPrompt.get_or_none(
-                (TMACustomPrompt.user_id == user_id) & 
-                (TMACustomPrompt.is_active == True) &
-                ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
-            )
-        
+        custom_prompt, detect_level = await run_db(_full_card_prompt_settings, user_id, target_lang, target_ptype)
         is_cyrillic = any('\u0400' <= char <= '\u04FF' for char in exercise_phrase)
-        is_system_preset = custom_prompt and is_system_preset_name(custom_prompt.name)
-
-        detect_level_setting = TMASetting.get_or_none(TMASetting.key == "AI_DETECT_LEVEL")
-        detect_level = (detect_level_setting.value.lower() != "false") if detect_level_setting else True
+        is_system_preset = custom_prompt and is_system_preset_name(custom_prompt["name"])
 
         common = dict(target_lang=target_lang, native_lang=native_lang)
         typed_builders = {'trainer': build_trainer_prompt, 'match': build_match_prompt, 'puzzle': build_puzzle_prompt,
                           'word_bank': build_word_bank_prompt, 'free_text': build_free_text_prompt}
         if custom_prompt and not is_system_preset:
-            raw_prompt = custom_prompt.translation_prompt if is_cyrillic else custom_prompt.context_prompt
+            raw_prompt = custom_prompt["translation_prompt"] if is_cyrillic else custom_prompt["context_prompt"]
             system_prompt = (raw_prompt or get_prompt_for_phrase(exercise_phrase, target_lang, native_lang)).replace("{phrase}", exercise_phrase)
             if detect_level and "level" not in system_prompt.lower():
                 system_prompt += f"\n\nОбязательно добавь в выводимый JSON объект поле уровня:\n\"level\": \"один из уровня CEFR (A1, A2, B1, B2, C1, C2)\""
@@ -380,7 +390,7 @@ async def generate_card_fields(
 
 async def get_provider_models(provider: str, ollama_url: str = None):
     """Fetches models from the specified provider dynamically."""
-    _, ai_key, _ = get_ai_config()
+    _, ai_key, _ = await run_db(get_ai_config)
     
     client = AIService(
         provider=provider, 
@@ -403,7 +413,6 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
     try:
         from api.services.language_service import get_language_config, get_native_config
         from api.services.prompt_builders import build_batch_cards_prompt, is_system_preset_name
-        from api.models import TMACustomPrompt, TMASetting
 
         raw_lines = [line.strip() for line in text.splitlines() if line and line.strip()]
         if not raw_lines:
@@ -413,19 +422,14 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
         if len(raw_lines) > 30:
             raw_lines = raw_lines[:30]
 
-        if not native_language:
-            native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
-            native_language = native_rec.value if native_rec else "uk"
-            
         target_lang = (target_language or "de").lower()
-        native_lang = (native_language or "uk").lower()
+        native_lang, (provider, ai_key, ai_model) = await run_db(_generation_settings, native_language, "uk")
         
         lang_config = get_language_config(target_lang, native_lang)
         native_config = get_native_config(native_lang)
         lang_name = lang_config["name"]
         native_name = native_config["name"]
 
-        provider, ai_key, ai_model = get_ai_config()
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
@@ -443,12 +447,8 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
         all_results = []
 
         # Check for active custom prompt
-        custom_prompt = TMACustomPrompt.get_or_none(
-            (TMACustomPrompt.user_id == user_id) & 
-            (TMACustomPrompt.is_active == True) &
-            ((TMACustomPrompt.target_language == target_lang) | (TMACustomPrompt.target_language.is_null() if target_lang == 'de' else False))
-        )
-        is_system_preset = custom_prompt and is_system_preset_name(custom_prompt.name)
+        custom_prompt = await run_db(_active_prompt, user_id, target_lang)
+        is_system_preset = custom_prompt and is_system_preset_name(custom_prompt["name"])
 
         from api.services.input_parser import parse_ai_batch_json_response
 
@@ -457,7 +457,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
                 # Rate-limit safe delay (3.5 seconds) for consecutive API calls
                 await asyncio.sleep(3.5)
 
-            custom_instructions = (custom_prompt.translation_prompt if custom_prompt and not is_system_preset else None)
+            custom_instructions = (custom_prompt["translation_prompt"] if custom_prompt and not is_system_preset else None)
             batch_prompt = build_batch_cards_prompt(chunk, target_lang, native_lang, custom_instructions)
 
             logger.info(f"Batch AI: processing chunk {index+1}/{len(chunks)} ({len(chunk)} lines) with {provider}/{model_name}...")
@@ -548,7 +548,7 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
         return final_results
 
     # Step 2: AI for uncertain / unsupported-language phrases
-    provider, ai_key, ai_model = get_ai_config()
+    provider, ai_key, ai_model = await run_db(get_ai_config)
     if not ai_model or not ai_model.strip():
         if strict:
             raise ValueError("CEFR AI model is not configured")
@@ -629,7 +629,6 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
     start_time = time.time()
     try:
         from api.services.language_service import get_language_config, get_native_config
-        from api.models import TMASetting
         from api.services.input_parser import parse_ai_batch_json_response
 
         if not cards:
@@ -639,19 +638,14 @@ async def enrich_batch_quiz_fields(user_id: int, cards: list, target_language: s
         if len(cards) > 30:
             cards = cards[:30]
 
-        if not native_language:
-            native_rec = TMASetting.get_or_none(TMASetting.key == "NATIVE_LANGUAGE")
-            native_language = native_rec.value if native_rec else "ru"
-
         target_lang = (target_language or "de").lower()
-        native_lang = (native_language or "ru").lower()
+        native_lang, (provider, ai_key, ai_model) = await run_db(_generation_settings, native_language, "ru")
         
         lang_config = get_language_config(target_lang, native_lang)
         native_config = get_native_config(native_lang)
         lang_name = lang_config["name"]
         native_name = native_config["name"]
 
-        provider, ai_key, ai_model = get_ai_config()
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
