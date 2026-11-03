@@ -20,6 +20,13 @@ SRS-прогресс карточки — [study](study.md); free-text verdict �
 
 ## Data flow
 
+Все шесть Knowledge API выполняют SQL и собирают ответы внутри `db_worker`.
+Auth освобождает своё соединение отдельно. В sync границей записи остаётся
+транзакция одного события с advisory lock на пару пользователь–KI. Она
+объединяет вставку Attempt и обновление Mastery, а повтор обрабатывается по
+существующему event ID. Worker освобождает соединение и при ошибке транзакции.
+Study grade сохраняет SRS отдельно от доставки Knowledge.
+
 1. Обычный `startStudy` / `startStudyCard` и assessment загружают KI/mappings через общий `prepareDeckKnowledge`. Offline использует кэш; ошибка Knowledge не блокирует обычное обучение. Завершённое упражнение передаёт evidence в study session; только подтверждённый grade вызывает `captureStudyKnowledgeAttempt`.
 2. Capture находит primary KI, формирует self-rating или hybrid `evaluation_data` и ставит событие в Dexie outbox.
 3. useKnowledgeSync запускает orchestrator для аккаунта; startup/online/visibility/periodic triggers инициируют drain.

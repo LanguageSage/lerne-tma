@@ -25,6 +25,7 @@ from api.services.knowledge_mastery import (
 from api.migrations import KNOWLEDGE_MASTERY_LOCK_ID, run_knowledge_mastery_migration
 
 
+sync_knowledge_attempts = sync_knowledge_attempts.__wrapped__
 test_db = SqliteDatabase(':memory:')
 MODELS = [TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem,
           TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory]
