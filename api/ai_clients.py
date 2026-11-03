@@ -13,12 +13,13 @@ _PROVIDER_KEY_CACHE = {}  # provider_name -> list of keys in priority order
 class AIService:
     """Service to handle AI requests across providers (TMA version)."""
 
-    def __init__(self, provider="ollama", api_key=None, ollama_url="http://localhost:11434"):
+    def __init__(self, provider="ollama", api_key=None, ollama_url="http://localhost:11434", *, ollama_resolver=None):
         self.provider = provider
         self.raw_api_key = api_key
         self.api_keys = self._parse_keys(api_key)
         self.api_key = self.api_keys[0] if self.api_keys else ""
         self.ollama_url = (ollama_url or "http://localhost:11434").rstrip("/")
+        self.ollama_resolver = ollama_resolver
         self.groq_url = "https://api.groq.com/openai/v1"
         self.request_attempts = 2
         self.key_attempts = None
@@ -131,11 +132,16 @@ class AIService:
             self.diagnostic_requests.append({'provider': self.provider,
                 'model': getattr(self, 'effective_model', None), 'payload': json_data})
 
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.request_timeout or timeout)) as session:
+        session_options = {}
+        request_options = {}
+        if self.ollama_resolver is not None and provider_name in ("Ollama", "Ollama_Models"):
+            session_options['connector'] = aiohttp.TCPConnector(resolver=self.ollama_resolver)
+            request_options['allow_redirects'] = False
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.request_timeout or timeout), **session_options) as session:
             for attempt in range(max_retries):
                 try:
                     start_time = time.time()
-                    async with session.request(method, url, headers=headers, json=json_data) as resp:
+                    async with session.request(method, url, headers=headers, json=json_data, **request_options) as resp:
                         duration = time.time() - start_time
 
                         if resp.status == 200:

@@ -19,6 +19,8 @@ TTS — [media](media.md); feedback lifecycle — [study](study.md); persistence
 
 ## Data flow
 
+The legacy `GET /api/admin/models/{provider}` and `POST /api/admin/test-ai` require a verified admin session. Explicit Ollama URLs must resolve only to public addresses. The outbound request uses those same addresses, verifies TLS against the original hostname, and does not follow redirects. Ollama has no implicit localhost fallback on these two routes. The current AITab uses the separate `/settings/*` endpoints.
+
 1. Одиночная форма → useAiActions → `/cards/ai-generate` (alias `/ai/generate`) → ai_service → prompt/provider/parser.
 2. Ответ обновляет черновик карточки; сохранение проходит через существующий cards flow.
 3. BatchCardModal → generate-batch/enrich-batch → prepare_ai_batch → AI → save_ai_batch_result → результат по исходным строкам.
