@@ -18,6 +18,9 @@ from api.models import (
 )
 from api.routers.knowledge import sync_knowledge_attempts, KnowledgeAttemptSyncRequest, KnowledgeAttemptSyncItem
 
+# Service assertions use the fixture's existing SQLite connection.
+sync_knowledge_attempts = sync_knowledge_attempts.__wrapped__
+
 class TestKnowledgeSyncAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -242,7 +245,8 @@ class TestKnowledgeSyncAPI(unittest.TestCase):
         self.assertEqual(TMAReviewHistory.select().count(), 1)
 
     def test_assessment_content_permissions_negative_evidence_and_idempotent_sync(self):
-        from api.routers.knowledge import deck_knowledge_content
+        from api.routers.knowledge import deck_knowledge_content as handler
+        deck_knowledge_content = handler.__wrapped__
         from fastapi import HTTPException
         data = deck_knowledge_content(self.deck.id, user_id=1)
         self.assertEqual(data['card_ids'], [self.card.id])

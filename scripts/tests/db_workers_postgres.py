@@ -39,7 +39,7 @@ def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
     from api.db_workers import db_worker
-    from api.routers import sync
+    from api.routers import knowledge, sync
     # Legacy feedback imports `models` by its short name. Keep the harness on
     # its already-created fixture model module; never run schema init here.
     # Do not snapshot/restore all sys.modules: that unloads newly imported PIL
@@ -86,6 +86,7 @@ def verify(database_name, connection_args):
     app = FastAPI()
     app.middleware('http')(db_session_middleware)
     app.include_router(sync.router, prefix='/api')
+    app.include_router(knowledge.router, prefix='/api')
 
     @app.get('/hold')
     @db_worker
@@ -126,6 +127,9 @@ def verify(database_name, connection_args):
                 assert exhausted.status_code == 500
                 exhausted_sync = await asyncio.wait_for(client.get('/api/sync/v2/pull', headers=headers[0]), 2)
                 assert exhausted_sync.status_code == 500
+                exhausted_knowledge = await asyncio.wait_for(
+                    client.get('/api/knowledge/diagnostics/summary', headers=headers[0]), 2)
+                assert exhausted_knowledge.status_code == 500
                 assert models.tma_db.obj is pool and models.lerne_db.obj is pool
             finally:
                 release.set()
@@ -146,6 +150,7 @@ def verify(database_name, connection_args):
             assert not pool._in_use
             assert (await client.get('/read')).status_code == 200
             await verify_sync(client, pool, headers, accounts[1].account_id, disconnect_review)
+            await verify_knowledge(client, pool, headers, [account.account_id for account in accounts])
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -271,4 +276,83 @@ async def verify_sync(client, pool, headers, viewer_id, disconnect_review):
     assert await run_db(history.count) == 1
     assert not pool._in_use
     print('PASS: Sync HTTP receipts, rollback, disconnect recovery, legacy, collaboration and account isolation',
+          flush=True)
+
+
+async def verify_knowledge(client, pool, headers, account_ids):
+    from api import models
+    from api.db_workers import run_db
+
+    def seed():
+        deck = models.TMA_Deck.create(user_id=account_ids[0], name='Knowledge worker fixture')
+        card = models.TMA_Card.create(deck=deck.id, front_text='Front', back_text='Back')
+        ki = models.TMAKnowledgeItem.create(name='Primary fixture')
+        replacement = models.TMAKnowledgeItem.create(name='Replacement fixture')
+        mapping = models.TMACardKnowledgeItem.create(card_id=card.id, knowledge_item=ki.id, role='primary')
+        grant = models.TMA_Collaborator.create(target_type='deck', target_id=deck.id,
+                                              user_id=account_ids[1], role='viewer')
+        return deck.id, card.id, ki.id, replacement.id, mapping.id, grant.id
+
+    deck, card, ki, replacement, mapping, grant = await run_db(seed)
+    event = {'client_event_id': 'pooled-event', 'card_id': card, 'knowledge_item_id': ki,
+             'evaluation_data': {'schema_version': 1, 'evaluation_type': 'self_rating', 'rating': 'good'}}
+
+    async def send(item=event, account=0, expected=200):
+        response = await client.post('/api/knowledge/attempts/sync', headers=headers[account],
+                                     json={'attempts': [item]})
+        assert response.status_code == expected, response.text
+        if expected == 200:
+            return response.json()['results'][0]['status']
+
+    limiter = to_thread.current_default_thread_limiter()
+    tokens = limiter.total_tokens
+    limiter.total_tokens = 2
+    try:
+        results = await asyncio.gather(*(send() for _ in range(8)))
+    finally:
+        limiter.total_tokens = tokens
+    assert sorted(results) == ['created'] + ['duplicate'] * 7
+    assert not pool._in_use
+    assert await send({**event, 'evaluation_data': {**event['evaluation_data'], 'rating': 'easy'}}) == 'event_conflict'
+    assert await send(account=1) == 'created'
+    await run_db(models.TMACardKnowledgeItem.update(knowledge_item=replacement).where(
+        models.TMACardKnowledgeItem.id == mapping).execute)
+    assert await send() == 'duplicate'
+    assert await send({**event, 'client_event_id': 'stale-ki'}) == 'rejected'
+    await run_db(models.TMA_Collaborator.delete_by_id, grant)
+    assert await send(account=1) == 'duplicate'
+    assert await send({**event, 'client_event_id': 'revoked', 'knowledge_item_id': replacement},
+                      account=1) == 'rejected'
+
+    # Fail after the attempt insert, during the projection write.
+    def inject_projection_failure():
+        pool.execute_sql('''CREATE FUNCTION c2e_fail_projection() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'fixture projection failure'; END $$''')
+        pool.execute_sql('''CREATE TRIGGER c2e_fail_projection BEFORE INSERT ON tma_user_knowledge_state
+            FOR EACH ROW EXECUTE FUNCTION c2e_fail_projection()''')
+
+    rollback = {**event, 'client_event_id': 'projection-rollback', 'knowledge_item_id': replacement}
+    await run_db(inject_projection_failure)
+    try:
+        await send(rollback, expected=500)
+        assert not pool._in_use
+        attempts = models.TMAKnowledgeAttempt.select().where(
+            models.TMAKnowledgeAttempt.client_event_id == rollback['client_event_id'])
+        assert not await run_db(attempts.exists)
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION c2e_fail_projection() CASCADE')
+    assert await send(rollback) == 'created'
+    assert await send(rollback) == 'duplicate'
+
+    for path in (f'/decks/{deck}', '/diagnostics/summary', '/diagnostics/items',
+                 f'/diagnostics/items/{ki}', f'/diagnostics/items/{ki}/attempts',
+                 f'/diagnostics/items/{replacement}'):
+        response = await client.get('/api/knowledge' + path, headers=headers[0])
+        assert response.status_code == 200, response.text
+        assert not pool._in_use
+        if path in (f'/diagnostics/items/{ki}', f'/diagnostics/items/{replacement}'):
+            data = response.json()
+            assert data['state_matches_rebuild']
+            assert data['materialized_state']['evidence_event_count'] == 1
+    print('PASS: pooled Knowledge HTTP ownership, replay, authorization, projection rollback and diagnostics',
           flush=True)

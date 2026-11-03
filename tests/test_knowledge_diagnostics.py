@@ -4,6 +4,7 @@ import unittest
 import os
 import secrets
 from unittest.mock import patch
+from uuid import uuid4
 
 os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
@@ -57,7 +58,7 @@ class TestClassification(unittest.TestCase):
 class TestDiagnosticsAPI(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.database = SqliteDatabase(':memory:', check_same_thread=False, thread_safe=False)
+        cls.database = SqliteDatabase(f'file:knowledge-{uuid4().hex}?mode=memory&cache=shared', uri=True)
         cls.database.bind(MODELS, bind_refs=False, bind_backrefs=False)
         tma_db.initialize(cls.database)
         cls.database.connect()

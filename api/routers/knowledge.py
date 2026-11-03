@@ -5,6 +5,7 @@ import datetime
 import json
 from peewee import IntegrityError
 
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api import models
 from api.services import knowledge_diagnostics
@@ -20,6 +21,7 @@ router = APIRouter(
 
 
 @router.get('/decks/{deck_id}')
+@db_worker
 def deck_knowledge_content(deck_id: int, user_id: int = Depends(get_user_id)):
     from api.services.collaborative_service import get_effective_user_role
     if not get_effective_user_role(user_id, 'deck', deck_id):
@@ -103,6 +105,7 @@ def _compare_domain_payload(existing: models.TMAKnowledgeAttempt, item: Knowledg
     return True
 
 @router.post("/attempts/sync", response_model=KnowledgeAttemptSyncResponse)
+@db_worker
 def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int = Depends(get_user_id)):
     from api.services.collaborative_service import get_effective_user_role
     results = []
@@ -253,11 +256,13 @@ def sync_knowledge_attempts(request: KnowledgeAttemptSyncRequest, user_id: int =
 
 
 @router.get('/diagnostics/summary')
+@db_worker
 def get_knowledge_diagnostics_summary(user_id: int = Depends(get_user_id)):
     return knowledge_diagnostics.summary(user_id)
 
 
 @router.get('/diagnostics/items')
+@db_worker
 def list_knowledge_diagnostics_items(
     limit: int = Query(50, ge=1, le=100),
     offset: int = Query(0, ge=0),
@@ -286,6 +291,7 @@ def list_knowledge_diagnostics_items(
 
 
 @router.get('/diagnostics/items/{knowledge_item_id}')
+@db_worker
 def get_knowledge_diagnostics_item(knowledge_item_id: int, user_id: int = Depends(get_user_id)):
     result = knowledge_diagnostics.get_item(user_id, knowledge_item_id)
     if result is None:
@@ -294,6 +300,7 @@ def get_knowledge_diagnostics_item(knowledge_item_id: int, user_id: int = Depend
 
 
 @router.get('/diagnostics/items/{knowledge_item_id}/attempts')
+@db_worker
 def list_knowledge_diagnostics_attempts(
     knowledge_item_id: int,
     limit: int = Query(50, ge=1, le=100),
