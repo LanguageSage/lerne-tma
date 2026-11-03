@@ -388,14 +388,15 @@ async def generate_card_fields(
         logger.error(f"CRITICAL AI ERROR after {duration:.2f}s: {e}", exc_info=True)
         return {"error": f"Внутренняя ошибка сервера (БД/ИИ): {str(e)}"}
 
-async def get_provider_models(provider: str, ollama_url: str = None):
+async def get_provider_models(provider: str, ollama_url: str = None, *, ollama_resolver=None):
     """Fetches models from the specified provider dynamically."""
     _, ai_key, _ = await run_db(get_ai_config)
     
     client = AIService(
         provider=provider, 
         api_key=ai_key,
-        ollama_url=ollama_url or "http://localhost:11434"
+        ollama_url=ollama_url or "http://localhost:11434",
+        ollama_resolver=ollama_resolver,
     )
     
     return await client.get_models()

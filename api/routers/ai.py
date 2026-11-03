@@ -3,9 +3,10 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict, Field
 import logging
 import asyncio
-from api import ai_service, models, services
+from api import ai_service, models, permissions, services
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_phases, run_db
+from api.provider_url import resolve_public_provider_url
 from api.services.cefr_metadata import build_ai_cefr_payload
 from api.services.answer_contract import AnswerEvaluation, GradingPolicy
 
@@ -35,10 +36,9 @@ class AnswerEvaluationResponse(BaseModel):
 async def evaluate_free_text(request: AnswerEvaluationRequest, user_id: int = Depends(get_user_id)):
     from starlette.concurrency import run_in_threadpool
     from api.services.answer_evaluation import load_answer_context, evaluate_answer
-    from api.permissions import is_admin
 
     # UI flags and localhost are never authority to disclose reference answers.
-    if request.diagnostics and not is_admin(user_id):
+    if request.diagnostics and not permissions.is_admin(user_id):
         raise HTTPException(403, 'Admin only')
     context, policy = await run_in_threadpool(
         load_answer_context, request.card_id, user_id, request.feedback_language)
@@ -58,9 +58,21 @@ class PhraseRequest(BaseModel):
 
 @router.get("/admin/models/{provider}")
 @db_phases
-async def list_models(provider: str, url: str = None):
+async def list_models(provider: str, url: str = None, user_id: int = Depends(get_user_id)):
     """Lists available models for a given provider."""
-    return await ai_service.get_provider_models(provider, url)
+    if not permissions.is_admin(user_id):
+        raise HTTPException(403, "Admin only")
+    url, resolver = await _provider_url(url, required=provider == "ollama")
+    return await ai_service.get_provider_models(provider, url, ollama_resolver=resolver)
+
+
+async def _provider_url(url, *, required):
+    if url is None and not required:
+        return None, None
+    try:
+        return await resolve_public_provider_url(url)
+    except (ValueError, OSError, TimeoutError):
+        raise HTTPException(400, "AI provider URL must resolve to public HTTP(S) addresses") from None
 
 class TestAIRequest(BaseModel):
     provider: str
@@ -70,13 +82,19 @@ class TestAIRequest(BaseModel):
 
 @router.post("/admin/test-ai")
 @db_phases
-async def test_ai_connection(request: TestAIRequest):
+async def test_ai_connection(request: TestAIRequest, user_id: int = Depends(get_user_id)):
     """Tests if the AI provider is reachable and working."""
-    import ai_clients
+    if not permissions.is_admin(user_id):
+        raise HTTPException(403, "Admin only")
+    from api import ai_clients
+    uses_ollama = request.provider == "ollama" or (
+        request.provider not in {"google", "groq", "openrouter"} and request.model.lower().startswith("ollama/"))
+    url, resolver = await _provider_url(request.ollama_url, required=uses_ollama)
     client = ai_clients.AIService(
         provider=request.provider,
         api_key=request.api_key,
-        ollama_url=request.ollama_url
+        ollama_url=url,
+        ollama_resolver=resolver,
     )
     response, success = await client.chat_completion(
         system_prompt="Return 'OK'.",

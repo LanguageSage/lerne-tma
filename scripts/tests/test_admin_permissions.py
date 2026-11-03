@@ -2,9 +2,10 @@
 import os
 import sys
 from pathlib import Path
+import socket
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 from fastapi import APIRouter, FastAPI, HTTPException
@@ -14,7 +15,7 @@ from peewee import SqliteDatabase
 from api import models
 from api.auth import service
 from api.permissions import is_admin
-from api.routers import auth, auth_v2, collaborative, debug, decks, settings
+from api.routers import ai, auth, auth_v2, collaborative, debug, decks, settings
 from api.services import collaborative_service
 
 # Bot integration is outside this suite; importing init must not require Telegram.
@@ -36,6 +37,40 @@ class AdminPolicyTests(unittest.TestCase):
             os.environ.pop('ADMIN_USER_ID', None)
             self.assertTrue(is_admin(642478257))
             self.assertFalse(is_admin(101))
+
+
+class ProviderTransportTests(unittest.IsolatedAsyncioTestCase):
+    async def test_dns_answers_are_pinned_and_redirects_are_disabled(self):
+        import asyncio
+        from unittest.mock import MagicMock
+        from api.ai_clients import AIService
+        from api.provider_url import resolve_public_provider_url
+
+        loop = asyncio.get_running_loop()
+        public = (socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', ('93.184.216.34', 443))
+        private = (socket.AF_INET6, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', ('fd00::1', 443, 0, 0))
+        with patch.object(loop, 'getaddrinfo', new=AsyncMock(side_effect=[[public, private], [public]])) as dns:
+            with self.assertRaises(ValueError):
+                await resolve_public_provider_url('https://public.example')
+            url, resolver = await resolve_public_provider_url('https://public.example')
+            self.assertEqual((await resolver.resolve('public.example', 443))[0]['host'], '93.184.216.34')
+            with self.assertRaises(OSError):
+                await resolver.resolve('private.example', 443)
+            self.assertEqual(dns.await_count, 2)
+
+        session = MagicMock()
+        session.__aenter__.return_value = session
+        response = session.request.return_value.__aenter__.return_value
+        response.status = 302
+        response.headers = {'Location': 'http://169.254.169.254/'}
+        response.json = AsyncMock(return_value={})
+        with patch('api.ai_clients.aiohttp.TCPConnector') as connector, \
+                patch('api.ai_clients.aiohttp.ClientSession', return_value=session):
+            service = AIService(provider='ollama', ollama_url=url, ollama_resolver=resolver)
+            self.assertEqual(await service.get_models(), ['llama3', 'mistral'])
+        connector.assert_called_once_with(resolver=resolver)
+        session.request.assert_called_once_with('GET', 'https://public.example/api/tags',
+                                                headers=None, json=None, allow_redirects=False)
 
     def test_invalid_configuration_denies_admin_access(self):
         for value in ('', 'invalid'):
@@ -69,7 +104,7 @@ class AdminPermissionsTests(unittest.TestCase):
             tokens = service._create_session(account, models.auth_utcnow())
             self.headers[user_id] = {'Authorization': 'Bearer ' + tokens.access_token}
         app = FastAPI()
-        for router in (auth.router, auth_v2.router, settings.router, decks.router,
+        for router in (auth.router, auth_v2.router, settings.router, ai.router, decks.router,
                        collaborative.router, debug.router):
             app.include_router(router, prefix='/api')
         app.get('/api/init')(get_init_data)
@@ -81,6 +116,67 @@ class AdminPermissionsTests(unittest.TestCase):
         self.db_path.unlink(missing_ok=True)
         models.tma_db.initialize(self.previous[0])
         models.lerne_db.initialize(self.previous[1])
+
+    def test_legacy_ai_admin_endpoints_require_verified_admin(self):
+        from api.ai_clients import AIService
+
+        endpoints = (
+            ('GET', '/api/admin/models/google', {}),
+            ('POST', '/api/admin/test-ai', {'json': {
+                'provider': 'google', 'model': 'gemini-fixture', 'api_key': 'synthetic'}}),
+        )
+        with patch.object(AIService, 'get_models', new=AsyncMock(return_value=['gemini-fixture'])) as listing, \
+                patch.object(AIService, 'chat_completion', new=AsyncMock(return_value=('OK', True))) as chat:
+            for method, path, kwargs in endpoints:
+                self.assertEqual(self.client.request(method, path, headers={'X-User-Id': '101'}, **kwargs).status_code, 401)
+                self.assertEqual(self.client.request(method, path, headers=self.headers[202], **kwargs).status_code, 403)
+            listing.assert_not_awaited()
+            chat.assert_not_awaited()
+            listed = self.client.get(endpoints[0][1], headers=self.headers[101])
+            tested = self.client.post(endpoints[1][1], headers=self.headers[101], **endpoints[1][2])
+            self.assertEqual(listed.status_code, 200)
+            self.assertEqual(listed.json(), ['gemini-fixture'])
+            self.assertEqual(tested.status_code, 200)
+            self.assertEqual(tested.json(), {'status': 'success', 'message': 'Connection successful!'})
+            listing.assert_awaited_once()
+            chat.assert_awaited_once()
+
+    def test_ollama_urls_are_checked_in_both_admin_endpoints(self):
+        from api.ai_clients import AIService
+
+        def requests(value):
+            params = {} if value is None else {'url': value}
+            body = {'provider': 'ollama', 'model': 'fixture'}
+            if value is not None:
+                body['ollama_url'] = value
+            return (
+                self.client.get('/api/admin/models/ollama', params=params, headers=self.headers[101]),
+                self.client.post('/api/admin/test-ai', headers=self.headers[101], json=body),
+            )
+
+        async def resolve(_loop, host, port, **_options):
+            address = '10.0.0.4' if host == 'private.example' else '93.184.216.34'
+            return [(socket.AF_INET, socket.SOCK_STREAM, socket.IPPROTO_TCP, '', (address, port))]
+
+        from asyncio import BaseEventLoop
+        with patch.object(BaseEventLoop, 'getaddrinfo', resolve), \
+                patch.object(AIService, '_make_request', new=AsyncMock()) as outbound:
+            for url in (None, 'file:///etc/hosts', 'http://127.0.0.1', 'http://127.1', 'http://169.254.169.254',
+                        'http://[::ffff:127.0.0.1]', 'http://[64:ff9b::a00:4]', 'http://192.168.1.1',
+                        'http://private.example', 'http://user:pass@public.example', 'https://public.example/?q=1'):
+                with self.subTest(url=url):
+                    self.assertEqual([response.status_code for response in requests(url)], [400, 400])
+            fallback = self.client.post('/api/admin/test-ai', headers=self.headers[101],
+                json={'provider': 'custom', 'model': 'ollama/fixture', 'api_key': 'synthetic'})
+            self.assertEqual(fallback.status_code, 400)
+            outbound.assert_not_awaited()
+            outbound.side_effect = [({'models': [{'name': 'fixture'}]}, True),
+                                    ({'message': {'content': 'OK'}}, True)]
+            listed, tested = requests('https://public.example:11434/ollama/')
+            self.assertEqual(listed.json(), ['fixture'])
+            self.assertEqual(tested.json()['status'], 'success')
+            self.assertEqual([call.args[0] for call in outbound.await_args_list], [
+                'https://public.example:11434/ollama/api/tags', 'https://public.example:11434/ollama/api/chat'])
 
     def assert_profiles(self, user_id, expected):
         headers = self.headers[user_id]
