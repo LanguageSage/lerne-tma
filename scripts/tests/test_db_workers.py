@@ -122,6 +122,11 @@ class DbWorkerTests(unittest.TestCase):
             'duplicate_next': ('GET', '/api/study/duplicates/next', None),
             'duplicate_grade': ('POST', '/api/study/duplicates/grade', self.grade_payload()),
             'diagnostics': ('GET', '/api/bot/reminder-diagnostics', None),
+            'bulk': ('POST', '/api/cards/bulk-save', {'cards': [{'deck_id': self.deck.id, 'front': 'Bulk'}]}),
+            'single_delete': ('DELETE', f'/api/cards/{self.card.id}', None),
+            'duplicates': ('GET', '/api/cards/duplicates', None),
+            'reorder': ('POST', '/api/cards/reorder', {'card_ids': [self.card.id]}),
+            'search': ('GET', '/api/cards/search?q=Synthetic', None),
         }[name]
 
     def concurrent_case(self, name):
@@ -162,6 +167,22 @@ class DbWorkerTests(unittest.TestCase):
         opens = [(tid, conn) for action, tid, conn in self.db.events if action == 'open']
         self.assertGreaterEqual(len({tid for tid, _ in opens}), 2)
         self.assertGreaterEqual(len({conn for _, conn in opens}), 2)
+
+    def test_failed_connection_initialization_releases_worker_connection(self):
+        from api.db_workers import run_db
+        original = self.db._initialize_connection
+        attempts = []
+        def initialize(connection):
+            original(connection)
+            attempts.append(connection)
+            if len(attempts) == 1:
+                raise RuntimeError('initialization failed')
+        async def exercise(_client):
+            with patch.object(self.db, '_initialize_connection', side_effect=initialize):
+                with self.assertRaisesRegex(RuntimeError, 'initialization failed'):
+                    await run_db(lambda: None)
+                self.assertEqual(await run_db(lambda: self.db.execute_sql('SELECT 1').fetchone()), (1,))
+        self.run_asgi(exercise)
 
     def test_grade_failure_rolls_back_and_a_later_request_can_commit(self):
         async def exercise(client):
@@ -388,5 +409,6 @@ def concurrency_test(name):
 
 
 for _name in ('save', 'move', 'copy', 'delete', 'update', 'flag', 'stats', 'card',
-              'next', 'grade', 'duplicate_next', 'duplicate_grade', 'diagnostics'):
+              'next', 'grade', 'duplicate_next', 'duplicate_grade', 'diagnostics',
+              'bulk', 'single_delete', 'duplicates', 'reorder', 'search'):
     setattr(DbWorkerTests, f'test_concurrent_asgi_{_name}', concurrency_test(_name))

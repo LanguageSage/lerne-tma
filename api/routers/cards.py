@@ -48,6 +48,7 @@ async def _ensure_saved_card_audio(card_data, user_id, *, force=False):
 
 
 @router.post("/bulk-save")
+@db_worker
 def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
     try:
         from api import models
@@ -180,6 +181,7 @@ def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
 
 
 @router.delete("/{card_id}")
+@db_worker
 def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
     _require_cards_access([card_id], user_id)
     if services.delete_card(card_id, user_id):
@@ -196,11 +198,13 @@ def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=404, detail="Card not found")
     
 @router.get("/duplicates")
+@db_worker(retry_reads=True)
 def get_duplicates(user_id: int = Depends(get_user_id)):
     return services.get_duplicate_cards(user_id)
 
 
 @router.post("/reorder")
+@db_worker
 def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
     card_ids = data.get('card_ids', [])
     try:
@@ -217,6 +221,7 @@ def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/search")
+@db_worker(retry_reads=True)
 def search_cards(
     q: str = "",
     folder_id: Optional[int] = None,

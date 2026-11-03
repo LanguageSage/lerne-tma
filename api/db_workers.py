@@ -16,8 +16,20 @@ from api import models
 async def run_db(function, *args, **kwargs):
     """Open, use and close a connection in the same worker, even on failure."""
     def connected():
-        with models.tma_db.connection_context():
+        database = getattr(models.tma_db, 'obj', models.tma_db)
+        try:
+            database.connect(reuse_if_open=True)
+        except BaseException:
+            # Peewee can set thread-local state before connection initialization
+            # fails. connection_context.__exit__ is never entered in that case.
+            if not database.is_closed():
+                discard = getattr(database, 'manual_close', database.close)
+                discard()
+            raise
+        try:
             return function(*args, **kwargs)
+        finally:
+            database.close()
     return await run_in_threadpool(connected)
 
 

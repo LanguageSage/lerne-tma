@@ -121,10 +121,8 @@ async def db_session_middleware(request, call_next):
                 models.lerne_db.connect(reuse_if_open=True)
     except Exception as e:
         logger.error(f"Error checking DB connection before request: {e}")
-        try:
-            models.initialize_database()
-        except Exception as e2:
-            logger.error(f"CRITICAL: DB initialize failed: {e2}")
+        # A request cannot replace process-global proxies/pools used by workers.
+        # The operation's owner may reconnect its own thread-local connection.
 
     response = None
     try:

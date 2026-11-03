@@ -1,5 +1,6 @@
 import os
 import logging
+from threading import Lock
 from urllib.parse import urlparse, parse_qs, unquote
 from peewee import Proxy, OperationalError, ImproperlyConfigured, PostgresqlDatabase
 from dotenv import load_dotenv
@@ -73,7 +74,20 @@ def _parse_db_url(url: str) -> dict:
     return params
 
 
+_initialization_lock = Lock()
+
+
 def initialize_database() -> bool:
+    """Bind once per process; a connection failure must never replace a live pool."""
+    with _initialization_lock:
+        if tma_db.obj is not None or lerne_db.obj is not None:
+            if tma_db.obj is not None and tma_db.obj is lerne_db.obj:
+                return True
+            raise RuntimeError('Database proxies have inconsistent bindings')
+        return _initialize_database()
+
+
+def _initialize_database() -> bool:
     """Initializes the tma_db and lerne_db proxies with the best available PostgreSQL driver."""
     global tma_db, lerne_db
     if is_local():
