@@ -1,9 +1,11 @@
 """Admin ID policy through real HTTP dependencies and disposable SQLite only."""
 import os
 import sys
+from pathlib import Path
 from types import SimpleNamespace
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 
 from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -48,7 +50,10 @@ class AdminPermissionsTests(unittest.TestCase):
         self.env.start()
         self.addCleanup(self.env.stop)
         self.previous = (models.tma_db.obj, models.lerne_db.obj)
-        self.db = SqliteDatabase(':memory:', thread_safe=False, check_same_thread=False)
+        scratch = Path(__file__).resolve().parents[2] / 'local/test-data/admin-permissions'
+        scratch.mkdir(parents=True, exist_ok=True)
+        self.db_path = scratch / f'{uuid4().hex}.sqlite3'
+        self.db = SqliteDatabase(str(self.db_path), thread_safe=False, check_same_thread=False)
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
         self.addCleanup(self.cleanup_database)
@@ -73,6 +78,7 @@ class AdminPermissionsTests(unittest.TestCase):
 
     def cleanup_database(self):
         self.db.close()
+        self.db_path.unlink(missing_ok=True)
         models.tma_db.initialize(self.previous[0])
         models.lerne_db.initialize(self.previous[1])
 
