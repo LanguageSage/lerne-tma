@@ -13,7 +13,7 @@
 | --- | --- |
 | Форма и редактор содержимого | `app/src/components/common/CardForm.jsx`, `app/src/components/common/CardContentEditor.jsx`, `app/src/components/common/CardContentEditor.css` |
 | Создание, редактирование и сохранение | `app/src/components/deckgrid/CardCreator.jsx`, `app/src/components/deckgrid/CardEditor.jsx`, `app/src/hooks/useCardEditor.js` |
-| Список / действия / возврат | `app/src/components/deckgrid/CardList.jsx`, `app/src/hooks/useCardActions.js`, `app/src/hooks/useCardNavigation.js`, `app/src/utils/navigation.js` |
+| Список / действия / возврат | `app/src/components/deckgrid/CardList.jsx`, `app/src/components/deckgrid/DeckActionsMenu.jsx`, `app/src/hooks/useCardActions.js`, `app/src/hooks/useCardNavigation.js`, `app/src/utils/navigation.js` |
 | Batch import | `app/src/components/modals/BatchCardModal.jsx`, `app/src/hooks/usePendingImport.js`, `app/src/utils/batchCardParser.js` |
 | Синтаксис и распознавание | `app/src/utils/cardEditorSyntax.js`, `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js`, `api/services/input_parser.py` |
 | Парсеры упражнений | `app/src/utils/wordBankParser.js`, `app/src/utils/clozeParser.js`, `app/src/utils/matchParser.js`, `app/src/utils/quizParser.js`, `app/src/utils/freeTextParser.js` |
@@ -148,6 +148,7 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
   `test_card_key_normalization.py` и Unicode batch cases в `browser/offline.spec.cjs`.
 - Batch import: `scripts/tests/test_bulk_import_idempotency.py`, `scripts/tests/test_bulk_save_partial_failure.py`.
 - Возврат в список: `scripts/tests/test_card_scroll_restoration.mjs`.
+- Меню колоды: `DeckActionsMenu` владеет открытием меню/подменю, outside mouse/touch listeners и обработчиками действий. CardList передаёт колоду, права, папки и callback открытия своей медиамодалки. Регрессии в CI: `scripts/tests/browser/cardlist-menu.spec.cjs` (роли/inbox, события, действия и ошибки, 320/375/430/768/1280 px).
 Перед запуском integration/browser scripts проверяйте окружение и fixtures.
 
 ## Related docs
