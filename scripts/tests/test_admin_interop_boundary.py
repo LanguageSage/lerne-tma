@@ -1,5 +1,6 @@
 """TMA-owned link/redirect behavior remains tested without importing admin."""
 import os
+import asyncio
 import unittest
 from unittest.mock import patch
 from fastapi import FastAPI
@@ -42,7 +43,7 @@ class InteropTests(unittest.TestCase):
         name = 'Без названия.png'
         models.TMAMedia.create(folder='images', filename=name, content=None)
         with patch.dict(os.environ, SUPABASE_URL='https://example.invalid'), patch.object(media._media_cache, 'get', return_value=None):
-            response = media.get_image(name, None)
+            response = asyncio.run(media.get_image(name, None))
         self.assertTrue(response.headers['location'].endswith(storage_object_path(name)))
 
 
