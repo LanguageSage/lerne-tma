@@ -1,4 +1,5 @@
 """Admin ID policy through real HTTP dependencies and disposable SQLite only."""
+import json
 import os
 import sys
 from pathlib import Path
@@ -95,7 +96,7 @@ class AdminPermissionsTests(unittest.TestCase):
         self.db.create_tables([
             models.TMAUser, models.TMAAuthAccount, models.TMAAuthSession, models.TMAAuthToken,
             models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMA_Collaborator,
-            models.TMASetting, models.TMACustomPrompt,
+            models.TMASetting, models.TMACustomPrompt, models.TMAProgress, models.Deck, models.Card,
         ])
         self.headers = {}
         for user_id in (101, 202):
@@ -116,6 +117,32 @@ class AdminPermissionsTests(unittest.TestCase):
         self.db_path.unlink(missing_ok=True)
         models.tma_db.initialize(self.previous[0])
         models.lerne_db.initialize(self.previous[1])
+
+    def test_init_keeps_personal_settings_private(self):
+        personal = {101: {'autoplay': True}, 202: {'autoplay': False}}
+        for user_id, settings_payload in personal.items():
+            models.TMASetting.insert_many([
+                {'key': f'USER_SETTINGS_{user_id}', 'value': json.dumps(settings_payload)},
+                {'key': f'USER_DESIGN_V1_BACKUP_{user_id}', 'value': f'backup-{user_id}'},
+                {'key': f'DECK_LEARNING_{user_id}_1', 'value': '1'},
+                {'key': f'REMINDER_SETTINGS_{user_id}', 'value': f'reminders-{user_id}'},
+                {'key': f'LAST_REMINDER_SLOTS_{user_id}', 'value': f'slots-{user_id}'},
+                {'key': f'LAST_REMINDER_ATTEMPT_{user_id}', 'value': f'attempt-{user_id}'},
+            ]).execute()
+        models.TMASetting.create(key='TTS_VOICE', value='synthetic-voice')
+        models.TMASetting.create(key='GOOGLE_API_KEY', value='synthetic-secret')
+
+        for user_id, expected in personal.items():
+            with self.subTest(user_id=user_id):
+                response = self.client.get('/api/init', headers=self.headers[user_id])
+                self.assertEqual(response.status_code, 200, response.text)
+                payload = response.json()
+                self.assertEqual(payload['user_settings'], expected)
+                self.assertEqual(payload['settings'], {'TTS_VOICE': 'synthetic-voice'})
+
+        response = self.client.get('/api/init')
+        self.assertEqual(response.status_code, 401)
+        self.assertEqual(response.json(), {'detail': 'authentication_required'})
 
     def test_legacy_ai_admin_endpoints_require_verified_admin(self):
         from api.ai_clients import AIService

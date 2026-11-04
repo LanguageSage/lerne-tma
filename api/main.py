@@ -211,13 +211,17 @@ def get_init_data(user_id: int = Depends(get_user_id)):
     decks = services.get_active_decks(user_id, folder_map=folder_map)
     folders = services.get_active_folders(user_id, folder_map=folder_map)
     
-    # Get settings (sanitized: strictly exclude secret keys, tokens, and credentials)
+    # Shared settings exclude credentials and per-account records.
     settings = {}
     try:
         sensitive_terms = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL")
+        personal_prefixes = (
+            "USER_SETTINGS_", "USER_DESIGN_V1_BACKUP_", "DECK_LEARNING_",
+            "REMINDER_SETTINGS_", "LAST_REMINDER_SLOTS_", "LAST_REMINDER_ATTEMPT_",
+        )
         for s in models.TMASetting.select():
             key_upper = s.key.upper()
-            if any(term in key_upper for term in sensitive_terms):
+            if key_upper.startswith(personal_prefixes) or any(term in key_upper for term in sensitive_terms):
                 continue
             settings[s.key] = s.value
     except Exception: pass
