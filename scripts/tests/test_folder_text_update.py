@@ -322,7 +322,7 @@ class FolderTextUpdateTests(unittest.TestCase):
             items = [self.item(card, front='Changed') for card in cards]
             app = FastAPI()
             app.include_router(routes.router, prefix='/api')
-            with patch.object(routes, 'tma_db', http_db), patch.object(service, 'tma_db', http_db), TestClient(app) as client:
+            with patch.object(models, 'tma_db', http_db), patch.object(service, 'tma_db', http_db), TestClient(app) as client:
                 path = f'/api/folders/{root.id}/text-update'
                 preview = client.post(path+'/preview', json={'cards': items})
                 self.assertEqual(preview.status_code, 200)
