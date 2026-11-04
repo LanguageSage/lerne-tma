@@ -71,6 +71,29 @@ fail-fast exhaustion; LOCAL и fallback драйверы остаются без
 proxies и retry неуспешного startup. Реальный PostgreSQL suite вызывается из
 существующего `test_supabase_security.py`; CI infrastructure не меняется.
 
+## C2f после PR #36
+
+Таблица выше описывает исходный аудит C2a. На main `9ed1c9dc` settings уже переведены в C2d, sync, Knowledge, notes, ratings и messages — в C2e. У оставшихся sync-обработчиков первый SQL может открыть соединение в worker, тогда как legacy middleware закрывает только соединение своего event loop. `atomic()` завершает транзакцию, а checkout остаётся у потока до явного закрытия.
+
+`TMA_*`, progress, media, settings и auth используют `tma_db`. `Deck`, `Card`, `LibraryCategory` и другие legacy-модели используют `lerne_db`. Все штатные ветви `initialize_database` привязывают оба прокси к одному объекту Peewee. В одном потоке это один checkout и одна граница транзакции. `run_db` закрывает объект `tma_db`. Для библиотечных маршрутов нужно отдельно проверить эту привязку и поведение при раздельных тестовых биндингах, где нужны независимые checkout и транзакции.
+
+| Этап | Цепочки SQL и границы |
+| --- | --- |
+| C2f-1 — корзина (4) | List выбирает удалённые колоды, агрегирует счётчики, соединяет карточки с колодами и возвращает словари. Restore проверяет владельца и `_require_can_mutate`, затем меняет колоду и карточки в существующей `atomic()`. Clear проверяет затронутые колоды, удаляет progress, карточки и колоды в `atomic()`. Все запросы идут через `tma_db`; retry разрешён только для списка. |
+| Малые маршруты — feedback (1), LiD (1) | Feedback делает INSERT через legacy-импорт `models` и возвращает фиксированный detail при ошибке записи. Проверить checkout failure и оба URL. LiD читает свои и мастер-колоды, выбирает вопросы и формирует билет. Разрешение URL картинки может читать `TMAMedia`. |
+| Папки (9) и пользовательские операции с колодами | CRUD, move, copy, reorder, reset, toggle-learning, JSON import и metadata вызывают проверки доступа и работают с TMA-строками, настройками и progress. `get_deck_cards` формирует проекцию карточек с progress и media. Четыре text-update preview/apply уже закрывают worker через `connection_context()`; остаётся loop checkout. Apply использует свою транзакцию и receipt. |
+| Библиотека и `GET /decks` | External list/categories читают `lerne_db`; toggle-default проверяет admin и пишет `Deck`. `get_active_decks` на холодном кеше читает Deck/Card, starter import и LiD dedup могут писать TMA даже на GET. Sync/import/batch читают библиотеку, меняют TMA deck/card/progress, используют локальные транзакции и обрабатывают trash conflict. Проверить холодный кеш и ошибки после частичной записи. |
+| Collaborative (11) | Access/list/progress строят проекции по ролям, дереву папок и progress. Add/role/join/remove и access-scope меняют grants и доступ. Bulk delete имеет транзакцию. Presence пишет heartbeat из GET и требует отдельного решения по retry. |
+| Share (5) | Generate читает объект и роль, пишет share ID и иногда `TMAMedia`. Info формирует проекцию сравнения, optional bearer проверяется через auth transaction. Import клонирует и объединяет данные внутри транзакции. HTML и image напрямую вызывают info; preview читает media bytes и может загружать шрифт по HTTP. Выделить SQL-фазы и проверить HTML, bytes и aliases. |
+| Debug (2) | Import в development читает `lerne_db`, выполняет raw SQL через `tma_db` и запускает write-import из GET. Audio проверяет admin через конфигурацию и ждёт TTS. Проверить отдельные фазы TTS и не повторять импорт автоматически. В production debug не зарегистрирован. |
+| Auth и LOCAL | Classic sync/me/language и v2 me читают или пишут профиль за пределами auth dependency. Account delete использует транзакцию, четыре retired classic routes сразу отвечают 410. Основные операции v2 и LOCAL login закрывают соединение в `auth_transaction`; Google callback имеет отдельные DB-фазы до и после HTTP, config читает env. LOCAL transfer-card проверяет доступ и читает карточку. Сохранить commit при отзыве токенов. |
+| Заключительная работа | Startup/module init, `/api/init`, `/api/health`, legacy middleware и отдельный диагностический ASGI `ping` с проверкой импортов. |
+
+### Отдельные находки
+
+- **P1 — частично применённый импорт.** В `library_import.import_deck` replace и принудительная очистка конфликта из корзины удаляют старые данные до вставки новых. Сбой чтения или вставки может оставить колоду без прежних карточек и progress.
+- **P2 — ошибка чтения корзины выглядит как пустой или устаревший список.** `fetchTrash` сообщает об ошибке только в консоль. При первом открытии остаётся пустое состояние, при повторном открытии могут остаться прежние элементы.
+
 ## Проверки C2b
 
 `scripts/tests/test_media_db_workers.py` проверяет реальные thread-local SQL и

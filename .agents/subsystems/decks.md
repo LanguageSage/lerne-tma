@@ -24,6 +24,9 @@
 3. Колоды/папки сохраняются в `TMA_Deck` / `TMA_Folder`; порядок и learning status возвращаются в store.
 4. Библиотечные данные `Deck` / `Card` импортируются через отдельные library/share действия.
 5. Soft delete и восстановление проходят через trash; совместный доступ — через collaborator permissions.
+   Четыре маршрута корзины владеют `tma_db` через `db_worker`. Сервис завершает SQL,
+   существующие транзакции и формирование ответа до возврата соединения. Пул из двух
+   соединений проверяет `verify_trash` в `scripts/tests/db_workers_postgres.py`.
 6. Запуск обучения передаёт контекст в `app/src/hooks/useStudyNavigation.js`; дальнейший поток — [study](study.md).
 
 ## Source of truth
