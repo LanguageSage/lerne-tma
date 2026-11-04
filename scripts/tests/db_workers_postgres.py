@@ -503,14 +503,14 @@ async def verify_trash(client, pool, headers, accounts):
     assert listing['decks'][0]['id'] == deck and listing['decks'][0]['cards_count'] == 1
     assert listing['cards'][0]['id'] == card and listing['cards'][0]['deck_name'] == 'Trash fixture'
 
-    limiter = to_thread.current_default_thread_limiter()
-    tokens = limiter.total_tokens
-    limiter.total_tokens = 2
-    try:
-        results = await asyncio.gather(*(request() for _ in range(6)))
-        assert results == [listing] * 6
-    finally:
-        limiter.total_tokens = tokens
+    slots = asyncio.Semaphore(2)
+
+    async def concurrent_read():
+        async with slots:
+            return await request()
+
+    results = await asyncio.gather(*(concurrent_read() for _ in range(6)))
+    assert results == [listing] * 6
     assert not pool._in_use
 
     def reject_deck_change():
