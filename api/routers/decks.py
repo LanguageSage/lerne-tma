@@ -149,6 +149,7 @@ class SyncRequest(BaseModel):
     mode: str = 'merge'
 
 @router.post("/{deck_id}/sync")
+@db_worker
 def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(get_user_id)):
     _require_can_mutate(user_id, 'deck', deck_id)
     mode = request.mode if request else 'merge'
@@ -158,10 +159,12 @@ def sync_deck(deck_id: int, request: SyncRequest = None, user_id: int = Depends(
 
 # External/Library decks
 @router.get("/external")
+@db_worker(retry_reads=True)
 def get_external_decks(target_language: str = None):
     return services.get_external_decks(target_language)
 
 @router.get("/external/categories")
+@db_worker(retry_reads=True)
 def get_library_categories():
     return services.get_library_categories()
 
@@ -171,6 +174,7 @@ class BatchImportRequest(BaseModel):
     force_trash: Optional[bool] = False
 
 @router.post("/external/import/{deck_id}")
+@db_worker
 def import_external_deck(deck_id: int, mode: Optional[str] = 'merge', force_trash: bool = False, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/external/import/{deck_id} (mode={mode}, force_trash={force_trash}) - authenticated account: {user_id}")
     result = services.import_deck(deck_id, user_id, mode=mode or 'merge', force_trash=force_trash)
@@ -181,6 +185,7 @@ def import_external_deck(deck_id: int, mode: Optional[str] = 'merge', force_tras
     raise HTTPException(status_code=404, detail="External deck not found or import failed")
 
 @router.post("/external/import-batch")
+@db_worker
 def import_external_decks_batch(body: BatchImportRequest, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/external/import-batch - authenticated account: {user_id}, count={len(body.deck_ids)}, mode={body.mode}, force_trash={body.force_trash}")
     imported_ids = services.import_decks_batch(body.deck_ids, user_id, mode=body.mode or 'merge', force_trash=body.force_trash or False)
@@ -188,6 +193,7 @@ def import_external_decks_batch(body: BatchImportRequest, user_id: int = Depends
 
 
 @router.post("/external/{deck_id}/toggle-default")
+@db_worker
 def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/external/{deck_id}/toggle-default - authenticated account: {user_id}")
     if not is_admin(user_id):
