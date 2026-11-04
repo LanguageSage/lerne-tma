@@ -1067,12 +1067,28 @@ async def verify_library_deck_routes(client, pool, headers, accounts):
     assert any(c['id'] == cat_id for c in cats.json())
     assert not pool._in_use
 
-    def disconnect_external(_target_lang=None):
+    attempts = 0
+    real_get_external = services.get_external_decks
+
+    def transient_disconnect(_target_lang=None):
+        nonlocal attempts
+        attempts += 1
+        if attempts == 1:
+            pool.execute_sql('SELECT pg_terminate_backend(pg_backend_pid())')
+        return real_get_external()
+
+    with patch.object(services, 'get_external_decks', side_effect=transient_disconnect) as listing:
+        recovered = await client.get('/api/decks/external')
+        assert recovered.status_code == 200
+        assert listing.call_count == 2
+    assert not pool._in_use
+
+    def persistent_disconnect(_target_lang=None):
         pool.execute_sql('SELECT pg_terminate_backend(pg_backend_pid())')
 
-    with patch.object(services, 'get_external_decks', side_effect=disconnect_external) as listing:
+    with patch.object(services, 'get_external_decks', side_effect=persistent_disconnect) as exhausted:
         assert (await client.get('/api/decks/external')).status_code == 500
-        listing.assert_called_once_with(None)
+        assert exhausted.call_count == 2
     assert not pool._in_use
     assert (await client.get('/api/decks/external')).status_code == 200
     assert not pool._in_use
