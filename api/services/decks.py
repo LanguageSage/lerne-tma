@@ -302,26 +302,27 @@ def ensure_inbox_deck(user_id: int, target_language: str = 'de') -> TMA_Deck:
     """Возвращает (или создаёт) специальную колоду «Входящие» для пользователя внутри папки Входящие для целевого языка."""
     lang = (target_language or 'de').lower().strip()
     from .folders import ensure_inbox_folder
-    inbox_folder = ensure_inbox_folder(user_id, target_language=lang)
-    
-    inbox = TMA_Deck.get_or_none(
-        (TMA_Deck.user_id == user_id) & 
-        (TMA_Deck.is_inbox == True) & 
-        ((TMA_Deck.target_language == lang) | (TMA_Deck.target_language.is_null() if lang == 'de' else False))
-    )
-    if not inbox:
-        inbox = TMA_Deck.create(
-            user_id=user_id,
-            name="📥 Входящие карточки",
-            is_inbox=True,
-            target_language=lang,
-            folder_id=inbox_folder.id,
-            created_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now()
+
+    with tma_db.atomic():
+        # The folder's advisory lock stays held through the deck write and commit.
+        inbox_folder = ensure_inbox_folder(user_id, target_language=lang)
+        inbox = TMA_Deck.get_or_none(
+            (TMA_Deck.user_id == user_id) &
+            (TMA_Deck.is_inbox == True) &
+            ((TMA_Deck.target_language == lang) | (TMA_Deck.target_language.is_null() if lang == 'de' else False))
         )
-        logger.info(f"Created Inbox deck for user {user_id} (lang={lang}, id={inbox.id}) inside folder {inbox_folder.id}")
-    else:
-        if inbox.folder_id != inbox_folder.id or inbox.name != "📥 Входящие карточки" or inbox.is_deleted or getattr(inbox, 'target_language', None) != lang:
+        if not inbox:
+            inbox = TMA_Deck.create(
+                user_id=user_id,
+                name="📥 Входящие карточки",
+                is_inbox=True,
+                target_language=lang,
+                folder_id=inbox_folder.id,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
+            logger.info(f"Created Inbox deck for user {user_id} (lang={lang}, id={inbox.id}) inside folder {inbox_folder.id}")
+        elif inbox.folder_id != inbox_folder.id or inbox.name != "📥 Входящие карточки" or inbox.is_deleted or getattr(inbox, 'target_language', None) != lang:
             inbox.folder_id = inbox_folder.id
             inbox.name = "📥 Входящие карточки"
             inbox.target_language = lang
@@ -329,7 +330,7 @@ def ensure_inbox_deck(user_id: int, target_language: str = 'de') -> TMA_Deck:
             inbox.updated_at = datetime.datetime.now()
             inbox.save()
             logger.info(f"Updated/Restored Inbox deck for user {user_id} (lang={lang}, id={inbox.id}) inside folder {inbox_folder.id}")
-    return inbox
+        return inbox
 
 
 
