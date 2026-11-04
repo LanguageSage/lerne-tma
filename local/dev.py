@@ -20,6 +20,7 @@ from local.runtime import (DEFAULT_DATA_ROOT, LOCAL_DATABASE, LOCAL_USER_ID,
                                external_path, local_config, validate_database_url)
 
 VOLUME = 'lerne_tma_local_pgdata'
+LOCAL_PREPARE_LOCK = 76120902
 
 
 def initialize_config():
@@ -132,11 +133,17 @@ def database(config):
     from api.local_runtime import configure_local
     configure_local()
     from api import models
-    models.initialize_database()
+    if not models.initialize_database():
+        raise RuntimeError('LOCAL database configuration failed')
     if config['driver'] == 'native':
-        actual = models.tma_db.execute_sql('SHOW data_directory').fetchone()[0]
-        if external_path(actual) != config['postgres']:
-            raise RuntimeError('Native PostgreSQL data_directory differs from configured external PGDATA; operation blocked')
+        try:
+            actual = models.tma_db.execute_sql('SHOW data_directory').fetchone()[0]
+            if external_path(actual) != config['postgres']:
+                raise RuntimeError('Native PostgreSQL data_directory differs from configured external PGDATA; operation blocked')
+        except BaseException:
+            if not models.tma_db.is_closed():
+                models.tma_db.close()
+            raise
     return models
 
 
@@ -154,29 +161,38 @@ def verify_database(models, *, allow_empty=False):
 
 def prepare(config):
     models = database(config)
-    verify_database(models, allow_empty=True)
-    # Establish ownership before migrations, so interrupted fresh bootstrap can resume.
-    models.tma_db.create_tables([models.TMASetting], safe=True)
-    models.TMASetting.get_or_create(key='LOCAL_DATABASE_MARKER', defaults={'value': 'lerne-local-v1'})
-    models.create_all_tables()
-    with models.tma_db.atomic():
-        if not models.TMASetting.get_or_none(models.TMASetting.key == 'LOCAL_SEED_V1'):
-            user, _ = models.TMAUser.get_or_create(user_id=LOCAL_USER_ID, defaults={
-                'first_name': 'Local Test', 'username': 'local_test', 'is_guest': False,
-                'default_decks_initialized': True, 'has_selected_language': True,
-                'active_language': 'de', 'native_language': 'ru'})
-            models.TMAAuthAccount.get_or_create(user=user.user_id)
-            for name in ('Немецкий — LOCAL', 'Импорт — LOCAL'):
-                folder = models.TMA_Folder.create(user_id=user.user_id, name=name)
-                deck = models.TMA_Deck.create(user_id=user.user_id, folder=folder, name=name)
-                for position, (front, back, card_type) in enumerate([
-                    ('Guten Morgen', '**Доброе утро**\n\n- Пример Markdown', 'translation'),
-                    ('Was passt?\n@quiz\n* das Haus\n  die Haus', 'das Haus', 'quiz'),
-                    ('@theory\n## Artikel\n**das Haus**', 'Теория', 'theory')]):
-                    models.TMA_Card.create(deck=deck, front_text=front, back_text=back,
-                        context='## Контекст\n\nEin **Beispiel**.', card_type=card_type, position=position)
-            models.TMASetting.create(key='LOCAL_SEED_V1', value='1')
-    models.tma_db.close()
+    db = models.tma_db
+    try:
+        # LOCAL is unpooled. Closing this session releases the lock even on error.
+        # The migration runners still own their separate transactions.
+        db.execute_sql(f'SELECT pg_advisory_lock({LOCAL_PREPARE_LOCK})')
+        with db.atomic():
+            verify_database(models, allow_empty=True)
+            # Commit the ownership marker before migrations, without leaving an
+            # unmarked table if the first bootstrap is interrupted.
+            db.create_tables([models.TMASetting], safe=True)
+            models.TMASetting.get_or_create(key='LOCAL_DATABASE_MARKER', defaults={'value': 'lerne-local-v1'})
+        models.create_all_tables()
+        with db.atomic():
+            if not models.TMASetting.get_or_none(models.TMASetting.key == 'LOCAL_SEED_V1'):
+                user, _ = models.TMAUser.get_or_create(user_id=LOCAL_USER_ID, defaults={
+                    'first_name': 'Local Test', 'username': 'local_test', 'is_guest': False,
+                    'default_decks_initialized': True, 'has_selected_language': True,
+                    'active_language': 'de', 'native_language': 'ru'})
+                models.TMAAuthAccount.get_or_create(user=user.user_id)
+                for name in ('Немецкий — LOCAL', 'Импорт — LOCAL'):
+                    folder = models.TMA_Folder.create(user_id=user.user_id, name=name)
+                    deck = models.TMA_Deck.create(user_id=user.user_id, folder=folder, name=name)
+                    for position, (front, back, card_type) in enumerate([
+                        ('Guten Morgen', '**Доброе утро**\n\n- Пример Markdown', 'translation'),
+                        ('Was passt?\n@quiz\n* das Haus\n  die Haus', 'das Haus', 'quiz'),
+                        ('@theory\n## Artikel\n**das Haus**', 'Теория', 'theory')]):
+                        models.TMA_Card.create(deck=deck, front_text=front, back_text=back,
+                            context='## Контекст\n\nEin **Beispiel**.', card_type=card_type, position=position)
+                models.TMASetting.create(key='LOCAL_SEED_V1', value='1')
+    finally:
+        if not db.is_closed():
+            db.close()
     print('Local schema/auth migrations ready. Synthetic seed preserved on restart.')
 
 
@@ -263,7 +279,6 @@ def start(config):
         compose(config, 'up', '-d', '--wait', '--wait-timeout', '90')
     else:
         native_start(config)
-    prepare(config)
     env = environment(config)
     processes = []
     try:

@@ -17,7 +17,10 @@ try:
     if current_dir not in sys.path:
         sys.path.insert(0, current_dir)
 
-    from api.main import app as main_app
+    from api.main import app as main_app, initialize_startup_database
+
+    # Preserve cold-start schema preparation even when ASGI lifespan is absent.
+    initialize_startup_database(main_app)
     app = main_app
 
     @app.exception_handler(StarletteHTTPException)

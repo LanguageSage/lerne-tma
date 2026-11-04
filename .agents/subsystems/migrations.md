@@ -3,11 +3,16 @@
 ## Primary entry points / Source of truth
 
 - `api/migrations.py`: каталог `MIGRATIONS`, `run_migrations`, таблица `tma_migration_history`.
-- `api/models.py:create_all_tables` и `api/main.py`: вызовы инициализации; `MigrationError` не подавляется.
+- `api/models.py:create_all_tables` готовит схему; `api/main.py` вызывает её в рабочем
+  потоке lifespan, `api/index.py` — на cold start Vercel. Ошибка прерывает инициализацию.
 - `api/database.py`: `tma_db` и `lerne_db` ссылаются на один объект подключения PostgreSQL.
 - Auth и Knowledge имеют отдельные явные transactional runners в `api/migrations.py`; их поведение эта правка не меняет.
 
 ## Data flow / Recovery
+
+Vercel сохраняет фактическую политику подготовки схемы: `api/main.py` выполнял её
+независимо от `RUN_MIGRATIONS` и `LERNE_SKIP_SCHEMA_INIT`. Эти флаги управляли
+дополнительной подготовкой при импорте моделей. Импорт теперь только привязывает proxy.
 
 Card communication migration 90 is separate from `MIGRATIONS`: LOCAL bootstrap
 applies it; non-LOCAL API startup never does. Both connected Supabase projects

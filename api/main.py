@@ -17,12 +17,12 @@ if current_dir not in sys.path:
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.concurrency import run_in_threadpool
 from api.dependencies.auth import get_user_id
 from api.db_workers import uses_db_worker
 from api.permissions import is_admin
 
 from api import models, services
-from api.migrations import MigrationError
 
 from api.routers import decks, cards, study, settings, ai, media, bot, feedback, auth, auth_v2, share, debug, trash, sync, folders, collaborative, lid, knowledge, card_notes, card_ratings, messages
 
@@ -30,30 +30,28 @@ from api.routers import decks, cards, study, settings, ai, media, bot, feedback,
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-@asynccontextmanager
-async def lifespan(app):
-    """Initialize database on startup (traditional servers)."""
-    if not models.tma_db.obj:
-        models.initialize_database()
-        models.create_all_tables()
-    logger.info("DATABASE: Startup initialization complete.")
-    yield
-
-# Also initialize at module level for Vercel serverless cold starts
-try:
+def initialize_startup_database(app):
+    if getattr(app.state, "database_ready", False):
+        return
     if is_local():
         from local.dev import prepare
         prepare(local_config())
     else:
-        models.initialize_database()
-        models.create_all_tables()
-    logger.info("DATABASE: Module-level initialization complete.")
-except MigrationError:
-    raise
-except Exception as _db_init_err:
-    logger.error(f"DATABASE: Module-level initialization FAILED: {_db_init_err}")
-    if is_local():
-        raise
+        if not models.initialize_database():
+            raise RuntimeError("Database configuration failed")
+        try:
+            models.create_all_tables()
+        finally:
+            if not models.tma_db.is_closed():
+                models.tma_db.close()
+    app.state.database_ready = True
+    logger.info("DATABASE: Startup initialization complete.")
+
+
+@asynccontextmanager
+async def lifespan(app):
+    await run_in_threadpool(initialize_startup_database, app)
+    yield
 
 app = FastAPI(title="Lerne TMA API", lifespan=lifespan)
 

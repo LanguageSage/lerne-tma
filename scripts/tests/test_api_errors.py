@@ -5,7 +5,7 @@ from pathlib import Path
 import sys
 from types import SimpleNamespace
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -22,7 +22,7 @@ ENTRYPOINT = Path(__file__).resolve().parents[2] / 'api' / 'index.py'
 def load_entrypoint(app):
     spec = importlib.util.spec_from_file_location('api.index', ENTRYPOINT)
     module = importlib.util.module_from_spec(spec)
-    with patch.dict(sys.modules, {'api.main': SimpleNamespace(app=app)}), \
+    with patch.dict(sys.modules, {'api.main': SimpleNamespace(app=app, initialize_startup_database=Mock())}), \
             patch.object(sys, 'path', sys.path.copy()):
         spec.loader.exec_module(module)
     return module
