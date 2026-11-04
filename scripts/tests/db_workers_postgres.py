@@ -728,6 +728,18 @@ async def verify_deck_list_and_json_import(client, pool, headers, accounts):
                     .where(models.TMA_Card.deck_id == deck_id).tuples())
 
     assert await run_db(persisted_cards) == [('Original', 'Answer')]
+
+    new_name = 'JSON rollback fixture'
+    cards_before = await run_db(models.TMA_Card.select().count)
+    assert await import_json({**invalid, 'name': new_name}, status=400) == {
+        'detail': 'Import failed: invalid data or empty deck'}
+    assert not await run_db(models.TMA_Deck.select().where(
+        models.TMA_Deck.user_id == accounts[0], models.TMA_Deck.name == new_name).exists)
+    assert await run_db(models.TMA_Card.select().count) == cards_before
+    assert await import_json({**payload, 'name': new_name}) == {
+        'status': 'success', 'deck_id': await run_db(lambda: models.TMA_Deck.get(
+            user_id=accounts[0], name=new_name).id)}
+
     assert (await import_json(payload, account=1))['deck_id'] != deck_id
     assert await run_db(persisted_cards) == [('Original', 'Answer')]
 
