@@ -683,10 +683,6 @@ async def verify_decks(client, pool, headers, accounts):
             return response.json()
 
     await request('POST', body={'name': 'Anonymous'}, account=None, expected=401)
-    with patch.object(services, 'create_deck', side_effect=OperationalError('connection closed')) as failed:
-        await request('POST', body={'name': 'Failed create'}, expected=500)
-        failed.assert_called_once()
-    assert not pool._in_use
     deck, other = await asyncio.gather(
         request('POST', body={'name': 'Worker deck'}),
         request('POST', body={'name': 'Other worker deck'}, account=1),
@@ -799,5 +795,11 @@ async def verify_decks(client, pool, headers, accounts):
                 for user in accounts] == ['0', '1']
 
     await run_db(verify_persisted)
+    assert not pool._in_use
+
+    # An unhandled 500 can close the HTTP connection after the response arrives.
+    with patch.object(services, 'create_deck', side_effect=OperationalError('connection closed')) as failed:
+        await request('POST', body={'name': 'Failed create'}, expected=500)
+        failed.assert_called_once()
     assert not pool._in_use
     print('PASS: pooled Decks HTTP, concurrent writes, permissions and copy/reorder rollback', flush=True)
