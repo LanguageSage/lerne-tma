@@ -18,7 +18,9 @@ router = APIRouter(
     tags=["decks"],
 )
 
+# Listing may initialize the account and create its inbox.
 @router.get("")
+@db_worker
 def get_decks(user_id: int = Depends(get_user_id)):
     logger.info(f"GET /api/decks - authenticated account: {user_id}")
     return services.get_active_decks(user_id)
@@ -108,6 +110,7 @@ def toggle_deck_learning(deck_id: int, data: dict = None, user_id: int = Depends
     raise HTTPException(status_code=404, detail="Deck not found or access denied")
 
 @router.post("/import-json")
+@db_worker
 def import_json_deck(data: dict, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/decks/import-json - authenticated account: {user_id}")
     result = services.import_deck_from_json(data, user_id)

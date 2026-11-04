@@ -36,6 +36,7 @@ its active cards in one transaction.
    «Входящие», поэтому его SQL выполняется без автоматического повтора.
    Preview/apply формируют ответ в worker, а транзакцией apply владеет сервис.
 6. Запуск обучения передаёт контекст в `app/src/hooks/useStudyNavigation.js`; дальнейший поток — [study](study.md).
+7. `GET /decks` и `POST /decks/import-json` выполняют SQL в `db_worker` без автоматического повтора. Список может создавать «Входящие», а при холодном кеше читает модели библиотеки через `lerne_db`. Оба прокси используют один пул.
 
 ## Source of truth
 
