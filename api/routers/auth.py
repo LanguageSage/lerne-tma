@@ -3,6 +3,7 @@ import datetime
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Optional
+from api.db_workers import db_phases, db_worker
 from api.models import TMAUser, TMALinkedSession, TMAAuthCode
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
@@ -35,6 +36,7 @@ class CodeGenerateSchema(BaseModel):
     user_id: int
 
 @router.post("/auth/sync")
+@db_worker
 def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
     """
     Silently registers or updates user info from Telegram or guest session.
@@ -105,6 +107,7 @@ def sync_user(data: UserSyncSchema, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail="Internal server error during sync")
 
 @router.get("/auth/me")
+@db_worker
 def get_me(user_id: int = Depends(get_user_id)):
     """Returns current user info."""
     user = TMAUser.get_or_none(TMAUser.user_id == user_id)
@@ -126,6 +129,7 @@ def get_me(user_id: int = Depends(get_user_id)):
     }
 
 @router.post("/user/language")
+@db_worker
 def update_user_language(data: UserLanguageSchema, user_id: int = Depends(get_user_id)):
     user = TMAUser.get_or_none(TMAUser.user_id == user_id)
     if user is None:
@@ -151,6 +155,7 @@ def update_user_language(data: UserLanguageSchema, user_id: int = Depends(get_us
     }
 
 @router.post("/auth/session")
+@db_phases
 def create_session(guest_id: int):
     """Creates a pending auth session for polling."""
     raise HTTPException(status_code=410, detail="legacy_auth_retired")
@@ -163,6 +168,7 @@ def create_session(guest_id: int):
     return {"status": "ok", "guest_id": guest_id}
 
 @router.get("/auth/session/{guest_id}")
+@db_phases
 def check_session(guest_id: int):
     """Checks if the session was confirmed by the bot."""
     raise HTTPException(status_code=410, detail="legacy_auth_retired")
@@ -192,6 +198,7 @@ def check_session(guest_id: int):
     return {"status": "pending"}
 
 @router.post("/auth/code/generate")
+@db_phases
 def generate_auth_code(data: CodeGenerateSchema):
     """Generates a 6-digit one-time code for account login (valid for 15 minutes)."""
     raise HTTPException(status_code=410, detail="legacy_auth_retired")
@@ -222,6 +229,7 @@ def generate_auth_code(data: CodeGenerateSchema):
     return {"status": "ok", "code": auth_code.code, "expires_in_minutes": 15}
 
 @router.post("/auth/code/verify")
+@db_phases
 def verify_auth_code(data: CodeVerifySchema):
     """Verifies a 6-digit one-time code entered by user in APK or Web."""
     raise HTTPException(status_code=410, detail="legacy_auth_retired")
@@ -278,6 +286,7 @@ def verify_auth_code(data: CodeVerifySchema):
     }
 
 @router.delete("/auth/account")
+@db_worker
 def delete_account(user_id: int = Depends(get_user_id)):
     """Deletes all user decks, cards, folders, progress, and account data."""
     try:
