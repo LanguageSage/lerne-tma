@@ -37,6 +37,7 @@ its active cards in one transaction.
    Preview/apply формируют ответ в worker, а транзакцией apply владеет сервис.
 6. Запуск обучения передаёт контекст в `app/src/hooks/useStudyNavigation.js`; дальнейший поток — [study](study.md).
 7. `GET /decks` и `POST /decks/import-json` выполняют SQL в `db_worker` без автоматического повтора. Список может создавать «Входящие», а при холодном кеше читает модели библиотеки через `lerne_db`. Оба прокси используют один пул.
+   JSON-импорт находит или создаёт колоду и вставляет все пакеты карточек в одной транзакции.
 
 ## Source of truth
 

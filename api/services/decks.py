@@ -596,27 +596,26 @@ def import_deck_from_json(data: dict, user_id: int):
         deck_name = data.get('name', 'Imported Deck')
         cards = data.get('cards', [])
         
-        local_deck, _ = TMA_Deck.get_or_create(user_id=user_id, name=deck_name)
-        
-        now = datetime.datetime.now()
-        new_cards = []
-        for c in cards:
-            new_cards.append({
-                'deck_id': local_deck.id,
-                'front_text': c.get('front', ''),
-                'back_text': c.get('back', ''),
-                'context': c.get('context', ''),
-                'image_path': c.get('image_path', ''),
-                'audio_path': c.get('audio_path', ''),
-                'created_at': now,
-                'updated_at': now
-            })
-            
-        if new_cards:
-            with tma_db.atomic():
-                for i in range(0, len(new_cards), 100):
-                    TMA_Card.insert_many(new_cards[i:i+100]).execute()
-                    
+        with tma_db.atomic():
+            local_deck, _ = TMA_Deck.get_or_create(user_id=user_id, name=deck_name)
+
+            now = datetime.datetime.now()
+            new_cards = []
+            for c in cards:
+                new_cards.append({
+                    'deck_id': local_deck.id,
+                    'front_text': c.get('front', ''),
+                    'back_text': c.get('back', ''),
+                    'context': c.get('context', ''),
+                    'image_path': c.get('image_path', ''),
+                    'audio_path': c.get('audio_path', ''),
+                    'created_at': now,
+                    'updated_at': now
+                })
+
+            for i in range(0, len(new_cards), 100):
+                TMA_Card.insert_many(new_cards[i:i+100]).execute()
+
         return local_deck
     except Exception as e:
         logger.error(f"Error importing from JSON: {e}")
