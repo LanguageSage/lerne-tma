@@ -149,6 +149,7 @@ def verify(database_name, connection_args):
             assert not pool._in_use
             assert (await client.get('/read')).status_code == 200
             await verify_deck_list_and_json_import(client, pool, headers, [account.account_id for account in accounts])
+            await verify_inbox_initialization(client, pool)
             await verify_sync(client, pool, headers, accounts[1].account_id, disconnect_review)
             await verify_knowledge(client, pool, headers, [account.account_id for account in accounts])
             await verify_communications(client, pool, headers, [account.account_id for account in accounts])
@@ -753,6 +754,65 @@ async def verify_deck_list_and_json_import(client, pool, headers, accounts):
     assert (await client.get(path, headers=headers[0])).status_code == 200
     assert not pool._in_use
     print('PASS: pooled Deck List and JSON Import HTTP, cold cache, inbox, isolation and rollback', flush=True)
+
+
+async def verify_inbox_initialization(client, pool):
+    from contextlib import closing
+
+    import psycopg2
+    from psycopg2 import sql
+
+    from api import models
+    from api.auth.service import register_email_password
+    from api.db_workers import run_db
+
+    account = await run_db(register_email_password, 'inbox-race@example.invalid', 'synthetic test password')
+    auth = {'Authorization': f'Bearer {account.access_token}'}
+
+    async def race(table, *requests):
+        # Block writes while letting both requests reach the initialization.
+        # A third connection releases the gate once both workers are waiting.
+        with closing(psycopg2.connect(dbname=pool.database, **pool.connect_params)) as gate:
+            with gate, gate.cursor() as cursor:
+                cursor.execute(sql.SQL('LOCK TABLE {} IN SHARE MODE').format(sql.Identifier(table)))
+                tasks = [asyncio.create_task(client.request(*args, headers=auth, **kwargs))
+                         for args, kwargs in requests]
+                try:
+                    async with asyncio.timeout(5):
+                        while True:
+                            cursor.execute(
+                                "SELECT count(*) FROM pg_locks WHERE database = "
+                                "(SELECT oid FROM pg_database WHERE datname = current_database()) "
+                                "AND NOT granted AND (relation = %s::regclass OR locktype = 'advisory')", (table,))
+                            if cursor.fetchone()[0] == 2:
+                                break
+                            await asyncio.sleep(0.01)
+                finally:
+                    gate.rollback()
+                    responses = await asyncio.gather(*tasks)
+        assert all(response.status_code == 200 for response in responses), [r.text for r in responses]
+        assert not pool._in_use
+        return [response.json() for response in responses]
+
+    listing = (('GET', '/api/decks'), {})
+    await race('tma_deck', listing, listing)
+    french_folders = await race('tma_folder', *[
+        (('POST', '/api/folders'), {'json': {'name': '📥 Входящие', 'target_language': lang}})
+        for lang in (' FR ', 'fr')
+    ])
+    assert french_folders[0]['id'] == french_folders[1]['id']
+
+    def persisted():
+        folders = dict(models.TMA_Folder.select(models.TMA_Folder.id, models.TMA_Folder.target_language)
+                       .where(models.TMA_Folder.user_id == account.account_id).tuples())
+        decks = list(models.TMA_Deck.select(models.TMA_Deck.folder, models.TMA_Deck.target_language)
+                     .where(models.TMA_Deck.user_id == account.account_id, models.TMA_Deck.is_inbox).tuples())
+        assert sorted(folders.values()) == ['de', 'fr']
+        assert folders[french_folders[0]['id']] == 'fr'
+        assert len(decks) == 1 and decks[0][1] == folders[decks[0][0]] == 'de'
+
+    await run_db(persisted)
+    print('PASS: concurrent Inbox deck and folder initialization for the same account', flush=True)
 
 
 async def verify_decks(client, pool, headers, accounts):
