@@ -3,7 +3,6 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import datetime
 import socket
-import sys
 import threading
 from unittest.mock import patch
 from uuid import uuid4
@@ -40,12 +39,7 @@ def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
     from api.db_workers import db_worker
-    from api.routers import card_notes, card_ratings, knowledge, messages, sync, trash
-    # Legacy feedback imports `models` by its short name. Keep the harness on
-    # its already-created fixture model module; never run schema init here.
-    # Do not snapshot/restore all sys.modules: that unloads newly imported PIL
-    # plugins while the media router still retains their original Image module.
-    assert sys.modules.setdefault('models', models) is models
+    from api.routers import card_notes, card_ratings, feedback, folders, knowledge, lid, messages, sync, trash
     with patch.object(models, 'create_all_tables'):
         from api.main import db_session_middleware
 
@@ -89,7 +83,8 @@ def verify(database_name, connection_args):
     app.middleware('http')(db_session_middleware)
     app.include_router(sync.router, prefix='/api')
     app.include_router(knowledge.router, prefix='/api')
-    for router in (card_notes.router, card_ratings.router, messages.router, trash.router):
+    for router in (card_notes.router, card_ratings.router, messages.router, trash.router,
+                   feedback.router, folders.router, lid.router):
         app.include_router(router, prefix='/api')
 
     @app.get('/hold')
@@ -157,6 +152,7 @@ def verify(database_name, connection_args):
             await verify_knowledge(client, pool, headers, [account.account_id for account in accounts])
             await verify_communications(client, pool, headers, [account.account_id for account in accounts])
             await verify_trash(client, pool, headers, [account.account_id for account in accounts])
+            await verify_feedback_lid_folders(client, pool, headers, accounts[0].account_id)
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -555,3 +551,118 @@ async def verify_trash(client, pool, headers, accounts):
     assert not await run_db(models.TMAProgress.select().where(models.TMAProgress.card_id == deleted_card).exists)
     assert await run_db(progress.exists)
     print('PASS: pooled Trash HTTP listing, concurrency, authorization, restore, clear and rollback', flush=True)
+
+
+async def verify_feedback_lid_folders(client, pool, headers, owner_id):
+    from api import models
+    from api.db_workers import run_db
+    from api.routers.lid import MASTER_UID
+
+    async def request(method, path, payload=None, account=0, expected=200):
+        response = await client.request(method, '/api' + path, json=payload,
+                                        headers=headers[account] if account is not None else {})
+        assert response.status_code == expected, (method, path, response.status_code, response.text)
+        if expected < 500:
+            assert response.headers['cache-control'] == 'no-cache, no-store, must-revalidate'
+            return response.json()
+
+    for method, path in (('POST', '/feedback'), ('GET', '/lid/ticket'), ('GET', '/folders')):
+        await request(method, path, account=None, expected=401)
+    assert not pool._in_use
+
+    async def send_feedback(path, message):
+        return await request('POST', path, {'message': message, 'rating': 4})
+
+    def seed_ticket():
+        models.TMAMedia.create(filename='fixture.png', folder='images')
+        folder = models.TMA_Folder.create(user_id=MASTER_UID, name='Leben in Deutschland')
+        for name, count in (('1. Politik', 10), ('2. Geschichte', 10), ('3. Mensch', 10), ('Bayern', 3)):
+            deck = models.TMA_Deck.create(folder=folder, user_id=MASTER_UID, name=name)
+            for position in range(1, count + 1):
+                models.TMA_Card.create(deck=deck, position=position, front_text='Frage',
+                                       back_text='Вопрос\n\n1. Ответ', image_path='fixture.png')
+
+    await run_db(seed_ticket)
+    for index in range(3):
+        feedback, ticket = await asyncio.gather(
+            send_feedback('/feedback' if index % 2 else '/feedback/', f'Fixture {index}'),
+            request('GET', '/lid/ticket?state_code=by'),
+        )
+        saved = await run_db(models.TMAFeedback.get_by_id, feedback['id'])
+        assert feedback['status'] == 'success' and saved.user_id == owner_id
+        assert saved.message == f'Fixture {index}' and saved.rating == 4
+        assert ticket['state_code'] == 'BY' and ticket['state_name'] == 'Bayern'
+        assert ticket['total'] == len(ticket['cards']) == 33
+        assert len({card['id'] for card in ticket['cards']}) == 33
+        assert ticket['cards'][0]['translationRu'] == {'question': 'Вопрос', 'a': 'Ответ'}
+        assert ticket['cards'][0]['image_url'].endswith('/fixture.png')
+        assert not pool._in_use
+
+    with patch.object(pool, '_initialize_connection',
+                      side_effect=[None, RuntimeError('connection initialization failed')]) as initialize:
+        failed_checkout = await client.post('/api/feedback/', headers=headers[0],
+                                            json={'message': 'Checkout fixture'})
+        assert initialize.call_count == 2  # Real auth checkout, then one handler checkout.
+    assert failed_checkout.status_code == 500
+    assert failed_checkout.json() == {'detail': 'Could not save feedback'}
+    assert not pool._in_use
+
+    await run_db(pool.execute_sql, """ALTER TABLE tma_feedback ADD CONSTRAINT c2f_feedback_probe
+        CHECK (message <> 'Rejected fixture')""")
+    rejected = await client.post('/api/feedback', headers=headers[0], json={'message': 'Rejected fixture'})
+    assert rejected.status_code == 500 and rejected.json() == {'detail': 'Could not save feedback'}
+    assert not pool._in_use
+    assert await run_db(models.TMAFeedback.select().where(models.TMAFeedback.user_id == owner_id).count) == 3
+
+    listing = await request('GET', '/folders')
+    assert any(folder['name'] == '📥 Входящие' and folder['is_owner'] for folder in listing)
+    folder = (await request('POST', '/folders', {'name': 'Fixture'}))['id']
+    path = f'/folders/{folder}'
+    child = (await request('POST', '/folders', {'name': 'Child', 'parent_id': folder}))['id']
+    assert (await request('POST', path + '/rename', {'name': 'Renamed'}))['name'] == 'Renamed'
+    await request('POST', path + '/rename', {'name': 'Forbidden'}, account=1, expected=403)
+    assert (await request('POST', path + '/color', {'color': '#123456'}))['color'] == '#123456'
+    await request('POST', path + '/move', {'parent_id': child}, expected=400)
+    await request('POST', f'/folders/{child}/move', {'parent_id': None})
+    await request('POST', '/folders/reorder', {'folder_ids': [child, folder]})
+    listing, concurrent_listing = await asyncio.gather(request('GET', '/folders'), request('GET', '/folders'))
+    assert listing == concurrent_listing and not pool._in_use
+    assert [item['id'] for item in listing if item['id'] in (child, folder)] == [child, folder]
+
+    def seed_folder_card():
+        deck = models.TMA_Deck.create(folder=folder, user_id=owner_id, name='Maintenance')
+        card = models.TMA_Card.create(deck=deck, front_text='Before', back_text='Answer')
+        return deck.id, card.id
+
+    deck, card = await run_db(seed_folder_card)
+    payload = {'cards': [{'number': 1, 'deck_id': deck, 'card_id': card, 'front': 'After',
+                          'back': 'Answer', 'context': '', 'topics': '', 'card_type': 'standard'}]}
+    await request('POST', path + '/text-update/preview', payload, account=1, expected=403)
+    preview = await request('POST', path + '/text-update/preview', payload)
+    apply = {**payload, 'preview_token': preview['preview_token'], 'request_id': str(uuid4())}
+    result = await request('POST', path + '/text-update/apply', apply)
+    assert result['updated'] == 1
+    assert await request('POST', path + '/text-update/apply', apply) == result
+    assert (await run_db(models.TMA_Card.get_by_id, card)).front_text == 'After'
+    assert not pool._in_use
+
+    def reject_folder_delete():
+        pool.execute_sql("""CREATE FUNCTION fail_folder_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'fixture folder deletion failure'; END $$""")
+        pool.execute_sql("""CREATE TRIGGER fail_folder_fixture BEFORE UPDATE ON tma_folder
+            FOR EACH ROW WHEN (NEW.is_deleted) EXECUTE FUNCTION fail_folder_fixture()""")
+
+    await run_db(reject_folder_delete)
+    try:
+        await request('DELETE', path, expected=500)
+        assert not pool._in_use
+        # The earlier deck update belongs to the same transaction as the rejected folder update.
+        assert not (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
+        assert not (await run_db(models.TMA_Folder.get_by_id, folder)).is_deleted
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION fail_folder_fixture() CASCADE')
+
+    assert await request('DELETE', path) == {'status': 'success'}
+    assert (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
+    assert not pool._in_use
+    print('PASS: pooled Feedback, LiD and Folders HTTP, concurrency, authorization and rollback', flush=True)

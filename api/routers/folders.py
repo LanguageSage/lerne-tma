@@ -2,8 +2,8 @@ from fastapi import APIRouter, HTTPException, Depends
 import logging
 
 from api import services
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
-from api.models import tma_db
 from api.routers.card_text_update_models import TextUpdatePreviewRequest, TextUpdateApplyRequest
 from api.services.card_text_update import preview_folder_text_update, apply_folder_text_update
 
@@ -16,23 +16,25 @@ router = APIRouter(
 
 
 @router.post("/{folder_id}/text-update/preview")
+@db_worker
 def preview_folder_from_text(folder_id: int, data: TextUpdatePreviewRequest, user_id: int = Depends(get_user_id)):
-    with tma_db.connection_context():
-        return preview_folder_text_update(folder_id, user_id, [card.model_dump() for card in data.cards])
+    return preview_folder_text_update(folder_id, user_id, [card.model_dump() for card in data.cards])
 
 
 @router.post("/{folder_id}/text-update/apply")
+@db_worker
 def apply_folder_from_text(folder_id: int, data: TextUpdateApplyRequest, user_id: int = Depends(get_user_id)):
-    with tma_db.connection_context():
-        return apply_folder_text_update(folder_id, user_id, [card.model_dump() for card in data.cards],
-                                      data.preview_token, str(data.request_id), data.include_new)
+    return apply_folder_text_update(folder_id, user_id, [card.model_dump() for card in data.cards],
+                                    data.preview_token, str(data.request_id), data.include_new)
 
 @router.get("")
+@db_worker
 def get_folders(user_id: int = Depends(get_user_id)):
     logger.info(f"GET /api/folders - authenticated account: {user_id}")
     return services.get_active_folders(user_id)
 
 @router.post("")
+@db_worker
 def create_folder(data: dict, user_id: int = Depends(get_user_id)):
     name = data.get('name')
     if not name or not name.strip():
@@ -53,6 +55,7 @@ def create_folder(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/reorder")
+@db_worker
 def reorder_folders(data: dict, user_id: int = Depends(get_user_id)):
     folder_ids = data.get('folder_ids', [])
     try:
@@ -65,6 +68,7 @@ def reorder_folders(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{folder_id}/rename")
+@db_worker
 def rename_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id)):
     name = data.get('name')
     if not name or not name.strip():
@@ -81,6 +85,7 @@ def rename_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{folder_id}/color")
+@db_worker
 def change_folder_color(folder_id: int, data: dict, user_id: int = Depends(get_user_id)):
     color = data.get('color')
     try:
@@ -94,6 +99,7 @@ def change_folder_color(folder_id: int, data: dict, user_id: int = Depends(get_u
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{folder_id}/move")
+@db_worker
 def move_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id)):
     parent_id = data.get('parent_id') # Can be None for root
     try:
@@ -109,6 +115,7 @@ def move_folder(folder_id: int, data: dict, user_id: int = Depends(get_user_id))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{folder_id}")
+@db_worker
 def delete_folder(folder_id: int, user_id: int = Depends(get_user_id)):
     if services.delete_folder(folder_id, user_id):
         return {"status": "success"}

@@ -223,7 +223,7 @@ def _folder_paths(folder_id, decks, lock=False):
         frontier = {row.parent_id for row in rows if row.parent_id and row.parent_id not in visited}
     if lock and tma_db.for_update:
         rows = TMA_Folder.select(TMA_Folder.id, TMA_Folder.parent, TMA_Folder.is_deleted).where(
-            TMA_Folder.id.in_(folders)).order_by(TMA_Folder.id).for_update()
+            TMA_Folder.id.in_(sorted(folders))).order_by(TMA_Folder.id).for_update()
         folders = {row.id: row for row in rows}
     paths = {}
     for deck in decks.values():
