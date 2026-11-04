@@ -148,6 +148,7 @@ def verify(database_name, connection_args):
             assert (await client.post('/disconnect')).status_code == 500
             assert not pool._in_use
             assert (await client.get('/read')).status_code == 200
+            await verify_deck_list_and_json_import(client, pool, headers, [account.account_id for account in accounts])
             await verify_sync(client, pool, headers, accounts[1].account_id, disconnect_review)
             await verify_knowledge(client, pool, headers, [account.account_id for account in accounts])
             await verify_communications(client, pool, headers, [account.account_id for account in accounts])
@@ -668,6 +669,78 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
     assert (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
     assert not pool._in_use
     print('PASS: pooled Feedback, LiD and Folders HTTP, concurrency, authorization and rollback', flush=True)
+
+
+async def verify_deck_list_and_json_import(client, pool, headers, accounts):
+    from api import models, services
+    from api.db_workers import run_db
+
+    name = 'JSON worker fixture'
+    payload = {'name': name, 'cards': [{'front': 'Original', 'back': 'Answer'}]}
+    path = '/api/decks'
+
+    async def import_json(body, account=0, status=200):
+        response = await client.post(path + '/import-json', json=body, headers=headers[account])
+        assert response.status_code == status, response.text
+        assert not pool._in_use
+        return response.json()
+
+    assert (await client.get(path)).status_code == 401
+    assert (await client.post(path + '/import-json', json=payload)).status_code == 401
+    deck_id = (await import_json(payload))['deck_id']
+
+    def seed():
+        library = models.Deck.create(name=name)
+        for front in ('Original', 'Library addition'):
+            models.Card.create(deck=library.id, front_text=front, back_text='Answer')
+        models.TMAMedia.create(filename='json-worker.webp', folder='images')
+        models.TMA_Deck.update(metadata='{"resources":[{"type":"image","path":"json-worker.webp"}]}').where(
+            models.TMA_Deck.id == deck_id).execute()
+
+    await run_db(seed)
+
+    # Two accounts can enter with a cold library cache and no inboxes.
+    first = await asyncio.gather(*(client.get(path, headers=auth) for auth in headers))
+    assert all(response.status_code == 200 for response in first)
+    assert not pool._in_use
+    own = next(deck for deck in first[0].json() if deck['id'] == deck_id)
+    assert own['has_updates'] and own['role'] == 'owner' and own['stats']['total'] == 1
+    assert own['metadata']['resources'][0]['url'] == '/api/media/images/json-worker.webp'
+    assert all(deck['id'] != deck_id for deck in first[1].json())
+
+    def starter_state():
+        for account in accounts:
+            assert models.TMAUser.get_by_id(account).default_decks_initialized
+            inbox = models.TMA_Deck.get(user_id=account, is_inbox=True, is_deleted=False)
+            assert inbox.folder.user_id == account and not inbox.folder.is_deleted
+
+    await run_db(starter_state)
+    warm = await client.get(path, headers=headers[1])
+    assert warm.status_code == 200 and any(deck['is_inbox'] for deck in warm.json())
+    assert not pool._in_use
+
+    # The second INSERT fails a NOT NULL constraint after a full first batch.
+    invalid = {'name': name, 'cards': [{'front': 'Rollback'}] * 100 + [{'front': None}]}
+    assert await import_json(invalid, status=400) == {'detail': 'Import failed: invalid data or empty deck'}
+
+    def persisted_cards():
+        return list(models.TMA_Card.select(models.TMA_Card.front_text, models.TMA_Card.back_text)
+                    .where(models.TMA_Card.deck_id == deck_id).tuples())
+
+    assert await run_db(persisted_cards) == [('Original', 'Answer')]
+    assert (await import_json(payload, account=1))['deck_id'] != deck_id
+    assert await run_db(persisted_cards) == [('Original', 'Answer')]
+
+    def disconnect(_user_id):
+        pool.execute_sql('SELECT pg_terminate_backend(pg_backend_pid())')
+
+    with patch.object(services, 'get_active_decks', side_effect=disconnect) as listing:
+        assert (await client.get(path, headers=headers[0])).status_code == 500
+        listing.assert_called_once_with(accounts[0])
+    assert not pool._in_use
+    assert (await client.get(path, headers=headers[0])).status_code == 200
+    assert not pool._in_use
+    print('PASS: pooled Deck List and JSON Import HTTP, cold cache, inbox, isolation and rollback', flush=True)
 
 
 async def verify_decks(client, pool, headers, accounts):
