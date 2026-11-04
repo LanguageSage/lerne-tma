@@ -39,13 +39,14 @@ async def http_client(app):
 def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
-    from api.db_workers import db_worker
+    from api.db_workers import db_worker, run_db
     from api.routers import (
-        auth, auth_v2, card_notes, card_ratings, decks, feedback, folders, knowledge, lid, messages, sync, trash,
+        auth, auth_v2, card_notes, card_ratings, collaborative, debug, decks, feedback, folders,
+        knowledge, lid, media, messages, share, sync, trash,
     )
     from local.router import router as local_router
     with patch.object(models, 'create_all_tables'):
-        from api.main import db_session_middleware
+        from api.main import cache_headers_middleware, get_init_data, health_check
 
     events = []
     fail_initialization = threading.Event()
@@ -55,6 +56,8 @@ def verify(database_name, connection_args):
     headers = [{'Authorization': f'Bearer {account.access_token}'} for account in accounts]
 
     class Pool(PooledPostgresqlDatabase):
+        fail_sql_matching = None
+
         def _connect(self):
             connection = super()._connect()
             events.append(('checkout', threading.get_ident(), connection))
@@ -71,6 +74,9 @@ def verify(database_name, connection_args):
 
         def execute_sql(self, sql, *args, **kwargs):
             events.append(('sql', threading.get_ident(), None))
+            if self.fail_sql_matching and self.fail_sql_matching in sql:
+                self.fail_sql_matching = None
+                return super().execute_sql('SELECT synthetic_connection_failure')
             cursor = super().execute_sql(sql, *args, **kwargs)
             if disconnect_review.is_set() and sql.startswith('INSERT INTO "tmareviewhistory"'):
                 disconnect_review.clear()
@@ -84,12 +90,15 @@ def verify(database_name, connection_args):
     release = threading.Event()
     entered = threading.Barrier(3)
     app = FastAPI()
-    app.middleware('http')(db_session_middleware)
+    app.middleware('http')(cache_headers_middleware)
+    app.get('/api/init')(get_init_data)
+    app.get('/api/health')(health_check)
     app.include_router(sync.router, prefix='/api')
     app.include_router(knowledge.router, prefix='/api')
     for router in (card_notes.router, card_ratings.router, messages.router, trash.router,
                    decks.router, feedback.router, folders.router, lid.router,
-                   auth.router, auth_v2.router, local_router):
+                   auth.router, auth_v2.router, local_router, collaborative.router,
+                   debug.router, share.router, media.router):
         app.include_router(router, prefix='/api')
 
     @app.get('/hold')
@@ -117,6 +126,14 @@ def verify(database_name, connection_args):
     @db_worker
     def disconnect():
         pool.execute_sql('SELECT pg_terminate_backend(pg_backend_pid())')
+
+    probe_calls = 0
+
+    @app.get('/api/failure-probe')
+    async def failure_probe():
+        nonlocal probe_calls
+        probe_calls += 1
+        raise RuntimeError('connection error')
 
     async def run():
         loop_thread = threading.get_ident()
@@ -153,6 +170,8 @@ def verify(database_name, connection_args):
             assert (await client.post('/disconnect')).status_code == 500
             assert not pool._in_use
             assert (await client.get('/read')).status_code == 200
+            assert (await client.get('/api/failure-probe')).status_code == 500
+            assert probe_calls == 1
             await verify_deck_list_and_json_import(client, pool, headers, [account.account_id for account in accounts])
             await verify_inbox_initialization(client, pool)
             await verify_sync(client, pool, headers, accounts[1].account_id, disconnect_review)
@@ -165,6 +184,13 @@ def verify(database_name, connection_args):
             await verify_library_deck_routes(client, pool, headers, [account.account_id for account in accounts])
             await verify_auth(client, pool)
             await verify_local_auth(client, app, pool, headers[0], accounts[0].account_id)
+            init_accounts = [await run_db(register_email_password, f'c2g-{role}@example.invalid',
+                                          'synthetic test password') for role in ('owner', 'viewer')]
+            init_headers = [{'Authorization': f'Bearer {account.access_token}'} for account in init_accounts]
+            init_ids = [account.account_id for account in init_accounts]
+            await verify_init_health(client, pool, init_headers, init_ids)
+            await verify_collaborative_share(client, pool, init_headers, init_ids)
+            print('PASS: init isolation and SQL failures, health, Collaborative, Share rollback, and HTTP caching', flush=True)
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -185,6 +211,116 @@ def verify(database_name, connection_args):
         pool.close_all()
         models.tma_db.initialize(previous[0])
         models.lerne_db.initialize(previous[1])
+
+
+async def verify_init_health(client, pool, headers, account_ids):
+    from api import models
+    from api.db_workers import run_db
+
+    def seed_settings():
+        for index, account_id in enumerate(account_ids):
+            models.TMASetting.create(key=f'USER_SETTINGS_{account_id}', value=f'{{"fixture": {index}}}')
+            models.TMASetting.create(key=f'REMINDER_SETTINGS_{account_id}', value='private')
+        models.TMASetting.create(key='C2G_PUBLIC_SETTING', value='shared')
+        models.TMASetting.create(key='C2G_API_KEY', value='private')
+        models.TMA_Deck.create(user_id=account_ids[0], name='Init media fixture',
+                               metadata='{"resources":[{"type":"image","path":"c2g-init.webp"}]}')
+
+    await run_db(seed_settings)
+    assert (await client.get('/api/init')).status_code == 401
+    for sql in ('"t1"."name" =', 'FROM "tmamedia"', 'FROM "tma_custom_prompt"'):
+        pool.fail_sql_matching = sql
+        assert (await client.get('/api/init', headers=headers[0])).status_code == 500
+        assert pool.fail_sql_matching is None and not pool._in_use
+
+    for index, (account_headers, account_id) in enumerate(zip(headers, account_ids)):
+        response = await client.get('/api/init', headers=account_headers)
+        assert response.status_code == 200, response.text
+        data = response.json()
+        assert data['user_info']['user_id'] == account_id
+        assert data['user_settings'] == {'fixture': index}
+        assert data['settings']['C2G_PUBLIC_SETTING'] == 'shared'
+        assert not any(key.startswith(('USER_SETTINGS_', 'REMINDER_SETTINGS_')) or key == 'C2G_API_KEY'
+                       for key in data['settings'])
+        assert await run_db(models.TMA_Deck.select().where(
+            models.TMA_Deck.user_id == account_id, models.TMA_Deck.is_inbox).exists)
+        assert data['prompts'] == [] and data['global_design_v2'] == {}
+        assert not pool._in_use
+
+    response = await client.get('/api/health')
+    assert response.status_code == 200 and response.json() == {'status': 'ok', 'database_connected': True}
+    assert response.headers['cache-control'] == 'no-cache, no-store, must-revalidate'
+    assert response.headers['pragma'] == 'no-cache' and response.headers['expires'] == '0'
+    assert not pool._in_use
+    pool.fail_sql_matching = 'SELECT 1'
+    response = await client.get('/api/health')
+    assert response.status_code == 200 and response.json() == {'status': 'ok', 'database_connected': False}
+    assert pool.fail_sql_matching is None and not pool._in_use
+    assert (await client.get('/api/health')).json()['database_connected'] is True
+    assert not pool._in_use
+
+
+async def verify_collaborative_share(client, pool, headers, account_ids):
+    from api import models
+    from api.db_workers import run_db
+
+    owner, viewer = headers
+    owner_id, viewer_id = account_ids
+    media_name = f'{uuid4().hex}.jpg'
+    viewer_name = 'c2g_fixture_viewer'
+
+    def seed_deck():
+        models.TMAUser.update(username=viewer_name).where(models.TMAUser.user_id == viewer_id).execute()
+        deck = models.TMA_Deck.create(user_id=owner_id, name='C2G share fixture')
+        models.TMA_Card.create(deck=deck, creator_id=owner_id, front_text='Hallo', back_text='Hello')
+        models.TMAMedia.create(folder='images', filename=media_name, content=b'\xff\xd8\xfffixture')
+        return deck.id
+
+    deck_id = await run_db(seed_deck)
+    collab = f'/api/collaborative/deck/{deck_id}'
+    collaborators = f'{collab}/collaborators'
+    assert (await client.get(collaborators, headers=viewer)).status_code == 403
+    assert (await client.post('/api/collaborative/admin/folders/bulk-delete', headers=viewer,
+                              json={'folder_ids': [1], 'user_ids': [viewer_id]})).status_code == 403
+    assert (await client.get('/api/debug/test-import/0', headers=viewer)).status_code == 403
+    assert (await client.get('/api/debug/test-audio', headers=viewer)).status_code == 403
+    assert (await client.post(f'{collab}/add', headers=owner,
+                              json={'user_identifier': viewer_name})).status_code == 200
+    assert (await client.get(collaborators, headers=viewer)).json()['user_role'] == 'viewer'
+    assert (await client.put(f'{collab}/role', headers=owner,
+                             json={'user_id_to_update': viewer_id, 'role': 'editor'})).status_code == 200
+    assert (await client.get(collaborators, headers=viewer)).json()['user_role'] == 'editor'
+    assert (await client.delete(f'{collab}/remove/{viewer_id}', headers=owner)).status_code == 200
+    assert (await client.get(collaborators, headers=viewer)).status_code == 403
+
+    generated = await client.post(f'/api/share/generate/deck/{deck_id}', headers=owner)
+    assert generated.status_code == 200, generated.text
+    share_id = generated.json()['share_id']
+    info_url = f'/api/share/info/{share_id}'
+    info = await client.get(info_url, headers=viewer)
+    assert info.status_code == 200 and info.json()['cards_count'] == 1
+    assert not info.json()['comparison']['already_exists']
+    html = await client.get(f'/api/share/v/{share_id}')
+    assert html.status_code == 200 and f'/api/preview/{share_id}.jpg' in html.text
+    preview = await client.get(f'/api/preview/{share_id}.jpg')
+    assert preview.status_code == 200 and preview.headers['content-type'] == 'image/jpeg'
+    assert preview.content.startswith(b'\xff\xd8\xff')
+    assert preview.headers['cache-control'] == 'no-cache, no-store, must-revalidate'
+    media = await client.get(f'/api/media/images/{media_name}')
+    assert media.status_code == 200 and media.headers['cache-control'] == 'public, max-age=604800'
+    assert 'pragma' not in media.headers and 'expires' not in media.headers
+
+    pool.fail_sql_matching = 'INSERT INTO "tma_card"'
+    body = {'share_id': share_id}
+    assert (await client.post('/api/share/import', headers=viewer, json=body)).status_code == 500
+    assert pool.fail_sql_matching is None and not pool._in_use
+    comparison = (await client.get(info_url, headers=viewer)).json()['comparison']
+    assert not comparison['already_exists']  # Deck creation rolled back with the card insert.
+    imported = await client.post('/api/share/import', headers=viewer, json=body)
+    assert imported.status_code == 200 and imported.json()['cards_added'] == 1
+    comparison = (await client.get(info_url, headers=viewer)).json()['comparison']
+    assert comparison['existing_id'] == imported.json()['new_deck_id']
+    assert comparison['my_cards_count'] == 1 and not pool._in_use
 
 
 async def verify_auth(client, pool):

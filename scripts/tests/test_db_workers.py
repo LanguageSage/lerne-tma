@@ -18,7 +18,7 @@ from peewee import SqliteDatabase, OperationalError
 from api import models, services
 from api.dependencies.auth import get_user_id
 with patch.object(models, 'create_all_tables'):
-    from api.main import db_session_middleware
+    from api.main import cache_headers_middleware
 from api.routers import cards, study, bot
 
 
@@ -97,7 +97,7 @@ class DbWorkerTests(unittest.TestCase):
             models.TMA_Card.create(deck=self.deck, front_text='Synthetic', back_text='Duplicate')
             models.TMAProgress.create(card_id=self.card.id, user_id=1, queue='new', next_review=datetime.datetime.now())
         self.app = FastAPI()
-        self.app.middleware('http')(db_session_middleware)
+        self.app.middleware('http')(cache_headers_middleware)
         for module in (cards, study, bot):
             self.app.include_router(module.router, prefix='/api')
         self.app.dependency_overrides[get_user_id] = lambda: 1

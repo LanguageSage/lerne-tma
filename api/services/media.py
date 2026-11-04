@@ -118,7 +118,7 @@ def _is_valid_audio_content(content_prefix, content_size=None) -> bool:
 
 
 @lru_cache(maxsize=2000)
-def _check_media_exists(filename: str, folder: str) -> bool:
+def _check_media_exists(filename: str, folder: str, *, strict=False) -> bool:
     """Кэшированная проверка существования и минимальной целостности медиа."""
     try:
         from ..models import TMAMedia
@@ -138,10 +138,12 @@ def _check_media_exists(filename: str, folder: str) -> bool:
             return True
         return _is_valid_audio_content(row[1], row[0])
     except Exception:
+        if strict:
+            raise
         return False
 
 
-def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) -> str | None:
+def resolve_media_url(path_str: str, media_type: str, exists_map: set = None, *, strict=False) -> str | None:
     """Формирует канонический URL для медиа-ресурсов."""
     if not path_str:
         return None
@@ -173,7 +175,7 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None) ->
     if exists_map is not None:
         if (filename, folder) not in exists_map:
             return None
-    elif not _check_media_exists(filename, folder):
+    elif not _check_media_exists(filename, folder, strict=strict):
         return None
 
     if path_str.startswith("/api/media/"):

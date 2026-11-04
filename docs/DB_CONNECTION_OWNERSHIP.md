@@ -111,5 +111,15 @@ PostgreSQL с pool limit 2 через существующий `scripts/test_sup
 формат ответов и ошибки TTS не меняются. LOCAL отключает внешнюю генерацию;
 успешный TTS проверяется синтетическим провайдером, а не платным/live сервисом.
 
-C2b не завершает весь аудит: bot/reminders, AI/settings, остальные sync/auth
-маршруты, startup/init/health и удаление legacy middleware остаются открытыми.
+## Завершение HTTP DB ownership (C2g-2)
+
+После C2g-1 startup и LOCAL bootstrap выполняются отдельно от HTTP-запросов.
+В C2g-2 init, Collaborative, Share и debug import используют `db_worker` без
+повтора. Init возвращает ошибку при сбое SQL, включая подготовку стартовых
+колод и сбор метаданных. Health проверяет `SELECT 1` через `run_db` и сообщает
+`database_connected: false` при сбое. Middleware обслуживает только cache headers.
+Debug audio не использует БД. Существующие транзакции Share и Collaborative
+остаются в сервисах.
+
+`scripts/tests/db_workers_postgres.py` проверяет реальные HTTP-запросы,
+принадлежность соединений worker-потокам, возврат в пул и откат Share import.

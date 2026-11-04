@@ -56,7 +56,7 @@ def get_lid_deck_position(name: str) -> int:
             return 3 + i
     return 99
 
-def deduplicate_lid_folders(user_id: int):
+def deduplicate_lid_folders(user_id: int, *, strict=False):
     """Гарантирует, что у пользователя ровно одна папка 'Leben in Deutschland' и её колоды имеют правильный канонический порядок."""
     try:
         lid_folders = list(TMA_Folder.select().where(
@@ -103,10 +103,12 @@ def deduplicate_lid_folders(user_id: int):
 
         return best_folder
     except Exception as e:
+        if strict:
+            raise
         logger.error(f"Error deduplicating LiD folders for user {user_id}: {e}", exc_info=True)
         return None
 
-def ensure_starter_decks(user_id: int, target_language: str = None):
+def ensure_starter_decks(user_id: int, target_language: str = None, *, strict=False):
     """
     Ensures user account is initialized. 
     Auto-cloning of default decks is disabled: decks are accessed globally/publicly without copying.
@@ -116,9 +118,11 @@ def ensure_starter_decks(user_id: int, target_language: str = None):
         if not getattr(user, 'default_decks_initialized', False):
             user.default_decks_initialized = True
             user.save()
-        deduplicate_lid_folders(user_id)
+        deduplicate_lid_folders(user_id, strict=strict)
         return True
     except Exception as e:
+        if strict:
+            raise
         logger.error(f"Error in ensure_starter_decks: {e}")
         return False
 
@@ -340,7 +344,7 @@ _lib_cache = {
     'counts': {}
 }
 
-def _get_cached_library_info():
+def _get_cached_library_info(*, strict=False):
     global _lib_cache
     import time
     now = time.time()
@@ -369,25 +373,31 @@ def _get_cached_library_info():
         }
         return by_name, counts
     except Exception as e:
+        if strict:
+            raise
         logger.error(f"Error caching library info: {e}")
         return _lib_cache.get('by_name', {}), _lib_cache.get('counts', {})
 
 
-def get_active_decks(user_id: int, folder_map: dict = None):
+def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
     """Возвращает список колод со статистикой. Оптимизировано для быстрой загрузки."""
     try:
         now = datetime.datetime.now()
         
+        if strict:
+            # Init requires provisioning to succeed before taking the folder snapshot.
+            ensure_starter_decks(user_id, strict=True)
+
         if folder_map is None:
             all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
             folder_map = {f.id: f for f in all_folders}
 
-        # 1. Убеждаемся, что дефолтные колоды и папки импортированы
-        try:
-            ensure_starter_decks(user_id)
-            deduplicate_lid_folders(user_id)
-        except Exception:
-            pass
+        if not strict:
+            try:
+                ensure_starter_decks(user_id)
+                deduplicate_lid_folders(user_id)
+            except Exception:
+                pass
 
         # Update folder_map in case ensure_starter_decks created folders
         if folder_map is not None:
@@ -466,7 +476,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
             }
 
         # --- Кэшированная проверка обновлений из библиотеки ---
-        ext_by_name, lib_counts = _get_cached_library_info()
+        ext_by_name, lib_counts = _get_cached_library_info(strict=strict)
         
         result = []
         for d in decks:
@@ -488,7 +498,7 @@ def get_active_decks(user_id: int, folder_map: dict = None):
                 elif ext_deck.updated_at and d.updated_at and ext_deck.updated_at > d.updated_at:
                     has_updates = True
 
-            parsed_metadata = resolve_deck_metadata(d)
+            parsed_metadata = resolve_deck_metadata(d, strict=strict)
 
             collab_meta = deck_collab_map.get(d.id, {})
             role = collab_meta.get('role', 'owner' if d.user_id == user_id else None)

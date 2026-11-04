@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, Body, Request, Header
 from fastapi.responses import HTMLResponse, Response
 
 from api.models import TMAUser, TMA_Deck, TMA_Card, TMA_Folder, TMAMedia
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.auth.dependencies import get_bearer_token
 from api.auth.errors import AuthError
@@ -15,6 +16,7 @@ router = APIRouter(tags=["share"])
 logger = logging.getLogger(__name__)
 
 @router.post("/share/generate/{type}/{item_id}")
+@db_worker
 def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: int = Depends(get_user_id)):
     """Generates or retrieves a unique share_id for a deck, folder, or card."""
     if type == "deck":
@@ -54,8 +56,13 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
     return {"status": "ok", "share_id": share_id}
 
 
-@router.get("/share/info/{share_id}")
-def get_share_info(share_id: str, authorization: Optional[str] = Header(None)):
+@router.get("/share/info/{share_id}", name="get_share_info")
+@db_worker
+def share_info(share_id: str, authorization: Optional[str] = Header(None)):
+    return get_share_info(share_id, authorization)
+
+
+def get_share_info(share_id: str, authorization: Optional[str] = None):
     """Gets public info about a shared item with fast user comparison."""
     is_collab = share_id.startswith("collab_")
     clean_id = share_id.replace("collab_", "").strip()
@@ -209,6 +216,7 @@ def get_share_info(share_id: str, authorization: Optional[str] = Header(None)):
         raise HTTPException(status_code=400, detail="Invalid share link format")
 
 @router.post("/share/import")
+@db_worker
 def import_shared_item(payload: dict = Body(...), user_id: int = Depends(get_user_id)):
     """Imports a shared card into Inbox or a shared deck as a new standalone deck."""
     share_id = payload.get("share_id")
@@ -229,6 +237,7 @@ def import_shared_item(payload: dict = Body(...), user_id: int = Depends(get_use
 
 
 @router.get("/share/v/{share_id}", response_class=HTMLResponse)
+@db_worker
 def view_shared_item(share_id: str, request: Request):
     """Returns a page with OpenGraph tags for beautiful link preview in Telegram/Socials."""
     host = request.headers.get("host", "tma-amber.vercel.app")
@@ -280,6 +289,7 @@ def view_shared_item(share_id: str, request: Request):
 @router.get("/preview/{share_id}.jpg")
 @router.get("/share/v/{share_id}/preview.png")
 @router.get("/share/v/{share_id}/preview.jpg")
+@db_worker
 def get_share_preview_image(share_id: str):
     """Returns a stored screenshot or generates a beautiful premium preview image."""
     filename = f"preview_{share_id}.png"

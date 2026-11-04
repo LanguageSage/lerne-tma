@@ -13,7 +13,7 @@ from fastapi import APIRouter, FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
-from api import models
+from api import models, services
 from api.auth import service
 from api.permissions import is_admin
 from api.routers import ai, auth, auth_v2, collaborative, debug, decks, settings
@@ -217,9 +217,7 @@ class AdminPermissionsTests(unittest.TestCase):
         response = self.client.post('/api/user/language', headers=headers, json={})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertIs(response.json()['is_admin'], expected)
-        services = get_init_data.__globals__['services']
-        with patch.object(services, 'ensure_starter_decks'), \
-                patch.object(services, 'get_active_decks', return_value=[]), \
+        with patch.object(services, 'get_active_decks', return_value=[]), \
                 patch.object(services, 'get_active_folders', return_value=[]):
             response = self.client.get('/api/init', headers=headers)
         self.assertEqual(response.status_code, 200, response.text)

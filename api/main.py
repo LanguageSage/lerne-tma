@@ -1,3 +1,4 @@
+import json
 import os
 import sys
 import logging
@@ -19,7 +20,7 @@ from fastapi import FastAPI, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.concurrency import run_in_threadpool
 from api.dependencies.auth import get_user_id
-from api.db_workers import uses_db_worker
+from api.db_workers import db_phases, db_worker, run_db
 from api.permissions import is_admin
 
 from api import models, services
@@ -104,65 +105,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Управление жизненным циклом соединений с базой данных (Peewee Connection Pool)
 @app.middleware("http")
-async def db_session_middleware(request, call_next):
-    worker_db = uses_db_worker(request)
-    # C1 routes own connections in workers; the remaining routes keep the
-    # existing middleware lifecycle. Never open/close a worker's DB on the loop.
-    try:
-        if not worker_db and hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
-            if models.tma_db.is_closed():
-                models.tma_db.connect(reuse_if_open=True)
-        if not worker_db and hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
-            if models.lerne_db.is_closed():
-                models.lerne_db.connect(reuse_if_open=True)
-    except Exception as e:
-        logger.error(f"Error checking DB connection before request: {e}")
-        # A request cannot replace process-global proxies/pools used by workers.
-        # The operation's owner may reconnect its own thread-local connection.
-
-    response = None
-    try:
-        response = await call_next(request)
-    except Exception as exc:
-        exc_str = str(exc).lower()
-        if not worker_db and request.method in ('GET', 'HEAD') and any(k in exc_str for k in ["closed", "terminated", "connection", "socket", "reset", "eof", "exceeded maximum connections"]):
-            logger.warning(f"DB connection reset due to error: {exc}. Retrying HTTP request...")
-            try:
-                if hasattr(models.tma_db, 'obj') and models.tma_db.obj:
-                    models.tma_db.close()
-                    models.tma_db.connect(reuse_if_open=True)
-            except Exception:
-                pass
-            try:
-                response = await call_next(request)
-            except Exception as retry_exc:
-                logger.error(f"Retry HTTP request failed: {retry_exc}")
-                raise retry_exc
-        else:
-            raise exc
-    finally:
-        # Crucial: Always release DB connections back to the pool after the HTTP request is finished
-        try:
-            if not worker_db and hasattr(models.tma_db, 'obj') and models.tma_db.obj is not None:
-                if not models.tma_db.is_closed():
-                    models.tma_db.close()
-        except Exception:
-            pass
-        try:
-            if not worker_db and hasattr(models.lerne_db, 'obj') and models.lerne_db.obj is not None:
-                if not models.lerne_db.is_closed():
-                    models.lerne_db.close()
-        except Exception:
-            pass
-
-    if response:
-        path = request.url.path
-        if path.startswith("/api") and not path.startswith("/api/media"):
-            response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
-            response.headers["Pragma"] = "no-cache"
-            response.headers["Expires"] = "0"
+async def cache_headers_middleware(request, call_next):
+    response = await call_next(request)
+    path = request.url.path
+    if path.startswith("/api") and not path.startswith("/api/media"):
+        response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+        response.headers["Pragma"] = "no-cache"
+        response.headers["Expires"] = "0"
     return response
 
 # Подключение роутеров
@@ -194,71 +144,56 @@ app.include_router(messages.router, prefix="/api")
 
 # --- Consolidated Init Endpoint ---
 @app.get("/api/init")
+@db_worker
 def get_init_data(user_id: int = Depends(get_user_id)):
     """Returns all initial data needed by the app in a single request."""
-    # 1. Ensure starter/default decks and folders are provisioned for this user FIRST
-    try:
-        services.ensure_starter_decks(user_id)
-    except Exception as e:
-        logger.error(f"Error ensuring starter decks for user {user_id} in /api/init: {e}")
+    decks = services.get_active_decks(user_id, strict=True)
+    folders = services.get_active_folders(user_id)
 
-    # 2. Build folder_map AFTER ensuring starter decks so newly created folders are included
-    all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
-    folder_map = {f.id: f for f in all_folders}
-
-    decks = services.get_active_decks(user_id, folder_map=folder_map)
-    folders = services.get_active_folders(user_id, folder_map=folder_map)
-    
     # Shared settings exclude credentials and per-account records.
     settings = {}
-    try:
-        sensitive_terms = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL")
-        personal_prefixes = (
-            "USER_SETTINGS_", "USER_DESIGN_V1_BACKUP_", "DECK_LEARNING_",
-            "REMINDER_SETTINGS_", "LAST_REMINDER_SLOTS_", "LAST_REMINDER_ATTEMPT_",
-        )
-        for s in models.TMASetting.select():
-            key_upper = s.key.upper()
-            if key_upper.startswith(personal_prefixes) or any(term in key_upper for term in sensitive_terms):
-                continue
-            settings[s.key] = s.value
-    except Exception: pass
-        
+    sensitive_terms = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL")
+    personal_prefixes = (
+        "USER_SETTINGS_", "USER_DESIGN_V1_BACKUP_", "DECK_LEARNING_",
+        "REMINDER_SETTINGS_", "LAST_REMINDER_SLOTS_", "LAST_REMINDER_ATTEMPT_",
+    )
+    for s in models.TMASetting.select():
+        key_upper = s.key.upper()
+        if key_upper.startswith(personal_prefixes) or any(term in key_upper for term in sensitive_terms):
+            continue
+        settings[s.key] = s.value
+
     # Get prompts
     prompts = []
-    try:
-        for cp in models.TMACustomPrompt.select().where(models.TMACustomPrompt.user_id == user_id):
-            prompts.append({
-                "id": cp.id,
-                "name": cp.name,
-                "translation_prompt": cp.translation_prompt or "",
-                "context_prompt": cp.context_prompt or "",
-                "is_active": cp.is_active,
-                "prompt_type": cp.prompt_type
-            })
-    except Exception: pass
-        
+    for cp in models.TMACustomPrompt.select().where(models.TMACustomPrompt.user_id == user_id):
+        prompts.append({
+            "id": cp.id,
+            "name": cp.name,
+            "translation_prompt": cp.translation_prompt or "",
+            "context_prompt": cp.context_prompt or "",
+            "is_active": cp.is_active,
+            "prompt_type": cp.prompt_type
+        })
+
     # Get user language and profile
     user_info = {"active_language": "de", "native_language": "uk", "has_selected_language": False}
-    try:
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user:
-            clean_first_name = user.first_name if (user.first_name and user.first_name != "Пользователь") else (user.username or None)
-            has_identity = bool(clean_first_name or user.username)
-            is_guest = bool(user.is_guest) if has_identity else True
-            user_info = {
-                "user_id": user.user_id,
-                "first_name": clean_first_name,
-                "last_name": user.last_name,
-                "username": user.username,
-                "photo_url": user.photo_url,
-                "phone": user.phone,
-                "is_guest": is_guest,
-                "active_language": user.active_language or "de",
-                "native_language": getattr(user, 'native_language', None) or "uk",
-                "has_selected_language": bool(user.has_selected_language)
-            }
-    except Exception: pass
+    user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
+    if user:
+        clean_first_name = user.first_name if (user.first_name and user.first_name != "Пользователь") else (user.username or None)
+        has_identity = bool(clean_first_name or user.username)
+        is_guest = bool(user.is_guest) if has_identity else True
+        user_info = {
+            "user_id": user.user_id,
+            "first_name": clean_first_name,
+            "last_name": user.last_name,
+            "username": user.username,
+            "photo_url": user.photo_url,
+            "phone": user.phone,
+            "is_guest": is_guest,
+            "active_language": user.active_language or "de",
+            "native_language": getattr(user, 'native_language', None) or "uk",
+            "has_selected_language": bool(user.has_selected_language)
+        }
 
     # Get user settings
     from api.services.user_settings import read_user_settings
@@ -266,12 +201,12 @@ def get_init_data(user_id: int = Depends(get_user_id)):
 
     # Global Design V2
     global_design_v2 = {}
-    try:
-        import json as _json
-        gd = models.TMASetting.get_or_none(models.TMASetting.key == "GLOBAL_DESIGN_V2")
-        if gd and gd.value:
-            global_design_v2 = _json.loads(gd.value)
-    except Exception: pass
+    gd = models.TMASetting.get_or_none(models.TMASetting.key == "GLOBAL_DESIGN_V2")
+    if gd and gd.value:
+        try:
+            global_design_v2 = json.loads(gd.value)
+        except json.JSONDecodeError:
+            pass
 
     return {
         "decks": decks,
@@ -286,9 +221,10 @@ def get_init_data(user_id: int = Depends(get_user_id)):
 
 # --- Базовые Эндпоинты ---
 @app.get("/api/health")
-def health_check():
+@db_phases
+async def health_check():
     try:
-        models.tma_db.connect(reuse_if_open=True)
+        await run_db(lambda: models.tma_db.execute_sql("SELECT 1").fetchone())
         db_ok = True
     except Exception:
         db_ok = False

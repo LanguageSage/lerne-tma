@@ -3,6 +3,7 @@ import os
 import traceback
 from fastapi import APIRouter, Header, Depends, HTTPException
 from api import models, services
+from api.db_workers import db_phases, db_worker
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
 
@@ -16,6 +17,7 @@ def ensure_debug_access(user_id: int):
         raise HTTPException(status_code=403, detail="Access denied")
 
 @router.get("/test-import/{deck_id}")
+@db_worker
 def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
     ensure_debug_access(user_id)
     
@@ -56,6 +58,7 @@ def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
         return {"logs": logs, "error": str(e)}
 
 @router.get("/test-audio")
+@db_phases
 async def debug_audio(text: str = "Test", voice: str = "de-DE-KatjaNeural", user_id: int = Depends(get_user_id)):
     ensure_debug_access(user_id)
     logs = []
