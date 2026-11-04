@@ -1,6 +1,7 @@
 """Called only by the disposable PostgreSQL security harness, never live DBs."""
 import asyncio
 from contextlib import asynccontextmanager
+from datetime import datetime
 import socket
 import sys
 import threading
@@ -39,7 +40,7 @@ def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
     from api.db_workers import db_worker
-    from api.routers import card_notes, card_ratings, knowledge, messages, sync
+    from api.routers import card_notes, card_ratings, knowledge, messages, sync, trash
     # Legacy feedback imports `models` by its short name. Keep the harness on
     # its already-created fixture model module; never run schema init here.
     # Do not snapshot/restore all sys.modules: that unloads newly imported PIL
@@ -88,7 +89,7 @@ def verify(database_name, connection_args):
     app.middleware('http')(db_session_middleware)
     app.include_router(sync.router, prefix='/api')
     app.include_router(knowledge.router, prefix='/api')
-    for router in (card_notes.router, card_ratings.router, messages.router):
+    for router in (card_notes.router, card_ratings.router, messages.router, trash.router):
         app.include_router(router, prefix='/api')
 
     @app.get('/hold')
@@ -155,6 +156,7 @@ def verify(database_name, connection_args):
             await verify_sync(client, pool, headers, accounts[1].account_id, disconnect_review)
             await verify_knowledge(client, pool, headers, [account.account_id for account in accounts])
             await verify_communications(client, pool, headers, [account.account_id for account in accounts])
+            await verify_trash(client, pool, headers, [account.account_id for account in accounts])
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -463,3 +465,93 @@ async def verify_communications(client, pool, headers, accounts):
     assert len(await request('GET', root)) == 3
     assert not pool._in_use
     print('PASS: pooled Notes, Ratings and Messages HTTP, concurrency, rollback and isolation', flush=True)
+
+
+async def verify_trash(client, pool, headers, accounts):
+    from api import models
+    from api.db_workers import run_db
+
+    def seed():
+        updated_at = datetime(2026, 11, 1, 12)
+        deck = models.TMA_Deck.create(user_id=accounts[0], name='Trash fixture', is_deleted=True,
+                                     updated_at=updated_at)
+        card = models.TMA_Card.create(deck=deck.id, front_text='Front', back_text='Back', is_deleted=True,
+                                     updated_at=updated_at)
+        models.TMAProgress.create(user_id=accounts[0], card_id=card.id)
+        return deck.id, card.id
+
+    deck, card = await run_db(seed)
+    restore_deck = f'/deck/{deck}/restore'
+    restore_card = f'/card/{card}/restore'
+
+    async def request(method='GET', path='', account=0, expected=200):
+        auth = headers[account] if account is not None else {}
+        response = await client.request(method, '/api/trash' + path, headers=auth)
+        assert response.status_code == expected, (method, path, response.status_code, response.text)
+        if expected < 500:
+            assert response.headers['cache-control'] == 'no-cache, no-store, must-revalidate'
+            return response.json()
+
+    await request(account=None, expected=401)
+    assert not pool._in_use
+    assert await request(account=1) == {'decks': [], 'cards': []}
+    await request('POST', restore_card, account=1, expected=404)
+    await request('POST', restore_deck, account=1, expected=404)
+    assert not pool._in_use
+
+    listing = await request()
+    assert listing['decks'][0]['id'] == deck and listing['decks'][0]['cards_count'] == 1
+    assert listing['cards'][0]['id'] == card and listing['cards'][0]['deck_name'] == 'Trash fixture'
+
+    slots = asyncio.Semaphore(2)
+
+    async def concurrent_read():
+        async with slots:
+            return await request()
+
+    results = await asyncio.gather(*(concurrent_read() for _ in range(6)))
+    assert results == [listing] * 6
+    assert not pool._in_use
+
+    def reject_deck_change():
+        pool.execute_sql('''CREATE FUNCTION fail_trash_fixture() RETURNS trigger LANGUAGE plpgsql AS $$
+            BEGIN RAISE EXCEPTION 'fixture deck mutation failure'; END $$''')
+        pool.execute_sql('''CREATE TRIGGER fail_trash_fixture BEFORE UPDATE OR DELETE ON tma_deck
+            FOR EACH ROW EXECUTE FUNCTION fail_trash_fixture()''')
+
+    await run_db(reject_deck_change)
+    progress = models.TMAProgress.select().where(models.TMAProgress.card_id == card)
+    try:
+        # Both operations have already changed the card before reaching the failing deck statement.
+        await request('POST', restore_card, expected=500)
+        assert not pool._in_use
+        assert await request() == listing
+        await request('DELETE', '/clear', expected=500)
+        assert not pool._in_use
+        assert await request() == listing
+        assert await run_db(progress.exists)
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION fail_trash_fixture() CASCADE')
+
+    async def restore_and_check(path):
+        assert await request('POST', path) == {'status': 'success'}
+        assert await request() == {'decks': [], 'cards': []}
+        assert await run_db(progress.exists)
+        assert not pool._in_use
+
+    await restore_and_check(restore_card)
+    await run_db(models.TMA_Deck.update(is_deleted=True).where(models.TMA_Deck.id == deck).execute)
+    await run_db(models.TMA_Card.update(is_deleted=True).where(models.TMA_Card.id == card).execute)
+    await restore_and_check(restore_deck)
+
+    deleted_deck, deleted_card = await run_db(seed)
+    assert await request('DELETE', '/clear', account=1) == {'status': 'success'}
+    assert (await request())['decks'][0]['id'] == deleted_deck
+    assert await request('DELETE', '/clear') == {'status': 'success'}
+    assert not pool._in_use
+    assert await request() == {'decks': [], 'cards': []}
+    assert not await run_db(models.TMA_Deck.get_or_none, models.TMA_Deck.id == deleted_deck)
+    assert not await run_db(models.TMA_Card.get_or_none, models.TMA_Card.id == deleted_card)
+    assert not await run_db(models.TMAProgress.select().where(models.TMAProgress.card_id == deleted_card).exists)
+    assert await run_db(progress.exists)
+    print('PASS: pooled Trash HTTP listing, concurrency, authorization, restore, clear and rollback', flush=True)

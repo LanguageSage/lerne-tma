@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import logging
 
 from api import services
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 
 logger = logging.getLogger(__name__)
@@ -12,11 +13,13 @@ router = APIRouter(
 )
 
 @router.get("")
+@db_worker(retry_reads=True)
 def get_trash(user_id: int = Depends(get_user_id)):
     logger.info(f"GET /api/trash - authenticated account: {user_id}")
     return services.trash.get_trash_items(user_id)
 
 @router.post("/deck/{deck_id}/restore")
+@db_worker
 def restore_trash_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/trash/deck/{deck_id}/restore - authenticated account: {user_id}")
     if services.trash.restore_deck(deck_id, user_id):
@@ -24,6 +27,7 @@ def restore_trash_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=404, detail="Deck not found or restore failed")
 
 @router.post("/card/{card_id}/restore")
+@db_worker
 def restore_trash_card(card_id: int, user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/trash/card/{card_id}/restore - authenticated account: {user_id}")
     if services.trash.restore_card(card_id, user_id):
@@ -31,6 +35,7 @@ def restore_trash_card(card_id: int, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=404, detail="Card not found or restore failed")
 
 @router.delete("/clear")
+@db_worker
 def clear_trash(user_id: int = Depends(get_user_id)):
     logger.info(f"DELETE /api/trash/clear - authenticated account: {user_id}")
     if services.trash.clear_trash(user_id):
