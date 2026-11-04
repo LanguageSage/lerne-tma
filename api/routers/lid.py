@@ -4,6 +4,7 @@ import re
 import logging
 import random
 from fastapi import APIRouter, Depends, HTTPException, Query
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api import models
 from api.services.media import resolve_media_url
@@ -97,6 +98,7 @@ def serialize_card(card, deck_name=""):
     }
 
 @router.get("/ticket")
+@db_worker(retry_reads=True)
 def get_exam_ticket(
     state_code: str = Query('BY', description="Two-letter Bundesland code (e.g. BY, BE, NW)"),
     user_id: int = Depends(get_user_id)

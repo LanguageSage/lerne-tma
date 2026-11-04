@@ -17,6 +17,8 @@
 | Autoplay / controls | `app/src/hooks/useAutoplay.js`, `app/src/utils/autoplaySequence.js`, `app/src/components/study/StudyControlsBlock.jsx`, `app/src/components/study/GradeButtons.jsx`, `app/src/store/useSettingsStore.js` |
 | LiD exam/practice | `app/src/components/lid/LidExamView.jsx`, `app/src/components/lid/LidQuestionCard.jsx`, `app/src/store/useLidStore.js`, `api/routers/lid.py` |
 
+LiD ticket выбирает карточки и формирует ответ с медиа-URL в `db_worker`.
+
 ## Data flow
 
 1. `useStudyNavigation` запускает сессию; `useStudySession` получает карточки и держит историю в session store.
