@@ -9,7 +9,6 @@ from api.permissions import is_admin
 from api.services.collaborative_service import _require_can_mutate
 from api.routers.card_text_update_models import TextUpdateCard, TextUpdatePreviewRequest, TextUpdateApplyRequest
 from api.services.card_text_update import preview_text_update, apply_text_update
-from api.models import tma_db
 
 
 logger = logging.getLogger(__name__)
@@ -124,21 +123,22 @@ def reset_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=500, detail="Failed to reset progress")
 
 @router.get("/{deck_id}/cards")
+@db_worker(retry_reads=True)
 def get_deck_cards(deck_id: int, user_id: int = Depends(get_user_id)):
     return services.get_cards_for_study(deck_id, user_id)
 
 
 @router.post("/{deck_id}/text-update/preview")
+@db_worker
 def preview_deck_text_update(deck_id: int, data: TextUpdatePreviewRequest, user_id: int = Depends(get_user_id)):
-    with tma_db.connection_context():
-        return preview_text_update(deck_id, user_id, [card.model_dump() for card in data.cards])
+    return preview_text_update(deck_id, user_id, [card.model_dump() for card in data.cards])
 
 
 @router.post("/{deck_id}/text-update/apply")
+@db_worker
 def apply_deck_text_update(deck_id: int, data: TextUpdateApplyRequest, user_id: int = Depends(get_user_id)):
-    with tma_db.connection_context():
-        return apply_text_update(deck_id, user_id, [card.model_dump() for card in data.cards],
-                                 data.preview_token, str(data.request_id), data.include_new)
+    return apply_text_update(deck_id, user_id, [card.model_dump() for card in data.cards],
+                             data.preview_token, str(data.request_id), data.include_new)
 
 from pydantic import BaseModel
 

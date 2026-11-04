@@ -154,6 +154,7 @@ def verify(database_name, connection_args):
             await verify_trash(client, pool, headers, [account.account_id for account in accounts])
             await verify_feedback_lid_folders(client, pool, headers, accounts[0].account_id)
             await verify_decks(client, pool, headers, [account.account_id for account in accounts])
+            await verify_deck_text_update(client, pool, headers, [account.account_id for account in accounts])
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -803,3 +804,90 @@ async def verify_decks(client, pool, headers, accounts):
         failed.assert_called_once()
     assert not pool._in_use
     print('PASS: pooled Decks HTTP, concurrent writes, permissions and copy/reorder rollback', flush=True)
+
+
+async def verify_deck_text_update(client, pool, headers, accounts):
+    from api import models
+    from api.db_workers import run_db
+    from api.routers import decks
+
+    def seed():
+        deck = models.TMA_Deck.create(user_id=accounts[0], name='Text update worker fixture')
+        card = models.TMA_Card.create(deck=deck, front_text='Original', back_text='Back')
+        return deck.id, card.id
+
+    deck_id, card_id = await run_db(seed)
+    path = f'/api/decks/{deck_id}'
+    item = {'number': 1, 'card_id': card_id, 'front': 'Updated', 'back': 'Back',
+            'context': '', 'topics': '', 'card_type': 'standard'}
+    body = {'cards': [item, {**item, 'number': 2, 'card_id': None, 'front': 'New fixture card'}]}
+
+    async def request(method, suffix, payload=None, account=0, expected=200):
+        auth = headers[account] if account is not None else {}
+        response = await client.request(method, path + suffix, json=payload, headers=auth)
+        assert response.status_code == expected, (suffix, response.status_code, response.text)
+        if expected < 500:
+            return response.json()
+
+    async def cards(**kwargs):
+        return await request('GET', '/cards', **kwargs)
+
+    async def preview(**kwargs):
+        return await request('POST', '/text-update/preview', body, **kwargs)
+
+    async def apply(payload, **kwargs):
+        return await request('POST', '/text-update/apply', payload, **kwargs)
+
+    await cards(account=None, expected=401)
+    await cards(account=1, expected=403)
+    grant_id = await run_db(models.TMA_Collaborator.insert(
+        target_type='deck', target_id=deck_id, user_id=accounts[1], role='viewer').execute)
+    original, proposed = await asyncio.gather(cards(account=1), preview())
+    assert [(card['id'], card['front']) for card in original] == [(card_id, 'Original')]
+    assert proposed['can_apply'] and proposed['updated'] == proposed['new'] == 1
+    assert not pool._in_use
+    payload = {**body, 'preview_token': proposed['preview_token'],
+               'request_id': str(uuid4()), 'include_new': True}
+    await preview(account=1, expected=403)
+    await apply(payload, account=1, expected=403)
+    invalid = await apply({**payload, 'preview_token': '0' * 64}, expected=409)
+    assert invalid['detail']['code'] == 'preview_changed'
+    assert not pool._in_use
+
+    await run_db(pool.execute_sql, """CREATE FUNCTION fail_deck_text_fixture() RETURNS trigger
+        LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture connection failure'; END $$""")
+    await run_db(pool.execute_sql, """CREATE TRIGGER fail_deck_text_fixture BEFORE INSERT ON tma_card
+        FOR EACH ROW WHEN (NEW.front_text = 'New fixture card')
+        EXECUTE FUNCTION fail_deck_text_fixture()""")
+    try:
+        with patch.object(decks, 'apply_text_update', wraps=decks.apply_text_update) as attempted:
+            await apply(payload, expected=500)
+            attempted.assert_called_once()
+        assert not pool._in_use
+        assert await cards() == original
+        receipt = models.TMAOfflineBatch.select().where(
+            models.TMAOfflineBatch.key == f"text-update:{accounts[0]}:{payload['request_id']}")
+        assert not await run_db(receipt.exists)
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION fail_deck_text_fixture() CASCADE')
+
+    entered = threading.Barrier(2)
+    apply_text_update = decks.apply_text_update
+
+    def concurrent_apply(*args):
+        entered.wait(timeout=5)
+        return apply_text_update(*args)
+
+    with patch.object(decks, 'apply_text_update', side_effect=concurrent_apply):
+        first, second = await asyncio.gather(apply(payload), apply(payload))
+    assert first == second == {'status': 'success', 'updated': 1, 'created': 1,
+                               'unchanged': 0, 'skipped_new': 0}
+    assert not pool._in_use
+    assert [card['front'] for card in await cards()] == ['Updated', 'New fixture card']
+    changed = await apply({**payload, 'include_new': False}, expected=409)
+    assert changed['detail']['code'] == 'request_changed'
+    await run_db(models.TMA_Collaborator.delete_by_id, grant_id)
+    await cards(account=1, expected=403)
+    assert not pool._in_use
+    print('PASS: pooled Deck Cards and Text Update HTTP, permissions, token, concurrent replay and rollback',
+          flush=True)

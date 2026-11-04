@@ -143,7 +143,7 @@ Integration/browser scripts могут менять данные; сначала
 ## Обновить колоду из файла
 
 - Отдельный пункт DeckCardItem открывает `DeckTextUpdateModal` через useUiStore/App/navigation. Для viewer действие отключено; сервер независимо проверяет collaborative permissions.
-- POST `/decks/{id}/text-update/preview` и `/apply` в `api/routers/decks.py`: строгие контентные модели, авторизация, синхронный сервис в собственном connection context. Учебный контент принадлежит существующей колоде; обновление не меняет SRS/пользовательский прогресс.
+- POST `/decks/{id}/text-update/preview` и `/apply` в `api/routers/decks.py` используют строгие контентные модели и выполняют проверку прав, SQL и подготовку ответа в `db_worker` без автоматического повтора. GET `/decks/{id}/cards` формирует список в том же worker с разрешённым повтором чтения. PostgreSQL-проверка в `scripts/tests/db_workers_postgres.py` покрывает права, токен, конкурентный apply, откат и освобождение пула.
 - Только одна online-колода. Локальные dirty изменения сначала синхронизировать; применение неизвестного/чужого ID, критических ошибок и устаревшего preview блокируется целиком. Новые карточки без ID добавляются только явно; отсутствующие не удаляются.
 - Идентификация, транзакции, retry и тесты: [CARD_TEXT_UPDATE](../../docs/CARD_TEXT_UPDATE.md).
 
