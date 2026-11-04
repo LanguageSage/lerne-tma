@@ -39,7 +39,7 @@ def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
     from api.db_workers import db_worker
-    from api.routers import card_notes, card_ratings, feedback, folders, knowledge, lid, messages, sync, trash
+    from api.routers import card_notes, card_ratings, decks, feedback, folders, knowledge, lid, messages, sync, trash
     with patch.object(models, 'create_all_tables'):
         from api.main import db_session_middleware
 
@@ -84,7 +84,7 @@ def verify(database_name, connection_args):
     app.include_router(sync.router, prefix='/api')
     app.include_router(knowledge.router, prefix='/api')
     for router in (card_notes.router, card_ratings.router, messages.router, trash.router,
-                   feedback.router, folders.router, lid.router):
+                   decks.router, feedback.router, folders.router, lid.router):
         app.include_router(router, prefix='/api')
 
     @app.get('/hold')
@@ -153,6 +153,7 @@ def verify(database_name, connection_args):
             await verify_communications(client, pool, headers, [account.account_id for account in accounts])
             await verify_trash(client, pool, headers, [account.account_id for account in accounts])
             await verify_feedback_lid_folders(client, pool, headers, accounts[0].account_id)
+            await verify_decks(client, pool, headers, [account.account_id for account in accounts])
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -666,3 +667,94 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
     assert (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
     assert not pool._in_use
     print('PASS: pooled Feedback, LiD and Folders HTTP, concurrency, authorization and rollback', flush=True)
+
+
+async def verify_decks(client, pool, headers, accounts):
+    from peewee import OperationalError
+
+    from api import models, services
+    from api.db_workers import run_db
+
+    async def request(method, path='', *, account=0, body=None, expected=200):
+        auth = headers[account] if account is not None else {}
+        response = await client.request(method, '/api/decks' + path, json=body, headers=auth)
+        assert response.status_code == expected, (method, path, response.status_code, response.text)
+        if expected < 500:
+            return response.json()
+
+    await request('POST', body={'name': 'Anonymous'}, account=None, expected=401)
+    with patch.object(services, 'create_deck', side_effect=OperationalError('connection closed')) as failed:
+        await request('POST', body={'name': 'Failed create'}, expected=500)
+        failed.assert_called_once()
+    assert not pool._in_use
+    deck, other = await asyncio.gather(
+        request('POST', body={'name': 'Worker deck'}),
+        request('POST', body={'name': 'Other worker deck'}, account=1),
+    )
+    assert not pool._in_use
+    deck_id = deck['id']
+    path = f'/{deck_id}'
+
+    def seed():
+        folder = models.TMA_Folder.create(user_id=accounts[0], name='Deck worker folder')
+        for front in ('Copied first', 'Rejected second'):
+            models.TMA_Card.create(deck=deck_id, front_text=front, back_text='Back')
+        return folder.id
+
+    folder_id = await run_db(seed)
+    destination = {'folder_id': folder_id}
+    await request('POST', body={'name': 'Denied', **destination}, account=1, expected=403)
+    await request('POST', f"/{other['id']}/move", body=destination, account=1, expected=403)
+    await request('POST', path + '/copy', body={}, account=1, expected=403)
+    await request('POST', path + '/toggle-learning', account=1, expected=404)
+    await run_db(models.TMA_Collaborator.create, target_type='deck', target_id=deck_id,
+                 user_id=accounts[1], role='viewer')
+    await request('POST', path + '/rename', body={'name': 'Denied'}, account=1, expected=403)
+    await request('DELETE', path, account=1, expected=403)
+    await request('POST', path + '/copy', body=destination, account=1, expected=403)
+    assert await request('POST', path + '/toggle-learning', account=1) == {
+        'status': 'success', 'is_learning': True}
+    assert await request('POST', path + '/toggle-learning', body={'is_learning': False}) == {
+        'status': 'success', 'is_learning': False}
+    assert await request('POST', path + '/move', body=destination) == {'status': 'success'}
+    assert await request('POST', path + '/rename', body={'name': ' Renamed '}) == {
+        'status': 'success', 'name': 'Renamed'}
+    assert not pool._in_use
+
+    await run_db(pool.execute_sql, """CREATE FUNCTION fail_deck_copy_fixture() RETURNS trigger
+        LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture copy connection failure'; END $$""")
+    await run_db(pool.execute_sql, """CREATE TRIGGER fail_deck_copy_fixture BEFORE INSERT ON tma_card
+        FOR EACH ROW WHEN (NEW.front_text = 'Rejected second')
+        EXECUTE FUNCTION fail_deck_copy_fixture()""")
+    try:
+        await request('POST', path + '/copy', body={}, account=1, expected=500)
+        assert not pool._in_use
+
+        def verify_failed_copy():
+            # The original transaction covers card insertion. The deck insert precedes it.
+            copies = list(models.TMA_Deck.select().where(
+                models.TMA_Deck.user_id == accounts[1], models.TMA_Deck.name == 'Renamed (Копия)'))
+            assert len(copies) == 1
+            assert not models.TMA_Card.select().where(models.TMA_Card.deck == copies[0].id).exists()
+
+        await run_db(verify_failed_copy)
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION fail_deck_copy_fixture() CASCADE')
+
+    copied = await request('POST', path + '/copy', body={}, account=1)
+    assert copied['status'] == 'success'
+    assert await request('DELETE', path) == {'status': 'success'}
+
+    def verify_persisted():
+        original = models.TMA_Deck.get_by_id(deck_id)
+        assert original.is_deleted and original.name == 'Renamed' and original.folder_id == folder_id
+        assert models.TMA_Card.select().where(
+            models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted).count() == 2
+        assert models.TMA_Card.select().where(
+            models.TMA_Card.deck == copied['id'], ~models.TMA_Card.is_deleted).count() == 2
+        assert [models.TMASetting.get(key=f'DECK_LEARNING_{user}_{deck_id}').value
+                for user in accounts] == ['0', '1']
+
+    await run_db(verify_persisted)
+    assert not pool._in_use
+    print('PASS: pooled Decks HTTP, concurrent writes, permissions and copy rollback', flush=True)

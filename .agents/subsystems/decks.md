@@ -5,6 +5,10 @@
 Иерархия папок, колоды, порядок и видимость, learning toggle, sharing, библиотека, импорт и корзина.
 Содержимое карточки — [cards](cards.md); выбор следующей карточки/SRS — [study](study.md).
 
+Create, move, copy, delete, rename and toggle-learning use `db_worker` for
+permission checks, database work and response construction. The worker owns the
+connection and does not retry these writes. Transaction scopes stay in the services.
+
 ## Primary entry points
 
 | Задача | Файлы от корня репозитория |

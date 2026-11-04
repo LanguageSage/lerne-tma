@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import logging
 
 from api import services
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
 from api.services.collaborative_service import _require_can_mutate
@@ -24,6 +25,7 @@ def get_decks(user_id: int = Depends(get_user_id)):
     return services.get_active_decks(user_id)
     
 @router.post("")
+@db_worker
 def create_deck(data: dict, user_id: int = Depends(get_user_id)):
     from api import models
     user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
@@ -37,6 +39,7 @@ def create_deck(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=403, detail=str(e))
 
 @router.post("/{deck_id}/move")
+@db_worker
 def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     folder_id = data.get('folder_id')
     _require_can_mutate(user_id, 'deck', deck_id)
@@ -53,6 +56,7 @@ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{deck_id}/copy")
+@db_worker
 def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     folder_id = data.get('folder_id')
     if folder_id:
@@ -70,6 +74,7 @@ def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.delete("/{deck_id}")
+@db_worker
 def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     _require_can_mutate(user_id, 'deck', deck_id)
     if services.delete_deck(deck_id, user_id):
@@ -77,6 +82,7 @@ def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=404, detail="Deck not found or access denied")
 
 @router.post("/{deck_id}/rename")
+@db_worker
 def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     name = data.get('name')
     if not name or not name.strip():
@@ -94,6 +100,7 @@ def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{deck_id}/toggle-learning")
+@db_worker
 def toggle_deck_learning(deck_id: int, data: dict = None, user_id: int = Depends(get_user_id)):
     incoming_status = data.get('is_learning') if data else None
     new_status = services.toggle_deck_learning(deck_id, user_id, is_learning=incoming_status)
