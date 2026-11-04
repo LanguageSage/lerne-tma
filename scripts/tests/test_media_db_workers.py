@@ -56,7 +56,7 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
             models.TMASetting.create(key='TTS_SPEED', value='+15%')
         media._media_cache = media.MediaMemoryCache()
         self.app = FastAPI()
-        self.app.middleware('http')(fixtures.db_session_middleware)
+        self.app.middleware('http')(fixtures.cache_headers_middleware)
         self.app.include_router(media.router, prefix='/api')
         def user(x_test_user: int = Header(default=1)):
             return x_test_user

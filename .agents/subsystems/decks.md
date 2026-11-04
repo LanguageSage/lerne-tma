@@ -41,6 +41,9 @@ its active cards in one transaction.
    JSON-импорт находит или создаёт колоду и вставляет все пакеты карточек в одной транзакции.
 8. Маршруты библиотеки (`GET /decks/external`, `GET /decks/external/categories`, `POST /decks/external/import/{deck_id}`, `POST /decks/external/import-batch`, `POST /decks/{deck_id}/sync`, `POST /decks/external/{deck_id}/toggle-default`) выполняют SQL и сериализацию в `db_worker`. Безопасные чтения (`/external`, `/categories`) используют `retry_reads=True`, а мутирующие операции импорта, синхронизации и toggle-default выполняются без автоматического retry с сохранением существующих транзакционных границ.
 
+9. Init выполняет инициализацию стартовых колод, SQL и сбор ответа в одном `db_worker`. SQL-сбой прерывает запрос. Health выполняет `SELECT 1` через `run_db` и возвращает признак доступности БД после освобождения соединения.
+10. Collaborative и Share выполняют SQL и сбор ответа в `db_worker` без повтора HTTP-запроса. Share info, HTML и preview используют одну синхронную функцию чтения внутри своего worker. Транзакцией импорта владеет сервис. HTTP middleware выставляет cache headers и исключает `/api/media` из общего запрета кеширования.
+
 ## Source of truth
 
 - `useDeckStore.js` объединяет доменные slices; состояние папок/колод не принадлежит отдельной модалке.

@@ -46,7 +46,7 @@ class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
                                'DEFAULT_MODEL': 'fixture-old', 'AI_DETECT_LEVEL': 'false'}.items():
                 models.TMASetting.create(key=key, value=value)
         self.app = FastAPI()
-        self.app.middleware('http')(fixtures.db_session_middleware)
+        self.app.middleware('http')(fixtures.cache_headers_middleware)
         for module in (ai, settings):
             self.app.include_router(module.router, prefix='/api')
 

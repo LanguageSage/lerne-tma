@@ -4,6 +4,7 @@ from pydantic import BaseModel
 from typing import Optional
 
 from api.models import TMAUser, TMA_Folder, TMA_Deck
+from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
 from api.services import collaborative_service
@@ -34,6 +35,7 @@ class AdminBulkDeleteFoldersRequest(BaseModel):
 
 
 @router.get("/check-access")
+@db_worker
 def check_access(type: str, id: int, user_id: int = Depends(get_user_id)):
     """Returns effective user role on deck or folder."""
     if type not in ['deck', 'folder']:
@@ -58,6 +60,7 @@ def check_access(type: str, id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.post("/admin/folders/bulk-delete")
+@db_worker
 def admin_bulk_delete_folders(req: AdminBulkDeleteFoldersRequest, user_id: int = Depends(get_user_id)):
     """Soft-deletes selected users' folders and their contents."""
     if not is_admin(user_id):
@@ -74,6 +77,7 @@ def admin_bulk_delete_folders(req: AdminBulkDeleteFoldersRequest, user_id: int =
 
 
 @router.get("/{target_type}/{target_id}/collaborators")
+@db_worker
 def get_collaborators(target_type: str, target_id: int, user_id: int = Depends(get_user_id)):
     """Gets list of all collaborators for folder or deck."""
     role = collaborative_service.get_effective_user_role(user_id, target_type, target_id)
@@ -87,6 +91,7 @@ def get_collaborators(target_type: str, target_id: int, user_id: int = Depends(g
 
 
 @router.post("/{target_type}/{target_id}/add")
+@db_worker
 def add_collaborator(target_type: str, target_id: int, req: AddCollaboratorRequest, user_id: int = Depends(get_user_id)):
     """Adds a collaborator by username or ID."""
     identifier = req.user_identifier.strip()
@@ -110,6 +115,7 @@ def add_collaborator(target_type: str, target_id: int, req: AddCollaboratorReque
 
 
 @router.put("/{target_type}/{target_id}/role")
+@db_worker
 def update_collaborator_role(target_type: str, target_id: int, req: UpdateRoleRequest, user_id: int = Depends(get_user_id)):
     """Updates role for a collaborator."""
     try:
@@ -120,6 +126,7 @@ def update_collaborator_role(target_type: str, target_id: int, req: UpdateRoleRe
 
 
 @router.post("/join/{share_id}")
+@db_worker
 def join_by_share_id(share_id: str, user_id: int = Depends(get_user_id)):
     """Allows a user to join a shared item as a viewer via share link."""
     try:
@@ -130,6 +137,7 @@ def join_by_share_id(share_id: str, user_id: int = Depends(get_user_id)):
 
 
 @router.delete("/{target_type}/{target_id}/remove/{user_id_to_remove}")
+@db_worker
 def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int, user_id: int = Depends(get_user_id)):
     """Removes a collaborator from folder or deck."""
     try:
@@ -143,6 +151,7 @@ def remove_collaborator(target_type: str, target_id: int, user_id_to_remove: int
 
 
 @router.delete("/{target_type}/{target_id}/remove-all")
+@db_worker
 def remove_all_collaborators(target_type: str, target_id: int, user_id: int = Depends(get_user_id)):
     """Completely closes shared access for a folder or deck by removing all collaborators."""
     try:
@@ -153,6 +162,7 @@ def remove_all_collaborators(target_type: str, target_id: int, user_id: int = De
 
 
 @router.get("/folder/{folder_id}/group-progress")
+@db_worker
 def get_group_progress(folder_id: int, user_id: int = Depends(get_user_id)):
     """Gets dashboard and leaderboard progress for all collaborators of a folder."""
     try:
@@ -162,6 +172,7 @@ def get_group_progress(folder_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.get("/{target_type}/{target_id}/presence")
+@db_worker
 def get_presence(target_type: str, target_id: int, user_id: int = Depends(get_user_id)):
     """Records caller's presence heartbeat and returns online status of all collaborators + target updated_at timestamp."""
     if target_type not in ['deck', 'folder']:
@@ -178,6 +189,7 @@ class SetAccessScopeRequest(BaseModel):
     access_scope: str
 
 @router.post("/admin/folders/{folder_id}/access-scope")
+@db_worker
 def set_folder_access_scope(folder_id: int, req: SetAccessScopeRequest, user_id: int = Depends(get_user_id)):
     """Admin-only: publish or unpublish a folder as global_readonly."""
     try:

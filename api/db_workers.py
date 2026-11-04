@@ -2,13 +2,7 @@
 from functools import wraps
 
 from fastapi import HTTPException
-try:
-    # FastAPI >=0.137 stores included routers as a tree, with effective prefixes.
-    from fastapi.routing import iter_route_contexts
-except ImportError:
-    iter_route_contexts = iter
 from starlette.concurrency import run_in_threadpool
-from starlette.routing import Match
 
 from api import models
 
@@ -45,8 +39,7 @@ def db_worker(function=None, *, retry_reads=False):
         except HTTPException:
             raise
         except Exception as exc:
-            # The old middleware's GET retry must also reconnect in a worker.
-            # Re-entering call_next cannot replay its consumed ASGI task.
+            # Retry only opted-in read operations with a new worker scope.
             if not retry_reads or not any(key in str(exc).lower() for key in (
                 'closed', 'terminated', 'connection', 'socket', 'reset', 'eof',
                 'exceeded maximum connections',
@@ -62,11 +55,3 @@ def db_phases(function):
     """Mark a route whose DB phases use run_db (or which needs no database)."""
     function._db_worker = True
     return function
-
-
-def uses_db_worker(request):
-    """Match the same first full route as Starlette, before call_next routes it."""
-    for route in iter_route_contexts(request.app.routes):
-        if route.matches(request.scope)[0] == Match.FULL:
-            return getattr(getattr(route, 'endpoint', None), '_db_worker', False)
-    return False
