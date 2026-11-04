@@ -734,38 +734,38 @@ def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
             if not folder:
                 raise ValueError("Target folder not found or access denied")
         
-        new_deck = TMA_Deck.create(
-            user_id=user_id,
-            name=f"{deck.name} (Копия)",
-            folder_id=folder_id,
-            is_inbox=False,
-            is_pinned=False,
-            created_at=datetime.datetime.now(),
-            updated_at=datetime.datetime.now()
-        )
-        
-        cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
-        
-        now = datetime.datetime.now()
-        card_data = [{
-            'deck_id': new_deck.id,
-            'front_text': card.front_text,
-            'back_text': card.back_text,
-            'context': card.context,
-            'image_path': card.image_path,
-            'audio_path': card.audio_path,
-            'audio_back_path': card.audio_back_path,
-            'video_front_path': card.video_front_path,
-            'video_back_path': card.video_back_path,
-            'source': card.source,
-            'creator_id': card.creator_id,
-            'position': card.position,
-            'flag': card.flag if card.flag is not None else 0,
-            'created_at': now,
-            'updated_at': now
-        } for card in cards]
-        
         with tma_db.atomic():
+            new_deck = TMA_Deck.create(
+                user_id=user_id,
+                name=f"{deck.name} (Копия)",
+                folder_id=folder_id,
+                is_inbox=False,
+                is_pinned=False,
+                created_at=datetime.datetime.now(),
+                updated_at=datetime.datetime.now()
+            )
+
+            cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
+
+            now = datetime.datetime.now()
+            card_data = [{
+                'deck_id': new_deck.id,
+                'front_text': card.front_text,
+                'back_text': card.back_text,
+                'context': card.context,
+                'image_path': card.image_path,
+                'audio_path': card.audio_path,
+                'audio_back_path': card.audio_back_path,
+                'video_front_path': card.video_front_path,
+                'video_back_path': card.video_back_path,
+                'source': card.source,
+                'creator_id': card.creator_id,
+                'position': card.position,
+                'flag': card.flag if card.flag is not None else 0,
+                'created_at': now,
+                'updated_at': now
+            } for card in cards]
+
             if card_data:
                 TMA_Card.insert_many(card_data).execute()
         return new_deck
