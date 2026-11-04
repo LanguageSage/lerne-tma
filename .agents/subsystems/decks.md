@@ -5,9 +5,9 @@
 Иерархия папок, колоды, порядок и видимость, learning toggle, sharing, библиотека, импорт и корзина.
 Содержимое карточки — [cards](cards.md); выбор следующей карточки/SRS — [study](study.md).
 
-Create, move, copy, delete, rename, toggle-learning, reset, pin, reorder and
-metadata use `db_worker` for database work and response construction. The worker
-owns the connection and does not retry writes. Copy creates the deck and inserts
+Create, move, copy, delete, rename, toggle-learning, reset, pin, reorder,
+metadata, library browsing, import and sync use `db_worker` for database work and
+response construction. The worker owns the connection and does not retry writes. Copy creates the deck and inserts
 its active cards in one transaction.
 
 ## Primary entry points
@@ -39,6 +39,7 @@ its active cards in one transaction.
    Инициализация «Входящих» в `ensure_inbox_folder` и `ensure_inbox_deck` использует одну транзакционную блокировку PostgreSQL на аккаунт и язык. Создание колоды удерживает её до записи папки и колоды.
 7. `GET /decks` и `POST /decks/import-json` выполняют SQL в `db_worker` без автоматического повтора. Список может создавать «Входящие», а при холодном кеше читает модели библиотеки через `lerne_db`. Оба прокси используют один пул.
    JSON-импорт находит или создаёт колоду и вставляет все пакеты карточек в одной транзакции.
+8. Маршруты библиотеки (`GET /decks/external`, `GET /decks/external/categories`, `POST /decks/external/import/{deck_id}`, `POST /decks/external/import-batch`, `POST /decks/{deck_id}/sync`, `POST /decks/external/{deck_id}/toggle-default`) выполняют SQL и сериализацию в `db_worker`. Безопасные чтения (`/external`, `/categories`) используют `retry_reads=True`, а мутирующие операции импорта, синхронизации и toggle-default выполняются без автоматического retry с сохранением существующих транзакционных границ.
 
 ## Source of truth
 

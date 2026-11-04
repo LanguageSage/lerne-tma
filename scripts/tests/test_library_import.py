@@ -1,8 +1,10 @@
 """Library import contracts over synthetic SQLite data; no external services."""
 import datetime as dt
 import json
+from pathlib import Path
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
@@ -23,17 +25,24 @@ TABLES = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
 
 class LibraryImportTests(unittest.TestCase):
     def setUp(self):
-        self.db = SqliteDatabase(':memory:', thread_safe=False, check_same_thread=False)
+        scratch = Path(__file__).resolve().parents[2] / 'local/test-data/library-import'
+        scratch.mkdir(parents=True, exist_ok=True)
+        self.path = scratch / f'{uuid4().hex}.sqlite3'
+        self.db = SqliteDatabase(self.path, thread_safe=False, check_same_thread=False)
         previous = (models.tma_db.obj, models.lerne_db.obj)
         for proxy, old in zip((models.tma_db, models.lerne_db), previous):
             proxy.initialize(self.db)
             self.addCleanup(proxy.initialize, old)
-        self.addCleanup(self.db.close)
+        self.addCleanup(self.cleanup)
         self.db.create_tables(TABLES)
         for uid in (1, 2, 3):
             models.TMAUser.create(user_id=uid, default_decks_initialized=True)
         self.library = models.Deck.create(name='Synthetic library', target_language='uk',
                                           level='A2', topic='Synthetic', updated_at=NEW)
+
+    def cleanup(self):
+        self.db.close()
+        self.path.unlink(missing_ok=True)
 
     def remote_card(self, front='Remote', **values):
         return models.Card.create(deck=self.library, front_text=front, back_text='Remote back',

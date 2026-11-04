@@ -157,6 +157,7 @@ def verify(database_name, connection_args):
             await verify_feedback_lid_folders(client, pool, headers, accounts[0].account_id)
             await verify_decks(client, pool, headers, [account.account_id for account in accounts])
             await verify_deck_text_update(client, pool, headers, [account.account_id for account in accounts])
+            await verify_library_deck_routes(client, pool, headers, [account.account_id for account in accounts])
         assert all(thread != loop_thread for _, thread, _ in events)
 
     try:
@@ -1036,3 +1037,158 @@ async def verify_deck_text_update(client, pool, headers, accounts):
     assert not pool._in_use
     print('PASS: pooled Deck Cards and Text Update HTTP, permissions, token, concurrent replay and rollback',
           flush=True)
+
+
+async def verify_library_deck_routes(client, pool, headers, accounts):
+    from unittest.mock import patch
+    import os
+    from peewee import OperationalError
+    from api import models, services
+    from api.db_workers import run_db
+
+    def seed_library():
+        cat = models.LibraryCategory.create(name='Worker Cat', description='Desc')
+        deck = models.Deck.create(name='Worker Lib Deck', target_language='de', category_id=cat.id)
+        card = models.Card.create(deck=deck, front_text='Worker Front', back_text='Worker Back')
+        deck2 = models.Deck.create(name='Worker Lib Deck 2', target_language='de')
+        models.Card.create(deck=deck2, front_text='Worker Front 2', back_text='Worker Back 2')
+        return cat.id, deck.id, card.id, deck2.id
+
+    cat_id, lib_deck_id, lib_card_id, lib2_id = await run_db(seed_library)
+
+    # 1. Public GET /api/decks/external and /api/decks/external/categories
+    ext = await client.get('/api/decks/external')
+    assert ext.status_code == 200
+    assert any(d['id'] == lib_deck_id for d in ext.json())
+    assert not pool._in_use
+
+    cats = await client.get('/api/decks/external/categories')
+    assert cats.status_code == 200
+    assert any(c['id'] == cat_id for c in cats.json())
+    assert not pool._in_use
+
+    def disconnect_external(_target_lang=None):
+        pool.execute_sql('SELECT pg_terminate_backend(pg_backend_pid())')
+
+    with patch.object(services, 'get_external_decks', side_effect=disconnect_external) as listing:
+        assert (await client.get('/api/decks/external')).status_code == 500
+        listing.assert_called_once_with(None)
+    assert not pool._in_use
+    assert (await client.get('/api/decks/external')).status_code == 200
+    assert not pool._in_use
+
+    # 2. POST /api/decks/external/{deck_id}/toggle-default (admin guard, write)
+    assert (await client.post(f'/api/decks/external/{lib_deck_id}/toggle-default')).status_code == 401
+    assert not pool._in_use
+    assert (await client.post(f'/api/decks/external/{lib_deck_id}/toggle-default', headers=headers[0])).status_code == 403
+    assert not pool._in_use
+
+    with patch.dict(os.environ, {'ADMIN_USER_ID': str(accounts[0])}):
+        toggled = await client.post(f'/api/decks/external/{lib_deck_id}/toggle-default', headers=headers[0])
+        assert toggled.status_code == 200
+        assert toggled.json() == {'status': 'success', 'is_default': True}
+        assert not pool._in_use
+        toggled_back = await client.post(f'/api/decks/external/{lib_deck_id}/toggle-default', headers=headers[0])
+        assert toggled_back.status_code == 200
+        assert toggled_back.json() == {'status': 'success', 'is_default': False}
+        assert not pool._in_use
+        invalid_default = await client.post('/api/decks/external/999999/toggle-default', headers=headers[0])
+        assert invalid_default.status_code == 400
+        assert not pool._in_use
+
+    # 3. POST /api/decks/external/import/{deck_id} (modes: merge, copy, replace, force_trash, rollback)
+    import_url = f'/api/decks/external/import/{lib_deck_id}'
+    assert (await client.post(import_url)).status_code == 401
+    assert not pool._in_use
+
+    # Import single (merge default)
+    imported = await client.post(import_url, headers=headers[0])
+    assert imported.status_code == 200
+    tma_deck_id = imported.json()['deck_id']
+    assert not pool._in_use
+
+    # Seed progress on imported card
+    def seed_progress():
+        card = models.TMA_Card.get(deck=tma_deck_id, front_text='Worker Front')
+        return models.TMAProgress.create(user_id=accounts[0], card_id=card.id, queue='review', interval=10).id
+
+    prog_id = await run_db(seed_progress)
+
+    # Re-import merge preserves progress
+    re_merge = await client.post(import_url + '?mode=merge', headers=headers[0])
+    assert re_merge.status_code == 200 and re_merge.json()['deck_id'] == tma_deck_id
+    assert not pool._in_use
+    assert await run_db(lambda: models.TMAProgress.get_by_id(prog_id).interval) == 10
+
+    # Mode copy creates v2
+    copy_res = await client.post(import_url + '?mode=copy', headers=headers[0])
+    assert copy_res.status_code == 200
+    copy_deck_id = copy_res.json()['deck_id']
+    assert copy_deck_id != tma_deck_id
+    assert not pool._in_use
+
+    # Mode replace replaces cards and removes progress
+    rep_res = await client.post(import_url + '?mode=replace', headers=headers[0])
+    assert rep_res.status_code == 200 and rep_res.json()['deck_id'] == tma_deck_id
+    assert not pool._in_use
+    assert not await run_db(lambda: models.TMAProgress.select().where(models.TMAProgress.id == prog_id).exists())
+
+    # Trash conflict and force_trash
+    await run_db(lambda: models.TMA_Deck.update(is_deleted=True).where(models.TMA_Deck.id == tma_deck_id).execute())
+    trash_conflict = await client.post(import_url, headers=headers[0])
+    assert trash_conflict.status_code == 200 and trash_conflict.json().get('status') == 'in_trash'
+    assert not pool._in_use
+
+    forced = await client.post(import_url + '?force_trash=true', headers=headers[0])
+    assert forced.status_code == 200 and forced.json().get('status') == 'success'
+    new_tma_deck_id = forced.json()['deck_id']
+    assert not pool._in_use
+
+    # Rollback on error
+    await run_db(pool.execute_sql, """CREATE FUNCTION fail_lib_import_fixture() RETURNS trigger
+        LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture lib import failure'; END $$""")
+    await run_db(pool.execute_sql, """CREATE TRIGGER fail_lib_import_fixture BEFORE INSERT ON tma_card
+        FOR EACH ROW WHEN (NEW.front_text = 'Worker Front 2')
+        EXECUTE FUNCTION fail_lib_import_fixture()""")
+    try:
+        fail_imp = await client.post(f'/api/decks/external/import/{lib2_id}', headers=headers[0])
+        assert fail_imp.status_code in (404, 500)
+        assert not pool._in_use
+        assert not await run_db(lambda: models.TMA_Deck.select().where(
+            models.TMA_Deck.user_id == accounts[0], models.TMA_Deck.name == 'Worker Lib Deck 2').exists())
+    finally:
+        await run_db(pool.execute_sql, 'DROP FUNCTION fail_lib_import_fixture() CASCADE')
+
+    # 4. POST /api/decks/external/import-batch
+    batch_url = '/api/decks/external/import-batch'
+    assert (await client.post(batch_url, json={'deck_ids': [lib2_id]})).status_code == 401
+    assert not pool._in_use
+    batch_res = await client.post(batch_url, json={'deck_ids': [lib2_id]}, headers=headers[1])
+    assert batch_res.status_code == 200
+    assert len(batch_res.json()['imported_deck_ids']) == 1
+    assert not pool._in_use
+
+    # 5. POST /api/decks/{deck_id}/sync
+    sync_url = f'/api/decks/{new_tma_deck_id}/sync'
+    assert (await client.post(sync_url)).status_code == 401
+    assert not pool._in_use
+    # account 1 cannot mutate account 0 deck
+    assert (await client.post(sync_url, json={'mode': 'merge'}, headers=headers[1])).status_code in (403, 404)
+    assert not pool._in_use
+    # owner can sync
+    sync_res = await client.post(sync_url, json={'mode': 'merge'}, headers=headers[0])
+    assert sync_res.status_code == 200 and sync_res.json() == {'status': 'success'}
+    assert not pool._in_use
+
+    # 6. Concurrency with 2 pooled connections
+    concurrent_ops = [
+        client.get('/api/decks/external'),
+        client.get('/api/decks/external/categories'),
+        client.post(f'/api/decks/{new_tma_deck_id}/sync', json={'mode': 'merge'}, headers=headers[0]),
+        client.get('/api/decks/external')
+    ]
+    results = await asyncio.gather(*concurrent_ops)
+    assert all(r.status_code == 200 for r in results)
+    assert not pool._in_use
+
+    print('PASS: pooled Library Deck HTTP routes, permissions, import modes, sync, concurrency and rollback', flush=True)
