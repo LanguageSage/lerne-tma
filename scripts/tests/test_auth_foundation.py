@@ -381,7 +381,9 @@ class AuthDatabaseTests(unittest.TestCase):
         with patch.dict(sys.modules, {'telegram': telegram,
                                      'telegram.ext': SimpleNamespace(Application=None)}):
             from api.routers import bot
-        from api.routers.auth_v2 import get_authenticated_profile
+        from api.routers.auth_v2 import router
+        app = FastAPI()
+        app.include_router(router)
         subject = 303
         telegram_user = SimpleNamespace(id=subject, first_name='Тестовый ученик',
                                         last_name='Fixture', username='fixture_learner')
@@ -396,7 +398,10 @@ class AuthDatabaseTests(unittest.TestCase):
                              bot.TMA_URL + '/?auth_return=telegram')
             result = service.exchange_challenge(challenge.id, challenge.secret)
             tokens = result['tokens']
-            profile = get_authenticated_profile(tokens.account_id)
+            with TestClient(app) as client:
+                response = client.get('/auth/v2/me', headers={'Authorization': 'Bearer ' + tokens.access_token})
+            self.assertEqual(response.status_code, 200)
+            profile = response.json()
             self.assertEqual(profile['first_name'], telegram_user.first_name)
             self.assertEqual(profile['username'], telegram_user.username)
             self.assertFalse(profile['is_guest'])

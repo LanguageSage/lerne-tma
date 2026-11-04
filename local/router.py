@@ -2,6 +2,7 @@
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from api.auth import service
 from api.auth.errors import AuthError
+from api.db_workers import db_phases, db_worker
 from api.local_runtime import is_local, LOOPBACK
 from api.routers.auth_v2 import _tokens_response
 from api.dependencies.auth import get_user_id
@@ -10,6 +11,7 @@ router = APIRouter()
 
 
 @router.get('/local/transfer-card/{card_id}')
+@db_worker
 def transfer_card(card_id: int, user_id: int = Depends(get_user_id)):
     if not is_local():
         raise HTTPException(404)
@@ -26,6 +28,7 @@ def transfer_card(card_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.post('/auth/local/login')
+@db_phases
 def login(request: Request, x_lerne_local_secret: str = Header(default='')):
     if not is_local():
         raise HTTPException(404)

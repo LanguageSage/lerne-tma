@@ -1,8 +1,10 @@
 """TMA-owned link/redirect behavior remains tested without importing admin."""
 import os
 import asyncio
+from pathlib import Path
 import unittest
 from unittest.mock import patch
+from uuid import uuid4
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
@@ -13,12 +15,17 @@ from local import router as local_routes
 
 class InteropTests(unittest.TestCase):
     def setUp(self):
-        self.database = SqliteDatabase(':memory:', thread_safe=False, check_same_thread=False)
+        # Keep the schema available across the worker's per-request connections.
+        scratch = Path(__file__).resolve().parents[2] / 'local' / 'test-data'
+        scratch.mkdir(parents=True, exist_ok=True)
+        database_path = scratch / f'lerne-admin-interop-{uuid4().hex}.sqlite3'
+        self.database = SqliteDatabase(str(database_path))
+        self.addCleanup(database_path.unlink, missing_ok=True)
+        self.addCleanup(self.database.close)
         models.tma_db.initialize(self.database)
         models.lerne_db.initialize(self.database)
         self.database.create_tables([models.TMAUser, models.TMA_Folder, models.TMA_Deck,
                                      models.TMA_Card, models.TMA_Collaborator, models.TMAMedia])
-        self.addCleanup(self.database.close)
 
     def test_local_card_link_checks_identity_and_permission(self):
         uid = 900000001

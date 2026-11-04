@@ -20,6 +20,7 @@ from pydantic import BaseModel, Field
 from api.auth.dependencies import get_bearer_token, get_authenticated_user_id
 from api.auth.errors import AuthError
 from api.auth import providers, service, lerne_sso
+from api.db_workers import db_phases, db_worker
 from api.models import TMAUser
 from api.permissions import is_admin
 
@@ -99,6 +100,7 @@ def _google_configuration():
 
 
 @router.post('/challenges')
+@db_phases
 def create_auth_challenge(data: ChallengeRequest, authorization: str | None = Header(default=None)):
     try:
         token = get_bearer_token(authorization) if data.purpose == 'link' else None
@@ -133,6 +135,7 @@ def create_auth_challenge(data: ChallengeRequest, authorization: str | None = He
 
 
 @router.post('/lerne/confirm')
+@db_phases
 def confirm_lerne_login(data: LerneConfirmationRequest, authorization: str = Depends(get_bearer_token)):
     try:
         return lerne_sso.issue_confirmation(authorization, data.request_id, data.nonce)
@@ -141,6 +144,7 @@ def confirm_lerne_login(data: LerneConfirmationRequest, authorization: str = Dep
 
 
 @router.get('/lerne/config')
+@db_phases
 def get_lerne_configuration():
     role = os.getenv('LERNE_SSO_ROLE', '')
     if role not in ('issuer', 'client'):
@@ -153,6 +157,7 @@ def get_lerne_configuration():
 
 
 @router.post('/telegram/mini-app')
+@db_phases
 def telegram_mini_app_login(data: TelegramMiniAppRequest, authorization: str | None = Header(default=None)):
     try:
         proof = providers.verify_telegram_init_data(data.init_data, os.getenv('BOT_TOKEN', ''))
@@ -165,6 +170,7 @@ def telegram_mini_app_login(data: TelegramMiniAppRequest, authorization: str | N
 
 
 @router.post('/email-password/register')
+@db_phases
 def register_email_password(data: EmailPasswordRequest):
     try:
         return _tokens_response(service.register_email_password(data.email, data.password))
@@ -173,6 +179,7 @@ def register_email_password(data: EmailPasswordRequest):
 
 
 @router.post('/email-password/login')
+@db_phases
 def login_email_password(data: EmailPasswordRequest):
     try:
         return _tokens_response(service.login_email_password(data.email, data.password))
@@ -181,6 +188,7 @@ def login_email_password(data: EmailPasswordRequest):
 
 
 @router.post('/email-password/link', status_code=204)
+@db_phases
 def link_email_password(data: EmailPasswordRequest, authorization: str = Depends(get_bearer_token)):
     try:
         service.link_email_password(authorization, data.email, data.password)
@@ -189,6 +197,7 @@ def link_email_password(data: EmailPasswordRequest, authorization: str = Depends
 
 
 @router.post('/email-password/set', status_code=204)
+@db_phases
 def set_email_password(data: EmailPasswordRequest, authorization: str = Depends(get_bearer_token)):
     try:
         service.set_email_password(authorization, data.email, data.password)
@@ -197,6 +206,7 @@ def set_email_password(data: EmailPasswordRequest, authorization: str = Depends(
 
 
 @router.get('/google/callback', response_class=HTMLResponse, include_in_schema=False)
+@db_phases
 def google_callback(
     code: str | None = Query(default=None, max_length=4096),
     state: str | None = Query(default=None, max_length=128),
@@ -242,6 +252,7 @@ def google_callback(
 
 
 @router.post('/challenges/{challenge_id}/exchange')
+@db_phases
 def exchange_auth_challenge(challenge_id: str, data: ChallengeExchangeRequest,
                             authorization: str | None = Header(default=None)):
     try:
@@ -257,6 +268,7 @@ def exchange_auth_challenge(challenge_id: str, data: ChallengeExchangeRequest,
 
 
 @router.post('/refresh')
+@db_phases
 def refresh_auth_session(data: RefreshRequest):
     try:
         return _tokens_response(service.refresh_session(data.refresh_token))
@@ -265,6 +277,7 @@ def refresh_auth_session(data: RefreshRequest):
 
 
 @router.post('/logout', status_code=204)
+@db_phases
 def logout_auth_session(data: LogoutRequest, authorization: str = Depends(get_bearer_token)):
     try:
         service.revoke_session(authorization, all_sessions=data.all_sessions)
@@ -273,6 +286,7 @@ def logout_auth_session(data: LogoutRequest, authorization: str = Depends(get_be
 
 
 @router.get('/identities')
+@db_phases
 def get_auth_identities(authorization: str = Depends(get_bearer_token)):
     try:
         return {'providers': service.linked_providers(authorization)}
@@ -281,6 +295,7 @@ def get_auth_identities(authorization: str = Depends(get_bearer_token)):
 
 
 @router.get('/me')
+@db_worker
 def get_authenticated_profile(user_id: int = Depends(get_authenticated_user_id)):
     user = TMAUser.get_or_none(TMAUser.user_id == user_id)
     if user is None:
@@ -300,6 +315,7 @@ def get_authenticated_profile(user_id: int = Depends(get_authenticated_user_id))
 
 
 @router.get('/password-settings')
+@db_phases
 def get_password_settings(authorization: str = Depends(get_bearer_token)):
     try:
         return service.password_settings(authorization)
