@@ -219,7 +219,7 @@ class CardTextUpdateTests(unittest.TestCase):
             item = self.item(card, deck_id=deck.id, front='Haustür')
             app = FastAPI()
             app.include_router(routes.router, prefix='/api')
-            with patch.object(routes, 'tma_db', http_db), patch.object(service, 'tma_db', http_db), TestClient(app) as client:
+            with patch.object(models, 'tma_db', http_db), patch.object(service, 'tma_db', http_db), TestClient(app) as client:
                 path = f'/api/decks/{deck.id}/text-update'
                 preview = client.post(path+'/preview', json={'cards': [item]})
                 self.assertEqual(preview.status_code, 200)
