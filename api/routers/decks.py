@@ -117,6 +117,7 @@ def import_json_deck(data: dict, user_id: int = Depends(get_user_id)):
     raise HTTPException(status_code=400, detail="Import failed: invalid data or empty deck")
 
 @router.post("/{deck_id}/reset")
+@db_worker
 def reset_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     if services.reset_deck_progress(user_id, deck_id):
         return {"status": "success"}
@@ -196,6 +197,7 @@ def toggle_default_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.post("/{deck_id}/pin")
+@db_worker
 def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
     from api import models
     import datetime
@@ -214,6 +216,7 @@ def toggle_pin_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 
 
 @router.post("/reorder")
+@db_worker
 def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
     from api import models
     deck_ids = data.get('deck_ids', [])
@@ -231,6 +234,7 @@ def reorder_decks(data: dict, user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/{deck_id}/metadata")
+@db_worker
 def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     _require_can_mutate(user_id, 'deck', deck_id)
     try:

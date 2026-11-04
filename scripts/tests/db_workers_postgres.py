@@ -683,10 +683,6 @@ async def verify_decks(client, pool, headers, accounts):
             return response.json()
 
     await request('POST', body={'name': 'Anonymous'}, account=None, expected=401)
-    with patch.object(services, 'create_deck', side_effect=OperationalError('connection closed')) as failed:
-        await request('POST', body={'name': 'Failed create'}, expected=500)
-        failed.assert_called_once()
-    assert not pool._in_use
     deck, other = await asyncio.gather(
         request('POST', body={'name': 'Worker deck'}),
         request('POST', body={'name': 'Other worker deck'}, account=1),
@@ -730,24 +726,67 @@ async def verify_decks(client, pool, headers, accounts):
         await request('POST', path + '/copy', body={}, account=1, expected=500)
         assert not pool._in_use
 
-        def verify_failed_copy():
-            # The original transaction covers card insertion. The deck insert precedes it.
-            copies = list(models.TMA_Deck.select().where(
-                models.TMA_Deck.user_id == accounts[1], models.TMA_Deck.name == 'Renamed (Копия)'))
-            assert len(copies) == 1
-            assert not models.TMA_Card.select().where(models.TMA_Card.deck == copies[0].id).exists()
+        def copy_exists():
+            return models.TMA_Deck.select().where(
+                models.TMA_Deck.user_id == accounts[1],
+                models.TMA_Deck.name == 'Renamed (Копия)').exists()
 
-        await run_db(verify_failed_copy)
+        assert not await run_db(copy_exists)
     finally:
         await run_db(pool.execute_sql, 'DROP FUNCTION fail_deck_copy_fixture() CASCADE')
 
     copied = await request('POST', path + '/copy', body={}, account=1)
     assert copied['status'] == 'success'
+    await request('POST', path + '/pin', account=1, expected=403)
+    await request('POST', path + '/metadata', body={}, account=1, expected=403)
+    await request('POST', '/reorder', body={'deck_ids': [deck_id, other['id']]}, expected=403)
+
+    def seed_progress():
+        card = models.TMA_Card.get(deck=deck_id, front_text='Copied first')
+        return [
+            models.TMAProgress.create(user_id=user, card_id=card.id, queue='review', interval=5).id
+            for user in accounts
+        ]
+
+    owner_progress, viewer_progress = await run_db(seed_progress)
+    reset, pin = await asyncio.gather(
+        request('POST', path + '/reset', account=1),
+        request('POST', path + '/pin'),
+    )
+    assert reset == {'status': 'success'}
+    assert pin == {'status': 'success', 'is_pinned': True}
+    assert not pool._in_use
+
+    metadata = {'resources': [], 'is_learning': True}
+    assert await request('POST', path + '/metadata', body=metadata) == {
+        'status': 'success', 'metadata': {'resources': []}}
+    sibling = await request('POST', body={'name': 'Sibling', **destination})
+    ordering = {'deck_ids': [sibling['id'], deck_id]}
+
+    def positions():
+        return tuple(models.TMA_Deck.get_by_id(deck).position for deck in ordering['deck_ids'])
+
+    previous_positions = await run_db(positions)
+    await run_db(pool.execute_sql, f"""ALTER TABLE tma_deck ADD CONSTRAINT deck_worker_reorder_fixture
+        CHECK (id <> {deck_id} OR position <> 1) NOT VALID""")
+    try:
+        await request('POST', '/reorder', body=ordering, expected=500)
+        assert not pool._in_use
+        assert await run_db(positions) == previous_positions
+    finally:
+        await run_db(pool.execute_sql, 'ALTER TABLE tma_deck DROP CONSTRAINT deck_worker_reorder_fixture')
+
+    assert await request('POST', '/reorder', body=ordering) == {'status': 'success'}
+    assert await run_db(positions) == (0, 1)
     assert await request('DELETE', path) == {'status': 'success'}
 
     def verify_persisted():
         original = models.TMA_Deck.get_by_id(deck_id)
         assert original.is_deleted and original.name == 'Renamed' and original.folder_id == folder_id
+        assert original.is_pinned
+        assert models.TMAProgress.get_by_id(owner_progress).interval == 5
+        reset_progress = models.TMAProgress.get_by_id(viewer_progress)
+        assert (reset_progress.queue, reset_progress.interval) == ('new', 0)
         assert models.TMA_Card.select().where(
             models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted).count() == 2
         assert models.TMA_Card.select().where(
@@ -757,4 +796,10 @@ async def verify_decks(client, pool, headers, accounts):
 
     await run_db(verify_persisted)
     assert not pool._in_use
-    print('PASS: pooled Decks HTTP, concurrent writes, permissions and copy rollback', flush=True)
+
+    # An unhandled 500 can close the HTTP connection after the response arrives.
+    with patch.object(services, 'create_deck', side_effect=OperationalError('connection closed')) as failed:
+        await request('POST', body={'name': 'Failed create'}, expected=500)
+        failed.assert_called_once()
+    assert not pool._in_use
+    print('PASS: pooled Decks HTTP, concurrent writes, permissions and copy/reorder rollback', flush=True)
