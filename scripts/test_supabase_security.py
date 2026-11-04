@@ -217,6 +217,8 @@ def run(port, bootstrap_user):
 
         verify_http(models)
         # Reuse this process-created disposable DB; no new service or CI setup.
+        from scripts.tests.library_import_postgres import verify as verify_library_import
+        verify_library_import(models)
         from scripts.tests.db_workers_postgres import verify as verify_db_workers
         verify_db_workers(name, connection_args)
         from scripts.tests.media_db_postgres import verify as verify_media

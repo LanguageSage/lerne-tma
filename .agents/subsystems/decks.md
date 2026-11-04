@@ -66,8 +66,12 @@ rg -n 'TMA_Collaborator|permission|role' api/routers/collaborative.py api/servic
   без зависимости от `decks.py` или `folders.py`. JSON-импорт, каталог/кеш библиотеки,
   guest merge и операции с папками остаются у прежних владельцев. Старые импорты
   функций (включая внутренних помощников из `decks.py`) сохранены прямым реэкспортом.
-  Транзакционные границы, частичные ошибки batch, категория логов и поведение
-  `merge/replace/copy`, корзины и обновления из библиотеки не изменены.
+  Импорт одной колоды выполняется в `tma_db.atomic()`: очистка корзины, изменения
+  карточек и прогресса, создание/восстановление колоды и запись metadata
+  откатываются вместе. `Deck`/`Card` библиотеки только читаются через `lerne_db`.
+  Batch фиксирует успешные колоды по отдельности и продолжает после ошибки.
+  PostgreSQL-регрессии запускаются в существующем CI harness
+  `scripts/test_supabase_security.py` на одноразовой БД.
   Регрессии: `python scripts/test_backend.py scripts/tests/test_library_import.py` —
   синтетическая SQLite, реальные services/HTTP routes, права назначения,
   сохранение прогресса/истории, откат bulk-вставки и legacy/collab/v2 pull.

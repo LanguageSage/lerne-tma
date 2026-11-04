@@ -3,6 +3,7 @@
 Keep the existing import entry points in decks.py as compatibility re-exports.
 """
 import datetime
+import json
 import logging
 
 from fastapi import HTTPException
@@ -18,6 +19,19 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
     """Импортирует колоду из библиотеки. Поддерживает режимы: merge, replace, copy.
     Если колода уже находится в корзине и force_trash=False, возвращает {'status': 'in_trash', ...}."""
     try:
+        return _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash)
+    except HTTPException:
+        raise
+    except Exception as e:
+        error_msg = f"CRITICAL ERROR in import_deck: {e}"
+        logger.error(error_msg, exc_info=True)
+        raise Exception(error_msg)
+
+
+def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
+    # Include destination selection, trash purge and metadata in the same
+    # transaction as the card writes. Batch imports commit one deck at a time.
+    with tma_db.atomic():
         from .collaborative_service import _require_can_mutate
         logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}, force_trash={force_trash}")
 
@@ -201,21 +215,13 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
                     })
 
             if new_cards_to_insert:
-                with tma_db.atomic():
-                    for i in range(0, len(new_cards_to_insert), 100):
-                        TMA_Card.insert_many(new_cards_to_insert[i:i+100]).execute()
+                for i in range(0, len(new_cards_to_insert), 100):
+                    TMA_Card.insert_many(new_cards_to_insert[i:i+100]).execute()
 
             local_deck.updated_at = datetime.datetime.now()
             _save_source_library_id(local_deck, external_deck_id)
             local_deck.save()
             return local_deck
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_msg = f"CRITICAL ERROR in import_deck: {e}"
-        logger.error(error_msg, exc_info=True)
-        raise Exception(error_msg)
 
 
 def _bulk_copy_cards_from_library(local_deck_id: int, external_deck_id: int, history_note: str = "Imported from library"):
@@ -257,13 +263,13 @@ def _bulk_copy_cards_from_library(local_deck_id: int, external_deck_id: int, his
 
 def _save_source_library_id(local_deck, external_deck_id: int):
     try:
-        import json
         meta = json.loads(local_deck.metadata or '{}')
         meta['source_library_id'] = external_deck_id
-        local_deck.metadata = json.dumps(meta)
-        local_deck.save()
-    except Exception as e:
+    except (ValueError, TypeError) as e:
         logger.warning(f"Failed to set source_library_id metadata: {e}")
+        return
+    local_deck.metadata = json.dumps(meta)
+    local_deck.save()
 
 
 def import_decks_batch(external_deck_ids: list[int], user_id: int, mode: str = 'merge', force_trash: bool = False):
