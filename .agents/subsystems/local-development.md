@@ -12,6 +12,10 @@
 ## Source of truth / Data flow
 
 `data/config/local.json` вне Git → валидированные localhost параметры → существующие Peewee models/migrations → синтетический seed с durable marker.
+Команда `start` поднимает PostgreSQL, а FastAPI выполняет `prepare()` один раз в рабочем потоке lifespan.
+`prepare` проверяет и записывает marker в одной транзакции. LOCAL advisory lock на соединении
+сериализует подготовку схемы и seed, сохраняя отдельные транзакции миграций. Соединение
+закрывается и освобождает lock при успехе и ошибке.
 По умолчанию данные вне repo в `C:\121\Lerne_projekt\data`; PGDATA Docker принадлежит Docker volume `lerne_tma_local_pgdata`, native PGDATA — `data/postgres`.
 Для текущей Windows-машины выбран native: бинарные файлы `C:\121\Lerne_projekt\tools\pgsql\bin`, подключение `127.0.0.1:55432`, PGDATA `C:\121\Lerne_projekt\data\postgres`; установлен PostgreSQL 17.11, реальная БД/миграции/импорт/перезапуск/backup/restore проверены; подробности в `docs/LOCAL_DEVELOPMENT.md`.
 Uploads → `data/media` + metadata в `TMAMedia`; чтение только `/api/media`, missing → 404. Обычная cloud media policy не меняется.

@@ -266,6 +266,7 @@ class LocalHttpTests(unittest.TestCase):
             'card_id': card.id, 'deck_id': deck.id, 'grade': 2, 'return_next': False}).status_code, 403)
 
     def test_seed_rerun_does_not_recreate_removed_data(self):
+        models.tma_db.register_function(lambda _: None, 'pg_advisory_lock', 1)
         with patch.object(local_dev, 'database', return_value=models), \
                 patch.object(local_dev, 'verify_database'), patch.object(models, 'create_all_tables'), \
                 patch.object(models.tma_db.obj, 'close'):

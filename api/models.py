@@ -1,6 +1,4 @@
-import os
 import logging
-from api.migrations import MigrationError
 import datetime
 from peewee import *
 from api.database import tma_db, lerne_db, initialize_database
@@ -41,42 +39,33 @@ def create_all_tables():
     from api.migrations import (run_migrations, run_local_bootstrap_migrations,
                                 run_knowledge_mastery_migration, run_card_notes_migration,
                                 run_card_rating_migration)
-    try:
-        models_to_create = [
-            TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
-            TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
-            LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
-            TMA_Collaborator, TMAOfflineBatch,
-            TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
-        ]
-        local_bootstrap = is_local() and _is_empty_local_bootstrap(models_to_create)
-        if not is_local():
+    models_to_create = [
+        TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
+        TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
+        LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
+        TMA_Collaborator, TMAOfflineBatch,
+        TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
+    ]
+    local = is_local()
+    local_bootstrap = local and _is_empty_local_bootstrap(models_to_create)
+    if not local:
+        run_migrations(tma_db, lerne_db)
+    tma_db.create_tables(models_to_create, safe=True)
+    if local:
+        # Bootstrap fresh tables before the existing ALTER migrations.
+        if local_bootstrap:
+            run_local_bootstrap_migrations(tma_db, lerne_db)
+        else:
             run_migrations(tma_db, lerne_db)
-        tma_db.create_tables(models_to_create, safe=True)
-        if is_local():
-            # Bootstrap fresh tables before the existing ALTER migrations.
-            if local_bootstrap:
-                run_local_bootstrap_migrations(tma_db, lerne_db)
-            else:
-                run_migrations(tma_db, lerne_db)
-            from api.migrations import run_auth_migrations
-            run_auth_migrations(tma_db)
-        run_knowledge_mastery_migration(tma_db)
-        if is_local():
-            run_card_notes_migration(tma_db)
-            run_card_rating_migration(tma_db)
-        try:
-            tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
-        except Exception as e:
-            logger.warning(f"DATABASE: Failed to create partial index: {e}")
-        _tables_created = True
-        logger.info("DATABASE: All tables created/verified.")
-    except MigrationError:
-        raise
-    except Exception as e:
-        logger.error(f"Error in create_all_tables: {e}")
-        if is_local():
-            raise
+        from api.migrations import run_auth_migrations
+        run_auth_migrations(tma_db)
+    run_knowledge_mastery_migration(tma_db)
+    if local:
+        run_card_notes_migration(tma_db)
+        run_card_rating_migration(tma_db)
+    tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
+    _tables_created = True
+    logger.info("DATABASE: All tables created/verified.")
 
 class BaseModel(Model):
     class Meta:
@@ -609,17 +598,10 @@ class Card(Model):
         database = lerne_db
         table_name = 'card'
 
+# Bind proxies for model consumers outside the API. Schema preparation belongs
+# to the API startup entry points and explicit maintenance commands.
 try:
     initialize_database()
-    # On Vercel serverless, skip running 50+ migration SQL queries on every lambda cold start
-    # unless RUN_MIGRATIONS=true is explicitly set.
-    should_run_migrations = os.environ.get("RUN_MIGRATIONS", "false").lower() in ("true", "1")
-    is_local_env = not os.environ.get("VERCEL") or os.environ.get("FORCE_LOCAL_DB", "false").lower() == "true"
-    
-    if not is_local() and (should_run_migrations or is_local_env) and os.environ.get('LERNE_SKIP_SCHEMA_INIT') != '1':
-        create_all_tables()
-except MigrationError:
-    raise
 except Exception as e:
     logger.error(f"CRITICAL: Database initialization failed: {e}")
     if is_local():

@@ -228,7 +228,6 @@ class SqlMigrationTests(unittest.TestCase):
         code = f'''
 import os
 import sys
-from types import ModuleType
 from peewee import SqliteDatabase, PostgresqlDatabase, Proxy
 from api import migrations
 {connection}
@@ -240,6 +239,7 @@ print("Migration completed successfully.")
 '''
         safe_env = {key: value for key, value in os.environ.items()
                     if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
+        safe_env['PYTHON_DOTENV_DISABLED'] = '1'
         return subprocess.run([sys.executable, '-c', code], cwd=ROOT, env=safe_env,
                               capture_output=True, text=True, timeout=20)
 
@@ -269,41 +269,31 @@ migrations.run_migrations(proxy, proxy)
         self.assertEqual(self.values(), [(1,)])
         self.assertEqual(self.history(), [(9001,)])
 
-    def test_model_callers_do_not_swallow_migration_error(self):
-        for during_import in (True, False):
-            body = '''
-# Replace configuration owner before importing models; no .env or network.
-module = ModuleType("api.database")
-module.tma_db = module.lerne_db = proxy
-module.initialize_database = lambda: True
-sys.modules["api.database"] = module
-'''
-            if not during_import:
-                body += 'os.environ["VERCEL"] = "1"\n'
-            body += 'from api import models\n'
-            if not during_import:
-                body += 'models.create_all_tables()\n'
-            with self.subTest(during_import=during_import):
-                result = self.child(body)
-                self.assertNotEqual(result.returncode, 0)
-                self.assertIn('MigrationError', result.stderr)
-                self.assertNotIn('Migration completed successfully.', result.stdout)
-                self.assertEqual(self.history(), [])
-
     def test_api_initialization_does_not_swallow_migration_error(self):
-        import ast
-        from types import SimpleNamespace
-        tree = ast.parse((ROOT / 'api/main.py').read_text(encoding='utf-8'))
-        # Execute the real startup try/except without importing routes/providers.
-        startup = next(node for node in tree.body if isinstance(node, ast.Try)
-                       and 'models.create_all_tables()' in ast.unparse(node))
-        def fail():
-            raise migrations.MigrationError('synthetic startup failure')
-        namespace = dict(MigrationError=migrations.MigrationError, is_local=lambda: False,
-                         models=SimpleNamespace(initialize_database=lambda: True, create_all_tables=fail),
-                         logger=self.logs)
-        with self.assertRaises(migrations.MigrationError):
-            exec(compile(ast.Module(body=[startup], type_ignores=[]), 'api/main.py', 'exec'), namespace)
+        result = self.child('''
+import asyncio
+from api import database
+
+database.tma_db.initialize(db)
+database.lerne_db.initialize(db)
+from api.main import app
+
+assert db.is_closed(), "API import ran database preparation"
+
+async def startup():
+    async with app.router.lifespan_context(app):
+        raise AssertionError("Lifespan yielded after a migration failure")
+
+try:
+    asyncio.run(startup())
+except migrations.MigrationError:
+    assert not getattr(app.state, "database_ready", False)
+    raise
+''')
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn('MigrationError', result.stderr)
+        self.assertNotIn('Startup initialization complete.', result.stderr)
+        self.assertEqual(self.history(), [])
 
 
 if __name__ == '__main__':
