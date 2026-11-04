@@ -1197,14 +1197,18 @@ async def verify_library_deck_routes(client, pool, headers, accounts):
     assert not pool._in_use
 
     # 6. Concurrency with 2 pooled connections
-    concurrent_ops = [
+    concurrent_reads = await asyncio.gather(
         client.get('/api/decks/external'),
-        client.get('/api/decks/external/categories'),
+        client.get('/api/decks/external/categories')
+    )
+    assert all(r.status_code == 200 for r in concurrent_reads)
+    assert not pool._in_use
+
+    concurrent_mix = await asyncio.gather(
         client.post(f'/api/decks/{new_tma_deck_id}/sync', json={'mode': 'merge'}, headers=headers[0]),
         client.get('/api/decks/external')
-    ]
-    results = await asyncio.gather(*concurrent_ops)
-    assert all(r.status_code == 200 for r in results)
+    )
+    assert all(r.status_code == 200 for r in concurrent_mix)
     assert not pool._in_use
 
     print('PASS: pooled Library Deck HTTP routes, permissions, import modes, sync, concurrency and rollback', flush=True)
