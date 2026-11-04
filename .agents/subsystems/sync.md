@@ -160,6 +160,9 @@ Review: `docs/ADMIN_CONTRACT_REVIEW_20261029.md` (2026-10-29).
 содержит исходные V1 snapshots, V2 config/preset и pending/base/revision.
 Локальная запись с проверкой чтением предшествует отправке через `networkApi`;
 настройки используют свой прежний `/user/settings`, отдельно от Dexie entities.
+В `/api/init` персональные настройки возвращаются владельцу в `user_settings`.
+Общий `settings` исключает персональные записи, в том числе резервные копии
+дизайна, настройки напоминаний и состояние изучения колод.
 `offline_mode` не мешает доставке pending настроек при восстановлении сети.
 
 Серверный владелец — `api/services/user_settings.py`, `TMASetting`:
