@@ -46,6 +46,14 @@ async function pendingBatch(db, userId) {
     const batch = { key: 'pending', request_id: crypto.randomUUID(), userId };
     for (const name of entities) batch[name] = await db[name].where('is_dirty').equals(1).toArray();
     batch.reviews = await db.syncState.filter(item => item.key.startsWith('review:')).toArray();
+    // Upgrade unsent legacy events using their already durable UUID. An existing
+    // pending batch above remains byte-for-byte compatible with its receipt.
+    for (const event of batch.reviews) {
+      if (!event.action_id) {
+        event.action_id = event.key.slice('review:'.length);
+        await db.syncState.put(event);
+      }
+    }
     if (!entities.some(name => batch[name].length) && !batch.reviews.length) return null;
     await db.syncState.put(batch);
     return batch;
@@ -98,6 +106,11 @@ async function acknowledge(db, batch, mappings) {
     for (const sent of batch.reviews || []) await db.syncState.delete(sent.key);
     for (const event of await db.syncState.filter(item => item.key.startsWith('review:')).toArray()) {
       await db.syncState.put({ ...event, card_id: remap(mappings.cards, event.card_id) });
+    }
+    for (const receipt of await db.syncState.filter(item => item.key.startsWith('grade:')).toArray()) {
+      const fields = JSON.parse(receipt.fingerprint);
+      fields[0] = remap(mappings.cards, fields[0]);
+      await db.syncState.put({ ...receipt, fingerprint: JSON.stringify(fields) });
     }
     await db.syncState.delete('pending');
     const aliases = (await db.syncState.get('aliases'))?.mappings || {};

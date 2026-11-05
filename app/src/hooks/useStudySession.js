@@ -212,6 +212,7 @@ export const useStudySession = () => {
     }
     const eventTime = new Date().toISOString();
     const payload = {
+      action_id: crypto.randomUUID(),
       card_id: card.id, deck_id: currentDeck.id, grade, is_extended: Boolean(isExtended),
       review_context: session.isLearningMore ? 'forced' : 'scheduled',
       exclude_ids: session.isLearningMore ? [...session.forcedSeenIds] : [],

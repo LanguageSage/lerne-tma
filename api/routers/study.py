@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Depends
 import logging
 from typing import Literal
+from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 from api.services.collaborative_service import get_effective_user_role
 
@@ -283,6 +284,7 @@ def _require_study_access(user_id, deck_id, card_id=None):
 
 
 class StudyGradeRequest(BaseModel):
+    action_id: UUID | None = None
     card_id: int
     deck_id: int
     grade: int = Field(ge=0, le=7)
@@ -310,7 +312,8 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
             user_id, 
             data.grade,
             is_extended=data.is_extended,
-            review_context=context
+            review_context=context,
+            **({'action_id': str(data.action_id)} if data.action_id else {})
         )
         logger.info("submit_grade: Progress updated successfully")
         if not data.return_next:
@@ -328,6 +331,8 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
     try:
         return run_grade()
     except Exception as e:
+        if isinstance(e, HTTPException):
+            raise
         logger.error(f"submit_grade ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -358,11 +363,18 @@ def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
     # Duplicates/next selects only the user's own decks, even with shared access.
     if deck.user_id != user_id:
         raise HTTPException(403, 'Нет доступа к колоде')
+    action_id = None
+    if data.get('action_id'):
+        try:
+            action_id = str(UUID(data['action_id']))
+        except (ValueError, TypeError, AttributeError):
+            raise HTTPException(422, 'Invalid action_id')
     services.update_card_progress(
         data['card_id'], 
         user_id, 
         data['grade'], 
-        is_extended=bool(data.get('is_extended', False))
+        is_extended=bool(data.get('is_extended', False)),
+        **({'action_id': action_id} if action_id else {})
     )
     if data.get('return_next') is False:
         return {"status": "success"}
