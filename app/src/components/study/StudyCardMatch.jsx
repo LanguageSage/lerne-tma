@@ -60,7 +60,7 @@ export const StudyCardMatch = React.memo(({
 
   const handlePair = (leftId, rightId) => {
     if (evaluation.isLocked(matchPartId(leftId))) return;
-    const attempt = evaluateMatchPair(pairs, userMatches, leftId, rightId);
+    const attempt = evaluateMatchPair(pairs, userMatches, leftId, rightId, { exact: matchData.native });
     if (!attempt) return;
     const submission = evaluation.check(attempt.result, attempt);
     if (!submission) return;

@@ -27,7 +27,7 @@ export const StudyCardWordBank = React.memo(({
 }) => {
   useInterfaceLocale();
 
-  const { gaps, options, maskedText } = wordBankData;
+  const { gaps, options, maskedText, parts: nativeParts } = wordBankData;
   const [assignments, setAssignments] = useState(() => (
     sanitizeWordBankAssignments(savedState?.assignments, gaps, options)
   ));
@@ -113,6 +113,7 @@ export const StudyCardWordBank = React.memo(({
     const gap = gaps.find(item => item.id === gapId);
     if (!gap) return null;
     const selectedOption = optionById.get(assignments[gapId]);
+    const label = nativeParts ? gap.index + 1 : gapId;
     const part = evaluation.part(gapId);
     const result = part?.status;
     const isActive = activeGapId === gapId && !evaluation.isLocked(gapId);
@@ -134,10 +135,10 @@ export const StudyCardWordBank = React.memo(({
           aria-describedby={part?.hint ? `word-bank-hint-${gapId}` : undefined}
           style={{ ...v2Text, color: undefined }}
           aria-label={selectedOption
-            ? `${gapId}: ${selectedOption.value}`
-            : `${gapId}: ${tr('Пустой пропуск')}`}
+            ? `${label}: ${selectedOption.value}`
+            : `${label}: ${tr('Пустой пропуск')}`}
         >
-          <span className="word-bank-gap-number">{gapId}</span>
+          <span className="word-bank-gap-number">{label}</span>
           <span>{selectedOption?.value || '________'}</span>
         </button>
         {part?.hint && <span id={`word-bank-hint-${gapId}`} className="exercise-part-hint" role="status">{tr(part.hint)}</span>}
@@ -146,6 +147,8 @@ export const StudyCardWordBank = React.memo(({
   };
 
   const renderText = () => {
+    if (nativeParts) return nativeParts.map((part, index) => part.type === 'text'
+      ? <React.Fragment key={`text-${index}`}>{part.text}</React.Fragment> : renderGap(part.id));
     const parts = [];
     const marker = /___WORD_BANK_GAP_([a-zA-Z0-9_-]+)___/g;
     let cursor = 0;

@@ -3,9 +3,11 @@ import { createExerciseEvaluation } from './exerciseEvaluation.js';
 
 export const evaluateTrainerGaps = (gaps = [], values = {}) => createExerciseEvaluation(
   gaps.map(gap => {
-    const correct = (gap.correctAnswer || '').split('|').map(normalizeAnswer)
-      .includes(normalizeAnswer(values[gap.id] || ''));
     const choice = gap.mode === 'choice';
+    const value = values[gap.id] || '';
+    const answers = gap.answers ?? (gap.correctAnswer || '').split('|');
+    const correct = gap.answers && choice ? answers.includes(value)
+      : answers.map(normalizeAnswer).includes(normalizeAnswer(value));
     return {
       id: gap.id, status: correct ? 'correct' : 'incorrect',
       errorType: gap.isAffix ? 'other' : choice ? 'word_choice' : 'other',

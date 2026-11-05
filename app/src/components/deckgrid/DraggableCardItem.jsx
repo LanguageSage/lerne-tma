@@ -9,6 +9,7 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
 import { useUiStore } from '../../store/useUiStore';
 import { getFlagStyle } from '../../constants/cardFlags';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
 import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
@@ -53,11 +54,14 @@ export const DraggableCardItem = React.memo(({
     ...flagStyle
   };
 
-  const detectedExerciseType = React.useMemo(() => detectCardType(c), [c]);
+  const structured = studyContent(c);
+  const detectedExerciseType = structured?.type ?? detectCardType(c);
+  const prompt = structured ? studySideText(structured) : (c.front || '');
+  const answer = structured ? studySideText(structured, 'back') : (c.back || '');
 
   const linesLimit = previewCardLines === 0 ? 0 : (previewCardLines || 2);
-  const isFrontLong = linesLimit > 0 && ((c.front || '').length > (linesLimit * 45) || (c.front || '').split('\n').length > linesLimit);
-  const isBackLong = linesLimit > 0 && ((c.back || '').length > (linesLimit * 45) || (c.back || '').split('\n').length > linesLimit);
+  const isFrontLong = linesLimit > 0 && (prompt.length > (linesLimit * 45) || prompt.split('\n').length > linesLimit);
+  const isBackLong = linesLimit > 0 && (answer.length > (linesLimit * 45) || answer.split('\n').length > linesLimit);
   const isLikelyLong = isFrontLong || isBackLong;
   const showExpandBtn = linesLimit > 0 && (isLikelyLong || isExpanded);
 
@@ -107,15 +111,15 @@ export const DraggableCardItem = React.memo(({
           className={`front-min ${isExpanded ? 'expanded' : ''}`}
           style={{ ...frontTypographyStyle, ...clampStyle }}
         >
-          {stripMarkdown(cleanBracketSyntax(c.front || ''))}
+          {stripMarkdown(structured ? prompt : cleanBracketSyntax(prompt))}
         </div>
 
-        {c.back && (
+        {answer && (
           <div
             className={`back-min ${isExpanded ? 'expanded' : ''}`}
             style={{ ...backTypographyStyle, ...clampStyle }}
           >
-            <MarkdownRenderer>{c.back}</MarkdownRenderer>
+            <MarkdownRenderer>{answer}</MarkdownRenderer>
           </div>
         )}
 

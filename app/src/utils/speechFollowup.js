@@ -3,19 +3,26 @@ import { parseExerciseContent } from './exerciseContentParser.js';
 import { parseWordBankData } from './wordBankParser.js';
 import { parseClozeData } from './clozeParser.js';
 import { stripMarkdown } from './text.js';
+import { studyContent, studySideText, studyTrainer } from './structuredStudyCard.js';
 
 /** Only a short, single-line, unambiguous learner sentence can become a spoken target. */
-const asShortPhrase = (source) => {
+const asShortPhrase = (source, legacy = true) => {
   if (!source || /[\r\n]/.test(source)) return null;
   const cleaned = stripMarkdown(source).replace(/\s+/g, ' ').trim();
   if (cleaned.length < 5 || cleaned.length > 180 || cleaned.split(/\s+/).length < 2) return null;
-  if (/@(?:puzzle|wordbank|options|match|free)\b|<<|>>|\[\[|\]\]|\{[^}]*\}/i.test(cleaned)) return null;
+  if (legacy && /@(?:puzzle|wordbank|options|match|free)\b|<<|>>|\[\[|\]\]|\{[^}]*\}/i.test(cleaned)) return null;
   return cleaned;
 };
 
 /** Resolve the answer text; never read a quiz question, instructions or a translation aloud. */
 export function getSpeechFollowupTarget(card, studyMode = 'classic') {
   if (!card) return null;
+  const structured = studyContent(card);
+  if (structured) {
+    if (structured.type === 'trainer' && studyTrainer(structured.data).gaps.some(gap => gap.answers.length !== 1)) return null;
+    if (!['trainer', 'word_bank', 'puzzle'].includes(structured.type)) return null;
+    return asShortPhrase(studySideText(structured), false);
+  }
   const exercise = parseExerciseContent(card.front || card.front_text || '').exercise.trim();
   const type = detectExerciseType(card, studyMode);
   if (type === 'puzzle') {

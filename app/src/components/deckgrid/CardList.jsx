@@ -1,6 +1,7 @@
 import { DEFAULT_DESIGN_CONFIG_V2 } from '../../design/designConfig.js';
 import { getDesignTextStyle } from '../../utils/cardStyles';
 import { tr } from '../../i18n/locale';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
@@ -33,7 +34,7 @@ import { getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
-import { matchCard } from '../../utils/search';
+import { matchCard, matchesSearchQuery } from '../../utils/search';
 import { parseDeckMetadata } from '../../utils/deckUtils';
 import { DraggableCardItem } from './DraggableCardItem';
 import { FloatingBatchDock } from './FloatingBatchDock';
@@ -65,7 +66,12 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const filteredCards = React.useMemo(() => {
     if (!deckCards) return [];
     if (!searchQuery.trim()) return deckCards;
-    return deckCards.filter(c => matchCard(c, searchQuery));
+    return deckCards.filter(card => {
+      const content = studyContent(card);
+      if (!content) return matchCard(card, searchQuery);
+      return matchesSearchQuery(studySideText(content), searchQuery)
+        || matchesSearchQuery(studySideText(content, 'back'), searchQuery);
+    });
   }, [deckCards, searchQuery]);
   // Memoized Deck Metadata & Resources
   const deckMetadata = React.useMemo(() => parseDeckMetadata(currentDeck), [currentDeck]);
@@ -80,6 +86,9 @@ export const CardList = ({ startStudy, startStudyCard }) => {
 
   const { sensors, activeCard, handleDragStart, handleDragEnd,
     customCollisionDetection, getOriginalIndex } = useCardDnd(filteredCards, deckCards);
+  const activeContent = studyContent(activeCard);
+  const activePrompt = activeContent ? studySideText(activeContent) : activeCard?.front;
+  const activeAnswer = activeContent ? studySideText(activeContent, 'back') : activeCard?.back;
 
   const { imageHeight, startResizeDrag, handleToggleShowInCards } = useDeckImageResize(deckMetadata, currentDeck);
 
@@ -559,11 +568,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     }}
                   >
                     <div className="front-min" style={{ ...frontTypographyStyle }}>
-                      {activeCard.front}
+                      {activePrompt}
                     </div>
-                    {activeCard.back && (
+                    {activeAnswer && (
                       <div className="back-min" style={{ ...backTypographyStyle, marginTop: '4px' }}>
-                        <MarkdownRenderer>{activeCard.back}</MarkdownRenderer>
+                        <MarkdownRenderer>{activeAnswer}</MarkdownRenderer>
                       </div>
                     )}
                   </div>

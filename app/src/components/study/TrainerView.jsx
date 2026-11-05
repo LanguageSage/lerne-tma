@@ -8,18 +8,15 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAudio } from '../../hooks/useAudio';
-import { parseClozeData, cleanBracketSyntax } from '../../utils/clozeParser';
-import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 
 import { CardBackground } from '../common/CardBackground';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
-import { detectExerciseType } from '../../utils/exerciseDetector.js';
-import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
-import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { TrainerFinished } from './TrainerFinished.jsx';
+import { isNativeStudyCard, studyContent, studyErrorDetail, studyExerciseType, studyInfoBlocks, studySideText } from '../../utils/structuredStudyCard.js';
+import { StudyError } from './StudyError.jsx';
 import { navigateUp } from '../../utils/navigation';
 
 export const TrainerView = () => {
@@ -35,6 +32,7 @@ export const TrainerView = () => {
   const { playAudio, stopAudio } = useAudio(autoPlay, showToast);
 
   const [activeCards, setActiveCards] = useState([]);
+  const [loadError, setLoadError] = useState(null);
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
 
@@ -49,10 +47,10 @@ export const TrainerView = () => {
   useEffect(() => {
     if (currentDeck?.id) {
       if (!deckCards || deckCards.length === 0) {
-        fetchDeckCards(currentDeck.id);
+        fetchDeckCards(currentDeck.id).catch(error => setLoadError(studyErrorDetail(error)));
       } else {
         queueMicrotask(() => {
-          setActiveCards(deckCards);
+          setActiveCards(deckCards.filter(isNativeStudyCard));
           setCurrentIndex(0);
           setIsFlipped(false);
           setTrainerStartTime(Date.now());
@@ -75,10 +73,7 @@ export const TrainerView = () => {
 
   const currentCard = activeCards[currentIndex] || null;
 
-  const clozeData = useMemo(() => {
-    if (!currentCard) return null;
-    return parseClozeData(currentCard, 'trainer', activeCards);
-  }, [currentCard, activeCards]);
+  const content = studyContent(currentCard);
 
   const resolvedBgFront = getResolvedStyle(cardBgFront, currentCard?.id);
   const resolvedBgBack = getResolvedStyle(cardBgBack, currentCard?.id);
@@ -89,8 +84,8 @@ export const TrainerView = () => {
     return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
   };
 
-  const handleTrainerAnswer = (cardId, isFirstTry) => {
-    if (isFirstTry) {
+  const handleTrainerAnswer = (cardId, evidence) => {
+    if (typeof evidence === 'object' ? evidence?.isFirstTry : evidence) {
       setTrainerCorrectCount(prev => prev + 1);
     } else {
       setTrainerWrongCardIds(prev => prev.includes(cardId) ? prev : [...prev, cardId]);
@@ -111,7 +106,7 @@ export const TrainerView = () => {
   };
 
   const handleRestart = () => {
-    setActiveCards(deckCards || []);
+    setActiveCards((deckCards || []).filter(isNativeStudyCard));
     setCurrentIndex(0);
     setIsFlipped(false);
     setTrainerCorrectCount(0);
@@ -122,7 +117,7 @@ export const TrainerView = () => {
   };
 
   const handleRetryWrong = () => {
-    const wrongList = (deckCards || []).filter(c => trainerWrongCardIds.includes(c.id));
+    const wrongList = (deckCards || []).filter(c => isNativeStudyCard(c) && trainerWrongCardIds.includes(c.id));
     if (wrongList.length > 0) {
       setActiveCards(wrongList);
       setCurrentIndex(0);
@@ -138,6 +133,12 @@ export const TrainerView = () => {
   const cardStyle = v2Styles.referenceText;
   const backCardStyle = v2Styles.backText;
   const contextStyle = v2Styles.contextText;
+
+  if (loadError || (deckCards?.length > 0 && !deckCards.some(isNativeStudyCard))) {
+    return <StudyError deck={currentDeck} error={loadError || { code: 'deck_requires_migration' }}
+      onRetry={() => fetchDeckCards(currentDeck?.id).then(() => setLoadError(null)).catch(error => setLoadError(studyErrorDetail(error)))}
+      onGoToDecks={navigateUp} />;
+  }
 
   if (isFinished || !currentCard) {
     return (
@@ -291,19 +292,11 @@ export const TrainerView = () => {
                     playAudio={playAudio}
                     onTrainerAnswer={handleTrainerAnswer}
                     onNextCard={handleNextCard}
-                    fallback={
-                      <StudyCardTrainer
-                        card={currentCard}
-                        designConfig={effectiveConfig}
-                        clozeData={clozeData}
-                        isFlipped={isFlipped}
-                        onFlip={setIsFlipped}
-                        playAudio={playAudio}
-                        onTrainerAnswer={handleTrainerAnswer}
-                        onNextCard={handleNextCard}
-                        isPureTrainerMode={true}
-                      />
-                    }
+                    native
+                    reviewKey={`${currentCard.id}:${currentIndex}`}
+                    fallback={<div className="text-front" style={v2Styles.frontText}>
+                      <MarkdownRenderer>{studySideText(content)}</MarkdownRenderer>
+                    </div>}
                   />
                 </div>
               ) : (
@@ -325,20 +318,10 @@ export const TrainerView = () => {
                   <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={currentCard.id} />
                   {/* Top full original phrase */}
                   <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                    {(() => {
-                      const parsed = parseExerciseContent(currentCard.front || '');
-                      const blocks = parsed.blocks || [];
-                      const exIdx = blocks.findIndex(b => b.type === 'exercise');
-                      const top = exIdx !== -1 ? blocks.slice(0, exIdx) : blocks;
-                      return (
-                        <>
-                          {top.length > 0 && <ExerciseInfoBlocks blocks={top} />}
-                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'pre-wrap', ...cardStyle }}>
-                            {cleanBracketSyntax(stripMarkdown(parsed.exercise))}
-                          </div>
-                        </>
-                      );
-                    })()}
+                    <ExerciseInfoBlocks blocks={studyInfoBlocks(content)} />
+                    <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'pre-wrap', ...cardStyle }}>
+                      {studySideText(content)}
+                    </div>
                   </div>
 
                   {/* Translation or Exercise Answer */}
@@ -351,15 +334,15 @@ export const TrainerView = () => {
                     textAlign: 'center'
                   }}>
                     <div style={{ fontSize: '0.78rem', color: '#94a3b8', marginBottom: '4px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-                      {detectExerciseType(currentCard) ? tr("Ответ / объяснение") : tr("Перевод")}
+                      {studyExerciseType(content) ? tr("Ответ / объяснение") : tr("Перевод")}
                     </div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', whiteSpace: 'pre-wrap', ...backCardStyle }}>
-                      <MarkdownRenderer>{currentCard.back}</MarkdownRenderer>
+                      <MarkdownRenderer>{studySideText(content, 'back')}</MarkdownRenderer>
                     </div>
                   </div>
 
                   {/* Context Explanation */}
-                  {currentCard.context && (
+                  {content.explanation && (
                     <div style={{
                       padding: '12px 14px',
                       background: 'rgba(168, 85, 247, 0.08)',
@@ -374,7 +357,7 @@ export const TrainerView = () => {
                       whiteSpace: 'pre-wrap',
                       ...contextStyle
                     }}>
-                      <MarkdownRenderer>{currentCard.context}</MarkdownRenderer>
+                      <MarkdownRenderer>{content.explanation}</MarkdownRenderer>
                     </div>
                   )}
 

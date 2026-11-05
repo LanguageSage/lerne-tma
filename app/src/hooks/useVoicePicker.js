@@ -25,12 +25,14 @@ import { db } from '../services/localDb';
  * @param {string|null} sessionVoice  - voice value to start with (from session store)
  * @param {function|null} onVoiceChange - called with new voice when user changes selection
  * @param {boolean} autoGenerate - auto-generate preview when voice changes
+ * @param {boolean} structured - preview text has already been projected from V2
  */
 export const useVoicePicker = (
   lang = 'de',
   sessionVoice = null,
   onVoiceChange = null,
   autoGenerate = true,
+  structured = false,
 ) => {
   const rawCode = (lang || 'de').toLowerCase().trim().replace('_', '-');
   const code = rawCode.split('-')[0] || 'de';
@@ -84,6 +86,7 @@ export const useVoicePicker = (
         voice,
         rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
         with_boundaries: true, // signals backend to include word timing
+        ...(structured ? { structured: true } : {}),
       });
 
       const url = res.data?.url;
@@ -103,7 +106,7 @@ export const useVoicePicker = (
     } finally {
       setIsGenerating(false);
     }
-  }, [code, selectedVoice, defaultVoice]);
+  }, [code, selectedVoice, defaultVoice, structured]);
 
   // Change voice, propagate to session store, and auto-generate if enabled
   const setSelectedVoice = useCallback(async (voiceValue) => {
@@ -172,6 +175,8 @@ export const useVoicePicker = (
         const cardPatch = isBack
           ? { audio_back_url: url, audio_back_path: path }
           : { audio_url: url, audio_path: path };
+
+        if (res.data.revision) cardPatch.revision = res.data.revision;
 
         // 1. Update session store: BOTH current card and all matching entries in studyHistory!
         if (sessionState.updateCardInSession) {

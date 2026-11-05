@@ -8,7 +8,7 @@ export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks }) =
   return (
     <section className="exercise-info-blocks" aria-label={tr('Информация к заданию')}>
       {blocks.map((block, index) => {
-        if (!block.content) return null;
+        if (block.type !== 'options' && !block.content) return null;
 
         if (block.type === 'options') {
           return (

@@ -25,10 +25,7 @@ import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
 import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
-import { detectExerciseType } from '../../utils/exerciseDetector.js';
-import { parseWordBankData } from '../../utils/wordBankParser.js';
-import { parseQuizData } from '../../utils/quizParser.js';
-import { parseClozeData } from '../../utils/clozeParser.js';
+import { isNativeStudyCard, studyContent, studyExplanation, studySideText } from '../../utils/structuredStudyCard.js';
 import { useStudyStepFlow } from '../../hooks/useStudyStepFlow.js';
 import { canGradeStudyFlow, isSuccessfulStudyAnswer, STUDY_ACTION } from '../../utils/studySteps.js';
 
@@ -55,7 +52,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const { view, loading, setIsSettingsOpen, showToast, userProfile, setIsAuthModalOpen } = useUiStore();
   const { currentDeck, decks, fetchDuplicates, duplicateCards, deckCards } = useDeckStore();
   const { card, isFlipped, setIsFlipped, historyIndex, sessionRevision, apiError, isSessionFinished, sessionStats, studyHistory, isLearningMore, autoplayState, pendingGrades, gradeErrors, dismissGradeError } = useSessionStore();
-  const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
+  const { submitGrade, goBack, goNext, fetchNextCard, runAiGenerator } = useCardActions();
   const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
   const { uploadStudyImage } = useMediaUpload();
@@ -302,8 +299,12 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     e.stopPropagation();
     if (window.confirm(tr("Удалить этот дубликат?"))) {
       try {
-        await handleDeleteCard(card.id, true);
-        fetchDuplicates(); // Update the list in background
+        await api.delete(`/cards/${card.id}`, { headers: { 'If-Match': `"${card.revision}"` } });
+        const session = useSessionStore.getState();
+        session.removeCardFromSession(card.id);
+        await fetchDuplicates();
+        if (!useSessionStore.getState().card) await fetchNextCard('duplicates', true);
+        showToast(tr('Карточка удалена'), 'success');
       } catch {
         showToast(tr("Ошибка при удалении"));
       }
@@ -354,7 +355,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
             const generated = await api.post('/media/generate-card-audio', {
               card_id: cardId,
               side: 'front',
-              text: currentCardData.front || currentCardData.front_text,
+              text: studySideText(studyContent(currentCardData)),
               lang: targetLanguage,
               rate: `${Number(settings.ttsSpeed) >= 0 ? '+' : ''}${Number(settings.ttsSpeed) || 0}%`,
               voice: getTtsVoiceForLang(targetLanguage, settings.adminSettings, settings.ttsVoices),
@@ -363,6 +364,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
               audio_path: generated.data.path,
               audio_url: generated.data.url,
               audio_is_generating: false,
+              ...(generated.data.revision ? { revision: generated.data.revision } : {}),
             };
             updateAudioState(patch);
             return getAudioUrl(generated.data.url || generated.data.path) || generated.data.url;
@@ -451,50 +453,6 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     return startStudy(deck, { reviewContext });
   };
 
-  const buildStudyContext = (targetCard, mode) => {
-    try {
-      const computedType = detectExerciseType(targetCard, mode);
-      
-      if (computedType === 'word_bank') {
-        const wbData = parseWordBankData(targetCard);
-        if (wbData) {
-          return `Упражнение Wordbank (заполнение пропусков из списка).
-Текст упражнения:
-${wbData.maskedText}
-
-Доступные варианты: ${wbData.options.map(o => o.value).join(' | ')}
-Правильные ответы:
-${wbData.gaps.map(g => `${g.id}: ${g.correctAnswer}`).join('\n')}`;
-        }
-      } else if (computedType === 'quiz') {
-        const quizData = parseQuizData(targetCard);
-        if (quizData) {
-          return `Тест (Quiz).
-Вопрос: ${quizData.question}
-Варианты ответов:
-${quizData.options.map((o, i) => `${i + 1}. ${o.text}${o.isCorrect ? ' (Правильный ответ)' : ''}`).join('\n')}`;
-        }
-      } else if (computedType === 'cloze' || computedType === 'trainer') {
-        const clozeData = parseClozeData(targetCard, mode, []);
-        if (clozeData) {
-          return `Упражнение на заполнение пропуска.
-Текст: ${clozeData.maskedText}
-Правильный ответ: ${clozeData.correctAnswer}`;
-        }
-      }
-    } catch (e) {
-      console.warn("Failed to build detailed AI context", e);
-    }
-    
-    let fallback = `Лицевая сторона:
-${targetCard.front}`;
-    if (targetCard.back) fallback += `
-
-Обратная сторона:
-${targetCard.back}`;
-    return fallback;
-  };
-
   const [aiExplanation, setAiExplanation] = useState(null);
   const [isSavingExplanation, setIsSavingExplanation] = useState(false);
   const explanationSaveLock = useRef(false);
@@ -518,17 +476,23 @@ ${targetCard.back}`;
       const session = useSessionStore.getState();
       const latestCard = String(session.card?.id) === String(pending.cardId) ? session.card
         : session.studyHistory.find(item => String(item.id) === String(pending.cardId));
-      const currentContext = String(latestCard?.context ?? pending.context).trim();
-      const context = currentContext ? `${pending.answer}\n\n${currentContext}` : pending.answer;
-      await api.post('/cards/save', { card_id: pending.cardId, context, auto_generate_audio: false });
+      if (!isNativeStudyCard(latestCard)) throw new Error('Missing native card');
+      const currentContext = studyExplanation(latestCard).trim();
+      const explanation = currentContext ? `${pending.answer}\n\n${currentContext}` : pending.answer;
+      const { data } = await api.patch(`/cards/${pending.cardId}`, {
+        request_id: crypto.randomUUID(),
+        revision: latestCard.revision,
+        content_v2: { schema_version: 2, card: { ...studyContent(latestCard), explanation } },
+      });
       if (pending.userId !== getUserId()) return;
-      useSessionStore.getState().updateCardInSession(pending.cardId, { context });
+      const patch = { content_v2: data.content_v2, revision: data.revision };
+      useSessionStore.getState().updateCardInSession(pending.cardId, patch);
       const deckState = useDeckStore.getState();
-      deckState.updateCardLocal(pending.cardId, { context });
+      deckState.updateCardLocal(pending.cardId, patch);
       const sourceCards = deckState.cardsByDeck[pending.deckId];
       if (sourceCards && String(deckState.currentDeck?.id) !== String(pending.deckId)) {
         useDeckStore.setState(state => ({ cardsByDeck: { ...state.cardsByDeck,
-          [pending.deckId]: sourceCards.map(item => String(item.id) === String(pending.cardId) ? { ...item, context } : item) } }));
+          [pending.deckId]: sourceCards.map(item => String(item.id) === String(pending.cardId) ? { ...item, ...patch } : item) } }));
       }
       setAiExplanation(current => current === pending ? null : current);
       showToast(tr('Ответ сохранен в контекст!'), 'success');
@@ -545,13 +509,14 @@ ${targetCard.back}`;
     const sourceCardId = sourceCard?.id;
     const sourceUserId = getUserId();
     const saveToContext = canEditQuestionCard;
-    if (!sourceCard?.front) return false;
+    const sourceContent = studyContent(sourceCard);
+    if (!sourceContent) return false;
     if (sourceUserId == null || userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr('Вход в аккаунт'));
       return false;
     }
 
-    const promptContext = await buildStudyContext(sourceCard, studyMode);
+    const promptContext = JSON.stringify(sourceContent);
     const result = await runAiGenerator(promptContext, true, 'custom_directive', userRequest);
     if (!result) return false;
 
@@ -559,7 +524,7 @@ ${targetCard.back}`;
     if (!answer) return false;
     if (getUserId() !== sourceUserId) return false;
     if (saveToContext) {
-      setAiExplanation({ cardId: sourceCardId, deckId: questionDeckId, userId: sourceUserId, answer, context: sourceCard.context || '' });
+      setAiExplanation({ cardId: sourceCardId, deckId: questionDeckId, userId: sourceUserId, answer });
       if (useSessionStore.getState().card?.id === sourceCardId) stopAudio();
       return true;
     }
@@ -639,7 +604,7 @@ ${targetCard.back}`;
         <div className={`study-top-collapsible ${isHeaderVisible ? 'is-visible' : 'is-hidden'}`}>
           <StudyHeader
             deckName={currentDeck?.name}
-            isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
+            isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => studyContent(c)?.type === 'trainer')))}
             card={card}
             onBack={navigateUp}
             onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
@@ -734,7 +699,7 @@ ${targetCard.back}`;
             isOpen={isImagePickerOpen}
             onClose={() => setIsImagePickerOpen(false)}
             onImageUpload={(file) => uploadStudyImage(file, card)}
-            searchQuery={card?.front || ''}
+            searchQuery={studySideText(studyContent(card))}
             loading={loading}
           />
         )}
@@ -751,7 +716,7 @@ ${targetCard.back}`;
             <RefreshCw size={48} className="spin" color="#a855f7" />
             <h3>{tr("Загрузка карточек...")}</h3>
           </div>
-        ) : card && !apiError ? (
+        ) : isNativeStudyCard(card) && !apiError ? (
           <div className="study-flow">
 
             <StudyCard
@@ -859,8 +824,8 @@ ${targetCard.back}`;
               </div>
             </div>
           </div>
-        ) : apiError ? (
-          <StudyError deck={currentDeck} error={apiError} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
+        ) : (apiError || card) ? (
+          <StudyError deck={currentDeck} error={apiError || tr('Карточка недоступна в формате Structured Cards V2.')} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
         ) : isSessionFinished ? (
           showLessonCompletion && !isCompletionDismissed && studyHistory.length > 0 ? (
             <LessonCompletion

@@ -11,6 +11,7 @@ import { triggerHaptic } from '../../utils/platform';
 import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { trainerTaskSupport } from '../../utils/supportEvidence.js';
+import { trainerWords } from '../../utils/structuredStudyCard.js';
 import { assessmentTrainerEvidence } from '../../utils/assessment.js';
 import { AnswerVictoryAnimation } from './AnswerVictoryAnimation.jsx';
 import './StudyCardTrainer.css';
@@ -34,7 +35,7 @@ const AutoExpandingInput = React.memo(({
   const hasValue = Boolean(rawValue && rawValue.trim());
 
   const isAffix = Boolean(gap.isAffix);
-  const expectedAnswer = gap.correctAnswer ? (Array.isArray(gap.correctAnswer) ? gap.correctAnswer[0] : gap.correctAnswer.split('|')[0]) : '';
+  const expectedAnswer = gap.answers?.[0] ?? (gap.correctAnswer ? (Array.isArray(gap.correctAnswer) ? gap.correctAnswer[0] : gap.correctAnswer.split('|')[0]) : '');
   const baseSizerText = isAffix ? '··' : (expectedAnswer || '______');
 
   const input = (
@@ -101,6 +102,7 @@ const AutoExpandingInput = React.memo(({
 export const StudyCardTrainer = React.memo(({
   card,
   clozeData,
+  backNote,
   onTrainerAnswer,
   renderAudioPlayer,
   designConfig,
@@ -169,7 +171,7 @@ export const StudyCardTrainer = React.memo(({
   const filledCount = gaps.filter(g => (selectedOptions[g.id] || '').trim().length > 0).length;
   const allGapsFilled = gaps.length > 0 && filledCount === gaps.length;
 
-  const backText = (card.back_text || card.back || '').trim();
+  const backText = (backNote ?? card.back_text ?? card.back ?? '').trim();
   const hasBackText = backText.length > 0;
 
   const handleOpenDropdown = (gapId, e) => {
@@ -411,17 +413,37 @@ export const StudyCardTrainer = React.memo(({
     );
   });
 
+  const renderNativeWord = (word, index) => {
+    const wordGaps = word.filter(part => part.type !== 'text');
+    const children = word.map((part, partIndex) => part.type === 'text'
+      ? <React.Fragment key={partIndex}>{part.text}</React.Fragment>
+      : <React.Fragment key={partIndex}>{renderGapElement(part)}</React.Fragment>);
+    if (!wordGaps.some(gap => gap.isAffix)) return <React.Fragment key={index}>{children}</React.Fragment>;
+    const correct = wordGaps.every(gap => evaluation.part(gap.id)?.status === 'correct');
+    return (
+      <span key={index} className="exercise-part-feedback trainer-word-feedback">
+        <span className={`trainer-word ${correct ? 'is-correct-word' : ''}`}>
+          {children}
+          {correct && <AnswerVictoryAnimation compact />}
+        </span>
+        {wordGaps.filter(gap => gap.isAffix).map(gap => <React.Fragment key={gap.id}>{renderHint(gap)}</React.Fragment>)}
+      </span>
+    );
+  };
+
   // Keep the translation intact so Markdown paragraphs, lists and tables can render.
   const renderExerciseContent = () => {
     const rawMasked = clozeData.maskedText || '';
-    if (!rawMasked) return null;
+    if (!clozeData.parts && !rawMasked) return null;
 
     // Split front into lines (preserving paragraph structure)
     const frontRawLines = rawMasked.split('\n');
 
     return (
       <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', width: '100%' }}>
-        {frontRawLines.map((line, idx) => {
+        {clozeData.parts ? <div style={{ whiteSpace: 'pre-wrap' }}>
+          {trainerWords(clozeData.parts).map(renderNativeWord)}
+        </div> : frontRawLines.map((line, idx) => {
           const trimmed = line.trim();
           if (!trimmed) {
             return <div key={`empty-${idx}`} style={{ height: '8px' }} />;

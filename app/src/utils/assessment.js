@@ -1,3 +1,4 @@
+import { studyContent } from './structuredStudyCard.js';
 import { parseDeckMetadata } from './deckUtils.js';
 import { isValidAnswerEvaluationResult } from './freeTextEvaluationState.js';
 
@@ -27,6 +28,8 @@ export function assessmentFreeTextEvidence(result, support = {}) {
 }
 
 export const readCardMetadata = card => {
+  const native = studyContent(card);
+  if (native) return native.metadata || {};
   try { return typeof card.metadata === 'string' ? JSON.parse(card.metadata) : card.metadata || {}; }
   catch { return {}; }
 };
@@ -73,6 +76,10 @@ export function canResumeAssessment(saved, fresh) {
     && JSON.stringify(saved.config) === JSON.stringify(fresh.config)
     && saved.cards.every((card, index) => {
       const current = fresh.cards[index];
+      if (studyContent(card) || studyContent(current)) {
+        return card.id === current.id && card.revision === current.revision
+          && JSON.stringify(card.content_v2) === JSON.stringify(current.content_v2);
+      }
       return card.id === current.id
         && (card.front ?? card.front_text) === (current.front ?? current.front_text)
         && (card.back ?? card.back_text) === (current.back ?? current.back_text)

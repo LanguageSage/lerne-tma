@@ -89,6 +89,8 @@ const PuzzleDropZone = ({ id, className, children, style, preview, disabled }) =
 export const StudyCardPuzzle = React.memo(({
   card,
   isFlipped,
+  tokens,
+  translation,
   onTrainerAnswer,
   renderAudioPlayer,
   designConfig,
@@ -109,13 +111,12 @@ export const StudyCardPuzzle = React.memo(({
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
-    const front = card.front || card.front_text || '';
-    const exerciseText = getInteractiveExerciseContent(front, 'puzzle') || parseExerciseContent(front).exercise;
-    const rawFront = exerciseText.replace(/^@puzzle\s*/i, '').trim();
-    const originalWords = stripMarkdown(rawFront)
-      .split(/\s+/)
-      .map(w => w.trim())
-      .filter(Boolean);
+    let originalWords = tokens;
+    if (!originalWords) {
+      const front = card.front || card.front_text || '';
+      const exerciseText = getInteractiveExerciseContent(front, 'puzzle') || parseExerciseContent(front).exercise;
+      originalWords = stripMarkdown(exerciseText.replace(/^@puzzle\s*/i, '').trim()).split(/\s+/).filter(Boolean);
+    }
 
     const cardSeed = (card?.id || 1);
     const prng = (seed) => {
@@ -132,7 +133,7 @@ export const StudyCardPuzzle = React.memo(({
       targetOrder: originalWords.map((_, index) => index),
       shuffledWords
     };
-  }, [card]);
+  }, [card, tokens]);
 
   const [lists, setLists] = useState(() => createPuzzleLists(puzzleData?.shuffledWords || [], savedState));
   const wordById = useMemo(() => new Map(puzzleData?.shuffledWords.map(word => [word.id, word]) || []), [puzzleData]);
@@ -238,7 +239,7 @@ export const StudyCardPuzzle = React.memo(({
       )}
 
       {/* Target Translation Prompt */}
-      {card.back && (
+      {(translation ?? card.back) && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', minWidth: 0, marginBottom: '16px' }}>
           {!showTranslation ? (
             <button
@@ -269,7 +270,7 @@ export const StudyCardPuzzle = React.memo(({
                 opacity: 0.95
               }}
             >
-              <MarkdownRenderer>{card.back}</MarkdownRenderer>
+              <MarkdownRenderer>{translation ?? card.back}</MarkdownRenderer>
             </div>
           )}
         </div>

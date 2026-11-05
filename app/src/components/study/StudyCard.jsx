@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
-import { RefreshCw, Eye, AlertTriangle, RotateCw } from 'lucide-react';
+import { RefreshCw, AlertTriangle, RotateCw } from 'lucide-react';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import './StudyCard.css';
@@ -12,39 +12,27 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 
 // Extracted Sub-components and Utilities
-import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
-import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../utils/clozeParser';
-import { parseQuizData } from '../../utils/quizParser';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
-import { detectExerciseType } from '../../utils/exerciseDetector.js';
-import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
-import { StudyCardTrainer } from './StudyCardTrainer.jsx';
-import { StudyCardQuiz } from './StudyCardQuiz.jsx';
-import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
 import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { CardAudioPlayer } from './CardAudioPlayer.jsx';
 import { StudyCardImage } from './StudyCardImage';
 import { CardQuestionComposer } from './CardQuestionComposer.jsx';
 import { KaraokeText } from './KaraokeText';
-import { CardFrontContent } from '../common/CardFrontContent.jsx';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 import { getAudioUrl } from '../../utils/media';
-import { getPhysicalSideAudioSource, getPhysicalSideText, getStudyRolePhysicalSide, PEDAGOGICAL_ROLE } from '../../utils/studyCardRoles.js';
+import { getPhysicalSideAudioSource, getStudyRolePhysicalSide, PEDAGOGICAL_ROLE } from '../../utils/studyCardRoles.js';
 
-// Re-export for backward compatibility
-// eslint-disable-next-line react-refresh/only-export-components
-export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
 import { getHarmonizedOptionStyles, getDesignStylesFromV2 } from '../../utils/cardStyles';
-import { triggerHaptic } from '../../utils/platform';
 
-import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
+import { getFlagStyle } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardActionButton } from '../modals/CardActionModal';
 import { CardRating } from './CardRating';
 import { useCardNotes } from '../../hooks/useCardNotes';
+import { studyContent, studyExerciseType, studyInfoBlocks, studyQuiz, studySideText } from '../../utils/structuredStudyCard.js';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 
 export const StudyCard = React.memo(({
@@ -105,31 +93,14 @@ export const StudyCard = React.memo(({
 
   // Voice picker — scoped to this card's language, initialized from session store
   const storedVoice = sessionVoice?.getSessionVoice(deckId) || null;
-  const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false);
+  const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false, true);
 
-  // Provide current card text to the picker so auto-generate works on voice switch
+  const content = studyContent(card);
+  const exerciseType = studyExerciseType(content);
   const promptPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.PROMPT, studyMode);
-  const rawFrontText = getPhysicalSideText(card, promptPhysicalSide);
-
-  const parsedFrontContent = useMemo(() => {
-    return parseExerciseContent(rawFrontText);
-  }, [rawFrontText]);
-
-  const frontText = useMemo(() => {
-    return stripMarkdown(parsedFrontContent.exercise);
-  }, [parsedFrontContent.exercise]);
-
-  const { topBlocks, bottomBlocks } = useMemo(() => {
-    const blocks = parsedFrontContent?.blocks || [];
-    const exerciseIndex = blocks.findIndex(b => b.type === 'exercise');
-    if (exerciseIndex === -1) {
-      return { topBlocks: blocks, bottomBlocks: [] };
-    }
-    return {
-      topBlocks: blocks.slice(0, exerciseIndex),
-      bottomBlocks: blocks.slice(exerciseIndex + 1)
-    };
-  }, [parsedFrontContent]);
+  const rawFrontText = studySideText(content, promptPhysicalSide);
+  const frontText = stripMarkdown(rawFrontText);
+  const topBlocks = useMemo(() => studyInfoBlocks(content), [content]);
 
   // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
   const { activeWordIndex } = useKaraokeSync(
@@ -150,25 +121,25 @@ export const StudyCard = React.memo(({
   }, [card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Interactive Cloze & Exercise states
-  const [wrongSelected, setWrongSelected] = useState([]);
-  const [correctSelected, setCorrectSelected] = useState(null);
   const [exerciseStates, setExerciseStates] = useState({});
   const [exerciseFooterTarget, setExerciseFooterTarget] = useState(null);
 
+  const [exerciseVersions, setExerciseVersions] = useState({});
+  const seen = exerciseVersions[card?.id];
+  if (content && seen?.data !== content.data) {
+    const changed = !seen || seen.type !== content.type || JSON.stringify(seen.data) !== JSON.stringify(content.data);
+    setExerciseVersions({ ...exerciseVersions, [card.id]: {
+      data: content.data, type: content.type, version: (seen?.version ?? -1) + Number(changed),
+    } });
+  }
   const reviewKey = card?.id != null
-    ? (stepFlow?.hasRequiredActions ? stepFlow.reviewKey : null) || `${card.id}:${historyIndex}`
+    ? `${(stepFlow?.hasRequiredActions ? stepFlow.reviewKey : null) || `${card.id}:${historyIndex}`}:${seen?.version ?? 0}`
     : null;
 
   const handleSaveExerciseState = useCallback((state) => {
     if (!reviewKey) return;
     setExerciseStates(prev => ({ ...prev, [reviewKey]: state }));
   }, [reviewKey]);
-
-  // Reset interactive states when card changes
-  useEffect(() => {
-    setWrongSelected([]);
-    setCorrectSelected(null);
-  }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]);
 
   // Reactive image height — subscribes to store so editor changes apply instantly
   const storedImageHeight = useDeckStore(state => {
@@ -237,11 +208,6 @@ export const StudyCard = React.memo(({
   const referenceStyle = v2Styles.referenceText;
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(effectiveConfig?.exercises?.baseColor), [effectiveConfig]);
 
-  // Interactive Exercise Type Detection
-  const exerciseType = useMemo(() => {
-    return detectExerciseType(card, studyMode);
-  }, [card, studyMode]);
-
   const blockAnswerReveal = ['free_text', 'editable_text'].includes(exerciseType) && studyMode !== 'speak' && !isAutoplayActive
     && !canRevealFreeTextAnswer(exerciseStates[reviewKey]?.evaluationState);
   const onFlip = next => {
@@ -249,21 +215,12 @@ export const StudyCard = React.memo(({
   };
   useStudyCardControls({
     surfaceRef,
-    reviewKey: `${reviewKey}:${card.front}:${studyMode}:${isFlipped}`,
+    reviewKey: `${reviewKey}:${card?.id}:${studyMode}:${isFlipped}`,
     enabled: controlsEnabled && !loading,
     isFlipped, onFlip, onPrevious: onPreviousCard, onNext: onNavigateNext,
   });
 
-  // Quiz / Exam Data Parsing
-  const quizData = useMemo(() => {
-    return parseQuizData(card);
-  }, [card?.id, card?.front, card?.back, card?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Cloze / Trainer Data Parsing
-  const clozeData = useMemo(() => {
-    const allDeckCards = useDeckStore.getState().deckCards || [];
-    return parseClozeData(card, studyMode, allDeckCards);
-  }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]); // eslint-disable-line react-hooks/exhaustive-deps
+  const quizData = useMemo(() => content?.type === 'quiz' ? studyQuiz(content.data) : null, [content]);
 
   const getResolvedAudioUrl = (c, isBack = false) => {
     if (!c) return '';
@@ -305,7 +262,7 @@ export const StudyCard = React.memo(({
   };
 
   // --- Early return after all hooks ---
-  if (!card) return null;
+  if (!card || !content) return null;
 
   let deckMeta = card.deck_metadata;
   if (!deckMeta) {
@@ -347,83 +304,19 @@ export const StudyCard = React.memo(({
 
   const imageUrl = getResolvedImageUrl(card) || getDeckImageUrl(deckImage);
 
-  const effectiveStudyMode = isAutoplayActive
-    ? 'classic'
-    : (exerciseType || (studyMode === 'trainer' ? 'classic' : studyMode));
+  const showExercise = Boolean(exerciseType) && studyMode !== 'speak' && !isAutoplayActive;
 
   // A future step renderer can reuse speech/listening UI without a new card type.
   const requiredActionContent = stepFlow?.currentStep && stepFlow.currentStep.action !== 'answer'
     ? renderRequiredAction?.({ card, stepFlow, audioControls })
     : null;
 
-  const handleClozeClick = (option, e) => {
-    e.stopPropagation();
-    if (correctSelected || isFlipped) return;
-
-    if (option.toLowerCase() === clozeData.correctAnswer.toLowerCase()) {
-      setCorrectSelected(option);
-      triggerHaptic('success');
-      
-      if (onTrainerAnswer) {
-        const isFirstTry = wrongSelected.length === 0;
-        onTrainerAnswer(card.id, {
-          isCorrect: true, completed: true, isFirstTry,
-          attemptCount: wrongSelected.length + 1, mistakeCount: wrongSelected.length,
-        });
-      }
-    } else {
-      if (!wrongSelected.includes(option)) {
-        if (studyMode === 'trainer' && wrongSelected.length === 0 && onTrainerAnswer) {
-          onTrainerAnswer(card.id, false);
-        }
-        setWrongSelected([...wrongSelected, option]);
-        triggerHaptic('error');
-      }
-    }
-  };
-
-  const renderRevealButton = () => (
-    <button 
-      className="btn-interactive-reveal"
-      style={{
-        display: 'inline-flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        gap: '8px',
-        width: 'auto',
-        minWidth: '220px',
-        maxWidth: '380px',
-        margin: '14px auto 0 auto',
-        padding: '12px 32px',
-        borderRadius: '14px',
-        border: '1px solid rgba(56, 189, 248, 0.35)',
-        background: 'linear-gradient(135deg, rgba(56, 189, 248, 0.15) 0%, rgba(99, 102, 241, 0.1) 100%)',
-        color: '#38bdf8',
-        fontWeight: 700,
-        fontSize: '0.95rem',
-        cursor: 'pointer',
-        backdropFilter: 'blur(8px)',
-        transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
-        boxShadow: '0 4px 15px rgba(56, 189, 248, 0.12)',
-        userSelect: 'none',
-        alignSelf: 'center'
-      }}
-      onClick={(e) => {
-        e.stopPropagation();
-        onFlip(true);
-      }}
-    >
-      <Eye size={18} />
-      <span>{tr("Показать ответ")}</span>
-    </button>
-  );
-
   return (
     <AnimatePresence mode="sync" initial={false}>
       <motion.div
         id="tut-study-card"
         ref={surfaceRef}
-        key={`${card.id}-${card.front}-${historyIndex}`}
+        key={`${card.id}-${historyIndex}`}
         initial={{ opacity: 0, y: reduceMotion ? 0 : 12, scale: reduceMotion ? 1 : 0.98 }}
         animate={{ opacity: 1, y: 0, scale: 1 }}
         transition={{ duration: reduceMotion ? 0 : 0.1 }}
@@ -492,25 +385,22 @@ export const StudyCard = React.memo(({
               )}
 
               {requiredActionContent ?? <>
-              {/* Classic / Reverse Mode Text */}
-              {!exerciseType && (effectiveStudyMode === 'classic' || effectiveStudyMode === 'reverse') && (
+              {!showExercise && studyMode !== 'speak' && (
                 <>
-                  {promptPhysicalSide === 'back' && topBlocks.length > 0 && <ExerciseInfoBlocks blocks={topBlocks} />}
-                  {promptPhysicalSide === 'back'
-                    ? <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
-                      <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
-                    </div>
-                    : <CardFrontContent content={parsedFrontContent} textStyle={cardStyle}
-                      activeWordIndex={activeWordIndex} id="tut-study-front" />}
+                  <ExerciseInfoBlocks blocks={topBlocks} />
+                  <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
+                    {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
+                      : <KaraokeText text={frontText} activeWordIndex={activeWordIndex} style={cardStyle} />}
+                  </div>
                   {renderFrontAudioPlayer()}
-                  {promptPhysicalSide === 'back' && bottomBlocks.length > 0 && <ExerciseInfoBlocks blocks={bottomBlocks} />}
                 </>
               )}
 
               {/* Interactive Exercise Renderer */}
-              {exerciseType && studyMode !== 'speak' && (
+              {showExercise && (
                 <ExerciseRenderer
                   card={card}
+                  native
                   studyMode={studyMode}
                   isPureTrainerMode={false}
                   isFlipped={isFlipped}
@@ -527,97 +417,12 @@ export const StudyCard = React.memo(({
                 />
               )}
 
-              {/* Cloze (Fill-in-the-blanks) Mode */}
-              {effectiveStudyMode === 'cloze' && clozeData && (
-                <div className="interactive-mode-container" onClick={e => e.stopPropagation()}>
-                  {topBlocks.length > 0 && (
-                    <ExerciseInfoBlocks blocks={topBlocks} />
-                  )}
-                  <div className="text-front cloze-masked-text" style={{ whiteSpace: 'pre-wrap', ...cardStyle, margin: '14px 0', lineHeight: cardStyle.lineHeight }}>
-                    {(() => {
-                      const parts = clozeData.maskedText.split('_____');
-                      const activeWord = correctSelected || wrongSelected[wrongSelected.length - 1];
-
-                      let borderColor = 'var(--design-cloze-gap-border, rgba(255,255,255,0.4))';
-                      let bgColor = 'var(--design-cloze-gap-bg, rgba(255,255,255,0.05))';
-                      let textColor = 'var(--design-cloze-gap-color, rgba(255,255,255,0.5))';
-
-                      if (correctSelected) {
-                        borderColor = 'var(--design-cloze-correct-border, #22c55e)';
-                        bgColor = 'var(--design-cloze-correct-bg, rgba(34, 197, 94, 0.2))';
-                        textColor = 'var(--design-cloze-correct-color, #4ade80)';
-                      } else if (wrongSelected.length > 0) {
-                        borderColor = 'var(--design-cloze-wrong-border, #ef4444)';
-                        bgColor = 'var(--design-cloze-wrong-bg, rgba(239, 68, 68, 0.2))';
-                        textColor = 'var(--design-cloze-wrong-color, #f87171)';
-                      }
-
-                      return (
-                        <>
-                          {parts[0]}
-                          <span
-                            style={{
-                              display: 'inline-block',
-                              minWidth: '64px',
-                              padding: '2px 10px',
-                              margin: '0 4px',
-                              borderRadius: '8px',
-                              border: `2px ${correctSelected ? 'solid' : 'dashed'} ${borderColor}`,
-                              background: bgColor,
-                              color: textColor,
-                              fontWeight: 700,
-                              textAlign: 'center',
-                              transition: 'all 0.2s ease-in-out'
-                            }}
-                          >
-                            {activeWord || '_____'}
-                          </span>
-                          {parts[1]}
-                        </>
-                      );
-                    })()}
-                  </div>
-
-                  {renderFrontAudioPlayer()}
-
-                  <div className="cloze-choices-grid" style={{ marginTop: '16px' }}>
-                    {clozeData.choices.map((opt, i) => {
-                      const isWrong = wrongSelected.includes(opt);
-                      const isCorrect = correctSelected === opt;
-
-                      let btnClass = 'btn-cloze-option';
-                      let customStyle = { ...v2Styles.frontText, color: undefined };
-
-                      if (isCorrect) { btnClass += ' correct'; delete customStyle.color; }
-                      if (isWrong) { btnClass += ' wrong shake-animation'; delete customStyle.color; }
-
-                      return (
-                        <button
-                          key={i}
-                          className={btnClass}
-                          style={customStyle}
-                          onClick={(e) => handleClozeClick(opt, e)}
-                          disabled={!!correctSelected}
-                        >
-                          {opt}
-                        </button>
-                      );
-                    })}
-                  </div>
-                  <div style={{ width: '100%', display: 'flex', justifyContent: 'center', marginTop: '12px' }}>
-                    {renderRevealButton()}
-                  </div>
-                  {bottomBlocks.length > 0 && (
-                    <ExerciseInfoBlocks blocks={bottomBlocks} />
-                  )}
-                </div>
-              )}
-
               {/* Speech Recognition Mode */}
               {studyMode === 'speak' && (
                 <StudyCardSpeech
                   key={stepFlow?.reviewKey || reviewKey}
                   card={card}
+                  targetText={frontText}
                   designConfig={effectiveConfig}
                   reviewKey={stepFlow?.reviewKey || reviewKey}
                   onSuccess={onSpeechSuccess}
@@ -669,7 +474,7 @@ export const StudyCard = React.memo(({
               )}
               {/* 1. FRONT REFERENCE SECTION */}
               <div className="card-back-front-section">
-                {effectiveStudyMode === 'quiz' && quizData ? (
+                {exerciseType === 'quiz' && quizData ? (
                   <div>
                     <div className="back-quiz-question" style={{ ...cardStyle, textAlign: 'left', fontSize: '1.2rem', marginBottom: '8px' }}>
                       {quizData.question}
@@ -699,11 +504,8 @@ export const StudyCard = React.memo(({
                       <ExerciseInfoBlocks blocks={topBlocks} />
                     )}
                     <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...referenceStyle }}>
-                      {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : cleanBracketSyntax(frontText)}
+                      {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : frontText}
                     </div>
-                    {bottomBlocks.length > 0 && (
-                      <ExerciseInfoBlocks blocks={bottomBlocks} />
-                    )}
                   </div>
                 )}
 
@@ -757,11 +559,9 @@ export const StudyCard = React.memo(({
 
               {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
               {(() => {
-                const frontClean = cleanBracketSyntax(frontText).trim();
-                const rawBackText = studyMode === 'reverse' ? (card.front || card.front_text || '') : (card.back || card.back_text || '');
-                const backParsed = parseExerciseContent(rawBackText);
-                const backClean = cleanBracketSyntax(stripMarkdown(backParsed.exercise)).trim();
-                const hasDistinctBack = Boolean(backClean && backClean !== frontClean);
+                const rawBackText = studySideText(content, promptPhysicalSide === 'back' ? 'front' : 'back');
+                const backClean = stripMarkdown(rawBackText).trim();
+                const hasDistinctBack = Boolean(backClean && backClean !== frontText.trim());
                 if (!hasDistinctBack && !card.video_back_url && !deckVideo?.url) return null;
 
                 return (
@@ -840,10 +640,10 @@ export const StudyCard = React.memo(({
                 {notes.rows.map(row => <div key={row.id} className="text-context"
                   style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>{row.text}</div>)}
               </div>}
-              {card.context && (
+              {content.explanation && (
                 <div className="card-context-wrapper">
                   <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
-                    <MarkdownRenderer>{card.context}</MarkdownRenderer>
+                    <MarkdownRenderer>{content.explanation}</MarkdownRenderer>
                   </div>
                 </div>
               )}

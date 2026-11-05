@@ -7,11 +7,11 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { getTtsVoiceForLang } from '../constants/languageConstants';
 import { stripMarkdown } from '../utils/text';
+import { isNativeStudyCard, studyContent, studySideText } from '../utils/structuredStudyCard.js';
 import { getAudioUrl } from '../utils/media';
 import { buildAutoplaySequence, createAutoplayQueue, normalizeAutoplaySettings } from '../utils/autoplaySequence';
 
-const getCardText = (card, side) => side === 'back'
-  ? (card.back ?? card.back_text ?? '') : (card.front ?? card.front_text ?? '');
+const getCardText = (card, side) => studySideText(studyContent(card), side);
 
 export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLock, stopBackgroundLock }) => {
   const runRef = useRef(0);
@@ -88,7 +88,8 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
       const url = getAudioUrl(data.url || data.path);
       if (!url) throw new Error(tr("Не удалось получить аудио"));
       if (sessionRef.current === context) {
-        const patch = { [urlKey]: data.url, [pathKey]: data.path, audio_is_generating: false };
+        const patch = { [urlKey]: data.url, [pathKey]: data.path, audio_is_generating: false,
+          ...(data.revision ? { revision: data.revision } : {}) };
         useSessionStore.getState().updateCardInSession(card.id, patch);
         useDeckStore.getState().updateCardLocal?.(card.id, patch);
         setQueue(queueRef.current.map(c => String(c.id) === String(card.id) ? { ...c, ...patch } : c));
@@ -105,9 +106,9 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
   const getCards = useCallback(async () => {
     const deck = useDeckStore.getState();
     if (!deck.currentDeck) return [];
-    if (deck.currentDeck.id === 'duplicates') return deck.duplicateCards || [];
+    if (deck.currentDeck.id === 'duplicates') return (deck.duplicateCards || []).filter(isNativeStudyCard);
     await deck.fetchDeckCards(deck.currentDeck.id);
-    return useDeckStore.getState().deckCards || [];
+    return (useDeckStore.getState().deckCards || []).filter(isNativeStudyCard);
   }, []);
 
   const stop = useCallback(() => {
@@ -134,6 +135,8 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
         useSessionStore.getState().setCard(target);
         for (let step = 0; step < sequence.length; step++) {
           const side = sequence[step];
+          if (!getCardText(target, side).trim() && !getAudioUrl(side === 'back'
+            ? (target.audio_back_url || target.audio_back_path) : (target.audio_url || target.audio_path))) continue;
           useSessionStore.getState().setIsFlipped(side === 'back');
           const url = await ensureAudio(target, side, settings);
           if (!isCurrentRun(id)) return;

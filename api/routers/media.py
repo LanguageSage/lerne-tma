@@ -189,6 +189,37 @@ def _load_tts_settings():
     return {s.key: s.value for s in models.TMASetting.select()}
 
 
+def _native_audio_text(content, side):
+    """Speak the existing physical side using authored V2 text and answer order."""
+    from api.services.structured_card_storage import decode_v2_content
+
+    card = decode_v2_content(content)
+    kind, data = card.type, card.data
+    if side == 'back':
+        field = {
+            'theory': 'summary', 'standard': 'answer', 'trainer': 'back_note',
+            'quiz': 'back_note', 'match': 'back_note', 'puzzle': 'translation',
+            'free_text': 'sample_answer', 'editable_text': 'correct_text',
+        }.get(kind)
+        return getattr(data, field) if field else ''
+    if kind == 'trainer':
+        return ''.join(part.text if part.type == 'text' else part.answers[0] if part.type == 'input'
+                       else next(option.text for option in part.options if option.correct) for part in data.parts)
+    if kind == 'word_bank':
+        return ''.join(part.text if part.type == 'text' else data.options[part.option] for part in data.parts)
+    if kind == 'puzzle':
+        return ' '.join(data.tokens)
+    if kind == 'match':
+        return '\n'.join(f'{pair.left} → {pair.right}' for pair in data.pairs)
+    if kind == 'theory':
+        return data.text
+    if kind == 'editable_text':
+        return data.source_text
+    if kind == 'quiz' and not data.prompt:
+        return next((block.text for block in card.info if block.type in ('task', 'source')), '')
+    return data.prompt
+
+
 def _prepare_card_audio_request(card_id, side, data, user_id):
     card = models.TMA_Card.get_or_none(
         (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False)
@@ -200,14 +231,17 @@ def _prepare_card_audio_request(card_id, side, data, user_id):
     if not can_edit_audio(user_id, 'deck', card.deck_id):
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
-    if card.content_v2 is not None:
-        raise HTTPException(409, {'code': 'native_audio_generation_unavailable'})
-    card_source_text = card.front_text if side == 'front' else card.back_text
+    content = getattr(card, 'content_v2', None)
+    if content is not None:
+        source = content
+        text_value = _native_audio_text(content, side)
+    else:
+        source = card.front_text if side == 'front' else card.back_text
+        text_value = data.get('text')
+        if not isinstance(text_value, str) or not text_value.strip() or (source and ("*" in source or "✅" in source)):
+            text_value = source
     field = 'audio_back_path' if side == 'back' else 'audio_path'
     previous_path = getattr(card, field)
-    text_value = data.get('text')
-    if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
-        text_value = card_source_text
     if not text_value or not text_value.strip():
         raise HTTPException(status_code=400, detail="Text is required")
 
@@ -220,7 +254,7 @@ def _prepare_card_audio_request(card_id, side, data, user_id):
         voice = settings.get(f'TTS_VOICE_{clean_lang.upper()}') or settings.get('TTS_VOICE') or LANG_DEFAULT_VOICES.get(clean_lang, LANG_DEFAULT_VOICES['de'])
         rate = _normalize_tts_rate(settings.get('TTS_SPEED_RU' if clean_lang == 'ru' else 'TTS_SPEED')) or rate
 
-    return card_source_text, field, previous_path, text_value.strip(), voice, rate
+    return source, field, previous_path, text_value.strip(), voice, rate
 
 
 def _persist_card_audio(card_id, side, user_id, card_source_text, field, previous_path, path):
@@ -230,18 +264,27 @@ def _persist_card_audio(card_id, side, user_id, card_source_text, field, previou
         (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
     if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
-    text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
-    changed = models.TMA_Card.update(**{
-        field: path, 'updated_at': models.datetime.datetime.now()
-    }).where(
-        (models.TMA_Card.id == card_id) &
-        (models.TMA_Card.deck_id == card.deck_id) &
-        (models.TMA_Card.is_deleted == False) &
-        (text_field == card_source_text) &
-        (getattr(models.TMA_Card, field) == previous_path)
-    ).execute()
-    if changed != 1:
-        raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
+    if isinstance(card_source_text, dict):
+        same_content = (models.TMA_Card.content_v2 == card_source_text)
+    else:
+        text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
+        same_content = (text_field == card_source_text) & models.TMA_Card.content_v2.is_null(True)
+    with models.tma_db.atomic():
+        changed = models.TMA_Card.update(**{
+            field: path, 'updated_at': models.datetime.datetime.now()
+        }).where(
+            (models.TMA_Card.id == card_id) &
+            (models.TMA_Card.deck_id == card.deck_id) &
+            (models.TMA_Card.is_deleted == False) &
+            same_content &
+            (getattr(models.TMA_Card, field) == previous_path)
+        ).execute()
+        if changed != 1:
+            raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
+        if isinstance(card_source_text, dict):
+            from api.services.structured_card_api import content_response
+            return content_response(models.TMA_Card.get_by_id(card_id))['revision']
+        return None
 
 
 @router.post("/generate-audio")
@@ -256,12 +299,14 @@ async def generate_audio_endpoint(
 ):
     """Генерация озвучки через Edge TTS и загрузка в облако."""
     with_boundaries = False
+    structured = False
     if data:
         text = data.get('text') if data.get('text') is not None else text
         lang = data.get('lang') if data.get('lang') is not None else lang
         voice = data.get('voice') if data.get('voice') is not None else voice
         rate = data.get('rate') if data.get('rate') is not None else rate
         with_boundaries = bool(data.get('with_boundaries', False))
+        structured = data.get('structured') is True
 
     text = _clean_param(text)
     lang = _clean_param(lang, "de")
@@ -308,8 +353,9 @@ async def generate_audio_endpoint(
             
     try:
         from api.utils import audio
+        options = {'structured': True} if structured else {}
         result, word_boundaries = await audio.generate_audio(
-            text, voice=voice, rate=rate, with_boundaries=with_boundaries
+            text, voice=voice, rate=rate, with_boundaries=with_boundaries, **options
         )
         
         if not result:
@@ -349,7 +395,8 @@ async def generate_card_audio_endpoint(
 
     try:
         from api.utils.audio import generate_audio
-        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=True)
+        options = {'structured': True} if isinstance(card_source_text, dict) else {}
+        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=True, **options)
         result = result[0] if isinstance(result, tuple) else result
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
@@ -359,9 +406,12 @@ async def generate_card_audio_endpoint(
         path = result
         url = result
 
-        await run_db(_persist_card_audio, card_id, side, user_id,
-                     card_source_text, field, previous_path, path)
-        return {'path': path, 'url': url}
+        revision = await run_db(_persist_card_audio, card_id, side, user_id,
+                                card_source_text, field, previous_path, path)
+        result = {'path': path, 'url': url}
+        if revision is not None:
+            result['revision'] = revision
+        return result
     except HTTPException:
         raise
     except Exception as exc:

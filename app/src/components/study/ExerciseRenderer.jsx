@@ -8,6 +8,9 @@ import { parseEditableTextData } from '../../utils/editableTextParser.js';
 import { parseWordBankData } from '../../utils/wordBankParser.js';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
 import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
+import {
+  studyContent, studyExerciseType, studyInfoBlocks, studyMatch, studyQuiz, studyTrainer, studyWordBank
+} from '../../utils/structuredStudyCard.js';
 
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { StudyCardQuiz } from './StudyCardQuiz.jsx';
@@ -29,6 +32,7 @@ import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
  */
 export const ExerciseRenderer = React.memo(({
   card,
+  native = false,
   studyMode = 'classic',
   isPureTrainerMode = false,
   isFlipped = false,
@@ -50,56 +54,37 @@ export const ExerciseRenderer = React.memo(({
   // explicitly supply their V2 draft. Null/undefined selects the active V2.
   const activeDesign = useSettingsStore(state => state.activeDesignConfig);
   const effectiveDesign = designConfig ?? activeDesign;
-  const content = useMemo(() => {
-    return parseExerciseContent(card?.front || card?.front_text || '');
-  }, [card?.front, card?.front_text]);
-
-  // Each parser owns its projection. Joining exercises here would erase the
-  // structural boundaries needed to select one interactive block.
   const exerciseCard = card;
-
-  const detectedType = useMemo(() => {
-    return detectExerciseType(exerciseCard, studyMode);
-  }, [exerciseCard, studyMode]);
-
-  // Match
-  const matchData = useMemo(() => {
-    if (detectedType !== 'match') return null;
-    return parseMatchData(exerciseCard);
-  }, [exerciseCard, detectedType]);
-
-  // Free text
-  const freeTextData = useMemo(() => {
-    if (detectedType !== 'free_text') return null;
-    return parseFreeTextData(exerciseCard);
-  }, [exerciseCard, detectedType]);
-
-  const editableTextData = useMemo(() => {
-    if (detectedType !== 'editable_text') return null;
-    return parseEditableTextData(exerciseCard);
-  }, [exerciseCard, detectedType]);
-
-  // Quiz
-  const quizData = useMemo(() => {
-    if (detectedType !== 'quiz') return null;
-    return parseQuizData(exerciseCard);
-  }, [exerciseCard, detectedType]);
-
-  // Trainer (cloze gaps)
-  const clozeData = useMemo(() => {
-    if (detectedType !== 'trainer') return null;
-    return parseClozeData(exerciseCard, studyMode);
-  }, [exerciseCard, detectedType, studyMode]);
-
-  const wordBankData = useMemo(() => {
-    if (detectedType !== 'word_bank') return null;
-    return parseWordBankData(exerciseCard);
-  }, [exerciseCard, detectedType]);
+  const structured = studyContent(card);
+  const nativeRender = native || Boolean(structured);
+  const legacyCard = nativeRender ? null : card;
+  const { detectedType, content, data } = useMemo(() => {
+    if (nativeRender) {
+      const type = studyExerciseType(structured);
+      const value = structured?.data;
+      let projected = value;
+      if (type === 'trainer') projected = studyTrainer(value);
+      else if (type === 'quiz') projected = studyQuiz(value);
+      else if (type === 'match') projected = studyMatch(value);
+      else if (type === 'word_bank') projected = studyWordBank(value);
+      else if (type === 'free_text') projected = { prompt: value.prompt, exampleAnswer: value.sample_answer };
+      else if (type === 'editable_text') projected = { sourceText: value.source_text };
+      return { detectedType: type, content: { blocks: studyInfoBlocks(structured) }, data: projected };
+    }
+    // Editor and design previews still consume their authoring inputs.
+    const type = detectExerciseType(legacyCard, studyMode);
+    const parse = {
+      trainer: parseClozeData, quiz: parseQuizData, match: parseMatchData, free_text: parseFreeTextData,
+      editable_text: parseEditableTextData, word_bank: parseWordBankData,
+    }[type];
+    return { detectedType: type, content: parseExerciseContent(legacyCard?.front || legacyCard?.front_text || ''),
+      data: parse?.(legacyCard, studyMode) };
+  }, [nativeRender, structured, legacyCard, studyMode]);
 
   const withInformation = (exercise) => {
     const blocks = content?.blocks || [];
     const directive = { puzzle: 'puzzle', match: 'match', free_text: 'free', editable_text: 'edit', word_bank: 'wordbank' }[detectedType];
-    const exerciseIndex = blocks.findIndex(b => b.type === 'exercise'
+    const exerciseIndex = nativeRender ? -1 : blocks.findIndex(b => b.type === 'exercise'
       && (!directive || b.content.split('\n')[0].trim().toLowerCase() === `@${directive}`));
     
     let topBlocks = blocks;
@@ -133,12 +118,12 @@ export const ExerciseRenderer = React.memo(({
 
   switch (detectedType) {
     case 'word_bank':
-      if (!wordBankData) return fallback;
+      if (!data) return fallback;
       return withInformation(
         <StudyCardWordBank
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
-          wordBankData={wordBankData}
+          wordBankData={data}
           designConfig={effectiveDesign}
           onTrainerAnswer={onTrainerAnswer}
           savedState={savedState}
@@ -148,12 +133,12 @@ export const ExerciseRenderer = React.memo(({
       );
 
     case 'match':
-      if (!matchData) return fallback;
+      if (!data) return fallback;
       return withInformation(
         <StudyCardMatch
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
-          matchData={matchData}
+          matchData={data}
           designConfig={effectiveDesign}
           onFlip={onFlip}
           onTrainerAnswer={onTrainerAnswer}
@@ -166,14 +151,14 @@ export const ExerciseRenderer = React.memo(({
       );
 
     case 'free_text':
-      if (!freeTextData) return fallback;
+      if (!data) return fallback;
       return withInformation(
         <StudyCardFreeText
           assessmentMode={assessmentMode}
           key={reviewKey || exerciseCard.id}
           reviewKey={reviewKey}
           card={exerciseCard}
-          freeTextData={freeTextData}
+          freeTextData={data}
           supportHistoryUnknown={supportHistoryUnknown}
           designConfig={effectiveDesign}
           onFlip={onFlip}
@@ -187,14 +172,14 @@ export const ExerciseRenderer = React.memo(({
       );
 
     case 'editable_text':
-      if (!editableTextData) return fallback;
+      if (!data) return fallback;
       return withInformation(
         <StudyCardFreeText
           assessmentMode={assessmentMode}
           key={reviewKey || exerciseCard.id}
           reviewKey={reviewKey}
           card={exerciseCard}
-          editableTextData={editableTextData}
+          editableTextData={data}
           designConfig={effectiveDesign}
           onTrainerAnswer={onTrainerAnswer}
           onNextCard={onNextCard}
@@ -206,12 +191,13 @@ export const ExerciseRenderer = React.memo(({
       );
 
     case 'quiz':
-      if (!quizData) return fallback;
+      if (!data) return fallback;
       return withInformation(
         <StudyCardQuiz
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
-          quizData={quizData}
+          quizData={data}
+          backNote={structured ? (structured.data.back_note ?? '') : undefined}
           designConfig={effectiveDesign}
           isFlipped={isFlipped}
           setIsFlipped={onFlip}
@@ -225,14 +211,15 @@ export const ExerciseRenderer = React.memo(({
       );
 
     case 'trainer':
-      if (!clozeData) return fallback;
+      if (!data) return fallback;
       return withInformation(
         <StudyCardTrainer
           assessmentMode={assessmentMode}
           supportHistoryUnknown={supportHistoryUnknown}
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
-          clozeData={clozeData}
+          clozeData={data}
+          backNote={structured ? (structured.data.back_note ?? '') : undefined}
           designConfig={effectiveDesign}
           isFlipped={isFlipped}
           onFlip={onFlip}
@@ -255,6 +242,8 @@ export const ExerciseRenderer = React.memo(({
           designConfig={effectiveDesign}
           isFlipped={isFlipped}
           onFlip={onFlip}
+          tokens={structured?.data.tokens}
+          translation={structured ? (structured.data.translation ?? '') : undefined}
           loading={false}
           playAudio={playAudio}
           renderAudioPlayer={renderAudioPlayer}

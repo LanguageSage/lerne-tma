@@ -1,4 +1,5 @@
 import { tr } from '../i18n/locale.js';
+import { studyContent } from './structuredStudyCard.js';
 /**
  * Helper utilities for formatting and styling card CEFR levels (A1 - C2).
  */
@@ -28,6 +29,11 @@ export const updateCardLevelTags = (currentTags, newLevel) => {
 
 export const getSavedCefr = (card) => {
   if (!card) return null;
+  const structured = studyContent(card);
+  if (structured) {
+    const cefr = structured.metadata?.cefr;
+    return structured.level ? { ...(cefr && typeof cefr === 'object' ? cefr : {}), level: structured.level } : null;
+  }
   if (card.cefr && typeof card.cefr === 'object') return card.cefr;
 
   let metadata = card.metadata;
@@ -74,10 +80,10 @@ export const getLevelInfo = (card) => {
   if (!card) return null;
 
   const savedCefr = getSavedCefr(card);
-  let levelStr = savedCefr?.level || card.level;
+  let levelStr = studyContent(card) ? savedCefr?.level : (savedCefr?.level || card.level);
 
   // Fallback to tags if level string is missing or needs extraction
-  if (!levelStr && card.tags) {
+  if (!levelStr && !studyContent(card) && card.tags) {
     const matches = String(card.tags).match(CEFR_TAG_RE);
     if (matches && matches.length > 0) {
       let maxLvl = "A1";

@@ -27,7 +27,7 @@ SUPPORTED_VOICES = {
 _OFFSET_TO_SECONDS = 10_000_000
 
 
-async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False, force=False):
+async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False, force=False, *, structured=False):
     """
     Генератор аудио. Возвращает:
       - (path_or_url, None)              при with_boundaries=False
@@ -40,7 +40,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
     from api.local_runtime import is_local
     if is_local():
         raise RuntimeError('TTS is unavailable in LOCAL')
-    clean_text = _prepare_tts_text(text)
+    clean_text = _prepare_tts_text(text, structured=structured)
     if not clean_text:
         raise ValueError("Text is empty after cleanup")
 
@@ -213,14 +213,15 @@ def _clean_bracket_syntax(t):
 
 
 
-def _strip_markdown(text):
+def _strip_markdown(text, *, structured=False):
     if not text:
         return ""
-    res = _clean_bracket_syntax(text)
+    res = text if structured else _clean_bracket_syntax(text)
     res = res.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
     res = res.replace("<center>", "").replace("</center>", "").replace("<large>", "").replace("</large>", "")
-    res = re.sub(r"\{\{.*?\}\}", "", res)
-    res = res.replace("[[", "").replace("]]", "")
+    if not structured:
+        res = re.sub(r"\{\{.*?\}\}", "", res)
+        res = res.replace("[[", "").replace("]]", "")
     import unicodedata
     res = "".join(ch for ch in res if unicodedata.category(ch)[0] != "C")
     res = res.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
@@ -285,21 +286,20 @@ def _strip_standalone_parenthesized_hints(text: str) -> str:
 
 
 
-def _prepare_tts_text(text, max_chars=900):
+def _prepare_tts_text(text, max_chars=900, *, structured=False):
     if not text:
         return ""
 
-    # Visual task/source/options/example blocks never belong to speech. Strip
-    # them before the established quiz/cloze/Markdown preparation below.
-    from api.services.input_parser import parse_exercise_content
-    text = parse_exercise_content(text)["exercise"]
-    text = _strip_standalone_parenthesized_hints(text)
+    if not structured:
+        # Legacy input still needs its authoring syntax removed.
+        from api.services.input_parser import parse_exercise_content
+        text = parse_exercise_content(text)["exercise"]
+        text = _strip_standalone_parenthesized_hints(text)
+        quiz_text = _prepare_quiz_tts_text(text)
+        if quiz_text is not None:
+            text = quiz_text
 
-    quiz_text = _prepare_quiz_tts_text(text)
-    if quiz_text is not None:
-        text = quiz_text
-
-    res = _strip_markdown(text)
+    res = _strip_markdown(text, structured=structured)
     res = re.sub(r"https?://\S+", "", res)
     res = re.sub(r"\s+", " ", res).strip()
     if len(res) <= max_chars:

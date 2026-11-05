@@ -22,11 +22,14 @@ LiD ticket выбирает карточки и формирует ответ с
 ## Data flow
 
 1. `useStudyNavigation` запускает сессию; `useStudySession` получает карточки и держит историю в session store.
-2. StudyCard → ExerciseRenderer → тип упражнения → feedback session/adapters; сохранение состояния привязано к `reviewKey`.
+2. `StudyCard` читает `content_v2.card`. `ExerciseRenderer` передаёт структурированные параметры компоненту упражнения и его feedback adapter. Состояние попытки привязано к `reviewKey`. Прежний разбор авторского текста используется в предпросмотрах.
 3. Exercise completion передаёт evidence через `onTrainerAnswer`; `StudyView` завершает шаг answer. Явная цепочка required actions завершается после всех шагов; default сохраняет ручную оценку. Grade сохраняется через `/study/grade` и запускает Knowledge capture.
 4. Online SRS: study router → `update_card_progress` → `api/srs.py` → `TMAProgress` / `TMAReviewHistory`.
 5. Offline SRS: `offlineApi.js` → `srsEngine.js` → Dexie progress + review event; доставка — [sync](sync.md).
 6. StudyFinished предлагает следующий шаг; StudyError представляет отдельный исход ошибки.
+
+Нативный учебный контракт и поведение при `409` описаны в
+[Structured Cards V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-4-отображение-в-react).
 
 ## Source of truth
 
@@ -66,24 +69,21 @@ LiD ticket выбирает карточки и формирует ответ с
 
 ## Card footer and information
 
-Обычный физический FRONT в classic/reverse использует общий с предпросмотром
-редактора `components/common/CardFrontContent.jsx`: информационные блоки и
-фрагменты упражнения выводятся в исходном порядке. `KaraokeText` сохраняет
-сквозной индекс слов между фрагментами. Физический BACK в reverse продолжает
-использовать `MarkdownRenderer`. Интерактивные типы остаются в `ExerciseRenderer`;
-SRS, оценка и сохранение состояния не меняются. Порядок после назначения маркера
-проверяет `scripts/tests/browser/card-editor.spec.cjs`.
+В classic `KaraokeText` отображает текст Theory или Standard и подсвечивает
+слова при воспроизведении. `ExerciseInfoBlocks` показывает массив `Card.info`
+в авторском порядке. В reverse физическая сторона ответа использует
+`MarkdownRenderer`. `CardFrontContent` обрабатывает авторские блоки в старом
+предпросмотре. Учебные проверки находятся в `native-structured-study.spec.cjs`.
 
 ### Editable Text (`@edit`)
 
-`exerciseContentParser` selects the standalone `@edit` block up to the next
-structural marker; `detectExerciseType` selects `editable_text` from content,
-then `ExerciseRenderer` passes `parseEditableTextData` to `StudyCardFreeText`.
-The marker is omitted from the input. The field starts with the full source,
+`ExerciseRenderer` passes `data.source_text` to `StudyCardFreeText` for a
+native `editable_text` card. The field starts with the full source,
 shows a pencil, focus frame, modified status and reset action. Reset restores
 only the draft; it never erases evaluation attempts. `StudyCard.exerciseStates`
 keeps drafts by review key across card navigation. The existing evaluation
-service receives the current full input; the server owns BACK and grading policy.
+service receives the current full input. The server reads `correct_text`,
+`accepted_answers` and `grading_policy` from V2.
 The interactive surface excludes clicks, keyboard input and gestures from flips.
 
 Regression fixtures: `tests/fixtures/editable-cards.json` contains 65 synthetic
@@ -102,7 +102,10 @@ Text and publication translations in both EN/UK JSON files, preventing a build.
 Those syntax errors are fixed. Deployment must publish the current source;
 changing stored card types or rewriting valid FRONT text does not fix an old UI.
 
-`MarkdownRenderer` (`components/common/`) отображает только сохранённые `back`/`context`: ответ и контекст StudyCard, перевод Puzzle/Trainer, пример Free Text (back либо context) и ответ/контекст TrainerView. В reverse Markdown следует за физическим `back`; физический `front` сохраняет прежнее отображение. Перевод Trainer выводится целым блоком под заданием, чтобы сохранять таблицы, списки и абзацы; разбор и оценка упражнений не меняются. Стили наследуются от существующих контейнеров, прокрутка таблиц ограничена самим полем (включая flex-контейнер перевода Puzzle). Проверки: `scripts/tests/browser/card-markdown.spec.cjs` и существующие feedback suites.
+`MarkdownRenderer` (`components/common/`) отображает ответ физической стороны,
+`Card.explanation`, перевод Puzzle/Trainer и пример Free Text. Перевод Trainer
+выводится целым блоком под заданием для таблиц, списков и абзацев. Стили
+наследуются от существующих контейнеров, прокрутка таблиц ограничена полем.
 
 `StudyCard.jsx` renders one non-floating footer after either card side: a static CEFR badge, the existing exercise/flip controls and `CardActionButton` in the former Info slot. Below the bottom bar, `CardRating.jsx` provides a right-aligned like/dislike pill available before and after reveal; tapping dislike opens a non-modal reason selector and text improvement prompt reusing `/api/messages`. The previous swipe/keyboard hint is accessible in `CardActionModal`. `CardActionModal` ends with Notes and suggestions, then Card information. Its Info mode reuses `StudyCardInfo.jsx`: author, language, deck, CEFR explanation, source and dates, including no-data text and the existing coauthor placeholder. Modal modes retain keyboard focus, Escape closes and restores the trigger. Geometry, locales, free-text reveal guards and exercise controls: `scripts/tests/browser/study-card-info.spec.cjs`, `scripts/tests/browser/card-rating.spec.cjs`.
 

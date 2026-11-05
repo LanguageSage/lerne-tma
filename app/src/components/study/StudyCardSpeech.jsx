@@ -13,6 +13,7 @@ import { triggerHaptic } from '../../utils/platform';
 import { stopGlobalAudio } from '../../hooks/useAudio';
 import { parseExerciseContent } from '../../utils/exerciseContentParser';
 import { cleanBracketSyntax } from '../../utils/clozeParser';
+import { studyContent, studyInfoBlocks, studySideText } from '../../utils/structuredStudyCard.js';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 
 
@@ -35,11 +36,12 @@ export const StudyCardSpeech = React.memo(({
   useInterfaceLocale();
   const [speechSuccess, setSpeechSuccess] = useState(false);
 
-  const exerciseContent = useMemo(() => parseExerciseContent(card?.front || ''), [card?.front]);
-  const spokenFront = useMemo(
-    () => targetText ?? cleanBracketSyntax(exerciseContent.exercise),
-    [targetText, exerciseContent]
-  );
+  const structured = studyContent(card);
+  const exerciseContent = useMemo(() => structured
+    ? { blocks: studyInfoBlocks(structured), exercise: studySideText(structured) }
+    : parseExerciseContent(card?.front || ''), [card?.front, structured]);
+  const spokenFront = targetText ?? (structured
+    ? stripMarkdown(exerciseContent.exercise) : cleanBracketSyntax(exerciseContent.exercise));
   const speechKey = JSON.stringify([card?.id, reviewKey, spokenFront]);
   const [previousSpeechKey, setPreviousSpeechKey] = useState(speechKey);
   if (previousSpeechKey !== speechKey) {

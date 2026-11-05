@@ -51,7 +51,9 @@ export const checkWordBankAssignments = (gaps = [], options = [], assignments = 
   for (const gap of gaps) {
     const selected = optionById.get(assignments[gap.id]);
     results[gap.id] = selected
-      && normalizeWordBankValue(selected.value) === normalizeWordBankValue(gap.correctAnswer)
+      && (gap.correctOptionId == null
+        ? normalizeWordBankValue(selected.value) === normalizeWordBankValue(gap.correctAnswer)
+        : selected.value === optionById.get(gap.correctOptionId)?.value)
       ? 'correct'
       : 'incorrect';
   }

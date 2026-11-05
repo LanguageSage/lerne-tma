@@ -5,6 +5,7 @@ from threading import Thread
 import time
 import unittest
 from uuid import uuid4
+from unittest.mock import patch
 
 import httpx
 import uvicorn
@@ -200,6 +201,46 @@ def _run_cases(client, models, headers, load_answer_context):
                 [card] = self.call('GET', f'decks/{deck_id}/cards')
                 self.assertEqual(card['content_v2']['card']['type'], kind)
                 self.assertIsNone(models.TMA_Card.get_by_id(card['id']).front_text)
+
+        def test_native_audio_uses_structured_source_and_rejects_stale_attachment(self):
+            from api.utils.audio import _prepare_tts_text
+
+            self.assertEqual(_prepare_tts_text('::task [[literal]]', structured=True), '::task [[literal]]')
+            item = self.create(value={'schema_version': 2, 'card': {'type': 'trainer',
+                'data': {'parts': [{'type': 'text', 'text': '@match is literal. '},
+                                   {'type': 'input', 'answers': ['chosen|value', 'other']}]}}})
+            body = {'card_id': item['id'], 'side': 'front', 'text': 'untrusted override', 'voice': 'test'}
+            permanent = 'https://example.invalid/test.mp3'
+            with patch('api.utils.audio.generate_audio', return_value=(permanent, None)) as generator:
+                self.call('POST', 'media/generate-card-audio', 403, user=2, body=body)
+                generator.assert_not_called()
+                generated = self.call('POST', 'media/generate-card-audio', body=body)
+                generator.assert_awaited_once_with('@match is literal. chosen|value', voice='test',
+                                                 rate='+0%', force=True, structured=True)
+            self.assertEqual(generated['path'], permanent)
+            self.assertEqual(self.call('GET', f'cards/{item["id"]}')['revision'], generated['revision'])
+            with patch('api.utils.audio.generate_audio', return_value=(permanent, [])) as generator:
+                preview = self.call('POST', 'media/generate-audio', body={'text': '::task [[literal]]',
+                    'voice': 'test', 'rate': '+0%', 'structured': True, 'with_boundaries': True})
+                generator.assert_awaited_once_with('::task [[literal]]', voice='test', rate='+0%',
+                                                 with_boundaries=True, structured=True)
+                self.assertEqual(preview['url'], permanent)
+            from api.db_workers import run_db
+            from api.services.structured_card_storage import replace_v2_card
+
+            async def stale_audio(*_args, **_kwargs):
+                await run_db(replace_v2_card, item['id'], envelope('changed')['card'])
+                return 'https://example.invalid/stale.mp3', None
+
+            with patch('api.utils.audio.generate_audio', side_effect=stale_audio):
+                self.call('POST', 'media/generate-card-audio', 409, body=body)
+            self.assertEqual(models.TMA_Card.get_by_id(item['id']).audio_path, permanent)
+            self.call('GET', f'decks/{self.target.id}/next')
+            self.call('GET', f'decks/{self.source.id}/next')
+            only_legacy = models.TMA_Deck.create(user_id=1, name='Synthetic legacy only')
+            models.TMA_Card.create(deck=only_legacy, front_text='Old', back_text='Card')
+            response = self.call('GET', f'decks/{only_legacy.id}/next', 409)
+            self.assertEqual(response['detail']['code'], 'deck_requires_migration')
 
         def test_study_search_duplicates_and_document_import(self):
             item = self.create(value=envelope('Österreich Suchbegriff'))

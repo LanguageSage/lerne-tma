@@ -1682,6 +1682,8 @@
   "↻ Повторить колоду сейчас": "↻ Review this deck now",
   "↻ Повторить эту колоду": "↻ Repeat this deck",
   "К колодам темы": "Back to topic decks",
+  "Карточки ещё не перенесены в Structured Cards V2.": "The cards have yet to be migrated to Structured Cards V2.",
+  "Карточка недоступна в формате Structured Cards V2.": "This card is unavailable in Structured Cards V2 format.",
   "Не удалось загрузить занятие": "Could not load the study session",
   "Повторить запрос": "Retry",
   "Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации.": "The server did not confirm saving your grades. Update the sync server.",

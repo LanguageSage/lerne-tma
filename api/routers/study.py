@@ -254,6 +254,10 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
         return card # Возвращаем ошибку для отладки
         
     if not card:
+        active = models.TMA_Card.select(models.TMA_Card.id).where(
+            models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted == False)
+        if not active.where(models.TMA_Card.content_v2.is_null(False)).exists() and active.exists():
+            raise HTTPException(409, {'code': 'deck_requires_migration'})
         logger.info(f"User {user_id} finished deck {deck_id}")
         return {"finished": True}
     

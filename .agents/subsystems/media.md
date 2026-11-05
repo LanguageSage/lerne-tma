@@ -34,6 +34,12 @@ audio path, не перезаписывая более свежие текст/�
 в worker с одним bounded read retry; cache/LOCAL files/audio redirects не открывают
 соединение. Image optimization и синхронная Storage-загрузка offload отдельно от DB.
 
+Для нативной карточки `/media/generate-card-audio` читает физическую сторону
+из `content_v2.card` и возвращает новую `revision` после условного сохранения.
+При предпрослушивании учебный клиент передаёт `structured: true` в
+`/media/generate-audio`, чтобы озвучить подготовленный текст без разбора
+авторских маркеров.
+
 ## Source of truth
 
 - В LOCAL uploads хранят файлы во внешнем `data/media`, а `TMAMedia` — metadata; чтение идёт только через media routes, missing → 404 без Supabase redirect. Генерация TTS отключена. См. [local-development](local-development.md).
