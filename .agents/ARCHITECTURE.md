@@ -139,3 +139,6 @@ Dexie `card_notes`, separately from card JSON and SRS/progress. Account-owned
 conversations and notifications belong to `TMAUserMessage` / `tma_user_message`;
 card references in messages survive card deletion. The old Admin suggestion
 moderation contract is obsolete. Migration 90 and details: [Cards](subsystems/cards.md).
+
+Game Mode V2: App → GameModeV2 → authenticated game_v2 router → existing AI/TTS;
+sessions use namespaced TMAOfflineBatch records through run_db. See [study](subsystems/study.md#game-mode-v2-frau-müller).

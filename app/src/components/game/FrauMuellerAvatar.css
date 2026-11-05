@@ -1,0 +1,250 @@
+.frau-avatar-container {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  user-select: none;
+}
+
+/* SIZES */
+.frau-avatar-container.size-small {
+  width: 44px;
+  height: 44px;
+}
+
+.frau-avatar-container.size-medium {
+  width: 76px;
+  height: 76px;
+}
+
+.frau-avatar-container.size-large {
+  width: 140px;
+  height: 140px;
+}
+
+.frau-avatar-container.size-hero {
+  width: 180px;
+  height: 180px;
+}
+
+/* SVG Rendering */
+.frau-avatar-svg {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  box-shadow: 0 4px 18px rgba(99, 102, 241, 0.25);
+  border: 2.5px solid #6366f1;
+  background: #1e1b4b;
+  overflow: hidden;
+  transition: transform 0.3s ease, border-color 0.3s ease, box-shadow 0.3s ease;
+}
+
+/* Active State Highlighting */
+.frau-avatar-container.is-speaking .frau-avatar-svg {
+  border-color: #38bdf8;
+  box-shadow: 0 0 24px rgba(56, 189, 248, 0.5), 0 4px 18px rgba(99, 102, 241, 0.4);
+}
+
+.frau-avatar-container.is-listening .frau-avatar-svg {
+  border-color: #ef4444;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.45);
+}
+
+.frau-avatar-container.is-thinking .frau-avatar-svg {
+  border-color: #eab308;
+  box-shadow: 0 0 20px rgba(234, 179, 8, 0.4);
+}
+
+/* Eye Blinking */
+.frau-eyes {
+  transform-origin: 100px 94px;
+  animation: frauBlink 4.2s infinite ease-in-out;
+}
+
+@keyframes frauBlink {
+  0%, 94%, 98%, 100% {
+    transform: scaleY(1);
+  }
+  96% {
+    transform: scaleY(0.08);
+  }
+}
+
+/* MOUTH ANIMATION WHEN SPEAKING */
+.frau-avatar-container.is-speaking .frau-mouth-cavity {
+  transform-origin: 100px 131px;
+  animation: frauMouthSpeak 0.28s infinite alternate ease-in-out;
+}
+
+.frau-avatar-container.is-speaking .frau-teeth {
+  transform-origin: 100px 127px;
+  animation: frauTeethMove 0.28s infinite alternate ease-in-out;
+}
+
+.frau-avatar-container.is-speaking .frau-tongue {
+  transform-origin: 100px 135px;
+  animation: frauTongueMove 0.28s infinite alternate ease-in-out;
+}
+
+@keyframes frauMouthSpeak {
+  0% {
+    transform: scale(0.85, 0.5) translateY(-1px);
+    rx: 8px;
+    ry: 4px;
+  }
+  30% {
+    transform: scale(1.15, 1.4) translateY(1px);
+    rx: 12px;
+    ry: 8px;
+  }
+  60% {
+    transform: scale(0.95, 0.8) translateY(0px);
+    rx: 9px;
+    ry: 5px;
+  }
+  100% {
+    transform: scale(1.25, 1.6) translateY(2px);
+    rx: 13px;
+    ry: 9px;
+  }
+}
+
+@keyframes frauTeethMove {
+  0% {
+    transform: translateY(0);
+    opacity: 0.9;
+  }
+  50% {
+    transform: translateY(-0.8px);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(0.5px);
+    opacity: 0.95;
+  }
+}
+
+@keyframes frauTongueMove {
+  0% {
+    transform: scale(0.8) translateY(0);
+  }
+  50% {
+    transform: scale(1.1) translateY(-1px);
+  }
+  100% {
+    transform: scale(1.25) translateY(-1.5px);
+  }
+}
+
+/* Head Nodding when speaking */
+.frau-head-group.nod-anim {
+  transform-origin: 100px 150px;
+  animation: frauHeadNod 0.75s infinite ease-in-out;
+}
+
+@keyframes frauHeadNod {
+  0%, 100% {
+    transform: translateY(0) rotate(0deg);
+  }
+  25% {
+    transform: translateY(-2px) rotate(0.8deg);
+  }
+  50% {
+    transform: translateY(0.6px) rotate(-0.5deg);
+  }
+  75% {
+    transform: translateY(-1.2px) rotate(0.4deg);
+  }
+}
+
+/* Head Tilt when thinking */
+.frau-head-group.tilt-anim {
+  transform-origin: 100px 150px;
+  animation: frauHeadTilt 2.2s infinite ease-in-out;
+}
+
+@keyframes frauHeadTilt {
+  0%, 100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-2.5deg) translateY(-1px);
+  }
+}
+
+/* Sound Waves Ripple */
+.frau-sound-waves {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  z-index: -1;
+}
+
+.wave-ring {
+  position: absolute;
+  top: -12%;
+  left: -12%;
+  width: 124%;
+  height: 124%;
+  border-radius: 50%;
+  border: 2px solid rgba(56, 189, 248, 0.6);
+  opacity: 0;
+  animation: frauSoundRipple 1.6s infinite cubic-bezier(0.2, 0.8, 0.4, 1);
+}
+
+.wave-ring.wave-1 {
+  animation-delay: 0s;
+}
+
+.wave-ring.wave-2 {
+  animation-delay: 0.5s;
+}
+
+.wave-ring.wave-3 {
+  animation-delay: 1s;
+}
+
+@keyframes frauSoundRipple {
+  0% {
+    transform: scale(0.9);
+    opacity: 0.85;
+  }
+  60% {
+    opacity: 0.4;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+/* Status Pill */
+.frau-status-pill {
+  position: absolute;
+  bottom: -6px;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.35);
+  white-space: nowrap;
+}
+
+.pill-pulse.speaking {
+  color: #38bdf8;
+}
+
+.pill-pulse.thinking {
+  color: #facc15;
+}
+
+.pill-pulse.listening {
+  color: #f87171;
+}

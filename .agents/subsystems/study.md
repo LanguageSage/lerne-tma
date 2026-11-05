@@ -254,3 +254,27 @@ CI fixtures: `tests/fixtures/`, только вымышленные данные
 Регрессии конкурентности, thread-local соединений, rollback, permissions,
 forced selection, TTS и retry: `scripts/tests/test_db_workers.py`. Прежние
 тесты с in-memory SQLite проверяют синхронные тела через `__wrapped__`.
+
+
+## Game Mode V2: Frau Müller
+
+DeckGridHeader opens `game` in App through the existing authenticated entry.
+`GameModeV2.jsx` / `gameV2Controller.js` preserve the local V2 dialogue and avatar.
+The existing speech hook recognizes German; 1500 ms without transcript changes sends
+an active listening turn. Pause, manual Finish and End cancel that timer. Replies and
+the initial greeting use the authenticated `/media/generate-audio` API; failed TTS
+returns control to text/microphone, stalled playback has a 60-second watchdog.
+
+`api/routers/game_v2.py` requires the existing Bearer user on every route. Sessions
+use namespaced `game-v2:<user>:<uuid>` records in TMAOfflineBatch, so cold starts do
+not lose active conversations. No migrations or independent accounts/infrastructure.
+All session DB phases use run_db and routes use db_phases; configured_ai loads its
+settings in a worker and network waits hold no database connection. Updates compare
+the previous serialized session to prevent a delayed turn reopening a closed session.
+AI uses the configured Lerne model with a 25-second deadline and no nested retries.
+Game state never updates cards, SRS or Knowledge.
+
+Checks: `tests/test_game_v2_api.py` (default disposable SQLite; optional
+GAME_TEST_DATABASE/GAME_TEST_PASSWORD uses loopback PostgreSQL and real HTTP),
+controller tests and `scripts/tests/browser/game-v2.spec.cjs` (simulated voice/AI).
+Physical-device microphone permissions, recognition accuracy and autoplay need manual QA.

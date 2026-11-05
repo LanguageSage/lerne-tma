@@ -127,7 +127,7 @@ export function useSpeechRecognition({ resetKey, language, onTranscript, onEnd,
         for (const result of Array.from(event.results)) {
           const chunk = result[0].transcript.trim();
           if (!chunk) continue;
-          const previous = chunks.at(-1);
+          const previous = chunks[chunks.length - 1];
           if (previous && chunk.toLowerCase().startsWith(previous.toLowerCase())) chunks[chunks.length - 1] = chunk;
           else if (!previous || !previous.toLowerCase().endsWith(chunk.toLowerCase())) chunks.push(chunk);
         }

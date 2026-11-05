@@ -26,6 +26,7 @@ import { HelpDrawer } from './components/help/HelpDrawer';
 import { FullGuideModal } from './components/help/FullGuideModal';
 import { LidExamView } from './components/lid/LidExamView';
 import { LerneSignIn } from './components/auth/LerneSignIn';
+import { GameModeV2 } from './components/game/GameModeV2';
 import { MessagesView } from './components/messages/MessagesView';
 
 import { TUTORIAL_STEPS } from './constants/appConstants';
@@ -280,6 +281,8 @@ function AppContent() {
         return <TrashManager />;
       case 'lid_exam':
         return <LidExamView />;
+      case 'game':
+        return <GameModeV2 />;
       case 'decks':
       default:
         return (
