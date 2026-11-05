@@ -1,5 +1,7 @@
 """Socket HTTP tests against the real authenticated routes on disposable PostgreSQL."""
 from concurrent.futures import ThreadPoolExecutor
+import json
+from pathlib import Path
 import socket
 from threading import Thread
 import time
@@ -201,6 +203,59 @@ def _run_cases(client, models, headers, load_answer_context):
                 [card] = self.call('GET', f'decks/{deck_id}/cards')
                 self.assertEqual(card['content_v2']['card']['type'], kind)
                 self.assertIsNone(models.TMA_Card.get_by_id(card['id']).front_text)
+
+        def test_editor_round_trip_all_types_and_preserves_extensions(self):
+            fixtures = Path(__file__).resolve().parents[2] / 'tests/fixtures/structured_cards_v2'
+            by_type = {card['type']: card for file in sorted(fixtures.glob('*.json'))
+                       for card in json.loads(file.read_text(encoding='utf-8'))['cards']}
+            by_type.setdefault('editable_text', {'type': 'editable_text',
+                               'data': {'source_text': 'Ich gehen.', 'correct_text': 'Ich gehe.'}})
+            self.assertEqual(len(by_type), 9)
+            for kind, card in by_type.items():
+                with self.subTest(kind=kind):
+                    card['metadata'] = {**card.get('metadata', {}), 'extension': {'version': 7, 'items': [True, None]}}
+                    item = self.create(value={'schema_version': 2, 'card': card})
+                    current = self.call('GET', f'cards/{item["id"]}')
+                    edited = current['content_v2']
+                    edited['card']['explanation'] = 'New explanation'
+                    result = self.call('PATCH', f'cards/{item["id"]}', body={'request_id': str(uuid4()),
+                        'revision': current['revision'], 'content_v2': edited})
+                    reopened = self.call('GET', f'cards/{item["id"]}')
+                    self.assertEqual(reopened['content_v2'], edited)
+                    self.assertEqual(result['revision'], reopened['revision'])
+                    self.assertNotEqual(current['revision'], result['revision'])
+
+        def test_editor_ai_and_import_preview_use_v2(self):
+            draft = {'schema_version': 2, 'card': {'type': 'standard',
+                     'data': {'prompt': 'Я учу немецкий', 'answer': ''},
+                     'metadata': {'extension': ['keep']}}}
+            generated = {'front': 'Ich lerne Deutsch', 'back': 'Я учу немецкий', 'level': 'A1'}
+            with patch('api.ai_service.generate_card_fields', return_value=generated) as provider:
+                result = self.call('POST', 'cards/ai-generate', body={'content_v2': draft})
+                self.assertEqual(result['content_v2']['card']['data']['prompt'], generated['front'])
+                self.assertEqual(result['content_v2']['card']['metadata'], {'extension': ['keep']})
+                self.assertTrue(provider.await_args.kwargs['plain'])
+            with patch('api.ai_service.generate_card_fields', return_value={'patch': {'data': {'answer': 'Новый ответ'}}}):
+                revised = self.call('POST', 'cards/ai-generate', body={'content_v2': result['content_v2'],
+                    'action_type': 'custom_directive', 'user_request': 'Change the answer'})
+                self.assertEqual(revised['content_v2']['card']['data'],
+                                 {'prompt': generated['front'], 'answer': 'Новый ответ'})
+                self.assertEqual(revised['content_v2']['card']['metadata'], {'extension': ['keep']})
+            with patch('api.ai_service.generate_batch_card_fields', return_value={'cards': [generated]}), \
+                    patch('api.routers.ai._ai_batch_detect_level', return_value=False):
+                batch = {'text': 'Я учу немецкий', 'deck_id': self.target.id, 'import_id': str(uuid4())}
+                saved = self.call('POST', 'cards/ai-generate-batch', body=batch)
+                self.assertEqual(self.call('POST', 'cards/ai-generate-batch', body=batch), saved)
+                self.assertEqual(saved['saved_cards'][0]['content_v2']['card']['data']['answer'], generated['back'])
+            with patch('api.services.reclassification.classify_sentence_fast',
+                       return_value={'confidence': 1, 'level': 'B2'}):
+                self.call('POST', 'cards/classify-batch', body={'deck_id': self.target.id, 'operation_id': str(uuid4())})
+            [classified] = self.call('GET', f'decks/{self.target.id}/cards')
+            self.assertEqual(classified['content_v2']['card']['level'], 'B2')
+            codex = self.call('POST', 'cards/import-preview', body={'text': 'FRONT:\nHaus\nBACK:\nдом'})
+            document = codex['documents'][0]
+            self.assertEqual(self.call('POST', 'cards/import-preview', body={
+                'text': json.dumps(document)})['documents'][0], document)
 
         def test_native_audio_uses_structured_source_and_rejects_stale_attachment(self):
             from api.utils.audio import _prepare_tts_text

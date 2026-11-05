@@ -7,8 +7,28 @@ from api import services
 from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.services import structured_card_api as native
+from api.card_core.lerne_card_core.structured_cards_import import import_documents
+from pydantic import BaseModel, Field
 
 router = APIRouter(prefix="/cards", tags=["cards"])
+
+
+class ImportPreview(BaseModel):
+    text: str = Field(min_length=1, max_length=native.MAX_DOCUMENT_BYTES)
+
+
+@router.post("/validate")
+def validate_card(data: native.ContentV2, _user_id: int = Depends(get_user_id)):
+    return data
+
+
+@router.post("/import-preview")
+def preview_import(data: ImportPreview, _user_id: int = Depends(get_user_id)):
+    try:
+        documents = import_documents(data.text, default_deck_name='Import')
+        return {'documents': [document.model_dump(mode='json') for document in documents]}
+    except ValueError as exc:
+        raise HTTPException(422, str(exc)) from exc
 
 
 @router.post("/save")

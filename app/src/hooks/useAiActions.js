@@ -1,7 +1,7 @@
 import { tr, getInterfaceLanguage } from '../i18n/locale';
 import { useRef } from 'react';
 import axios from 'axios';
-import { resolveAiTranslation } from '../utils/aiCardResult';
+import { studyContent, studySideText } from '../utils/structuredStudyCard';
 import api from '../services/api';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
@@ -9,7 +9,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { getTtsVoiceForLang } from '../constants/languageConstants';
-import { cleanMedia } from '../utils/media';
+
 
 export const useAiActions = () => {
   const abortControllerRef = useRef(null);
@@ -17,55 +17,13 @@ export const useAiActions = () => {
   const { adminSettings } = useSettingsStore();
 
   const handleQuickAudio = async (c, playAudioFn) => {
-    if (!c || !c.front) return;
+    if (!studyContent(c)) return;
     setLoading(true);
-    const targetLang = c.target_language || useLanguageStore.getState().activeLanguage || 'de';
-    const langToSpeak = targetLang;
-    const settings = useSettingsStore.getState();
-    const voice = getTtsVoiceForLang(langToSpeak, adminSettings, settings.ttsVoices);
-    const rate = `${settings.ttsSpeed >= 0 ? '+' : ''}${settings.ttsSpeed}%`;
-    const textToSpeak = c.front;
-
-    if (!textToSpeak) {
-      showToast(tr("Нет текста для озвучки"));
-      setLoading(false);
-      return;
-    }
-
     try {
-      const res = await api.post('/media/generate-audio', {
-        text: textToSpeak,
-        lang: langToSpeak,
-        voice: voice,
-        rate: rate
-      });
-      const newAudioPath = res.data.path;
-
-      const finalImagePath = c.image_path || cleanMedia(c.image_url);
-
-      await api.post('/cards/save', {
-        card_id: c.id,
-        deck_id: c.deck_id,
-        front: c.front,
-        back: c.back,
-        context: c.context,
-        image_path: finalImagePath,
-        audio_path: newAudioPath
-      });
-
-      const updatedCard = { ...c, audio_url: res.data.url, audio_path: res.data.path, image_path: finalImagePath };
-      const session = useSessionStore.getState();
-      session.setCard(updatedCard);
-      
-      // Update history if needed
-      if (session.studyHistory.length > 0) {
-        const newHistory = [...session.studyHistory];
-        if (session.historyIndex >= 0 && newHistory[session.historyIndex].id === c.id) {
-           newHistory[session.historyIndex] = updatedCard;
-           session.setStudyHistory(newHistory);
-        }
-      }
-
+      const res = await api.post('/media/generate-card-audio', { card_id: c.id, side: 'front' });
+      const patch = { audio_url: res.data.url, audio_path: res.data.path, revision: res.data.revision };
+      useSessionStore.getState().updateCardInSession(c.id, patch);
+      useDeckStore.getState().updateCardLocal(c.id, patch);
       showToast(tr("Озвучка добавлена!"), "success");
       if (playAudioFn) playAudioFn(res.data.url);
     } catch (err) {
@@ -78,14 +36,14 @@ export const useAiActions = () => {
   const generateAudioInternal = async (targetData = null, setter = null, playAudioFn = null) => {
     const session = useSessionStore.getState();
     const data = targetData || session.editingCard;
-    if (!data || !data.front) return;
+    if (!studyContent(data)) return;
 
     const targetLang = data.target_language || useLanguageStore.getState().activeLanguage || 'de';
     const langToSpeak = targetLang;
     const settings = useSettingsStore.getState();
     const voice = getTtsVoiceForLang(langToSpeak, adminSettings, settings.ttsVoices);
     const rate = `${settings.ttsSpeed >= 0 ? '+' : ''}${settings.ttsSpeed}%`;
-    const textToSpeak = data.front;
+    const textToSpeak = studySideText(studyContent(data));
 
     if (!textToSpeak) {
       return;
@@ -94,6 +52,7 @@ export const useAiActions = () => {
     try {
       const res = await api.post('/media/generate-audio', {
         text: textToSpeak,
+        structured: true,
         lang: langToSpeak,
         voice: voice,
         rate: rate
@@ -155,7 +114,7 @@ export const useAiActions = () => {
         const nativeLang = getInterfaceLanguage();
         const res = await api.post('/cards/ai-generate', 
           {
-            phrase,
+            ...(typeof phrase === "string" ? { phrase } : { content_v2: phrase }),
             target_language: targetLang,
             native_language: nativeLang,
             action_type: actionType,
@@ -179,38 +138,7 @@ export const useAiActions = () => {
         }
 
         abortControllerRef.current = null;
-        if (returnResult) {
-          setLoading(false);
-          return res.data;
-        }
-
-        const session = useSessionStore.getState();
-        const ui = useUiStore.getState();
-
-        if (actionType === 'quiz_analysis') {
-          session.setEditingCard({ ...session.editingCard, back: res.data.back, context: res.data.context });
-          showToast(tr("Готово! Проверьте поля."), "success");
-        } else if (actionType === 'custom_directive' || actionType === 'explain_rule') {
-          const currentCtx = session.editingCard?.context || '';
-          const updatedCtx = currentCtx ? `${res.data.context}\n\n${currentCtx.trim()}` : res.data.context;
-          const currentBack = session.editingCard?.back || '';
-          session.setEditingCard({
-            ...session.editingCard,
-            back: resolveAiTranslation(currentBack, res.data.back, actionType),
-            context: updatedCtx
-          });
-          showToast(actionType === 'explain_rule' ? tr("Правило добавлено в Контекст!") : tr("Ответ добавлен в Контекст!"), "success");
-        } else {
-          session.setEditingCard({
-            ...session.editingCard,
-            front: res.data.front || session.editingCard?.front,
-            back: res.data.back || session.editingCard?.back,
-            context: res.data.context || session.editingCard?.context
-          });
-          showToast(tr("Готово! Проверьте поля."), "success");
-        }
-        
-        ui.setIsAiWizardOpen(false);
+        if (!returnResult) useUiStore.getState().setIsAiWizardOpen(false);
         setLoading(false);
         return res.data;
 

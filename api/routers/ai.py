@@ -1,6 +1,6 @@
 from typing import Optional
 from fastapi import APIRouter, HTTPException, Depends
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import logging
 import asyncio
 from api import ai_service, models, permissions, services
@@ -9,6 +9,7 @@ from api.db_workers import db_phases, run_db
 from api.provider_url import resolve_public_provider_url
 from api.services.cefr_metadata import build_ai_cefr_payload
 from api.services.answer_contract import AnswerEvaluation, GradingPolicy
+from api.services.structured_card_api import ContentV2
 
 logger = logging.getLogger(__name__)
 
@@ -50,11 +51,84 @@ async def evaluate_free_text(request: AnswerEvaluationRequest, user_id: int = De
     return {'result': result.model_dump(), 'grading_policy': policy.model_dump(), 'diagnostics': diagnostics}
 
 class PhraseRequest(BaseModel):
-    phrase: str
+    phrase: str | None = None
     target_language: str = "de"
     native_language: str = None
     action_type: str = "full_card"
     user_request: Optional[str] = None
+
+
+class DraftRequest(PhraseRequest):
+    # A new Standard draft may have a blank answer until generation fills it.
+    content_v2: dict
+
+
+def _validated_draft(value, status=422):
+    try:
+        return ContentV2.model_validate(value).model_dump(mode='json')
+    except ValidationError as exc:
+        raise HTTPException(status, exc.errors(include_input=False, include_context=False, include_url=False)) from exc
+
+
+def _standard_result(result, original=None):
+    card = original or {'type': 'standard', 'data': {}}
+    data = {**card['data'], 'prompt': result.get('front') or card['data'].get('prompt', ''),
+            'answer': result.get('back') or card['data'].get('answer', '')}
+    level = result.get('level') or card.get('level')
+    updated = {**card, 'data': data, 'level': level,
+               'explanation': result.get('context') or card.get('explanation', '')}
+    if result.get('cefr'):
+        updated['metadata'] = {**(card.get('metadata') or {}), 'cefr': result['cefr']}
+    return _validated_draft({'schema_version': 2, 'card': updated}, 502)
+
+
+async def _generate_draft(request, user_id):
+    import json
+
+    envelope = request.content_v2
+    card = envelope.get('card')
+    if not isinstance(card, dict):
+        raise HTTPException(422, 'Card draft is required')
+    standard = card.get('type') == 'standard' and request.action_type == 'full_card'
+    if standard:
+        data = card.get('data')
+        if not isinstance(data, dict) or not isinstance(data.get('prompt'), str) or not data['prompt'].strip():
+            raise HTTPException(422, 'Standard prompt is required')
+        validated = _validated_draft({**envelope, 'card': {**card, 'data': {
+            **data, 'answer': data.get('answer') or 'Pending translation',
+        }}})
+        phrase = data['prompt']
+        directive = request.user_request
+        action = 'full_card'
+    else:
+        validated = _validated_draft(envelope)
+        phrase = json.dumps(validated['card'], ensure_ascii=False)
+        directive = request.user_request or (
+            'Explain which authored options are correct, and why each remaining option is incorrect.'
+            if request.action_type == 'quiz_analysis' else 'Explain the grammar and give examples.'
+        )
+        action = 'edit_structured' if request.action_type == 'custom_directive' and request.user_request else 'custom_directive'
+    result = await ai_service.generate_card_fields(
+        user_id, phrase, request.target_language, request.native_language,
+        action, directive, plain=True,
+    )
+    if result.get('error'):
+        return result
+    if standard:
+        return {'content_v2': _standard_result(result, card)}
+    original = validated['card']
+    if action == 'edit_structured':
+        patch = result.get('patch')
+        if not isinstance(patch, dict) or patch.keys() - {'data', 'info', 'explanation', 'level', 'topics'}:
+            raise HTTPException(502, 'AI returned an invalid Structured Cards V2 edit')
+        fields = patch.get('data', {})
+        if not isinstance(fields, dict):
+            raise HTTPException(502, 'AI returned invalid card data')
+        return {'content_v2': _validated_draft({**validated, 'card': {
+            **original, **patch, 'data': {**original['data'], **fields},
+        }}, 502)}
+    explanation = '\n\n'.join(filter(None, (result.get('context'), original.get('explanation'))))
+    return {'content_v2': _validated_draft({**validated, 'card': {**original, 'explanation': explanation}}, 502)}
 
 @router.get("/admin/models/{provider}")
 @db_phases
@@ -125,7 +199,7 @@ class BatchRequest(BatchOptions):
 
 
 class EnrichBatchRequest(BatchOptions):
-    cards: list[dict] = Field(min_length=1, max_length=30)
+    cards: list[ContentV2] = Field(min_length=1, max_length=30)
 
 
 def _ai_batch_detect_level():
@@ -145,8 +219,15 @@ async def _run_ai_batch(request, user_id, mode):
         # including optional classification, before any cards are written.
         async with asyncio.timeout(110):
             if mode == 'enrich':
-                res = await ai_service.enrich_batch_quiz_fields(
-                    user_id, request.cards, target_lang, request.native_language)
+                cards = []
+                for item in request.cards:
+                    draft = DraftRequest(content_v2=item.model_dump(mode='json'), target_language=target_lang,
+                                         native_language=request.native_language, action_type='explain_rule')
+                    result = await _generate_draft(draft, user_id)
+                    if result.get('error'):
+                        raise HTTPException(502, result['error'])
+                    cards.append(result)
+                res = {'cards': cards, 'generated_count': len(cards)}
             else:
                 res = await ai_service.generate_batch_card_fields(
                     user_id, request.text, target_lang, request.native_language)
@@ -168,6 +249,7 @@ async def _run_ai_batch(request, user_id, mode):
                 else:
                     for card in res['cards']:
                         card.update(level=None, tags=None, cefr=None)
+                res['cards'] = [{'content_v2': _standard_result(card)} for card in res['cards']]
     except TimeoutError:
         raise HTTPException(504, 'Истекло время генерации ИИ. Ничего не сохранено.')
     if request.deck_id:
@@ -185,7 +267,11 @@ async def enrich_batch_cards(request: EnrichBatchRequest, user_id: int = Depends
 @router.post("/ai/generate")
 @router.post("/cards/ai-generate")
 @db_phases
-async def generate_card(request: PhraseRequest, user_id: int = Depends(get_user_id)):
+async def generate_card(request: DraftRequest | PhraseRequest, user_id: int = Depends(get_user_id)):
+    if isinstance(request, DraftRequest):
+        return await _generate_draft(request, user_id)
+    if not request.phrase:
+        raise HTTPException(422, 'Phrase is required')
     return await ai_service.generate_card_fields(
         user_id=user_id,
         phrase=request.phrase,

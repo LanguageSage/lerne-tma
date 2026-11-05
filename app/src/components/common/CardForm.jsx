@@ -4,7 +4,9 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
-import { CardContentEditor } from './CardContentEditor';
+import { StructuredCardFields } from './StructuredCardFields';
+import { answerField, changeDraft } from '../../utils/cardDraft';
+import { studySideText } from '../../utils/structuredStudyCard';
 import { getResolvedStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -15,14 +17,13 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { FlagPicker } from './FlagPicker';
 import { CardLevelBadge } from './CardLevelBadge';
 import { CardQuestionComposer } from '../study/CardQuestionComposer.jsx';
-import { buildCefrMetaFromClassifierResult, buildManualCefrMeta, updateCardLevelTags } from '../../utils/levelUtils';
+import { buildCefrMetaFromClassifierResult, buildManualCefrMeta } from '../../utils/levelUtils';
 import { classifySentenceFast } from '../../services/classifier';
 import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
-import { getAudioUrl } from '../../utils/media';
-import { detectAiQuickActionType, detectCardType, detectExerciseType } from '../../utils/exerciseDetector';
-import api from '../../services/api';
+
+
 
 export const CardForm = ({
   cardData,
@@ -36,6 +37,11 @@ export const CardForm = ({
 }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
+  const content = cardData?.content_v2?.card;
+  const frontText = studySideText(content);
+  const backKey = answerField[content?.type];
+  const manualLevel = content?.metadata?.cefr?.source === 'manual';
+  const update = patch => changeDraft(setCardData, patch);
   const settings = useSettingsStore();
   const personalConfig = settings.personalDesignV2?.config;
 
@@ -76,9 +82,9 @@ export const CardForm = ({
     };
   }, []);
 
-  useEffect(() => { autoResize(backRef); }, [cardData?.back,
+  useEffect(() => { autoResize(backRef); }, [content?.data?.[backKey],
     v2Styles?.backText.fontFamily, v2Styles?.backText.fontSize, v2Styles?.backText.fontWeight, v2Styles?.backText.fontStyle, v2Styles?.backText.lineHeight]);
-  useEffect(() => { autoResize(contextRef); }, [cardData?.context,
+  useEffect(() => { autoResize(contextRef); }, [content?.explanation,
     v2Styles?.contextText.fontFamily, v2Styles?.contextText.fontSize, v2Styles?.contextText.fontWeight, v2Styles?.contextText.fontStyle, v2Styles?.contextText.lineHeight]);
 
   const resolvedBgFront = getResolvedStyle(personalConfig?.front?.card?.background, cardData?.id || 0);
@@ -112,19 +118,12 @@ export const CardForm = ({
 
     if (timerRef.current) clearTimeout(timerRef.current);
     timerRef.current = setTimeout(() => {
-      const front = (cardData?.front || '').trim();
+      const front = frontText.trim();
       const res = classifySentenceFast(front, 'de');
       const newLevel = res.level || 'A1';
 
-      setCardData(prev => ({
-        ...prev,
-        level: newLevel,
-        manual_level: false,
-        reason: res.reason,
-        reason_short: res.reason_short,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level: newLevel }, 'local'),
-        tags: updateCardLevelTags(prev?.tags, newLevel)
-      }));
+      update(card => ({ ...card, level: newLevel, metadata: { ...card.metadata,
+        cefr: buildCefrMetaFromClassifierResult({ ...res, level: newLevel }, 'local') } }));
 
       setIsClassifyingLevel(false);
       triggerHaptic('success');
@@ -141,20 +140,14 @@ export const CardForm = ({
       return;
     }
 
-    setCardData(prev => ({
-      ...prev,
-      level: selectedLevel,
-      manual_level: true,
-      reason: tr("Установлен вручную пользователем"),
-      reason_short: tr("вручную"),
-      cefr: buildManualCefrMeta(selectedLevel),
-      tags: updateCardLevelTags(prev?.tags, selectedLevel)
-    }));
+    update(card => ({ ...card, level: selectedLevel, metadata: { ...card.metadata,
+      cefr: buildManualCefrMeta(selectedLevel) } }));
 
     showToast(tr("Уровень установлен: {{p0}} (вручную)", { p0: selectedLevel }), 'info');
   };
 
   if (!cardData) return null;
+  if (!content) return <p role="alert">{tr('Карточки ещё не перенесены в Structured Cards V2.')}</p>;
 
   return (
     <div className="creator-form glass" style={{ marginTop: '4px' }}>
@@ -214,47 +207,7 @@ export const CardForm = ({
           {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
           <span>{loading ? tr("Озвучивание...") : tr("Озвучить")}</span>
         </button>
-        <button
-          type="button"
-          className="form-toolbar-btn btn-audio"
-          onClick={async () => {
-            if (!cardData?.front?.trim()) {
-              showToast(tr("Аудио не сгенерировано: нет текста"), "error");
-              return;
-            }
-            try {
-              showToast(tr("Генерируем озвучку..."), "info");
-              if (cardData?.id) {
-                const res = await api.post('/media/generate-card-audio', {
-                  card_id: cardData.id,
-                  side: 'front',
-                  text: cardData.front,
-                });
-                const newUrl = res.data?.url;
-                const newPath = res.data?.path;
-                if (newUrl) {
-                  setCardData(prev => ({ ...prev, audio_url: newUrl, audio_path: newPath }));
-                  showToast(tr("Озвучка обновлена"), "success");
-                  if (playAudio) playAudio(getAudioUrl(newUrl));
-                } else {
-                  showToast(tr("Аудио не сгенерировано"), "error");
-                }
-              } else {
-                if (onGenerateAudio) {
-                  await onGenerateAudio(cardData, setCardData, playAudio);
-                }
-              }
-            } catch (err) {
-              const detail = err?.response?.data?.detail;
-              showToast(detail ? tr("Аудио не сгенерировано: {{p0}}", { p0: detail }) : tr("Аудио не сгенерировано"), "error");
-            }
-          }}
-          disabled={loading}
-          title={tr("Заменить озвучку")}
-        >
-          <RefreshCw size={18} className={loading ? "spin" : ""} />
-          <span>{tr("Заменить")}</span>
-        </button>
+
       </div>
 
       </details>
@@ -274,23 +227,7 @@ export const CardForm = ({
           <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={cardData.id} />
           
           <div className="card-preview-body" style={{ padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <CardContentEditor
-              value={cardData.front || ''}
-              onChange={front => setCardData(prev => ({ ...prev, front }))}
-              card={cardData}
-              styles={settings}
-              autoFocus={isCreator}
-              modeAction={!isCreator && <CardQuestionComposer
-                onSubmit={(request) => onAiGenerate?.(detectCardType(cardData) === 'quiz' ? 'custom_directive' : 'full_card', request)}
-                icon="✨"
-                triggerLabel={tr("Выполнить просьбу")}
-                title={tr("Что изменить в карточке?")}
-                placeholder={tr("Опишите необходимые изменения...")}
-                submitLabel={tr("Выполнить ✨")}
-                disabled={loading}
-                variant="action"
-              />}
-            />
+            <StructuredCardFields card={content} update={update} isCreator={isCreator} textStyle={v2Styles.frontText} />
           </div>
 
           {(cardData.image_url || cardData.image_path) && (() => {
@@ -469,9 +406,9 @@ export const CardForm = ({
                     type="button"
                     onClick={() => handleSelectManualLevel('auto')}
                     style={{
-                      background: !cardData.manual_level ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
-                      border: !cardData.manual_level ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
-                      color: !cardData.manual_level ? '#a5b4fc' : 'rgba(255, 255, 255, 0.85)',
+                      background: !manualLevel ? 'rgba(99, 102, 241, 0.25)' : 'transparent',
+                      border: !manualLevel ? '1px solid rgba(99, 102, 241, 0.5)' : '1px solid transparent',
+                      color: !manualLevel ? '#a5b4fc' : 'rgba(255, 255, 255, 0.85)',
                       borderRadius: '6px',
                       padding: '4px 8px',
                       fontSize: '0.74rem',
@@ -484,7 +421,7 @@ export const CardForm = ({
                     }}
                   >
                     <span>{tr("⚡ Авто (распознать)")}</span>
-                    {!cardData.manual_level && <Check size={12} color="#a5b4fc" />}
+                    {!manualLevel && <Check size={12} color="#a5b4fc" />}
                   </button>
 
                   <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.1)', margin: '2px 0' }} />
@@ -497,7 +434,7 @@ export const CardForm = ({
                     { lvl: 'C1', label: tr("🔮 C1 (Продвинутый)") },
                     { lvl: 'C2', label: tr("🟠 C2 (В совершенстве)") }
                   ].map(({ lvl, label }) => {
-                    const isSelected = cardData.manual_level && cardData.level === lvl;
+                    const isSelected = manualLevel && content.level === lvl;
                     return (
                       <button
                         key={lvl}
@@ -532,26 +469,10 @@ export const CardForm = ({
 
 
       {(() => {
-        const frontText = cardData.front || '';
-        const quickActionType = detectAiQuickActionType(frontText);
-        const isExistingQuiz = !isCreator && detectCardType(cardData) === 'quiz';
-
-        let dynamicAction = null;
-        if (isExistingQuiz) {
-          dynamicAction = { id: 'quiz_analysis', label: tr("📝 Разбор теста"), icon: BookOpen };
-        } else if (quickActionType === 'explain_rule') {
-          dynamicAction = {
-            id: 'explain_rule',
-            label: tr("📖 Правило"),
-            icon: BookOpen
-          };
-        } else if (quickActionType === 'full_card') {
-          dynamicAction = {
-            id: 'full_card',
-            label: tr("📝 Разбор теста"),
-            icon: BookOpen
-          };
-        }
+        const isExistingQuiz = !isCreator && content.type === 'quiz';
+        const dynamicAction = isExistingQuiz
+          ? { id: 'quiz_analysis', label: tr("📝 Разбор теста"), icon: BookOpen }
+          : { id: 'explain_rule', label: tr("📖 Правило"), icon: BookOpen };
 
         const DynamicIcon = dynamicAction?.icon || BookOpen;
 
@@ -574,7 +495,7 @@ export const CardForm = ({
                     type="button"
                     className="btn-ai-generate secondary-action-btn"
                     onClick={() => onAiGenerate && onAiGenerate(dynamicAction.id)}
-                    disabled={loading || !cardData.front}
+                    disabled={loading || !frontText.trim()}
                     style={{
                       background: 'linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(147, 197, 253, 0.12))',
                       borderColor: 'rgba(59, 130, 246, 0.4)',
@@ -590,13 +511,15 @@ export const CardForm = ({
                   type="button"
                   className="btn-ai-generate"
                   onClick={() => onAiGenerate && onAiGenerate('full_card')}
-                  disabled={loading || !cardData.front}
+                  disabled={loading || !frontText.trim()}
                 >
                   <Sparkles size={16} />
                   <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
                 </button>}
               </>
             )}
+            {!isCreator && <CardQuestionComposer onSubmit={request => onAiGenerate?.('custom_directive', request)}
+              icon="✨" triggerLabel={tr("Выполнить просьбу")} title={tr("Что изменить в карточке?")} disabled={loading} />}
             <button
               type="button"
               className="btn btn-primary btn-save-action"
@@ -625,44 +548,24 @@ export const CardForm = ({
           <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={cardData.id} />
 
           <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <div className="card-form-text-field">
-            <label className="sub-label" htmlFor="card-editor-back">{tr('Обратная сторона')}</label>
-            <textarea
-              id="card-editor-back"
-              ref={backRef}
-              className="textarea-preview textarea-back-preview"
-              value={cardData.back || ''}
-              onChange={(e) => {
-                setCardData({...cardData, back: e.target.value});
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{
-                ...v2Styles?.backText,
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '52px'
-              }}
-              placeholder={(() => {
-                const exerciseType = detectExerciseType(cardData);
-                if (exerciseType === 'editable_text') return tr('Введите полный исправленный текст...');
-                return exerciseType ? tr("Ответ / объяснение / образец...") : t('creator.back', 'Перевод...');
-              })()}
-            />
-
-            </div>
-
+            {backKey && <div className="card-form-text-field">
+              <label className="sub-label" htmlFor="card-editor-back">{tr('Обратная сторона')}</label>
+              <textarea id="card-editor-back" ref={backRef} className="textarea-preview textarea-back-preview"
+                style={v2Styles.backText} value={content.data[backKey] || ''} onChange={event => {
+                  const value = event.target.value;
+                  update(card => ({ ...card, data: { ...card.data, [backKey]: value } }));
+                }} />
+            </div>}
             <div className="card-form-text-field">
             <label className="sub-label" htmlFor="card-editor-context">{tr('Контекст')}</label>
             <textarea
               id="card-editor-context"
               ref={contextRef}
               className="context-textarea textarea-preview textarea-context-preview"
-              value={cardData.context || ''}
+              value={content.explanation || ''}
               onChange={(e) => {
-                setCardData({...cardData, context: e.target.value});
+                const explanation = e.target.value;
+                update(card => ({ ...card, explanation }));
               }}
               onInput={(e) => {
                 e.target.style.height = 'auto';
@@ -738,7 +641,7 @@ export const CardForm = ({
         isOpen={isImagePickerOpen}
         onClose={() => setIsImagePickerOpen(false)}
         onImageUpload={(file) => uploadCreatorImage(file, cardData, setCardData)}
-        searchQuery={cardData?.front || ''}
+        searchQuery={frontText || ''}
         loading={loading}
       />
 

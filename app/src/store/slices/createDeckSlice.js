@@ -1,4 +1,4 @@
-import api from '../../services/api';
+import api, { networkApi } from '../../services/api';
 import { storage, getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from './initCacheHelper';
 import { useLanguageStore } from '../useLanguageStore';
@@ -363,11 +363,10 @@ export const createDeckSlice = (set, get) => {
     if (!file) return;
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      await api.post('/decks/import-json', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const text = await file.text();
+      const payload = /\.json$/i.test(file.name) ? { document: JSON.parse(text.replace(/^\uFEFF/, '')) }
+        : { codex: text, default_deck_name: file.name.replace(/\.[^.]+$/, '') };
+      await networkApi.post('/decks/import-json', { import_id: crypto.randomUUID(), ...payload });
       const { fetchDecks } = get();
       await fetchDecks(true);
       if (callback) callback();
@@ -396,7 +395,7 @@ export const createDeckSlice = (set, get) => {
 
   copyDeckToFolder: async (deckId, folderId) => {
     try {
-      await api.post(`/decks/${deckId}/copy`, { folder_id: folderId });
+      await networkApi.post(`/decks/${deckId}/copy`, { folder_id: folderId, request_id: crypto.randomUUID() });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
@@ -529,7 +528,7 @@ export const createDeckSlice = (set, get) => {
 
     cardReorderTimeout = setTimeout(async () => {
       try {
-        await api.post('/cards/reorder', { card_ids: updated.map(c => c.id) });
+        await networkApi.post('/cards/reorder', { card_ids: updated.map(c => Number(c.id)), request_id: crypto.randomUUID() });
       } catch (err) {
         console.error('Reorder Cards Error:', err);
       }

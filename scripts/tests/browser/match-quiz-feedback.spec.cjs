@@ -1,7 +1,14 @@
 const { test, expect } = require('@playwright/test');
 const deck = { id: 1, name: 'Feedback', target_language: 'de', is_learning: true, stats: { total: 1, new: 1, due: 0, learning: 0 } };
-const match = { id: 11, deck_id: 1, queue: 'new', front: '@match\nA => eins\nB => zwei\nC => drei', back: 'Match' };
-const quiz = { id: 12, deck_id: 1, queue: 'new', front: 'Choose\n\n- Wrong\n* Right\n- Also wrong', back: 'Quiz' };
+const envelope = (type, data) => ({ schema_version: 2, card: { type, data } });
+const match = { id: 11, deck_id: 1, queue: 'new', content_v2: envelope('match', {
+  pairs: [{ left: 'A', right: 'eins' }, { left: 'B', right: 'zwei' }, { left: 'C', right: 'drei' }],
+  back_note: 'Match',
+}) };
+const quiz = { id: 12, deck_id: 1, queue: 'new', content_v2: envelope('quiz', {
+  prompt: 'Choose', options: [{ text: 'Wrong', correct: false }, { text: 'Right', correct: true },
+    { text: 'Also wrong', correct: false }], back_note: 'Quiz',
+}) };
 
 async function openStudy(page, context, card, locale = 'ru') {
   card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
@@ -12,9 +19,12 @@ async function openStudy(page, context, card, locale = 'ru') {
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Test', is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: 1, access_token: 'feedback-fixture', refresh_token: 'feedback-refresh' }));
   }, locale);
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, first_name: 'Test', is_guest: false } });
     if (pathname === '/api/init') return route.fulfill({ json: {
       decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {},
       user_info: { user_id: 1, first_name: 'Test', is_guest: false },
@@ -33,7 +43,7 @@ async function openStudy(page, context, card, locale = 'ru') {
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     useSettingsStore.setState({ cardTextColor: '#fed7aa', cardFont: 'Georgia', cardFontSize: 1.5 });
-    useDeckStore.setState({ currentDeck: deck, cards: [card] });
+    useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.getState().setView('study');
   }, { deck, card });

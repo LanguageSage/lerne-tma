@@ -189,37 +189,6 @@ def _load_tts_settings():
     return {s.key: s.value for s in models.TMASetting.select()}
 
 
-def _native_audio_text(content, side):
-    """Speak the existing physical side using authored V2 text and answer order."""
-    from api.services.structured_card_storage import decode_v2_content
-
-    card = decode_v2_content(content)
-    kind, data = card.type, card.data
-    if side == 'back':
-        field = {
-            'theory': 'summary', 'standard': 'answer', 'trainer': 'back_note',
-            'quiz': 'back_note', 'match': 'back_note', 'puzzle': 'translation',
-            'free_text': 'sample_answer', 'editable_text': 'correct_text',
-        }.get(kind)
-        return getattr(data, field) if field else ''
-    if kind == 'trainer':
-        return ''.join(part.text if part.type == 'text' else part.answers[0] if part.type == 'input'
-                       else next(option.text for option in part.options if option.correct) for part in data.parts)
-    if kind == 'word_bank':
-        return ''.join(part.text if part.type == 'text' else data.options[part.option] for part in data.parts)
-    if kind == 'puzzle':
-        return ' '.join(data.tokens)
-    if kind == 'match':
-        return '\n'.join(f'{pair.left} → {pair.right}' for pair in data.pairs)
-    if kind == 'theory':
-        return data.text
-    if kind == 'editable_text':
-        return data.source_text
-    if kind == 'quiz' and not data.prompt:
-        return next((block.text for block in card.info if block.type in ('task', 'source')), '')
-    return data.prompt
-
-
 def _prepare_card_audio_request(card_id, side, data, user_id):
     card = models.TMA_Card.get_or_none(
         (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False)
@@ -234,7 +203,8 @@ def _prepare_card_audio_request(card_id, side, data, user_id):
     content = getattr(card, 'content_v2', None)
     if content is not None:
         source = content
-        text_value = _native_audio_text(content, side)
+        from api.services.structured_card_api import authored_side_text
+        text_value = authored_side_text(content, side)
     else:
         source = card.front_text if side == 'front' else card.back_text
         text_value = data.get('text')

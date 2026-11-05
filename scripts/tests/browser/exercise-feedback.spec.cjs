@@ -2,11 +2,21 @@ const { test, expect } = require('@playwright/test');
 
 const deck = { id: 1, name: 'Feedback', target_language: 'de', is_learning: true,
   stats: { total: 1, new: 1, due: 0, learning: 0 } };
-const wordBank = { id: 1, deck_id: 1, queue: 'new',
-  front: '@wordbank\nIch <<gap-1>> <<gap-2>> <<gap-3>> <<gap-4>> <<gap-5>>.\n@options\nhabe | heute | einen | kleinen | Hund | gestern',
-  back: 'gap-1=habe\ngap-2=heute\ngap-3=einen\ngap-4=kleinen\ngap-5=Hund' };
-const trainer = { id: 2, deck_id: 1, queue: 'new',
-  front: 'Ich [[habe]] [[heute]] einen klein[[en]] {*Hund|Katze}.', back: '' };
+const envelope = (type, data) => ({ schema_version: 2, card: { type, data } });
+const wordBank = { id: 1, deck_id: 1, queue: 'new', content_v2: envelope('word_bank', {
+  options: ['habe', 'heute', 'einen', 'kleinen', 'Hund', 'gestern'],
+  parts: [{ type: 'text', text: 'Ich ' }, ...Array.from({ length: 5 }, (_, option) => [
+    { type: 'gap', option }, { type: 'text', text: option === 4 ? '.' : ' ' },
+  ]).flat()],
+}) };
+const trainer = { id: 2, deck_id: 1, queue: 'new', content_v2: envelope('trainer', {
+  parts: [{ type: 'text', text: 'Ich ' }, { type: 'input', answers: ['habe'] },
+    { type: 'text', text: ' ' }, { type: 'input', answers: ['heute'] },
+    { type: 'text', text: ' einen klein' }, { type: 'input', answers: ['en'] },
+    { type: 'text', text: ' ' }, { type: 'choice', options: [
+      { text: 'Hund', correct: true }, { text: 'Katze', correct: false },
+    ] }, { type: 'text', text: '.' }],
+}) };
 
 async function openStudy(page, context, card, locale = 'ru') {
   card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
@@ -18,7 +28,7 @@ async function openStudy(page, context, card, locale = 'ru') {
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
     localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Test', is_guest: false }));
-    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'feedback-fixture', refresh_token: 'feedback-refresh' }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: 1, access_token: 'feedback-fixture', refresh_token: 'feedback-refresh' }));
   }, locale);
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
@@ -41,7 +51,7 @@ async function openStudy(page, context, card, locale = 'ru') {
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     useSettingsStore.setState({ cardTextColor: '#fed7aa', cardFont: 'Georgia', cardFontSize: 1.5 });
-    useDeckStore.setState({ currentDeck: deck, cards: [card] });
+    useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.getState().setView('study');
   }, { deck, card });
@@ -83,7 +93,7 @@ test('Word Bank keeps four confirmed gaps, restores after flip, retries one gap 
   await expect(exercise).toHaveCount(0);
   await flip(page, false);
   await expect(exercise.locator('.word-bank-gap.is-correct')).toHaveCount(4);
-  await expect(gaps.nth(1)).toHaveText('gap-2gestern');
+  await expect(gaps.nth(1)).toHaveText('2gestern');
   await gaps.nth(1).click();
   await expect(exercise.locator('.word-bank-option').filter({ hasText: /^gestern$/ })).toBeEnabled();
   await expect(exercise.locator('.word-bank-option').filter({ hasText: /^habe$/ })).toBeDisabled();
@@ -149,7 +159,7 @@ test('Trainer preserves correct inputs, keeps wrong input and choice editable, a
   await expect(page.locator('.grade-buttons button:enabled')).toHaveCount(4);
   await page.evaluate(async () => {
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
-    useSessionStore.getState().setCard({ id: 3, deck_id: 1, front: '[[neu]]', back: '' });
+    useSessionStore.getState().setCard({ id: 3, deck_id: 1, content_v2: { schema_version: 2, card: { type: 'trainer', data: { parts: [{ type: 'input', answers: ['neu'] }] } } } });
   });
   await expect(text.getByRole('textbox')).toHaveCount(1);
   await expect(text.getByRole('textbox')).toHaveValue('');

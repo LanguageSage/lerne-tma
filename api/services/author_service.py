@@ -732,6 +732,21 @@ def _update_passport_plan(passports, deck_id, folder_id, user_id, lock=False):
 # Операции ПУБЛИКАЦИИ (Publish: Preview & Apply)
 # ============================================================================
 
+def parse_native_publication(text, default_deck_name=None):
+    from api.card_core.lerne_card_core.structured_cards_import import import_documents
+
+    documents = import_documents(text, default_deck_name=default_deck_name or 'Новый урок')
+    cards, passports = [], []
+    for document in documents:
+        deck = document.deck
+        if deck.passport:
+            passports.append({'deck_name': deck.name, 'passport': deck.passport})
+        cards.extend({'deck_name': deck.name, 'content_v2': {
+            'schema_version': 2, 'card': card.model_dump(mode='json'),
+        }} for card in document.cards)
+    return {'cards': cards, 'passports': passports}
+
+
 def preview_publish_content(
     cards: List[Dict[str, Any]],
     default_deck_name: Optional[str] = None,
@@ -753,9 +768,12 @@ def preview_publish_content(
         dname = c.get('deck_name') or default_deck_name or "Без названия"
         decks_map.setdefault(dname, []).append(c)
 
+        native = c.get('content_v2')
         front = c.get('front', '')
-        ctype = c.get('card_type') or detect_ai_input_type(front) or 'standard'
+        ctype = native['card']['type'] if native else (c.get('card_type') or detect_ai_input_type(front) or 'standard')
         type_counts[ctype] = type_counts.get(ctype, 0) + 1
+        if native:
+            continue
 
         # Проверка баланса скобок [[ ]], { }, << >>
         for op, cl in (('[[', ']]'), ('{', '}'), ('<<', '>>')):
@@ -898,30 +916,14 @@ def _publish_document(cards, target_folder_id, new_folder_name, default_deck_nam
             if entry:
                 _save_passport(deck, entry['passport'])
 
-            cards_payload = []
-            for c in dcards:
-                front = c.get('front', '')
-                exercise_type = c.get('card_type') or detect_ai_input_type(front) or 'standard'
-                item = {
-                    'deck_id': deck.id,
-                    'front_text': front,
-                    'back_text': c.get('back', ''),
-                    'context': c.get('context', ''),
-                    'topics': c.get('topics', ''),
-                    'tags': c.get('level') or '',
-                    'level': c.get('level'),
-                    'card_type': exercise_type,
-                }
-                if c.get('image_path'):
-                    item['image_path'] = c['image_path']
-                if 'metadata' in c:
-                    item['metadata'] = c['metadata']
-                cards_payload.append(item)
+            from .structured_card_api import BulkSave, bulk_save
 
-            save_result = services.bulk_save_cards(cards_payload, effective_user_id) if cards_payload else {'created': 0}
-            if save_result.get('failed_count') or save_result.get('failed'):
-                raise ValueError(f'{dname}: ошибка сохранения карточек; публикация полностью отменена.')
-            count = save_result.get('created', len(cards_payload))
+            cards_payload = [{
+                'deck_id': deck.id, 'content_v2': card['content_v2'],
+                **({'image_path': card['image_path']} if card.get('image_path') else {}),
+            } for card in dcards]
+            count = bulk_save(BulkSave(import_id=uuid.uuid4(), cards=cards_payload),
+                              effective_user_id)['created'] if cards_payload else 0
             total_saved_cards += count
             published_decks.append({
                 'deck_id': deck.id,

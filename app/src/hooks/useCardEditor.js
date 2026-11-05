@@ -4,12 +4,26 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
-import { cleanMedia } from '../utils/media';
-import { detectCardType } from '../utils/exerciseDetector';
+
+import { cardWriteError } from '../utils/cardDraft';
+import { networkApi } from '../services/api';
+import { getSessionIdentity } from '../utils/auth';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
-import { buildManualCefrMeta, getSavedCefr, updateCardLevelTags } from '../utils/levelUtils';
+
+
+// Preserve the request identifier after transport failure, for the same draft only.
+let pendingSave;
+let saving = false;
+const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
+
+function visibleCard(cardId) {
+  const deck = useDeckStore.getState();
+  const session = useSessionStore.getState();
+  return [session.editingCard, session.card, ...deck.deckCards, ...deck.duplicateCards]
+    .find(card => String(card?.id) === String(cardId) && card.revision);
+}
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
@@ -24,6 +38,9 @@ export const useCardEditor = () => {
     const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
     const data = (manualCardData && !isEvent) ? manualCardData : session.editingCard;
 
+    if (saving || !data?.content_v2) return;
+    saving = true;
+    const identity = getSessionIdentity();
     setLoading(true);
     try {
       let finalDeckId = data.deck_id;
@@ -31,45 +48,41 @@ export const useCardEditor = () => {
         finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
       }
 
-      const frontText = data.front || '';
-      const computedType = detectCardType({ front: frontText }) || 'standard';
+      const path = data.id ? '/cards/' + data.id : '/cards/save';
+      const reqData = { content_v2: data.content_v2 };
+      if (data.id) reqData.revision = data.revision;
+      else {
+        if (finalDeckId) reqData.deck_id = Number(finalDeckId);
+        if (data.after_card_id) reqData.after_card_id = Number(data.after_card_id);
+      }
+      for (const field of mediaPaths) {
+        if (data[field] !== undefined) reqData[field] = data[field] || null;
+      }
+      const fingerprint = JSON.stringify([path, reqData]);
+      if (pendingSave?.identity !== identity || pendingSave.fingerprint !== fingerprint) {
+        pendingSave = { identity, fingerprint, id: crypto.randomUUID() };
+      }
+      reqData.request_id = pendingSave.id;
+      const res = await (data.id ? networkApi.patch(path, reqData) : networkApi.post(path, reqData));
+      pendingSave = null;
+      if (identity !== getSessionIdentity()) return;
 
-      let finalLevel = data.level;
-      let finalTags = data.tags;
-      let finalCefr = getSavedCefr(data);
-      if (finalLevel) {
-        if (!finalCefr || finalCefr.level !== finalLevel) {
-          finalCefr = buildManualCefrMeta(finalLevel);
+      if (!data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path) {
+        try {
+          const audio = await networkApi.post('/media/generate-card-audio', { card_id: res.data.id, side: 'front' });
+          Object.assign(res.data, { audio_path: audio.data.path, audio_url: audio.data.url, revision: audio.data.revision });
+        } catch {
+          showToast(tr("Аудио не сгенерировано"), 'warning');
         }
-        finalTags = updateCardLevelTags(finalTags, finalLevel);
       }
 
-      const autoGenerateCardAudio = useSettingsStore.getState().autoGenerateCardAudio;
-
-      const reqData = {
-        card_id: data.id || null,
-        deck_id: finalDeckId,
-        card_type: computedType,
-        front: frontText,
-        back: data.back || '',
-        context: data.context || '',
-        level: finalLevel || null,
-        tags: finalTags || null,
-        image_path: data.image_path || cleanMedia(data.image_url),
-        audio_path: data.audio_path || cleanMedia(data.audio_url),
-        audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),
-        auto_generate_audio: autoGenerateCardAudio,
-        video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
-      };
-      if (finalCefr) reqData.cefr = finalCefr;
-      if (data.after_card_id) reqData.after_card_id = data.after_card_id;
-
-      const res = await api.post('/cards/save', reqData);
-
       if (res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
-        await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
-        res.data.flag = Number(data.flag);
+        try {
+          await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
+          res.data.flag = Number(data.flag);
+        } catch {
+          showToast(tr("Ошибка при установке метки"), 'warning');
+        }
       }
 
       showToast(tr("Карточка сохранена"), "success");
@@ -181,9 +194,14 @@ export const useCardEditor = () => {
       return savedCard;
     } catch (err) {
       console.error(err);
-      const detail = err.response?.data?.detail || err.message;
+      const detail = cardWriteError(err);
+      if (err.response?.status && err.response.status < 500) pendingSave = null;
       showToast(tr("Ошибка сохранения: {{p0}}", { p0: detail }), "error");
+      if (err.response?.status === 409 && data.id) {
+        ui.showToast(tr('Карточка изменилась на сервере. Черновик сохранён в форме. Откройте актуальную карточку перед повторной правкой.'), 'warning');
+      }
     } finally {
+      saving = false;
       setLoading(false);
     }
   };
@@ -192,7 +210,9 @@ export const useCardEditor = () => {
     if (!skipConfirm && !window.confirm(tr("Удалить эту карточку?"))) return;
     setLoading(true);
     try {
-      await api.delete(`/cards/${cardId}`);
+      const card = visibleCard(cardId);
+      if (!card) throw new Error("Card revision unavailable");
+      await networkApi.delete(`/cards/${cardId}`, { headers: { 'If-Match': JSON.stringify(card.revision) } });
       showToast(tr("Карточка удалена"), "success");
       
       const session = useSessionStore.getState();
@@ -249,16 +269,9 @@ export const useCardEditor = () => {
   const handleMoveCard = async (targetCard, targetDeckId) => {
     setLoading(true);
     try {
-      await api.post('/cards/save', {
-        card_id: targetCard.id,
-        deck_id: targetDeckId,
-        front: targetCard.front || '',
-        back: targetCard.back || '',
-        context: targetCard.context || '',
-        image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
-        audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
-        video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
-        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url)
+      await networkApi.post('/cards/batch-move', {
+        request_id: crypto.randomUUID(), card_ids: [Number(targetCard.id)],
+        target_deck_id: Number(targetDeckId), on_duplicate: 'keep',
       });
       showToast(tr("Карточка перемещена"), "success");
       
@@ -295,17 +308,9 @@ export const useCardEditor = () => {
   const handleCopyCard = async (targetCard, targetDeckId) => {
     setLoading(true);
     try {
-      await api.post('/cards/save', {
-        deck_id: targetDeckId,
-        front: targetCard.front || targetCard.front_text || '',
-        back: targetCard.back || targetCard.back_text || '',
-        context: targetCard.context || '',
-        image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
-        audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
-        audio_back_path: targetCard.audio_back_path || cleanMedia(targetCard.audio_back_url),
-        video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
-        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
-        allow_duplicate: true
+      await networkApi.post('/cards/batch-copy', {
+        request_id: crypto.randomUUID(), card_ids: [Number(targetCard.id)],
+        target_deck_id: Number(targetDeckId), on_duplicate: 'keep',
       });
       showToast(tr("Карточка скопирована"), "success");
       const { currentDeck } = useDeckStore.getState();
@@ -397,9 +402,10 @@ export const useCardEditor = () => {
     if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
     setLoading(true);
     try {
-      const res = await api.post('/cards/batch-move', {
-        card_ids: cardIds,
-        target_deck_id: targetDeckId,
+      const res = await networkApi.post('/cards/batch-move', {
+        request_id: crypto.randomUUID(),
+        card_ids: cardIds.map(Number),
+        target_deck_id: Number(targetDeckId),
         on_duplicate: onDuplicate
       });
       const movedTotal = res.data?.count ?? cardIds.length;
@@ -464,8 +470,10 @@ export const useCardEditor = () => {
     if (!skipConfirm && !window.confirm(tr("Удалить выбранные карточки ({{p0}} шт.)?", { p0: cardIds.length }))) return false;
     setLoading(true);
     try {
-      await api.post('/cards/batch-delete', {
-        card_ids: cardIds
+      await networkApi.post('/cards/batch-delete', {
+        request_id: crypto.randomUUID(),
+        card_ids: cardIds.map(Number),
+        revisions: Object.fromEntries(cardIds.map(id => [id, visibleCard(id)?.revision]))
       });
       showToast(tr("Удалено карточек: {{p0}}", { p0: cardIds.length }), "success");
 
@@ -515,9 +523,10 @@ export const useCardEditor = () => {
     if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
     setLoading(true);
     try {
-      const res = await api.post('/cards/batch-copy', {
-        card_ids: cardIds,
-        target_deck_id: targetDeckId,
+      const res = await networkApi.post('/cards/batch-copy', {
+        request_id: crypto.randomUUID(),
+        card_ids: cardIds.map(Number),
+        target_deck_id: Number(targetDeckId),
         on_duplicate: onDuplicate
       });
       const copiedTotal = res.data?.count ?? cardIds.length;

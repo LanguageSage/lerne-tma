@@ -613,19 +613,14 @@ def save_ai_batch_result(result: dict, request_data: dict, user_id: int, import_
             if not inserted:
                 return _replay_ai_batch(receipt, request_data)
 
-        payload = [{
-            'deck_id': request_data['deck_id'],
-            'front': card.get('front') or card.get('front_text', ''),
-            'back': card.get('back') or card.get('back_text', ''),
-            'context': card.get('context', ''),
-            'tags': card.get('tags'), 'cefr': card.get('cefr'),
-            'card_type': card.get('card_type') or 'standard',
-            'topics': card.get('topics', ''),
-            'source': 'ai_batch_quiz' if request_data['mode'] == 'enrich' else 'ai_batch',
-        } for card in result['cards']]
-        saved = bulk_save_cards(payload, user_id, placement=request_data.get('placement', 'end'))
-        response = {**result, 'saved_cards': saved['cards'], 'save_result': saved,
-                    'status': 'partial' if saved['failed_count'] else 'success'}
+        from uuid import uuid4
+        from .structured_card_api import BulkSave, bulk_save
+
+        payload = [{'deck_id': request_data['deck_id'], 'content_v2': card['content_v2']}
+                   for card in result['cards']]
+        saved = bulk_save(BulkSave(import_id=uuid4(), cards=payload,
+                                  placement=request_data.get('placement', 'end')), user_id)
+        response = {**result, 'saved_cards': saved['cards'], 'save_result': saved, 'status': 'success'}
         serialized = json.dumps(response, ensure_ascii=False)
         if receipt:
             receipt.response = serialized

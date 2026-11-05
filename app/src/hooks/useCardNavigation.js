@@ -1,10 +1,13 @@
 import { tr } from '../i18n/locale';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
-import { cleanMedia, getAudioUrl } from '../utils/media';
+import { newCardContent } from '../utils/cardDraft';
+import { getAudioUrl } from '../utils/media';
+import { networkApi } from '../services/api';
+import { getSessionIdentity } from '../utils/auth';
 
 export const useCardNavigation = () => {
-  const { setView, setEditorSourceView, userProfile, setIsAuthModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
+  const { setView, setEditorSourceView, userProfile, setIsAuthModalOpen, setLastSelectedCardId, setCardsScrollTop, showToast } = useUiStore();
   const { setEditingCard } = useSessionStore();
 
   const captureScroll = () => {
@@ -14,7 +17,7 @@ export const useCardNavigation = () => {
     }
   };
 
-  const openEditor = (deckId, cardToEdit = null, source = 'cards') => {
+  const openEditor = async (deckId, cardToEdit = null, source = 'cards') => {
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr("Для редактирования карточек войдите через Telegram"));
       return;
@@ -22,26 +25,32 @@ export const useCardNavigation = () => {
     captureScroll();
     if (cardToEdit) {
       if (cardToEdit.id) {
-        setLastSelectedCardId(cardToEdit.id);
+        const identity = getSessionIdentity();
+        const view = useUiStore.getState().view;
+        try {
+          const { data } = await networkApi.get(`/cards/${cardToEdit.id}`);
+          if (getSessionIdentity() !== identity || useUiStore.getState().view !== view) return;
+          cardToEdit = data;
+          setLastSelectedCardId(data.id);
+        } catch (error) {
+          if (getSessionIdentity() !== identity) return;
+          showToast(error.response?.data?.detail?.code === 'card_requires_migration'
+            ? tr('Карточки ещё не перенесены в Structured Cards V2.')
+            : tr('Не удалось загрузить данные с сервера'), 'error');
+          return;
+        }
       }
       setEditingCard({
         ...cardToEdit,
         id: cardToEdit.id,
-        front: cardToEdit.front || '',
-        back: cardToEdit.back || '',
-        context: cardToEdit.context || '',
-        image_path: cleanMedia(cardToEdit.image_path),
         image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
-        audio_path: cleanMedia(cardToEdit.audio_path),
         audio_url: getAudioUrl(cardToEdit.audio_url || cardToEdit.audio_path),
-        video_front_path: cleanMedia(cardToEdit.video_front_path),
         video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
-        video_back_path: cleanMedia(cardToEdit.video_back_path),
         video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? `/api/media/${cardToEdit.video_back_path}` : ''),
         deck_id: deckId
       });
     } else {
-      setEditingCard({ front: '', back: '', context: '', deck_id: deckId });
+      setEditingCard({ content_v2: newCardContent(), deck_id: deckId });
     }
     setEditorSourceView(source);
     setView('editor');
@@ -56,9 +65,7 @@ export const useCardNavigation = () => {
     setEditorSourceView(source);
     setEditingCard({
       deck_id: deckId,
-      front: '',
-      back: '',
-      context: '',
+      content_v2: newCardContent(),
       image_path: '',
       audio_path: '',
       after_card_id: afterCardId

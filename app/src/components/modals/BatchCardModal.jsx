@@ -9,9 +9,11 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { usePendingImport } from '../../hooks/usePendingImport';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
-import { db } from '../../services/localDb';
-import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR, parseBatchCardsText } from '../../utils/batchCardParser';
-import { detectExerciseType } from '../../utils/exerciseDetector';
+
+import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR } from '../../utils/batchCardParser';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard';
+import { cardWriteError } from '../../utils/cardDraft';
+import { networkApi } from '../../services/api';
 import api from '../../services/api';
 import { normalizeBatchAiResult } from '../../utils/batchAiResult';
 
@@ -118,10 +120,22 @@ BACK:
     setIsBatchModalOpen(false);
   };
 
-  const parsedCards = useMemo(() => {
-    if (activeTab !== 'import' || !rawText.trim()) return [];
-    return parseBatchCardsText(rawText);
-  }, [rawText, activeTab]);
+  const [preview, setPreview] = useState(null);
+  useEffect(() => {
+    if (!isBatchModalOpen || activeTab !== 'import' || !rawText.trim()) return;
+    const controller = new AbortController();
+    const timer = setTimeout(async () => {
+      try {
+        const { data } = await networkApi.post('/cards/import-preview', { text: rawText }, { signal: controller.signal });
+        if (!controller.signal.aborted) setPreview({ text: rawText, cards: data.documents.flatMap(
+          document => document.cards.map(card => ({ content_v2: { schema_version: 2, card } }))) });
+      } catch (error) {
+        if (!controller.signal.aborted) setPreview({ text: rawText, error: cardWriteError(error) });
+      }
+    }, 300);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [activeTab, rawText, isBatchModalOpen]);
+  const parsedCards = preview?.text === rawText ? preview.cards || [] : [];
   const pendingForCurrentText = pendingImport.findByText(rawText);
   const selectedPlacement = pendingForCurrentText?.placement || importPlacement;
 
@@ -138,18 +152,9 @@ BACK:
   const effectiveCount = isOverLimit ? 30 : lineCount;
 
   // ── Helper to sync cards into Zustand store & cloud backend ─────────────────
-  const updateLocalStores = async (cardsList) => {
+  const updateLocalStores = async () => {
     if (!currentDeck?.id) return;
     const { fetchDeckCards, fetchDecks } = useDeckStore.getState();
-
-    // Optional local cache update (safe for cloud-only DB setups)
-    try {
-      if (db?.cards && cardsList?.length > 0) {
-        await db.cards.bulkPut(cardsList);
-      }
-    } catch {
-      // Ignored for cloud-only setups
-    }
 
     // Refresh cards and decks from cloud backend
     try {
@@ -176,9 +181,7 @@ BACK:
           target_language: targetLanguage,
           native_language: getInterfaceLanguage(),
           placement: importPlacement,
-          ...(mode === 'enrich' ? { cards: parsedCards.map(c => ({
-            ...c, card_type: detectExerciseType(c) || c.card_type || 'standard'
-          })) } : { text: lines.slice(0, 30).join('\n') })
+          ...(mode === 'enrich' ? { cards: parsedCards.map(c => c.content_v2) } : { text: lines.slice(0, 30).join('\n') })
         };
         attempt = { import_id: crypto.randomUUID(), rawText, mode, request, placement: importPlacement };
         pendingImport.add(attempt);
@@ -234,29 +237,19 @@ BACK:
     setProcessingMode('direct');
     let attempt;
     try {
-      const payloadCards = parsedCards.map(c => ({
-        deck_id: currentDeck?.id || null,
-        front: c.front,
-        front_text: c.front,
-        back: c.back,
-        back_text: c.back,
-        context: c.context || '',
-        card_type: detectExerciseType(c) || c.card_type || 'standard',
-        level: c.level,
-        tags: c.tags,
-        cefr: c.cefr,
-        topics: c.topics || '',
-        source: 'batch_import'
+      const payloadCards = parsedCards.map(({ content_v2 }) => ({
+        deck_id: Number(currentDeck.id), content_v2
       }));
       attempt = pendingImport.findByText(rawText);
       if (attempt?.mode) return;
+      if (attempt?.cards.some(card => !card.content_v2)) throw new Error('Предыдущий импорт требует проверки вручную.');
       if (!attempt) {
         attempt = { import_id: crypto.randomUUID(), rawText, cards: payloadCards, placement: importPlacement };
         pendingImport.add(attempt);
       }
       setImportPlacement(attempt.placement || 'end');
       setImportOutcome('in_progress');
-      const res = await api.post('/cards/bulk-save', {
+      const res = await networkApi.post('/cards/bulk-save', {
         import_id: attempt.import_id, cards: attempt.cards, placement: attempt.placement || 'end'
       });
       pendingImport.remove(attempt.import_id);
@@ -297,7 +290,7 @@ BACK:
   };
 
   // Count types for summary
-  const getCardType = (c) => detectExerciseType(c) || c.card_type || 'standard';
+  const getCardType = (c) => studyContent(c)?.type;
   const quizCount = parsedCards.filter(c => getCardType(c) === 'quiz').length;
   const trainerCount = parsedCards.filter(c => getCardType(c) === 'trainer').length;
   const matchCount = parsedCards.filter(c => getCardType(c) === 'match').length;
@@ -468,7 +461,7 @@ BACK:
                       flexWrap: 'wrap', gap: 6
                     }}>
                       <span>
-                        {parsedCards.length === 0 ? tr("Вставьте карточки (FRONT:) через <<<LERNE_CARD>>>") : (
+                        {parsedCards.length === 0 ? (preview?.text === rawText && preview.error) || tr("Вставьте Lerne Codex или JSON V2") : (
                           <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                             <Check size={14} color="#4ade80" />
                             <strong>{tr("Найдено карточек:")} {parsedCards.length}</strong>
@@ -509,15 +502,15 @@ BACK:
                               <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                                 <CardTypeBadge type={cardType} />
                                 <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.84rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                                  {card.front.split('\n')[0]}
+                                  {studySideText(studyContent(card)).split('\n')[0]}
                                 </span>
                               </div>
                               <CardLevelBadge card={card} size="sm" />
                             </div>
-                            {card.back && (
+                            {studySideText(studyContent(card), 'back') && (
                               <div style={{ fontSize: '0.78rem', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: 4 }}>
                                 <span style={{ color: '#4ade80' }}>✓</span>
-                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{card.back}</span>
+                                <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{studySideText(studyContent(card), 'back')}</span>
                               </div>
                             )}
                           </div>
@@ -600,13 +593,13 @@ BACK:
                           <div style={{ display: 'flex', alignItems: 'center', gap: 6, overflow: 'hidden' }}>
                             <CardTypeBadge type={cardType} />
                             <span style={{ fontWeight: 600, color: '#f8fafc', fontSize: '0.88rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                              {(card.front_text || card.front || '').split('\n')[0]}
+                              {studySideText(studyContent(card)).split('\n')[0]}
                             </span>
                           </div>
                           <CardLevelBadge card={card} size="sm" />
                         </div>
                         <span style={{ fontSize: '0.82rem', color: '#cbd5e1' }}>
-                          {card.back_text || card.back}
+                          {studySideText(studyContent(card), 'back')}
                         </span>
                       </div>
                     );

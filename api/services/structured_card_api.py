@@ -144,6 +144,35 @@ def require_native(card):
     return decode_v2_content(card.content_v2)
 
 
+def authored_side_text(content, side):
+    """Speak the existing physical side using authored V2 text and answer order."""
+    card = decode_v2_content(content)
+    kind, data = card.type, card.data
+    if side == 'back':
+        field = {
+            'theory': 'summary', 'standard': 'answer', 'trainer': 'back_note',
+            'quiz': 'back_note', 'match': 'back_note', 'puzzle': 'translation',
+            'free_text': 'sample_answer', 'editable_text': 'correct_text',
+        }.get(kind)
+        return getattr(data, field) if field else ''
+    if kind == 'trainer':
+        return ''.join(part.text if part.type == 'text' else part.answers[0] if part.type == 'input'
+                       else next(option.text for option in part.options if option.correct) for part in data.parts)
+    if kind == 'word_bank':
+        return ''.join(part.text if part.type == 'text' else data.options[part.option] for part in data.parts)
+    if kind == 'puzzle':
+        return ' '.join(data.tokens)
+    if kind == 'match':
+        return '\n'.join(f'{pair.left} → {pair.right}' for pair in data.pairs)
+    if kind == 'theory':
+        return data.text
+    if kind == 'editable_text':
+        return data.source_text
+    if kind == 'quiz' and not data.prompt:
+        return next((block.text for block in card.info if block.type in ('task', 'source')), '')
+    return data.prompt
+
+
 def content_response(card):
     if isinstance(card, dict):
         raw = card['content_v2']

@@ -9,8 +9,8 @@ import { useUiStore } from '../../store/useUiStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
-import { resolveAiTranslation } from '../../utils/aiCardResult';
-import { detectCardType } from '../../utils/exerciseDetector';
+
+
 import { navigateUp } from '../../utils/navigation';
 import { LocalPublishButton } from '../common/LocalPublishButton';
 
@@ -32,36 +32,11 @@ export const CardEditor = () => {
   if (view !== 'editor') return null;
 
   const handleAiGenerate = async (actionType = 'full_card', userRequest = '') => {
-    if (!editingCard?.front) return;
-    if (actionType === 'full_card' && detectCardType(editingCard) === 'quiz') {
-      actionType = 'quiz_analysis';
-    }
-    const result = await runAiGenerator(editingCard.front, true, actionType, userRequest);
-    if (result) {
-      if (actionType === 'quiz_analysis') {
-        const current = useSessionStore.getState().editingCard;
-        if (current?.id !== editingCard.id || current?.front !== editingCard.front) return null;
-        setEditingCard({ ...current, back: result.back, context: result.context });
-      } else if (actionType === 'custom_directive' || actionType === 'explain_rule') {
-        const currentCtx = editingCard.context || '';
-        const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
-        setEditingCard({
-          ...editingCard,
-          back: resolveAiTranslation(editingCard.back, result.back, actionType),
-          context: updatedCtx
-        });
-      } else {
-        const replaceAllFields = Boolean(userRequest.trim());
-        const updated = {
-          ...editingCard,
-          front: replaceAllFields ? (result.front ?? '') : (result.front || editingCard.front),
-          back: replaceAllFields ? (result.back ?? '') : (result.back || editingCard.back),
-          context: replaceAllFields ? (result.context ?? '') : (result.context || editingCard.context),
-          level: result.level || editingCard.level,
-          tags: result.tags || editingCard.tags
-        };
-        setEditingCard(updated);
-      }
+    const content = editingCard?.content_v2;
+    if (!content) return;
+    const result = await runAiGenerator(content, true, actionType, userRequest);
+    if (result?.content_v2) {
+      setEditingCard(current => current?.content_v2 === content ? { ...current, content_v2: result.content_v2 } : current);
     }
     return result;
   };
