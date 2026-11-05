@@ -242,24 +242,29 @@ class DbWorkerTests(unittest.TestCase):
         with self.db.connection_context():
             self.assertEqual(models.TMA_Card.get_by_id(self.card.id).deck_id, self.deck.id)
 
-    def test_grade_reconnect_retry_stays_in_worker_and_commits_once(self):
+    def test_grade_connection_failure_is_not_retried_before_or_after_commit(self):
         original = services.update_card_progress
-        attempts = []
-        def disconnected(*args, **kwargs):
-            attempts.append((threading.get_ident(), self.db.connection()))
-            if len(attempts) == 1:
-                raise OperationalError('connection already closed')
-            return original(*args, **kwargs)
-        async def exercise(client):
-            with patch.object(services, 'update_card_progress', side_effect=disconnected):
-                result = await client.post('/api/study/grade', json=self.grade_payload(return_next=False))
-                self.assertEqual(result.json(), {'status': 'success'})
-        self.run_asgi(exercise)
-        self.assertEqual(len(attempts), 2)
-        self.assertEqual(attempts[0][0], attempts[1][0])
-        self.assertIsNot(attempts[0][1], attempts[1][1])
-        with self.db.connection_context():
-            self.assertEqual(models.TMAReviewHistory.select().count(), 1)
+        for committed in (False, True):
+            with self.subTest(committed=committed):
+                with self.db.connection_context():
+                    before = models.TMAReviewHistory.select().count()
+                attempts = []
+
+                def disconnected(*args, **kwargs):
+                    attempts.append((threading.get_ident(), self.db.connection()))
+                    if committed:
+                        original(*args, **kwargs)
+                    raise OperationalError('connection already closed')
+
+                async def exercise(client):
+                    with patch.object(services, 'update_card_progress', side_effect=disconnected):
+                        result = await client.post('/api/study/grade', json=self.grade_payload(return_next=False))
+                        self.assertEqual(result.status_code, 500, result.text)
+                self.run_asgi(exercise)
+                self.assertEqual(len(attempts), 1)
+                self.assertNotEqual(attempts[0][0], threading.get_ident())
+                with self.db.connection_context():
+                    self.assertEqual(models.TMAReviewHistory.select().count(), before + int(committed))
 
     def test_get_middleware_retries_but_post_does_not(self):
         original = services.get_user_reminder_diagnostics
