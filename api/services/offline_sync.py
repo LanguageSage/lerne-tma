@@ -62,6 +62,9 @@ def push_offline(request, user_id: int) -> dict:
     # Keep fingerprints of batches created by older clients compatible.
     if not payload.get('reviews'):
         payload.pop('reviews', None)
+    for event in payload.get('reviews', []):
+        if event.get('action_id') is None:
+            event.pop('action_id', None)
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     key = f'{user_id}:{request.request_id}'
     maps = {'folders': {}, 'decks': {}, 'cards': {}}
@@ -177,11 +180,18 @@ def push_offline(request, user_id: int) -> dict:
                 require_access(user_id, 'deck', card.deck_id, write=False)
                 readable_decks.add(card.deck_id)
 
+        action_cards = {resolve('cards', event.card_id) for event in request.reviews if event.action_id}
         for item in request.progress:
             card_id = resolve('cards', item.card_id)
             require_study_card(card_id)
             raw_progress = item.model_dump(exclude_unset=True)
             values = {field: raw_progress[field] for field in FIELDS['progress'] if field in raw_progress}
+            if card_id in action_cards:
+                # UUID events apply once against authoritative SRS; stale fallback
+                # snapshots must never overwrite an already committed grade.
+                values = {field: value for field, value in values.items() if field in ('flag', 'want_to_learn')}
+                if not values:
+                    continue
             for field in ('next_review', 'last_reviewed'):
                 if field in values:
                     values[field] = timestamp(values[field])
@@ -191,11 +201,16 @@ def push_offline(request, user_id: int) -> dict:
                 setattr(progress, field, value)
             progress.save()
 
-        for event in request.reviews:
+        for event in sorted(request.reviews, key=lambda event: timestamp(event.review_time)):
             card_id = resolve('cards', event.card_id)
             require_study_card(card_id)
             if not event.is_extended and event.rating > 3:
                 raise HTTPException(422, 'Некорректная оценка')
+            if event.action_id:
+                from api.services.study import update_card_progress
+                update_card_progress(card_id, user_id, event.rating, event.is_extended,
+                                     event.review_context, str(event.action_id), timestamp(event.review_time))
+                continue
             models.TMAReviewHistory.create(card_id=card_id, user_id=user_id, rating=event.rating,
                 scheduled_interval=event.scheduled_interval, review_time=timestamp(event.review_time))
 

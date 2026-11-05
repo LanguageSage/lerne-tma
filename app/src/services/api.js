@@ -10,6 +10,9 @@ const api = new Proxy(axiosInstance, {
   get(target, propKey, receiver) {
     if (['get', 'post', 'put', 'delete', 'patch'].includes(propKey)) {
       return async (url, ...args) => {
+        if (propKey === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)) {
+          args[0] = { ...args[0], action_id: args[0]?.action_id || crypto.randomUUID() };
+        }
         const requestIdentity = getSessionIdentity();
         const requestAccount = getUserId();
         if (url.startsWith('/card-notes/')) return offlineApi.handle(propKey, url, ...args);

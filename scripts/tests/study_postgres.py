@@ -12,7 +12,7 @@ from scripts.tests.db_workers_postgres import http_client
 def verify(database_name, connection_args):
     from api import models
     from api.auth.service import register_email_password
-    from api.routers import study
+    from api.routers import study, sync
 
     assert database_name.startswith('lerne_security_test_')
     accounts = [register_email_password(f'study-{name}@example.invalid', 'synthetic study password')
@@ -23,6 +23,7 @@ def verify(database_name, connection_args):
     models.lerne_db.initialize(pool)
     app = FastAPI()
     app.include_router(study.router, prefix='/api')
+    app.include_router(sync.router, prefix='/api')
     try:
         asyncio.run(verify_http(app, pool, accounts))
     finally:
@@ -186,3 +187,72 @@ async def verify_http(app, pool, accounts):
         assert response.status_code == 200 and ('id' in response.json() or response.json() == {'finished': True}), response.text
         assert len((await snapshot())[1]) == before + 1
         print('PASS: committed disconnect/selection/serialization failures never replay grades; rollback and recovery preserved', flush=True)
+        await verify_idempotency(client, headers[owner], private, pool, run_db)
+
+
+async def verify_idempotency(client, headers, card, pool, run_db):
+    from uuid import uuid4
+    from api import models, services
+
+    async def state():
+        return await run_db(lambda: (list(models.TMAProgress.select().dicts()), models.TMAReviewHistory.select().count()))
+
+    slots = asyncio.Semaphore(2)  # Match the fixture pool; exercise overlap, not pool exhaustion.
+    async def post(path, data):
+        async with slots:
+            return await client.post('/api' + path, headers=headers, json=data)
+
+    action = str(uuid4())
+    payload = dict(card_id=card.id, deck_id=card.deck_id, grade=2, return_next=False, action_id=action)
+    before = await state()
+    original = services.update_card_progress
+
+    def lost_response(*args, **kwargs):
+        original(*args, **kwargs)
+        raise OperationalError('connection already closed')
+
+    with patch.object(services, 'update_card_progress', side_effect=lost_response):
+        assert (await post('/study/grade', payload)).status_code == 500
+    committed = await state()
+    assert committed[1] == before[1] + 1
+    results = await asyncio.gather(*(post('/study/grade', payload) for _ in range(6)))
+    assert all(response.status_code == 200 for response in results)
+    assert await state() == committed
+    assert (await post('/study/grade', {**payload, 'grade': 0})).status_code == 409
+    assert await state() == committed
+
+    event = dict(action_id=action, card_id=card.id, rating=2, review_time='2026-11-05T09:00:00Z', scheduled_interval=999)
+    # A stale fallback snapshot must not roll SRS back, even in a fresh batch.
+    batch = dict(request_id=str(uuid4()), reviews=[event], progress=[dict(card_id=card.id, queue='new', interval=999,
+        ease_factor=2.5, repetitions=0, lapses=0)])
+    assert (await post('/sync/v2/push', batch)).status_code == 200
+    synced = await state()
+    assert synced[1] == committed[1]
+    for old, new in zip(committed[0], synced[0]):
+        assert {k: v for k, v in old.items() if k != 'updated_at'} == {k: v for k, v in new.items() if k != 'updated_at'}
+    assert (await post('/sync/v2/push', {**batch, 'request_id': str(uuid4())})).status_code == 200
+    assert (await state())[1] == committed[1]
+
+    # Offline first, then POST; different UUID means a new legitimate review.
+    second = str(uuid4())
+    batch = dict(request_id=str(uuid4()), reviews=[{**event, 'action_id': second}])
+    assert (await post('/sync/v2/push', batch)).status_code == 200
+    offline = await state()
+    assert offline[1] == committed[1] + 1
+    assert (await post('/study/grade', {**payload, 'action_id': second})).status_code == 200
+    assert await state() == offline
+    third = {**payload, 'action_id': str(uuid4())}
+    results = await asyncio.gather(*(post('/study/grade', third) for _ in range(6)))
+    assert all(response.status_code == 200 for response in results)
+    assert (await state())[1] == offline[1] + 1
+    assert (await post('/study/duplicates/grade', third)).status_code == 200
+    assert (await state())[1] == offline[1] + 1
+    retry = {**payload, 'action_id': str(uuid4())}
+    before_failure = await state()
+    with patch.object(models.TMAReviewHistory, 'create', side_effect=OperationalError('synthetic receipt rollback')):
+        assert (await post('/study/grade', retry)).status_code == 500
+    assert await state() == before_failure
+    assert (await post('/study/grade', retry)).status_code == 200
+    assert (await state())[1] == before_failure[1] + 1
+    assert not pool._in_use
+    print('PASS: grade UUID concurrency, lost response, POST/offline sync both directions, payload conflicts and stale snapshots', flush=True)

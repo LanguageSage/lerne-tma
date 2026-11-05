@@ -91,6 +91,7 @@ class OfflineCardItem(SyncCardItem):
 
 
 class OfflineReviewItem(BaseModel):
+    action_id: UUID | None = None
     card_id: int
     rating: int = Field(ge=0, le=7)
     is_extended: bool = False

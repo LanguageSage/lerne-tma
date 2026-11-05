@@ -268,6 +268,35 @@ test('offline save-only grade keeps its atomic progress and durable review event
   expect(saved.reviews[0].rating).toBe(2);
 });
 
+test('grade action UUID survives network fallback, concurrent repeats and restart', async ({ page, context }) => {
+  await harness(page, context);
+  await page.evaluate(() => localStorage.setItem('offline_mode', 'false'));
+  const action = await page.evaluate(async () => {
+    await getDb().decks.put({ id: 777, user_id: 1, name: 'Synthetic' });
+    await getDb().cards.put({ id: 778, deck_id: 777, front_text: 'Synthetic', back_text: 'Answer' });
+    return { card_id: 778, deck_id: 777, grade: 2, return_next: false, action_id: crypto.randomUUID() };
+  });
+  let sent;
+  await page.route('**/api/study/grade', route => {
+    sent = route.request().postDataJSON();
+    return route.abort(); // Simulate an accepted write whose response was lost.
+  });
+  const before = await page.evaluate(async body => {
+    await Promise.all([api.post('/study/grade', body), api.post('/study/grade', body)]);
+    return { progress: await getDb().progress.get([778, 1]),
+      events: await getDb().syncState.filter(row => row.key.startsWith('review:')).toArray() };
+  }, action);
+  expect(sent.action_id).toBe(action.action_id);
+  expect(before.events).toHaveLength(1);
+  expect(before.events[0].action_id).toBe(action.action_id);
+  await page.reload();
+  await loadModules(page);
+  await page.evaluate(async body => { await api.post('/study/grade', body); }, action);
+  const after = await page.evaluate(async () => ({ progress: await getDb().progress.get([778, 1]),
+    events: await getDb().syncState.filter(row => row.key.startsWith('review:')).toArray() }));
+  expect(after).toEqual(before);
+});
+
 test('offline deck card reload remains account-isolated and usable for scheduled study', async ({ page, context }) => {
   await harness(page, context);
   await context.setOffline(true);

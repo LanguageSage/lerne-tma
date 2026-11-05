@@ -198,12 +198,20 @@ export const offlineApi = {
       if (!card || card.is_deleted) notFound();
       if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
       const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
+      const actionId = body.action_id || crypto.randomUUID();
       await db.transaction('rw', db.progress, db.syncState, async () => {
+        const fingerprint = JSON.stringify([id, body.grade, Boolean(body.is_extended), context]);
+        const receipt = await db.syncState.get(`grade:${actionId}`);
+        if (receipt) {
+          if (receipt.fingerprint !== fingerprint) throw new Error('Grade action already used with different data');
+          return;
+        }
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
         const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context), ...dirtyFields() };
         await db.progress.put(updated);
         // Same transaction as progress; every grade survives reload and batch retry.
-        await db.syncState.put({ key: `review:${crypto.randomUUID()}`, card_id: id,
+        await db.syncState.put({ key: `grade:${actionId}`, fingerprint });
+        await db.syncState.put({ key: `review:${actionId}`, action_id: actionId, card_id: id,
           rating: body.grade, review_context: context, is_extended: Boolean(body.is_extended),
           review_time: updated.last_reviewed, scheduled_interval: updated.interval });
       });
