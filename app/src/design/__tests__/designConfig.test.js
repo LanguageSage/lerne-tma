@@ -48,8 +48,6 @@ test('DEFAULT: front has all required subsections', () => {
 test('DEFAULT: back has all required subsections', () => {
   const { back } = DEFAULT_DESIGN_CONFIG_V2;
   assert.ok(back.card, 'back.card missing');
-  assert.ok(back.referenceText, 'back.referenceText missing');
-  assert.ok(back.separator, 'back.separator missing');
   assert.ok(back.answerText, 'back.answerText missing');
   assert.ok(back.context, 'back.context missing');
 });
@@ -97,6 +95,19 @@ test('normalize: null returns full defaults', () => {
 test('normalize: undefined returns full defaults', () => {
   const result = normalizeDesignConfig(undefined);
   assert.strictEqual(result.schemaVersion, 2);
+});
+
+test('normalize: older back designs keep the answer and context without front-copy settings', () => {
+  const { back } = normalizeDesignConfig({ back: {
+    answerText: { color: '#ffeecc' },
+    context: { size: 1.1 },
+    referenceText: { size: 2 },
+    separator: { opacity: 0.5 },
+  } });
+  assert.equal(back.answerText.color, '#ffeecc');
+  assert.equal(back.context.size, 1.1);
+  assert.equal('referenceText' in back, false);
+  assert.equal('separator' in back, false);
 });
 
 test('normalize: empty object returns full defaults', () => {

@@ -5,12 +5,10 @@ import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { tr } from '../../../../i18n/locale';
 import { TypographyControls } from '../controls/TypographyControls';
 import { SurfaceControls } from '../controls/SurfaceControls';
-import { ColorControl } from '../controls/ColorControl';
-import { SliderControl } from '../controls/SliderControl';
 import { DesignPreviewScope } from '../DesignPreviewScope';
 
 export const BackDesignSection = React.memo(({ config, onChangeField }) => {
-  const [subTab, setSubTab] = useState('answerText'); // 'answerText' | 'context' | 'card' | 'reference'
+  const [subTab, setSubTab] = useState('answerText');
   const back = config?.back || {};
   const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
   const textStyles = getDesignStylesFromV2(config);
@@ -32,41 +30,19 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
         }}>
           <CardBackground background={back.card?.background} styleType={fallbackBackground} cardId={1} />
           <div style={{ position: 'relative', zIndex: 1 }}>
-          {/* Reference text (original phrase) */}
-          <div style={{
-            ...textStyles?.referenceText,
-            opacity: 0.8,
-            marginBottom: '10px'
-          }}>
-            Ich interessiere mich sehr für diese Stelle.
-          </div>
+            <div style={{ ...textStyles.backText, marginBottom: '12px' }}>
+              Я очень интересуюсь этой должностью.
+            </div>
 
-          {/* Separator line */}
-          <div style={{
-            height: 'var(--design-sep-width, 1px)',
-            background: 'var(--design-sep-color, rgba(255,255,255,0.12))',
-            opacity: 'var(--design-sep-opacity, 1)',
-            margin: '10px 0'
-          }} />
-
-          {/* Answer text (translation) */}
-          <div style={{
-            ...textStyles?.backText,
-            marginBottom: '12px'
-          }}>
-            Я очень интересуюсь этой должностью.
-          </div>
-
-          {/* Context block */}
-          <div style={{
-            ...textStyles?.contextText,
-            background: 'rgba(255,255,255,0.04)',
-            padding: '8px 12px',
-            borderRadius: '8px',
-            border: '1px solid rgba(255,255,255,0.06)'
-          }}>
-            {tr('Пример контекста: Bewerbung um eine Arbeitsstelle.')}
-          </div>
+            <div style={{
+              ...textStyles.contextText,
+              background: 'rgba(255,255,255,0.04)',
+              padding: '8px 12px',
+              borderRadius: '8px',
+              border: '1px solid rgba(255,255,255,0.06)'
+            }}>
+              {tr('Пример контекста: Bewerbung um eine Arbeitsstelle.')}
+            </div>
           </div>
         </div>
       </DesignPreviewScope>
@@ -88,14 +64,6 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
           style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
         >
           {tr('Контекст')}
-        </button>
-        <button
-          type="button"
-          className={`btn-secondary btn-tiny ${subTab === 'reference' ? 'active' : ''}`}
-          onClick={() => setSubTab('reference')}
-          style={{ flex: 1, padding: '6px 4px', fontSize: '0.8rem' }}
-        >
-          {tr('Исходный текст')}
         </button>
         <button
           type="button"
@@ -130,41 +98,12 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
         />
       )}
 
-      {subTab === 'reference' && (
-        <TypographyControls
-          title={tr('Мини-вопрос вверху обратной стороны')}
-          typography={back.referenceText}
-          onChangeField={(field, val) => onChangeField(`back.referenceText.${field}`, val)}
-          minSize={0.8}
-          maxSize={2.4}
-        />
-      )}
-
       {subTab === 'card' && (
-        <div>
-          <SurfaceControls
-            title={tr('Поверхность обратной стороны')}
-            surface={back.card}
-            onChangeField={(field, val) => onChangeField(`back.card.${field}`, val)}
-          />
-          <h4 style={{ fontSize: '0.95rem', color: '#e2e8f0', margin: '14px 0 10px 0', borderBottom: '1px solid rgba(255,255,255,0.08)', paddingBottom: '6px' }}>
-            {tr('Линия-разделитель')}
-          </h4>
-          <ColorControl
-            label={tr('Цвет разделителя')}
-            value={back.separator?.color || 'rgba(255,255,255,0.12)'}
-            onChange={val => onChangeField('back.separator.color', val)}
-          />
-          <SliderControl
-            label={tr('Прозрачность разделителя')}
-            value={Number(back.separator?.opacity) || 1}
-            min={0}
-            max={1}
-            step={0.05}
-            unit=""
-            onChange={val => onChangeField('back.separator.opacity', val)}
-          />
-        </div>
+        <SurfaceControls
+          title={tr('Поверхность обратной стороны')}
+          surface={back.card}
+          onChangeField={(field, val) => onChangeField(`back.card.${field}`, val)}
+        />
       )}
     </div>
   );

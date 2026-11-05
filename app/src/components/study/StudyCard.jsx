@@ -14,20 +14,15 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 // Extracted Sub-components and Utilities
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { parseClozeData, cleanBracketSyntax, autoGenerateChoices } from '../../utils/clozeParser';
-import { parseQuizData } from '../../utils/quizParser';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
 import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
-import { StudyCardTrainer } from './StudyCardTrainer.jsx';
-import { StudyCardQuiz } from './StudyCardQuiz.jsx';
-import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
 import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { CardAudioPlayer } from './CardAudioPlayer.jsx';
 import { StudyCardImage } from './StudyCardImage';
 import { CardQuestionComposer } from './CardQuestionComposer.jsx';
-import { KaraokeText } from './KaraokeText';
 import { CardFrontContent } from '../common/CardFrontContent.jsx';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
@@ -37,10 +32,10 @@ import { getPhysicalSideAudioSource, getPhysicalSideText, getStudyRolePhysicalSi
 // Re-export for backward compatibility
 // eslint-disable-next-line react-refresh/only-export-components
 export { playSuccessSound, playErrorSound, cleanBracketSyntax, autoGenerateChoices };
-import { getHarmonizedOptionStyles, getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 
-import { getFlagStyle, FLAG_COLORS } from '../../constants/cardFlags';
+import { getFlagStyle } from '../../constants/cardFlags';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardActionButton } from '../modals/CardActionModal';
 import { CardRating } from './CardRating';
@@ -97,6 +92,9 @@ export const StudyCard = React.memo(({
 
   const deckId = useDeckStore.getState().currentDeck?.id;
   const notes = useCardNotes(card?.id, card?.deck_id ?? deckId, true);
+  const exerciseType = useMemo(() => detectExerciseType(card, studyMode), [card, studyMode]);
+  // Interactive exercises always take their prompt from the authored front.
+  const cardSideMode = exerciseType ? 'classic' : studyMode;
 
   // Propagate voice choice back to session store so it survives card navigation
   const handleVoiceChange = useCallback((voiceValue) => {
@@ -108,7 +106,7 @@ export const StudyCard = React.memo(({
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false);
 
   // Provide current card text to the picker so auto-generate works on voice switch
-  const promptPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.PROMPT, studyMode);
+  const promptPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.PROMPT, cardSideMode);
   const rawFrontText = getPhysicalSideText(card, promptPhysicalSide);
 
   const parsedFrontContent = useMemo(() => {
@@ -234,13 +232,6 @@ export const StudyCard = React.memo(({
   const cardStyle = v2Styles.frontText;
   const backCardStyle = v2Styles.backText;
   const contextStyle = v2Styles.contextText;
-  const referenceStyle = v2Styles.referenceText;
-  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(effectiveConfig?.exercises?.baseColor), [effectiveConfig]);
-
-  // Interactive Exercise Type Detection
-  const exerciseType = useMemo(() => {
-    return detectExerciseType(card, studyMode);
-  }, [card, studyMode]);
 
   const blockAnswerReveal = ['free_text', 'editable_text'].includes(exerciseType) && studyMode !== 'speak' && !isAutoplayActive
     && !canRevealFreeTextAnswer(exerciseStates[reviewKey]?.evaluationState);
@@ -254,26 +245,15 @@ export const StudyCard = React.memo(({
     isFlipped, onFlip, onPrevious: onPreviousCard, onNext: onNavigateNext,
   });
 
-  // Quiz / Exam Data Parsing
-  const quizData = useMemo(() => {
-    return parseQuizData(card);
-  }, [card?.id, card?.front, card?.back, card?.updated_at]); // eslint-disable-line react-hooks/exhaustive-deps
-
   // Cloze / Trainer Data Parsing
   const clozeData = useMemo(() => {
     const allDeckCards = useDeckStore.getState().deckCards || [];
     return parseClozeData(card, studyMode, allDeckCards);
   }, [card?.id, card?.front, card?.back, card?.updated_at, studyMode]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const getResolvedAudioUrl = (c, isBack = false) => {
-    if (!c) return '';
-    const target = getPhysicalSideAudioSource(c, isBack ? 'back' : 'front');
-    return getAudioUrl(target);
-  };
-
   const renderFrontAudioPlayer = () => {
     const isBackSide = promptPhysicalSide === 'back';
-    const audioUrl = getResolvedAudioUrl(card, isBackSide);
+    const audioUrl = getAudioUrl(getPhysicalSideAudioSource(card, promptPhysicalSide));
     // The reverse-mode front is the translation. Ordinary study may play an
     // existing translation recording, but only Auto is allowed to generate it.
     if (!audioUrl && (!frontText || isBackSide)) return null;
@@ -320,6 +300,14 @@ export const StudyCard = React.memo(({
   const deckResources = deckMeta?.resources || [];
   const deckImage = deckResources.find(r => r.type === 'image' && r.show_in_cards !== false);
   const deckVideo = deckResources.find(r => r.type === 'video');
+  const answerPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.ANSWER, cardSideMode);
+  const rawAnswer = isFlipped ? getPhysicalSideText(card, answerPhysicalSide) : '';
+  const answerText = rawAnswer && answerPhysicalSide === 'front'
+    ? cleanBracketSyntax(stripMarkdown(parseExerciseContent(rawAnswer).exercise)).trim()
+    : rawAnswer;
+  const hasAnswerText = Boolean(answerText.trim());
+  const answerAudioUrl = isFlipped ? getAudioUrl(getPhysicalSideAudioSource(card, answerPhysicalSide)) : '';
+  const answerVideoUrl = card.video_back_url || deckVideo?.url;
 
   const getDeckImageUrl = (resItem) => {
     if (!resItem) return null;
@@ -667,162 +655,42 @@ export const StudyCard = React.memo(({
                   <span>{tr("Сложная карточка (")}{card?.lapses || 5}{' '}{tr("ошибок)")}</span>
                 </div>
               )}
-              {/* 1. FRONT REFERENCE SECTION */}
-              <div className="card-back-front-section">
-                {effectiveStudyMode === 'quiz' && quizData ? (
-                  <div>
-                    <div className="back-quiz-question" style={{ ...cardStyle, textAlign: 'left', fontSize: '1.2rem', marginBottom: '8px' }}>
-                      {quizData.question}
-                    </div>
-
-                    <div className="back-quiz-subdivider">
-                      <span>{tr("Варианты ответа")}</span>
-                    </div>
-
-                    <div className="back-quiz-options-compact">
-                      {quizData.options.map((opt, i) => (
-                        <div 
-                          key={i} 
-                          className={`back-quiz-opt-row ${opt.isCorrect ? 'is-correct' : ''}`}
-                          style={opt.isCorrect ? undefined : { color: harmonizedOptions.textColor }}
-                        >
-                          <span className="back-quiz-opt-tag">{['A', 'B', 'C', 'D', 'E', 'F'][i] || (i + 1)}</span>
-                          <span className="back-quiz-opt-label">{opt.text}</span>
-                          {opt.isCorrect && <span className="back-quiz-opt-badge">{tr("✓ Верный")}</span>}
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="front-mini-container" style={{ position: 'relative', width: '100%' }}>
-                    {topBlocks.length > 0 && (
-                      <ExerciseInfoBlocks blocks={topBlocks} />
-                    )}
-                    <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...referenceStyle }}>
-                      {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : cleanBracketSyntax(frontText)}
-                    </div>
-                    {bottomBlocks.length > 0 && (
-                      <ExerciseInfoBlocks blocks={bottomBlocks} />
-                    )}
-                  </div>
-                )}
-
-                {(() => {
-                  const isTranslation = studyMode === 'reverse';
-                  const resolvedFrontUrl = getResolvedAudioUrl(card, isTranslation);
-                  if (!resolvedFrontUrl && (!frontText || isTranslation)) return null;
-
-                  return (
-                    <div style={{ marginTop: '8px' }}>
-                      <CardAudioPlayer
-                        audioUrl={resolvedFrontUrl}
-                        playAudio={audioControls?.playAudio || playAudio}
-                        pauseAudio={audioControls?.pauseAudio}
-                        resumeAudio={audioControls?.resumeAudio}
-                        togglePlayPause={audioControls?.togglePlayPause}
-                        stopAudio={audioControls?.stopAudio}
-                        seekAudio={audioControls?.seekAudio}
-                        setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                        audioState={audioControls?.audioState}
-                        currentUrl={audioControls?.currentUrl}
-                        currentTime={audioControls?.currentTime}
-                        duration={audioControls?.duration}
-                        playbackRate={audioControls?.playbackRate}
-                        isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                        isGenerating={card.audio_is_generating}
-                        voicePicker={isTranslation ? null : frontVoicePicker}
-                        cardText={isTranslation ? '' : frontText}
-                        cardId={isTranslation ? null : card?.id}
-                        isBack={isTranslation}
-                        disabled={loading || isAutoplayActive}
-                      />
-                    </div>
-                  );
-                })()}
-              </div>
-
-              <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />
-              {aiExplanation && <div className="ai-explanation-block card-context-wrapper">
-                <strong>{tr('Ответ ИИ:')}</strong>
-                <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
-                  <MarkdownRenderer>{aiExplanation.answer}</MarkdownRenderer>
+              {answerVideoUrl && (
+                <div className="video-container-card">
+                  <video src={answerVideoUrl} autoPlay loop muted playsInline />
                 </div>
-                <button type="button" className="btn btn-primary" disabled={isSavingExplanation}
-                  style={{ minHeight: '44px', width: '100%', marginTop: '12px', whiteSpace: 'normal' }}
-                  onClick={event => { event.stopPropagation(); onSaveExplanation?.(); }}>
-                  {isSavingExplanation ? tr('Выполняется...') : tr('Сохранить в Контекст')}
-                </button>
-              </div>}
+              )}
 
+              {(hasAnswerText || answerAudioUrl) && (
+                <div className="back-answer-block">
+                  {answerAudioUrl && (
+                    <CardAudioPlayer
+                      audioUrl={answerAudioUrl}
+                      playAudio={audioControls?.playAudio || playAudio}
+                      pauseAudio={audioControls?.pauseAudio}
+                      resumeAudio={audioControls?.resumeAudio}
+                      togglePlayPause={audioControls?.togglePlayPause}
+                      stopAudio={audioControls?.stopAudio}
+                      seekAudio={audioControls?.seekAudio}
+                      setPlaybackSpeed={audioControls?.setPlaybackSpeed}
+                      audioState={audioControls?.audioState}
+                      currentUrl={audioControls?.currentUrl}
+                      currentTime={audioControls?.currentTime}
+                      duration={audioControls?.duration}
+                      playbackRate={audioControls?.playbackRate}
+                      isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
+                      isGenerating={card.audio_is_generating}
+                      disabled={loading || isAudioLoading}
+                    />
+                  )}
+                  {hasAnswerText && (
+                    <div id="tut-study-answer" className="text-back" style={{ whiteSpace: 'pre-wrap', ...backCardStyle }}>
+                      {answerPhysicalSide === 'back' ? <MarkdownRenderer>{answerText}</MarkdownRenderer> : answerText}
+                    </div>
+                  )}
+                </div>
+              )}
 
-              {/* 2. EXPLICIT SEPARATOR BETWEEN FRONT & BACK */}
-              {(() => {
-                const frontClean = cleanBracketSyntax(frontText).trim();
-                const rawBackText = studyMode === 'reverse' ? (card.front || card.front_text || '') : (card.back || card.back_text || '');
-                const backParsed = parseExerciseContent(rawBackText);
-                const backClean = cleanBracketSyntax(stripMarkdown(backParsed.exercise)).trim();
-                const hasDistinctBack = Boolean(backClean && backClean !== frontClean);
-                if (!hasDistinctBack && !card.video_back_url && !deckVideo?.url) return null;
-
-                return (
-                  <>
-                    {!exerciseType && (
-                      <div className="card-side-separator">
-                        <div className="separator-line" />
-                        <div className="separator-badge">
-                          <RotateCw size={12} />
-                          <span>{studyMode === 'reverse' ? tr("Оригинал") : tr("Перевод")}</span>
-                        </div>
-                        <div className="separator-line" />
-                      </div>
-                    )}
-
-                    {(card.video_back_url || deckVideo?.url) && (
-                      <div className="video-container-card">
-                        <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
-                      </div>
-                    )}
-                    
-                    {/* 3. BACK ANSWER BLOCK */}
-                    {hasDistinctBack && (
-                      <div className="back-answer-block">
-                        {(() => {
-                          const targetBackAudioUrl = studyMode === 'reverse'
-                            ? getResolvedAudioUrl(card, false)
-                            : getResolvedAudioUrl(card, true);
-                          if (targetBackAudioUrl) {
-                            return (
-                              <CardAudioPlayer
-                                audioUrl={targetBackAudioUrl}
-                                playAudio={audioControls?.playAudio || playAudio}
-                                pauseAudio={audioControls?.pauseAudio}
-                                resumeAudio={audioControls?.resumeAudio}
-                                togglePlayPause={audioControls?.togglePlayPause}
-                                stopAudio={audioControls?.stopAudio}
-                                seekAudio={audioControls?.seekAudio}
-                                setPlaybackSpeed={audioControls?.setPlaybackSpeed}
-                                audioState={audioControls?.audioState}
-                                currentUrl={audioControls?.currentUrl}
-                                currentTime={audioControls?.currentTime}
-                                duration={audioControls?.duration}
-                                playbackRate={audioControls?.playbackRate}
-                                isAudioLoading={isAudioLoading || audioControls?.isAudioLoading}
-                                isGenerating={card.audio_is_generating}
-                                disabled={loading || isAudioLoading}
-                              />
-                            );
-                          }
-                          return null;
-                        })()}
-                        <div id="tut-study-answer" className="text-back" style={{ whiteSpace: 'pre-wrap', ...backCardStyle }}>
-                          {studyMode === 'reverse' ? backClean : <MarkdownRenderer>{rawBackText}</MarkdownRenderer>}
-                        </div>
-                      </div>
-                    )}
-                  </>
-                );
-              })()}
-              
               {imageUrl && (
                 <div style={{ marginTop: '12px', marginBottom: '12px', flexShrink: 0 }}>
                   <StudyCardImage
@@ -834,7 +702,7 @@ export const StudyCard = React.memo(({
                 </div>
               )}
 
-              {/* 4. CONTEXT BLOCK */}
+              {/* Context and personal notes */}
               {notes.rows.length > 0 && <div className="card-context-wrapper card-personal-notes">
                 <strong>{tr('Мои заметки')}</strong>
                 {notes.rows.map(row => <div key={row.id} className="text-context"
@@ -848,7 +716,18 @@ export const StudyCard = React.memo(({
                 </div>
               )}
 
-
+              <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />
+              {aiExplanation && <div className="ai-explanation-block card-context-wrapper">
+                <strong>{tr('Ответ ИИ:')}</strong>
+                <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
+                  <MarkdownRenderer>{aiExplanation.answer}</MarkdownRenderer>
+                </div>
+                <button type="button" className="btn btn-primary" disabled={isSavingExplanation}
+                  style={{ minHeight: '44px', width: '100%', marginTop: '12px', whiteSpace: 'normal' }}
+                  onClick={event => { event.stopPropagation(); onSaveExplanation?.(); }}>
+                  {isSavingExplanation ? tr('Выполняется...') : tr('Сохранить в Контекст')}
+                </button>
+              </div>}
             </div>
           </div>
         )}

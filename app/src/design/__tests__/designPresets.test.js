@@ -4,38 +4,31 @@ import { createHash } from 'node:crypto';
 import { DESIGN_PRESETS } from '../designPresets.js';
 import { normalizeDesignConfig } from '../designConfig.js';
 
-// Captured from all built-ins before removal of their V1 definitions.
-// Compare every field, including inherited typography, exercise roles and backgrounds.
-const beforeMigration = {
-  "strict_dark": "a73ef9078d076a9ac35af868fe2cbe38941bf5b9c2a71d480896d2354084064f",
-  "strict_minimal": "7045e625de487077c2561f96eecd4cb3e268a58e6920c54c85112be3dc9e6981",
-  "strict_midnight": "47c0a5a89bc076f37e1b7543f8ced7ca3534f49e2978738ca19c6dcd432fc743",
-  "strict_emerald": "d03a7d3a9cb667717d5eef8143ab5fe06ff011770862af8d4dc4c7d36659c32d",
-  "lerne_2026": "b96058061e01f2718c152813bb8b07c9b015fe4f0d51360a1ee5c921b65426be",
-  "premium": "ff8782d9aa4868a2b5309b1ca67a2cf53f6aa6f4bbb1711ee3e0dc9b6bb02e38",
-  "aurora": "7c688c5c805e66927ba21613601d6fa8b7c85c45a52ab016d2452e37f311dde3",
-  "morning_sea": "91c5e870571add5e7b4e35230e280c1daca3d368f0d2a9bf5e89a6f1c59a97e0",
-  "cyberpunk": "d9985a483218fc6178ef8367cc2dc892f6f3b629d2496168cc1b5f7188480feb",
-  "deep_ocean": "9699528ea2a1091100981639f2b2ac5761d8942384c04e7a720dc0bcac1431d2"
+// Captured from the previous V2 presets after excluding the two removed back fields.
+const expectedDigests = {
+  "strict_dark": "3e28dc468868bddc05dd4f560ffa223823bd353c3e73ce4d0d2d3ab1ef7c4534",
+  "strict_minimal": "539ab7c71daf0a81e95da1e3da74057d87125cd4e003b4a16ef47cb7fbaeb2ea",
+  "strict_midnight": "f7519024b91aac5758743e60f12f772f1616b533253631957d9517a3535d1d90",
+  "strict_emerald": "85651e201b668767a206b16fb11a22ca32357bc4ad5517c7d48c4b1da84c364f",
+  "lerne_2026": "a925f31024f1b5c307198d8f9d6dd166e56da6dcdb1aee534889b9df5d673343",
+  "premium": "97bfaf3f0c6fdfcf1c2722f74b8532b2e3a623d46aec8533fb140dfce6e29796",
+  "aurora": "e5f41d01f8e4bffafc0dcd2ccf9f0e058e85db6c56b4ece4b4652805366d4296",
+  "morning_sea": "dde5c66586b4bbca9d1c02d5579903d1acfda65db723d2c0611b1a75cf4a9e51",
+  "cyberpunk": "9675c69765d96a98de29e4ebaa784843c5a01950a0220eaf7927f813e38c3280",
+  "deep_ocean": "d65ab2a718eefd63b62140545a3449137e2f8f00a19bf7d0655492dc05bf55a9"
 };
 const canonical = value => value && typeof value === 'object'
   ? (Array.isArray(value) ? value.map(canonical)
     : Object.fromEntries(Object.keys(value).sort().map(key => [key, canonical(value[key])])))
   : value;
 
-test('native V2 built-ins preserve the complete configuration and ordering of all V1 presets', () => {
-  assert.deepEqual(DESIGN_PRESETS.map(preset => preset.id), Object.keys(beforeMigration));
+test('native V2 built-ins preserve the supported configuration and preset order', () => {
+  assert.deepEqual(DESIGN_PRESETS.map(preset => preset.id), Object.keys(expectedDigests));
   for (const { id, name, configV2 } of DESIGN_PRESETS) {
     assert.ok(name);
     assert.equal(configV2.schemaVersion, 2);
     assert.deepEqual(normalizeDesignConfig(configV2), configV2);
-    // Reconstruct the two removed, unused defaults only for comparison with
-    // the immutable stage 4A snapshot. Every remaining field is still checked.
-    const snapshot = structuredClone(configV2);
-    snapshot.exercises.bodyText = { font: 'Comfortaa', size: 1.7, weight: '700',
-      style: 'normal', color: '#fde047', lineHeight: 1.35 };
-    snapshot.exercises.paletteMode = 'auto';
-    const digest = createHash('sha256').update(JSON.stringify(canonical(snapshot))).digest('hex');
-    assert.equal(digest, beforeMigration[id], id);
+    const digest = createHash('sha256').update(JSON.stringify(canonical(configV2))).digest('hex');
+    assert.equal(digest, expectedDigests[id], id);
   }
 });

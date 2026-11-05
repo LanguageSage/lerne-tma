@@ -156,19 +156,6 @@ export function designConfigToCssVariables(config) {
   vars['--design-back-card-padding'] = c.back.card.padding;
   vars['--design-back-card-shadow']  = c.back.card.shadow;
 
-  // Reference text (mini front on back side)
-  vars['--design-ref-font']      = c.back.referenceText.font;
-  vars['--design-ref-font-size'] = `${c.back.referenceText.size}rem`;
-  vars['--design-ref-weight']    = c.back.referenceText.weight;
-  vars['--design-ref-style']     = c.back.referenceText.style;
-  vars['--design-ref-color']     = c.back.referenceText.color;
-  vars['--design-ref-align']     = c.back.referenceText.align;
-
-  // Separator
-  vars['--design-sep-color']   = c.back.separator.color;
-  vars['--design-sep-opacity'] = String(c.back.separator.opacity);
-  vars['--design-sep-width']   = c.back.separator.width;
-
   // Answer text
   vars['--design-back-font']      = c.back.answerText.font;
   vars['--design-back-font-size'] = `${c.back.answerText.size}rem`;
@@ -350,7 +337,7 @@ export function designConfigToCssVariables(config) {
   vars['--design-cl-menu-color']   = cl.controls.menuButtonColor;
 
   const textStyles = getDesignStylesFromV2(c);
-  for (const [prefix, role] of [['front', 'frontText'], ['back', 'backText'], ['ctx', 'contextText'], ['ref', 'referenceText']]) {
+  for (const [prefix, role] of [['front', 'frontText'], ['back', 'backText'], ['ctx', 'contextText']]) {
     vars[`--design-${prefix}-shadow`] = textStyles[role].textShadow;
   }
   for (const side of ['front', 'back']) {

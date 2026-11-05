@@ -5,7 +5,6 @@ const config = { schemaVersion: 2,
   front: { card: { background: '#123456' }, mainText: { font: 'monospace', size: 1.1, weight: '500', style: 'italic', color: '#bcddee', align: 'right', lineHeight: 1.65, shadow: 'neon' } },
   back: { card: { background: 'linear-gradient(135deg, #102030, #304050)' },
     answerText: { font: 'serif', size: 1.2, color: '#cceeaa', weight: '600', shadow: 'outline', align: 'left' },
-    referenceText: { font: 'monospace', size: 1, color: '#deccaa', shadow: 'glass' },
     context: { font: 'serif', size: 1, color: 'auto', shadow: 'glow', lineHeight: 1.8 } },
   cardList: { frontText: { font: 'monospace', shadow: 'neon', lineHeight: 1.8 }, backText: { shadow: 'outline', lineHeight: 1.7 } },
   exercises: { choice: { selected: { color: '#abc322', bg: '#223344', borderColor: '#778899' } } },
@@ -14,6 +13,8 @@ async function setup(page, context, design = config) {
   await context.addInitScript(() => {
     localStorage.setItem('native_language', 'ru'); localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true'); localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-test', refresh_token: 'isolated-test' }));
     window.recognitionStarts = 0;
     window.SpeechRecognition = class {
       start() { window.recognitionStarts++; window.testRecognition = this; this.onstart?.(); }
@@ -28,6 +29,7 @@ async function setup(page, context, design = config) {
     if (route.request().method() !== 'GET') writes.push(path);
     if (path === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {}, is_admin: true,
       user_info: { user_id: 1, is_guest: false }, ...(design ? { global_design_v2: { config: design, revision: 1 } } : {}) } });
+    if (path === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (path === '/api/messages' || path === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (path === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (path === '/api/study/card/41' || path === '/api/decks/1/next') return route.fulfill({ json: card });
@@ -106,6 +108,42 @@ test('all nine card types and reverse mode use physical V2 front/back background
   await expect(page.locator('.study-card-surface .card-front .bg-v2')).toHaveCSS('background-color', 'rgb(18, 52, 86)');
 });
 
+for (const width of [320, 430, 1280]) test(`card back shows only the answer side at ${width}px`, async ({ page, context }, testInfo) => {
+  await page.setViewportSize({ width, height: 900 });
+  const { errors } = await setup(page, context);
+  const flip = page.getByRole('button', { name: 'Перевернуть карточку', exact: true });
+  const back = page.locator('.study-card-surface .card-back');
+  await expect(page.locator('#tut-study-front')).toHaveText(card.front);
+  await flip.click();
+  await expect(back.locator('#tut-study-answer')).toHaveText(card.back);
+  await expect(back).toContainText(card.context);
+  await expect(back).not.toContainText(card.front, { timeout: 1500 });
+  await capture(page, testInfo, 'answer-side');
+  await flip.click();
+  await expect(page.locator('#tut-study-front')).toHaveText(card.front);
+
+  await page.evaluate(async () => (await import('/src/store/useSettingsStore.js')).useSettingsStore.setState({ studyMode: 'reverse' }));
+  await expect(page.locator('#tut-study-front')).toHaveText(card.back);
+  await flip.click();
+  await expect(back.locator('#tut-study-answer')).toHaveText(card.front);
+  await expect(back).not.toContainText(card.back);
+
+  await page.evaluate(async () => (await import('/src/store/useSettingsStore.js')).useSettingsStore.setState({ studyMode: 'classic' }));
+  await setSession(page, { card: { ...card, id: 65, front: 'Welche Antwort?\nA) Falsche Option\n*B) Richtige Option' }, historyIndex: 1, isFlipped: false });
+  await expect(page.locator('.quiz-question')).toHaveText('Welche Antwort?');
+  await flip.click();
+  await expect(back.locator('#tut-study-answer')).toHaveText(card.back);
+  await expect(back).not.toContainText(/Welche Antwort|Falsche Option|Richtige Option/);
+
+  await flip.click();
+  await page.evaluate(async () => (await import('/src/store/useSettingsStore.js')).useSettingsStore.setState({ studyMode: 'reverse' }));
+  await expect(page.locator('.quiz-question')).toHaveText('Welche Antwort?');
+  await flip.click();
+  await expect(back.locator('#tut-study-answer')).toHaveText(card.back);
+  await expect(back).not.toContainText(/Welche Antwort|Falsche Option|Richtige Option/);
+  expect(errors).toEqual([]);
+});
+
 for (const design of [null, { schemaVersion: 2 }]) test(`unspecified V2 backgrounds preserve personal settings (${design ? 'old V2' : 'no V2'})`, async ({ page, context }) => {
   await setup(page, context, design);
   await expect(page.locator('.study-card-surface .bg-dark-mocha')).toHaveCount(1);
@@ -165,6 +203,8 @@ test('scoped front/back/speech previews use the same V2 background and typograph
   await tabs.getByRole('button', { name: /Обратная/ }).click();
   const back = page.locator('.back-design-section .design-preview-scope');
   await expect(back.getByText('Я очень интересуюсь этой должностью.', { exact: true })).not.toHaveCSS('text-shadow', 'none');
+  await expect(back).not.toContainText('Ich interessiere mich sehr für diese Stelle.');
+  await expect(page.locator('.back-design-section').getByRole('button', { name: 'Исходный текст', exact: true })).toHaveCount(0);
   const expected = await page.evaluate(async () => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     const { getDesignStylesFromV2 } = await import('/src/utils/cardStyles.js');
