@@ -25,6 +25,14 @@ recorded 90 with a different shape fail closed. Missing note storage is an
 isolated 503 from the notes routes. Bootstrap scope and old-schema HTTP
 regressions are covered by `test_card_notes.py` and `test_critical_http.py`.
 
+Structured Cards V2 migration 93 has a separate PostgreSQL runner,
+`run_structured_cards_v2_migration`. Only PostgreSQL LOCAL bootstrap calls it
+automatically. It adds the JSONB column and validated exclusivity constraint,
+then records 93 in the same transaction under advisory lock. Reruns check
+the recorded schema. Existing cards retain their current representation.
+The disposable PostgreSQL check is `python scripts/tests/structured_cards_postgres.py
+--bin-dir <path-to-pg-bin>`.
+
 `run_migrations` открывает собственную транзакцию. PostgreSQL advisory transaction lock
 `76120901` (ожидание блокировки максимум 5 секунд) или SQLite `BEGIN IMMEDIATE`
 сериализует запуск до создания/чтения истории. ID из истории пропускаются.

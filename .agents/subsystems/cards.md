@@ -216,6 +216,16 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
   [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-1-единый-импорт-в-v2).
   Профильные тесты — `scripts/tests/test_structured_cards_import.py`.
 
+## Нативное хранилище Structured Cards V2
+
+- `api/services/structured_card_storage.py` владеет проверкой и операциями с
+  `tma_card.content_v2`. `api/migrations.py::run_structured_cards_v2_migration`
+  готовит PostgreSQL и включает CHECK единственного источника содержимого.
+- Хранилище использует прежний ID карточки и существующие связи. Граница
+  legacy-строк, транзакции и план cutover описаны в
+  [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-2-postgresql-и-граница-хранения).
+  Рабочие роуты пока не вызывают нативное хранилище.
+
 ## Structured Cards V2 (Authoring → DSL) и единый шлюз записи контента
 
 - **Единый детектор типа карточки**: `detect_card_type(text)` в `api/services/input_parser.py` синхронизирован с клиентским `detectExerciseType` в `app/src/utils/exerciseDetector.js` (включая `@theory`, непрозрачность информационных блоков и приоритеты директив). Нулевое расхождение между Python и JS проверяется на синтетическом корпусе `tests/fixtures/exercise_detection_corpus.json` (`scripts/tests/test_exercise_detection_corpus.py`).

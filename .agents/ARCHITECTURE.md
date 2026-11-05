@@ -93,7 +93,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 
 ## Архитектурные границы
 
-- Исходный текст карточки и синтаксис упражнений принадлежат [cards](subsystems/cards.md).
+- Содержимое карточки и синтаксис импорта принадлежат [cards](subsystems/cards.md). Нативное V2 хранится в `tma_card.content_v2`; рабочие роуты подключаются на следующих этапах.
   Рендеринг, feedback и completion принадлежат [study](subsystems/study.md).
   Перенос copy/move между колодами изолирован в `api/services/card_transfer.py`;
   `cards.py` сохраняет прежние импорты, сохранение и подготовку данных обучения.
