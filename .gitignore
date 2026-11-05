@@ -221,4 +221,10 @@ playwright-report/
 /local/postgres/
 /local/backups/
 /local/test-data/
-/local/test-data/
+
+# Existing development worktrees (never deployment/CI inputs).
+/local/c2f-*/
+/local/p1-*/
+
+# Machine-specific launcher shortcuts are generated on the Desktop.
+/*.lnk
