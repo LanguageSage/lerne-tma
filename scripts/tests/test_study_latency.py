@@ -79,6 +79,18 @@ class StudyLatencyTests(unittest.TestCase):
         progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
         self.assertIsNotNone(progress.last_reviewed)
 
+    def test_grade_does_not_repeat_a_committed_write_after_connection_failure(self):
+        from fastapi import HTTPException
+        from peewee import OperationalError
+        request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2)
+        with patch.object(services, 'update_card_progress', wraps=study.update_card_progress) as update, patch.object(
+                services, 'get_next_card', side_effect=OperationalError('connection already closed')):
+            with self.assertRaises(HTTPException) as failure:
+                router.submit_grade.__wrapped__(request, user_id=1)
+        self.assertEqual(failure.exception.status_code, 500)
+        self.assertEqual(update.call_count, 1)
+        self.assertEqual(models.TMAReviewHistory.select().count(), 1)
+
     def test_save_only_failure_rolls_back_and_access_checks_still_apply(self):
         from fastapi import HTTPException
         request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2, return_next=False)

@@ -221,6 +221,8 @@ def run(port, bootstrap_user):
         verify_library_import(models)
         from scripts.tests.db_workers_postgres import verify as verify_db_workers
         verify_db_workers(name, connection_args)
+        from scripts.tests.study_postgres import verify as verify_study
+        verify_study(name, connection_args)
         from scripts.tests.media_db_postgres import verify as verify_media
         verify_media(name, connection_args)
 
