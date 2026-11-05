@@ -215,16 +215,9 @@ playwright-report/
 
 
 
-# Code in local/ is versioned; accidental runtime artifacts are not.
-/local/data/
-/local/config/
-/local/postgres/
-/local/backups/
-/local/test-data/
-
-# Existing development worktrees (never deployment/CI inputs).
-/local/c2f-*/
-/local/p1-*/
+# Code in local/ is versioned; accidental runtime artifacts or worktrees are not.
+/local/*/
+!/local/compose.yaml
 
 # Machine-specific launcher shortcuts are generated on the Desktop.
 /*.lnk
