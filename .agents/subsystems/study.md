@@ -40,6 +40,8 @@ LiD ticket выбирает карточки и формирует ответ с
 
 - Состояние сессии — `useSessionStore.js`; сохранённый SRS-прогресс — `TMAProgress`, история — `TMAReviewHistory` в `api/models.py`.
 - Online/offline движки должны согласовывать `review_context` и интервалы; параметры находятся в [SRS_SYSTEM](../../project_docs/ARCHITECTURE/SRS_SYSTEM.md).
+- `/study/card/{card_id}` проверяет существующий Study-доступ к активной колоде до создания прогресса: владелец, прямой/унаследованный collaborator и опубликованные папки сохраняют доступ. `/study/duplicates/grade` дополнительно требует владельца колоды, как `/study/duplicates/next`; переданный клиентом `deck_id` не даёт прав. Отказы 403/404 не создают прогресс или историю.
+- `/study/grade` не повторяет запись после ошибки соединения: ошибка после коммита может вернуть 500 при уже сохранённой оценке. Транзакция SRS/history и выбор следующей карточки сохранены. `networkApi.js` повторяет запрос один раз после 401 с обновлённым токеном; сетевые ошибки/5xx не повторяют POST, но `api.js` может выполнить локальный offline fallback. Регрессии: `test_study_latency.py` и реальные HTTP-тесты `study_postgres.py` в gate `database-security` (PostgreSQL pool, разрыв после коммита, selection/serialization failure, rollback, permissions).
 - Forced review использует порядок `position/id`, exclusions и один проход `forcedSeenIds`, независимо от scheduled queue.
 - Offline grade атомарно сохраняет progress и review event; sync переносит итог, не применяя SRS повторно.
 - Feedback v1 хранит part IDs и безопасные статусы/подсказки; counters и error history накапливаются до completion.

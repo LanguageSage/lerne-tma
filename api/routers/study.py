@@ -236,7 +236,8 @@ def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     card = models.TMA_Card.get_or_none((models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
-        
+    _require_study_access(user_id, card.deck_id)
+
     progress, _ = models.TMAProgress.get_or_create(
         card_id=card.id,
         user_id=user_id,
@@ -278,6 +279,7 @@ def _require_study_access(user_id, deck_id, card_id=None):
         (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id == deck_id) & (models.TMA_Card.is_deleted == False)
     ):
         raise HTTPException(404, 'Card not found in deck')
+    return deck
 
 
 class StudyGradeRequest(BaseModel):
@@ -326,17 +328,6 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
     try:
         return run_grade()
     except Exception as e:
-        if "connection already closed" in str(e).lower():
-            try:
-                models.tma_db.close()
-            except Exception:
-                pass
-            try:
-                models.tma_db.connect(reuse_if_open=True)
-                return run_grade()
-            except Exception as retry_error:
-                logger.error(f"submit_grade RETRY ERROR: {retry_error}")
-                raise HTTPException(status_code=500, detail=str(retry_error))
         logger.error(f"submit_grade ERROR: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -359,6 +350,14 @@ def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_
 @db_worker
 def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
     """Сохранение оценки для дубликата и переход к следующему."""
+    card = models.TMA_Card.get_or_none(
+        (models.TMA_Card.id == data['card_id']) & (models.TMA_Card.is_deleted == False))
+    if not card:
+        raise HTTPException(404, 'Card not found')
+    deck = _require_study_access(user_id, card.deck_id)
+    # Duplicates/next selects only the user's own decks, even with shared access.
+    if deck.user_id != user_id:
+        raise HTTPException(403, 'Нет доступа к колоде')
     services.update_card_progress(
         data['card_id'], 
         user_id, 
