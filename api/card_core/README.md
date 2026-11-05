@@ -1,7 +1,7 @@
-# lerne-card-core 0.1.3
+# lerne-card-core 0.1.4
 
 Canonical source for pure JSON V2 validation, passport validation/merge, the answer
-contract, legacy syntax parsing and V2-to-legacy conversion. This is the only
+contract, native Codex/JSON V2 import, legacy syntax parsing and V2-to-legacy conversion. This is the only
 implementation. No database, SRS, progress, config, network, filesystem side effects
 or application initialization belongs here. Pydantic is the only dependency.
 
@@ -61,3 +61,7 @@ Verify a transferred artifact with `python scripts/build_card_core.py --wheel PA
 same synthetic corpus for explicit exercises, numbered conditions, Markdown,
 correct answers, JSON V2, save/export/reimport and untouched existing material.
 The DB admin contract is deliberately deferred to a separate review.
+
+0.1.4 adds a storage-free native importer and preserves Codex reverse-side notes
+on Trainer, Quiz and Match. The release provenance points to the exact reviewed
+source commit. Admin wheel distribution is tracked separately from the importer.

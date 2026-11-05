@@ -1,4 +1,4 @@
-"""Opt-in authoring contract for Structured Cards V2.
+"""Canonical content contract for Structured Cards V2.
 
 The Pydantic models are the schema owner; JSON Schema is derived from them.
 Passports and grading policies retain their existing owners.
@@ -109,6 +109,7 @@ class StandardData(V2Model):
 
 
 class TrainerData(V2Model):
+    back_note: str = ''
     parts: Annotated[list[TrainerPart], Field(min_length=1)]
 
     @field_validator('parts')
@@ -120,7 +121,8 @@ class TrainerData(V2Model):
 
 
 class QuizData(V2Model):
-    prompt: Text
+    back_note: str = ''
+    prompt: str
     options: Annotated[list[Option], Field(min_length=2)]
     _options = field_validator('options')(check_options)
 
@@ -131,6 +133,7 @@ class Pair(V2Model):
 
 
 class MatchData(V2Model):
+    back_note: str = ''
     pairs: Annotated[list[Pair], Field(min_length=2)]
 
 
@@ -225,7 +228,7 @@ CONTENT_KEYS = {'front', 'front_text', 'back', 'back_text', 'context', 'type', '
                 'image', 'image_path',
                 'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
                 'accepted_answers', 'grading_policy', 'intro', 'pedagogy', 'passport',
-                'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens',
+                'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens', 'back_note',
                 'sample_answer', 'source_text', 'correct_text', 'summary', 'translation'}
 
 
@@ -270,6 +273,14 @@ class TrainerCard(CardBase):
 class QuizCard(CardBase):
     type: Literal['quiz']
     data: QuizData
+
+    @model_validator(mode='after')
+    def has_prompt(self):
+        if not self.data.prompt.strip() and not any(
+            block.type in ('task', 'source') for block in self.info
+        ):
+            raise ValueError('Quiz requires a prompt or a task/source block')
+        return self
 
 
 class MatchCard(CardBase):

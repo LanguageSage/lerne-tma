@@ -207,6 +207,15 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Формат и правила генерации: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md),
   [common.md](../../lerne-card-prompts/common.md), [validation.md](../../lerne-card-prompts/validation.md).
 
+## Нативный импорт Structured Cards V2
+
+- `api/card_core/lerne_card_core/structured_cards_import.py::import_documents` принимает
+  Codex или JSON V2 и возвращает валидированные V2-документы в порядке входа.
+  Локальная точка входа — `scripts/structured_cards_v2.py import`.
+- Контракт, диагностика и текущая граница публикации описаны в
+  [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-1-единый-импорт-в-v2).
+  Профильные тесты — `scripts/tests/test_structured_cards_import.py`.
+
 ## Structured Cards V2 (Authoring → DSL) и единый шлюз записи контента
 
 - **Единый детектор типа карточки**: `detect_card_type(text)` в `api/services/input_parser.py` синхронизирован с клиентским `detectExerciseType` в `app/src/utils/exerciseDetector.js` (включая `@theory`, непрозрачность информационных блоков и приоритеты директив). Нулевое расхождение между Python и JS проверяется на синтетическом корпусе `tests/fixtures/exercise_detection_corpus.json` (`scripts/tests/test_exercise_detection_corpus.py`).

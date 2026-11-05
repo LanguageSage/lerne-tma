@@ -7,12 +7,51 @@
 >
 > **История:** 2026-10-16 нативное хранение было заморожено и принят Option B (V2 authoring → legacy DSL). Решение от 2026-11-05 отменяет эту архитектурную цель **для новой ветки**; описание ниже фиксирует предыдущее состояние и требует актуализации по мере реализации.
 
-> **Заморожено нативное хранение V2 (2026-10-16, по архитектурному аудиту).**
+> **Предыдущее состояние конвейера (решение от 2026-10-16).**
 > Этапы нативного хранения (`content_v2`, миграция 87, `legacy_card_writes`, `/sync/v3`, CAS-ревизии и native writes) остановлены и не применяются.
 > Активным является **Option B (Authoring V2 JSON → детерминированная компиляция в существующий DSL)**:
 > ИИ или автор создаёт карточки в строгом контракте V2 JSON → `structured_cards_v2.py` валидирует структуру → `structured_cards_legacy.py` (`to_legacy_card` / `to_legacy_document`) компилирует карточку в существующий DSL (`FRONT`/`BACK`/`CONTEXT`/`metadata`) с обязательной round-trip проверкой (`parse_exercise_content`, `detect_card_type`, `detect_ai_input_type`) → сохранение идёт через стандартный конвейер публикации (`author_service.py` → `bulk_save_cards`) без изменения схемы БД, синхронизации, офлайн-режима или SRS.
 
 V2 — JSON-контракт для авторства уроков человеком и ИИ. Тип задан явно; ответы и данные упражнения не извлекаются из текста `FRONT`. В «Авторе уроков» доступны как предварительный просмотр JSON V2 (`/api/admin/author/v2-preview`), так и разбор/публикация V2 JSON через `author_service.parse_document`.
+
+## Этап 1. Единый импорт в V2
+
+`api/card_core/lerne_card_core/structured_cards_import.py` предоставляет
+`import_documents(text, *, default_deck_name=None, json_input=False)`.
+Результат — упорядоченный список валидированных `Document` с `schema_version: 2`.
+JSON V2 описывает одну колоду. Codex может содержать несколько колод в исходном
+порядке. Для Codex без заголовка CLI берёт название из имени файла или
+`--deck-name`. Текст распознаётся по формату, а расширение `.json` в CLI
+требует строгого JSON. Ошибка в любой колоде прерывает весь импорт.
+
+- JSON проходит валидацию V2 напрямую. Строки и явный тип сохраняются, включая
+  буквальные маркеры и Quiz с несколькими правильными вариантами.
+- В Codex FRONT разбирается на информационные блоки и одно упражнение на входной
+  границе. CONTEXT переносится в `explanation`, а уровень и тема извлекаются
+  отдельно. Явная тема Codex остаётся одним значением, включая запятые.
+- Оба входа разрешают наследование из паспорта одинаково. Явные уровень и темы
+  сохраняются, в том числе пустой массив тем. Ссылки на изображения остаются
+  в `card.image`. Codex `::card_id` становится строковой ссылкой `card.id`,
+  а `::deck_id` и заголовок папки сохраняются в `deck.metadata.source_deck_id`
+  и `deck.metadata.source_folder_name`. Эти поля описывают источник импорта.
+- Trainer, Quiz и Match сохраняют текст BACK в `data.back_note` отдельно от
+  ключей ответов. Quiz может иметь пустой `data.prompt`, если вопрос вынесен
+  в `info.task` или `info.source`. Codex Quiz требует ровно один правильный
+  вариант согласно текстовому контракту. В Word Bank одинаковые копии
+  расходуются слева направо по порядку пропусков, а конфликтующие варианты
+  с одинаковым нормализованным ключом вызывают ошибку.
+- Конфликтующие маркеры, неполные ключи, дубли полей и некорректные паспорта
+  останавливают импорт с указанием колоды и поля или карточки. Документ
+  Codex только с паспортом требует отдельной операции обновления паспорта.
+- Точка входа этапа 1 — чистый импортёр и команда ниже. Действующие операции
+  публикации пока используют прежний контракт записи. Подключение нативной
+  записи к рабочим точкам входа зависит от следующих этапов.
+
+```powershell
+python scripts/structured_cards_v2.py import lesson.txt --deck-name "Урок 1"
+python scripts/structured_cards_v2.py import lesson.json
+python -m unittest scripts.tests.test_structured_cards_import scripts.tests.test_structured_cards_v2 -v
+```
 
 ## Что обнаружено в действующей архитектуре
 
@@ -72,9 +111,9 @@ V2 — JSON-контракт для авторства уроков челове
 | --- | --- | --- |
 | `theory` | `text` | Необязательный `summary` — оборот карточки, по умолчанию пустой. Примеры с пропусками в тексте остаются теорией. |
 | `standard` | `prompt`, `answer` | Текст вопроса и оборот. |
-| `trainer` | `parts` | Последовательность text/input/choice, минимум один пропуск. Режим определяется каждым пропуском, смешанный Trainer не требует отдельного типа. |
-| `quiz` | `prompt`, `options` | Минимум два `{text, correct?}`. `correct` по умолчанию false, минимум один true; в legacy-проекции требуется ровно один правильный вариант. |
-| `match` | `pairs: [{left, right}, ...]` | Минимум две пары. Пары и их порядок сохраняются, включая повторы. |
+| `trainer` | `parts` | Последовательность text/input/choice, минимум один пропуск. Режим определяется каждым пропуском, смешанный Trainer не требует отдельного типа. Необязательный `back_note` сохраняет оборот. |
+| `quiz` | `prompt`, `options` | Минимум два `{text, correct?}`. `correct` по умолчанию false, минимум один true; в legacy-проекции требуется ровно один правильный вариант. Вопрос можно вынести в `info.task` или `info.source`. Необязательный `back_note` сохраняет оборот. |
+| `match` | `pairs: [{left, right}, ...]` | Минимум две пары. Пары и их порядок сохраняются, включая повторы. Необязательный `back_note` сохраняет оборот. |
 | `puzzle` | `tokens: ["Ich", "bin", "angekommen."]` | Непустой массив токенов в правильном порядке. Необязательный `translation`. |
 | `word_bank` | `options: ["habe", "bin", ...]`, `parts` | text либо `{type: "gap", option: 0}`. `option` — индекс правильного элемента options с нуля, один элемент расходуется один раз. |
 | `free_text` | `prompt`, `sample_answer` | Образец не является точным ключом. Необязательные `accepted_answers`, `grading_policy` используют действующий контракт. При отсутствии политики используется `mode: open_text`. |
@@ -93,7 +132,7 @@ Match компилируется в строки `left => right`. Первый `
 - `api/services/structured_cards_legacy.py`: `to_legacy_card(card, deck, index)` и `to_legacy_document(dict | Document)` для всех девяти типов с проверкой `parse_exercise_content`, `detect_card_type` и `detect_ai_input_type`.
 - `api/services/author_service.py`: `parse_document` прозрачно принимает как текстовый формат Lerne Codex, так и V2 JSON (компилируя его через `to_legacy_document` и сохраняя `metadata` при публикации).
 - `tools/admin/services/structured_preview.py` и `POST /api/admin/author/v2-preview`: покарточный предпросмотр V2 JSON без записи в БД.
-- `scripts/structured_cards_v2.py`: CLI (`validate`, `to-legacy`, `schema`).
+- `scripts/structured_cards_v2.py`: CLI (`import`, `validate`, `to-legacy`, `schema`).
 
 ```powershell
 python scripts/structured_cards_v2.py validate local/test-data/examples/structured_cards_v2/basics.json

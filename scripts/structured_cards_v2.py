@@ -1,4 +1,4 @@
-"""Offline V2 validation/schema/legacy preview. Reads files; writes only stdout."""
+"""Offline V2 import, validation, schema and legacy preview. Reads files; writes only stdout."""
 import argparse
 import json
 import os
@@ -17,19 +17,26 @@ def main(argv=None):
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8')
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('command', choices=('validate', 'schema', 'to-legacy'))
+    parser.add_argument('command', choices=('import', 'validate', 'schema', 'to-legacy'))
     parser.add_argument('file', nargs='?', type=Path)
+    parser.add_argument('--deck-name', help='Deck name for Codex input without a header')
     args = parser.parse_args(argv)
     if args.command != 'schema' and args.file is None:
-        parser.error('file is required for validate and to-legacy')
+        parser.error('file is required for import, validate and to-legacy')
 
     from pydantic import ValidationError
     from api.card_core.lerne_card_core.structured_cards_v2 import Document, load_document
+    from api.card_core.lerne_card_core.structured_cards_import import import_documents
     from api.card_core.lerne_card_core.structured_cards_legacy import to_legacy_document
 
     try:
         if args.command == 'schema':
             result = Document.model_json_schema()
+        elif args.command == 'import':
+            documents = import_documents(args.file.read_bytes().decode('utf-8-sig'),
+                                         default_deck_name=args.deck_name or args.file.stem,
+                                         json_input=args.file.suffix.lower() == '.json')
+            result = [document.model_dump(mode='json') for document in documents]
         else:
             document = load_document(args.file.read_text(encoding='utf-8-sig'))
             result = (to_legacy_document(document) if args.command == 'to-legacy'

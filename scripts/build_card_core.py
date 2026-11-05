@@ -45,9 +45,9 @@ def verify_sources():
         original = git('show', release['source_revision'] + ':' + relative)
         if sha256(original).hexdigest() != release['source_files'][relative]:
             raise RuntimeError('Git source differs: ' + name)
-        # 0.1.3 changes packaging only. The sole declared source delta is version.
+        # An older packaging-only release permits a version-only source delta.
         reviewed = original
-        if name == '__init__.py':
+        if name == '__init__.py' and release['source_version'] != version:
             old = ('__version__ = "' + release['source_version'] + '"').encode()
             new = ('__version__ = "' + release['version'] + '"').encode()
             if original.count(old) != 1:

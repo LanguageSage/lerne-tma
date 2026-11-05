@@ -109,7 +109,7 @@ def _quiz_body(card, path):
     lines = [('[*] ' if option.correct else '[ ] ')
              + _quiz_text(option.text, f'{path}.data.options[{i}].text', option=True)
              for i, option in enumerate(card.data.options)]
-    return prompt + '\n\n' + '\n'.join(lines), correct[0].text
+    return '\n\n'.join(filter(None, (prompt, '\n'.join(lines)))), correct[0].text
 
 
 _STRUCTURAL_LINE = r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|edit|theory|options)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$'
@@ -217,6 +217,9 @@ def to_legacy_card(card, deck, index):
         body, back = _editable_text_body(card, path)
     else:
         raise LegacyConversionError(f'{path}.type: {card.type} conversion is not implemented')
+
+    if card.type in ('trainer', 'quiz', 'match') and card.data.back_note:
+        back = card.data.back_note
 
     pieces, expected_info = [], []
     if card.type == 'theory':

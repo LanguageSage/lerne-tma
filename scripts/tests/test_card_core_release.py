@@ -27,8 +27,8 @@ class CardCoreReleaseTests(unittest.TestCase):
         shutil.rmtree(self.root)
 
     def test_reviewed_release_matches_actual_git_blobs(self):
-        self.assertEqual(self.release['version'], '0.1.3')
-        self.assertEqual(self.release['source_version'], '0.1.2')
+        self.assertEqual(self.release['version'], '0.1.4')
+        self.assertEqual(self.release['source_version'], '0.1.4')
 
     def test_crlf_and_undeclared_source_change_are_rejected(self):
         project = self.root / 'project'
@@ -50,11 +50,11 @@ class CardCoreReleaseTests(unittest.TestCase):
                 builder.verify_sources()
 
     def wheel(self, changes=None):
-        info = 'lerne_card_core-0.1.3.dist-info/'
+        info = f"lerne_card_core-{self.release['version']}.dist-info/"
         members = {'lerne_card_core/' + name: (builder.PROJECT / 'lerne_card_core' / name).read_bytes()
                    for name in self.release['files']}
         members['lerne_card_core/provenance.json'] = (builder.PROJECT / 'provenance.json').read_bytes()
-        members[info + 'METADATA'] = b'Name: lerne-card-core\nVersion: 0.1.3\n'
+        members[info + 'METADATA'] = f"Name: lerne-card-core\nVersion: {self.release['version']}\n".encode()
         members[info + 'WHEEL'] = b'Wheel-Version: 1.0\n'
         members[info + 'top_level.txt'] = b'lerne_card_core\n'
         members[info + 'RECORD'] = b''
@@ -80,7 +80,7 @@ class CardCoreReleaseTests(unittest.TestCase):
         original = path.read_bytes()
         builder.canonical_wheel(path, 1700000000)
         self.assertEqual(path.read_bytes(), original)
-        path = self.wheel({'lerne_card_core-0.1.3.dist-info/top_level.txt': b'lerne_card_core\r\n'})
+        path = self.wheel({f"lerne_card_core-{self.release['version']}.dist-info/top_level.txt": b'lerne_card_core\r\n'})
         self.assertEqual(path.read_bytes(), original)
 
     def test_record_tampering_is_rejected(self):
