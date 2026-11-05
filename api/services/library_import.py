@@ -33,6 +33,7 @@ def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
     # transaction as the card writes. Batch imports commit one deck at a time.
     with tma_db.atomic():
         from .collaborative_service import _require_can_mutate
+        from .structured_card_api import require_legacy_decks
         logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}, force_trash={force_trash}")
 
         ext_deck = Deck.get_by_id(external_deck_id)
@@ -63,6 +64,7 @@ def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
                     }
                 else:
                     _require_can_mutate(user_id, 'deck', deleted_deck.id, allow_deleted=True)
+                    require_legacy_decks([deleted_deck.id])
                     logger.info(f"PURGING TRASH DECK {deleted_deck.id} for user {user_id} before re-importing")
                     card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == deleted_deck.id)]
                     if card_ids:
@@ -84,6 +86,7 @@ def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
                 }
             )
             _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
+            require_legacy_decks([local_deck.id])
             if not created and local_deck.is_deleted:
                 local_deck.is_deleted = False
                 local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
@@ -111,6 +114,7 @@ def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
                 )
 
             _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
+            require_legacy_decks([local_deck.id])
             if local_deck.is_deleted:
                 local_deck.is_deleted = False
             local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
@@ -145,6 +149,7 @@ def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
 
             logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' (id={local_deck.id}) for user {user_id}")
             _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
+            require_legacy_decks([local_deck.id])
 
             # If the local deck was previously soft-deleted, un-delete it
             if local_deck.is_deleted:

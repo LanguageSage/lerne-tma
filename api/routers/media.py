@@ -200,6 +200,8 @@ def _prepare_card_audio_request(card_id, side, data, user_id):
     if not can_edit_audio(user_id, 'deck', card.deck_id):
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
+    if card.content_v2 is not None:
+        raise HTTPException(409, {'code': 'native_audio_generation_unavailable'})
     card_source_text = card.front_text if side == 'front' else card.back_text
     field = 'audio_back_path' if side == 'back' else 'audio_path'
     previous_path = getattr(card, field)

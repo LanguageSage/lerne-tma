@@ -31,6 +31,8 @@ def _digest(value):
 
 
 def _content(card):
+    if getattr(card, 'content_v2', None) is not None:
+        raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})
     cefr = get_cefr_metadata(card.metadata) or {}
     # Match the existing study/API level projection; technical classifier fields do not matter.
     level = cefr.get('level') if cefr.get('level') in LEVELS else next(

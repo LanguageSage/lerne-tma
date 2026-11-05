@@ -224,7 +224,9 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Хранилище использует прежний ID карточки и существующие связи. Граница
   legacy-строк, транзакции и план cutover описаны в
   [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-2-postgresql-и-граница-хранения).
-  Рабочие роуты пока не вызывают нативное хранилище.
+  Маршруты карточек, выдача для изучения и копирование колод подключены
+  через `api/services/structured_card_api.py`. Формат HTTP, ревизии и
+  границы cutover описаны в разделе «Этап 3» того же документа.
 
 ## Structured Cards V2 (Authoring → DSL) и единый шлюз записи контента
 

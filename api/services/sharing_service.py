@@ -125,6 +125,8 @@ class SharingService:
         """Batch clones a list of cards into target_deck in a single optimized SQL statement."""
         cards_to_create = []
         for idx, card in enumerate(source_cards):
+            if card.content_v2 is not None:
+                raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})
             if existing_pairs and (card.front_text, card.back_text) in existing_pairs:
                 continue
 
@@ -223,7 +225,8 @@ class SharingService:
         from api.services.decks import ensure_inbox_deck
         from api.services.folders import ensure_inbox_folder
         from api.services.collaborative_service import _require_can_mutate
-        
+        from api.services.structured_card_api import require_legacy_decks
+
         with tma_db.atomic():
             now = datetime.datetime.now()
             if share_id.startswith("d_"):
@@ -256,6 +259,10 @@ class SharingService:
                 target_deck = None
                 if existing_deck and resolution in ('replace', 'merge'):
                     _require_can_mutate(user_id, 'deck', existing_deck.id)
+                guarded_decks = [source_deck.id]
+                if existing_deck and resolution in ('replace', 'merge'):
+                    guarded_decks.append(existing_deck.id)
+                require_legacy_decks(guarded_decks)
                 if resolution == 'replace' and existing_deck:
                     # Delete existing cards in the target deck
                     TMA_Card.update(is_deleted=True).where(TMA_Card.deck_id == existing_deck.id).execute()
@@ -355,6 +362,7 @@ class SharingService:
                     if old_deck_ids:
                         for deck_id in old_deck_ids:
                             _require_can_mutate(user_id, 'deck', deck_id)
+                        require_legacy_decks(old_deck_ids)
                         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id << old_deck_ids).execute()
                         TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id << old_deck_ids).execute()
                 elif resolution == 'merge' and existing_folder:
@@ -398,6 +406,7 @@ class SharingService:
                             )
                             decks_added += 1
                         _require_can_mutate(user_id, 'deck', dest_deck.id)
+                        require_legacy_decks([s_deck.id, dest_deck.id])
                         
                         existing_pairs = set(
                             (c.front_text or "", c.back_text or "")
@@ -466,6 +475,9 @@ class SharingService:
                 card_lang = card_lang.lower().strip()
                 inbox = ensure_inbox_deck(user_id, target_language=card_lang)
                 _require_can_mutate(user_id, 'deck', inbox.id)
+                if source_card.content_v2 is not None:
+                    raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})
+                require_legacy_decks([inbox.id])
 
                 # Check if card exists anywhere in user's decks
                 existing_card = (TMA_Card

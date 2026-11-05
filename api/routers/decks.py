@@ -3,6 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 import logging
 
 from api import services
+from api.services import structured_card_api as native
 from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
@@ -58,21 +59,8 @@ def move_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
 
 @router.post("/{deck_id}/copy")
 @db_worker
-def copy_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
-    folder_id = data.get('folder_id')
-    if folder_id:
-        _require_can_mutate(user_id, 'folder', folder_id)
-    try:
-        copied = services.copy_deck_to_folder(deck_id, folder_id, user_id)
-        if copied:
-            return {"status": "success", "id": copied.id}
-        raise HTTPException(status_code=404, detail="Deck not found or access denied")
-    except HTTPException:
-        raise
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def copy_deck(deck_id: int, data: native.DeckCopy, user_id: int = Depends(get_user_id)):
+    return native.copy_deck(deck_id, data, user_id)
 
 @router.delete("/{deck_id}")
 @db_worker
@@ -111,12 +99,8 @@ def toggle_deck_learning(deck_id: int, data: dict = None, user_id: int = Depends
 
 @router.post("/import-json")
 @db_worker
-def import_json_deck(data: dict, user_id: int = Depends(get_user_id)):
-    logger.info(f"POST /api/decks/import-json - authenticated account: {user_id}")
-    result = services.import_deck_from_json(data, user_id)
-    if result:
-        return {"status": "success", "deck_id": result.id}
-    raise HTTPException(status_code=400, detail="Import failed: invalid data or empty deck")
+def import_json_deck(data: native.DeckImport | native.CodexImport, user_id: int = Depends(get_user_id)):
+    return native.import_deck(data, user_id)
 
 @router.post("/{deck_id}/reset")
 @db_worker
@@ -128,7 +112,7 @@ def reset_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 @router.get("/{deck_id}/cards")
 @db_worker(retry_reads=True)
 def get_deck_cards(deck_id: int, user_id: int = Depends(get_user_id)):
-    return services.get_cards_for_study(deck_id, user_id)
+    return services.get_cards_for_study(deck_id, user_id, native_only=True)
 
 
 @router.post("/{deck_id}/text-update/preview")

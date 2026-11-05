@@ -221,6 +221,7 @@ def verify(db):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, required=True)
+    parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
     args = parser.parse_args()
     binaries = args.bin_dir.resolve()
     suffix = '.exe' if os.name == 'nt' else ''
@@ -258,6 +259,9 @@ def main():
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port,
                                 user='cards_test', connect_timeout=5)
         try:
+            if args.http:
+                from structured_cards_http import verify as verify_http
+                return 0 if verify_http(db) else 1
             return 0 if verify(db) else 1
         finally:
             if not db.is_closed():

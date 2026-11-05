@@ -165,10 +165,8 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
         # Verify user can access this card (has at least viewer role on its deck)
         from .collaborative_service import get_effective_user_role
         deck = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id) if card.deck_id else None
-        if deck and deck.user_id != user_id:
-            role = get_effective_user_role(user_id, 'deck', card.deck_id)
-            if not role:
-                raise PermissionError("No access to this card")
+        if not deck or not get_effective_user_role(user_id, 'deck', card.deck_id):
+            raise PermissionError("No access to this card")
         # Write to TMAProgress (per-user), not to TMA_Card (canonical)
         progress, _ = TMAProgress.get_or_create(
             card_id=card_id,
@@ -177,7 +175,7 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
         )
         progress.flag = int(flag) if flag is not None else 0
         progress.updated_at = datetime.datetime.now()
-        progress.save()
+        progress.save(only=[TMAProgress.flag, TMAProgress.updated_at])
         return {'id': card_id, 'flag': progress.flag}
     except Exception as e:
         logger.error(f"Error setting card flag: {e}", exc_info=True)
@@ -289,6 +287,12 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "interval": interval
     }
 
+    if get_val('content_v2', 'content_v2') is not None:
+        from .structured_card_api import content_response
+        for field in ('front', 'back', 'context', 'card_type', 'tags', 'topics', 'level', 'metadata', 'cefr'):
+            del result[field]
+        result.update(content_response(c))
+
     if include_intervals:
         result["intervals"] = srs.get_next_intervals(p)
     else:
@@ -298,7 +302,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     return result
 
 
-def get_cards_for_study(deck_id: int, user_id: int):
+def get_cards_for_study(deck_id: int, user_id: int, *, native_only=False):
     """Возвращает список всех карточек в колоде. Оптимизировано: проекция полей без BLOB и исключение лишних проверок."""
     try:
         from .collaborative_service import get_effective_user_role
@@ -307,7 +311,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
         # Явная проекция колонок без загрузки тяжелого image_data BLOB и history
         cards_query = TMA_Card.select(
             TMA_Card.id,
-            TMA_Card.deck_id,
+            TMA_Card.deck.alias('deck_id'),
+            TMA_Card.content_v2,
+            TMA_Card.updated_at,
             TMA_Card.front_text,
             TMA_Card.back_text,
             TMA_Card.context,
@@ -328,6 +334,8 @@ def get_cards_for_study(deck_id: int, user_id: int):
             TMA_Card.is_deleted == False
         ).order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
 
+        if native_only:
+            cards_query = cards_query.where(TMA_Card.content_v2.is_null(False))
         cards = list(cards_query.dicts())
         
         if not cards:
@@ -378,12 +386,15 @@ def get_cards_for_study(deck_id: int, user_id: int):
         raise e
 
 
-def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False, review_context='scheduled'):
+def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False, review_context='scheduled', *, native_only=False):
     """Выбирает следующую карту для изучения (SRS). Оптимизировано: JOIN вместо 2 запросов."""
     try:
         now = datetime.datetime.now()
         exclude_ids = exclude_ids or []
         learn_more = learn_more or review_context == 'forced'
+        active_card = (TMA_Card.is_deleted == False)
+        if native_only:
+            active_card &= TMA_Card.content_v2.is_null(False)
         
         # Функция для поиска новой карты
         def get_new_card():
@@ -394,12 +405,12 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
             new_query = (TMA_Card.select()
                          .where(
                              TMA_Card.deck_id == deck_id,
-                             TMA_Card.is_deleted == False,
+                             active_card,
                              ~fn.EXISTS(subquery)
                          ))
             if exclude_ids:
                 new_query = new_query.where(~(TMA_Card.id << exclude_ids))
-            return new_query.first()
+            return new_query.order_by(TMA_Card.position, TMA_Card.id).first()
 
         # Функция для поиска карты на повторение (или раннее повторение при learn_more)
         def get_due_card():
@@ -409,7 +420,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                         .where(
                             TMAProgress.user_id == user_id,
                             TMA_Card.deck_id == deck_id,
-                            TMA_Card.is_deleted == False
+                            active_card
                         ))
             if not learn_more:
                 due_query = due_query.where(TMAProgress.next_review <= now)
@@ -434,7 +445,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                               .where(
                                   TMAProgress.user_id == user_id,
                                   TMA_Card.deck_id == deck_id,
-                                  TMA_Card.is_deleted == False,
+                                  active_card,
                                   TMAProgress.queue << ['learning', 'relearning'],
                                   TMAProgress.next_review <= end_of_day
                               ))
@@ -453,7 +464,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
         if learn_more:
             query = TMA_Card.select().where(
                 TMA_Card.deck_id == deck_id,
-                TMA_Card.is_deleted == False,
+                active_card,
             )
             if exclude_ids:
                 query = query.where(~(TMA_Card.id << exclude_ids))
@@ -485,6 +496,8 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
             
     except Exception as e:
         logger.error(f"Error in get_next_card: {e}")
+        if native_only:
+            raise
         return {"error": str(e)}, None
 
 
@@ -525,110 +538,34 @@ def format_card_for_study(card: TMA_Card, user_id: int, deck_obj = None, media_e
     return res
 
 
+def _native_duplicates(user_id):
+    scope = ((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False) &
+             (TMA_Card.is_deleted == False) & TMA_Card.content_v2.is_null(False))
+    keys = (TMA_Card.select(TMA_Card.content_v2).join(TMA_Deck).where(scope)
+            .group_by(TMA_Card.content_v2).having(fn.COUNT(TMA_Card.id) > 1))
+    return (TMA_Card.select(TMA_Card, TMA_Deck).join(TMA_Deck)
+            .where(scope, TMA_Card.content_v2.in_(keys)).order_by(TMA_Card.deck_id, TMA_Card.position, TMA_Card.id))
+
+
 def get_duplicate_cards(user_id: int):
-    """Находит карточки с одинаковым front_text у пользователя."""
-    try:
-        # 1. Находим тексты, которые встречаются больше одного раза
-        duplicate_texts_query = (TMA_Card
-                                .select(TMA_Card.front_text)
-                                .join(TMA_Deck)
-                                .where(TMA_Deck.user_id == user_id, TMA_Card.is_deleted == False)
-                                .group_by(TMA_Card.front_text)
-                                .having(fn.COUNT(TMA_Card.id) > 1))
-        
-        text_list = [c.front_text for c in duplicate_texts_query]
-        if not text_list:
-            return []
-            
-        # 2. Получаем все карточки с этими текстами
-        all_duplicates = (TMA_Card
-                         .select(
-                             TMA_Card.id,
-                             TMA_Card.front_text,
-                             TMA_Card.back_text,
-                             TMA_Card.context,
-                             TMA_Card.image_path,
-                             TMA_Card.audio_path,
-                             TMA_Card.audio_back_path,
-                             TMA_Card.video_front_path,
-                             TMA_Card.video_back_path,
-                             TMA_Card.deck_id,
-                             TMA_Deck.name.alias('deck_name')
-                         )
-                         .join(TMA_Deck, JOIN.LEFT_OUTER)
-                         .where(TMA_Deck.user_id == user_id, TMA_Card.front_text << text_list, TMA_Card.is_deleted == False)
-                         .order_by(TMA_Card.front_text)
-                         .dicts())
-        
-        result = []
-        duplicate_ids = [c['id'] for c in all_duplicates]
-        flags = {p.card_id: p.flag for p in TMAProgress.select(TMAProgress.card_id, TMAProgress.flag).where(
-            (TMAProgress.user_id == user_id) & (TMAProgress.card_id.in_(duplicate_ids))
-        )}
-        for c in all_duplicates:
-            result.append({
-                "id": c.get('id'),
-                "front": c.get('front_text'),
-                "back": c.get('back_text'),
-                "context": c.get('context'),
-                "image_path": c.get('image_path'),
-                "audio_path": c.get('audio_path'),
-                "audio_back_path": c.get('audio_back_path'),
-                "video_front_path": c.get('video_front_path'),
-                "video_back_path": c.get('video_back_path'),
-                "flag": flags.get(c['id'], 0),
-                "deck_id": c.get('deck_id'),
-                "deck_name": c.get('deck_name') or "Без колоды"
-            })
-        return result
-    except Exception as e:
-        logger.error(f"Error in get_duplicate_cards: {e}", exc_info=True)
-        raise e
+    cards = list(_native_duplicates(user_id))
+    flags = {progress.card_id: progress.flag for progress in TMAProgress.select(
+        TMAProgress.card_id, TMAProgress.flag).where(
+            TMAProgress.user_id == user_id, TMAProgress.card_id.in_([card.id for card in cards]))}
+    return [{**_build_card_dict(card, p={'flag': flags.get(card.id, 0)}), 'deck_name': card.deck.name}
+            for card in cards]
 
 
 def get_next_duplicate_card(user_id: int, exclude_ids: list = None):
-    """Выбирает следующую карточку-дубликат для изучения."""
-    try:
-        exclude_ids = exclude_ids or []
-        
-        # 1. Находим тексты дубликатов
-        duplicate_texts_query = (TMA_Card
-                                .select(TMA_Card.front_text)
-                                .join(TMA_Deck)
-                                .where(TMA_Deck.user_id == user_id, TMA_Card.is_deleted == False)
-                                .group_by(TMA_Card.front_text)
-                                .having(fn.COUNT(TMA_Card.id) > 1))
-        
-        text_list = [c.front_text for c in duplicate_texts_query]
-        if not text_list:
-            return None, None
-            
-        # 2. Получаем карточку из этого списка, которой нет в exclude_ids
-        query = (TMA_Card
-                .select(TMA_Card, TMA_Deck)
-                .join(TMA_Deck)
-                .where(
-                    TMA_Deck.user_id == user_id, 
-                    TMA_Card.front_text << text_list, 
-                    TMA_Card.is_deleted == False
-                ))
-        
-        if exclude_ids:
-            query = query.where(~(TMA_Card.id << exclude_ids))
-            
-        card = query.first()
-        if not card:
-            return None, None
-            
-        progress, _ = TMAProgress.get_or_create(
-            card_id=card.id,
-            user_id=user_id,
-            defaults={"queue": "new", "next_review": datetime.datetime.now()}
-        )
-        return card, progress
-    except Exception as e:
-        logger.error(f"Error in get_next_duplicate_card: {e}", exc_info=True)
-        raise e
+    query = _native_duplicates(user_id)
+    if exclude_ids:
+        query = query.where(TMA_Card.id.not_in(exclude_ids))
+    card = query.first()
+    if card is None:
+        return None, None
+    progress, _ = TMAProgress.get_or_create(card_id=card.id, user_id=user_id,
+        defaults={'queue': 'new', 'next_review': datetime.datetime.now()})
+    return card, progress
 
 
 def prepare_ai_batch(request_data: dict, user_id: int, import_id: str = None) -> dict:
@@ -811,7 +748,7 @@ def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, place
                     round((time.monotonic() - started) * 1000))
 
 
-def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:
+def get_deck_stats_counts(user_id: int, deck_id: int, *, native_only=False) -> dict:
     """Подсчитывает живое распределение карточек колоды: new, due (сегодня), learning, total."""
     try:
         now = datetime.datetime.now()
@@ -819,6 +756,9 @@ def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:
         learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
         due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
 
+        scope = (TMA_Card.deck_id == deck_id) & (TMA_Card.is_deleted == False)
+        if native_only:
+            scope &= TMA_Card.content_v2.is_null(False)
         row = (TMA_Card
                .select(
                    fn.COUNT(TMA_Card.id).alias('total'),
@@ -829,10 +769,7 @@ def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:
                .join(TMAProgress, JOIN.LEFT_OUTER, on=(
                    (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
                ))
-               .where(
-                   (TMA_Card.deck_id == deck_id) & 
-                   (TMA_Card.is_deleted == False)
-               )
+               .where(scope)
                .dicts()
                .first())
 
@@ -865,6 +802,15 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
     from .folders import get_active_folders
     from .decks import get_active_decks
     from ..models import TMA_Folder, TMA_Card
+    from .structured_card_api import content_response
+
+    def searchable(node):
+        if isinstance(node, str):
+            yield node
+        elif isinstance(node, (dict, list)):
+            values = node.values() if isinstance(node, dict) else node
+            for value in values:
+                yield from searchable(value)
 
     q = (query or '').strip()
     if not q:
@@ -898,14 +844,19 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
     matched_cards = []
     deck_card_ids = {}
     if deck_map:
-        cards_q = TMA_Card.select().where(TMA_Card.deck_id.in_(list(deck_map.keys())), TMA_Card.is_deleted == False)
+        cards_q = TMA_Card.select().where(TMA_Card.deck_id.in_(list(deck_map)), TMA_Card.is_deleted == False,
+                                          TMA_Card.content_v2.is_null(False)).order_by(
+                                              TMA_Card.deck_id, TMA_Card.position, TMA_Card.id)
         for c in cards_q:
-            if match_fn(c.front_text) or match_fn(c.back_text):
-                meta = parse_card_metadata(c.metadata) or {}
+            content = content_response(c)
+            card = content['content_v2']['card']
+            if any(match_fn(text) for field in ('data', 'info', 'explanation', 'topics')
+                   for text in searchable(card.get(field))):
                 if c.deck_id not in deck_card_ids:
                     deck_card_ids[c.deck_id] = [
                         item.id for item in TMA_Card.select(TMA_Card.id)
-                        .where(TMA_Card.deck_id == c.deck_id, TMA_Card.is_deleted == False)
+                        .where(TMA_Card.deck_id == c.deck_id, TMA_Card.is_deleted == False,
+                               TMA_Card.content_v2.is_null(False))
                         .order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
                     ]
                 card_ids_in_deck = deck_card_ids[c.deck_id]
@@ -916,10 +867,7 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
 
                 matched_cards.append({
                     "id": c.id,
-                    "front": c.front_text,
-                    "back": c.back_text,
-                    "context": c.context or '',
-                    "level": meta.get('cefr', {}).get('level') if isinstance(meta, dict) else None,
+                    **content,
                     "deck_id": c.deck_id,
                     "deck_name": deck_map[c.deck_id]['name'],
                     "folder_id": deck_map[c.deck_id].get('folder_id'),
@@ -927,7 +875,6 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
                     "card_number": card_num,
                     "total_cards": len(card_ids_in_deck),
                     "flag": 0,
-                    "card_type": getattr(c, 'card_type', 'standard')
                 })
                 if len(matched_cards) >= limit:
                     break

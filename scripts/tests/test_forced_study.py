@@ -50,6 +50,13 @@ class ForcedStudyTests(unittest.TestCase):
         self.assertEqual(cards.get_next_card(1, self.deck.id)[0].id, seen[0])
 
     def test_grade_route_uses_context_and_session_exclusions(self):
+        # The native route selects V2 rows. This SQLite fixture tests selection
+        # only; the HTTP/PostgreSQL suite covers actual JSONB serialization.
+        database.execute_sql('UPDATE tma_card SET content_v2 = ?, front_text = NULL, '
+                             'back_text = NULL, card_type = NULL WHERE deck_id = ?',
+                             (json.dumps({'schema_version': 2, 'card': {
+                                 'type': 'standard', 'data': {'prompt': 'p', 'answer': 'a'}}}), self.deck.id))
+
         def response(card, progress, user_id, review_context='scheduled'):
             return {'id': card.id, 'context': review_context}
         seen = [self.cards[0].id, self.cards[1].id]

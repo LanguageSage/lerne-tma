@@ -1,245 +1,97 @@
-from typing import Optional
-from uuid import UUID
-from fastapi import APIRouter, HTTPException, Depends, BackgroundTasks
-import logging
+"""Authenticated card routes backed by Structured Cards V2."""
+import re
+from typing import Annotated
+from fastapi import APIRouter, Depends, Header, HTTPException
 
 from api import services
-from api.dependencies.auth import get_user_id
 from api.db_workers import db_worker
-from api.services.collaborative_service import _require_cards_access
+from api.dependencies.auth import get_user_id
+from api.services import structured_card_api as native
 
-logger = logging.getLogger(__name__)
-
-router = APIRouter(
-    prefix="/cards",
-    tags=["cards"],
-)
+router = APIRouter(prefix="/cards", tags=["cards"])
 
 
 @router.post("/save")
 @db_worker
-def save_card(data: dict, background_tasks: BackgroundTasks, user_id: int = Depends(get_user_id)):
-    try:
-        from api import models
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user and user.is_guest:
-            raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация через Telegram.")
-        auto_generate = data.get('auto_generate_audio', True)
-        card = services.save_card({**data, '_defer_audio_invalidation': bool(auto_generate)}, user_id)
-        if card:
-            refresh_audio = getattr(card, '_refresh_front_audio', False)
-            if auto_generate and card.front_text and (not card.audio_path or refresh_audio):
-                background_tasks.add_task(_ensure_saved_card_audio, dict(card.__data__), user_id, force=refresh_audio)
-            # Сразу возвращаем полные данные для StudyView
-            return services.format_card_for_study(card, user_id)
-        raise HTTPException(status_code=400, detail="Could not save card. Check logs.")
-    except HTTPException:
-        raise
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        logger.error(f"Router save_card error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
-
-async def _ensure_saved_card_audio(card_data, user_id, *, force=False):
-    # Keep async TTS/Storage clients on their event loop; only DB preparation
-    # and persistence run in workers, each with its own connection scope.
-    await services.ensure_card_audio(card_data, user_id, force=force, _offload_db=True)
+def save_card(data: native.SaveCard, user_id: int = Depends(get_user_id)):
+    return native.save_card(data, user_id)
 
 
 @router.post("/bulk-save")
 @db_worker
-def bulk_save_cards(data: dict, user_id: int = Depends(get_user_id)):
-    try:
-        from api import models
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user and user.is_guest:
-            raise HTTPException(status_code=403, detail="Для создания карточек требуется авторизация.")
-        cards_list = data.get("cards", [])
-        if not cards_list:
-            raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        import_id = data.get('import_id')
-        if import_id is not None:
-            try:
-                import_id = str(UUID(str(import_id)))
-            except (ValueError, TypeError, AttributeError):
-                raise HTTPException(status_code=422, detail='Некорректный import_id')
-        placement = data.get('placement', 'end')
-        if placement not in ('start', 'end'):
-            raise HTTPException(status_code=422, detail='Некорректное положение импорта')
-        res = services.bulk_save_cards(cards_list, user_id, import_id=import_id, placement=placement)
-        if isinstance(res, dict):
-            return res
-        return {"status": "success", "count": len(res), "cards": res}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Router bulk_save error type=%s", type(e).__name__)
-        raise HTTPException(status_code=400, detail=str(e))
+def bulk_save_cards(data: native.BulkSave, user_id: int = Depends(get_user_id)):
+    return native.bulk_save(data, user_id)
 
 
 @router.post("/batch-move")
 @db_worker
-def batch_move_cards(data: dict, user_id: int = Depends(get_user_id)):
-    try:
-        from api import models
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user and user.is_guest:
-            raise HTTPException(status_code=403, detail="Для перемещения карточек требуется авторизация.")
-        card_ids = data.get("card_ids", [])
-        target_deck_id = data.get("target_deck_id")
-        on_duplicate = data.get("on_duplicate", "skip")
-        if not card_ids:
-            raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        if not target_deck_id:
-            raise HTTPException(status_code=400, detail="Не указана целевая колода.")
-        from api.services.collaborative_service import _require_can_mutate
-        _require_can_mutate(user_id, 'deck', int(target_deck_id))
-        _require_cards_access(card_ids, user_id)
-        return services.batch_move_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
-    except HTTPException:
-        raise
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        logger.error(f"Router batch_move_cards error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+def batch_move_cards(data: native.Transfer, user_id: int = Depends(get_user_id)):
+    return native.transfer_cards(data, user_id, move=True)
 
 
 @router.post("/batch-copy")
 @db_worker
-def batch_copy_cards(data: dict, user_id: int = Depends(get_user_id)):
-    try:
-        from api import models
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user and user.is_guest:
-            raise HTTPException(status_code=403, detail="Для копирования карточек требуется авторизация.")
-        card_ids = data.get("card_ids", [])
-        target_deck_id = data.get("target_deck_id")
-        on_duplicate = data.get("on_duplicate", "skip")
-        if not card_ids:
-            raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        if not target_deck_id:
-            raise HTTPException(status_code=400, detail="Не указана целевая колода.")
-        from api.services.collaborative_service import _require_can_mutate
-        _require_can_mutate(user_id, 'deck', int(target_deck_id))
-        _require_cards_access(card_ids, user_id, write=False)
-        return services.batch_copy_cards(card_ids, int(target_deck_id), user_id, on_duplicate=on_duplicate)
-    except HTTPException:
-        raise
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        logger.error(f"Router batch_copy_cards error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+def batch_copy_cards(data: native.Transfer, user_id: int = Depends(get_user_id)):
+    return native.transfer_cards(data, user_id, move=False)
 
 
 @router.post("/batch-delete")
 @db_worker
-def batch_delete_cards(data: dict, user_id: int = Depends(get_user_id)):
-    try:
-        from api import models
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user and user.is_guest:
-            raise HTTPException(status_code=403, detail="Для удаления карточек требуется авторизация.")
-        card_ids = data.get("card_ids", [])
-        if not card_ids:
-            raise HTTPException(status_code=400, detail="Список карточек пуст.")
-        _require_cards_access(card_ids, user_id)
-        return services.batch_delete_cards(card_ids, user_id)
-    except HTTPException:
-        raise
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        logger.error(f"Router batch_delete_cards error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+def batch_delete_cards(data: native.DeleteSelection, user_id: int = Depends(get_user_id)):
+    return native.change_selection(data, user_id, delete=True)
 
 
-@router.put("/{card_id}")
-@router.patch("/{card_id}")
+@router.post("/reorder")
 @db_worker
-def update_card(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
-    try:
-        from api import models
-        user = models.TMAUser.get_or_none(models.TMAUser.user_id == user_id)
-        if user and user.is_guest:
-            raise HTTPException(status_code=403, detail="Для создания и изменения карточек требуется авторизация.")
-        data_to_save = dict(data) if data else {}
-        data_to_save['id'] = card_id
-        card = services.save_card(data_to_save, user_id)
-        if card:
-            return services.format_card_for_study(card, user_id)
-        raise HTTPException(status_code=400, detail="Could not update card.")
-    except HTTPException:
-        raise
-    except PermissionError as e:
-        raise HTTPException(status_code=403, detail=str(e))
-    except Exception as e:
-        logger.error(f"Router update_card error: {e}")
-        raise HTTPException(status_code=400, detail=str(e))
+def reorder_cards(data: native.Selection, user_id: int = Depends(get_user_id)):
+    return native.change_selection(data, user_id, delete=False)
 
 
-@router.delete("/{card_id}")
-@db_worker
-def delete_card(card_id: int, user_id: int = Depends(get_user_id)):
-    _require_cards_access([card_id], user_id)
-    if services.delete_card(card_id, user_id):
-        return {"status": "success"}
-    raise HTTPException(status_code=404, detail="Card not found or access denied")
-
-@router.post("/{card_id}/flag")
-@db_worker
-def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
-    flag = data.get("flag", 0)
-    card = services.set_card_flag(card_id, user_id, flag)
-    if card:
-        return card
-    raise HTTPException(status_code=404, detail="Card not found")
-    
 @router.get("/duplicates")
 @db_worker(retry_reads=True)
 def get_duplicates(user_id: int = Depends(get_user_id)):
     return services.get_duplicate_cards(user_id)
 
 
-@router.post("/reorder")
-@db_worker
-def reorder_cards(data: dict, user_id: int = Depends(get_user_id)):
-    card_ids = data.get('card_ids', [])
-    try:
-        _require_cards_access(card_ids, user_id)
-        from api import models
-        with models.tma_db.atomic():
-            for idx, card_id in enumerate(card_ids):
-                models.TMA_Card.update(position=idx).where(models.TMA_Card.id == card_id).execute()
-        return {"status": "success"}
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Error reordering cards: {e}")
-        raise HTTPException(status_code=500, detail=str(e))
-
 @router.get("/search")
 @db_worker(retry_reads=True)
-def search_cards(
-    q: str = "",
-    folder_id: Optional[int] = None,
-    target_language: Optional[str] = "de",
-    limit: int = 60,
-    user_id: int = Depends(get_user_id)
-):
+def search_cards(q: str = "", folder_id: int | None = None, target_language: str = "de",
+                 limit: int = 60, user_id: int = Depends(get_user_id)):
+    return services.search_all_in_scope(user_id, q, folder_id, target_language, min(max(limit, 1), 200))
+
+
+@router.get("/{card_id}")
+@db_worker(retry_reads=True)
+def get_card(card_id: int, user_id: int = Depends(get_user_id)):
+    return native.get_card(card_id, user_id)
+
+
+@router.put("/{card_id}")
+@router.patch("/{card_id}")
+@db_worker
+def update_card(card_id: int, data: native.UpdateCard, user_id: int = Depends(get_user_id)):
+    return native.update_card(card_id, data, user_id)
+
+
+@router.delete("/{card_id}")
+@db_worker
+def delete_card(card_id: int, if_match: Annotated[str, Header()],
+                user_id: int = Depends(get_user_id)):
+    match = re.fullmatch(r'"([0-9a-f]{64})"', if_match)
+    if not match:
+        raise HTTPException(422, 'If-Match must be a quoted revision')
+    return native.delete_card(card_id, match[1], user_id)
+
+
+@router.post("/{card_id}/flag")
+@db_worker
+def set_flag(card_id: int, data: dict, user_id: int = Depends(get_user_id)):
     try:
-        return services.search_all_in_scope(
-            user_id=user_id,
-            query=q,
-            folder_id=folder_id,
-            target_language=target_language,
-            limit=limit
-        )
-    except Exception as e:
-        logger.error(f"Error in search_cards router: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-
+        card = services.set_card_flag(card_id, user_id, data.get("flag", 0))
+    except PermissionError as exc:
+        raise HTTPException(403, 'Access denied') from exc
+    except ValueError as exc:
+        raise HTTPException(404, 'Card not found') from exc
+    if card:
+        return card
+    raise HTTPException(404, 'Card not found')

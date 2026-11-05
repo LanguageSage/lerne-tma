@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 from api.services.collaborative_service import get_effective_user_role
+from api.services.structured_card_api import content_response, require_native
 
 try:
     from api import services, srs, models
@@ -68,22 +69,9 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
     ease_factor = getattr(progress, 'ease_factor', 2.5) or 2.5
     repetitions = getattr(progress, 'repetitions', 0) or 0
 
-    tags_val = getattr(card, 'tags', None)
-    level_label = None
-    if tags_val:
-        for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
-            if lvl in str(tags_val).upper():
-                level_label = lvl
-                break
-    # Audio is generated on demand by the client; Study responses must not wait for TTS.
-
     return {
         "id": card.id,
-        "front": card.front_text,
-        "back": card.back_text,
-        "context": card.context,
-        "tags": tags_val,
-        "level": level_label,
+        **content_response(card),
         "audio_url": services.resolve_media_url(card.audio_path, "audio"),
         "audio_back_url": services.resolve_media_url(card.audio_back_path, "audio"),
         "image_url": services.resolve_media_url(card.image_path, "images"),
@@ -106,7 +94,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
         "deck_id": card.deck_id,
         "deck_name": deck.name if deck else None,
         "deck_metadata": deck_metadata,
-        "deck_stats": services.get_deck_stats_counts(user_id, card.deck_id)
+        "deck_stats": services.get_deck_stats_counts(user_id, card.deck_id, native_only=True)
     }
 
 @router.get("/study/stats")
@@ -238,6 +226,7 @@ def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     _require_study_access(user_id, card.deck_id)
+    require_native(card)
 
     progress, _ = models.TMAProgress.get_or_create(
         card_id=card.id,
@@ -259,7 +248,7 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
 
     _require_study_access(user_id, deck_id)
     context = 'forced' if learn_more else review_context
-    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context)
+    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context, native_only=True)
     
     if isinstance(card, dict) and "error" in card:
         return card # Возвращаем ошибку для отладки
@@ -321,7 +310,7 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
         
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
         exclude = list(set([*data.exclude_ids, data.card_id])) if context == 'forced' else data.exclude_ids
-        card, progress = services.get_next_card(user_id, data.deck_id, exclude_ids=exclude, review_context=context)
+        card, progress = services.get_next_card(user_id, data.deck_id, exclude_ids=exclude, review_context=context, native_only=True)
         if isinstance(card, dict) and "error" in card:
             return card
         if not card:

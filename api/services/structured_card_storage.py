@@ -48,7 +48,7 @@ def _native_row(card_id):
     )
 
 
-def create_v2_card(value, *, deck_id: int, creator_id: int, position: int,
+def create_v2_card(value, *, deck_id: int, creator_id: int | None, position: int,
                    image_path: str | None = None) -> TMA_Card:
     """Insert validated V2 into an authorized deck at a caller-assigned position."""
     envelope = _encode_card(validate_card(value))
@@ -66,10 +66,13 @@ def read_v2_card(card_id: int) -> Card:
     row = TMA_Card.select(TMA_Card.content_v2).where(_native_row(card_id)).get_or_none()
     if row is None:
         raise V2CardNotFound(card_id)
-    envelope = row.content_v2
+    return decode_v2_content(row.content_v2)
+
+
+def decode_v2_content(envelope) -> Card:
     if (not isinstance(envelope, dict) or envelope.keys() != {'schema_version', 'card'}
             or type(envelope['schema_version']) is not int or envelope['schema_version'] != 2):
-        raise ValueError(f'Card {card_id}: invalid stored Structured Cards V2 envelope')
+        raise ValueError('Invalid stored Structured Cards V2 envelope')
     return validate_card(envelope['card'])
 
 

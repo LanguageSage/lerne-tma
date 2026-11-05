@@ -109,13 +109,15 @@ def push_offline(request, user_id: int) -> dict:
                 values = {field: raw[field] for field in FIELDS[name] if field in raw}
                 lookup_fields = (model.id, model.deck_id) if name == 'cards' else (model.id,)
                 if name == 'cards':
-                    lookup_fields = (*lookup_fields, model.audio_path, model.audio_back_path)
+                    lookup_fields = (*lookup_fields, model.audio_path, model.audio_back_path, model.content_v2)
                 existing = model.select(*lookup_fields).where(model.id == item.id).first() if item.id > 0 else None
                 if item.id >= 0 and existing is None:
                     raise HTTPException(409, 'Запись удалена на сервере. Локальные изменения сохранены.')
                 if existing:
                     if name == 'cards':
                         require_access(user_id, 'deck', existing.deck_id)
+                        if existing.content_v2 is not None:
+                            raise HTTPException(409, {'code': 'native_card_requires_v2_sync'})
                     else:
                         require_access(user_id, name[:-1], existing.id)
 
@@ -235,7 +237,10 @@ def pull_offline(user_id: int) -> dict:
     deck_ids.update(d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id))
     folders = list(models.TMA_Folder.select(*(getattr(models.TMA_Folder, f) for f in PULL_FIELDS['folders'])).where(models.TMA_Folder.id.in_(folder_ids)))
     decks = list(models.TMA_Deck.select(*(getattr(models.TMA_Deck, f) for f in PULL_FIELDS['decks'])).where(models.TMA_Deck.id.in_(deck_ids)))
-    cards = list(models.TMA_Card.select(*(getattr(models.TMA_Card, f) for f in PULL_FIELDS['cards'])).where(models.TMA_Card.deck_id.in_(deck_ids)))
+    cards = list(models.TMA_Card.select(models.TMA_Card.content_v2,
+        *(getattr(models.TMA_Card, f) for f in PULL_FIELDS['cards'])).where(models.TMA_Card.deck_id.in_(deck_ids)))
+    if any(card.content_v2 is not None for card in cards):
+        raise HTTPException(409, {'code': 'native_card_requires_v2_sync'})
     progress = list(models.TMAProgress.select(*(getattr(models.TMAProgress, f) for f in PULL_FIELDS['progress'])).where(
         (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
     roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders, folder_map=folder_map)

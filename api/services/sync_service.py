@@ -75,7 +75,7 @@ def execute_sync_push(request, user_id: int) -> dict:
 
     try:
         existing_card_ids = [c.id for c in request.cards if c.id > 0]
-        existing_cards = {c.id: c for c in models.TMA_Card.select(*CARD_PUSH_FIELDS).where(
+        existing_cards = {c.id: c for c in models.TMA_Card.select(*CARD_PUSH_FIELDS, models.TMA_Card.content_v2).where(
             models.TMA_Card.id.in_(existing_card_ids))} if existing_card_ids else {}
         # Validate the whole legacy batch before applying any canonical writes.
         from api.services.collaborative_service import get_effective_user_role
@@ -99,6 +99,8 @@ def execute_sync_push(request, user_id: int) -> dict:
                 if not existing_card:
                     raise HTTPException(status_code=409, detail="Карточка удалена на сервере")
                 require_write('deck', existing_card.deck_id)
+                if existing_card.content_v2 is not None:
+                    raise HTTPException(409, {'code': 'native_card_requires_v2_sync'})
 
         with models.tma_db.atomic():
             # Preload existing entities to eliminate N+1 queries during bulk sync
@@ -360,10 +362,12 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
         )
 
         user_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id)
-        cards = models.TMA_Card.select(*CARD_PULL_FIELDS).where(
+        cards = list(models.TMA_Card.select(*CARD_PULL_FIELDS, models.TMA_Card.content_v2).where(
             (models.TMA_Card.deck_id << user_decks) &
             (models.TMA_Card.updated_at > since_dt)
-        )
+        ))
+        if any(card.content_v2 is not None for card in cards):
+            raise HTTPException(409, {'code': 'native_card_requires_v2_sync'})
 
         progress = models.TMAProgress.select(*PROGRESS_PULL_FIELDS).where(
             (models.TMAProgress.user_id == user_id) &
@@ -451,6 +455,8 @@ def execute_sync_pull(since: Optional[str], user_id: int) -> dict:
             "progress": progress_data,
             "server_time": datetime.datetime.now().isoformat()
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Sync Pull Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Failed to fetch updates from database: {str(e)}")
@@ -536,11 +542,14 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
         cards_data = []
         if accessible_deck_ids:
             changed_cards = models.TMA_Card.select(
+                models.TMA_Card.content_v2,
                 *(field for field in CARD_PULL_FIELDS if field is not models.TMA_Card.created_at)).where(
                 (models.TMA_Card.deck_id << list(accessible_deck_ids)) &
                 (models.TMA_Card.updated_at > since_dt)
             )
             for c in changed_cards:
+                if c.content_v2 is not None:
+                    raise HTTPException(409, {'code': 'native_card_requires_v2_sync'})
                 has_changes = True
                 cards_data.append({
                     "id": c.id,
@@ -566,6 +575,8 @@ def execute_collab_pull(since: Optional[str], user_id: int) -> dict:
             "server_time": datetime.datetime.utcnow().isoformat() + "Z"
         }
 
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Collab Pull Error: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail=f"Collaborative sync failed: {str(e)}")
