@@ -16,6 +16,7 @@
 | Колода, папка, порядок, видимость, язык обучения, кнопка «Учить» | Decks / folders | [decks](subsystems/decks.md) |
 | Sharing, библиотека, library_import, импорт JSON, корзина, soft delete | Decks: imports / lifecycle | [decks](subsystems/decks.md) |
 | Co-op, collaborator, совместный доступ | Decks: permissions | [decks](subsystems/decks.md) |
+| Game Mode, Frau Müller, голосовой диалог | Study: Game Mode | [study](subsystems/study.md#game-mode-v2-frau-müller) |
 | SRS, SM-2, интервалы, оценка, queue, next_review | Study / SRS | [study](subsystems/study.md) |
 | Личная заметка, предложение по карточке, ответ администратора, бирюзовая точка | Cards: annotations | [cards](subsystems/cards.md) |
 | StudyFinished, StudyError, forced review, «Учить ещё», следующая колода | Study: navigation | [study](subsystems/study.md) |

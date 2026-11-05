@@ -8,16 +8,13 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAudio } from '../../hooks/useAudio';
-import { parseClozeData, cleanBracketSyntax } from '../../utils/clozeParser';
-import { stripMarkdown } from '../../utils/text';
+import { parseClozeData } from '../../utils/clozeParser';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 
 import { CardBackground } from '../common/CardBackground';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
-import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
-import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
 import { TrainerFinished } from './TrainerFinished.jsx';
 import { navigateUp } from '../../utils/navigation';
@@ -135,7 +132,6 @@ export const TrainerView = () => {
   };
 
   const v2Styles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
-  const cardStyle = v2Styles.referenceText;
   const backCardStyle = v2Styles.backText;
   const contextStyle = v2Styles.contextText;
 
@@ -323,24 +319,6 @@ export const TrainerView = () => {
                   }}
                 >
                   <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={currentCard.id} />
-                  {/* Top full original phrase */}
-                  <div style={{ marginBottom: '16px', textAlign: 'center' }}>
-                    {(() => {
-                      const parsed = parseExerciseContent(currentCard.front || '');
-                      const blocks = parsed.blocks || [];
-                      const exIdx = blocks.findIndex(b => b.type === 'exercise');
-                      const top = exIdx !== -1 ? blocks.slice(0, exIdx) : blocks;
-                      return (
-                        <>
-                          {top.length > 0 && <ExerciseInfoBlocks blocks={top} />}
-                          <div style={{ fontSize: '1.25rem', fontWeight: 700, color: '#f1f5f9', whiteSpace: 'pre-wrap', ...cardStyle }}>
-                            {cleanBracketSyntax(stripMarkdown(parsed.exercise))}
-                          </div>
-                        </>
-                      );
-                    })()}
-                  </div>
-
                   {/* Translation or Exercise Answer */}
                   <div style={{
                     padding: '12px 16px',

@@ -87,7 +87,7 @@ input:checked + .slider:before {
 }
 
 /* Card Elements */
-.text-front, .text-back, .text-context, .text-front-mini { 
+.text-front, .text-back, .text-context {
   font-size: inherit; 
   color: inherit; 
   font-weight: 600; 

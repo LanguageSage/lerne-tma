@@ -132,7 +132,6 @@ export const getDesignStylesFromV2 = (designConfig) => {
     frontText: getDesignTextStyle(front?.mainText),
     backText: getDesignTextStyle(back?.answerText),
     contextText: getDesignTextStyle(back?.context, contextColor),
-    referenceText: getDesignTextStyle(back?.referenceText),
     matchRightText: getDesignTextStyle(getMatchRightTypography(config)),
   };
 };

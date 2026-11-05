@@ -14,7 +14,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "dark_obsidian" },
-        referenceText: { font: "Inter", size: 1.8, color: "#ffffff", align: "center", shadow: "none" },
         answerText: { size: 1.8, weight: "700", lineHeight: 1.35, color: "#ffffff" },
         context: { size: 1.35, color: "#94a3b8", shadow: "none" }
       },
@@ -47,7 +46,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "dark_minimal" },
-        referenceText: { font: "Inter", size: 1.75, weight: "600", color: "#f8fafc", align: "center", shadow: "none" },
         answerText: { size: 1.75, weight: "600", lineHeight: 1.35, color: "#f8fafc" },
         context: { size: 1.3, color: "#cbd5e1", shadow: "none" }
       },
@@ -80,7 +78,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "dark_midnight" },
-        referenceText: { font: "Outfit", size: 1.8, color: "#ffffff", align: "center" },
         answerText: { font: "Outfit", size: 1.8, weight: "700", lineHeight: 1.35, color: "#ffffff", shadow: "glow" },
         context: { size: 1.35, color: "#93c5fd", shadow: "none" }
       },
@@ -113,7 +110,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "dark_emerald" },
-        referenceText: { font: "Outfit", size: 1.8, color: "#ffffff", align: "center", shadow: "none" },
         answerText: { font: "Outfit", size: 1.8, weight: "700", lineHeight: 1.35, color: "#ffffff" },
         context: { size: 1.35, color: "#86efac", shadow: "none" }
       },
@@ -175,7 +171,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "liquid_cosmic" },
-        referenceText: { font: "Outfit", size: 1.8, color: "#ffffff", align: "center" },
         answerText: { font: "Outfit", size: 1.8, weight: "700", lineHeight: 1.35, color: "#ffffff", shadow: "glow" },
         context: { size: 1.35, color: "#cbd5e1", shadow: "none" }
       },
@@ -208,7 +203,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "aurora" },
-        referenceText: { font: "Outfit", size: 1.8, color: "#ffffff" },
         answerText: { font: "Outfit", size: 1.8, weight: "700", lineHeight: 1.35, shadow: "glow" },
         context: { size: 1.1, color: "#ffffff", shadow: "shadow" }
       },
@@ -241,7 +235,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "liquid_morning" },
-        referenceText: { font: "Inter", size: 1.8, color: "#5d0e0e", shadow: "glass" },
         answerText: { size: 1.8, weight: "700", lineHeight: 1.35, shadow: "glass" },
         context: { size: 1.35, color: "#30172e", shadow: "outline" }
       },
@@ -274,7 +267,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "holographic" },
-        referenceText: { font: "Roboto", size: 1.9, weight: "600", color: "#00ffff" },
         answerText: { font: "Roboto", size: 1.9, weight: "600", lineHeight: 1.35, shadow: "glow" },
         context: { font: "Roboto", size: 1.2, style: "italic", color: "#57d6ce" }
       },
@@ -307,7 +299,6 @@ export const DESIGN_PRESETS = [
       },
       back: {
         card: { background: "liquid_ocean" },
-        referenceText: { font: "Playfair Display", size: 1.8, color: "#ffffff", shadow: "shadow" },
         answerText: { font: "Playfair Display", size: 1.8, weight: "700", lineHeight: 1.35, shadow: "shadow" },
         context: { size: 1.1, color: "#94a3b8", shadow: "none" }
       },

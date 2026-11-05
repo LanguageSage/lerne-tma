@@ -14,6 +14,7 @@ from unittest.mock import patch
 
 ROOT = Path(__file__).resolve().parents[1]
 SUITES = (
+    'tests/test_game_v2_api.py',
     'scripts/tests/test_personal_design_migration.py',
     'scripts/tests/test_card_notes.py',
     'scripts/tests/test_card_ratings.py',
@@ -25,6 +26,7 @@ SUITES = (
     'scripts/tests/test_structured_cards_v2.py',
     'scripts/tests/test_admin_interop_boundary.py',
     'scripts/tests/test_local_dev.py',
+    'scripts/tests/test_cloud_dev.py',
     'scripts/tests/test_test_isolation.py',
     'scripts/tests/test_media_storage_migration.py',
     'scripts/tests/test_audio_force_regeneration.py',

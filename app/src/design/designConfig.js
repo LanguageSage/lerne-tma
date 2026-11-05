@@ -188,22 +188,6 @@ export const DEFAULT_DESIGN_CONFIG_V2 = {
       padding: '12px 8px 16px',
       shadow: 'none',
     },
-    /** Мини-текст вопроса/исходной фразы вверху обратной стороны */
-    referenceText: {
-      font: 'Comfortaa',
-      size: 1.7,
-      weight: '700',
-      style: 'normal',
-      color: '#fde047',
-      align: 'left',
-      shadow: 'glow',
-    },
-    /** Разделитель между вопросом и ответом */
-    separator: {
-      color: 'rgba(168, 85, 247, 0.45)',
-      opacity: 1,
-      width: '1px',
-    },
     /** Основной ответ / перевод */
     answerText: {
       font: 'Inter',

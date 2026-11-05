@@ -104,6 +104,8 @@ changing stored card types or rewriting valid FRONT text does not fix an old UI.
 
 `MarkdownRenderer` (`components/common/`) отображает только сохранённые `back`/`context`: ответ и контекст StudyCard, перевод Puzzle/Trainer, пример Free Text (back либо context) и ответ/контекст TrainerView. В reverse Markdown следует за физическим `back`; физический `front` сохраняет прежнее отображение. Перевод Trainer выводится целым блоком под заданием, чтобы сохранять таблицы, списки и абзацы; разбор и оценка упражнений не меняются. Стили наследуются от существующих контейнеров, прокрутка таблиц ограничена самим полем (включая flex-контейнер перевода Puzzle). Проверки: `scripts/tests/browser/card-markdown.spec.cjs` и существующие feedback suites.
 
+После переворота StudyCard показывает ответ и его аудио, контекст и связанные с карточкой материалы. В Quiz вопрос и варианты остаются на стороне задания. Для обычных карточек режим «Наоборот» меняет местами ответ и задание через роли из `studyCardRoles.js`. Интерактивные упражнения по-прежнему берут задание из сохранённого `front`, а ответ из `back`. TrainerView и предпросмотр обратной стороны используют тот же принцип. Design V2 при чтении прежних настроек пропускает удалённые `back.referenceText` и `back.separator`. Проверка: `scripts/tests/browser/design-runtime-v2.spec.cjs`.
+
 `StudyCard.jsx` renders one non-floating footer after either card side: a static CEFR badge, the existing exercise/flip controls and `CardActionButton` in the former Info slot. Below the bottom bar, `CardRating.jsx` provides a right-aligned like/dislike pill available before and after reveal; tapping dislike opens a non-modal reason selector and text improvement prompt reusing `/api/messages`. The previous swipe/keyboard hint is accessible in `CardActionModal`. `CardActionModal` ends with Notes and suggestions, then Card information. Its Info mode reuses `StudyCardInfo.jsx`: author, language, deck, CEFR explanation, source and dates, including no-data text and the existing coauthor placeholder. Modal modes retain keyboard focus, Escape closes and restores the trigger. Geometry, locales, free-text reveal guards and exercise controls: `scripts/tests/browser/study-card-info.spec.cjs`, `scripts/tests/browser/card-rating.spec.cjs`.
 
 Notes use `CardNotesPanel.jsx`, `useCardNotes.js`, and account-scoped Dexie `card_notes`, separately from exercise/session state. Personal notes support CRUD; submitted suggestions expose status and one moderator response. Drafts survive switching modes. The turquoise indicator is steady for personal notes and open suggestions; an unseen moderation revision pulses every 3s, with a static reduced-motion fallback. A closed suggestion leaves the indicator after its response/status is viewed. Only the selected mode acknowledges displayed revisions. No administrator queue indicators enter the learner UI. Checks: `scripts/tests/browser/card-notes.spec.cjs` (offline/reload, replies/read receipts, 320/375/430/768/1280px, keyboard and EN/RU).
@@ -254,3 +256,27 @@ CI fixtures: `tests/fixtures/`, только вымышленные данные
 Регрессии конкурентности, thread-local соединений, rollback, permissions,
 forced selection, TTS и retry: `scripts/tests/test_db_workers.py`. Прежние
 тесты с in-memory SQLite проверяют синхронные тела через `__wrapped__`.
+
+
+## Game Mode V2: Frau Müller
+
+DeckGridHeader opens `game` in App through the existing authenticated entry.
+`GameModeV2.jsx` / `gameV2Controller.js` preserve the local V2 dialogue and avatar.
+The existing speech hook recognizes German; 1500 ms without transcript changes sends
+an active listening turn. Pause, manual Finish and End cancel that timer. Replies and
+the initial greeting use the authenticated `/media/generate-audio` API; failed TTS
+returns control to text/microphone, stalled playback has a 60-second watchdog.
+
+`api/routers/game_v2.py` requires the existing Bearer user on every route. Sessions
+use namespaced `game-v2:<user>:<uuid>` records in TMAOfflineBatch, so cold starts do
+not lose active conversations. No migrations or independent accounts/infrastructure.
+All session DB phases use run_db and routes use db_phases; configured_ai loads its
+settings in a worker and network waits hold no database connection. Updates compare
+the previous serialized session to prevent a delayed turn reopening a closed session.
+AI uses the configured Lerne model with a 25-second deadline and no nested retries.
+Game state never updates cards, SRS or Knowledge.
+
+Checks: `tests/test_game_v2_api.py` (default disposable SQLite; optional
+GAME_TEST_DATABASE/GAME_TEST_PASSWORD uses loopback PostgreSQL and real HTTP),
+controller tests and `scripts/tests/browser/game-v2.spec.cjs` (simulated voice/AI).
+Physical-device microphone permissions, recognition accuracy and autoplay need manual QA.

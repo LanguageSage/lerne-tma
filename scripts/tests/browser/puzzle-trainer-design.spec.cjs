@@ -11,7 +11,7 @@ const puzzleStates = { ...palette(5, ['item', 'selected', 'correct', 'wrong']),
 const design = { schemaVersion: 2,
   front: { mainText: { font: 'monospace', size: 1, weight: '500', style: 'italic', color: '#aabbcc', lineHeight: 1.65, align: 'right' } },
   back: { answerText: { font: 'serif', size: 1.2, color: '#cceeaa', weight: '600', align: 'right' },
-    referenceText: { font: 'monospace', size: 1, color: '#ddeebb' }, context: { font: 'serif', color: '#ccddee' } },
+    context: { font: 'serif', color: '#ccddee' } },
   exercises: { clozeGap, puzzle: puzzleStates,
     gapDropdown: { font: 'monospace', size: 1.1, bg: '#172839', borderColor: '#abcdef',
       item: { color: '#bbccdd', bg: '#273849', borderColor: '#445566' }, selected: { color: '#ffeecc', bg: '#374859', borderColor: '#998877' } },
@@ -24,6 +24,8 @@ async function setup(page, context, card, config = design) {
   await context.addInitScript(() => {
     localStorage.setItem('native_language', 'ru'); localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true'); localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-test', refresh_token: 'isolated-test' }));
   });
   const writes = [], errors = [];
   page.on('pageerror', error => errors.push(error.message));
@@ -32,6 +34,7 @@ async function setup(page, context, card, config = design) {
     if (route.request().method() !== 'GET') writes.push(path);
     if (path === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {}, is_admin: true,
       user_info: { user_id: 1, is_guest: false }, ...(config ? { global_design_v2: { config, revision: 1 } } : {}) } });
+    if (path === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (path === '/api/messages' || path === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (path === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (path === `/api/study/card/${card.id}` || path === '/api/decks/1/next') return route.fulfill({ json: card });

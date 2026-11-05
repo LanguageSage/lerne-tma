@@ -1,7 +1,7 @@
 import { useEffect, useLayoutEffect, useRef } from 'react';
 
 const interactive = 'button, a, input, textarea, select, label, [contenteditable]:not([contenteditable="false"]), [draggable="true"], [role="button"], [role="textbox"], [role="listbox"], [role="slider"], [data-study-gesture-ignore], .interactive-mode-container, .study-card-footer, .card-image-wrapper';
-const content = '.text-front, .text-back, .text-front-mini, .text-context, .karaoke-text, p, span, h1, h2, h3, h4, pre, code, table, img, svg, audio, video';
+const content = '.text-front, .text-back, .text-context, .karaoke-text, p, span, h1, h2, h3, h4, pre, code, table, img, svg, audio, video';
 const overlays = '[aria-modal="true"], dialog[open], .modal-overlay, .settings-overlay, .image-picker-overlay, .camera-overlay, .tutorial-overlay, .gap-dropdown-backdrop';
 const hasSelection = () => Boolean(window.getSelection()?.toString());
 const isBlocked = target => target instanceof Element && Boolean(target.closest(interactive));

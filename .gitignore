@@ -218,3 +218,6 @@ playwright-report/
 # Code in local/ is versioned; accidental runtime artifacts or worktrees are not.
 /local/*/
 !/local/compose.yaml
+
+# Machine-specific launcher shortcuts are generated on the Desktop.
+/*.lnk
