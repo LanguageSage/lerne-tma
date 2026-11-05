@@ -87,7 +87,7 @@ class CardCoreReleaseTests(unittest.TestCase):
         path = self.wheel()
         with zipfile.ZipFile(path) as wheel:
             members = {name: wheel.read(name) for name in wheel.namelist()}
-        members['lerne_card_core-0.1.3.dist-info/METADATA'] += b'Summary: tampered\n'
+        members[f"lerne_card_core-{self.release['version']}.dist-info/METADATA"] += b'Summary: tampered\n'
         with zipfile.ZipFile(path, 'w') as wheel:
             for name, raw in members.items():
                 wheel.writestr(name, raw)
