@@ -91,6 +91,14 @@ export function offlineEditLabel(edit) {
   return tr('Ошибка синхронизации. Карточка сохранена на устройстве.');
 }
 
+export function offlineMoveLabel(move) {
+  if (move.status === 'pending') return tr('Перенос ожидает синхронизации');
+  if (['card_revision_conflict', 'card_location_changed'].includes(move.code)) {
+    return tr('Конфликт версий. Перенос сохранён на устройстве.');
+  }
+  return tr('Сервер отклонил перенос. Перенос сохранён на устройстве.');
+}
+
 export async function refreshOfflineUi({ detail }) {
   const identity = getSessionIdentity();
   if (detail.userId !== getUserId()) return;

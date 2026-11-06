@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale';
-import { CARD_CREATE_KEY, CARD_EDIT_KEY, prepareLocalDb, getNextTempId } from './localDb';
+import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
@@ -19,6 +19,7 @@ const success = (data = {}) => result({ status: 'success', ...data });
 const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
 const readOnly = () => { throw new Error(tr("У вас доступ только для чтения")); };
 const pendingCreate = () => { throw new Error(tr('Сначала синхронизируйте новую карточку.')); };
+const pendingMove = () => { throw new Error(tr('Сначала завершите синхронизацию переноса.')); };
 const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
 function validateStandard(content) {
@@ -90,6 +91,37 @@ async function saveStandard(db, body, { offlineCreateFlag: flag, offlineCreateIf
   });
 }
 
+async function queueCardMove(db, body, isCurrent) {
+  const [id] = body.card_ids;
+  const targetId = body.target_deck_id;
+  if (!Number.isSafeInteger(id) || id <= 0) pendingCreate();
+  if (!Number.isSafeInteger(targetId) || targetId <= 0) notFound();
+  if (!body.request_id) throw new Error('Missing card move request ID');
+  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+    const key = CARD_MOVE_KEY + id;
+    const [card, target] = await Promise.all([db.cards.get(id), db.decks.get(targetId)]);
+    if (card?.content_v2?.schema_version !== 2 || card.is_deleted || !target || target.is_deleted) notFound();
+    if (card.offline_move) pendingMove();
+    if (card.offline_edit || card.is_dirty) throw new Error(tr('Сначала синхронизируйте правку карточки.'));
+    if (!card.revision || card.revision !== body.revisions[id]) {
+      throw new Error(tr('Исходная ревизия карточки недоступна.'));
+    }
+    const source = await db.decks.get(card.deck_id);
+    if (!source || source.id <= 0 || source.is_deleted) notFound();
+    if (isContentReadOnly(source) || isContentReadOnly(target)) readOnly();
+    if (card.deck_id === targetId) return result(card);
+
+    const siblings = await db.cards.where('deck_id').equals(targetId).filter(item => !item.is_deleted).toArray();
+    const moved = { ...card, deck_id: targetId,
+      position: siblings.reduce((max, item) => Math.max(max, item.position || 0), 0) + 1,
+      offline_move: { status: 'pending' } };
+    await db.cards.put(moved);
+    await db.syncState.add({ key, cardId: id, sourceDeckId: source.id, payload: body });
+    if (!isCurrent()) throw new Error('Session changed');
+    return result(moved);
+  });
+}
+
 async function saveStandardEdit(db, id, body, expectedConflict) {
   validateStandard(body.content_v2);
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
@@ -97,6 +129,7 @@ async function saveStandardEdit(db, id, body, expectedConflict) {
     const key = CARD_EDIT_KEY + id;
     const current = await db.cards.get(id);
     if (!current?.content_v2 || current.is_deleted) notFound();
+    if (current.offline_move) pendingMove();
     const operation = await db.syncState.get(key);
     const sent = operation?.payload;
     const next = current.offline_edit?.next;
@@ -420,6 +453,9 @@ export const offlineApi = {
       });
     }
     if (m === 'post' && url === '/cards/batch-move') {
+      if (body.card_ids?.length === 1 && body.revisions) {
+        return queueCardMove(db, body, () => userId === getUserId() && identity === getSessionIdentity());
+      }
       const targetDeckId = Number(body.target_deck_id);
       const cardIds = (body.card_ids || []).map(Number);
       const onDuplicate = body.on_duplicate || 'skip';
@@ -441,6 +477,7 @@ export const offlineApi = {
         for (let idx = 0; idx < cardIds.length; idx++) {
           const cid = cardIds[idx];
           const card = await db.cards.get(cid);
+          if (card?.content_v2) throw unsupported();
           if (card && !card.is_deleted && card.deck_id !== targetDeckId) {
             await requireContentWrite(db, 'cards', card);
             const frontKey = normalizeCardKey(card.front_text || card.front);

@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale.js';
-import { CARD_CREATE_KEY, CARD_EDIT_KEY, prepareLocalDb } from './localDb.js';
+import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_MOVE_KEY, prepareLocalDb } from './localDb.js';
 import { networkApi } from './networkApi.js';
 import { getAccessToken, getSessionIdentity, getUserId, isRetiredSession } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
@@ -163,6 +163,52 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
   if (firstError) throw firstError;
 }
 
+async function deliverCardMoves(db, operations, options, isCurrent) {
+  let firstError;
+  let changed = false;
+  const userId = options._expectedUserId;
+  for (const { key, cardId, sourceDeckId, payload } of operations) {
+    if (!isCurrent()) throw new Error('Session changed');
+    let placement, error;
+    try {
+      const { data } = await networkApi.post('/cards/batch-move', payload, options);
+      const [confirmed] = data?.placements || [];
+      if (data?.status !== 'success' || data.placements?.length !== 1 || confirmed?.id !== cardId
+          || ![sourceDeckId, payload.target_deck_id].includes(confirmed.deck_id)
+          || !Number.isInteger(confirmed.position) || !/^[0-9a-f]{64}$/.test(confirmed.revision)) {
+        throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+      }
+      placement = confirmed;
+    } catch (cause) {
+      error = cause;
+    }
+    if (!isCurrent()) throw new Error('Session changed');
+    const httpStatus = error?.response?.status;
+    const rejected = [403, 404, 409, 422].includes(httpStatus);
+    const applied = await db.transaction('rw', db.cards, db.syncState, async () => {
+      const [card, pending] = await Promise.all([db.cards.get(cardId), db.syncState.get(key)]);
+      if (!isCurrent() || !card?.offline_move || pending?.payload.request_id !== payload.request_id) return false;
+      if (placement) {
+        const { deck_id, position, revision } = placement;
+        const next = { ...card, deck_id, position, revision, offline_confirmed_at: Date.now() };
+        delete next.offline_move;
+        await db.cards.put(next);
+        await db.syncState.delete(key);
+      } else if (rejected) {
+        const code = error.response?.data?.detail?.code;
+        await db.cards.update(cardId, { offline_move: { status: 'rejected', httpStatus, code } });
+        await db.syncState.update(key, { rejected: true });
+      }
+      if (!isCurrent()) throw new Error('Session changed');
+      return Boolean(placement || rejected);
+    });
+    changed ||= applied;
+    firstError ||= error;
+  }
+  if (changed && isCurrent()) notifySyncUi('lerne:synced', { userId }, {});
+  if (firstError) throw firstError;
+}
+
 async function pendingBatch(db, userId) {
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
     const nativeIds = new Set((await db.cards.filter(card => card.id > 0 && !!card.content_v2).toArray()).map(card => card.id));
@@ -274,7 +320,7 @@ async function syncLearningPreferences(db, options, isCurrent) {
 }
 
 export function keepLocalCard(card, requestStartedAt) {
-  return card?.offline_edit || card?.offline_confirmed_at >= requestStartedAt
+  return card?.offline_edit || card?.offline_move || card?.offline_confirmed_at >= requestStartedAt
     || card?.offline_read_started_at > requestStartedAt;
 }
 
@@ -350,11 +396,15 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
       const edit = editCards[index]?.offline_edit;
       return edit && (edit.status !== 'conflict' || !edit.server);
     });
-    if (pendingNativeOnly && !creates.length && !edits.length) return { success: true };
+    const moves = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_MOVE_KEY)
+      .filter(move => !move.rejected).toArray();
+    if (pendingNativeOnly && !creates.length && !edits.length && !moves.length) return { success: true };
     let nativeError;
     try { await deliverCardCreates(db, creates, options, isCurrent); }
     catch (error) { nativeError = error; }
     try { await deliverCardEdits(db, edits, options, isCurrent); }
+    catch (error) { nativeError ||= error; }
+    try { await deliverCardMoves(db, moves, options, isCurrent); }
     catch (error) { nativeError ||= error; }
     if (!isCurrent()) throw new Error('Session changed');
     const batch = pendingNativeOnly || pullOnly ? null : await pendingBatch(db, userId);

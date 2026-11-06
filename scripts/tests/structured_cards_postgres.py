@@ -226,6 +226,7 @@ def main():
     parser.add_argument('--offline-edit-browser', action='store_true', help='Run the offline edit and conflict browser scenario over socket HTTP')
     parser.add_argument('--offline-delivery-browser', action='store_true', help='Run the offline delivery failure scenarios over socket HTTP')
     parser.add_argument('--offline-isolation-browser', action='store_true', help='Run the account and tab isolation browser scenario')
+    parser.add_argument('--offline-move-browser', action='store_true', help='Run the offline move scenario')
     args = parser.parse_args()
     binaries = args.bin_dir.resolve()
     suffix = '.exe' if os.name == 'nt' else ''
@@ -264,12 +265,13 @@ def main():
                                 user='cards_test', connect_timeout=5)
         try:
             if (args.http or args.offline_create_browser or args.offline_edit_browser
-                    or args.offline_delivery_browser or args.offline_isolation_browser):
+                    or args.offline_delivery_browser or args.offline_isolation_browser or args.offline_move_browser):
                 from structured_cards_http import verify as verify_http
                 return 0 if verify_http(db, offline_create_browser=args.offline_create_browser,
                                         offline_edit_browser=args.offline_edit_browser,
                                         offline_delivery_browser=args.offline_delivery_browser,
-                                        offline_isolation_browser=args.offline_isolation_browser) else 1
+                                        offline_isolation_browser=args.offline_isolation_browser,
+                                        offline_move_browser=args.offline_move_browser) else 1
             return 0 if verify(db) else 1
         finally:
             if not db.is_closed():

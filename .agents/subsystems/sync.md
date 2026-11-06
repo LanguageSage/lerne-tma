@@ -100,6 +100,18 @@ HTTP-запросу и при наличии сети. Подтверждени�
 - `structured_cards_postgres.py --offline-isolation-browser` запускает
   сценарий двух вкладок и смены сессий на одноразовом PostgreSQL.
 
+## Structured Cards V2, этап 6B.5a
+
+`offlineApi` атомарно меняет размещение существующей V2-карточки в `cards`
+и сохраняет запрос в `syncState.card-move-v2:<card_id>`. `syncService`
+доставляет его через `POST /cards/batch-move` под той же Web Lock. Сервер
+проверяет ревизии и права на обе колоды, сохраняет размещение и квитанцию
+вместе. Локальное подтверждение применяет размещение и удаляет операцию
+в одной транзакции. Чтения сохраняют pending/rejected размещение, временные
+сбои повторяются с исходным UUID. Проверка: `structured_cards_postgres.py
+--bin-dir <path> --offline-move-browser`. Подробности в
+[STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5a-перенос-одной-v2-карточки-между-колодами).
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,

@@ -31,7 +31,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       window.addEventListener('online', event => event.stopImmediatePropagation(), true);
     }
   }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : 1 },
-    manualSync: (Boolean(fixture.card) && !owner) || fixture.isolation, isolation: fixture.isolation });
+    manualSync: (Boolean(fixture.card) && !owner) || fixture.isolation || Boolean(fixture.move), isolation: fixture.isolation });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
     const phase = getPhase();
@@ -42,7 +42,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       url: fixture.origin + pathname + search, maxRetries: 0,
       ...(updating && phase === 'unauthorized' ? { headers: { ...route.request().headers(), authorization: 'Bearer invalid' } } : {}),
     });
-    if (pathname === '/api/cards/save' || updating) {
+    if (pathname === '/api/cards/save' || (fixture.move && pathname === '/api/cards/batch-move') || updating) {
       const payload = route.request().postDataJSON();
       if (controlWrite) return controlWrite({ route, pathname, payload, fetchFromServer });
       if (phase === 'reject') {
@@ -63,7 +63,9 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       return route.fulfill({ response: await fetchFromServer() });
     }
     const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
-    const visibleDecks = [asSecond ? fixture.private_deck : deck];
+    const visibleDecks = fixture.move
+      ? [fixture.move.source, fixture.move.target, fixture.move.denied]
+      : [asSecond ? fixture.private_deck : deck];
     if (fixture.isolation && pathname === '/api/auth/v2/me') return route.fulfill({ response: await fetchFromServer() });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: visibleDecks, folders: [],
       settings: {}, prompts: {}, user_settings: {}, user_info: asSecond ? { ...profile, user_id: 2 } : profile } });
@@ -99,7 +101,7 @@ async function openList(page, targetDeck = deck) {
 }
 
 test('persists Standard offline, replays a committed write and pulls it on a separate device', async ({ page, context, browser }, testInfo) => {
-  test.skip(Boolean(fixture?.card || fixture?.isolation), 'Creation fixture only');
+  test.skip(Boolean(fixture?.card || fixture?.isolation || fixture?.move), 'Creation fixture only');
   test.setTimeout(90000);
   const attempts = [];
   let phase = 'ready';
@@ -929,4 +931,180 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect(writesFor(switching)).toHaveLength(2);
   expect(writesFor(switching)[0]).toEqual(writesFor(switching)[1]);
   expect((await inspect(peer)).queue).toEqual([]);
+});
+
+test('moves V2 cards across decks with durable placement, replay and rejection', async ({ page, context, browser }, testInfo) => {
+  test.skip(!fixture?.move, 'Move fixture only');
+  test.setTimeout(90000);
+  const { source, target, denied, cards: [online, offline, refused, stale] } = fixture.move;
+  let phase = 'ready';
+  const attempts = [];
+  await setupDevice(context, () => phase, (payload, status, receipt) => attempts.push({ payload, status, receipt }));
+  const inspect = id => page.evaluate(async id => {
+    const { prepareLocalDb, CARD_MOVE_KEY } = await import('/src/services/localDb.js');
+    const db = await prepareLocalDb();
+    return { card: await db.cards.get(id), operation: await db.syncState.get(CARD_MOVE_KEY + id) };
+  }, id);
+  const sync = (device, options = { pendingNativeOnly: true, skipPull: true }) => device.evaluate(async options =>
+    (await import('/src/services/syncService.js')).syncService.sync(options), options);
+  const row = (device, card) => device.locator('#card-item-' + card.id);
+  const move = async (card, to) => {
+    await row(page, card).getByRole('button', { name: 'Действия с карточкой' }).click();
+    const dialog = page.getByRole('dialog', { name: 'Управление карточкой' });
+    await dialog.getByRole('button', { name: 'Перенести в другую колоду' }).click();
+    await dialog.getByRole('button', { name: new RegExp(to.name) }).click();
+  };
+  const setOffline = async offline => {
+    phase = offline ? 'offline' : 'ready';
+    await context.setOffline(offline);
+    await page.evaluate(offline => {
+      if (offline) {
+        sessionStorage.setItem('offline-fixture', 'true');
+        Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      } else {
+        sessionStorage.removeItem('offline-fixture');
+        delete navigator.onLine;
+      }
+    }, offline);
+  };
+
+  await page.setViewportSize({ width: 375, height: 844 });
+  await page.goto('/');
+  await expect(page.getByText(source.name, { exact: true }).first()).toBeVisible();
+  await openList(page, source);
+  await move(online, target);
+  await expect(page.getByText('Карточка перемещена', { exact: true })).toBeVisible();
+  await expect(row(page, online)).toHaveCount(0);
+  const placed = await inspect(online.id);
+  expect(placed.operation).toBeUndefined();
+  expect(placed.card).toMatchObject({ id: online.id, deck_id: target.id, content_v2: online.content_v2 });
+  expect(placed.card.revision).not.toBe(online.revision);
+
+  const original = await inspect(offline.id);
+  await setOffline(true);
+  await page.evaluate(async () => {
+    const { getLocalDb } = await import('/src/services/localDb.js');
+    const db = getLocalDb();
+    const add = db.syncState.add;
+    db.syncState.add = () => {
+      db.syncState.add = add;
+      throw new Error('Synthetic move outbox failure');
+    };
+  });
+  await move(offline, target);
+  await expect(page.getByText(/Synthetic move outbox failure/)).toBeVisible();
+  expect(await inspect(offline.id)).toEqual({ ...original,
+    card: { ...original.card, offline_read_started_at: expect.any(Number) } });
+  await move(offline, target);
+  await expect(row(page, offline)).toHaveCount(0);
+  const queued = await inspect(offline.id);
+  expect(queued.card).toMatchObject({ id: offline.id, deck_id: target.id, content_v2: offline.content_v2 });
+  expect(queued.operation.payload).toEqual({
+    request_id: expect.any(String), card_ids: [offline.id], revisions: { [offline.id]: offline.revision },
+    target_deck_id: target.id, on_duplicate: 'keep',
+  });
+  expect(attempts).toHaveLength(1);
+
+  // Restart with a reachable app shell and disconnected API.
+  await context.setOffline(false);
+  await page.reload();
+  await expect(page.getByText(target.name, { exact: true }).first()).toBeVisible();
+  await openList(page, target);
+  await expect(row(page, offline).getByRole('status')).toHaveText('Перенос ожидает синхронизации');
+  expect(await inspect(offline.id)).toEqual(queued);
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 844 });
+    await expect(row(page, offline).getByRole('status')).toBeVisible();
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  }
+  await page.screenshot({ path: testInfo.outputPath('pending-move-1280.png') });
+
+  await setOffline(false);
+  await openList(page, source);
+  await expect(row(page, offline)).toHaveCount(0);
+  await openList(page, target);
+  await expect(row(page, offline).getByRole('status')).toBeVisible();
+  phase = 'lose-response';
+  expect((await sync(page)).success).toBe(false);
+  expect(await inspect(offline.id)).toEqual(queued);
+  expect(attempts.at(-1).status).toBe(200);
+
+  phase = 'ready';
+  await page.reload();
+  await expect.poll(async () => (await inspect(offline.id)).operation).toBeUndefined();
+  const confirmed = await inspect(offline.id);
+  expect(confirmed.card).toMatchObject({ id: offline.id, deck_id: target.id, content_v2: offline.content_v2 });
+  const deliveries = attempts.filter(attempt => attempt.payload.card_ids.includes(offline.id));
+  expect(deliveries).toHaveLength(2);
+  expect(deliveries[1]).toEqual(deliveries[0]);
+  expect(confirmed.card.revision).toBe(deliveries[0].receipt.placements[0].revision);
+
+  const other = await browser.newContext({ serviceWorkers: 'block' });
+  try {
+    await setupDevice(other, () => 'ready', () => {});
+    const peer = await other.newPage();
+    await peer.goto('http://127.0.0.1:5199/');
+    await expect(peer.getByText(target.name, { exact: true }).first()).toBeVisible();
+    expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+    await openList(peer, source);
+    await expect(row(peer, online)).toHaveCount(0);
+    await expect(row(peer, offline)).toHaveCount(0);
+    await openList(peer, target);
+    await expect(row(peer, online)).toBeVisible();
+    await expect(row(peer, offline)).toBeVisible();
+    const listing = await peer.evaluate(async id => {
+      const { default: api } = await import('/src/services/api.js');
+      return (await api.get('/decks/' + id + '/cards')).data;
+    }, target.id);
+    expect(listing.map(({ id, content_v2 }) => ({ id, content_v2 }))).toEqual(
+      [online, offline].map(({ id, content_v2 }) => ({ id, content_v2 })));
+
+    await openList(page, source);
+    await setOffline(true);
+    await move(refused, denied);
+    await expect(row(page, refused)).toHaveCount(0);
+    const revoked = await other.request.put(fixture.origin + '/api/collaborative/deck/' + denied.id + '/role', {
+      headers: { authorization: 'Bearer ' + fixture.owner_token },
+      data: { user_id_to_update: 1, role: 'viewer' },
+    });
+    expect(revoked.ok()).toBe(true);
+    await setOffline(false);
+    expect((await sync(page)).success).toBe(false);
+    await expect.poll(async () => (await inspect(refused.id)).card.offline_move?.httpStatus).toBe(403);
+    expect(attempts.at(-1).status).toBe(403);
+    const refusedLocal = await inspect(refused.id);
+    expect(refusedLocal.operation.rejected).toBe(true);
+    expect(refusedLocal.card).toMatchObject({ deck_id: denied.id, content_v2: refused.content_v2 });
+    await openList(page, denied);
+    await expect(row(page, refused).getByRole('status')).toHaveText('Сервер отклонил перенос. Перенос сохранён на устройстве.');
+    await page.setViewportSize({ width: 375, height: 844 });
+    await page.screenshot({ path: testInfo.outputPath('rejected-move-375.png') });
+
+    await openList(page, source);
+    await setOffline(true);
+    await move(stale, target);
+    await expect(row(page, stale)).toHaveCount(0);
+    await peer.evaluate(async card => {
+      const { networkApi } = await import('/src/services/api.js');
+      await networkApi.patch('/cards/' + card.id, {
+        request_id: crypto.randomUUID(), revision: card.revision, content_v2: card.content_v2,
+      });
+    }, stale);
+    await setOffline(false);
+    expect((await sync(page)).success).toBe(false);
+    const staleLocal = await inspect(stale.id);
+    expect(staleLocal.operation.rejected).toBe(true);
+    expect(staleLocal.card).toMatchObject({ deck_id: target.id, content_v2: stale.content_v2, offline_move: { httpStatus: 409 } });
+    const attemptCount = attempts.length;
+    await page.reload();
+    await expect(page.getByText(source.name, { exact: true }).first()).toBeVisible();
+    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    await openList(page, target);
+    await expect(row(page, stale).getByRole('status')).toHaveText('Конфликт версий. Перенос сохранён на устройстве.');
+    expect(await inspect(stale.id)).toEqual(staleLocal);
+    expect(await inspect(refused.id)).toEqual(refusedLocal);
+    expect(attempts).toHaveLength(attemptCount);
+  } finally {
+    await other.close();
+  }
 });

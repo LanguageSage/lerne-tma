@@ -8,6 +8,7 @@ import { useUiStore } from '../store/useUiStore';
 import { cardWriteError } from '../utils/cardDraft';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { prepareLocalDb } from '../services/localDb';
+import { offlineMoveLabel } from '../services/offlineUi';
 import { notifyCardEdit, syncService } from '../services/syncService';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
@@ -47,6 +48,7 @@ export const useCardEditor = () => {
     const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
+      if (data.offline_move) throw new Error(tr('Сначала завершите синхронизацию переноса.'));
       let finalDeckId = data.deck_id;
       if (finalDeckId === 'duplicates' || !finalDeckId) {
         finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
@@ -308,43 +310,59 @@ export const useCardEditor = () => {
     }
   };
 
-  const handleMoveCard = async (targetCard, targetDeckId) => {
+  const handleMoveCard = async (targetCard, targetDeckId, onDuplicate = 'keep') => {
+    if (!targetCard) return false;
+    if (Number(targetCard.deck_id) === Number(targetDeckId)) return true;
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
-      await networkApi.post('/cards/batch-move', {
-        request_id: crypto.randomUUID(), card_ids: [Number(targetCard.id)],
-        target_deck_id: Number(targetDeckId), on_duplicate: 'keep',
+      const id = Number(targetCard.id);
+      const target = Number(targetDeckId);
+      const db = await prepareLocalDb();
+      if (!isCurrent()) return false;
+      // Study can open a card without loading its deck list first.
+      if (id > 0 && navigator.onLine && !(await db.cards.get(id))) await api.get('/cards/' + id, { freshCard: true });
+      if (!isCurrent()) return false;
+      const { data: card } = await api.post('/cards/batch-move', {
+        request_id: crypto.randomUUID(), card_ids: [id], revisions: { [id]: targetCard.revision },
+        target_deck_id: target, on_duplicate: onDuplicate,
       });
-      showToast(tr("Карточка перемещена"), "success");
-      
+      if (!isCurrent()) return false;
+      if (card.offline_move) {
+        showToast(offlineMoveLabel(card.offline_move), card.offline_move.status === 'rejected' ? 'error' : 'info');
+      } else if (card.deck_id === target) {
+        showToast(tr('Карточка перемещена'), 'success');
+      } else {
+        showToast(tr('Перемещено: {{p0}} (пропущено дубликатов: {{p1}})', { p0: 0, p1: 1 }), 'success');
+        return true;
+      }
+
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
       const { currentDeck, deckCards } = useDeckStore.getState();
-      
-      const updatedDeckCards = (deckCards || []).filter(c => c.id !== targetCard.id);
-      useDeckStore.setState({ deckCards: updatedDeckCards });
+      const updatedDeckCards = currentDeck?.id === target ? deckCards : (deckCards || []).filter(c => c.id !== id);
+      useDeckStore.setState(state => {
+        const cardsByDeck = { ...state.cardsByDeck };
+        delete cardsByDeck[targetCard.deck_id];
+        delete cardsByDeck[target];
+        return { deckCards: updatedDeckCards, cardsByDeck };
+      });
 
-      session.removeCardFromSession(targetCard.id);
-      
-      const freshSession = useSessionStore.getState();
-      if (ui.view === 'study' && currentDeck) {
-        if (!freshSession.card) {
-          if (updatedDeckCards.length > 0) {
-            await fetchNextCard(currentDeck.id, true);
-          } else {
-            session.setCard(null);
-          }
-        }
+      session.removeCardFromSession(id);
+      if (ui.view === 'study' && currentDeck && !useSessionStore.getState().card && updatedDeckCards.length > 0) {
+        fetchNextCard(currentDeck.id, true).catch(() => {});
       }
-      
-      if (currentDeck && currentDeck.id !== 'duplicates') {
-        fetchDeckCards(currentDeck.id);
-      }
-      fetchDecks(true);
+      if (currentDeck && currentDeck.id !== 'duplicates') fetchDeckCards(currentDeck.id).catch(() => {});
+      fetchDecks(true).catch(() => {});
+      return true;
     } catch (err) {
-      showToast(tr("Ошибка при перемещении: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      if (isCurrent()) showToast(tr('Ошибка при перемещении: {{p0}}', { p0: cardWriteError(err) }));
+      return false;
+    } finally {
+      if (isCurrent()) setLoading(false);
     }
-    setLoading(false);
   };
 
   const handleCopyCard = async (targetCard, targetDeckId) => {
@@ -442,11 +460,20 @@ export const useCardEditor = () => {
 
   const handleBatchMoveCards = async (cardIds, targetDeckId, onDuplicate = 'skip') => {
     if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
+    const cards = cardIds.map(visibleCard);
+    if (cardIds.length === 1) return handleMoveCard(cards[0], targetDeckId, onDuplicate);
+    const blocked = cards.find(card => card?.offline_move || card?.offline_edit);
+    if (blocked) {
+      showToast(blocked.offline_move ? offlineMoveLabel(blocked.offline_move)
+        : tr('Сначала синхронизируйте правку карточки.'), 'error');
+      return false;
+    }
     setLoading(true);
     try {
       const res = await networkApi.post('/cards/batch-move', {
         request_id: crypto.randomUUID(),
         card_ids: cardIds.map(Number),
+        revisions: Object.fromEntries(cardIds.map((id, index) => [id, cards[index]?.revision])),
         target_deck_id: Number(targetDeckId),
         on_duplicate: onDuplicate
       });

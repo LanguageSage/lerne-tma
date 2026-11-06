@@ -14,7 +14,7 @@ import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { cleanBracketSyntax } from '../../utils/clozeParser';
-import { offlineEditLabel } from '../../services/offlineUi';
+import { offlineEditLabel, offlineMoveLabel } from '../../services/offlineUi';
 
 export const DraggableCardItem = React.memo(({
   c,
@@ -34,7 +34,7 @@ export const DraggableCardItem = React.memo(({
   useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const createStatus = c.offline_create_status;
-  const canDrag = canEditContent && !createStatus;
+  const canDrag = canEditContent && !createStatus && !c.offline_move;
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
   const {
@@ -146,6 +146,7 @@ export const DraggableCardItem = React.memo(({
 
       {createStatus && <small role="status">{tr(createStatus === 'error'
         ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}</small>}
+      {c.offline_move && <small role="status">{offlineMoveLabel(c.offline_move)}</small>}
       {c.offline_edit && (
         <div className="card-edit-status">
           <small role="status">{offlineEditLabel(c.offline_edit)}</small>

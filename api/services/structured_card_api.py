@@ -118,7 +118,7 @@ class Selection(Request):
         return values
 
 
-class DeleteSelection(Selection):
+class RevisionSelection(Selection):
     revisions: dict[int, Revision]
 
     @model_validator(mode='after')
@@ -131,6 +131,10 @@ class DeleteSelection(Selection):
 class Transfer(Selection):
     target_deck_id: ID
     on_duplicate: Literal['skip', 'keep', 'overwrite'] = 'skip'
+
+
+class MoveSelection(Transfer, RevisionSelection):
+    pass
 
 
 def require_account(user_id):
@@ -383,10 +387,19 @@ def transfer_cards(data, user_id, *, move):
     target = data.target_deck_id
     operation = 'move' if move else 'copy'
     with tma_db.atomic():
+        payload = data.model_dump(mode='json')
+        if move:
+            # Serialize the same UUID before reading the card's location.
+            receipt, replay = _receipt(operation, user_id, data.request_id, payload)
         cards, decks = _lock_cards(data.card_ids, user_id, targets=(target,), write=move)
-        receipt, replay = _receipt(operation, user_id, data.request_id, data.model_dump(mode='json'))
+        if not move:
+            receipt, replay = _receipt(operation, user_id, data.request_id, payload)
         if replay is not None:
             return replay
+        if move:
+            for card in cards:
+                if content_response(card)['revision'] != data.revisions[card.id]:
+                    raise HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id})
         existing = {}
         for card in TMA_Card.select().where(TMA_Card.deck == target, TMA_Card.is_deleted == False,
                 TMA_Card.content_v2.is_null(False)).order_by(TMA_Card.position, TMA_Card.id):
@@ -416,6 +429,7 @@ def transfer_cards(data, user_id, *, move):
             elif move:
                 touched[card.deck_id] = decks[card.deck_id]
                 TMA_Card.update(deck=target, position=position, updated_at=now).where(TMA_Card.id == card.id).execute()
+                card.deck_id, card.position, card.updated_at = target, position, now
                 position += 1
                 moved += 1
                 existing.setdefault(key, card)
@@ -427,9 +441,15 @@ def transfer_cards(data, user_id, *, move):
         if moved or updated or created:
             touched[target] = decks[target]
             _touch(touched)
-        return _finish(receipt, {'status': 'success', 'count': moved + updated + created,
-                                 ('moved' if move else 'created'): moved if move else created,
-                                 'updated': updated, 'skipped': skipped})
+        result = {'status': 'success', 'count': moved + updated + created,
+                  ('moved' if move else 'created'): moved if move else created,
+                  'updated': updated, 'skipped': skipped}
+        if move:
+            result['placements'] = [
+                {'id': card.id, 'deck_id': card.deck_id, 'position': card.position,
+                 'revision': content_response(card)['revision']} for card in cards
+            ]
+        return _finish(receipt, result)
 
 
 def change_selection(data, user_id, *, delete):

@@ -16,7 +16,7 @@ import uvicorn
 
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
-           offline_delivery_browser=False, offline_isolation_browser=False):
+           offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -29,7 +29,8 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMA_Collaborator,
         models.TMAUser, models.TMAProgress, models.TMAReviewHistory, models.TMAOfflineBatch,
         models.TMASetting, models.TMAMedia, models.TMACardNote, models.TMAKnowledgeItem,
-        models.TMACardKnowledgeItem, models.LibraryCategory, models.Deck, models.Card,
+        models.TMACardKnowledgeItem, models.TMAKnowledgeAttempt, models.TMACardRating,
+        models.LibraryCategory, models.Deck, models.Card,
         *models.AUTH_FOUNDATION_MODELS,
     ])
     run_structured_cards_v2_migration(db)
@@ -70,7 +71,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
                 return False
             if offline_isolation_browser and not _run_offline_isolation_browser(port, models):
                 return False
-            if offline_create_browser or offline_edit_browser or offline_delivery_browser or offline_isolation_browser:
+            if offline_move_browser and not _run_offline_move_browser(client, port, models, headers):
+                return False
+            if offline_create_browser or offline_edit_browser or offline_delivery_browser or offline_isolation_browser or offline_move_browser:
                 return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
@@ -166,6 +169,88 @@ def _run_offline_isolation_browser(port, models):
     assert models.TMA_Card.select().where(models.TMA_Card.deck == first.id).count() == 3
     assert models.TMA_Card.select().where(models.TMA_Card.deck == second.id).count() == 1
     assert receipts.count() == before + 4
+    return True
+
+
+def _run_offline_move_browser(client, port, models, headers):
+    authorization = headers[1]
+    source = models.TMA_Deck.create(user_id=1, name='Ausgangsstapel für synthetische Übungen', target_language='de')
+    target = models.TMA_Deck.create(user_id=1, name='Zielstapel mit längerer deutscher Bezeichnung', target_language='de')
+    denied = models.TMA_Deck.create(user_id=2, name='Lesestapel', target_language='de')
+    models.TMA_Collaborator.create(target_type='deck', target_id=denied.id, user_id=1, role='editor')
+
+    def deck_view(deck, role):
+        return {'id': deck.id, 'name': deck.name, 'user_id': deck.user_id, 'folder_id': deck.folder_id,
+                'target_language': 'de', 'role': role, 'stats': {'total': 0}}
+
+    def rows(model, condition):
+        return list(model.select().where(condition).order_by(model.id).dicts())
+
+    def state(card_id):
+        return {
+            'card': rows(models.TMA_Card, models.TMA_Card.id == card_id),
+            'progress': rows(models.TMAProgress, models.TMAProgress.card_id == card_id),
+            'reviews': rows(models.TMAReviewHistory, models.TMAReviewHistory.card_id == card_id),
+            'notes': rows(models.TMACardNote, models.TMACardNote.card == card_id),
+            'ratings': rows(models.TMACardRating, models.TMACardRating.card == card_id),
+            'knowledge': rows(models.TMACardKnowledgeItem, models.TMACardKnowledgeItem.card_id == card_id),
+            'attempts': rows(models.TMAKnowledgeAttempt, models.TMAKnowledgeAttempt.card_id == card_id),
+        }
+
+    cards = []
+    knowledge = models.TMAKnowledgeItem.create(name='Synthetic move concept')
+    for title in ('Online', 'Offline', 'Denied', 'Conflict'):
+        response = client.post('cards/save', headers=authorization, json={
+            'request_id': str(uuid4()), 'deck_id': source.id, 'image_path': 'images/synthetic-move.webp',
+            'video_back_path': 'videos/synthetic-move.webm',
+            'content_v2': {'schema_version': 2, 'card': {'type': 'quiz', 'id': f'move-{title}',
+                'data': {'prompt': f'{title} fixture — Österreichische Grüße', 'options': [
+                    {'text': 'Ja', 'correct': True}, {'text': 'Nein'}]},
+                'info': [{'type': 'example', 'text': 'Beispiel'}], 'metadata': {'nested': ['ä', 'я']}}},
+        })
+        response.raise_for_status()
+        card = response.json()
+        card_id = card['id']
+        models.TMA_Card.update(history='["fixture"]', share_id=f'move-{card_id}', image_data=b'synthetic',
+                               audio_path='audio/synthetic-move.ogg').where(
+            models.TMA_Card.id == card_id).execute()
+        models.TMAProgress.create(card_id=card_id, user_id=1, repetitions=3, flag=2)
+        review = models.TMAReviewHistory.create(card_id=card_id, user_id=1, rating=2)
+        models.TMACardNote.create(id=str(uuid4()), card=card_id, user_id=1, text='Synthetic note')
+        models.TMACardRating.create(card=card_id, user_id=1, rating=1)
+        models.TMACardKnowledgeItem.create(card_id=card_id, knowledge_item=knowledge)
+        models.TMAKnowledgeAttempt.create(card_id=card_id, user_id=1, knowledge_item=knowledge,
+                                          client_event_id=str(uuid4()), review_id=review.id)
+        current = client.get(f'cards/{card_id}', headers=authorization)
+        current.raise_for_status()
+        cards.append(current.json())
+
+    before = {card['id']: state(card['id']) for card in cards}
+    count = models.TMA_Card.select().count()
+    receipts = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:move:1:'))
+    receipt_count = receipts.count()
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': source.id,
+              'access_token': authorization['Authorization'].split(' ', 1)[1],
+              'owner_token': headers[2]['Authorization'].split(' ', 1)[1],
+              'move': {'source': deck_view(source, 'owner'), 'target': deck_view(target, 'owner'),
+                       'denied': deck_view(denied, 'editor'), 'cards': cards}}
+    if not _run_offline_browser(config, 'moves V2 cards across decks'):
+        return False
+    assert models.TMA_Card.select().count() == count
+    assert receipts.count() == receipt_count + 2
+    for index, card in enumerate(cards):
+        old = before[card['id']]
+        new = state(card['id'])
+        row = new['card'][0]
+        assert row['deck'] == (target.id if index < 2 else source.id)
+        assert row['content_v2'] == old['card'][0]['content_v2']
+        if index < 2:
+            for field in ('deck', 'position', 'updated_at'):
+                row[field] = old['card'][0][field]
+        if index == 3:  # The peer edited this card to advance its revision.
+            for field in ('history', 'updated_at'):
+                row[field] = old['card'][0][field]
+        assert new == old
     return True
 
 
@@ -295,20 +380,33 @@ def _run_cases(client, models, headers, load_answer_context):
             self.assertEqual(self.call('GET', f'cards/{card_id}', user=2)['flag'], 0)
             body = {'request_id': str(uuid4()), 'card_ids': [card_id],
                     'target_deck_id': self.other.id, 'on_duplicate': 'keep'}
-            self.call('POST', 'cards/batch-move', 403, user=2, body=body)
+            self.call('POST', 'cards/batch-move', 422, body=body)
+            move = {**body, 'revisions': {str(card_id): item['revision']}}
+            self.call('POST', 'cards/batch-move', 403, user=2, body=move)
+            self.call('POST', 'cards/batch-move', 403, body=move)
             self.assertEqual(self.call('POST', 'cards/batch-copy', user=2, body=body)['created'], 1)
             self.assertEqual(self.call('POST', 'cards/batch-copy', user=2, body=body)['created'], 1)
             copied = models.TMA_Card.get(models.TMA_Card.deck == self.other.id)
             self.assertEqual(copied.content_v2, models.TMA_Card.get_by_id(card_id).content_v2)
             self.assertEqual(copied.image_path, 'images/example.webp')
             self.assertFalse(models.TMAProgress.select().where(models.TMAProgress.card_id == copied.id).exists())
-            self.call('POST', 'cards/batch-move', 409, body={**body, 'card_ids': [card_id, self.legacy.id],
-                                                         'target_deck_id': self.target.id})
+            move['target_deck_id'] = self.target.id
+            self.call('POST', 'cards/batch-move', 409, body={**move, 'card_ids': [card_id, self.legacy.id],
+                'revisions': {**move['revisions'], str(self.legacy.id): item['revision']}})
+            stale = self.call('POST', 'cards/batch-move', 409, body=move)
+            self.assertEqual(stale['detail']['code'], 'card_revision_conflict')
             self.assertEqual(models.TMA_Card.get_by_id(card_id).deck_id, self.source.id)
-            self.assertEqual(self.call('POST', 'cards/batch-move', body={**body,
-                'target_deck_id': self.target.id})['moved'], 1)
-            self.assertEqual(self.call('POST', 'cards/batch-move', body={**body,
-                'target_deck_id': self.target.id})['moved'], 1)
+            current = self.call('GET', f'cards/{card_id}')
+            move['revisions'][str(card_id)] = current['revision']
+            with ThreadPoolExecutor(2) as pool:
+                receipt, replay = list(pool.map(lambda _: self.call('POST', 'cards/batch-move', body=move), range(2)))
+            self.assertEqual(receipt['moved'], 1)
+            self.assertEqual(replay, receipt)
+            self.call('POST', 'cards/batch-move', 409, body={**move, 'on_duplicate': 'skip'})
+            placed = self.call('GET', f'cards/{card_id}')
+            self.assertEqual(receipt['placements'], [{field: placed[field]
+                for field in ('id', 'deck_id', 'position', 'revision')}])
+            self.assertEqual(placed['content_v2'], current['content_v2'])
             self.assertEqual(models.TMAProgress.get(models.TMAProgress.card_id == card_id).repetitions, 5)
             self.assertEqual(models.TMACardNote.get(models.TMACardNote.card == card_id).text, 'private')
             self.assertEqual(models.TMA_Card.get_by_id(card_id).history, '["original"]')

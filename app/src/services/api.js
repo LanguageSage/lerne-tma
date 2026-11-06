@@ -29,6 +29,16 @@ const api = new Proxy(axiosInstance, {
         if (propKey === 'patch' && /^\/cards\/\d+$/.test(url) && args[1]?.offlineStandardEdit) {
           return localRequest(...args);
         }
+        if (propKey === 'post' && url === '/cards/batch-move' && args[0]?.card_ids?.length === 1 && args[0].revisions) {
+          const local = await localRequest(...args);
+          if (!local.data.offline_move || !navigator.onLine) return local;
+          const db = await prepareLocalDb();
+          assertCurrent();
+          await syncService.sync({ pendingNativeOnly: true, skipPull: true });
+          const card = await db.cards.get(local.data.id);
+          assertCurrent();
+          return { data: card ?? local.data };
+        }
         const requestStartedAt = Date.now();
         const standardCreate = propKey === 'post' && url === '/cards/save' && args[0]?.content_v2?.card?.type === 'standard';
         const configIndex = ['get', 'delete'].includes(propKey) ? 0 : 1;
@@ -57,7 +67,7 @@ const api = new Proxy(axiosInstance, {
           const db = await prepareLocalDb();
           if (!isCurrent()) throw new axios.CanceledError('Session changed before offline routing');
           const local = await db.cards.get(Number(cardMatch[1]));
-          if (local?.offline_edit) return localRequest(...args);
+          if (local?.offline_edit || local?.offline_move) return localRequest(...args);
           assertCurrent();
         }
         const forceOffline = (!standardCreate && !(cardMatch && args[0]?.freshCard) && isOfflineMode())
@@ -134,17 +144,18 @@ const api = new Proxy(axiosInstance, {
                       return card;
                     });
                     await db.cards.bulkPut(cards.filter((card, index) => visible[index] === card
-                      && card.content_v2?.card?.type === 'standard' && card.revision
+                      && card.content_v2?.schema_version === 2 && card.revision
                       && (local[index] ? local[index].content_v2 && !local[index].is_dirty
                         : !(lastSync?.readStartedAt > requestStartedAt)))
                       .map(card => ({ ...card, offline_read_started_at: requestStartedAt, is_dirty: 0 })));
                     if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
                     if (deckMatch) {
+                      const deckId = Number(deckMatch[1]);
                       const ids = new Set(cards.map(card => card.id));
-                      const pending = await db.cards.where('deck_id').equals(Number(deckMatch[1]))
+                      const pending = await db.cards.where('deck_id').equals(deckId)
                         .filter(card => !ids.has(card.id) && (card.offline_create_status
                           || card.offline_edit || (!card.is_deleted && keepLocalCard(card, requestStartedAt)))).toArray();
-                      return [...visible, ...pending];
+                      return [...visible.filter((card, index) => card === cards[index] || card.deck_id === deckId), ...pending];
                     }
                     return visible[0];
                   });

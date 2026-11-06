@@ -45,7 +45,7 @@ def bulk_save_cards(data: native.BulkSave, user_id: int = Depends(get_user_id)):
 
 @router.post("/batch-move")
 @db_worker
-def batch_move_cards(data: native.Transfer, user_id: int = Depends(get_user_id)):
+def batch_move_cards(data: native.MoveSelection, user_id: int = Depends(get_user_id)):
     return native.transfer_cards(data, user_id, move=True)
 
 
@@ -57,7 +57,7 @@ def batch_copy_cards(data: native.Transfer, user_id: int = Depends(get_user_id))
 
 @router.post("/batch-delete")
 @db_worker
-def batch_delete_cards(data: native.DeleteSelection, user_id: int = Depends(get_user_id)):
+def batch_delete_cards(data: native.RevisionSelection, user_id: int = Depends(get_user_id)):
     return native.change_selection(data, user_id, delete=True)
 
 
