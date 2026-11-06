@@ -15,7 +15,9 @@ COMPONENTS = {
     'import': ['api/services/author_service.py', 'api/services/card_text_update.py',
                'api/services/card_content_service.py', 'api/services/cards.py',
                'api/services/card_transfer.py',
-               'api/services/decks.py', 'api/services/library_import.py', 'api/services/folders.py'],
+               'api/services/decks.py', 'api/services/library_import.py', 'api/services/folders.py',
+               'api/services/structured_card_api.py', 'api/services/structured_card_storage.py',
+               'api/card_core/lerne_card_core/structured_cards_import.py'],
 }
 
 

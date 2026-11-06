@@ -39,7 +39,8 @@ def create_all_tables():
         return
     from api.migrations import (run_migrations, run_local_bootstrap_migrations,
                                 run_knowledge_mastery_migration, run_card_notes_migration,
-                                run_card_rating_migration, run_structured_cards_v2_migration)
+                                run_card_rating_migration, run_structured_cards_v2_migration,
+                                run_library_cards_v2_migration)
     models_to_create = [
         TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
         TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
@@ -66,6 +67,7 @@ def create_all_tables():
         run_card_rating_migration(tma_db)
         if isinstance(getattr(tma_db, 'obj', tma_db), PostgresqlDatabase):
             run_structured_cards_v2_migration(tma_db)
+            run_library_cards_v2_migration(lerne_db)
     tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
     _tables_created = True
     logger.info("DATABASE: All tables created/verified.")
@@ -578,8 +580,9 @@ class Deck(Model):
 class Card(Model):
     id = AutoField()
     deck = ForeignKeyField(Deck, backref='cards', column_name='deck_id')
-    front_text = TextField()
-    back_text = TextField()
+    front_text = TextField(null=True)
+    back_text = TextField(null=True)
+    content_v2 = BinaryJSONField(null=True)
     context = TextField(null=True)
     image_path = CharField(null=True)
     audio_path = CharField(null=True)
@@ -589,7 +592,7 @@ class Card(Model):
     tags = TextField(null=True)
     topics = TextField(null=True)
     source = TextField(null=True)
-    card_type = CharField(default='translation')
+    card_type = CharField(default='translation', null=True)
     difficulty = FloatField(null=True)
     metadata = TextField(null=True)
     is_deleted = BooleanField(default=False)

@@ -23,31 +23,41 @@ CARD_RATING_MIGRATION_ID = 92  # 91 belongs to the auth profile migration.
 CARD_RATING_LOCK_ID = 76120992
 STRUCTURED_CARDS_V2_MIGRATION_ID = 93
 STRUCTURED_CARDS_V2_LOCK_ID = 76120993
-_STRUCTURED_CONTENT_CONSTRAINT = 'tma_card_single_content_source'
+LIBRARY_CARDS_V2_MIGRATION_ID = 94
+LIBRARY_CARDS_V2_LOCK_ID = 76120994
 _LEGACY_CONTENT_FIELDS = ('front_text', 'back_text', 'card_type', 'context', 'topics', 'tags', 'metadata')
 
 
 def run_structured_cards_v2_migration(database):
-    """Prepare the PostgreSQL schema only. Never convert card rows."""
+    """Prepare the study card table without changing existing rows."""
+    return _prepare_native_card_table(database, 'tma_card', STRUCTURED_CARDS_V2_MIGRATION_ID, STRUCTURED_CARDS_V2_LOCK_ID)
+
+
+def run_library_cards_v2_migration(database):
+    """Apply the same content invariant to the library card table."""
+    return _prepare_native_card_table(database, 'card', LIBRARY_CARDS_V2_MIGRATION_ID, LIBRARY_CARDS_V2_LOCK_ID)
+
+
+def _prepare_native_card_table(database, table, migration_id, lock_id):
+    constraint_name = f'{table}_single_content_source'
     database = getattr(database, 'obj', database)
     if not isinstance(database, PostgresqlDatabase):
         raise MigrationError('Structured Cards V2 requires PostgreSQL')
     if database.in_transaction():
         raise MigrationError('Structured Cards V2 migration requires its own transaction')
 
-    migration_id = STRUCTURED_CARDS_V2_MIGRATION_ID
     with database.atomic():
         database.execute_sql("SET LOCAL lock_timeout = '5s'")
         database.execute_sql("SET LOCAL statement_timeout = '60s'")
-        database.execute_sql('SELECT pg_advisory_xact_lock(%s)', (STRUCTURED_CARDS_V2_LOCK_ID,))
+        database.execute_sql('SELECT pg_advisory_xact_lock(%s)', (lock_id,))
         database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
             migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
         applied = bool(database.execute_sql(
             'SELECT 1 FROM tma_migration_history WHERE migration_id = %s', (migration_id,)
         ).fetchone())
-        columns = {column.name: column for column in database.get_columns('tma_card')}
+        columns = {column.name: column for column in database.get_columns(table)}
         if not set(_LEGACY_CONTENT_FIELDS) <= columns.keys():
-            raise MigrationError('Structured Cards V2 migration requires the existing tma_card schema')
+            raise MigrationError(f'Structured Cards V2 migration requires the existing {table} schema')
         content = columns.get('content_v2')
         if content is not None and (content.data_type.lower() != 'jsonb' or not content.null or content.default is not None):
             raise MigrationError('Structured Cards V2 migration requires nullable JSONB with no default')
@@ -59,8 +69,8 @@ def run_structured_cards_v2_migration(database):
                 ORDER BY a.attname::text COLLATE "C"
             )
             FROM pg_constraint AS c
-            WHERE c.conrelid = 'tma_card'::regclass AND c.conname = %s AND c.contype = 'c'
-        ''', (_STRUCTURED_CONTENT_CONSTRAINT,)).fetchone()
+            WHERE c.conrelid = %s::regclass AND c.conname = %s AND c.contype = 'c'
+        ''', (table, constraint_name)).fetchone()
         if applied:
             expected_fields = sorted((*_LEGACY_CONTENT_FIELDS, 'content_v2'))
             if content is None or constraint != (True, expected_fields) or any(
@@ -71,18 +81,18 @@ def run_structured_cards_v2_migration(database):
 
         # Fresh LOCAL bootstrap creates the ORM columns before running migrations.
         if constraint or (content is not None and database.execute_sql(
-            'SELECT 1 FROM tma_card LIMIT 1'
+            f'SELECT 1 FROM {table} LIMIT 1'
         ).fetchone()):
-            raise MigrationError('Structured Cards V2 schema exists without migration 93 record')
+            raise MigrationError(f'Structured Cards V2 schema exists without migration {migration_id} record')
 
         add_column = 'ADD COLUMN content_v2 JSONB,' if content is None else ''
         legacy_empty = ' AND '.join(f'{name} IS NULL' for name in _LEGACY_CONTENT_FIELDS)
         drop_legacy_not_null = ', '.join(f'ALTER COLUMN {name} DROP NOT NULL' for name in _LEGACY_CONTENT_FIELDS)
         database.execute_sql(f'''
-            ALTER TABLE tma_card
+            ALTER TABLE {table}
               {add_column}
               {drop_legacy_not_null},
-              ADD CONSTRAINT {_STRUCTURED_CONTENT_CONSTRAINT} CHECK ((
+              ADD CONSTRAINT {constraint_name} CHECK ((
                 (content_v2 IS NULL AND front_text IS NOT NULL AND back_text IS NOT NULL AND card_type IS NOT NULL)
                 OR
                 (content_v2 IS NOT NULL AND {legacy_empty}

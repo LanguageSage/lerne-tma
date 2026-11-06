@@ -19,8 +19,8 @@ from .media import resolve_media_url
 
 # Compatibility entry points; library import owns its helpers and orchestration.
 from .library_import import (
+    promote_to_library,
     import_deck, import_decks_batch, sync_deck_with_library,
-    _bulk_copy_cards_from_library, _save_source_library_id,
 )
 
 STARTER_DECK_NAMES = [
@@ -650,35 +650,6 @@ def delete_deck(deck_id: int, user_id: int):
     except Exception as e:
         logger.error(f"Error deleting deck: {e}", exc_info=True)
         raise e
-
-
-def promote_to_library(deck_id: int):
-    """Переносит пользовательскую колоду в общую библиотеку."""
-    try:
-        tma_deck = TMA_Deck.get_by_id(deck_id)
-        lib_deck, _ = Deck.get_or_create(
-            name=tma_deck.name,
-            defaults={'level': tma_deck.level, 'topic': tma_deck.topic}
-        )
-        
-        tma_cards = TMA_Card.select().where(TMA_Card.deck_id == deck_id)
-        for tc in tma_cards:
-            Card.get_or_create(
-                deck_id=lib_deck.id,
-                front_text=tc.front_text,
-                defaults={
-                    'back_text': tc.back_text,
-                    'context': tc.context,
-                    'image_path': tc.image_path,
-                    'audio_path': tc.audio_path,
-                    'video_front_path': tc.video_front_path,
-                    'video_back_path': tc.video_back_path
-                }
-            )
-        return lib_deck
-    except Exception as e:
-        logger.error(f"Error promoting deck: {e}")
-        return None
 
 
 def reset_deck_progress(user_id: int, deck_id: int):

@@ -16,7 +16,7 @@ import uvicorn
 def verify(db):
     from api import models
     from api.auth.service import _create_session, utcnow
-    from api.migrations import run_structured_cards_v2_migration
+    from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
     from api.main import app
     from api.services.answer_evaluation import load_answer_context
 
@@ -30,6 +30,14 @@ def verify(db):
         *models.AUTH_FOUNDATION_MODELS,
     ])
     run_structured_cards_v2_migration(db)
+    db.execute_sql('ALTER TABLE card DROP COLUMN content_v2, ALTER COLUMN front_text SET NOT NULL, '
+                   'ALTER COLUMN back_text SET NOT NULL, ALTER COLUMN card_type SET NOT NULL')
+    legacy_library = models.Deck.create(name='Old library fixture')
+    db.execute_sql('INSERT INTO card (deck_id, front_text, back_text, card_type, created_at, is_deleted, history, position, flag) '
+                   "VALUES (%s, 'old prompt', 'old answer', 'standard', now(), false, '[]', 7, 0)", (legacy_library.id,))
+    assert run_library_cards_v2_migration(db) == {'applied': True, 'migration_id': 94}
+    assert run_library_cards_v2_migration(db) == {'applied': False, 'migration_id': 94}
+    assert models.Card.select().where(models.Card.deck == legacy_library.id).get().front_text == 'old prompt'
     headers = {}
     for user_id in (1, 2, 3):
         models.TMAUser.create(user_id=user_id, is_guest=(user_id == 3), default_decks_initialized=True)
@@ -224,6 +232,26 @@ def _run_cases(client, models, headers, load_answer_context):
                     self.assertEqual(reopened['content_v2'], edited)
                     self.assertEqual(result['revision'], reopened['revision'])
                     self.assertNotEqual(current['revision'], result['revision'])
+
+        def test_library_import_uses_native_content_and_retains_progress_on_repeat(self):
+            library = models.Deck.create(name='Native library fixture')
+            value = envelope('Literal [[ ]]')
+            value['card']['metadata'] = {'extension': [True, None]}
+            models.Card.create(deck=library, content_v2=value, card_type=None, image_path='images/fixture.png')
+            uri = f'decks/external/import/{library.id}'
+            created = self.call('POST', uri)['deck_id']
+            [first] = self.call('GET', f'decks/{created}/cards')
+            models.TMAProgress.create(card_id=first['id'], user_id=1, repetitions=5)
+            self.assertEqual(self.call('POST', uri + '?mode=replace')['deck_id'], created)
+            [second] = self.call('GET', f'decks/{created}/cards')
+            self.assertEqual(second['id'], first['id'])
+            self.assertEqual(second['content_v2']['card']['metadata'], {'extension': [True, None]})
+            self.assertEqual(models.TMAProgress.get(models.TMAProgress.card_id == first['id']).repetitions, 5)
+            self.assertIsNone(models.TMA_Card.get_by_id(first['id']).front_text)
+            self.assertEqual(models.TMA_Card.get_by_id(first['id']).image_path, 'images/fixture.png')
+            old = models.Deck.get(models.Deck.name == 'Old library fixture')
+            self.call('POST', f'decks/external/import/{old.id}', 409)
+            self.assertFalse(models.TMA_Deck.select().where(models.TMA_Deck.name == old.name).exists())
 
         def test_editor_ai_and_import_preview_use_v2(self):
             draft = {'schema_version': 2, 'card': {'type': 'standard',

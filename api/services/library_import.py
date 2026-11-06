@@ -1,280 +1,133 @@
-"""Import and refresh TMA decks from the shared library.
-
-Keep the existing import entry points in decks.py as compatibility re-exports.
-"""
+"""Copy canonical library material without changing study progress."""
 import datetime
 import json
 import logging
+from collections import defaultdict, deque
 
 from fastapi import HTTPException
+from peewee import PostgresqlDatabase, fn
 
-from ..models import TMA_Deck, TMA_Card, TMAProgress, Deck, Card, tma_db
-from .utils import merge_tags, add_to_history
+from ..models import TMA_Deck, TMA_Card, TMAUser, Deck, Card, tma_db
+from .utils import add_to_history
 
-# Preserve the logging category used by the original service.
 logger = logging.getLogger('api.services.decks')
 
 
-def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_deck_id: int = None, force_trash: bool = False):
-    """Импортирует колоду из библиотеки. Поддерживает режимы: merge, replace, copy.
-    Если колода уже находится в корзине и force_trash=False, возвращает {'status': 'in_trash', ...}."""
-    try:
-        return _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash)
-    except HTTPException:
-        raise
-    except Exception as e:
-        error_msg = f"CRITICAL ERROR in import_deck: {e}"
-        logger.error(error_msg, exc_info=True)
-        raise Exception(error_msg)
+def _require_library_schema():
+    database = tma_db.obj
+    if not isinstance(database, PostgresqlDatabase) or not any(
+        column.name == 'content_v2' and column.data_type == 'jsonb' for column in database.get_columns('card')
+    ):
+        raise HTTPException(409, {'code': 'library_requires_migration'})
 
 
-def _import_deck(external_deck_id, user_id, mode, local_deck_id, force_trash):
-    # Include destination selection, trash purge and metadata in the same
-    # transaction as the card writes. Batch imports commit one deck at a time.
-    with tma_db.atomic():
-        from .collaborative_service import _require_can_mutate
-        from .structured_card_api import require_legacy_decks
-        logger.info(f"IMPORT START: deck_id={external_deck_id}, user_id={user_id}, mode={mode}, force_trash={force_trash}")
-
-        ext_deck = Deck.get_by_id(external_deck_id)
-        ext_target_lang = getattr(ext_deck, 'target_language', None) or 'de'
-
-        # Check if user has this deck in trash (soft-deleted)
-        if not local_deck_id and mode in ('merge', 'replace'):
-            deleted_deck = TMA_Deck.get_or_none(
-                (TMA_Deck.user_id == user_id) &
-                (TMA_Deck.name == ext_deck.name) &
-                (TMA_Deck.is_deleted == True)
-            )
-            active_deck = TMA_Deck.get_or_none(
-                (TMA_Deck.user_id == user_id) &
-                (TMA_Deck.name == ext_deck.name) &
-                (TMA_Deck.is_deleted == False)
-            )
-
-            if deleted_deck and not active_deck:
-                if not force_trash:
-                    logger.info(f"IMPORT DETECTED TRASH CONFLICT: user {user_id} has deleted deck '{ext_deck.name}' (id={deleted_deck.id})")
-                    return {
-                        "status": "in_trash",
-                        "name": ext_deck.name,
-                        "deck_name": ext_deck.name,
-                        "deck_id": external_deck_id,
-                        "trash_deck_id": deleted_deck.id
-                    }
-                else:
-                    _require_can_mutate(user_id, 'deck', deleted_deck.id, allow_deleted=True)
-                    require_legacy_decks([deleted_deck.id])
-                    logger.info(f"PURGING TRASH DECK {deleted_deck.id} for user {user_id} before re-importing")
-                    card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == deleted_deck.id)]
-                    if card_ids:
-                        TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
-                        TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
-                    deleted_deck.delete_instance()
-
-        if mode == 'copy':
-            copy_name = f"{ext_deck.name} (v2)"
-            local_deck, created = TMA_Deck.get_or_create(
-                user_id=user_id,
-                name=copy_name,
-                defaults={
-                    'level': getattr(ext_deck, 'level', ''),
-                    'topic': getattr(ext_deck, 'topic', ''),
-                    'target_language': ext_target_lang,
-                    'created_at': datetime.datetime.now(),
-                    'updated_at': datetime.datetime.now()
-                }
-            )
-            _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
-            require_legacy_decks([local_deck.id])
-            if not created and local_deck.is_deleted:
-                local_deck.is_deleted = False
-                local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
-                local_deck.updated_at = datetime.datetime.now()
-                local_deck.save()
-
-            _bulk_copy_cards_from_library(local_deck.id, external_deck_id, "Imported as copy")
-            _save_source_library_id(local_deck, external_deck_id)
-            return local_deck
-
-        elif mode == 'replace':
-            if local_deck_id:
-                local_deck = TMA_Deck.get_by_id(local_deck_id)
-            else:
-                local_deck, _ = TMA_Deck.get_or_create(
-                    user_id=user_id,
-                    name=ext_deck.name,
-                    defaults={
-                        'level': getattr(ext_deck, 'level', ''),
-                        'topic': getattr(ext_deck, 'topic', ''),
-                        'target_language': ext_target_lang,
-                        'created_at': datetime.datetime.now(),
-                        'updated_at': datetime.datetime.now()
-                    }
-                )
-
-            _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
-            require_legacy_decks([local_deck.id])
-            if local_deck.is_deleted:
-                local_deck.is_deleted = False
-            local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
-
-            # Delete old cards and progress before replacing
-            card_ids = [c.id for c in TMA_Card.select(TMA_Card.id).where(TMA_Card.deck_id == local_deck.id)]
-            if card_ids:
-                TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
-                TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
-
-            _bulk_copy_cards_from_library(local_deck.id, external_deck_id, "Imported via replace")
-            local_deck.updated_at = datetime.datetime.now()
-            _save_source_library_id(local_deck, external_deck_id)
-            local_deck.save()
-            return local_deck
-
-        else:  # merge
-            if local_deck_id:
-                local_deck = TMA_Deck.get_by_id(local_deck_id)
-            else:
-                local_deck, created = TMA_Deck.get_or_create(
-                    user_id=user_id,
-                    name=ext_deck.name,
-                    defaults={
-                        'level': getattr(ext_deck, 'level', ''),
-                        'topic': getattr(ext_deck, 'topic', ''),
-                        'target_language': ext_target_lang,
-                        'created_at': datetime.datetime.now(),
-                        'updated_at': datetime.datetime.now()
-                    }
-                )
-
-            logger.info(f"IMPORT MERGE: Processing deck '{local_deck.name}' (id={local_deck.id}) for user {user_id}")
-            _require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)
-            require_legacy_decks([local_deck.id])
-
-            # If the local deck was previously soft-deleted, un-delete it
-            if local_deck.is_deleted:
-                local_deck.is_deleted = False
-                local_deck.updated_at = datetime.datetime.now()
-            local_deck.target_language = ext_target_lang or local_deck.target_language or 'de'
-            local_deck.save()
-
-            # Check if local deck has active cards
-            local_cards_query = TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)
-            has_active_cards = local_cards_query.where(TMA_Card.is_deleted == False).exists()
-
-            if not has_active_cards:
-                # Clean up any old soft-deleted cards to prevent ghost duplicates
-                card_ids = [c.id for c in local_cards_query]
-                if card_ids:
-                    TMAProgress.delete().where(TMAProgress.card_id << card_ids).execute()
-                    TMA_Card.delete().where(TMA_Card.id << card_ids).execute()
-
-                _bulk_copy_cards_from_library(local_deck.id, external_deck_id, "Imported from library")
-                local_deck.updated_at = datetime.datetime.now()
-                _save_source_library_id(local_deck, external_deck_id)
-                local_deck.save()
-                logger.info(f"FAST IMPORT MERGE: Deck '{local_deck.name}' cards copied via ORM bulk insert")
-                return local_deck
-
-            # Update existing cards & insert new ones (incremental merge)
-            remote_cards = list(Card.select().where((Card.deck_id == external_deck_id) & (Card.is_deleted == False)))
-            local_cards = {c.front_text: c for c in TMA_Card.select().where(TMA_Card.deck_id == local_deck.id)}
-
-            logger.info(f"MERGE STATS: {len(remote_cards)} in library, {len(local_cards)} in local")
-
-            new_cards_to_insert = []
-
-            for rc in remote_cards:
-                if rc.front_text in local_cards:
-                    lc = local_cards[rc.front_text]
-                    # Ensure card is restored if it was soft-deleted
-                    if lc.is_deleted:
-                        lc.is_deleted = False
-                    # Check if remote is newer
-                    if rc.updated_at and (not lc.updated_at or rc.updated_at > lc.updated_at):
-                        logger.info(f"UPDATING CARD: {rc.front_text}")
-                        lc.back_text = rc.back_text
-                        lc.context = rc.context
-                        lc.image_path = rc.image_path
-                        lc.audio_path = rc.audio_path
-                        lc.tags = merge_tags(lc.tags, getattr(rc, 'tags', '[]'))
-                        lc.updated_at = datetime.datetime.now()
-                        lc.history = add_to_history(lc.history, "Updated from library")
-                    lc.save()
-                else:
-                    new_cards_to_insert.append({
-                        'deck_id': local_deck.id,
-                        'front_text': rc.front_text or '',
-                        'back_text': rc.back_text or '',
-                        'context': rc.context or '',
-                        'image_path': rc.image_path or '',
-                        'audio_path': rc.audio_path or '',
-                        'card_type': 'translation',
-                        'is_deleted': False,
-                        'source': 'library',
-                        'tags': getattr(rc, 'tags', '[]'),
-                        'metadata': getattr(rc, 'metadata', '{}'),
-                        'created_at': datetime.datetime.now(),
-                        'updated_at': datetime.datetime.now(),
-                        'history': add_to_history('[]', "Imported from library")
-                    })
-
-            if new_cards_to_insert:
-                for i in range(0, len(new_cards_to_insert), 100):
-                    TMA_Card.insert_many(new_cards_to_insert[i:i+100]).execute()
-
-            local_deck.updated_at = datetime.datetime.now()
-            _save_source_library_id(local_deck, external_deck_id)
-            local_deck.save()
-            return local_deck
+def _active_cards(model, deck_id):
+    return list(model.select().where(model.deck == deck_id, model.is_deleted == False)
+                .order_by(model.position, model.id))
 
 
-def _bulk_copy_cards_from_library(local_deck_id: int, external_deck_id: int, history_note: str = "Imported from library"):
-    """Copies all active cards from a library deck into a TMA deck using ORM bulk insert.
-    Replaces the old raw SQL INSERT-SELECT that required dialect-specific placeholders.
-    """
-    ext_cards = list(Card.select(
-        Card.front_text, Card.back_text, Card.context,
-        Card.image_path, Card.audio_path, Card.metadata
-    ).where((Card.deck_id == external_deck_id) & (Card.is_deleted == False)))
+def _copy_content(source_model, source_id, target_model, target_id, *, replace=False, creator=None):
+    from .structured_card_api import MEDIA_PATHS
+    from .structured_card_storage import decode_v2_content
 
-    if not ext_cards:
-        return 0
+    source = _active_cards(source_model, source_id)
+    target = _active_cards(target_model, target_id)
+    available = defaultdict(deque)
 
+    def key(card):
+        if card.content_v2 is None:
+            raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': card.id})
+        return json.dumps(decode_v2_content(card.content_v2).model_dump(mode='json'), sort_keys=True)
+
+    source_keys = [key(card) for card in source]
+    for card in target:
+        available[key(card)].append(card)
+
+    position = target_model.select(fn.MAX(target_model.position)).where(
+        target_model.deck == target_id, target_model.is_deleted == False).scalar() or 0
     now = datetime.datetime.now()
-    rows = [{
-        'deck_id': local_deck_id,
-        'front_text': c.front_text or '',
-        'back_text': c.back_text or '',
-        'context': c.context or '',
-        'image_path': c.image_path or '',
-        'audio_path': c.audio_path or '',
-        'card_type': 'translation',
-        'is_deleted': False,
-        'source': 'library',
-        'topics': '[]',
-        'metadata': c.metadata or '{}',
-        'tags': '[]',
-        'created_at': now,
-        'updated_at': now,
-        'history': add_to_history('[]', history_note)
-    } for c in ext_cards]
+    for order, (card, fingerprint) in enumerate(zip(source, source_keys, strict=True), 1):
+        fields = {field: getattr(card, field) for field in MEDIA_PATHS}
+        if available[fingerprint]:
+            previous = available[fingerprint].popleft()
+            media = {field: value for field, value in fields.items() if value and
+                     (replace or not getattr(previous, field))}
+            if replace or media:
+                order_fields = {'position': order} if replace else {}
+                target_model.update(updated_at=now, **order_fields, **media).where(
+                    target_model.id == previous.id).execute()
+            continue
+        position += 1
+        row = dict(deck=target_id, content_v2=card.content_v2, card_type=None, source='library',
+                   position=order if replace else position, updated_at=now,
+                   history=add_to_history('[]', 'Imported from library'), **fields)
+        if target_model is TMA_Card:
+            row['creator_id'] = creator
+        target_model.create(**row)
+    if replace:
+        unused = [card.id for matching in available.values() for card in matching]
+        if unused:
+            target_model.update(is_deleted=True, updated_at=now).where(target_model.id.in_(unused)).execute()
 
+
+def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_deck_id: int = None, force_trash: bool = False):
+    from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
+    from .structured_card_api import require_account
+
+    _require_library_schema()
+    if mode not in {'copy', 'merge', 'replace'}:
+        raise HTTPException(422, 'Unknown library import mode')
+    require_account(user_id)
     with tma_db.atomic():
-        for i in range(0, len(rows), 100):
-            TMA_Card.insert_many(rows[i:i+100]).execute()
-    return len(rows)
+        # Serialize destination creation for concurrent imports by the same user.
+        TMAUser.select().where(TMAUser.user_id == user_id).for_update().first()
+        source = Deck.select().where(Deck.id == external_deck_id, Deck.is_deleted == False).for_update().first()
+        if not source:
+            raise HTTPException(404, 'Library deck not found')
+        name = f'{source.name} (v2)' if mode == 'copy' else source.name
+        query = TMA_Deck.select()
+        if local_deck_id:
+            target = query.where(TMA_Deck.id == local_deck_id).for_update().first()
+            if not target:
+                raise HTTPException(404, 'Study deck not found')
+        else:
+            target = query.where(TMA_Deck.user_id == user_id, TMA_Deck.name == name).order_by(
+                TMA_Deck.is_deleted, TMA_Deck.id).for_update().first()
+        if target and target.is_deleted and not force_trash and not local_deck_id and mode != 'copy':
+            return {'status': 'in_trash', 'name': source.name, 'deck_name': source.name,
+                    'deck_id': external_deck_id, 'trash_deck_id': target.id}
+        if target is None:
+            target = TMA_Deck.create(user_id=user_id, name=name, level=source.level, topic=source.topic,
+                                     target_language=source.target_language or 'de', metadata=source.metadata)
+        _require_can_mutate(user_id, 'deck', target.id, allow_deleted=True)
+        _copy_content(Card, source.id, TMA_Card, target.id, replace=mode == 'replace', creator=user_id)
+        metadata = json.loads(target.metadata or '{}')
+        metadata['source_library_id'] = source.id
+        target.metadata = json.dumps(metadata, ensure_ascii=False)
+        target.is_deleted = False
+        target.target_language = source.target_language or 'de'
+        target.save(only=[TMA_Deck.metadata, TMA_Deck.is_deleted, TMA_Deck.target_language])
+        touch_deck_and_parent_folders(target.id, deck_obj=target)
+        return target
 
 
-def _save_source_library_id(local_deck, external_deck_id: int):
-    try:
-        meta = json.loads(local_deck.metadata or '{}')
-        meta['source_library_id'] = external_deck_id
-    except (ValueError, TypeError) as e:
-        logger.warning(f"Failed to set source_library_id metadata: {e}")
-        return
-    local_deck.metadata = json.dumps(meta)
-    local_deck.save()
+def promote_to_library(deck_id):
+    _require_library_schema()
+    with tma_db.atomic():
+        # Use library-before-study lock ordering for both transfer directions.
+        original = TMA_Deck.get_or_none(TMA_Deck.id == deck_id, TMA_Deck.is_deleted == False)
+        if not original:
+            raise HTTPException(404, 'Study deck not found')
+        target = Deck.select().where(Deck.name == original.name, Deck.is_deleted == False).for_update().first()
+        if not target:
+            target = Deck.create(name=original.name, level=original.level, topic=original.topic,
+                                 target_language=original.target_language, metadata=original.metadata)
+        source = TMA_Deck.select().where(TMA_Deck.id == deck_id, TMA_Deck.is_deleted == False).for_update().first()
+        if not source or source.name != original.name:
+            raise HTTPException(409, 'Study deck changed during transfer')
+        _copy_content(TMA_Card, source.id, Card, target.id)
+        Deck.update(updated_at=datetime.datetime.now()).where(Deck.id == target.id).execute()
+        return target
 
 
 def import_decks_batch(external_deck_ids: list[int], user_id: int, mode: str = 'merge', force_trash: bool = False):
@@ -303,6 +156,8 @@ def sync_deck_with_library(user_id: int, deck_id: int, mode: str = 'merge'):
             return True
         logger.warning(f"SYNC FAIL: No matching deck in library for '{local.name}'")
         return False
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error syncing deck: {e}")
         return False
