@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale';
-import { CARD_CREATE_KEY, prepareLocalDb, getNextTempId } from './localDb';
+import { CARD_CREATE_KEY, CARD_EDIT_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
@@ -21,12 +21,10 @@ const readOnly = () => { throw new Error(tr("У вас доступ только
 const pendingCreate = () => { throw new Error(tr('Сначала синхронизируйте новую карточку.')); };
 const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
-async function saveStandard(db, body, flag, userId) {
-  const card = body.content_v2?.card;
+function validateStandard(content) {
+  const card = content?.card;
   const nonBlank = value => typeof value === 'string' && /[^\p{White_Space}]/u.test(value);
-  if (body.content_v2?.schema_version !== 2 || card?.type !== 'standard') {
-    throw new Error(tr('Офлайн доступно создание только карточек Standard.'));
-  }
+  if (content?.schema_version !== 2 || card?.type !== 'standard') throw unsupported();
   if (!nonBlank(card.data?.prompt) || !nonBlank(card.data?.answer)
     || card.topics?.some(topic => !nonBlank(topic))
     || card.info?.some(block => block.type === 'options'
@@ -43,6 +41,13 @@ async function saveStandard(db, body, flag, userId) {
   if (invalidText || new TextEncoder().encode(encoded).length > 256 * 1024) {
     throw new Error(tr('Недопустимый текст или размер карточки.'));
   }
+}
+
+async function saveStandard(db, body, flag, userId) {
+  if (body.content_v2?.card?.type !== 'standard' || body.content_v2.schema_version !== 2) {
+    throw new Error(tr('Офлайн доступно создание только карточек Standard.'));
+  }
+  validateStandard(body.content_v2);
   if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
   if (!body.request_id) throw new Error('Missing card create request ID');
 
@@ -73,6 +78,72 @@ async function saveStandard(db, body, flag, userId) {
     await db.cards.add(local);
     await db.syncState.add({ key, tempId: id, deckId: deck.id, payload: body });
     return result(local);
+  });
+}
+
+async function saveStandardEdit(db, id, body, expectedConflict) {
+  validateStandard(body.content_v2);
+  if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
+  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+    const key = CARD_EDIT_KEY + id;
+    const current = await db.cards.get(id);
+    if (!current?.content_v2 || current.is_deleted) notFound();
+    const operation = await db.syncState.get(key);
+    if (operation?.payload.request_id === body.request_id) {
+      if (JSON.stringify(operation.payload) !== JSON.stringify(body)) throw new Error('Card edit request changed');
+      return result(current);
+    }
+
+    const conflict = current.offline_edit?.status === 'conflict';
+    if (operation && !(conflict && expectedConflict === operation.payload.request_id)) {
+      throw new Error(tr('Сначала завершите сохранённую правку карточки.'));
+    }
+    if (expectedConflict && !conflict) throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
+    if (!conflict) await requireContentWrite(db, 'cards', current);
+    const draft = {
+      ...current, content_v2: body.content_v2, revision: body.revision,
+      offline_edit: conflict ? { ...current.offline_edit, draftId: body.request_id }
+        : { status: 'pending', requestId: body.request_id },
+    };
+    for (const field of mediaPaths) {
+      if (!Object.hasOwn(body, field)) continue;
+      if (draft[field] !== body[field]) delete draft[field.replace('_path', '_url')];
+      draft[field] = body[field];
+    }
+    await db.cards.put(draft);
+    // A manual merge changes the draft only. A separate confirmation creates a new operation.
+    if (!conflict) await db.syncState.add({ key, cardId: id, payload: body });
+    return result(draft);
+  });
+}
+
+export async function resolveStandardEdit(id, expected, keepLocal) {
+  const identity = getSessionIdentity();
+  const userId = getUserId();
+  const db = await prepareLocalDb();
+  return db.transaction('rw', db.cards, db.syncState, async () => {
+    if (identity !== getSessionIdentity() || userId !== getUserId()) throw new Error('Session changed');
+    const key = CARD_EDIT_KEY + id;
+    const [card, operation] = await Promise.all([db.cards.get(id), db.syncState.get(key)]);
+    const edit = card?.offline_edit;
+    const server = edit?.server;
+    if (!server || edit.status !== 'conflict' || edit.requestId !== expected.requestId || edit.draftId !== expected.draftId
+        || server.revision !== expected.server?.revision || operation?.payload.request_id !== edit.requestId) {
+      throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
+    }
+    if (!keepLocal) {
+      const accepted = { ...server, is_dirty: 0, offline_confirmed_at: Date.now() };
+      await db.cards.put(accepted);
+      await db.syncState.delete(key);
+      return accepted;
+    }
+
+    const payload = { content_v2: card.content_v2, revision: server.revision, request_id: crypto.randomUUID() };
+    for (const field of mediaPaths) if (Object.hasOwn(card, field)) payload[field] = card[field];
+    const draft = { ...card, offline_edit: { status: 'pending', requestId: payload.request_id, server } };
+    await db.cards.put(draft);
+    await db.syncState.put({ key, cardId: id, payload });
+    return draft;
   });
 }
 const initialProgress = (card, userId) => ({
@@ -253,6 +324,9 @@ export const offlineApi = {
       const card = await db.cards.get(Number(match[1]));
       if (!card?.content_v2 || card.is_deleted) notFound();
       return result(await cardView(db, card, userId));
+    }
+    if (m === 'patch' && match && Number(match[1]) > 0 && config.offlineStandardEdit) {
+      return saveStandardEdit(db, Number(match[1]), body, config.offlineEditConflict);
     }
     match = url.match(/^\/study\/card\/(-?\d+)$/);
     if (m === 'get' && match) {

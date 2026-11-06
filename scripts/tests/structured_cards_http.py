@@ -15,7 +15,7 @@ import httpx
 import uvicorn
 
 
-def verify(db, *, offline_create_browser=False):
+def verify(db, *, offline_create_browser=False, offline_edit_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -61,8 +61,12 @@ def verify(db, *, offline_create_browser=False):
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
-            if offline_create_browser:
-                return _run_offline_create_browser(port, models, headers[1])
+            if offline_create_browser and not _run_offline_create_browser(port, models, headers[1]):
+                return False
+            if offline_edit_browser and not _run_offline_edit_browser(client, port, models, headers):
+                return False
+            if offline_create_browser or offline_edit_browser:
+                return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
         server.should_exit = True
@@ -73,17 +77,12 @@ def verify(db, *, offline_create_browser=False):
 
 
 def _run_offline_create_browser(port, models, authorization):
-    root = Path(__file__).resolve().parents[2]
     deck = models.TMA_Deck.create(user_id=1, name='Offline Standard fixture', target_language='de')
     legacy = models.TMA_Card.create(deck=deck, front_text='Preserve legacy prompt', back_text='Legacy answer')
     before = models.TMA_Card.select().where(models.TMA_Card.id == legacy.id).dicts().get()
     config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'legacy_id': legacy.id,
               'access_token': authorization['Authorization'].split(' ', 1)[1]}
-    env = {**os.environ, 'LERNE_OFFLINE_CREATE_FIXTURE': json.dumps(config)}
-    result = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
-                             'native-offline-create.spec.cjs', '--project=extended', '--workers=1'],
-                            cwd=root, env=env, timeout=180)
-    if result.returncode:
+    if not _run_offline_browser(config, 'persists Standard offline'):
         return False
     assert models.TMA_Card.select().where(models.TMA_Card.id == legacy.id).dicts().get() == before
     native = models.TMA_Card.select().where(models.TMA_Card.deck == deck,
@@ -93,6 +92,46 @@ def _run_offline_create_browser(port, models, authorization):
     receipt = models.TMAOfflineBatch.get(models.TMAOfflineBatch.key.startswith('cards-v2:save:1:'))
     assert json.loads(receipt.response)['id'] == native.id
     return True
+
+
+def _run_offline_edit_browser(client, port, models, headers):
+    deck = models.TMA_Deck.create(user_id=2, name='Offline Standard fixture', target_language='de')
+    models.TMA_Collaborator.create(target_type='deck', target_id=deck.id, user_id=1, role='editor')
+    content = {'schema_version': 2, 'card': {'type': 'standard', 'id': 'authored-id',
+               'data': {'prompt': 'Original Standard prompt', 'answer': 'Original answer'},
+               'info': [{'type': 'example', 'text': 'Authored example'}], 'metadata': {'fixture': ['ä', 'я']}}}
+    response = client.post('cards/save', headers=headers[2], json={
+        'request_id': str(uuid4()), 'deck_id': deck.id, 'content_v2': content,
+        'image_path': 'images/synthetic.webp',
+    })
+    response.raise_for_status()
+    card = response.json()
+    models.TMAProgress.create(card_id=card['id'], user_id=1, flag=2, repetitions=3)
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'card': card,
+              'access_token': headers[1]['Authorization'].split(' ', 1)[1],
+              'owner_token': headers[2]['Authorization'].split(' ', 1)[1]}
+    if not _run_offline_browser(config, 'resolves Standard revisions'):
+        return False
+    saved = client.get(f"cards/{card['id']}", headers=headers[2])
+    saved.raise_for_status()
+    final = saved.json()
+    assert final['content_v2']['card']['data']['prompt'] == 'Manually merged Standard prompt'
+    assert final['content_v2']['card']['metadata'] == content['card']['metadata']
+    assert final['content_v2']['card']['id'] == content['card']['id']
+    assert final['deck_id'] == deck.id and final['image_path'] == card['image_path']
+    progress = models.TMAProgress.get(models.TMAProgress.card_id == card['id'], models.TMAProgress.user_id == 1)
+    assert progress.flag == 2 and progress.repetitions == 3
+    assert models.TMA_Card.select().where(models.TMA_Card.deck == deck).count() == 1
+    return True
+
+
+def _run_offline_browser(config, scenario):
+    root = Path(__file__).resolve().parents[2]
+    env = {**os.environ, 'LERNE_OFFLINE_CREATE_FIXTURE': json.dumps(config)}
+    result = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
+                             'native-offline-create.spec.cjs', '--grep', scenario, '--project=extended', '--workers=1'],
+                            cwd=root, env=env, timeout=210)
+    return result.returncode == 0
 
 
 def _run_cases(client, models, headers, load_answer_context):

@@ -48,6 +48,39 @@ export function markOfflineCreateError({ detail }) {
   }));
 }
 
+export function updateOfflineEditUi({ detail }) {
+  if (detail.userId !== getUserId()) return;
+  const { card, confirmed } = detail;
+  const update = item => {
+    if (item?.id !== card.id) return item;
+    const next = { ...item, ...card };
+    if (!card.offline_edit) delete next.offline_edit;
+    return next;
+  };
+  useDeckStore.setState(state => ({
+    deckCards: state.deckCards.map(update),
+    duplicateCards: state.duplicateCards.map(update),
+    cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([key, cards]) => [key, cards.map(update)])),
+  }));
+  useSessionStore.setState(state => ({
+    card: update(state.card),
+    editingCard: state.editingCard?.id === card.id && state.editingCard.offline_edit?.status === 'conflict'
+      && card.offline_edit?.status === 'conflict'
+      ? { ...state.editingCard, offline_edit: card.offline_edit }
+      : update(state.editingCard),
+    studyHistory: state.studyHistory.map(update),
+  }));
+  if (confirmed) useUiStore.getState().showToast(tr('Карточка синхронизирована'), 'success');
+}
+
+export function offlineEditLabel(edit) {
+  if (edit.status === 'conflict') return tr('Конфликт версий');
+  if (edit.status === 'pending') return tr('Ожидает синхронизации');
+  if (edit.httpStatus === 401) return tr('Войдите снова, чтобы синхронизировать правку. Черновик на устройстве.');
+  if (edit.httpStatus === 403) return tr('Сервер запретил изменение. Черновик на устройстве.');
+  return tr('Ошибка синхронизации. Карточка сохранена на устройстве.');
+}
+
 export async function refreshOfflineUi({ detail }) {
   if (detail.userId !== getUserId()) return;
   try {

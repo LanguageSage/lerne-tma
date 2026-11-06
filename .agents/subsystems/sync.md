@@ -54,6 +54,21 @@ FastAPI и одноразовым PostgreSQL запускается через
 `scripts/tests/structured_cards_postgres.py --bin-dir <path> --offline-create-browser`.
 Границы этапа описаны в [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b1-офлайн-создание-одной-standard-карточки).
 
+## Structured Cards V2, этап 6B.2
+
+Офлайн-редактор Standard сохраняет черновик в `cards`, состояние доставки и
+версию сервера в `cards.offline_edit`, а исходный payload — в
+`syncState.card-edit-v2:<card_id>`. Запись карточки и операции, подтверждение
+и явный выбор версии атомарны в Dexie. Кеширование чтений и pull сохраняют
+карточку с активной правкой. Существующий `syncService` отправляет нативный
+`PATCH /cards/{id}` с исходной ревизией и тем же UUID до получения квитанции.
+При конфликте он сохраняет отказ до загрузки серверной версии и прекращает
+отправлять отклонённый payload. Явное сохранение локального варианта создаёт
+операцию с новым UUID и ревизией показанной версии сервера.
+
+Проверка двух Chromium-контекстов, FastAPI и одноразового PostgreSQL запускается
+через `scripts/tests/structured_cards_postgres.py --bin-dir <path> --offline-edit-browser`.
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,

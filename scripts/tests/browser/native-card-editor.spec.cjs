@@ -42,7 +42,9 @@ test('native editor keeps every card type and retains the draft after a conflict
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {},
       prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
-    if (pathname === '/api/messages') return route.fulfill({ json: [] });
+    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
+    if (pathname === '/api/decks/1/cards') return route.fulfill({ json: current ? [current] : [] });
+    if (pathname === '/api/messages' || pathname === '/api/folders') return route.fulfill({ json: [] });
     if (pathname.endsWith('/images/original.webp')) return route.fulfill({ contentType: 'image/svg+xml',
       body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 2"><rect width="4" height="2" fill="#395772"/></svg>' });
     if (pathname === '/api/cards/ai-generate') {
@@ -57,6 +59,11 @@ test('native editor keeps every card type and retains the draft after a conflict
       current = { ...current, content_v2: payload.content_v2, revision: 'server-' + saves.length };
       return route.fulfill({ json: current });
     }
+    if (pathname === '/api/cards/1') return route.fulfill({ json: current });
+    if (pathname === '/api/sync/v2/pull') return route.fulfill({ json: {
+      status: 'success', card_schema: 2, server_time: new Date().toISOString(),
+      folders: [], decks: [deck], cards: [current], progress: [],
+    } });
     return route.fulfill({ json: {} });
   });
   await page.goto('/?user_id=1');
@@ -66,6 +73,10 @@ test('native editor keeps every card type and retains the draft after a conflict
       const { useUiStore } = await import('/src/store/useUiStore.js');
       const { useDeckStore } = await import('/src/store/useDeckStore.js');
       const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      if (card.content_v2.card.type === 'standard') {
+        const { default: api } = await import('/src/services/api.js');
+        await api.get('/cards/' + card.id);
+      }
       useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
       useSessionStore.getState().setEditingCard(card);
       useUiStore.setState({ editorSourceView: 'decks' });

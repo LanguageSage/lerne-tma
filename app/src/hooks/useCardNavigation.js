@@ -3,7 +3,7 @@ import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { newCardContent } from '../utils/cardDraft';
 import { getAudioUrl } from '../utils/media';
-import { networkApi } from '../services/api';
+import api, { networkApi } from '../services/api';
 import { getSessionIdentity } from '../utils/auth';
 
 export const useCardNavigation = () => {
@@ -28,7 +28,8 @@ export const useCardNavigation = () => {
         const identity = getSessionIdentity();
         const view = useUiStore.getState().view;
         try {
-          const { data } = await networkApi.get(`/cards/${cardToEdit.id}`);
+          const client = cardToEdit.content_v2?.card?.type === 'standard' ? api : networkApi;
+          const { data } = await client.get(`/cards/${cardToEdit.id}`, { freshCard: true });
           if (getSessionIdentity() !== identity || useUiStore.getState().view !== view) return;
           cardToEdit = data;
           setLastSelectedCardId(data.id);
@@ -43,11 +44,12 @@ export const useCardNavigation = () => {
       setEditingCard({
         ...cardToEdit,
         id: cardToEdit.id,
+        editorBaseType: cardToEdit.content_v2?.card?.type,
         image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
         audio_url: getAudioUrl(cardToEdit.audio_url || cardToEdit.audio_path),
         video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
         video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? `/api/media/${cardToEdit.video_back_path}` : ''),
-        deck_id: deckId
+        deck_id: cardToEdit.deck_id ?? deckId
       });
     } else {
       setEditingCard({ content_v2: newCardContent(), deck_id: deckId });

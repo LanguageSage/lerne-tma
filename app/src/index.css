@@ -572,6 +572,54 @@ h1, h2, h3 {
   isolation: isolate;
 }
 
+.card-edit-panel {
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  overflow-wrap: anywhere;
+}
+
+.card-edit-panel h3, .card-edit-panel h4, .card-edit-panel p {
+  margin: 0;
+}
+
+.card-edit-versions {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 208px), 1fr));
+  gap: 8px;
+}
+
+.card-edit-version {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-width: 0;
+  padding: 12px;
+}
+
+.card-edit-version p, .card-edit-version pre {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+.card-edit-version summary {
+  padding-block: 12px;
+  cursor: pointer;
+}
+
+.card-edit-actions, .card-edit-status {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.card-edit-actions .btn, .card-edit-status .btn {
+  min-height: 44px;
+  max-width: 100%;
+  white-space: normal;
+}
+
 .card-preview-container {
   isolation: isolate;
   contain: layout;

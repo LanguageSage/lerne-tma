@@ -14,6 +14,7 @@ import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { cleanBracketSyntax } from '../../utils/clozeParser';
+import { offlineEditLabel } from '../../services/offlineUi';
 
 export const DraggableCardItem = React.memo(({
   c,
@@ -21,6 +22,7 @@ export const DraggableCardItem = React.memo(({
   currentDeck,
   canEditContent = true,
   startStudyCard,
+  openEditor,
   frontTypographyStyle,
   backTypographyStyle,
   cardListBg,
@@ -144,6 +146,16 @@ export const DraggableCardItem = React.memo(({
 
       {createStatus && <small role="status">{tr(createStatus === 'error'
         ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}</small>}
+      {c.offline_edit && (
+        <div className="card-edit-status">
+          <small role="status">{offlineEditLabel(c.offline_edit)}</small>
+          {!isSelectMode && (
+            <button type="button" className="btn btn-secondary" onClick={() => openEditor(c.deck_id, c)}>
+              {tr('Открыть локальную правку')}
+            </button>
+          )}
+        </div>
+      )}
       <div className="card-item-footer">
         <div className="card-item-footer-left">
           {!isSelectMode && canDrag && (

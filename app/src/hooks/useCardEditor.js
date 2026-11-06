@@ -1,13 +1,14 @@
 import { tr } from '../i18n/locale';
-import api from '../services/api';
+import api, { networkApi } from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 
 import { cardWriteError } from '../utils/cardDraft';
-import { networkApi } from '../services/api';
-import { getSessionIdentity } from '../utils/auth';
+import { getSessionIdentity, getUserId } from '../utils/auth';
+import { prepareLocalDb } from '../services/localDb';
+import { notifyCardEdit, syncService } from '../services/syncService';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
@@ -63,12 +64,37 @@ export const useCardEditor = () => {
         pendingSave = { identity, fingerprint, id: crypto.randomUUID() };
       }
       reqData.request_id = pendingSave.id;
-      const res = data.id ? await networkApi.patch(path, reqData)
+      const standardEdit = data.id > 0 && (data.offline_edit || (data.content_v2.card.type === 'standard'
+        && (!data.editorBaseType || data.editorBaseType === 'standard')));
+      const conflict = data.offline_edit?.status === 'conflict';
+      const res = standardEdit ? await api.patch(path, reqData, {
+        offlineStandardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
+      }) : data.id ? await networkApi.patch(path, reqData)
         : await (data.content_v2.card.type === 'standard' ? api : networkApi).post(path, reqData, { offlineCreateFlag: data.flag });
       pendingSave = null;
       if (identity !== getSessionIdentity()) return;
 
-      const savedLocally = Boolean(res.data.offline_create_status);
+      if (standardEdit) res.data = { ...data, ...res.data };
+      if (standardEdit && navigator.onLine && !conflict) {
+        const db = await prepareLocalDb();
+        await syncService.sync({ pendingNativeOnly: true });
+        const cached = await db.cards.get(data.id);
+        if (identity !== getSessionIdentity()) return;
+        const visible = useSessionStore.getState().editingCard;
+        if (cached) {
+          // The receipt event carries study fields omitted from the pull snapshot.
+          res.data = visible?.id === cached.id && visible.revision === cached.revision
+            ? { ...visible, ...cached } : cached;
+        }
+      }
+      if (standardEdit && res.data.offline_edit?.status === 'conflict') {
+        notifyCardEdit(res.data, getUserId());
+        session.setEditingCard(res.data);
+        if (conflict) showToast(tr('Карточка сохранена на устройстве'), 'success');
+        return res.data;
+      }
+
+      const savedLocally = Boolean(res.data.offline_create_status || res.data.offline_edit);
       if (!savedLocally && !data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path) {
         try {
           const audio = await networkApi.post('/media/generate-card-audio', { card_id: res.data.id, side: 'front' });
@@ -78,7 +104,7 @@ export const useCardEditor = () => {
         }
       }
 
-      if (!savedLocally && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
+      if ((!savedLocally || standardEdit) && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
         try {
           await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
           res.data.flag = Number(data.flag);
@@ -87,7 +113,9 @@ export const useCardEditor = () => {
         }
       }
 
-      showToast(tr(savedLocally ? 'Карточка сохранена на устройстве' : 'Карточка сохранена'), 'success');
+      if (savedLocally || !standardEdit) {
+        showToast(tr(savedLocally ? 'Карточка сохранена на устройстве' : 'Карточка сохранена'), 'success');
+      }
       
       const { deckCards } = useDeckStore.getState();
       let savedCard = (res?.data && res.data.id) ? res.data : data;
@@ -115,6 +143,7 @@ export const useCardEditor = () => {
         let nextCards = [...(deckCards || [])];
         if (existingIdx !== -1) {
           nextCards[existingIdx] = { ...nextCards[existingIdx], ...savedCard };
+          if (!savedCard.offline_edit) delete nextCards[existingIdx].offline_edit;
         } else if (data.after_card_id) {
           const afterIdx = nextCards.findIndex(c => String(c.id) === String(data.after_card_id));
           if (afterIdx !== -1) {

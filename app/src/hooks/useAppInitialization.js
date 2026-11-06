@@ -10,7 +10,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { isOfflineMode } from '../services/localDb';
 import { syncService } from '../services/syncService';
-import { markOfflineCreateError, remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
+import { markOfflineCreateError, updateOfflineEditUi, remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
 
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast } = useUiStore();
@@ -79,7 +79,7 @@ export const useAppInitialization = (checkStartParam) => {
       try { await initPromise; } finally { useUiStore.setState({ loading: false, hasInitialized: true }); }
     };
 
-    const runBackgroundSync = () => syncService.sync({ pendingCreatesOnly: !isOfflineMode() })
+    const runBackgroundSync = () => syncService.sync({ pendingNativeOnly: !isOfflineMode() })
       .catch(error => console.error('Background sync failed', error));
     init();
     useAuthStore.getState().initListeners();
@@ -125,6 +125,7 @@ export const useAppInitialization = (checkStartParam) => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('lerne:ids-remapped', remapOfflineUi);
     window.addEventListener('lerne:card-create-error', markOfflineCreateError);
+    window.addEventListener('lerne:card-edit-changed', updateOfflineEditUi);
     window.addEventListener('lerne:synced', refreshOfflineUi);
 
     // Periodic background sync every 60 seconds
@@ -138,6 +139,7 @@ export const useAppInitialization = (checkStartParam) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('lerne:ids-remapped', remapOfflineUi);
       window.removeEventListener('lerne:card-create-error', markOfflineCreateError);
+      window.removeEventListener('lerne:card-edit-changed', updateOfflineEditUi);
       window.removeEventListener('lerne:synced', refreshOfflineUi);
       clearInterval(syncInterval);
     };

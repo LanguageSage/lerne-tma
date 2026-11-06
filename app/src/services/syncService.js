@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale.js';
-import { CARD_CREATE_KEY, prepareLocalDb } from './localDb.js';
+import { CARD_CREATE_KEY, CARD_EDIT_KEY, prepareLocalDb } from './localDb.js';
 import { networkApi } from './networkApi.js';
 import { getAccessToken, getSessionIdentity, getUserId } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
@@ -8,6 +8,10 @@ const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
 const revision = item => item.local_revision || item.updated_at;
 const remap = (map, id) => map?.[String(id)] ?? id;
+
+export function notifyCardEdit(card, userId, confirmed = false) {
+  window.dispatchEvent(new CustomEvent('lerne:card-edit-changed', { detail: { card, userId, confirmed } }));
+}
 
 async function deliverCardCreates(db, operations, userId, isCurrent) {
   let firstError;
@@ -46,6 +50,73 @@ async function deliverCardCreates(db, operations, userId, isCurrent) {
         window.dispatchEvent(new CustomEvent('lerne:card-create-error', { detail: { userId, id: operation.tempId } }));
       }
       firstError ||= error;
+    }
+  }
+  if (firstError) throw firstError;
+}
+
+async function deliverCardEdits(db, operations, userId, isCurrent) {
+  let firstError;
+  const options = { _expectedUserId: userId };
+  for (const operation of operations) {
+    const { cardId, key, payload } = operation;
+    const path = `/cards/${cardId}`;
+    const update = async (change, { confirmed = false, status } = {}) => {
+      const ownsResponse = () => isCurrent()
+        || (status === 401 && getUserId() === userId && getSessionIdentity() === null);
+      if (!ownsResponse()) throw new Error('Session changed');
+      const card = await db.transaction('rw', db.cards, db.syncState, async () => {
+        const current = await db.cards.get(cardId);
+        if (!ownsResponse() || current?.offline_edit?.requestId !== payload.request_id
+            || (await db.syncState.get(key))?.payload.request_id !== payload.request_id) return;
+        const next = change(current);
+        await db.cards.put(next);
+        if (confirmed) await db.syncState.delete(key);
+        return next;
+      });
+      if (card && ownsResponse()) notifyCardEdit(card, userId, confirmed);
+      return card;
+    };
+    const validate = card => {
+      if (card?.id !== cardId || card.content_v2?.schema_version !== 2 || !card.revision) {
+        throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+      }
+      return card;
+    };
+
+    const current = await db.cards.get(cardId);
+    if (!isCurrent()) throw new Error('Session changed');
+    if (current?.offline_edit?.requestId !== payload.request_id) continue;
+    let edit = current.offline_edit;
+    if (edit.status !== 'conflict') {
+      try {
+        const { data } = await networkApi.patch(path, payload, options);
+        const card = validate(data);
+        if (card.content_v2.card?.type !== 'standard') throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+        await update(() => ({ ...card, is_dirty: 0, offline_confirmed_at: Date.now() }), { confirmed: true });
+        continue;
+      } catch (error) {
+        const status = error.response?.status;
+        if (status === 409 && error.response?.data?.detail?.code === 'card_revision_conflict') {
+          // Persist rejection before fetching the remote side. A failed GET cannot cause a second PATCH.
+          edit = (await update(card => ({ ...card, offline_edit: { requestId: edit.requestId, status: 'conflict' } })))?.offline_edit;
+        } else {
+          await update(card => ({ ...card, offline_edit: { ...card.offline_edit, status: 'error', httpStatus: status } }), { status });
+          firstError ||= error;
+          continue;
+        }
+      }
+    }
+    if (edit && !edit.server) {
+      try {
+        const { data } = await networkApi.get(path, options);
+        const server = validate(data);
+        await update(card => ({ ...card, offline_edit: { ...card.offline_edit, server, httpStatus: undefined } }));
+      } catch (error) {
+        const status = error.response?.status;
+        await update(card => ({ ...card, offline_edit: { ...card.offline_edit, httpStatus: status } }), { status });
+        firstError ||= error;
+      }
     }
   }
   if (firstError) throw firstError;
@@ -169,14 +240,14 @@ async function applySnapshot(db, data, userId, pullStartedAt) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)
-            || (name === 'cards' && (legacyIds.has(item.id) || local?.offline_confirmed_at >= pullStartedAt))
+            || (name === 'cards' && (legacyIds.has(item.id) || local?.offline_edit || local?.offline_confirmed_at >= pullStartedAt))
             || (name === 'progress' && legacyIds.has(item.card_id))) continue;
         await db[name].put({ ...item, ...(name === 'progress' ? { user_id: userId } : {}), is_dirty: 0 });
       }
       // A full snapshot also carries hard deletions and revoked access.
       for (const item of name === 'cards' ? localCards : await db[name].toArray()) {
         const id = name === 'progress' ? item.card_id : item.id;
-        if ((name === 'cards' && (legacyIds.has(id) || item.offline_confirmed_at >= pullStartedAt))
+        if ((name === 'cards' && (legacyIds.has(id) || item.offline_edit || item.offline_confirmed_at >= pullStartedAt))
             || (name === 'progress' && (legacyIds.has(id) || !nativeIds.has(id)))) continue;
         if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
       }
@@ -194,7 +265,7 @@ export const syncService = {
     }
     return this.runSync(options);
   },
-  async runSync({ pendingCreatesOnly = false } = {}) {
+  async runSync({ pendingNativeOnly = false } = {}) {
     if (this.isSyncing) return { success: false, reason: 'Already syncing' };
     if (!navigator.onLine) return { success: false, reason: tr("Нет подключения к интернету") };
     if (!getAccessToken() || !getUserId()) return { success: false, reason: tr("Требуется вход") };
@@ -207,12 +278,20 @@ export const syncService = {
       const db = await prepareLocalDb();
       if (!isCurrent()) throw new Error('Session changed');
       const creates = await db.syncState.where('key').startsWith(CARD_CREATE_KEY).toArray();
-      if (pendingCreatesOnly && !creates.length) return { success: true };
-      let createError;
+      const queuedEdits = await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray();
+      const editCards = await db.cards.bulkGet(queuedEdits.map(edit => edit.cardId));
+      const edits = queuedEdits.filter((_edit, index) => {
+        const edit = editCards[index]?.offline_edit;
+        return edit && (edit.status !== 'conflict' || !edit.server);
+      });
+      if (pendingNativeOnly && !creates.length && !edits.length) return { success: true };
+      let nativeError;
       try { await deliverCardCreates(db, creates, userId, isCurrent); }
-      catch (error) { createError = error; }
+      catch (error) { nativeError = error; }
+      try { await deliverCardEdits(db, edits, userId, isCurrent); }
+      catch (error) { nativeError ||= error; }
       if (!isCurrent()) throw new Error('Session changed');
-      const batch = pendingCreatesOnly ? null : await pendingBatch(db, userId);
+      const batch = pendingNativeOnly ? null : await pendingBatch(db, userId);
       if (batch) {
         const response = await networkApi.post('/sync/v2/push', payloadFor(batch), options);
         if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
@@ -229,14 +308,14 @@ export const syncService = {
         await acknowledge(db, batch, mappings);
         if (isCurrent()) window.dispatchEvent(new CustomEvent('lerne:ids-remapped', { detail: { mappings, userId } }));
       }
-      if (createError) throw createError;
-      if (!pendingCreatesOnly) await syncLearningPreferences(db, options);
+      if (nativeError) throw nativeError;
+      if (!pendingNativeOnly) await syncLearningPreferences(db, options);
       const pullStartedAt = Date.now();
       const response = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: 2 } });
       if (!isCurrent()) throw new Error('Session changed');
       await applySnapshot(db, response.data, userId, pullStartedAt);
       let notesPending = false;
-      try { if (!pendingCreatesOnly) await syncCardNotes(db, userId); }
+      try { if (!pendingNativeOnly) await syncCardNotes(db, userId); }
       catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.
       if (isCurrent()) {
         localStorage.setItem('lerne_last_sync_time', response.data.server_time);
