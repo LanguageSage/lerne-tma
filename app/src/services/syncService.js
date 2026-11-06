@@ -3,6 +3,7 @@ import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_MOVE_KEY, prepareLocalDb } from '.
 import { networkApi } from './networkApi.js';
 import { getAccessToken, getSessionIdentity, getUserId, isRetiredSession } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
+import { cardWriteError } from '../utils/cardDraft.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
@@ -39,7 +40,8 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
     try {
       const { data: card } = await networkApi.post('/cards/save', operation.payload, options);
       if (!Number.isSafeInteger(card?.id) || card.id <= 0 || card.deck_id !== operation.deckId
-          || card.content_v2?.schema_version !== 2 || card.content_v2.card?.type !== 'standard' || !card.revision) {
+          || card.content_v2?.schema_version !== 2 || card.content_v2.card?.type !== operation.payload.content_v2.card.type
+          || !card.revision) {
         throw new Error(tr("Сервер не подтвердил сохранение изменений"));
       }
       if (!isCurrent()) throw new Error('Session changed');
@@ -66,17 +68,21 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
       }
     } catch (error) {
       if (!isCurrent()) throw error;
+      const rejected = error.response?.status === 422;
+      const changes = { offline_create_status: 'error',
+        ...(rejected && { offline_create_error: cardWriteError(error) }) };
       const updated = await db.transaction('rw', db.cards, db.syncState, async () => {
         const pending = await db.syncState.get(operation.key);
         if (!isCurrent() || !ownsOperation(pending)) return false;
-        const count = await db.cards.update(operation.tempId, { offline_create_status: 'error' });
+        const count = await db.cards.update(operation.tempId, changes);
+        if (rejected) await db.syncState.update(operation.key, { rejected: true });
         if (!isCurrent()) throw new Error('Session changed');
         return count;
       });
       if (updated && isCurrent()) {
-        notifySyncUi('lerne:card-create-error', { userId, id: operation.tempId }, { id: operation.tempId });
+        notifySyncUi('lerne:card-create-error', { userId, id: operation.tempId, changes }, { id: operation.tempId });
       }
-      firstError ||= error;
+      firstError ||= rejected ? new Error(changes.offline_create_error) : error;
     }
   }
   if (firstError) throw firstError;
@@ -389,7 +395,8 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
   try {
     const db = await prepareLocalDb();
     if (!isCurrent()) throw new Error('Session changed');
-    const creates = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_CREATE_KEY).toArray();
+    const creates = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_CREATE_KEY)
+      .filter(create => !create.rejected).toArray();
     const queuedEdits = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray();
     const editCards = await db.cards.bulkGet(queuedEdits.map(edit => edit.cardId));
     const edits = queuedEdits.filter((_edit, index) => {

@@ -5,7 +5,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 
-import { cardWriteError } from '../utils/cardDraft';
+import { cardWriteError, validateStandardDraft } from '../utils/cardDraft';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { prepareLocalDb } from '../services/localDb';
 import { offlineMoveLabel } from '../services/offlineUi';
@@ -72,10 +72,11 @@ export const useCardEditor = () => {
       const standardEdit = data.id > 0 && (data.offline_edit || (data.content_v2.card.type === 'standard'
         && (!data.editorBaseType || data.editorBaseType === 'standard')));
       const conflict = data.offline_edit?.status === 'conflict';
+      if (!data.id && data.content_v2.card.type === 'standard') validateStandardDraft(data.content_v2.card);
       const res = standardEdit ? await api.patch(path, reqData, {
         offlineStandardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
       }) : data.id ? await networkApi.patch(path, reqData)
-        : await (data.content_v2.card.type === 'standard' ? api : networkApi).post(path, reqData, { offlineCreateFlag: data.flag });
+        : await api.post(path, reqData, { offlineCreateFlag: data.flag });
       if (!isCurrent()) return;
       pendingSave = null;
 

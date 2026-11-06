@@ -6,15 +6,16 @@ if (fixture && !/^http:\/\/127\.0\.0\.1:\d+$/.test(fixture.origin)) throw new Er
 
 const prompt = 'Österreichische Grüße [[literal]]';
 const answer = 'Синтетический ответ';
-const deck = fixture && { id: fixture.deck_id, name: 'Offline Standard fixture',
-  user_id: fixture.card ? 2 : 1, target_language: 'de', role: fixture.card ? 'editor' : 'owner', stats: { total: 0 } };
-const profile = { user_id: 1, first_name: 'Test learner', is_guest: false };
+const deck = fixture && { id: fixture.deck_id, name: fixture.deck_name || 'Offline Standard fixture',
+  user_id: fixture.card ? 2 : fixture.user_id ?? 1, target_language: 'de', role: fixture.card ? 'editor' : 'owner', stats: { total: 0 } };
+const profile = { user_id: fixture?.user_id ?? 1, first_name: 'Test learner', is_guest: false };
 
 async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull) {
+  const startOffline = getPhase() === 'offline';
   await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
     ? route.continue() : route.abort('blockedbyclient'));
   await context.routeWebSocket('**/*', () => {});
-  await context.addInitScript(({ token, profile, manualSync, isolation }) => {
+  await context.addInitScript(({ token, profile, manualSync, isolation, startOffline }) => {
     localStorage.setItem('native_language', 'ru');
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
@@ -23,15 +24,15 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       localStorage.setItem('lerne_user_profile', JSON.stringify(profile));
       localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: profile.user_id, access_token: token }));
     }
-    if (sessionStorage.getItem('offline-fixture')) {
+    if (sessionStorage.getItem('offline-fixture') || (startOffline && !sessionStorage.getItem('fixture-reconnected'))) {
       Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     }
     if (manualSync) {
       // Keep network transitions deterministic. Startup sync still runs on reload.
       window.addEventListener('online', event => event.stopImmediatePropagation(), true);
     }
-  }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : 1 },
-    manualSync: (Boolean(fixture.card) && !owner) || fixture.isolation || Boolean(fixture.move), isolation: fixture.isolation });
+  }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : profile.user_id },
+    manualSync: (Boolean(fixture.card) && !owner) || fixture.isolation || Boolean(fixture.move), isolation: fixture.isolation, startOffline });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
     const phase = getPhase();
@@ -69,7 +70,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     if (fixture.isolation && pathname === '/api/auth/v2/me') return route.fulfill({ response: await fetchFromServer() });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: visibleDecks, folders: [],
       settings: {}, prompts: {}, user_settings: {}, user_info: asSecond ? { ...profile, user_id: 2 } : profile } });
-    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { ...profile, user_id: owner ? 2 : 1 } });
+    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { ...profile, user_id: owner ? 2 : profile.user_id } });
     if (pathname === '/api/decks') return route.fulfill({ json: visibleDecks });
     if (pathname === '/api/folders' || pathname === '/api/messages') return route.fulfill({ json: [] });
     return route.fulfill({ json: {} });
@@ -80,11 +81,13 @@ async function inspectLocal(page, tempId) {
   return page.evaluate(async ({ tempId, legacyId }) => {
     const { prepareLocalDb } = await import('/src/services/localDb.js');
     const db = await prepareLocalDb();
+    const aliases = (await db.syncState.get('aliases'))?.mappings.cards;
     return {
       operations: await db.syncState.where('key').startsWith('card-create-v2:').toArray(),
-      alias: (await db.syncState.get('aliases'))?.mappings.cards?.[tempId],
+      alias: aliases?.[tempId],
+      aliases,
       cards: await db.cards.filter(c => !!c.content_v2).toArray(),
-      legacy: await Promise.all([db.cards.get(legacyId), db.cards.get('legacy-draft'),
+      legacy: legacyId == null ? [] : await Promise.all([db.cards.get(legacyId), db.cards.get('legacy-draft'),
         db.progress.get([legacyId, 1]), db.syncState.get('pending'), db.syncState.get('review:legacy')]),
     };
   }, { tempId, legacyId: fixture.legacy_id });
@@ -101,7 +104,7 @@ async function openList(page, targetDeck = deck) {
 }
 
 test('persists Standard offline, replays a committed write and pulls it on a separate device', async ({ page, context, browser }, testInfo) => {
-  test.skip(Boolean(fixture?.card || fixture?.isolation || fixture?.move), 'Creation fixture only');
+  test.skip(Boolean(fixture?.card || fixture?.isolation || fixture?.move || fixture?.contents), 'Standard creation fixture only');
   test.setTimeout(90000);
   const attempts = [];
   let phase = 'ready';
@@ -239,6 +242,165 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
     await expect(other.getByText(prompt, { exact: true }).first()).toBeVisible();
   } finally {
     await second.close();
+  }
+});
+
+test('creates all nine V2 types offline across a Chromium restart and replays the same payloads', async ({ browser }, testInfo) => {
+  test.skip(!fixture?.contents, 'All-types creation fixture only');
+  test.setTimeout(120000);
+  const attempts = [];
+  const observeSave = (payload, status, receipt) => attempts.push({ payload, status, receipt });
+  const errors = [];
+  const origin = 'http://127.0.0.1:5199';
+  const profileDir = testInfo.outputPath('device-one');
+  let phase = 'ready';
+  let device;
+  let otherDevice;
+  async function launchDevice() {
+    device = await browser.browserType().launchPersistentContext(profileDir, {
+      viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
+    });
+    await setupDevice(device, () => phase, observeSave);
+    const page = device.pages()[0];
+    page.on('pageerror', error => errors.push(error.message));
+    await page.goto(origin);
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    return page;
+  }
+  const sync = (page, options = { pendingNativeOnly: true }) => page.evaluate(async options =>
+    (await import('/src/services/syncService.js')).syncService.sync(options), options);
+
+  try {
+    let page = await launchDevice();
+    await openList(page);
+    phase = 'offline';
+    await device.setOffline(true);
+
+    // Exercise the regular creator for a non-Standard type.
+    await page.evaluate(async () => {
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useUiStore.setState({ editorSourceView: 'cards' });
+      useUiStore.getState().setView('creator');
+    });
+    const theory = fixture.contents.theory.card;
+    await page.getByRole('combobox', { name: 'Тип карточки' }).selectOption('theory');
+    await page.locator('#card-editor-front').fill(theory.data.text);
+    await page.locator('#card-editor-back').fill(theory.data.summary);
+    await page.locator('#card-editor-context').fill(theory.explanation);
+    await page.locator('.btn-save-action').click();
+    await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toBeVisible();
+    await expect(page.getByText('Ожидает синхронизации')).toBeVisible();
+
+    const { saved, bad } = await page.evaluate(async ({ contents, deckId }) => {
+      const { default: api } = await import('/src/services/api.js');
+      const create = async (content_v2, deck_id = deckId) => {
+        const payload = { content_v2, deck_id, request_id: crypto.randomUUID() };
+        const { data: card } = await api.post('/cards/save', payload);
+        return { card, payload };
+      };
+      const saved = [];
+      for (const [kind, content] of Object.entries(contents)) {
+        if (kind !== 'theory') saved.push(await create(content));
+      }
+      return { saved, bad: await create({ schema_version: 2, card: { type: 'match', data: {} } }) };
+    }, { contents: fixture.contents, deckId: deck.id });
+    const queued = await inspectLocal(page);
+    expect(queued.cards).toHaveLength(10);
+    expect(queued.operations).toHaveLength(10);
+    expect(new Set(queued.operations.map(op => op.tempId)).size).toBe(10);
+    for (const { card, payload } of [...saved, bad]) {
+      expect(queued.operations.find(op => op.tempId === card.id).payload).toEqual(payload);
+      expect(queued.cards.find(row => row.id === card.id).content_v2).toEqual(payload.content_v2);
+    }
+    for (const op of queued.operations) {
+      expect(op.tempId).toBeLessThan(0);
+      expect(op.key).toBe('card-create-v2:' + op.payload.request_id);
+      expect(queued.cards.find(card => card.id === op.tempId).offline_create_status).toBe('pending');
+    }
+    expect(attempts).toHaveLength(0);
+
+    // Restart Chromium with its original profile. Vite serves the shell while
+    // API traffic stays disconnected.
+    await device.close();
+    page = await launchDevice();
+    expect(await inspectLocal(page)).toEqual(queued);
+    await openList(page);
+    await expect(page.getByText('Ожидает синхронизации')).toHaveCount(10);
+
+    phase = 'lose-response';
+    await page.evaluate(() => {
+      sessionStorage.setItem('fixture-reconnected', 'true');
+      delete navigator.onLine;
+    });
+    expect((await sync(page)).success).toBe(false);
+    const committed = attempts.filter(attempt => attempt.status === 200);
+    expect(committed).toHaveLength(9);
+    const interrupted = await inspectLocal(page);
+    expect(interrupted.operations).toEqual(queued.operations);
+    expect(interrupted.aliases).toBeUndefined();
+    expect(interrupted.cards.map(card => card.id)).toEqual(queued.cards.map(card => card.id));
+
+    phase = 'ready';
+    const rejected = await sync(page);
+    expect(rejected).toMatchObject({ success: false, reason: expect.stringContaining('pairs') });
+    const confirmed = await inspectLocal(page);
+    const badOperation = queued.operations.find(op => op.tempId === bad.card.id);
+    expect(confirmed.operations).toEqual([{ ...badOperation, rejected: true }]);
+    expect(confirmed.cards.find(card => card.id === bad.card.id)).toMatchObject({
+      content_v2: bad.payload.content_v2, offline_create_status: 'error', offline_create_error: expect.stringContaining('pairs'),
+    });
+    const delivered = confirmed.cards.filter(card => card.id > 0);
+    expect(delivered).toHaveLength(9);
+    expect(new Set(delivered.map(card => card.id)).size).toBe(9);
+    for (const operation of queued.operations) {
+      const writes = attempts.filter(attempt => attempt.payload.request_id === operation.payload.request_id);
+      expect(writes.map(write => write.payload)).toEqual([operation.payload, operation.payload]);
+      if (operation.tempId === bad.card.id) {
+        expect(writes.map(write => write.status)).toEqual([422, 422]);
+        expect(confirmed.aliases[operation.tempId]).toBeUndefined();
+        continue;
+      }
+      expect(writes.map(write => write.status)).toEqual([200, 200]);
+      const [first, replay] = writes;
+      expect(replay.receipt).toEqual(first.receipt);
+      expect(confirmed.aliases[operation.tempId]).toBe(first.receipt.id);
+      const content = fixture.contents[operation.payload.content_v2.card.type];
+      expect(first.receipt.content_v2).toEqual(content);
+      expect(delivered.find(card => card.id === first.receipt.id).content_v2).toEqual(content);
+    }
+
+    await page.reload();
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await expect.poll(() => sync(page, {})).toMatchObject({ success: true, server_time: expect.any(String) });
+    await openList(page);
+    const invalidCard = page.locator('#card-item-' + bad.card.id);
+    await expect(invalidCard.getByRole('status')).toContainText('Карточка сохранена на устройстве.');
+    await expect(invalidCard.getByRole('status')).toContainText('pairs');
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      expect(await invalidCard.getByRole('status').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    }
+    await page.setViewportSize({ width: 375, height: 844 });
+    await invalidCard.screenshot({ path: testInfo.outputPath('invalid-v2-375.png') });
+    expect((await inspectLocal(page)).operations).toEqual(confirmed.operations);
+    expect(attempts).toHaveLength(20);
+
+    otherDevice = await browser.newContext({ serviceWorkers: 'block' });
+    await setupDevice(otherDevice, () => 'ready', () => { throw new Error('Second device must only pull'); });
+    const other = await otherDevice.newPage();
+    other.on('pageerror', error => errors.push(error.message));
+    await other.goto(origin);
+    await expect(other.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await expect.poll(() => sync(other, { pullOnly: true }))
+      .toMatchObject({ success: true, server_time: expect.any(String) });
+    const otherLocal = await inspectLocal(other);
+    expect(otherLocal.operations).toEqual([]);
+    expect(otherLocal.cards.map(card => [card.id, card.content_v2])).toEqual(
+      delivered.map(card => [card.id, card.content_v2]));
+    expect(errors).toEqual([]);
+  } finally {
+    await otherDevice?.close();
+    await device?.close();
   }
 });
 

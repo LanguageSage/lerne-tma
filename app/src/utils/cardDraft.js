@@ -1,3 +1,5 @@
+import { tr } from '../i18n/locale.js';
+
 const text = { type: 'text', text: '' };
 const option = { text: '', correct: false };
 const pair = { left: '', right: '' };
@@ -27,6 +29,26 @@ export function changeDraft(setter, update) {
     const content = current.content_v2;
     return { ...current, content_v2: { ...content, card: update(content.card) } };
   });
+}
+
+export function validateStandardDraft(card) {
+  const nonBlank = value => typeof value === 'string' && /[^\p{White_Space}]/u.test(value);
+  if (!nonBlank(card.data?.prompt) || !nonBlank(card.data?.answer)
+    || card.topics?.some(topic => !nonBlank(topic))
+    || card.info?.some(block => block.type === 'options'
+      ? !block.items?.length || block.items.some(item => !nonBlank(item))
+      : !nonBlank(block.text))) {
+    throw new Error(tr('Заполните вопрос, ответ и добавленные поля карточки.'));
+  }
+  const canonical = { id: null, image: null, info: [], explanation: '', level: null, topics: null, metadata: {}, ...card };
+  let invalidText = false;
+  const encoded = JSON.stringify(canonical, (key, value) => {
+    if (key.includes('\0') || (typeof value === 'string' && value.includes('\0'))) invalidText = true;
+    return value;
+  });
+  if (invalidText || new TextEncoder().encode(encoded).length > 256 * 1024) {
+    throw new Error(tr('Недопустимый текст или размер карточки.'));
+  }
 }
 
 export function cardWriteError(error) {

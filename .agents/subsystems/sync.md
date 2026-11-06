@@ -112,6 +112,17 @@ HTTP-запросу и при наличии сети. Подтверждени�
 --bin-dir <path> --offline-move-browser`. Подробности в
 [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5a-перенос-одной-v2-карточки-между-колодами).
 
+## Structured Cards V2, этап 6B.8a
+
+Создание любой V2-карточки в известной серверной колоде использует
+`card-create-v2:<request_id>` и ремап из этапов 6B.1–6B.4. Тип карточки
+сверяется с отправленным payload при подтверждении. Валидация содержимого
+при доставке остаётся у `POST /cards/save`. При 422 Dexie хранит исходную
+карточку и payload, сохраняет текст ошибки и исключает операцию из
+автоматических повторов. Остальные создания доставляются независимо.
+`--offline-create-browser` проверяет Standard и все девять типов в Chromium
+с FastAPI и одноразовым PostgreSQL.
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,
@@ -121,8 +132,8 @@ refresh flights и Dexie refresh lease. `api.js` оборачивает его o
 
 ```text
 api -> networkApi, offlineApi, syncService, localDb, auth, axios
-syncService -> networkApi, cardNotes, localDb, auth, locale
-offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale
+syncService -> networkApi, cardNotes, localDb, auth, locale, cardDraft
+offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale, cardDraft
 cardNotes -> networkApi, localDb, auth
 networkApi -> localDb, auth, apiConfig, localMode, axios
 localDb -> auth, localMode, dexie, @capacitor/core
@@ -130,7 +141,7 @@ auth -> locale, localMode
 mediaCache -> apiConfig
 apiConfig -> media, localMode
 media -> localMode
-srsEngine -> locale
+srsEngine, cardDraft -> locale
 locale -> messages/en.json, messages/uk.json
 ```
 

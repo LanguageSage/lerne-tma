@@ -5,6 +5,7 @@ import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
 import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
+import { validateStandardDraft } from '../utils/cardDraft.js';
 
 export const dirtyFields = () => ({
   is_dirty: 1, local_revision: crypto.randomUUID(), updated_at: new Date().toISOString(),
@@ -22,31 +23,9 @@ const pendingCreate = () => { throw new Error(tr('Сначала синхрон�
 const pendingMove = () => { throw new Error(tr('Сначала завершите синхронизацию переноса.')); };
 const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
-function validateStandard(content) {
-  const card = content?.card;
-  const nonBlank = value => typeof value === 'string' && /[^\p{White_Space}]/u.test(value);
-  if (content?.schema_version !== 2 || card?.type !== 'standard') throw unsupported();
-  if (!nonBlank(card.data?.prompt) || !nonBlank(card.data?.answer)
-    || card.topics?.some(topic => !nonBlank(topic))
-    || card.info?.some(block => block.type === 'options'
-      ? !block.items?.length || block.items.some(item => !nonBlank(item))
-      : !nonBlank(block.text))) {
-    throw new Error(tr('Заполните вопрос, ответ и добавленные поля карточки.'));
-  }
-  const canonical = { id: null, image: null, info: [], explanation: '', level: null, topics: null, metadata: {}, ...card };
-  let invalidText = false;
-  const encoded = JSON.stringify(canonical, (key, value) => {
-    if (key.includes('\0') || (typeof value === 'string' && value.includes('\0'))) invalidText = true;
-    return value;
-  });
-  if (invalidText || new TextEncoder().encode(encoded).length > 256 * 1024) {
-    throw new Error(tr('Недопустимый текст или размер карточки.'));
-  }
-}
-
-async function saveStandard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
-  if (body.content_v2?.card?.type !== 'standard' || body.content_v2.schema_version !== 2) {
-    throw new Error(tr('Офлайн доступно создание только карточек Standard.'));
+async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
+  if (body.content_v2?.schema_version !== 2 || typeof body.content_v2.card?.type !== 'string') {
+    throw new Error(tr('Некорректный JSON карточки V2.'));
   }
   if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
   if (!body.request_id) throw new Error('Missing card create request ID');
@@ -77,7 +56,6 @@ async function saveStandard(db, body, { offlineCreateFlag: flag, offlineCreateIf
       if (ifAvailable) return null;
       pendingCreate();
     }
-    validateStandard(body.content_v2);
     const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
     let id;
     do { id = getNextTempId(); } while (aliases[id] || await db.cards.get(id));
@@ -123,7 +101,8 @@ async function queueCardMove(db, body, isCurrent) {
 }
 
 async function saveStandardEdit(db, id, body, expectedConflict) {
-  validateStandard(body.content_v2);
+  if (body.content_v2?.schema_version !== 2 || body.content_v2.card?.type !== 'standard') throw unsupported();
+  validateStandardDraft(body.content_v2.card);
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
   return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
     const key = CARD_EDIT_KEY + id;
@@ -424,7 +403,7 @@ export const offlineApi = {
       return nextCard(db, card.deck_id, userId, nextParams);
     }
     if (m === 'post' && url === '/cards/save') {
-      if (Object.hasOwn(body, 'content_v2')) return saveStandard(db, body, config, userId);
+      if (Object.hasOwn(body, 'content_v2')) return saveNativeCard(db, body, config, userId);
       return db.transaction('rw', db.cards, db.decks, db.progress, async () => {
         const id = Number(body.card_id || body.id) || getNextTempId();
         const previous = await db.cards.get(id);

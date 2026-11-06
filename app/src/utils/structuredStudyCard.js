@@ -7,6 +7,15 @@ export function studyContent(card) {
   if (envelope?.schema_version !== 2 || !supportedTypes.has(envelope.card?.type) || !envelope.card?.data) {
     return null;
   }
+  if (card.offline_create_status) {
+    // Pending drafts may still fail server validation. Only render a preview if
+    // its fields can be read as text, keeping the original draft in Dexie.
+    try {
+      if (typeof studySideText(envelope.card) !== 'string' || typeof studySideText(envelope.card, 'back') !== 'string') return null;
+    } catch {
+      return null;
+    }
+  }
   return envelope.card;
 }
 

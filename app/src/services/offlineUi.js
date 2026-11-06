@@ -46,7 +46,7 @@ export function remapOfflineUi({ detail }) {
 
 export function markOfflineCreateError({ detail }) {
   if (detail.userId !== getUserId()) return;
-  const card = item => item.id === detail.id ? { ...item, offline_create_status: 'error' } : item;
+  const card = item => item.id === detail.id ? { ...item, ...detail.changes } : item;
   useDeckStore.setState(state => ({
     deckCards: state.deckCards.map(card),
     cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([key, cards]) => [key, cards.map(card)])),
@@ -124,7 +124,9 @@ export async function refreshPeerOfflineUi({ data }) {
     if (type === 'lerne:card-edit-changed' && card) {
       updateOfflineEditUi({ detail: { userId, card, deliveredRequestId } });
     } else if (type === 'lerne:card-create-error' && card?.offline_create_status === 'error') {
-      markOfflineCreateError({ detail: { userId, id } });
+      markOfflineCreateError({ detail: { userId, id, changes: {
+        offline_create_status: card.offline_create_status, offline_create_error: card.offline_create_error,
+      } } });
     } else if (type === 'lerne:ids-remapped') {
       remapOfflineUi({ detail: { userId, mappings, confirmedCard: card, silent: true } });
       if (id != null) await refreshOfflineUi({ detail: { userId } });

@@ -1978,7 +1978,7 @@
   "Серверный ID занят локальной карточкой V1.": "The server ID is already used by a local V1 card.",
   "Ошибка синхронизации. Карточка сохранена на устройстве.": "Sync failed. The card is saved on this device.",
   "Сначала синхронизируйте новую карточку.": "Sync the new card first.",
-  "Офлайн доступно создание только карточек Standard.": "Only Standard cards can be created offline.",
+  "Некорректный JSON карточки V2.": "Invalid V2 card JSON.",
   "Заполните вопрос, ответ и добавленные поля карточки.": "Fill in the prompt, answer, and any fields you added.",
   "Недопустимый текст или размер карточки.": "The card contains invalid text or exceeds the size limit.",
   "Цветную метку можно установить после синхронизации.": "You can set the color flag after syncing.",

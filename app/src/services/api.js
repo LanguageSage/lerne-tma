@@ -40,12 +40,12 @@ const api = new Proxy(axiosInstance, {
           return { data: card ?? local.data };
         }
         const requestStartedAt = Date.now();
-        const standardCreate = propKey === 'post' && url === '/cards/save' && args[0]?.content_v2?.card?.type === 'standard';
+        const nativeCreate = propKey === 'post' && url === '/cards/save' && Object.hasOwn(args[0] ?? {}, 'content_v2');
         const configIndex = ['get', 'delete'].includes(propKey) ? 0 : 1;
         args[configIndex] = {
           _expectedUserId: requestAccount, _expectedSessionIdentity: requestIdentity, ...args[configIndex],
         };
-        if (isOfflineMode() || /\/-\d+(?:\/|\?|$)/.test(url) || (standardCreate && args[0]?.after_card_id < 0)) {
+        if (isOfflineMode() || /\/-\d+(?:\/|\?|$)/.test(url) || (nativeCreate && args[0]?.after_card_id < 0)) {
           await prepareLocalDb();
           const resolved = await resolveLocalRequest(url, args[0]);
           url = resolved.url;
@@ -70,7 +70,7 @@ const api = new Proxy(axiosInstance, {
           if (local?.offline_edit || local?.offline_move) return localRequest(...args);
           assertCurrent();
         }
-        const forceOffline = (!standardCreate && !(cardMatch && args[0]?.freshCard) && isOfflineMode())
+        const forceOffline = (!nativeCreate && !(cardMatch && args[0]?.freshCard) && isOfflineMode())
           || !navigator.onLine || /^\/cards\/-\d+$/.test(url);
         const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
 
@@ -89,7 +89,7 @@ const api = new Proxy(axiosInstance, {
           }
         }
 
-        if (standardCreate && requestAccount && !args[1]?.offlineCreateFlag) {
+        if (nativeCreate && requestAccount && !args[1]?.offlineCreateFlag) {
           // Persist the same operation before the first HTTP attempt when the
           // destination supports offline creation.
           const local = await localRequest(args[0], { offlineCreateIfAvailable: true });
@@ -109,7 +109,7 @@ const api = new Proxy(axiosInstance, {
 
         // Try online server request first
         try {
-          const needsRefresh = !standardCreate && isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
+          const needsRefresh = !nativeCreate && isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
           if (needsRefresh) {
             const synced = await syncService.sync();
             if (!synced.success) throw new Error(synced.reason);
@@ -202,7 +202,7 @@ const api = new Proxy(axiosInstance, {
               if (isLibraryRead && !items?.length) throw networkErr;
               return isLibraryRead ? { ...response, dataSource: 'cache' } : response;
             } catch (localError) {
-              if (standardCreate) throw localError;
+              if (nativeCreate) throw localError;
               console.warn('Offline fallback unavailable', { method: propKey.toUpperCase() });
             }
           }

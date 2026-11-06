@@ -63,8 +63,11 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
-            if offline_create_browser and not _run_offline_create_browser(port, models, headers[1]):
-                return False
+            if offline_create_browser:
+                if not _run_offline_create_browser(port, models, headers[1]):
+                    return False
+                if not _run_all_types_create_browser(port, models, headers[2]):
+                    return False
             if offline_edit_browser and not _run_offline_edit_browser(client, port, models, headers):
                 return False
             if offline_delivery_browser and not _run_offline_edit_browser(client, port, models, headers, delivery=True):
@@ -99,6 +102,41 @@ def _run_offline_create_browser(port, models, authorization):
     assert native.front_text is None and native.back_text is None
     receipt = models.TMAOfflineBatch.get(models.TMAOfflineBatch.key.startswith('cards-v2:save:1:'))
     assert json.loads(receipt.response)['id'] == native.id
+    return True
+
+
+def _run_all_types_create_browser(port, models, authorization):
+    from api.services.structured_cards_v2 import validate_card
+
+    fixture_dir = Path(__file__).resolve().parents[2] / 'tests/fixtures/structured_cards_v2'
+    examples = {}
+    for file in ('basics.json', 'puzzle_quiz.json', 'match.json', 'word_bank_free_text.json'):
+        for card in json.loads((fixture_dir / file).read_text(encoding='utf-8'))['cards']:
+            examples[card['type']] = card
+    # Author Theory in the real form. The remaining fixtures exercise fields
+    # such as nested metadata and ordered answer arrays through the app API.
+    examples['theory'] = {'type': 'theory', 'data': {'text': 'Österreichische Regel', 'summary': 'Сводка'},
+                          'explanation': 'Eine Erklärung'}
+    examples['editable_text'] = {'type': 'editable_text', 'id': 'editable-synthetic',
+        'data': {'source_text': 'Ich gehen.', 'correct_text': 'Ich gehe.',
+                 'accepted_answers': ['Ich gehe!', 'Ich gehe jetzt.']},
+        'info': [{'type': 'task', 'text': 'Korrigieren Sie den Satz.'}],
+        'explanation': 'Verb conjugation', 'metadata': {'nested': [True, {'ranks': [3, 1, 2]}, None]}}
+    contents = {kind: {'schema_version': 2, 'card': validate_card(card).model_dump(mode='json')}
+                for kind, card in examples.items()}
+    deck = models.TMA_Deck.create(user_id=2, name='Offline V2 fixture', target_language='de')
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'user_id': 2,
+              'deck_name': deck.name, 'contents': contents,
+              'access_token': authorization['Authorization'].split(' ', 1)[1]}
+    if not _run_offline_browser(config, 'creates all nine V2 types offline'):
+        return False
+    rows = list(models.TMA_Card.select().where(models.TMA_Card.deck == deck))
+    assert len(rows) == 9
+    assert {row.content_v2['card']['type']: row.content_v2 for row in rows} == contents
+    assert all(row.front_text is None and row.back_text is None for row in rows)
+    receipts = list(models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:save:2:')))
+    assert len(receipts) == 9
+    assert {json.loads(receipt.response)['id'] for receipt in receipts} == {row.id for row in rows}
     return True
 
 

@@ -144,8 +144,10 @@ export const DraggableCardItem = React.memo(({
         )}
       </div>
 
-      {createStatus && <small role="status">{tr(createStatus === 'error'
-        ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}</small>}
+      {createStatus && <small role="status" style={{ overflowWrap: 'anywhere' }}>{tr(createStatus === 'error'
+        ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}
+        {c.offline_create_error && <> {c.offline_create_error}</>}
+      </small>}
       {c.offline_move && <small role="status">{offlineMoveLabel(c.offline_move)}</small>}
       {c.offline_edit && (
         <div className="card-edit-status">
