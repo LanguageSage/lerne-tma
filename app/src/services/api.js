@@ -26,7 +26,7 @@ const api = new Proxy(axiosInstance, {
           return response;
         };
         if (url.startsWith('/card-notes/')) return localRequest(...args);
-        if (propKey === 'patch' && /^\/cards\/\d+$/.test(url) && args[1]?.offlineStandardEdit) {
+        if (propKey === 'patch' && /^\/cards\/\d+$/.test(url) && args[1]?.offlineCardEdit) {
           return localRequest(...args);
         }
         if (propKey === 'post' && url === '/cards/batch-move' && args[0]?.card_ids?.length === 1 && args[0].revisions) {

@@ -5,7 +5,7 @@ import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
 import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
-import { validateStandardDraft } from '../utils/cardDraft.js';
+import { cardTypes, validateStandardDraft } from '../utils/cardDraft.js';
 
 export const dirtyFields = () => ({
   is_dirty: 1, local_revision: crypto.randomUUID(), updated_at: new Date().toISOString(),
@@ -100,9 +100,9 @@ async function queueCardMove(db, body, isCurrent) {
   });
 }
 
-async function saveStandardEdit(db, id, body, expectedConflict) {
-  if (body.content_v2?.schema_version !== 2 || body.content_v2.card?.type !== 'standard') throw unsupported();
-  validateStandardDraft(body.content_v2.card);
+async function saveNativeEdit(db, id, body, expectedConflict) {
+  if (body.content_v2?.schema_version !== 2 || !cardTypes.includes(body.content_v2.card?.type)) throw unsupported();
+  if (body.content_v2.card.type === 'standard') validateStandardDraft(body.content_v2.card);
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
   return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
     const key = CARD_EDIT_KEY + id;
@@ -126,12 +126,14 @@ async function saveStandardEdit(db, id, body, expectedConflict) {
       throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
     }
     if (!conflict) await requireContentWrite(db, 'cards', current);
-    const offlineEdit = operation
-      ? { ...current.offline_edit, draftId: body.request_id }
-      : { status: 'pending', requestId: body.request_id };
-    if (operation && !conflict) offlineEdit.next = { ...next, ...body };
+    const replace = !operation || (current.offline_edit?.status === 'error' && current.offline_edit.httpStatus === 422);
+    const payload = replace && sent ? { ...body, revision: sent.revision } : body;
+    const offlineEdit = replace
+      ? { status: 'pending', requestId: payload.request_id }
+      : { ...current.offline_edit, draftId: body.request_id };
+    if (!replace && !conflict) offlineEdit.next = { ...next, ...body };
     const draft = {
-      ...current, content_v2: body.content_v2, revision: body.revision,
+      ...current, content_v2: body.content_v2, revision: payload.revision,
       offline_edit: offlineEdit,
     };
     for (const field of mediaPaths) {
@@ -141,12 +143,13 @@ async function saveStandardEdit(db, id, body, expectedConflict) {
     }
     await db.cards.put(draft);
     // Keep the oldest payload until its outcome is known, including after a reload.
-    if (!operation) await db.syncState.add({ key, cardId: id, payload: body });
+    if (!operation) await db.syncState.add({ key, cardId: id, payload });
+    else if (replace) await db.syncState.put({ key, cardId: id, payload });
     return result(draft);
   });
 }
 
-export async function resolveStandardEdit(id, expected, keepLocal) {
+export async function resolveCardEdit(id, expected, keepLocal) {
   const identity = getSessionIdentity();
   const userId = getUserId();
   const db = await prepareLocalDb();
@@ -362,8 +365,8 @@ export const offlineApi = {
       if (!card?.content_v2 || card.is_deleted) notFound();
       return result(await cardView(db, card, userId));
     }
-    if (m === 'patch' && match && Number(match[1]) > 0 && config.offlineStandardEdit) {
-      return saveStandardEdit(db, Number(match[1]), body, config.offlineEditConflict);
+    if (m === 'patch' && match && Number(match[1]) > 0 && config.offlineCardEdit) {
+      return saveNativeEdit(db, Number(match[1]), body, config.offlineEditConflict);
     }
     match = url.match(/^\/study\/card\/(-?\d+)$/);
     if (m === 'get' && match) {

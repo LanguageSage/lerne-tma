@@ -14,7 +14,7 @@ import { useAudio } from '../../hooks/useAudio';
 import { navigateUp } from '../../utils/navigation';
 import { LocalPublishButton } from '../common/LocalPublishButton';
 import { getSessionIdentity, getUserId } from '../../utils/auth';
-import { resolveStandardEdit } from '../../services/offlineApi';
+import { resolveCardEdit } from '../../services/offlineApi';
 import { offlineEditLabel } from '../../services/offlineUi';
 import { notifyCardEdit, syncService } from '../../services/syncService';
 import { studySideText } from '../../utils/structuredStudyCard';
@@ -84,7 +84,7 @@ export const CardEditor = () => {
     const identity = getSessionIdentity();
     try {
       if (keepLocal !== undefined) {
-        const card = await resolveStandardEdit(editingCard.id, edit, keepLocal);
+        const card = await resolveCardEdit(editingCard.id, edit, keepLocal);
         if (identity !== getSessionIdentity()) return;
         notifyCardEdit(card, getUserId());
       }
@@ -131,6 +131,7 @@ export const CardEditor = () => {
         {edit && (
           <section className="card-edit-panel" aria-label={tr('Синхронизация карточки')}>
             <h3 role="status">{offlineEditLabel(edit)}</h3>
+            {edit.error && <p role="alert">{edit.error}</p>}
             <div className="card-edit-versions">
               <EditVersion title={tr('Локальная версия')} card={editingCard} />
               {edit.server && <EditVersion title={tr('Серверная версия')} card={edit.server} />}
@@ -145,8 +146,9 @@ export const CardEditor = () => {
                     onClick={() => resolve(false)}>{tr('Оставить серверную версию')}</button>
                   <button type="button" className="btn btn-primary" disabled={busy}
                     onClick={() => resolve(true)}>{tr('Сохранить мою версию')}</button>
-                </> : <button type="button" className="btn btn-secondary" disabled={busy}
-                  onClick={() => resolve()}>{tr('Повторить синхронизацию')}</button>}
+                </> : (edit.status !== 'error' || edit.httpStatus !== 422) &&
+                  <button type="button" className="btn btn-secondary" disabled={busy}
+                    onClick={() => resolve()}>{tr('Повторить синхронизацию')}</button>}
               </div>
             )}
           </section>

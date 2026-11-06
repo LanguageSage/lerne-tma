@@ -68,8 +68,11 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
                     return False
                 if not _run_all_types_create_browser(port, models, headers[2]):
                     return False
-            if offline_edit_browser and not _run_offline_edit_browser(client, port, models, headers):
-                return False
+            if offline_edit_browser:
+                if not _run_offline_edit_browser(client, port, models, headers):
+                    return False
+                if not _run_all_types_edit_browser(client, port, models, headers):
+                    return False
             if offline_delivery_browser and not _run_offline_edit_browser(client, port, models, headers, delivery=True):
                 return False
             if offline_isolation_browser and not _run_offline_isolation_browser(port, models):
@@ -105,7 +108,7 @@ def _run_offline_create_browser(port, models, authorization):
     return True
 
 
-def _run_all_types_create_browser(port, models, authorization):
+def _native_examples():
     from api.services.structured_cards_v2 import validate_card
 
     fixture_dir = Path(__file__).resolve().parents[2] / 'tests/fixtures/structured_cards_v2'
@@ -122,8 +125,12 @@ def _run_all_types_create_browser(port, models, authorization):
                  'accepted_answers': ['Ich gehe!', 'Ich gehe jetzt.']},
         'info': [{'type': 'task', 'text': 'Korrigieren Sie den Satz.'}],
         'explanation': 'Verb conjugation', 'metadata': {'nested': [True, {'ranks': [3, 1, 2]}, None]}}
-    contents = {kind: {'schema_version': 2, 'card': validate_card(card).model_dump(mode='json')}
-                for kind, card in examples.items()}
+    return {kind: {'schema_version': 2, 'card': validate_card(card).model_dump(mode='json')}
+            for kind, card in examples.items()}
+
+
+def _run_all_types_create_browser(port, models, authorization):
+    contents = _native_examples()
     deck = models.TMA_Deck.create(user_id=2, name='Offline V2 fixture', target_language='de')
     config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'user_id': 2,
               'deck_name': deck.name, 'contents': contents,
@@ -137,6 +144,41 @@ def _run_all_types_create_browser(port, models, authorization):
     receipts = list(models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:save:2:')))
     assert len(receipts) == 9
     assert {json.loads(receipt.response)['id'] for receipt in receipts} == {row.id for row in rows}
+    return True
+
+
+def _run_all_types_edit_browser(client, port, models, headers):
+    deck = models.TMA_Deck.create(user_id=2, name='Offline V2 edit fixture', target_language='de')
+    models.TMA_Collaborator.create(target_type='deck', target_id=deck.id, user_id=1, role='editor')
+    examples = _native_examples()
+    cards = {}
+    for kind, content in examples.items():
+        response = client.post('cards/save', headers=headers[2], json={
+            'request_id': str(uuid4()), 'deck_id': deck.id, 'content_v2': content,
+            'image_path': 'images/synthetic.webp',
+        })
+        response.raise_for_status()
+        cards[kind] = response.json()
+
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'deck_name': deck.name,
+              'edit_cards': cards, 'access_token': headers[1]['Authorization'].split(' ', 1)[1],
+              'owner_token': headers[2]['Authorization'].split(' ', 1)[1]}
+    if not _run_offline_browser(config, 'edits all nine V2 types'):
+        return False
+    rows = list(models.TMA_Card.select().where(models.TMA_Card.deck == deck))
+    assert len(rows) == 9
+    for row in rows:
+        kind = row.content_v2['card']['type']
+        expected = examples[kind]
+        expected['card']['explanation'] = {
+            'quiz': 'Lokaler Entwurf quiz', 'word_bank': 'Серверная версия word_bank',
+        }.get(kind, f'Änderung {kind}\nКонтекст [[literal]]')
+        if kind == 'quiz':
+            expected['card']['data']['prompt'] = 'Korrigierte Quizfrage?'
+        assert row.content_v2 == expected
+        assert (row.id, row.position, row.image_path) == tuple(cards[kind][field]
+                                                              for field in ('id', 'position', 'image_path'))
+        assert row.front_text is None and row.back_text is None
     return True
 
 

@@ -103,16 +103,14 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
         if (!ownsResponse() || current?.offline_edit?.requestId !== payload.request_id
             || pending?.payload?.request_id !== payload.request_id) return;
         let next = change(current);
-        if (confirmed) {
-          const draft = current.offline_edit.next;
-          if (draft) {
-            const promoted = { ...draft, revision: next.revision };
-            await db.syncState.put({ key, cardId, payload: promoted });
-            next = { ...current, revision: promoted.revision, offline_confirmed_at: next.offline_confirmed_at,
-              offline_edit: { status: 'pending', requestId: promoted.request_id } };
-          } else {
-            await db.syncState.delete(key);
-          }
+        const draft = current.offline_edit.next;
+        if (draft && (confirmed || status === 422)) {
+          const promoted = { ...draft, revision: confirmed ? next.revision : payload.revision };
+          await db.syncState.put({ key, cardId, payload: promoted });
+          next = { ...current, revision: promoted.revision, offline_confirmed_at: next.offline_confirmed_at,
+            offline_edit: { status: 'pending', requestId: promoted.request_id } };
+        } else if (confirmed) {
+          await db.syncState.delete(key);
         }
         await db.cards.put(next);
         if (!ownsResponse()) throw new Error('Session changed');
@@ -136,7 +134,9 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
       try {
         const { data } = await networkApi.patch(path, payload, options);
         const card = validate(data);
-        if (card.content_v2.card?.type !== 'standard') throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+        if (card.content_v2.card?.type !== payload.content_v2.card.type) {
+          throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+        }
         await update(() => ({ ...card, is_dirty: 0, offline_confirmed_at: Date.now() }), { confirmed: true });
         continue;
       } catch (error) {
@@ -148,7 +148,8 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
             return { ...card, offline_edit: { requestId, ...(draftId && { draftId }), status: 'conflict' } };
           }))?.offline_edit;
         } else {
-          await update(card => ({ ...card, offline_edit: { ...card.offline_edit, status: 'error', httpStatus: status } }), { status });
+          await update(card => ({ ...card, offline_edit: { ...card.offline_edit, status: 'error', httpStatus: status,
+            error: status === 422 ? cardWriteError(error) : undefined } }), { status });
           firstError ||= error;
           continue;
         }
@@ -401,7 +402,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     const editCards = await db.cards.bulkGet(queuedEdits.map(edit => edit.cardId));
     const edits = queuedEdits.filter((_edit, index) => {
       const edit = editCards[index]?.offline_edit;
-      return edit && (edit.status !== 'conflict' || !edit.server);
+      return edit && (edit.status === 'conflict' ? !edit.server : edit.httpStatus !== 422);
     });
     const moves = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_MOVE_KEY)
       .filter(move => !move.rejected).toArray();

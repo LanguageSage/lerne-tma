@@ -7,7 +7,8 @@ if (fixture && !/^http:\/\/127\.0\.0\.1:\d+$/.test(fixture.origin)) throw new Er
 const prompt = 'Österreichische Grüße [[literal]]';
 const answer = 'Синтетический ответ';
 const deck = fixture && { id: fixture.deck_id, name: fixture.deck_name || 'Offline Standard fixture',
-  user_id: fixture.card ? 2 : fixture.user_id ?? 1, target_language: 'de', role: fixture.card ? 'editor' : 'owner', stats: { total: 0 } };
+  user_id: fixture.card || fixture.edit_cards ? 2 : fixture.user_id ?? 1, target_language: 'de',
+  role: fixture.card || fixture.edit_cards ? 'editor' : 'owner', stats: { total: 0 } };
 const profile = { user_id: fixture?.user_id ?? 1, first_name: 'Test learner', is_guest: false };
 
 async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull) {
@@ -32,7 +33,8 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       window.addEventListener('online', event => event.stopImmediatePropagation(), true);
     }
   }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : profile.user_id },
-    manualSync: (Boolean(fixture.card) && !owner) || fixture.isolation || Boolean(fixture.move), isolation: fixture.isolation, startOffline });
+    manualSync: (Boolean(fixture.card || fixture.edit_cards) && !owner) || fixture.isolation || Boolean(fixture.move),
+    isolation: fixture.isolation, startOffline });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
     const phase = getPhase();
@@ -404,6 +406,168 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
   }
 });
 
+test('edits all nine V2 types, replays after Chromium restarts and resolves conflicts', async ({ browser }, testInfo) => {
+  test.skip(!fixture?.edit_cards, 'All-types edit fixture only');
+  test.setTimeout(150000);
+  const cards = Object.entries(fixture.edit_cards);
+  const attempts = [];
+  let phase = 'ready';
+  let device, page;
+  async function launch() {
+    device = await browser.browserType().launchPersistentContext(testInfo.outputPath('edit-device'), {
+      viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
+    });
+    await setupDevice(device, () => phase, () => {}, false, async ({ route, payload, fetchFromServer }) => {
+      const queued = (await inspect()).operations.find(op => op.payload.request_id === payload.request_id)?.payload;
+      const response = await fetchFromServer();
+      attempts.push({ payload, queued, status: response.status(), receipt: await response.json() });
+      return phase === 'lose-response' ? route.abort('connectionreset') : route.fulfill({ response });
+    });
+    page = device.pages()[0];
+    page.setDefaultTimeout(10000);
+    await page.goto('http://127.0.0.1:5199/');
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await openList(page);
+  }
+  const inspect = () => page.evaluate(async deckId => {
+    const { prepareLocalDb, CARD_EDIT_KEY } = await import('/src/services/localDb.js');
+    const db = await prepareLocalDb();
+    return db.transaction('r', db.cards, db.syncState, async () => ({
+      cards: await db.cards.where('deck_id').equals(deckId).toArray(),
+      operations: await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray(),
+    }));
+  }, deck.id);
+  const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
+  const item = id => page.locator('#card-item-' + id);
+  const openEditor = async id => {
+    await item(id).getByRole('button', { name: 'Действия с карточкой' }).click();
+    await page.getByRole('button', { name: /Редактировать/ }).click();
+  };
+  const openDraft = id => item(id).getByRole('button', { name: 'Открыть локальную правку' }).click();
+  const contextField = () => page.locator('#card-editor-context');
+  const save = () => page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+  const panel = () => page.getByRole('region', { name: 'Синхронизация карточки' });
+  const reconnect = () => page.evaluate(() => {
+    sessionStorage.setItem('fixture-reconnected', 'true');
+    delete navigator.onLine;
+  });
+  const withExplanation = (content, explanation) => ({ ...content, card: { ...content.card, explanation } });
+  const expected = new Map(cards.map(([kind, card]) => [card.id,
+    withExplanation(card.content_v2, 'Änderung ' + kind + '\nКонтекст [[literal]]')]));
+
+  try {
+    await launch();
+    phase = 'offline';
+    await device.setOffline(true);
+    for (const [index, [kind, card]] of cards.entries()) {
+      await openEditor(card.id);
+      await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(kind);
+      await contextField().fill(expected.get(card.id).card.explanation);
+      if (index === cards.length - 1) {
+        // The same Save button must commit locally even while connected.
+        phase = 'lose-response';
+        await device.setOffline(false);
+        await reconnect();
+      }
+      await save();
+      await expect(item(card.id)).toBeVisible();
+      if (phase === 'offline') await expect(item(card.id).getByRole('status')).toHaveText('Ожидает синхронизации');
+    }
+
+    await expect.poll(() => attempts.length, { timeout: 20000 }).toBe(9);
+    await expect.poll(async () => (await inspect()).cards.map(card => card.offline_edit?.status))
+      .toEqual(Array(9).fill('error'));
+    const interrupted = await inspect();
+    expect(interrupted.operations).toHaveLength(9);
+    expect(new Set(interrupted.operations.map(op => op.payload.request_id)).size).toBe(9);
+    for (const [, card] of cards) {
+      const op = interrupted.operations.find(op => op.cardId === card.id);
+      expect(op.payload).toMatchObject({ revision: card.revision, content_v2: expected.get(card.id) });
+      expect(interrupted.cards.find(row => row.id === card.id).content_v2).toEqual(expected.get(card.id));
+      expect(attempts.find(write => write.payload.request_id === op.payload.request_id))
+        .toMatchObject({ status: 200, payload: op.payload, queued: op.payload, receipt: { content_v2: expected.get(card.id) } });
+    }
+
+    phase = 'offline';
+    await device.close();
+    await launch();
+    expect(await inspect()).toEqual(interrupted);
+    phase = 'ready';
+    await reconnect();
+    expect((await sync()).success).toBe(true);
+    const confirmed = await inspect();
+    expect(confirmed.operations).toEqual([]);
+    for (const op of interrupted.operations) {
+      const writes = attempts.filter(write => write.payload.request_id === op.payload.request_id);
+      expect(writes).toHaveLength(2);
+      expect(writes[1]).toEqual(writes[0]);
+      expect(confirmed.cards.find(row => row.id === op.cardId)).toMatchObject({
+        revision: writes[0].receipt.revision, content_v2: op.payload.content_v2,
+      });
+    }
+
+    for (const kind of ['quiz', 'word_bank']) {
+      const { id } = fixture.edit_cards[kind];
+      const base = confirmed.cards.find(card => card.id === id);
+      await openEditor(id);
+      const mine = withExplanation(base.content_v2, 'Lokaler Entwurf ' + kind);
+      const theirs = withExplanation(base.content_v2, 'Серверная версия ' + kind);
+      await contextField().fill(mine.card.explanation);
+      const remote = await device.request.patch(fixture.origin + '/api/cards/' + id, {
+        headers: { Authorization: 'Bearer ' + fixture.owner_token },
+        data: { content_v2: theirs, revision: base.revision, request_id: require('node:crypto').randomUUID() },
+      });
+      expect(remote.ok()).toBe(true);
+      const remoteCard = await remote.json();
+      await save();
+      await expect(item(id).getByRole('status')).toHaveText('Конфликт версий');
+      await expect.poll(async () => (await inspect()).cards.find(card => card.id === id).offline_edit?.server?.revision)
+        .toBe(remoteCard.revision);
+      await openDraft(id);
+      const conflict = (await inspect()).cards.find(card => card.id === id);
+      expect(conflict.content_v2).toEqual(mine);
+      expect(conflict.offline_edit.server.content_v2).toEqual(theirs);
+      const keepLocal = kind === 'quiz';
+      if (keepLocal) await panel().screenshot({ path: testInfo.outputPath('quiz-conflict-375.png') });
+      await panel().getByRole('button', { name: keepLocal ? 'Сохранить мою версию' : 'Оставить серверную версию' }).click();
+      await expect.poll(async () => (await inspect()).operations).toEqual([]);
+      expect((await inspect()).cards.find(card => card.id === id).content_v2).toEqual(keepLocal ? mine : theirs);
+      if (keepLocal) {
+        const rejected = attempts.find(write => write.payload.request_id === conflict.offline_edit.requestId);
+        const resolved = attempts.at(-1);
+        expect(rejected.status).toBe(409);
+        expect(resolved).toMatchObject({ status: 200, payload: { revision: remoteCard.revision, content_v2: mine } });
+        expect(resolved.payload.request_id).not.toBe(rejected.payload.request_id);
+      }
+      await page.locator('.view-editor .back-btn').press('Enter');
+      await expect.poll(sync).toMatchObject({ success: true });
+    }
+
+    const { id } = fixture.edit_cards.quiz;
+    await openEditor(id);
+    const correctAnswer = page.getByRole('checkbox', { name: 'Верный ответ', exact: true }).nth(1);
+    await correctAnswer.uncheck();
+    await save();
+    await expect(item(id).getByRole('status')).toContainText('Ошибка синхронизации');
+    const rejected = (await inspect()).operations[0];
+    expect(rejected.payload.content_v2.card.data.options.every(option => !option.correct)).toBe(true);
+    expect(attempts.at(-1)).toMatchObject({ status: 422, payload: rejected.payload });
+    expect((await sync()).success).toBe(true);
+    expect(attempts.filter(write => write.payload.request_id === rejected.payload.request_id)).toHaveLength(1);
+    await openDraft(id);
+    await expect(panel().getByRole('alert')).toContainText('options');
+    await panel().getByRole('button', { name: 'Продолжить редактирование' }).click();
+    await correctAnswer.check();
+    await page.locator('#card-editor-front').fill('Korrigierte Quizfrage?');
+    await save();
+    await expect.poll(async () => (await inspect()).operations).toEqual([]);
+    expect(attempts.at(-1)).toMatchObject({ status: 200, payload: { revision: rejected.payload.revision } });
+    expect(attempts.at(-1).payload.request_id).not.toBe(rejected.payload.request_id);
+  } finally {
+    await device?.close();
+  }
+});
+
 test('resolves Standard revisions across two devices and preserves the draft on auth errors', async ({ page, context, browser }, testInfo) => {
   test.skip(!fixture?.card || fixture.second_card, 'Conflict fixture only');
   test.setTimeout(150000);
@@ -700,7 +864,7 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
     const { default: api } = await import('/src/services/api.js');
     item.content_v2.card.data.prompt = prompt;
     const payload = { content_v2: item.content_v2, revision: item.revision, request_id: crypto.randomUUID() };
-    await api.patch('/cards/' + item.id, payload, { offlineStandardEdit: true });
+    await api.patch('/cards/' + item.id, payload, { offlineCardEdit: true });
     return payload;
   }, { item, prompt });
   const remote = (id, prompt) => page.evaluate(async ({ id, prompt }) => {

@@ -49,6 +49,7 @@ export const useCardEditor = () => {
     setLoading(true);
     try {
       if (data.offline_move) throw new Error(tr('Сначала завершите синхронизацию переноса.'));
+      if (data.id < 0) throw new Error(tr('Сначала синхронизируйте новую карточку.'));
       let finalDeckId = data.deck_id;
       if (finalDeckId === 'duplicates' || !finalDeckId) {
         finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
@@ -69,19 +70,18 @@ export const useCardEditor = () => {
         pendingSave = { identity, account, fingerprint, id: crypto.randomUUID() };
       }
       reqData.request_id = pendingSave.id;
-      const standardEdit = data.id > 0 && (data.offline_edit || (data.content_v2.card.type === 'standard'
-        && (!data.editorBaseType || data.editorBaseType === 'standard')));
+      const nativeEdit = data.id > 0;
       const conflict = data.offline_edit?.status === 'conflict';
       if (!data.id && data.content_v2.card.type === 'standard') validateStandardDraft(data.content_v2.card);
-      const res = standardEdit ? await api.patch(path, reqData, {
-        offlineStandardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
-      }) : data.id ? await networkApi.patch(path, reqData)
+      const res = nativeEdit ? await api.patch(path, reqData, {
+        offlineCardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
+      })
         : await api.post(path, reqData, { offlineCreateFlag: data.flag });
       if (!isCurrent()) return;
       pendingSave = null;
 
-      if (standardEdit) res.data = { ...data, ...res.data };
-      const deliverEdit = standardEdit && navigator.onLine && !conflict;
+      if (nativeEdit) res.data = { ...data, ...res.data };
+      const deliverEdit = nativeEdit && navigator.onLine && !conflict;
       if (deliverEdit && awaitDelivery) {
         const db = await prepareLocalDb();
         if (!isCurrent()) return;
@@ -95,7 +95,7 @@ export const useCardEditor = () => {
             ? { ...visible, ...cached } : cached;
         }
       }
-      if (standardEdit && res.data.offline_edit?.status === 'conflict') {
+      if (nativeEdit && res.data.offline_edit?.status === 'conflict') {
         notifyCardEdit(res.data, getUserId());
         session.setEditingCard(res.data);
         if (conflict) showToast(tr('Карточка сохранена на устройстве'), 'success');
@@ -114,7 +114,7 @@ export const useCardEditor = () => {
       }
 
       if (!isCurrent()) return;
-      if ((!savedLocally || standardEdit) && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
+      if ((!savedLocally || nativeEdit) && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
         try {
           await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
           res.data.flag = Number(data.flag);
@@ -125,7 +125,7 @@ export const useCardEditor = () => {
       }
 
       if (!isCurrent()) return;
-      if (savedLocally || !standardEdit) {
+      if (savedLocally || !nativeEdit) {
         showToast(tr(savedLocally ? 'Карточка сохранена на устройстве' : 'Карточка сохранена'), 'success');
       }
       
