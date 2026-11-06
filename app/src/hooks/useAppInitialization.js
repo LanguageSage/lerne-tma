@@ -9,8 +9,8 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { isOfflineMode } from '../services/localDb';
-import { syncService } from '../services/syncService';
-import { markOfflineCreateError, updateOfflineEditUi, remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
+import { subscribeSyncUi, syncService } from '../services/syncService';
+import { markOfflineCreateError, updateOfflineEditUi, remapOfflineUi, refreshOfflineUi, refreshPeerOfflineUi } from '../services/offlineUi';
 
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast } = useUiStore();
@@ -127,6 +127,7 @@ export const useAppInitialization = (checkStartParam) => {
     window.addEventListener('lerne:card-create-error', markOfflineCreateError);
     window.addEventListener('lerne:card-edit-changed', updateOfflineEditUi);
     window.addEventListener('lerne:synced', refreshOfflineUi);
+    const unsubscribeSyncUi = subscribeSyncUi(refreshPeerOfflineUi);
 
     // Periodic background sync every 60 seconds
     const syncInterval = setInterval(() => {
@@ -135,6 +136,7 @@ export const useAppInitialization = (checkStartParam) => {
 
     return () => {
       unsubscribeSettingsAccount();
+      unsubscribeSyncUi();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('lerne:ids-remapped', remapOfflineUi);

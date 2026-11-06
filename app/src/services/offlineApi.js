@@ -138,8 +138,11 @@ export async function resolveStandardEdit(id, expected, keepLocal) {
   const identity = getSessionIdentity();
   const userId = getUserId();
   const db = await prepareLocalDb();
-  return db.transaction('rw', db.cards, db.syncState, async () => {
+  const assertCurrent = () => {
     if (identity !== getSessionIdentity() || userId !== getUserId()) throw new Error('Session changed');
+  };
+  return db.transaction('rw', db.cards, db.syncState, async () => {
+    assertCurrent();
     const key = CARD_EDIT_KEY + id;
     const [card, operation] = await Promise.all([db.cards.get(id), db.syncState.get(key)]);
     const edit = card?.offline_edit;
@@ -152,6 +155,7 @@ export async function resolveStandardEdit(id, expected, keepLocal) {
       const accepted = { ...server, is_dirty: 0, offline_confirmed_at: Date.now() };
       await db.cards.put(accepted);
       await db.syncState.delete(key);
+      assertCurrent();
       return accepted;
     }
 
@@ -160,6 +164,7 @@ export async function resolveStandardEdit(id, expected, keepLocal) {
     const draft = { ...card, offline_edit: { status: 'pending', requestId: payload.request_id, server } };
     await db.cards.put(draft);
     await db.syncState.put({ key, cardId: id, payload });
+    assertCurrent();
     return draft;
   });
 }

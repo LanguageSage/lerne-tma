@@ -1,5 +1,5 @@
 import api, { networkApi } from '../../services/api';
-import { storage, getUserId } from '../../utils/auth';
+import { storage, getSessionIdentity, getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from './initCacheHelper';
 import { useLanguageStore } from '../useLanguageStore';
 
@@ -20,9 +20,11 @@ export const createDeckSlice = (set, get) => {
     const pending = get().getPendingLibraryLoad(kind);
     if (pending) return pending;
     const account = getUserId();
+    const identity = getSessionIdentity();
     const requestId = get().libraryRequestId + 1;
     set({ libraryRequestId: requestId });
-    const isCurrent = () => account === getUserId() && requestId === get().libraryRequestId;
+    const isCurrent = () => account === getUserId() && identity === getSessionIdentity()
+      && requestId === get().libraryRequestId;
     const entry = { isCurrent };
     entry.promise = Promise.resolve().then(() => isCurrent() ? load(isCurrent) : undefined).finally(() => {
       if (pendingLoads.get(kind) === entry) pendingLoads.delete(kind);
@@ -157,6 +159,7 @@ export const createDeckSlice = (set, get) => {
           }
         }
       }
+      if (!isCurrent()) return;
       get().setLibraryLoadError(lastError);
       console.warn('Library load failed', { status: lastError?.response?.status || 0 });
       throw lastError;
@@ -170,8 +173,10 @@ export const createDeckSlice = (set, get) => {
 
     const state = get();
     const account = getUserId();
+    const identity = getSessionIdentity();
     const requestId = state.libraryRequestId;
-    const isCurrent = () => account === getUserId() && requestId === get().libraryRequestId;
+    const isCurrent = () => account === getUserId() && identity === getSessionIdentity()
+      && requestId === get().libraryRequestId;
     const entry = { deckId, isCurrent };
     const isSameDeck = state.currentDeck?.id === deckId;
     const cached = state.cardsByDeck[deckId];

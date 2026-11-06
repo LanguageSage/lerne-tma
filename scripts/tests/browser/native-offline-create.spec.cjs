@@ -10,17 +10,19 @@ const deck = fixture && { id: fixture.deck_id, name: 'Offline Standard fixture',
   user_id: fixture.card ? 2 : 1, target_language: 'de', role: fixture.card ? 'editor' : 'owner', stats: { total: 0 } };
 const profile = { user_id: 1, first_name: 'Test learner', is_guest: false };
 
-async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite) {
+async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull) {
   await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
     ? route.continue() : route.abort('blockedbyclient'));
   await context.routeWebSocket('**/*', () => {});
-  await context.addInitScript(({ token, profile, manualSync }) => {
+  await context.addInitScript(({ token, profile, manualSync, isolation }) => {
     localStorage.setItem('native_language', 'ru');
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
-    localStorage.setItem('lerne_user_profile', JSON.stringify(profile));
-    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: profile.user_id, access_token: token }));
+    if (!isolation || !localStorage.getItem('lerne_auth_v2_session')) {
+      localStorage.setItem('lerne_user_profile', JSON.stringify(profile));
+      localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: profile.user_id, access_token: token }));
+    }
     if (sessionStorage.getItem('offline-fixture')) {
       Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     }
@@ -29,7 +31,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       window.addEventListener('online', event => event.stopImmediatePropagation(), true);
     }
   }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : 1 },
-    manualSync: Boolean(fixture.card) && !owner });
+    manualSync: (Boolean(fixture.card) && !owner) || fixture.isolation, isolation: fixture.isolation });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
     const phase = getPhase();
@@ -53,13 +55,20 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       return route.fulfill({ response });
     }
     if (pathname === cardPath && phase === 'conflict-read-down') return route.abort('connectionreset');
+    if (pathname === '/api/sync/v2/pull' && controlPull) return controlPull({ route, fetchFromServer });
+    if (fixture.isolation && pathname === '/api/sync/collab-pull') {
+      return route.fulfill({ response: await fetchFromServer() });
+    }
     if (/^\/api\/(sync\/v2\/|cards\/\d+|decks\/\d+\/cards|collaborative\/deck\/\d+\/role)/.test(pathname)) {
       return route.fulfill({ response: await fetchFromServer() });
     }
-    if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [],
-      settings: {}, prompts: {}, user_settings: {}, user_info: profile } });
+    const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
+    const visibleDecks = [asSecond ? fixture.private_deck : deck];
+    if (fixture.isolation && pathname === '/api/auth/v2/me') return route.fulfill({ response: await fetchFromServer() });
+    if (pathname === '/api/init') return route.fulfill({ json: { decks: visibleDecks, folders: [],
+      settings: {}, prompts: {}, user_settings: {}, user_info: asSecond ? { ...profile, user_id: 2 } : profile } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { ...profile, user_id: owner ? 2 : 1 } });
-    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
+    if (pathname === '/api/decks') return route.fulfill({ json: visibleDecks });
     if (pathname === '/api/folders' || pathname === '/api/messages') return route.fulfill({ json: [] });
     return route.fulfill({ json: {} });
   });
@@ -79,18 +88,18 @@ async function inspectLocal(page, tempId) {
   }, { tempId, legacyId: fixture.legacy_id });
 }
 
-async function openList(page) {
+async function openList(page, targetDeck = deck) {
   await page.evaluate(async deck => {
     const { useUiStore } = await import('/src/store/useUiStore.js');
     const { useDeckStore } = await import('/src/store/useDeckStore.js');
     useDeckStore.setState({ currentDeck: deck });
     useUiStore.getState().setView('cards');
     await useDeckStore.getState().fetchDeckCards(deck.id);
-  }, deck);
+  }, targetDeck);
 }
 
 test('persists Standard offline, replays a committed write and pulls it on a separate device', async ({ page, context, browser }, testInfo) => {
-  test.skip(Boolean(fixture?.card), 'Creation fixture only');
+  test.skip(Boolean(fixture?.card || fixture?.isolation), 'Creation fixture only');
   test.setTimeout(90000);
   const attempts = [];
   let phase = 'ready';
@@ -177,7 +186,7 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
   await page.setViewportSize({ width: 1280, height: 900 });
   await page.screenshot({ path: testInfo.outputPath('sync-error-1280.png') });
 
-  await expect.poll(() => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.isSyncing)).toBe(false);
+  await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held.some(lock => lock.name === 'lerne-offline-sync'))).toBe(false);
   phase = 'lose-response';
   const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
   expect((await sync()).success).toBe(false);
@@ -443,6 +452,26 @@ test('resolves Standard revisions across two devices and preserves the draft on 
     expect(forbidden.operation.payload.revision).toBe(serverVersionThree.revision);
     expect(forbidden.card.content_v2).toEqual(merged.card.content_v2);
     expect(attempts.at(-1).status).toBe(403);
+    const viewer = await page.evaluate(async deckId => {
+      const { syncService } = await import('/src/services/syncService.js');
+      const { getLocalDb } = await import('/src/services/localDb.js');
+      const { default: api } = await import('/src/services/api.js');
+      const pulled = await syncService.sync({ pullOnly: true });
+      const role = (await getLocalDb().decks.get(deckId)).role;
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      try {
+        await api.post('/cards/save', { deck_id: deckId, request_id: crypto.randomUUID(),
+          content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Viewer draft', answer: 'Denied' } } } });
+        return { pulled, role, accepted: true };
+      } catch (error) {
+        return { pulled, role, accepted: false, message: error.message };
+      } finally {
+        delete navigator.onLine;
+      }
+    }, deck.id);
+    expect(viewer).toMatchObject({ pulled: { success: true }, role: 'viewer', accepted: false,
+      message: 'У вас доступ только для чтения' });
+
     expect((await remote()).revision).toBe(serverVersionThree.revision);
 
     await setRole('editor');
@@ -491,7 +520,7 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
   await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
   await openList(page);
 
-  const idle = () => expect.poll(() => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.isSyncing)).toBe(false);
+  const idle = () => expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held.some(lock => lock.name === 'lerne-offline-sync'))).toBe(false);
   const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync({ pendingNativeOnly: true }));
   const inspect = id => page.evaluate(async id => {
     const { prepareLocalDb, CARD_EDIT_KEY, CARD_CREATE_KEY } = await import('/src/services/localDb.js');
@@ -669,4 +698,235 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
   expect(online.id).toBeGreaterThan(created.id);
   expect(online.offline_create_status).toBeUndefined();
   expect((await inspect(online.id)).creates).toEqual([]);
+});
+
+test('isolates Standard queues across tabs and login sessions', async ({ page, context }) => {
+  test.skip(!fixture?.isolation, 'Isolation fixture only');
+  test.setTimeout(120000);
+  const writes = [];
+  let heldWrite;
+  let heldPull;
+  const hold = () => {
+    const { promise, resolve } = Promise.withResolvers();
+    return { promise, release: resolve };
+  };
+  await setupDevice(context, () => 'ready', () => {}, false, async ({ route, payload, fetchFromServer }) => {
+    const response = await fetchFromServer();
+    const attempt = { payload, status: response.status(), card: await response.json() };
+    writes.push(attempt);
+    const tab = route.request().frame().page();
+    const gate = heldWrite;
+    if (gate?.prompt === payload.content_v2.card.data.prompt) {
+      gate.attempt = attempt;
+      await gate.promise;
+    }
+    if (!tab.isClosed()) await route.fulfill({ response });
+  }, async ({ route, fetchFromServer }) => {
+    const response = await fetchFromServer();
+    const gate = heldPull;
+    if (gate) {
+      gate.snapshot = await response.json();
+      await gate.promise;
+    }
+    await route.fulfill({ response });
+  });
+
+  const peer = await context.newPage();
+  await page.goto('/');
+  await peer.goto('/');
+  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await expect(peer.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await openList(page);
+  await openList(peer);
+
+  const sync = (tab, options = { pendingNativeOnly: true, skipPull: true }) => tab.evaluate(async options => {
+    const { syncService } = await import('/src/services/syncService.js');
+    return syncService.sync(options);
+  }, options);
+  const inspect = tab => tab.evaluate(async () => {
+    const { prepareLocalDb, CARD_CREATE_KEY } = await import('/src/services/localDb.js');
+    const db = await prepareLocalDb();
+    return db.transaction('r', db.cards, db.syncState, async () => ({
+      name: db.name, cards: await db.cards.toArray(),
+      queue: await db.syncState.where('key').startsWith(CARD_CREATE_KEY).toArray(),
+      aliases: (await db.syncState.get('aliases'))?.mappings.cards || {},
+      lastSync: await db.syncState.get('lastSync'),
+    }));
+  });
+  const enterDraft = async (tab, title, offline) => {
+    await tab.evaluate(async offline => {
+      if (offline) Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useUiStore.setState({ editorSourceView: 'cards', view: 'creator' });
+    }, offline);
+    await tab.locator('#card-editor-front').fill(title, { timeout: 7000 });
+    await tab.locator('#card-editor-back').fill(answer);
+    await tab.locator('.btn-save-action').click();
+  };
+  const createOffline = async (tab, title) => {
+    await enterDraft(tab, title, true);
+    await expect(tab.getByText(title, { exact: true })).toBeVisible();
+    const operation = (await inspect(tab)).queue.find(row => row.payload.content_v2.card.data.prompt === title);
+    expect(operation.tempId).toBeLessThan(0);
+    await tab.evaluate(() => { delete navigator.onLine; });
+    return operation;
+  };
+  const login = session => peer.evaluate(async session => {
+    const { useAuthStore } = await import('/src/store/useAuthStore.js');
+    const auth = useAuthStore.getState();
+    auth.logout();
+    await auth.finishLogin(session);
+  }, session);
+  const writesFor = operation => writes.filter(write => write.payload.request_id === operation.payload.request_id);
+
+  const shared = await createOffline(page, 'Shared queue draft');
+  await openList(peer);
+  await expect(peer.locator('#card-item-' + shared.tempId)).toContainText('Shared queue draft');
+
+  for (const tab of [page, peer]) {
+    await tab.evaluate(() => Object.defineProperty(navigator, 'locks', { configurable: true, value: undefined }));
+  }
+  const refused = await Promise.all([sync(page), sync(peer)]);
+  expect(refused.every(result => !result.success && /недоступна/.test(result.reason))).toBe(true);
+  expect(writes).toEqual([]);
+  expect((await inspect(peer)).queue).toEqual([shared]);
+  for (const tab of [page, peer]) await tab.evaluate(() => { delete navigator.locks; });
+
+  const staleDeck = hold();
+  await peer.route(url => url.pathname === '/api/decks/' + deck.id + '/cards', async route => {
+    const { pathname, search } = new URL(route.request().url());
+    const response = await route.fetch({ url: fixture.origin + pathname + search, maxRetries: 0 });
+    staleDeck.cards = await response.json();
+    await staleDeck.promise;
+    await route.fulfill({ response });
+  }, { times: 1 });
+  const lateList = peer.evaluate(async deckId => {
+    const { default: api } = await import('/src/services/api.js');
+    return (await api.get('/decks/' + deckId + '/cards')).data;
+  }, deck.id);
+  await expect.poll(() => staleDeck.cards).toEqual([]);
+
+  heldWrite = { ...hold(), prompt: 'Shared queue draft' };
+  const first = sync(page);
+  try {
+    await expect.poll(() => heldWrite.attempt?.status).toBe(200);
+    expect(await sync(peer)).toEqual({ success: false, reason: 'Already syncing' });
+    expect(writesFor(shared)).toHaveLength(1);
+    expect((await inspect(peer)).queue).toEqual([shared]);
+  } finally {
+    heldWrite.release();
+    try { expect((await first).success).toBe(true); }
+    finally { staleDeck.release(); }
+  }
+  const sharedId = writesFor(shared)[0].card.id;
+  expect((await lateList).map(card => card.id)).toEqual([sharedId]);
+  await expect(peer.locator('#card-item-' + sharedId)).toContainText('Shared queue draft');
+  await expect(peer.locator('#card-item-' + shared.tempId)).toHaveCount(0);
+  expect((await inspect(peer)).aliases[shared.tempId]).toBe(sharedId);
+
+  // The earlier pull must not overwrite a newer server revision another tab
+  // has already read into the shared database.
+  heldPull = hold();
+  const stalePull = sync(page, { pullOnly: true });
+  try {
+    await expect.poll(() => heldPull.snapshot?.cards.find(card => card.id === sharedId)?.revision)
+      .toBe(writesFor(shared)[0].card.revision);
+    const fresh = await peer.evaluate(async id => {
+      const { default: api, networkApi } = await import('/src/services/api.js');
+      const path = '/cards/' + id;
+      const { data } = await networkApi.get(path);
+      data.content_v2.card.data.answer = 'New answer on the server';
+      await networkApi.patch(path, { content_v2: data.content_v2, revision: data.revision,
+        request_id: crypto.randomUUID() });
+      return (await api.get(path)).data;
+    }, sharedId);
+    expect(fresh.content_v2.card.data.answer).toBe('New answer on the server');
+  } finally {
+    heldPull.release();
+    expect((await stalePull).success).toBe(true);
+  }
+  heldPull = null;
+  expect((await inspect(peer)).cards.find(card => card.id === sharedId).content_v2.card.data.answer)
+    .toBe('New answer on the server');
+
+  // The legacy Collaborative endpoint directs native changes to V2 pull.
+  const legacy = peer.waitForResponse(response => response.url().includes('/api/sync/collab-pull'));
+  const native = peer.waitForResponse(response => response.url().includes('/api/sync/v2/pull'));
+  await peer.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
+  expect((await legacy).status()).toBe(409);
+  expect((await native).status()).toBe(200);
+  await expect.poll(() => peer.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
+
+  const closing = await createOffline(page, 'Closed tab draft');
+  const beforePull = await inspect(peer);
+  expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+  expect((await inspect(peer)).queue).toEqual([closing]);
+  expect((await inspect(peer)).cards.find(card => card.id === closing.tempId))
+    .toEqual(beforePull.cards.find(card => card.id === closing.tempId));
+  heldWrite = { ...hold(), prompt: 'Closed tab draft' };
+  const abandoned = sync(page).catch(error => error.message);
+  try {
+    await expect.poll(() => heldWrite.attempt?.status).toBe(200);
+    await page.close();
+    await abandoned;
+  } finally {
+    heldWrite.release();
+  }
+  heldWrite = null;
+  expect((await inspect(peer)).queue).toEqual([closing]);
+  await expect.poll(() => peer.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
+  expect((await sync(peer)).success).toBe(true);
+  expect(writesFor(closing)).toHaveLength(2);
+  expect(writesFor(closing)[0]).toEqual(writesFor(closing)[1]);
+
+  heldWrite = { ...hold(), prompt: 'Private A pending draft' };
+  let switching, secondAccount;
+  try {
+    await enterDraft(peer, 'Private A pending draft', false);
+    await expect.poll(() => heldWrite.attempt?.status).toBe(200);
+    [switching] = (await inspect(peer)).queue;
+    expect(switching.payload).toEqual(heldWrite.attempt.payload);
+    await login(fixture.second_session);
+    await openList(peer, fixture.private_deck);
+    expect(await inspect(peer)).toMatchObject({ name: beforePull.name.replace(/_1$/, '_2'), queue: [], cards: [] });
+    await expect(peer.getByText('Private A pending draft', { exact: true })).toHaveCount(0);
+    secondAccount = await createOffline(peer, 'Private B draft');
+    expect((await inspect(peer)).queue).toEqual([secondAccount]);
+    expect(writesFor(secondAccount)).toEqual([]);
+  } finally {
+    heldWrite.release();
+  }
+  heldWrite = null;
+  await expect.poll(() => peer.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
+  expect((await inspect(peer)).aliases).toEqual({});
+  expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+  expect((await inspect(peer)).cards.some(card => card.deck_id === deck.id)).toBe(false);
+  expect((await inspect(peer)).queue).toEqual([secondAccount]);
+  expect((await sync(peer)).success).toBe(true);
+  expect(writesFor(secondAccount)).toHaveLength(1);
+
+  await login(fixture.initial_session);
+  await openList(peer);
+  const recovered = await inspect(peer);
+  expect(recovered.name).toBe(beforePull.name);
+  expect(recovered.queue).toEqual([switching]);
+  await expect(peer.locator('#card-item-' + switching.tempId)).toContainText('Private A pending draft');
+  await expect(peer.getByText('Private B draft', { exact: true })).toHaveCount(0);
+
+  heldPull = hold();
+  const latePull = sync(peer, { pullOnly: true });
+  try {
+    await expect.poll(() => heldPull.snapshot?.status).toBe('success');
+    await login(fixture.new_session);
+  } finally {
+    heldPull.release();
+    expect((await latePull).success).toBe(false);
+  }
+  heldPull = null;
+  expect((await inspect(peer)).lastSync).toEqual(recovered.lastSync);
+  expect((await inspect(peer)).queue).toEqual([switching]);
+  expect((await sync(peer)).success).toBe(true);
+  expect(writesFor(switching)).toHaveLength(2);
+  expect(writesFor(switching)[0]).toEqual(writesFor(switching)[1]);
+  expect((await inspect(peer)).queue).toEqual([]);
 });

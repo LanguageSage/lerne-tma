@@ -1,7 +1,9 @@
 import { useEffect, useRef, useCallback } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
-import { db, isOfflineMode } from '../services/localDb';
+import { getLocalDb, isOfflineMode } from '../services/localDb';
+import { syncService } from '../services/syncService';
+import { getSessionIdentity, getUserId } from '../utils/auth';
 
 const POLL_INTERVAL_MS = 60000; // 60 seconds (was 15s — reduced to cut DB load)
 
@@ -17,12 +19,12 @@ export const useCollaborativeSync = () => {
   const accessVersionRef = useRef(undefined);
   const intervalRef = useRef(null);
   const isRunningRef = useRef(false);
+  const ownerRef = useRef(null);
 
-  const applyCollabChanges = useCallback(async (data) => {
-    if (!data.has_changes) return;
-
-    const store = useDeckStore.getState();
-    const { decks, folders, deckCards, currentDeck } = store;
+  const applyCollabChanges = useCallback(async (data, isCurrent) => {
+    if (!data.has_changes || !isCurrent()) return;
+    const db = getLocalDb();
+    let legacyCards = [];
 
     let decksUpdated = false;
     let foldersUpdated = false;
@@ -30,59 +32,72 @@ export const useCollaborativeSync = () => {
 
     // Persist incoming collaborative items to IndexedDB
     try {
-      if (data.folders && data.folders.length > 0) {
-        const foldersToPut = data.folders.map(f => ({
-          id: f.id,
-          name: f.name,
-          is_deleted: f.is_deleted ? 1 : 0,
-          is_pinned: f.is_pinned ? 1 : 0,
-          position: f.position || 0,
-          updated_at: f.updated_at,
-          is_dirty: 0
-        }));
-        await db.folders.bulkPut(foldersToPut);
-      }
+      await db.transaction('rw', db.folders, db.decks, db.cards, async () => {
+        if (!isCurrent()) throw new Error('Session changed');
+        if (data.folders && data.folders.length > 0) {
+          const foldersToPut = data.folders.map(f => ({
+            id: f.id,
+            name: f.name,
+            is_deleted: f.is_deleted ? 1 : 0,
+            is_pinned: f.is_pinned ? 1 : 0,
+            position: f.position || 0,
+            updated_at: f.updated_at,
+            is_dirty: 0
+          }));
+          await db.folders.bulkPut(foldersToPut);
+        }
 
-      if (data.decks && data.decks.length > 0) {
-        const decksToPut = data.decks.map(d => ({
-          id: d.id,
-          name: d.name,
-          level: d.level,
-          topic: d.topic,
-          is_deleted: d.is_deleted ? 1 : 0,
-          is_inbox: d.is_inbox ? 1 : 0,
-          is_pinned: d.is_pinned ? 1 : 0,
-          position: d.position || 0,
-          folder_id: d.folder_id || null,
-          updated_at: d.updated_at,
-          is_dirty: 0
-        }));
-        await db.decks.bulkPut(decksToPut);
-      }
+        if (data.decks && data.decks.length > 0) {
+          const existing = await db.decks.bulkGet(data.decks.map(d => d.id));
+          const decksToPut = data.decks.flatMap((d, index) => existing[index]?.is_dirty ? [] : [{
+            role: 'viewer',
+            ...existing[index],
+            id: d.id,
+            user_id: d.user_id,
+            name: d.name,
+            level: d.level,
+            topic: d.topic,
+            is_deleted: d.is_deleted ? 1 : 0,
+            is_inbox: d.is_inbox ? 1 : 0,
+            is_pinned: d.is_pinned ? 1 : 0,
+            position: d.position || 0,
+            folder_id: d.folder_id || null,
+            updated_at: d.updated_at,
+            is_dirty: 0
+          }]);
+          await db.decks.bulkPut(decksToPut);
+        }
 
-      if (data.cards && data.cards.length > 0) {
-        const cardsToPut = data.cards.map(c => ({
-          id: c.id,
-          deck_id: c.deck_id,
-          front_text: c.front_text,
-          back_text: c.back_text,
-          context: c.context,
-          image_path: c.image_path || null,
-          audio_path: c.audio_path || null,
-          audio_back_path: c.audio_back_path || null,
-          video_front_path: c.video_front_path || null,
-          video_back_path: c.video_back_path || null,
-          is_deleted: c.is_deleted ? 1 : 0,
-          flag: c.flag || 0,
-          position: c.position || 0,
-          updated_at: c.updated_at,
-          is_dirty: 0
-        }));
-        await db.cards.bulkPut(cardsToPut);
-      }
+        if (data.cards && data.cards.length > 0) {
+          const existing = await db.cards.bulkGet(data.cards.map(c => c.id));
+          legacyCards = data.cards.filter((_, index) => !existing[index]?.content_v2 && !existing[index]?.is_dirty);
+          const cardsToPut = legacyCards.map(c => ({
+            id: c.id,
+            deck_id: c.deck_id,
+            front_text: c.front_text,
+            back_text: c.back_text,
+            context: c.context,
+            image_path: c.image_path || null,
+            audio_path: c.audio_path || null,
+            audio_back_path: c.audio_back_path || null,
+            video_front_path: c.video_front_path || null,
+            video_back_path: c.video_back_path || null,
+            is_deleted: c.is_deleted ? 1 : 0,
+            flag: c.flag || 0,
+            position: c.position || 0,
+            updated_at: c.updated_at,
+            is_dirty: 0
+          }));
+          await db.cards.bulkPut(cardsToPut);
+        }
+        if (!isCurrent()) throw new Error('Session changed');
+      });
     } catch (dbErr) {
-      console.warn('[CollabSync] Error persisting changes to Dexie DB:', dbErr);
+      if (isCurrent()) console.warn('[CollabSync] Error persisting changes to Dexie DB:', dbErr);
+      return;
     }
+    if (!isCurrent()) return;
+    const { decks, folders, deckCards, currentDeck } = useDeckStore.getState();
 
     // Apply deck changes to store
     let updatedDecks = [...decks];
@@ -112,7 +127,7 @@ export const useCollaborativeSync = () => {
 
     // Apply card changes to store — only for currently viewed deck
     let updatedCards = [...(deckCards || [])];
-    for (const incoming of (data.cards || [])) {
+    for (const incoming of legacyCards) {
       if (currentDeck && String(incoming.deck_id) !== String(currentDeck.id)) continue;
 
       if (incoming.is_deleted) {
@@ -148,10 +163,18 @@ export const useCollaborativeSync = () => {
   const poll = useCallback(async () => {
     if (isRunningRef.current || isOfflineMode()) return;
     isRunningRef.current = true;
+    const owner = getUserId();
+    const identity = getSessionIdentity();
+    const isCurrent = () => owner === getUserId() && identity === getSessionIdentity();
+    if (owner !== ownerRef.current?.owner || identity !== ownerRef.current?.identity) {
+      ownerRef.current = { owner, identity };
+      lastSyncRef.current = new Date().toISOString();
+      accessVersionRef.current = undefined;
+    }
     try {
       const params = lastSyncRef.current ? { since: lastSyncRef.current } : {};
       const res = await api.get('/sync/collab-pull', { params });
-      if (res.data) {
+      if (res.data && isCurrent()) {
         if (res.data.server_time) lastSyncRef.current = res.data.server_time;
         if (res.data.access_version !== accessVersionRef.current) {
           const hadVersion = accessVersionRef.current !== undefined;
@@ -162,10 +185,15 @@ export const useCollaborativeSync = () => {
             await Promise.all([store.fetchDecks(true), store.fetchFolders()]);
           }
         }
-        applyCollabChanges(res.data);
+        await applyCollabChanges(res.data, isCurrent);
       }
     } catch (err) {
-      console.debug('[CollabSync] Poll error (will retry):', err?.message);
+      if (isCurrent() && err.response?.status === 409
+          && err.response.data?.detail?.code === 'native_card_requires_v2_sync') {
+        await syncService.sync({ pullOnly: true });
+      } else {
+        console.debug('[CollabSync] Poll error (will retry):', err?.message);
+      }
     } finally {
       isRunningRef.current = false;
     }
@@ -189,6 +217,7 @@ export const useCollaborativeSync = () => {
   }, [poll]);
 
   useEffect(() => {
+    ownerRef.current = { owner: getUserId(), identity: getSessionIdentity() };
     lastSyncRef.current = new Date().toISOString();
     startPolling();
 

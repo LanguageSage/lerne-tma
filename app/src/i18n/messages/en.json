@@ -1494,6 +1494,7 @@
   "Сб": "Sat",
   "Для этого действия требуется подключение к интернету.": "This action requires an internet connection.",
   "Некорректный ответ синхронизации": "Invalid synchronization response",
+  "Синхронизация недоступна в этом браузере. Данные сохранены на устройстве.": "Sync is unavailable in this browser. Your data is saved on this device.",
   "Нет подключения к интернету": "No internet connection",
   "Сервер не подтвердил сохранение изменений": "The server did not confirm your changes were saved",
   "Сервер не вернул идентификатор новой записи": "The server did not return the new record ID",

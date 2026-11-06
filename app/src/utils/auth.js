@@ -14,12 +14,16 @@ let memorySession = null;
 let resetHandled = false;
 const sessionListeners = new Set();
 let loginRequired = false;
+let retiredIdentity = null;
 export const subscribeAuthSession = listener => {
   sessionListeners.add(listener);
   return () => sessionListeners.delete(listener);
 };
 export const notifyAuthSession = () => {
-  if (getAuthSession()) loginRequired = false;
+  if (getAuthSession()) {
+    loginRequired = false;
+    retiredIdentity = null;
+  }
   sessionListeners.forEach(listener => listener({ loginRequired }));
 };
 export const getSessionIdentity = (session = getAuthSession()) =>
@@ -53,6 +57,7 @@ export const saveAuthSession = (session, { previousSession } = {}) => {
 
 export const clearAuthSession = ({ preserveProfile = false } = {}) => {
   memorySession = null;
+  if (!preserveProfile) retiredIdentity = null;
   storage.remove(SESSION_KEY);
   if (!preserveProfile) {
     storage.remove(PROFILE_KEY);
@@ -68,8 +73,12 @@ export const clearAuthSession = ({ preserveProfile = false } = {}) => {
 export const requireAuthSession = (expectedIdentity = getSessionIdentity()) => {
   if (expectedIdentity !== getSessionIdentity() || loginRequired) return;
   loginRequired = true;
+  retiredIdentity = expectedIdentity;
   clearAuthSession({ preserveProfile: true });
 };
+
+// Only the credential this tab just retired may record its own 401 on a draft.
+export const isRetiredSession = identity => identity != null && retiredIdentity === identity && !getAuthSession();
 
 export const parseUserId = (value) => {
   const id = parseInt(value, 10);

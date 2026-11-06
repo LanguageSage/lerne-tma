@@ -1,7 +1,7 @@
 import { tr } from '../i18n/locale.js';
 import { CARD_CREATE_KEY, CARD_EDIT_KEY, prepareLocalDb } from './localDb.js';
 import { networkApi } from './networkApi.js';
-import { getAccessToken, getSessionIdentity, getUserId } from '../utils/auth.js';
+import { getAccessToken, getSessionIdentity, getUserId, isRetiredSession } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
@@ -9,8 +9,24 @@ const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, user
 const revision = item => item.local_revision || item.updated_at;
 const remap = (map, id) => map?.[String(id)] ?? id;
 
+// Other tabs receive only invalidation hints. Card data is read from the
+// receiving tab's account database, never from a delayed broadcast payload.
+const syncChannel = typeof window !== 'undefined' && typeof window.BroadcastChannel === 'function'
+  ? new window.BroadcastChannel('lerne-offline-sync') : null;
+
+export function subscribeSyncUi(listener) {
+  syncChannel?.addEventListener('message', listener);
+  return () => syncChannel?.removeEventListener('message', listener);
+}
+
+function notifySyncUi(type, detail, hint) {
+  window.dispatchEvent(new CustomEvent(type, { detail }));
+  if (hint) syncChannel?.postMessage({ type, userId: detail.userId, ...hint });
+}
+
 export function notifyCardEdit(card, userId, confirmed = false, deliveredRequestId) {
-  window.dispatchEvent(new CustomEvent('lerne:card-edit-changed', { detail: { card, userId, confirmed, deliveredRequestId } }));
+  notifySyncUi('lerne:card-edit-changed', { card, userId, confirmed, deliveredRequestId },
+    { id: card.id, deliveredRequestId });
 }
 
 async function deliverCardCreates(db, operations, options, isCurrent) {
@@ -18,6 +34,8 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
   let firstError;
   for (const operation of operations) {
     if (!isCurrent()) throw new Error('Session changed');
+    const ownsOperation = pending => pending?.tempId === operation.tempId
+      && pending?.payload?.request_id === operation.payload.request_id;
     try {
       const { data: card } = await networkApi.post('/cards/save', operation.payload, options);
       if (!Number.isSafeInteger(card?.id) || card.id <= 0 || card.deck_id !== operation.deckId
@@ -30,7 +48,7 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
         const [pending, existing, aliasRow] = await Promise.all([
           db.syncState.get(operation.key), db.cards.get(card.id), db.syncState.get('aliases'),
         ]);
-        if (!isCurrent() || pending?.tempId !== operation.tempId) return;
+        if (!isCurrent() || !ownsOperation(pending)) return;
         if (existing && !existing.content_v2) throw new Error(tr('Серверный ID занят локальной карточкой V1.'));
         const aliases = aliasRow?.mappings || {};
         aliases.cards = { ...aliases.cards, ...mappings.cards };
@@ -44,19 +62,19 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
         return local;
       });
       if (confirmedCard && isCurrent()) {
-        window.dispatchEvent(new CustomEvent('lerne:ids-remapped', { detail: { mappings, userId, confirmedCard } }));
+        notifySyncUi('lerne:ids-remapped', { mappings, userId, confirmedCard }, { mappings, id: card.id });
       }
     } catch (error) {
       if (!isCurrent()) throw error;
       const updated = await db.transaction('rw', db.cards, db.syncState, async () => {
         const pending = await db.syncState.get(operation.key);
-        if (!isCurrent() || pending?.tempId !== operation.tempId) return false;
+        if (!isCurrent() || !ownsOperation(pending)) return false;
         const count = await db.cards.update(operation.tempId, { offline_create_status: 'error' });
         if (!isCurrent()) throw new Error('Session changed');
         return count;
       });
       if (updated && isCurrent()) {
-        window.dispatchEvent(new CustomEvent('lerne:card-create-error', { detail: { userId, id: operation.tempId } }));
+        notifySyncUi('lerne:card-create-error', { userId, id: operation.tempId }, { id: operation.tempId });
       }
       firstError ||= error;
     }
@@ -72,12 +90,12 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
     const path = `/cards/${cardId}`;
     const update = async (change, { confirmed = false, status } = {}) => {
       const ownsResponse = () => isCurrent()
-        || (status === 401 && getUserId() === userId && getSessionIdentity() === null);
+        || (status === 401 && getUserId() === userId && isRetiredSession(options._expectedSessionIdentity));
       if (!ownsResponse()) throw new Error('Session changed');
       const card = await db.transaction('rw', db.cards, db.syncState, async () => {
         const [current, pending] = await Promise.all([db.cards.get(cardId), db.syncState.get(key)]);
         if (!ownsResponse() || current?.offline_edit?.requestId !== payload.request_id
-            || pending?.payload.request_id !== payload.request_id) return;
+            || pending?.payload?.request_id !== payload.request_id) return;
         let next = change(current);
         if (confirmed) {
           const draft = current.offline_edit.next;
@@ -192,9 +210,11 @@ function payloadFor(batch) {
   return payload;
 }
 
-async function acknowledge(db, batch, mappings) {
+async function acknowledge(db, batch, mappings, isCurrent) {
   const userId = batch.userId;
-  await db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
+  return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
+    const pending = await db.syncState.get('pending');
+    if (!isCurrent() || pending?.request_id !== batch.request_id || pending.userId !== userId) return false;
     for (const name of entities) {
       for (const sent of batch[name]) {
         const key = keyFor(name, sent, userId);
@@ -235,17 +255,27 @@ async function acknowledge(db, batch, mappings) {
     const aliases = (await db.syncState.get('aliases'))?.mappings || {};
     for (const name of ['folders', 'decks', 'cards']) aliases[name] = { ...aliases[name], ...mappings[name] };
     await db.syncState.put({ key: 'aliases', mappings: aliases });
+    if (!isCurrent()) throw new Error('Session changed');
+    return true;
   });
 }
 
-async function syncLearningPreferences(db, options) {
+async function syncLearningPreferences(db, options, isCurrent) {
   for (const deck of await db.decks.filter(d => d.learning_dirty && d.id > 0).toArray()) {
     await networkApi.post(`/decks/${deck.id}/toggle-learning`, { is_learning: !!deck.is_learning }, options);
-    const current = await db.decks.get(deck.id);
-    if (current?.is_learning === deck.is_learning) {
-      await db.decks.update(deck.id, { learning_dirty: 0 });
-    }
+    await db.transaction('rw', db.decks, async () => {
+      const current = await db.decks.get(deck.id);
+      if (isCurrent() && current?.is_learning === deck.is_learning) {
+        await db.decks.update(deck.id, { learning_dirty: 0 });
+        if (!isCurrent()) throw new Error('Session changed');
+      }
+    });
   }
+}
+
+export function keepLocalCard(card, requestStartedAt) {
+  return card?.offline_edit || card?.offline_confirmed_at >= requestStartedAt
+    || card?.offline_read_started_at > requestStartedAt;
 }
 
 async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
@@ -253,8 +283,10 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
       || data.cards.some(card => card.content_v2?.schema_version !== 2)) {
     throw new Error(tr("Некорректный ответ синхронизации"));
   }
-  await db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
+  return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
     if (!isCurrent()) throw new Error('Session changed');
+    const lastSync = await db.syncState.get('lastSync');
+    if (Date.parse(lastSync?.time) > Date.parse(data.server_time)) return false;
     const localCards = await db.cards.toArray();
     const legacyIds = new Set(localCards.filter(card => !card.content_v2).map(card => card.id));
     const nativeIds = new Set([...localCards.filter(card => card.content_v2), ...data.cards].map(card => card.id));
@@ -264,100 +296,107 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)
-            || (name === 'cards' && (legacyIds.has(item.id) || local?.offline_edit || local?.offline_confirmed_at >= pullStartedAt))
+            || (name === 'cards' && (legacyIds.has(item.id) || keepLocalCard(local, pullStartedAt)))
             || (name === 'progress' && legacyIds.has(item.card_id))) continue;
-        await db[name].put({ ...item, ...(name === 'progress' ? { user_id: userId } : {}), is_dirty: 0 });
+        await db[name].put({ ...item,
+          ...(name === 'cards' && { offline_read_started_at: pullStartedAt }),
+          ...(name === 'progress' && { user_id: userId }), is_dirty: 0 });
       }
       // A full snapshot also carries hard deletions and revoked access.
       for (const item of name === 'cards' ? localCards : await db[name].toArray()) {
         const id = name === 'progress' ? item.card_id : item.id;
-        if ((name === 'cards' && (legacyIds.has(id) || item.offline_edit || item.offline_confirmed_at >= pullStartedAt))
+        if ((name === 'cards' && (legacyIds.has(id) || keepLocalCard(item, pullStartedAt)))
             || (name === 'progress' && (legacyIds.has(id) || !nativeIds.has(id)))) continue;
         if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
       }
     }
-    await db.syncState.put({ key: 'lastSync', time: data.server_time });
+    await db.syncState.put({ key: 'lastSync', time: data.server_time, readStartedAt: pullStartedAt });
     if (!isCurrent()) throw new Error('Session changed');
+    return true;
   });
 }
 
 export const syncService = {
-  isSyncing: false,
   async sync(options) {
-    if (navigator.locks) {
-      return navigator.locks.request('lerne-offline-sync', { ifAvailable: true }, lock =>
-        lock ? this.runSync(options) : { success: false, reason: 'Already syncing' });
-    }
-    return this.runSync(options);
-  },
-  async runSync({ pendingNativeOnly = false, skipPull = false } = {}) {
-    if (this.isSyncing) return { success: false, reason: 'Already syncing' };
     if (!navigator.onLine) return { success: false, reason: tr("Нет подключения к интернету") };
-    if (!getAccessToken() || !getUserId()) return { success: false, reason: tr("Требуется вход") };
-    this.isSyncing = true;
     const userId = getUserId();
     const identity = getSessionIdentity();
+    if (!getAccessToken() || !userId || !identity) return { success: false, reason: tr("Требуется вход") };
     const isCurrent = () => getUserId() === userId && getSessionIdentity() === identity;
-    const options = { _expectedUserId: userId };
-    const nativeOptions = { ...options, _expectedSessionIdentity: identity };
+    const unavailable = { success: false, reason: tr('Синхронизация недоступна в этом браузере. Данные сохранены на устройстве.') };
     try {
-      const db = await prepareLocalDb();
-      if (!isCurrent()) throw new Error('Session changed');
-      const creates = await db.syncState.where('key').startsWith(CARD_CREATE_KEY).toArray();
-      const queuedEdits = await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray();
-      const editCards = await db.cards.bulkGet(queuedEdits.map(edit => edit.cardId));
-      const edits = queuedEdits.filter((_edit, index) => {
-        const edit = editCards[index]?.offline_edit;
-        return edit && (edit.status !== 'conflict' || !edit.server);
+      if (typeof navigator.locks?.request !== 'function') return unavailable;
+      // Keep the existing lock name so tabs on a previous build coordinate too.
+      return await navigator.locks.request('lerne-offline-sync', { ifAvailable: true }, lock => {
+        if (!lock) return { success: false, reason: 'Already syncing' };
+        if (!isCurrent()) return { success: false, reason: 'Session changed' };
+        return runSync(userId, identity, isCurrent, options);
       });
-      if (pendingNativeOnly && !creates.length && !edits.length) return { success: true };
-      let nativeError;
-      try { await deliverCardCreates(db, creates, nativeOptions, isCurrent); }
-      catch (error) { nativeError = error; }
-      try { await deliverCardEdits(db, edits, nativeOptions, isCurrent); }
-      catch (error) { nativeError ||= error; }
-      if (!isCurrent()) throw new Error('Session changed');
-      const batch = pendingNativeOnly ? null : await pendingBatch(db, userId);
-      if (batch) {
-        const response = await networkApi.post('/sync/v2/push', payloadFor(batch), options);
-        if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
-        if (batch.reviews?.length && response.data.review_count !== batch.reviews.length) {
-          throw new Error(tr("Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации."));
-        }
-        const mappings = response.data.mappings;
-        for (const name of ['folders', 'decks', 'cards']) {
-          for (const item of batch[name].filter(item => item.id < 0)) {
-            if (!(mappings[name]?.[String(item.id)] > 0)) throw new Error(tr("Сервер не вернул идентификатор новой записи"));
-          }
-        }
-        if (!isCurrent()) throw new Error('Session changed');
-        await acknowledge(db, batch, mappings);
-        if (isCurrent()) window.dispatchEvent(new CustomEvent('lerne:ids-remapped', { detail: { mappings, userId } }));
-      }
-      if (nativeError) throw nativeError;
-      if (pendingNativeOnly && skipPull) return { success: true };
-      if (!pendingNativeOnly) await syncLearningPreferences(db, options);
-      const pullStartedAt = Date.now();
-      const response = await networkApi.get('/sync/v2/pull', { ...nativeOptions, params: { card_schema: 2 } });
-      if (!isCurrent()) throw new Error('Session changed');
-      await applySnapshot(db, response.data, userId, pullStartedAt, isCurrent);
-      let notesPending = false;
-      try { if (!pendingNativeOnly) await syncCardNotes(db, userId); }
-      catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.
-      if (isCurrent()) {
-        localStorage.setItem('lerne_last_sync_time', response.data.server_time);
-        localStorage.setItem('lerne_last_sync_user_id', String(userId));
-        window.dispatchEvent(new CustomEvent('lerne:synced', { detail: { userId } }));
-      }
-      return { success: true, server_time: response.data.server_time, card_notes_pending: notesPending };
-    } catch (error) {
-      const reason = error.response?.status === 404
-        ? tr("Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.")
-        : error.response?.data?.detail || error.message;
-      console.warn('[Sync]', reason);
-      return { success: false, reason };
-    } finally {
-      this.isSyncing = false;
+    } catch {
+      return unavailable;
     }
   },
 };
+
+async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false, skipPull = false, pullOnly = false } = {}) {
+  const options = { _expectedUserId: userId, _expectedSessionIdentity: identity };
+  try {
+    const db = await prepareLocalDb();
+    if (!isCurrent()) throw new Error('Session changed');
+    const creates = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_CREATE_KEY).toArray();
+    const queuedEdits = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray();
+    const editCards = await db.cards.bulkGet(queuedEdits.map(edit => edit.cardId));
+    const edits = queuedEdits.filter((_edit, index) => {
+      const edit = editCards[index]?.offline_edit;
+      return edit && (edit.status !== 'conflict' || !edit.server);
+    });
+    if (pendingNativeOnly && !creates.length && !edits.length) return { success: true };
+    let nativeError;
+    try { await deliverCardCreates(db, creates, options, isCurrent); }
+    catch (error) { nativeError = error; }
+    try { await deliverCardEdits(db, edits, options, isCurrent); }
+    catch (error) { nativeError ||= error; }
+    if (!isCurrent()) throw new Error('Session changed');
+    const batch = pendingNativeOnly || pullOnly ? null : await pendingBatch(db, userId);
+    if (batch) {
+      const response = await networkApi.post('/sync/v2/push', payloadFor(batch), options);
+      if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
+      if (batch.reviews?.length && response.data.review_count !== batch.reviews.length) {
+        throw new Error(tr("Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации."));
+      }
+      const mappings = response.data.mappings;
+      for (const name of ['folders', 'decks', 'cards']) {
+        for (const item of batch[name].filter(item => item.id < 0)) {
+          if (!(mappings[name]?.[String(item.id)] > 0)) throw new Error(tr("Сервер не вернул идентификатор новой записи"));
+        }
+      }
+      if (!isCurrent()) throw new Error('Session changed');
+      const acknowledged = await acknowledge(db, batch, mappings, isCurrent);
+      if (acknowledged && isCurrent()) notifySyncUi('lerne:ids-remapped', { mappings, userId }, { mappings });
+    }
+    if (nativeError) throw nativeError;
+    if (pendingNativeOnly && skipPull) return { success: true };
+    if (!pendingNativeOnly && !pullOnly) await syncLearningPreferences(db, options, isCurrent);
+    const pullStartedAt = Date.now();
+    const response = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: 2 } });
+    if (!isCurrent()) throw new Error('Session changed');
+    const applied = await applySnapshot(db, response.data, userId, pullStartedAt, isCurrent);
+    if (!isCurrent()) throw new Error('Session changed');
+    let notesPending = false;
+    try { if (!pendingNativeOnly && !pullOnly) await syncCardNotes(db, userId); }
+    catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.
+    if (!isCurrent()) throw new Error('Session changed');
+    if (applied) {
+      localStorage.setItem('lerne_last_sync_time', response.data.server_time);
+      localStorage.setItem('lerne_last_sync_user_id', String(userId));
+      notifySyncUi('lerne:synced', { userId }, {});
+    }
+    return { success: true, server_time: response.data.server_time, card_notes_pending: notesPending };
+  } catch (error) {
+    const reason = error.response?.status === 404
+      ? tr("Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.")
+      : error.response?.data?.detail || error.message;
+    console.warn('[Sync]', reason);
+    return { success: false, reason };
+  }
+}

@@ -7,10 +7,11 @@ let userId = 1;
 let online = false;
 const networkApi = { get: async () => ({ data: [] }), put: async () => { throw Error('offline'); } };
 mock.module('../networkApi.js', { namedExports: { networkApi } });
-mock.module('../../utils/auth.js', { namedExports: { getUserId: () => userId, getAccessToken: () => 'test', getSessionIdentity: () => 'test-session' } });
+mock.module('../../utils/auth.js', { namedExports: { getUserId: () => userId, getAccessToken: () => 'test', getSessionIdentity: () => 'test-session', isRetiredSession: () => false } });
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 globalThis.window = { location: { search: '' }, dispatchEvent() {} };
 Object.defineProperty(globalThis.navigator, 'onLine', { get: () => online, configurable: true });
+Object.defineProperty(globalThis.navigator, 'locks', { value: { request: (_name, options, callback) => (callback || options)({}) } });
 const { writeCardNote, syncCardNotes, refreshCardNotes } = await import('../cardNotes.js');
 const { prepareLocalDb, resetAllDatabases } = await import('../localDb.js');
 
@@ -140,7 +141,7 @@ test('revoked card annotation access cannot block entity/progress synchronizatio
     folders: [], decks: [], cards: [], progress: [] } });
   networkApi.put = async () => { throw Object.assign(new Error('Denied'), { response: { status: 403 } }); };
   const { syncService } = await import('../syncService.js');
-  const result = await syncService.runSync();
+  const result = await syncService.sync();
   assert.equal(result.success, true);
   assert.equal(result.card_notes_pending, true);
   const db = await prepareLocalDb();

@@ -124,7 +124,7 @@ const refreshSession = (session) => {
 
 axiosInstance.interceptors.response.use(
   (response) => {
-    if (response.config?._authIdentity !== getSessionIdentity()) {
+    if (response.config?._authIdentity !== getSessionIdentity() || response.config?._authUserId !== getUserId()) {
       throw new axios.CanceledError('Session changed before response');
     }
     return response;

@@ -1,7 +1,8 @@
 import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useUiStore } from '../store/useUiStore';
-import { getUserId } from '../utils/auth';
+import { getSessionIdentity, getUserId } from '../utils/auth';
+import { getLocalDb } from './localDb';
 import { tr } from '../i18n/locale';
 
 export function remapOfflineUi({ detail }) {
@@ -40,7 +41,7 @@ export function remapOfflineUi({ detail }) {
     lastSelectedCardId: id('cards', ui.lastSelectedCardId),
     deckToRename: deck(ui.deckToRename),
   });
-  if (confirmedCard && !confirmedCard.offline_edit) ui.showToast(tr('Карточка синхронизирована'), 'success');
+  if (confirmedCard && !confirmedCard.offline_edit && !detail.silent) ui.showToast(tr('Карточка синхронизирована'), 'success');
 }
 
 export function markOfflineCreateError({ detail }) {
@@ -91,14 +92,38 @@ export function offlineEditLabel(edit) {
 }
 
 export async function refreshOfflineUi({ detail }) {
+  const identity = getSessionIdentity();
   if (detail.userId !== getUserId()) return;
   try {
     const state = useDeckStore.getState();
     await state.fetchDecks(true);
-    if (detail.userId !== getUserId()) return;
+    if (detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
     const current = useDeckStore.getState().currentDeck;
     if (current && useDeckStore.getState().decks.some(d => d.id === current.id)) await state.fetchDeckCards(current.id);
   } catch (error) {
     console.warn('Offline view refresh:', error.message);
+  }
+}
+
+export async function refreshPeerOfflineUi({ data }) {
+  const identity = getSessionIdentity();
+  const { type, userId, id, mappings, deliveredRequestId } = data;
+  const isCurrent = () => userId === getUserId() && identity === getSessionIdentity();
+  if (!isCurrent()) return;
+  try {
+    const card = id == null ? null : await getLocalDb().cards.get(id);
+    if (!isCurrent()) return;
+    if (type === 'lerne:card-edit-changed' && card) {
+      updateOfflineEditUi({ detail: { userId, card, deliveredRequestId } });
+    } else if (type === 'lerne:card-create-error' && card?.offline_create_status === 'error') {
+      markOfflineCreateError({ detail: { userId, id } });
+    } else if (type === 'lerne:ids-remapped') {
+      remapOfflineUi({ detail: { userId, mappings, confirmedCard: card, silent: true } });
+      if (id != null) await refreshOfflineUi({ detail: { userId } });
+    } else if (type === 'lerne:synced') {
+      await refreshOfflineUi({ detail: { userId } });
+    }
+  } catch (error) {
+    if (isCurrent()) console.warn('Offline tab refresh:', error.message);
   }
 }

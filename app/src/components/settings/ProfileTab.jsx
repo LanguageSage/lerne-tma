@@ -9,7 +9,7 @@ import api from '../../services/api';
 import { isOfflineMode, db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { openExternalLink, closeApp } from '../../utils/platform';
-import { resetUserSession, getUserId } from '../../utils/auth';
+import { getSessionIdentity, getUserId, resetUserSession } from '../../utils/auth';
 
 export const ProfileTab = ({ userId }) => {
   useInterfaceLocale();
@@ -311,8 +311,11 @@ export const ProfileTab = ({ userId }) => {
             <button 
               className="btn btn-primary"
               onClick={async () => {
+                const identity = getSessionIdentity();
+                const account = getUserId();
                 showToast(tr("Синхронизация..."));
                 const res = await syncService.sync();
+                if (identity !== getSessionIdentity() || account !== getUserId()) return;
                 if (res.success) {
                   showToast(res.card_notes_pending
                     ? tr('Колоды и прогресс сохранены. Часть заметок ожидает синхронизации.')

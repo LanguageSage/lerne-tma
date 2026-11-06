@@ -15,7 +15,8 @@ import httpx
 import uvicorn
 
 
-def verify(db, *, offline_create_browser=False, offline_edit_browser=False, offline_delivery_browser=False):
+def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
+           offline_delivery_browser=False, offline_isolation_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -67,7 +68,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False, offl
                 return False
             if offline_delivery_browser and not _run_offline_edit_browser(client, port, models, headers, delivery=True):
                 return False
-            if offline_create_browser or offline_edit_browser or offline_delivery_browser:
+            if offline_isolation_browser and not _run_offline_isolation_browser(port, models):
+                return False
+            if offline_create_browser or offline_edit_browser or offline_delivery_browser or offline_isolation_browser:
                 return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
@@ -138,6 +141,31 @@ def _run_offline_edit_browser(client, port, models, headers, *, delivery=False):
     progress = models.TMAProgress.get(models.TMAProgress.card_id == card['id'], models.TMAProgress.user_id == 1)
     assert progress.flag == 2 and progress.repetitions == 3
     assert models.TMA_Card.select().where(models.TMA_Card.deck == deck).count() == 1
+    return True
+
+
+def _run_offline_isolation_browser(port, models):
+    from api.auth.service import _create_session, utcnow
+
+    def session(user_id):
+        tokens = _create_session(models.TMAAuthAccount.get(user=user_id), utcnow())
+        return {'account_id': user_id, 'access_token': tokens.access_token, 'refresh_token': tokens.refresh_token}
+
+    first = models.TMA_Deck.create(user_id=1, name='Offline Standard fixture', target_language='de')
+    second = models.TMA_Deck.create(user_id=2, name='Private B fixture', target_language='de')
+    initial = session(1)
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': first.id, 'isolation': True,
+              'access_token': initial['access_token'], 'initial_session': initial, 'second_session': session(2),
+              'new_session': session(1),
+              'private_deck': {'id': second.id, 'name': second.name, 'user_id': 2,
+                               'target_language': 'de', 'role': 'owner', 'stats': {'total': 0}}}
+    receipts = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:save:'))
+    before = receipts.count()
+    if not _run_offline_browser(config, 'isolates Standard queues'):
+        return False
+    assert models.TMA_Card.select().where(models.TMA_Card.deck == first.id).count() == 3
+    assert models.TMA_Card.select().where(models.TMA_Card.deck == second.id).count() == 1
+    assert receipts.count() == before + 4
     return True
 
 

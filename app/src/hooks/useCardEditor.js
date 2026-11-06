@@ -16,7 +16,7 @@ import { useStudySession } from './useStudySession';
 
 // Preserve the request identifier after transport failure, for the same draft only.
 let pendingSave;
-let saving = false;
+let activeSave;
 const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
 function visibleCard(cardId) {
@@ -39,9 +39,12 @@ export const useCardEditor = () => {
     const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
     const data = (manualCardData && !isEvent) ? manualCardData : session.editingCard;
 
-    if (saving || !data?.content_v2) return;
-    saving = true;
     const identity = getSessionIdentity();
+    const account = getUserId();
+    if (!data?.content_v2 || (activeSave?.identity === identity && activeSave?.account === account)) return;
+    const flight = { identity, account };
+    activeSave = flight;
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
       let finalDeckId = data.deck_id;
@@ -60,8 +63,8 @@ export const useCardEditor = () => {
         if (data[field] !== undefined) reqData[field] = data[field] || null;
       }
       const fingerprint = JSON.stringify([path, reqData]);
-      if (pendingSave?.identity !== identity || pendingSave.fingerprint !== fingerprint) {
-        pendingSave = { identity, fingerprint, id: crypto.randomUUID() };
+      if (pendingSave?.identity !== identity || pendingSave.account !== account || pendingSave.fingerprint !== fingerprint) {
+        pendingSave = { identity, account, fingerprint, id: crypto.randomUUID() };
       }
       reqData.request_id = pendingSave.id;
       const standardEdit = data.id > 0 && (data.offline_edit || (data.content_v2.card.type === 'standard'
@@ -71,16 +74,17 @@ export const useCardEditor = () => {
         offlineStandardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
       }) : data.id ? await networkApi.patch(path, reqData)
         : await (data.content_v2.card.type === 'standard' ? api : networkApi).post(path, reqData, { offlineCreateFlag: data.flag });
+      if (!isCurrent()) return;
       pendingSave = null;
-      if (identity !== getSessionIdentity()) return;
 
       if (standardEdit) res.data = { ...data, ...res.data };
       const deliverEdit = standardEdit && navigator.onLine && !conflict;
       if (deliverEdit && awaitDelivery) {
         const db = await prepareLocalDb();
+        if (!isCurrent()) return;
         await syncService.sync({ pendingNativeOnly: true });
         const cached = await db.cards.get(data.id);
-        if (identity !== getSessionIdentity()) return;
+        if (!isCurrent()) return;
         const visible = useSessionStore.getState().editingCard;
         if (cached) {
           // The receipt event carries study fields omitted from the pull snapshot.
@@ -101,19 +105,23 @@ export const useCardEditor = () => {
           const audio = await networkApi.post('/media/generate-card-audio', { card_id: res.data.id, side: 'front' });
           Object.assign(res.data, { audio_path: audio.data.path, audio_url: audio.data.url, revision: audio.data.revision });
         } catch {
+          if (!isCurrent()) return;
           showToast(tr("Аудио не сгенерировано"), 'warning');
         }
       }
 
+      if (!isCurrent()) return;
       if ((!savedLocally || standardEdit) && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
         try {
           await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
           res.data.flag = Number(data.flag);
         } catch {
+          if (!isCurrent()) return;
           showToast(tr("Ошибка при установке метки"), 'warning');
         }
       }
 
+      if (!isCurrent()) return;
       if (savedLocally || !standardEdit) {
         showToast(tr(savedLocally ? 'Карточка сохранена на устройстве' : 'Карточка сохранена'), 'success');
       }
@@ -226,6 +234,7 @@ export const useCardEditor = () => {
       if (deliverEdit && !awaitDelivery) void syncService.sync({ pendingNativeOnly: true });
       return savedCard;
     } catch (err) {
+      if (!isCurrent()) return;
       console.error(err);
       const detail = cardWriteError(err);
       if (err.response?.status && err.response.status < 500) pendingSave = null;
@@ -234,8 +243,8 @@ export const useCardEditor = () => {
         ui.showToast(tr('Карточка изменилась на сервере. Черновик сохранён в форме. Откройте актуальную карточку перед повторной правкой.'), 'warning');
       }
     } finally {
-      saving = false;
-      setLoading(false);
+      if (activeSave === flight) activeSave = null;
+      if (isCurrent()) setLoading(false);
     }
   };
 
