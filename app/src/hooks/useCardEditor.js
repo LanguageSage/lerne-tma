@@ -63,11 +63,13 @@ export const useCardEditor = () => {
         pendingSave = { identity, fingerprint, id: crypto.randomUUID() };
       }
       reqData.request_id = pendingSave.id;
-      const res = await (data.id ? networkApi.patch(path, reqData) : networkApi.post(path, reqData));
+      const res = data.id ? await networkApi.patch(path, reqData)
+        : await (data.content_v2.card.type === 'standard' ? api : networkApi).post(path, reqData, { offlineCreateFlag: data.flag });
       pendingSave = null;
       if (identity !== getSessionIdentity()) return;
 
-      if (!data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path) {
+      const savedLocally = Boolean(res.data.offline_create_status);
+      if (!savedLocally && !data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path) {
         try {
           const audio = await networkApi.post('/media/generate-card-audio', { card_id: res.data.id, side: 'front' });
           Object.assign(res.data, { audio_path: audio.data.path, audio_url: audio.data.url, revision: audio.data.revision });
@@ -76,7 +78,7 @@ export const useCardEditor = () => {
         }
       }
 
-      if (res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
+      if (!savedLocally && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
         try {
           await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
           res.data.flag = Number(data.flag);
@@ -85,11 +87,11 @@ export const useCardEditor = () => {
         }
       }
 
-      showToast(tr("Карточка сохранена"), "success");
+      showToast(tr(savedLocally ? 'Карточка сохранена на устройстве' : 'Карточка сохранена'), 'success');
       
       const { deckCards } = useDeckStore.getState();
       let savedCard = (res?.data && res.data.id) ? res.data : data;
-      if (data.image_height) {
+      if (!savedLocally && data.image_height) {
         savedCard = { ...savedCard, image_height: data.image_height };
         if (currentDeck?.id) {
           try {

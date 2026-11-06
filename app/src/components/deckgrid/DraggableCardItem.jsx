@@ -31,6 +31,8 @@ export const DraggableCardItem = React.memo(({
 }) => {
   useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const createStatus = c.offline_create_status;
+  const canDrag = canEditContent && !createStatus;
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
   const {
@@ -42,7 +44,7 @@ export const DraggableCardItem = React.memo(({
     isDragging
   } = useSortable({
     id: c.id,
-    disabled: isSelectMode || !canEditContent,
+    disabled: isSelectMode || !canDrag,
     animateLayoutChanges: () => false,
   });
 
@@ -79,6 +81,7 @@ export const DraggableCardItem = React.memo(({
   };
 
   const handleItemClick = () => {
+    if (createStatus) return;
     if (isSelectMode) {
       onToggleSelect?.(c.id);
       return;
@@ -95,9 +98,9 @@ export const DraggableCardItem = React.memo(({
       style={{ ...style, ...cardListBg?.style }}
       id={`card-item-${c.id}`}
       className={`card-item card-front glass ${cardListBg?.className || ''} card-item-draggable ${isDragging ? 'is-dragging' : ''} ${isSelectMode ? 'is-select-mode' : ''} ${isSelected ? 'is-selected' : ''}`}
-      onClick={isSelectMode ? () => onToggleSelect?.(c.id) : undefined}
+      onClick={isSelectMode && !createStatus ? () => onToggleSelect?.(c.id) : undefined}
     >
-      {isSelectMode && (
+      {isSelectMode && !createStatus && (
         <div className="card-select-checkbox">
           {isSelected && <Check size={16} strokeWidth={3} />}
         </div>
@@ -105,7 +108,7 @@ export const DraggableCardItem = React.memo(({
       <div
         className="card-item-text"
         onClick={handleItemClick}
-        style={{ cursor: 'pointer', position: 'relative' }}
+        style={{ cursor: createStatus ? 'default' : 'pointer', position: 'relative' }}
       >
         <div
           className={`front-min ${isExpanded ? 'expanded' : ''}`}
@@ -139,9 +142,11 @@ export const DraggableCardItem = React.memo(({
         )}
       </div>
 
+      {createStatus && <small role="status">{tr(createStatus === 'error'
+        ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}</small>}
       <div className="card-item-footer">
         <div className="card-item-footer-left">
-          {!isSelectMode && canEditContent && (
+          {!isSelectMode && canDrag && (
             <div
               className="deck-drag-handle-bottom"
               {...attributes}
@@ -164,7 +169,7 @@ export const DraggableCardItem = React.memo(({
             </span>
           )}
 
-          {!isSelectMode && (
+          {!isSelectMode && !createStatus && (
             <CardActionButton
               card={c}
               size={16}

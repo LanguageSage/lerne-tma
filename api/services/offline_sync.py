@@ -222,7 +222,7 @@ def push_offline(request, user_id: int) -> dict:
         return response
 
 
-def pull_offline(user_id: int) -> dict:
+def pull_offline(user_id: int, *, native_cards: bool = False) -> dict:
     from api.services.decks import ensure_starter_decks
     from api.services.decks import _learning_key
     user = models.TMAUser.select(models.TMAUser.default_decks_initialized).where(models.TMAUser.user_id == user_id).first()
@@ -237,9 +237,17 @@ def pull_offline(user_id: int) -> dict:
     deck_ids.update(d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id))
     folders = list(models.TMA_Folder.select(*(getattr(models.TMA_Folder, f) for f in PULL_FIELDS['folders'])).where(models.TMA_Folder.id.in_(folder_ids)))
     decks = list(models.TMA_Deck.select(*(getattr(models.TMA_Deck, f) for f in PULL_FIELDS['decks'])).where(models.TMA_Deck.id.in_(deck_ids)))
+    card_fields = PULL_FIELDS['cards']
+    card_scope = models.TMA_Card.deck_id.in_(deck_ids)
+    if native_cards:
+        from api.services.structured_card_api import content_response
+
+        card_fields = ('id', 'deck_id', 'is_deleted', 'position', 'created_at', 'updated_at',
+                       'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path')
+        card_scope &= models.TMA_Card.content_v2.is_null(False)
     cards = list(models.TMA_Card.select(models.TMA_Card.content_v2,
-        *(getattr(models.TMA_Card, f) for f in PULL_FIELDS['cards'])).where(models.TMA_Card.deck_id.in_(deck_ids)))
-    if any(card.content_v2 is not None for card in cards):
+        *(getattr(models.TMA_Card, f) for f in card_fields)).where(card_scope))
+    if not native_cards and any(card.content_v2 is not None for card in cards):
         raise HTTPException(409, {'code': 'native_card_requires_v2_sync'})
     progress = list(models.TMAProgress.select(*(getattr(models.TMAProgress, f) for f in PULL_FIELDS['progress'])).where(
         (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
@@ -249,7 +257,10 @@ def pull_offline(user_id: int) -> dict:
         models.TMASetting.key, models.TMASetting.value).where(models.TMASetting.key.in_(list(learning_keys)))}
 
     def serialize(name: str, item) -> dict:
-        data = {field: getattr(item, field) for field in PULL_FIELDS[name]}
+        fields = card_fields if name == 'cards' else PULL_FIELDS[name]
+        data = {field: getattr(item, field) for field in fields}
+        if name == 'cards' and native_cards:
+            data.update(content_response(item))
         for field, value in data.items():
             if isinstance(value, datetime.datetime):
                 data[field] = value.isoformat() + 'Z'
@@ -263,7 +274,7 @@ def pull_offline(user_id: int) -> dict:
             data['is_learning'] = learning_states.get(item.id, False)
         return data
 
-    return {'status': 'success', 'protocol': 2,
+    return {'status': 'success', 'protocol': 2, **({'card_schema': 2} if native_cards else {}),
             'folders': [serialize('folders', f) for f in folders],
             'decks': [serialize('decks', d) for d in decks],
             'cards': [serialize('cards', c) for c in cards],

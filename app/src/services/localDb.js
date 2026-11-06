@@ -125,6 +125,8 @@ db.version(4).stores({
 db.version(5).stores({ card_notes: 'id, card_id, is_dirty' });
 }
 
+export const CARD_CREATE_KEY = 'card-create-v2:';
+
 // Helper to generate temporary negative IDs
 export const getNextTempId = () => {
   const current = parseInt(localStorage.getItem('lerne_temp_id_counter') || '-1', 10);

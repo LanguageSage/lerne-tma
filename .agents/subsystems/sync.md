@@ -36,6 +36,24 @@ Knowledge Attempts отправляются отдельным механизм�
    An annotation error leaves its draft dirty and returns `card_notes_pending`, without blocking committed entity/review synchronization or unrelated offline API actions. Manual profile sync shows this partial result explicitly; the notes panel retains its pending/error/retry states.
    A flush attempts every matching note, acknowledges only successful unchanged local revisions, and reports the first error after the loop. Rejected/network-failed records remain dirty across restarts and retry with the same UUID; one record cannot block other notes. Existing entity sync is unchanged.
 
+## Structured Cards V2, этап 6B.1
+
+Standard из редактора при недоступной сети сохраняется с отрицательным ID.
+`offlineApi` атомарно записывает `cards` и неизменяемую операцию
+`syncState.card-create-v2:<request_id>` в БД аккаунта. `syncService` повторяет
+`POST /cards/save` с тем же UUID. Нативная серверная квитанция в
+`TMAOfflineBatch` и карточка фиксируются в одной транзакции. Локальный
+ремап, замена строки и удаление ожидающей операции также атомарны.
+Ошибка сохраняет строку и очередь. Запуск приложения, восстановление
+сети и фоновый цикл повторяют доставку.
+
+`GET /sync/v2/pull?card_schema=2` передаёт нативное содержимое, ревизии и
+связанный прогресс. V1-карточки и их очередь не участвуют в новом цикле.
+Формат без параметра сохранён для старого клиента. Проверка с Chromium,
+FastAPI и одноразовым PostgreSQL запускается через
+`scripts/tests/structured_cards_postgres.py --bin-dir <path> --offline-create-browser`.
+Границы этапа описаны в [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b1-офлайн-создание-одной-standard-карточки).
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,

@@ -81,7 +81,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const selectMode = useCardSelectMode(filteredCards, currentDeck?.id, view);
   const {
     isSelectMode, setIsSelectMode, selectedCardIds, setSelectedCardIds,
-    isBatchMoveModalOpen, setIsBatchMoveModalOpen, batchModalMode, toggleSelectMode, handleToggleSelectCard, handleSelectAll,
+    isBatchMoveModalOpen, setIsBatchMoveModalOpen, batchModalMode, toggleSelectMode, handleToggleSelectCard, handleSelectAll, selectableCount,
   } = selectMode;
 
   const { sensors, activeCard, handleDragStart, handleDragEnd,
@@ -380,7 +380,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                 <X size={16} />
               </button>
               <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc' }}>
-                {tr("Выбрано: {{p0}} из {{p1}}", { p0: selectedCardIds.size, p1: filteredCards.length })}
+                {tr("Выбрано: {{p0}} из {{p1}}", { p0: selectedCardIds.size, p1: selectableCount })}
               </span>
             </div>
 
@@ -396,7 +396,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                 background: 'rgba(255, 255, 255, 0.08)'
               }}
             >
-              {selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять всё") : tr("Выбрать все")}
+              {selectedCardIds.size === selectableCount && selectableCount > 0 ? tr("Снять всё") : tr("Выбрать все")}
             </button>
           </div>
         )}

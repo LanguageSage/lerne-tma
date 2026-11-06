@@ -16,11 +16,15 @@ const api = new Proxy(axiosInstance, {
         const requestIdentity = getSessionIdentity();
         const requestAccount = getUserId();
         if (url.startsWith('/card-notes/')) return offlineApi.handle(propKey, url, ...args);
-        if (isOfflineMode()) {
+        const standardCreate = propKey === 'post' && url === '/cards/save' && args[0]?.content_v2?.card?.type === 'standard';
+        if (isOfflineMode() || /\/-\d+(?:\/|\?|$)/.test(url) || (standardCreate && args[0]?.after_card_id < 0)) {
           await prepareLocalDb();
           const resolved = await resolveLocalRequest(url, args[0]);
           url = resolved.url;
           if (args.length) args[0] = resolved.body;
+          if (requestIdentity !== getSessionIdentity() || requestAccount !== getUserId()) {
+            throw new axios.CanceledError('Session changed before offline routing');
+          }
         }
         const isOfflineEndpoint = 
           url.startsWith('/decks') || 
@@ -30,7 +34,7 @@ const api = new Proxy(axiosInstance, {
           url.startsWith('/trash') ||
           url.startsWith('/init');
 
-        const forceOffline = isOfflineMode() || (typeof navigator !== 'undefined' && !navigator.onLine);
+        const forceOffline = (!standardCreate && isOfflineMode()) || !navigator.onLine || /^\/cards\/-\d+$/.test(url);
         const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
 
         if (forceOffline && isOfflineEndpoint) {
@@ -50,7 +54,7 @@ const api = new Proxy(axiosInstance, {
 
         // Try online server request first
         try {
-          const needsRefresh = isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
+          const needsRefresh = !standardCreate && isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
           if (needsRefresh) {
             const synced = await syncService.sync();
             if (!synced.success) throw new Error(synced.reason);
@@ -61,6 +65,33 @@ const api = new Proxy(axiosInstance, {
           const response = await Reflect.get(target, propKey, receiver).call(target, url, ...args);
           if (needsRefresh) {
             await syncService.sync();
+          }
+          const deckMatch = propKey === 'get' && url.match(/^\/decks\/(\d+)\/cards$/);
+          if (requestAccount && (isLibraryRead || deckMatch)
+              && requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
+            try {
+              const db = await prepareLocalDb();
+              if (requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
+                if (deckMatch && Array.isArray(response.data)) {
+                  const local = await db.cards.where('deck_id').equals(Number(deckMatch[1]))
+                    .filter(card => Boolean(card.offline_create_status)).toArray();
+                  if (local.length) return { ...response, data: [...response.data, ...local] };
+                } else {
+                  const library = url.startsWith('/init') ? response.data
+                    : { [url.startsWith('/decks') ? 'decks' : 'folders']: response.data };
+                  await db.transaction('rw', db.decks, db.folders, async () => {
+                    for (const name of ['folders', 'decks']) {
+                      if (!Array.isArray(library?.[name])) continue;
+                      const items = library[name].filter(item => item.id > 0);
+                      const existing = await db[name].bulkGet(items.map(item => item.id));
+                      await db[name].bulkAdd(items.filter((_item, index) => !existing[index]));
+                    }
+                  });
+                }
+              }
+            } catch (error) {
+              console.warn('Offline library unavailable', error.name);
+            }
           }
           return response;
         } catch (networkErr) {
@@ -82,7 +113,8 @@ const api = new Proxy(axiosInstance, {
               const items = url.startsWith('/init') ? [...(response.data?.decks || []), ...(response.data?.folders || [])] : response.data;
               if (isLibraryRead && !items?.length) throw networkErr;
               return isLibraryRead ? { ...response, dataSource: 'cache' } : response;
-            } catch {
+            } catch (localError) {
+              if (standardCreate) throw localError;
               console.warn('Offline fallback unavailable', { method: propKey.toUpperCase() });
             }
           }

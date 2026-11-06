@@ -7,7 +7,7 @@ let userId = 1;
 let online = false;
 const networkApi = { get: async () => ({ data: [] }), put: async () => { throw Error('offline'); } };
 mock.module('../networkApi.js', { namedExports: { networkApi } });
-mock.module('../../utils/auth.js', { namedExports: { getUserId: () => userId, getAccessToken: () => 'test' } });
+mock.module('../../utils/auth.js', { namedExports: { getUserId: () => userId, getAccessToken: () => 'test', getSessionIdentity: () => 'test-session' } });
 globalThis.localStorage = { getItem: () => null, setItem() {} };
 globalThis.window = { location: { search: '' }, dispatchEvent() {} };
 Object.defineProperty(globalThis.navigator, 'onLine', { get: () => online, configurable: true });
@@ -136,7 +136,7 @@ test('failed deck load is not repeated on each card; explicit refresh retries', 
 test('revoked card annotation access cannot block entity/progress synchronization or erase the draft', async () => {
   const row = await writeCardNote(10, { text: 'Keep this draft' });
   online = true;
-  networkApi.get = async () => ({ data: { status: 'success', server_time: '2026-10-26T10:00:00Z',
+  networkApi.get = async () => ({ data: { status: 'success', card_schema: 2, server_time: '2026-10-26T10:00:00Z',
     folders: [], decks: [], cards: [], progress: [] } });
   networkApi.put = async () => { throw Object.assign(new Error('Denied'), { response: { status: 403 } }); };
   const { syncService } = await import('../syncService.js');

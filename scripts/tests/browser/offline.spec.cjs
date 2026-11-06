@@ -98,7 +98,7 @@ async function loadModules(page, firstModule = 'api') {
     window.network = (await import('/src/services/api.js')).networkApi;
     window.sync = (await import('/src/services/syncService.js')).syncService;
     window.getDb = (await import('/src/services/localDb.js')).getLocalDb;
-    window.snapshot = { status: 'success', folders: [], decks: [], cards: [], progress: [], server_time: new Date().toISOString() };
+    window.snapshot = { status: 'success', card_schema: 2, folders: [], decks: [], cards: [], progress: [], server_time: new Date().toISOString() };
   }, firstModule);
 }
 
@@ -141,7 +141,7 @@ for (const firstModule of ['api', 'syncService', 'cardNotes']) {
         folders: {}, decks: { [request.postDataJSON().decks[0].id]: 20 }, cards: {},
       } } });
       if (path === '/api/sync/v2/pull') return route.fulfill({ json: {
-        status: 'success', folders: [], decks: [{ id: 20, name: 'Queued before reconnect' }],
+        status: 'success', card_schema: 2, folders: [], decks: [{ id: 20, name: 'Queued before reconnect' }],
         cards: [], progress: [], server_time: '2026-11-02T10:00:00Z',
       } });
       if (path.startsWith('/api/card-notes/') && request.method() === 'PUT') {
@@ -374,7 +374,7 @@ test('offline CRUD, due scheduling, restart and persistent progress', async ({ p
   expect(await page.evaluate(async ids => (await api.get(`/decks/${ids.deck}/next`)).data.finished, ids)).not.toBe(true);
 });
 
-test('flags remain per-user progress through save, grade, clear, retry and pull', async ({ page, context }) => {
+test('legacy flag progress survives save, grade, clear, restart and native pull', async ({ page, context }) => {
   await harness(page, context);
   const state = await page.evaluate(async () => {
     const deck = (await api.post('/decks', { name: 'Flags' })).data;
@@ -400,19 +400,18 @@ test('flags remain per-user progress through save, grade, clear, retry and pull'
   let payload;
   await page.route('**/api/sync/v2/push', async route => {
     payload = route.request().postDataJSON();
-    await route.fulfill({ json: { status: 'success', review_count: payload.reviews.length,
-      mappings: { folders: {}, decks: { [state.deck]: 10 }, cards: { [state.card]: 20 } } } });
+    await route.fulfill({ json: { status: 'success', review_count: payload.reviews?.length ?? 0,
+      mappings: { folders: {}, decks: { [state.deck]: 10 }, cards: {} } } });
   });
   await page.route('**/api/sync/v2/pull*', route => route.fulfill({ json: {
-    status: 'success', server_time: new Date().toISOString(), folders: [],
-    decks: [{ id: 10, name: 'Flags', user_id: 1 }],
-    cards: [{ id: 20, deck_id: 10, front_text: 'Edited', back_text: 'Back' }],
-    progress: [{ ...state.cleared, card_id: 20, user_id: 1 }],
+    status: 'success', card_schema: 2, server_time: new Date().toISOString(), folders: [],
+    decks: [{ id: 10, name: 'Flags', user_id: 1 }], cards: [], progress: [],
   } }));
   expect((await page.evaluate(() => sync.sync())).success).toBe(true);
-  expect(payload.progress[0]).toMatchObject({ card_id: state.card, flag: 0, repetitions: 1 });
-  expect(payload.cards[0].flag).toBeUndefined();
-  expect(await page.evaluate(async () => (await api.get('/study/card/20')).data.flag)).toBe(0);
+  expect(payload.progress).toEqual([]);
+  expect(payload.cards).toEqual([]);
+  expect(payload.reviews).toBeUndefined();
+  expect(await page.evaluate(async id => (await getDb().progress.get([id, 1])), state.card)).toEqual(state.cleared);
 });
 
 test('grading legacy cached flags preserves them while explicit zero takes precedence', async ({ page, context }) => {
@@ -457,8 +456,11 @@ test('lost response retries identical durable batch after restart', async ({ pag
     await route.abort('failed');
   });
   const pending = await page.evaluate(async () => {
-    const deck = (await api.post('/decks', { name: 'Retry' })).data;
-    await api.post('/cards/save', { deck_id: deck.id, front: 'x', back: 'y', flag: 3 });
+    await getDb().decks.put({ id: 10, name: 'Retry', user_id: 1, role: 'owner' });
+    await getDb().cards.put({ id: 20, deck_id: 10, content_v2: { schema_version: 2, card: {
+      type: 'standard', data: { prompt: 'x', answer: 'y' },
+    } } });
+    await api.post('/cards/20/flag', { flag: 3 });
     const result = await sync.sync();
     return { result, batch: await getDb().syncState.get('pending') };
   });
@@ -476,7 +478,7 @@ test('lost response retries identical durable batch after restart', async ({ pag
 
   const retried = await page.evaluate(async () => {
     const result = await sync.sync();
-    return { result, dirty: await getDb().cards.where('is_dirty').equals(1).count() };
+    return { result, dirty: await getDb().progress.where('is_dirty').equals(1).count() };
   });
 
   expect(retried.result.success).toBe(false);
@@ -486,7 +488,7 @@ test('lost response retries identical durable batch after restart', async ({ pag
   expect(retried.dirty).toBe(1);
 });
 
-test('edits during push survive acknowledgement and stale pull', async ({ page, context }) => {
+test('flag edits during push survive acknowledgement and stale pull', async ({ page, context }) => {
   await harness(page, context);
   let releasePush;
   const pushStarted = new Promise(resolve => {
@@ -506,11 +508,13 @@ test('edits during push survive acknowledgement and stale pull', async ({ page, 
       status: 200,
       contentType: 'application/json',
       body: JSON.stringify({
-        status: 'success',
+        status: 'success', card_schema: 2,
         server_time: new Date().toISOString(),
         folders: [],
         decks: [{ id: 10, name: 'Deck', user_id: 1 }],
-        cards: [{ id: 20, deck_id: 10, front_text: 'Sent', back_text: 'Back' }],
+        cards: [{ id: 20, deck_id: 10, content_v2: { schema_version: 2, card: {
+          type: 'standard', data: { prompt: 'Original', answer: 'Back' },
+        } } }],
         progress: [{ card_id: 20, user_id: 1, flag: 3 }],
       }),
     });
@@ -518,25 +522,27 @@ test('edits during push survive acknowledgement and stale pull', async ({ page, 
 
   await page.evaluate(async () => {
     await getDb().decks.put({ id: 10, name: 'Deck', user_id: 1 });
-    await getDb().cards.put({ id: 20, deck_id: 10, front_text: 'Original', back_text: 'Back' });
-    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Sent', flag: 3 });
+    await getDb().cards.put({ id: 20, deck_id: 10, content_v2: { schema_version: 2, card: {
+      type: 'standard', data: { prompt: 'Original', answer: 'Back' },
+    } } });
+    await api.post('/cards/20/flag', { flag: 3 });
   });
 
   const syncPromise = page.evaluate(async () => sync.sync());
   await pushStarted;
   await page.evaluate(async () => {
-    await api.post('/cards/save', { card_id: 20, deck_id: 10, front: 'Edited during request', flag: 0 });
+    await api.post('/cards/20/flag', { flag: 0 });
   });
   releasePush();
   const syncResult = await syncPromise;
   expect(syncResult.success).toBe(true);
 
   const card = await page.evaluate(async () => getDb().cards.get(20));
-  expect(card).toMatchObject({ front_text: 'Edited during request', is_dirty: 1 });
+  expect(card.content_v2.card.data.prompt).toBe('Original');
   expect(await page.evaluate(async () => getDb().progress.get([20, 1]))).toMatchObject({ flag: 0, is_dirty: 1 });
 });
 
-test('ID remapping preserves nested references and progress', async ({ page, context }) => {
+test('ID remapping preserves nested folders and leaves legacy card references intact', async ({ page, context }) => {
   await harness(page, context);
   const ids = await page.evaluate(async () => {
     const parent = (await api.post('/folders', { name: 'Parent' })).data;
@@ -557,7 +563,7 @@ test('ID remapping preserves nested references and progress', async ({ page, con
           mappings: {
           folders: { [ids.parent]: 10, [ids.child]: 11 },
           decks: { [ids.deck]: 12 },
-          cards: { [ids.card]: 13 },
+          cards: {},
         },
       }),
     });
@@ -579,8 +585,8 @@ test('ID remapping preserves nested references and progress', async ({ page, con
 
   expect(state.folders.find(f => f.id === 11).parent_id).toBe(10);
   expect(state.decks[0]).toMatchObject({ id: 12, folder_id: 11 });
-  expect(state.cards[0]).toMatchObject({ id: 13, deck_id: 12 });
-  expect(state.progress[0]).toMatchObject({ card_id: 13, user_id: 1 });
+  expect(state.cards[0]).toMatchObject({ id: ids.card, deck_id: ids.deck, is_dirty: 1 });
+  expect(state.progress[0]).toMatchObject({ card_id: ids.card, user_id: 1, is_dirty: 1 });
   expect(state.pending).toBeUndefined();
 });
 
@@ -601,10 +607,14 @@ test('accounts remain isolated and retain unsent data', async ({ page, context }
 test('forced offline traversal persists every grade and synchronizes history with progress', async ({ page, context }) => {
   await harness(page, context);
   const state = await page.evaluate(async () => {
-    const deck = (await api.post('/decks', { name: 'Forced' })).data;
+    const deck = { id: 50, name: 'Forced', user_id: 1, role: 'owner' };
+    await getDb().decks.put(deck);
     const ids = [];
     for (let i = 0; i < 3; i++) {
-      const card = (await api.post('/cards/save', { deck_id: deck.id, front: `Word ${i}`, back: 'Back' })).data;
+      const card = { id: 60 + i, deck_id: deck.id, content_v2: { schema_version: 2, card: {
+        type: 'standard', data: { prompt: `Word ${i}`, answer: 'Back' },
+      } } };
+      await getDb().cards.put(card);
       ids.push(card.id);
       await getDb().progress.put({ card_id: card.id, user_id: 1, queue: 'review', interval: 10,
         ease_factor: 2.5, lapses: 0, repetitions: 1,
@@ -637,7 +647,7 @@ test('forced offline traversal persists every grade and synchronizes history wit
   await page.route('**/api/sync/v2/push', route => {
     payload = route.request().postDataJSON();
     return route.fulfill({ json: { status: 'success', review_count: payload.reviews.length,
-      mappings: { folders: {}, decks: { [state.deckId]: 50 }, cards: Object.fromEntries(state.ids.map((id, i) => [id, 60 + i])) } } });
+      mappings: { folders: {}, decks: {}, cards: {} } } });
   });
   await page.route('**/api/sync/v2/pull*', route => route.abort());
   await page.evaluate(async () => sync.sync());

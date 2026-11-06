@@ -10,7 +10,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { isOfflineMode } from '../services/localDb';
 import { syncService } from '../services/syncService';
-import { remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
+import { markOfflineCreateError, remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
 
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast } = useUiStore();
@@ -71,15 +71,16 @@ export const useAppInitialization = (checkStartParam) => {
       // 2. Sync profile in parallel
       if (profile && useAuthStore.getState().status === 'authenticated') syncProfile(profile).catch(() => console.warn('Profile sync unavailable'));
 
-      // 3. Perform background sync in offline mode if online
+      if (navigator.onLine) runBackgroundSync();
       if (isOfflineMode() && navigator.onLine) {
-        syncService.sync().catch(e => console.error("Startup sync failed:", e));
         useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
 
       try { await initPromise; } finally { useUiStore.setState({ loading: false, hasInitialized: true }); }
     };
 
+    const runBackgroundSync = () => syncService.sync({ pendingCreatesOnly: !isOfflineMode() })
+      .catch(error => console.error('Background sync failed', error));
     init();
     useAuthStore.getState().initListeners();
 
@@ -95,9 +96,8 @@ export const useAppInitialization = (checkStartParam) => {
         useAuthStore.getState().checkPendingSession();
         setTimeout(checkStartParam, 500);
         if (navigator.onLine && (getAccessToken() || getUserId())) {
-          if (isOfflineMode()) {
-            syncService.sync().catch(e => console.error("Visibility sync failed:", e));
-          } else {
+          runBackgroundSync();
+          if (!isOfflineMode()) {
             const now = Date.now();
             if (now - lastVisibilityFetch > VISIBILITY_FETCH_COOLDOWN_MS) {
               lastVisibilityFetch = now;
@@ -114,9 +114,8 @@ export const useAppInitialization = (checkStartParam) => {
     const handleOnline = async () => {
       console.log("[Sync] Network online detected. Triggering auto-sync...");
       await useAuthStore.getState().restoreSession();
-      if (isOfflineMode()) {
-        syncService.sync().catch(e => console.error("Online event sync failed:", e));
-      } else {
+      runBackgroundSync();
+      if (!isOfflineMode()) {
         useDeckStore.getState().fetchDecks(true).catch(() => {});
       }
       useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
@@ -125,13 +124,12 @@ export const useAppInitialization = (checkStartParam) => {
     document.addEventListener('visibilitychange', handleVisibilityChange);
     window.addEventListener('online', handleOnline);
     window.addEventListener('lerne:ids-remapped', remapOfflineUi);
+    window.addEventListener('lerne:card-create-error', markOfflineCreateError);
     window.addEventListener('lerne:synced', refreshOfflineUi);
 
     // Periodic background sync every 60 seconds
     const syncInterval = setInterval(() => {
-      if (isOfflineMode() && navigator.onLine) {
-        syncService.sync().catch(e => console.error("Periodic sync failed:", e));
-      }
+      if (navigator.onLine) runBackgroundSync();
     }, 60000);
 
     return () => {
@@ -139,6 +137,7 @@ export const useAppInitialization = (checkStartParam) => {
       document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('lerne:ids-remapped', remapOfflineUi);
+      window.removeEventListener('lerne:card-create-error', markOfflineCreateError);
       window.removeEventListener('lerne:synced', refreshOfflineUi);
       clearInterval(syncInterval);
     };

@@ -1,8 +1,10 @@
 """Socket HTTP tests against the real authenticated routes on disposable PostgreSQL."""
 from concurrent.futures import ThreadPoolExecutor
 import json
+import os
 from pathlib import Path
 import socket
+import subprocess
 from threading import Thread
 import time
 import unittest
@@ -13,7 +15,7 @@ import httpx
 import uvicorn
 
 
-def verify(db):
+def verify(db, *, offline_create_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -59,6 +61,8 @@ def verify(db):
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
+            if offline_create_browser:
+                return _run_offline_create_browser(port, models, headers[1])
             return _run_cases(client, models, headers, load_answer_context)
     finally:
         server.should_exit = True
@@ -66,6 +70,29 @@ def verify(db):
         listener.close()
         if thread.is_alive():
             raise RuntimeError('HTTP test server failed to stop')
+
+
+def _run_offline_create_browser(port, models, authorization):
+    root = Path(__file__).resolve().parents[2]
+    deck = models.TMA_Deck.create(user_id=1, name='Offline Standard fixture', target_language='de')
+    legacy = models.TMA_Card.create(deck=deck, front_text='Preserve legacy prompt', back_text='Legacy answer')
+    before = models.TMA_Card.select().where(models.TMA_Card.id == legacy.id).dicts().get()
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'legacy_id': legacy.id,
+              'access_token': authorization['Authorization'].split(' ', 1)[1]}
+    env = {**os.environ, 'LERNE_OFFLINE_CREATE_FIXTURE': json.dumps(config)}
+    result = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
+                             'native-offline-create.spec.cjs', '--project=extended', '--workers=1'],
+                            cwd=root, env=env, timeout=180)
+    if result.returncode:
+        return False
+    assert models.TMA_Card.select().where(models.TMA_Card.id == legacy.id).dicts().get() == before
+    native = models.TMA_Card.select().where(models.TMA_Card.deck == deck,
+                                           models.TMA_Card.content_v2.is_null(False)).get()
+    assert models.TMA_Card.select().where(models.TMA_Card.deck == deck).count() == 2
+    assert native.front_text is None and native.back_text is None
+    receipt = models.TMAOfflineBatch.get(models.TMAOfflineBatch.key.startswith('cards-v2:save:1:'))
+    assert json.loads(receipt.response)['id'] == native.id
+    return True
 
 
 def _run_cases(client, models, headers, load_answer_context):
@@ -91,6 +118,26 @@ def _run_cases(client, models, headers, load_answer_context):
                 'request_id': str(uuid4()), 'deck_id': deck or self.source.id,
                 'content_v2': value or envelope(), **fields,
             })
+
+        def test_native_pull_is_opt_in_and_account_scoped(self):
+            payload = {'request_id': str(uuid4()), 'deck_id': self.source.id, 'content_v2': {
+                'schema_version': 2, 'card': {'type': 'standard',
+                'data': {'prompt': 'Native prompt', 'answer': 'Native answer'}}}}
+            with ThreadPoolExecutor(2) as pool:
+                created, replay = list(pool.map(
+                    lambda _: self.call('POST', 'cards/save', body=payload), range(2)))
+            self.assertEqual(created, replay)
+            self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck == self.source).count(), 2)
+            self.call('GET', 'sync/v2/pull', 409)
+            pulled = self.call('GET', 'sync/v2/pull?card_schema=2')
+            self.assertEqual(pulled['card_schema'], 2)
+            card = next(item for item in pulled['cards'] if item['id'] == created['id'])
+            self.assertEqual(card['content_v2'], created['content_v2'])
+            self.assertEqual(card['revision'], created['revision'])
+            self.assertNotIn('front_text', card)
+            self.assertNotIn(self.legacy.id, [item['id'] for item in pulled['cards']])
+            other = self.call('GET', 'sync/v2/pull?card_schema=2', user=2)
+            self.assertNotIn(created['id'], [item['id'] for item in other['cards']])
 
         def test_create_read_edit_retry_and_concurrent_stale_updates(self):
             self.call('POST', 'cards/save', 401, user=None, body={})

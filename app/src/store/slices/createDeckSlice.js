@@ -528,7 +528,8 @@ export const createDeckSlice = (set, get) => {
 
     cardReorderTimeout = setTimeout(async () => {
       try {
-        await networkApi.post('/cards/reorder', { card_ids: updated.map(c => Number(c.id)), request_id: crypto.randomUUID() });
+        const cardIds = updated.filter(card => !card.offline_create_status).map(card => Number(card.id));
+        if (cardIds.length) await networkApi.post('/cards/reorder', { card_ids: cardIds, request_id: crypto.randomUUID() });
       } catch (err) {
         console.error('Reorder Cards Error:', err);
       }

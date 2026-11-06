@@ -1,7 +1,7 @@
 import { tr } from '../i18n/locale';
-import { prepareLocalDb, getNextTempId } from './localDb';
+import { CARD_CREATE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
-import { getUserId, getUserProfile } from '../utils/auth';
+import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
 import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
@@ -18,6 +18,63 @@ const result = (data = {}) => ({ data });
 const success = (data = {}) => result({ status: 'success', ...data });
 const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
 const readOnly = () => { throw new Error(tr("У вас доступ только для чтения")); };
+const pendingCreate = () => { throw new Error(tr('Сначала синхронизируйте новую карточку.')); };
+const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
+
+async function saveStandard(db, body, flag, userId) {
+  const card = body.content_v2?.card;
+  const nonBlank = value => typeof value === 'string' && /[^\p{White_Space}]/u.test(value);
+  if (body.content_v2?.schema_version !== 2 || card?.type !== 'standard') {
+    throw new Error(tr('Офлайн доступно создание только карточек Standard.'));
+  }
+  if (!nonBlank(card.data?.prompt) || !nonBlank(card.data?.answer)
+    || card.topics?.some(topic => !nonBlank(topic))
+    || card.info?.some(block => block.type === 'options'
+      ? !block.items?.length || block.items.some(item => !nonBlank(item))
+      : !nonBlank(block.text))) {
+    throw new Error(tr('Заполните вопрос, ответ и добавленные поля карточки.'));
+  }
+  const canonical = { id: null, image: null, info: [], explanation: '', level: null, topics: null, metadata: {}, ...card };
+  let invalidText = false;
+  const encoded = JSON.stringify(canonical, (key, value) => {
+    if (key.includes('\0') || (typeof value === 'string' && value.includes('\0'))) invalidText = true;
+    return value;
+  });
+  if (invalidText || new TextEncoder().encode(encoded).length > 256 * 1024) {
+    throw new Error(tr('Недопустимый текст или размер карточки.'));
+  }
+  if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
+  if (!body.request_id) throw new Error('Missing card create request ID');
+
+  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+    const key = CARD_CREATE_KEY + body.request_id;
+    const pending = await db.syncState.get(key);
+    if (pending) {
+      if (JSON.stringify(pending.payload) !== JSON.stringify(body)) throw new Error('Card create request changed');
+      return result(await db.cards.get(pending.tempId));
+    }
+    const deck = body.deck_id == null
+      ? await db.decks.filter(d => d.id > 0 && d.is_inbox && (d.role === 'owner' || d.user_id === userId)
+          && (!d.target_language || d.target_language === 'de') && !d.is_deleted).first()
+      : await db.decks.get(body.deck_id);
+    if (!deck || deck.id <= 0 || deck.is_deleted) notFound();
+    await requireContentWrite(db, 'decks', deck);
+    const siblings = await db.cards.where('deck_id').equals(deck.id).filter(c => !c.is_deleted).toArray();
+    const after = body.after_card_id == null ? null
+      : siblings.find(c => c.id === body.after_card_id && c.id > 0 && c.content_v2);
+    if (body.after_card_id != null && !after) pendingCreate();
+    const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
+    let id;
+    do { id = getNextTempId(); } while (aliases[id] || await db.cards.get(id));
+    const local = { id, deck_id: deck.id, content_v2: body.content_v2, offline_create_status: 'pending',
+      is_dirty: 0, is_deleted: 0, created_at: new Date().toISOString(),
+      position: after ? after.position + 0.5 : siblings.reduce((max, c) => Math.max(max, c.position || 0), -1) + 1 };
+    for (const field of mediaPaths) if (Object.hasOwn(body, field)) local[field] = body[field];
+    await db.cards.add(local);
+    await db.syncState.add({ key, tempId: id, deckId: deck.id, payload: body });
+    return result(local);
+  });
+}
 const initialProgress = (card, userId) => ({
   card_id: card.id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5,
   repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null,
@@ -26,6 +83,7 @@ const initialProgress = (card, userId) => ({
 });
 async function requireContentWrite(db, entity, item) {
   if (!item) notFound();
+  if (entity === 'cards' && item.offline_create_status) pendingCreate();
   const owner = entity === 'cards' ? await db.decks.get(item.deck_id) : item;
   if (!owner || owner.role === 'viewer' || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor')) readOnly();
 }
@@ -40,10 +98,13 @@ export const normalizeCardKey = (text) => {
 async function cardView(db, card, userId, reviewContext = 'scheduled') {
   const progress = await db.progress.get([card.id, userId]);
   const metadata = jsonObject(card.metadata);
+  const content = card.content_v2?.card;
   return {
-    ...card, front: card.front_text, back: card.back_text,
-    card_type: card.card_type || 'standard', metadata, cefr: metadata.cefr,
-    level: card.level || metadata.cefr?.level,
+    ...card, ...(content ? { level: content.level } : {
+      front: card.front_text, back: card.back_text,
+      card_type: card.card_type || 'standard', metadata, cefr: metadata.cefr,
+      level: card.level || metadata.cefr?.level,
+    }),
     image_url: await localMediaURL(db, card.image_path, 'images'),
     audio_url: await localMediaURL(db, card.audio_path, 'audio'),
     audio_back_url: await localMediaURL(db, card.audio_back_path, 'audio'),
@@ -81,7 +142,8 @@ async function nextCard(db, deckId, userId, params) {
   const exclude = new Set((params.get('exclude_ids') || '').split(',').map(Number));
   const progress = new Map((await db.progress.where('user_id').equals(userId).toArray()).map(p => [p.card_id, p]));
   const now = Date.now();
-  const candidates = cards.filter(c => !exclude.has(c.id)).map(card => ({ card, p: progress.get(card.id) }));
+  const candidates = cards.filter(c => !c.offline_create_status && !exclude.has(c.id))
+    .map(card => ({ card, p: progress.get(card.id) }));
   const due = candidates.filter(({ p }) => !p || p.queue === 'new' || !p.next_review || new Date(p.next_review).getTime() <= now);
   const context = params.get('review_context') === 'forced' || params.get('learn_more') === 'true' ? 'forced' : 'scheduled';
   const pool = context === 'forced' ? candidates : due;
@@ -99,8 +161,10 @@ export const offlineApi = {
     if (notePath && method === 'put') {
       return result(await writeCardNote(Number(notePath[1]), { ...data, id: notePath[2] || data?.id }));
     }
-    const db = await prepareLocalDb();
     const userId = getUserId();
+    const identity = getSessionIdentity();
+    const db = await prepareLocalDb();
+    if (userId !== getUserId() || identity !== getSessionIdentity()) throw new Error('Session changed');
     const parsed = new URL(rawUrl, 'https://local.invalid');
     const url = parsed.pathname.replace(/\/$/, '') || '/';
     const params = parsed.searchParams;
@@ -184,6 +248,12 @@ export const offlineApi = {
       if (match[2] === 'next') return nextCard(db, id, userId, params);
       return result(await Promise.all((await deckCards(db, id)).map(c => cardView(db, c, userId))));
     }
+    match = url.match(/^\/cards\/(-?\d+)$/);
+    if (m === 'get' && match) {
+      const card = await db.cards.get(Number(match[1]));
+      if (!card?.content_v2 || card.is_deleted) notFound();
+      return result(await cardView(db, card, userId));
+    }
     match = url.match(/^\/study\/card\/(-?\d+)$/);
     if (m === 'get' && match) {
       const card = await db.cards.get(Number(match[1]));
@@ -196,6 +266,7 @@ export const offlineApi = {
       const id = Number(body.card_id);
       const card = await db.cards.get(id);
       if (!card || card.is_deleted) notFound();
+      if (card.offline_create_status) pendingCreate();
       if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
       const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
       const actionId = body.action_id || crypto.randomUUID();
@@ -221,6 +292,7 @@ export const offlineApi = {
       return nextCard(db, card.deck_id, userId, nextParams);
     }
     if (m === 'post' && url === '/cards/save') {
+      if (Object.hasOwn(body, 'content_v2')) return saveStandard(db, body, config.offlineCreateFlag, userId);
       return db.transaction('rw', db.cards, db.decks, db.progress, async () => {
         const id = Number(body.card_id || body.id) || getNextTempId();
         const previous = await db.cards.get(id);

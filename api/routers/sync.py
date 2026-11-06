@@ -118,9 +118,9 @@ def push_offline_changes(request: OfflinePushRequest, user_id: int = Depends(get
 
 @router.get('/v2/pull')
 @db_worker
-def pull_offline_changes(user_id: int = Depends(get_user_id)) -> dict:
+def pull_offline_changes(card_schema: Literal['2'] | None = None, user_id: int = Depends(get_user_id)) -> dict:
     from api.services.offline_sync import pull_offline
-    return pull_offline(user_id)
+    return pull_offline(user_id, native_cards=card_schema == '2')
 
 
 # --- Endpoints ---
