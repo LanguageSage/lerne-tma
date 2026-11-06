@@ -16,7 +16,8 @@ import uvicorn
 
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
-           offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False):
+           offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
+           offline_lifecycle_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -79,7 +80,10 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
                 return False
             if offline_move_browser and not _run_offline_move_browser(client, port, models, headers):
                 return False
-            if offline_create_browser or offline_edit_browser or offline_delivery_browser or offline_isolation_browser or offline_move_browser:
+            if offline_lifecycle_browser and not _run_offline_lifecycle_browser(client, port, models, headers):
+                return False
+            if (offline_create_browser or offline_edit_browser or offline_delivery_browser
+                    or offline_isolation_browser or offline_move_browser or offline_lifecycle_browser):
                 return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
@@ -263,20 +267,6 @@ def _run_offline_move_browser(client, port, models, headers):
         return {'id': deck.id, 'name': deck.name, 'user_id': deck.user_id, 'folder_id': deck.folder_id,
                 'target_language': 'de', 'role': role, 'stats': {'total': 0}}
 
-    def rows(model, condition):
-        return list(model.select().where(condition).order_by(model.id).dicts())
-
-    def state(card_id):
-        return {
-            'card': rows(models.TMA_Card, models.TMA_Card.id == card_id),
-            'progress': rows(models.TMAProgress, models.TMAProgress.card_id == card_id),
-            'reviews': rows(models.TMAReviewHistory, models.TMAReviewHistory.card_id == card_id),
-            'notes': rows(models.TMACardNote, models.TMACardNote.card == card_id),
-            'ratings': rows(models.TMACardRating, models.TMACardRating.card == card_id),
-            'knowledge': rows(models.TMACardKnowledgeItem, models.TMACardKnowledgeItem.card_id == card_id),
-            'attempts': rows(models.TMAKnowledgeAttempt, models.TMAKnowledgeAttempt.card_id == card_id),
-        }
-
     cards = []
     knowledge = models.TMAKnowledgeItem.create(name='Synthetic move concept')
     for title in ('Online', 'Offline', 'Denied', 'Conflict'):
@@ -305,7 +295,7 @@ def _run_offline_move_browser(client, port, models, headers):
         current.raise_for_status()
         cards.append(current.json())
 
-    before = {card['id']: state(card['id']) for card in cards}
+    before = {card['id']: _card_state(models, card['id']) for card in cards}
     count = models.TMA_Card.select().count()
     receipts = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:move:1:'))
     receipt_count = receipts.count()
@@ -320,7 +310,7 @@ def _run_offline_move_browser(client, port, models, headers):
     assert receipts.count() == receipt_count + 2
     for index, card in enumerate(cards):
         old = before[card['id']]
-        new = state(card['id'])
+        new = _card_state(models, card['id'])
         row = new['card'][0]
         assert row['deck'] == (target.id if index < 2 else source.id)
         assert row['content_v2'] == old['card'][0]['content_v2']
@@ -331,6 +321,62 @@ def _run_offline_move_browser(client, port, models, headers):
             for field in ('history', 'updated_at'):
                 row[field] = old['card'][0][field]
         assert new == old
+    return True
+
+
+def _card_state(models, card_id):
+    def rows(model, condition):
+        return list(model.select().where(condition).order_by(model.id).dicts())
+
+    return {
+        'card': rows(models.TMA_Card, models.TMA_Card.id == card_id),
+        'progress': rows(models.TMAProgress, models.TMAProgress.card_id == card_id),
+        'reviews': rows(models.TMAReviewHistory, models.TMAReviewHistory.card_id == card_id),
+        'notes': rows(models.TMACardNote, models.TMACardNote.card == card_id),
+        'ratings': rows(models.TMACardRating, models.TMACardRating.card == card_id),
+        'knowledge': rows(models.TMACardKnowledgeItem, models.TMACardKnowledgeItem.card_id == card_id),
+        'attempts': rows(models.TMAKnowledgeAttempt, models.TMAKnowledgeAttempt.card_id == card_id),
+    }
+
+
+def _run_offline_lifecycle_browser(client, port, models, headers):
+    authorization = headers[1]
+    deck = models.TMA_Deck.create(user_id=1, name='Papierkorb für synthetische Karten', target_language='de')
+    models.TMA_Collaborator.create(target_type='deck', target_id=deck.id, user_id=2, role='editor')
+    cards = []
+    for prompt in ('Lange österreichische Überschrift für den Papierkorb', 'Synthetische Konfliktkarte'):
+        response = client.post('cards/save', headers=authorization, json={
+            'request_id': str(uuid4()), 'deck_id': deck.id, 'image_path': 'images/synthetic-trash.webp',
+            'content_v2': {'schema_version': 2, 'card': {'type': 'standard',
+                'data': {'prompt': prompt, 'answer': 'Синтетический ответ'}, 'metadata': {'values': ['ä', 'я']}}},
+        })
+        response.raise_for_status()
+        cards.append(response.json())
+    card_id = cards[0]['id']
+    models.TMA_Card.update(history='["fixture"]', share_id='lifecycle-fixture', image_data=b'synthetic').where(
+        models.TMA_Card.id == card_id).execute()
+    models.TMAProgress.create(card_id=card_id, user_id=1, repetitions=3, flag=2)
+    review = models.TMAReviewHistory.create(card_id=card_id, user_id=1, rating=2)
+    models.TMACardNote.create(id=str(uuid4()), card=card_id, user_id=1, text='Synthetic note')
+    models.TMACardRating.create(card=card_id, user_id=1, rating=1)
+    knowledge = models.TMAKnowledgeItem.create(name='Synthetic lifecycle concept')
+    models.TMACardKnowledgeItem.create(card_id=card_id, knowledge_item=knowledge)
+    models.TMAKnowledgeAttempt.create(card_id=card_id, user_id=1, knowledge_item=knowledge,
+                                      client_event_id=str(uuid4()), review_id=review.id)
+    before = _card_state(models, card_id)
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'deck_name': deck.name,
+              'access_token': authorization['Authorization'].split(' ', 1)[1],
+              'editor_token': headers[2]['Authorization'].split(' ', 1)[1], 'lifecycle': cards}
+    if not _run_offline_browser(config, 'deletes and restores V2'):
+        return False
+    after = _card_state(models, card_id)
+    assert after['card'][0]['updated_at'] != before['card'][0]['updated_at']
+    after['card'][0]['updated_at'] = before['card'][0]['updated_at']
+    assert after == before
+    assert models.TMA_Card.select().where(models.TMA_Card.deck == deck.id).count() == 2
+    for action in ('batch-delete', 'restore'):
+        assert models.TMAOfflineBatch.select().where(
+            models.TMAOfflineBatch.key.startswith(f'cards-v2:{action}:1:')).count() == 2
     return True
 
 

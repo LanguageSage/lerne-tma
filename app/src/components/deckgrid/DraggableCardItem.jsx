@@ -34,7 +34,7 @@ export const DraggableCardItem = React.memo(({
   useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const createStatus = c.offline_create_status;
-  const canDrag = canEditContent && !createStatus && !c.offline_move;
+  const canDrag = canEditContent && !createStatus && !c.offline_move && !c.offline_lifecycle;
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
   const {
@@ -149,6 +149,7 @@ export const DraggableCardItem = React.memo(({
         {c.offline_create_error && <> {c.offline_create_error}</>}
       </small>}
       {c.offline_move && <small role="status">{offlineMoveLabel(c.offline_move)}</small>}
+      {c.offline_lifecycle && <small role="status">{tr('Ожидает синхронизации')}</small>}
       {c.offline_edit && (
         <div className="card-edit-status">
           <small role="status">{offlineEditLabel(c.offline_edit)}</small>

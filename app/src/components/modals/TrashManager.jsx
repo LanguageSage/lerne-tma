@@ -6,6 +6,7 @@ import { Trash2, RotateCcw, ArrowLeft, Layers, FileText, CheckCircle, RefreshCw 
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { navigateUp } from '../../utils/navigation';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard';
 import '../TrashManager.css';
 
 export const TrashManager = () => {
@@ -33,13 +34,14 @@ export const TrashManager = () => {
     }
   };
 
-  const handleRestoreCard = async (cardId) => {
-    setRestoringId(`card-${cardId}`);
+  const handleRestoreCard = async (card) => {
+    setRestoringId(`card-${card.id}`);
     try {
-      await restoreTrashCard(cardId);
-      showToast(tr("Карточка успешно восстановлена!"), 'success');
-    } catch {
-      showToast(tr("Ошибка при восстановлении карточки"));
+      const result = await restoreTrashCard(card);
+      if (!result.is_deleted) showToast(tr(result.offline_lifecycle
+        ? 'Ожидает синхронизации' : 'Карточка успешно восстановлена!'), 'success');
+    } catch (error) {
+      showToast(card.content_v2 ? error.message : tr("Ошибка при восстановлении карточки"), 'error');
     } finally {
       setRestoringId(null);
     }
@@ -53,8 +55,8 @@ export const TrashManager = () => {
     try {
       await clearTrash();
       showToast(tr("Корзина успешно очищена"), 'success');
-    } catch {
-      showToast(tr("Ошибка при очистке корзины"));
+    } catch (error) {
+      showToast(error.message || tr("Ошибка при очистке корзины"), 'error');
     } finally {
       setClearing(false);
     }
@@ -62,6 +64,7 @@ export const TrashManager = () => {
 
   const { decks = [], cards = [] } = trashItems || {};
   const isEmpty = decks.length === 0 && cards.length === 0;
+  const hasPendingCard = cards.some(card => card.offline_lifecycle || card.offline_edit);
 
   return (
     <motion.div 
@@ -85,7 +88,7 @@ export const TrashManager = () => {
         <button 
           className="trash-clear-btn" 
           onClick={handleClearTrash}
-          disabled={isEmpty || clearing}
+          disabled={isEmpty || clearing || hasPendingCard}
         >
           {clearing ? <RefreshCw size={16} className="spin" /> : <Trash2 size={16} />}
           <span>{tr("Очистить корзину")}</span>
@@ -165,34 +168,40 @@ export const TrashManager = () => {
                 <p>{tr("Отдельные карточки, которые вы удалите, появятся здесь.")}</p>
               </div>
             ) : (
-              cards.map((card) => (
-                <motion.div key={card.id} className="trash-card" layout>
-                  <div className="trash-card-content">
-                    <h3 style={{ fontSize: '1rem', marginBottom: 4 }}>{card.front}</h3>
-                    {card.back && (
-                      <p style={{ fontSize: '0.85rem', color: '#cbd5e1', margin: '0 0 8px 0', lineHeight: 1.4 }}>
-                        {card.back}
-                      </p>
-                    )}
-                    <div className="trash-card-meta">
-                      📚 {card.deck_name}
-                    </div>
-                  </div>
-                  <div className="trash-card-actions">
-                    <button 
-                      className="trash-restore-btn"
-                      onClick={() => handleRestoreCard(card.id)}
-                      disabled={restoringId === `card-${card.id}`}
-                    >
-                      {restoringId === `card-${card.id}` ? (
-                        <RefreshCw size={16} className="spin" />
-                      ) : (
-                        <><RotateCcw size={16} />{' '}{tr("Восстановить")}</>
+              cards.map((card) => {
+                const content = studyContent(card.offline_edit?.server || card);
+                const back = content ? studySideText(content, 'back') : card.back;
+                return (
+                  <motion.div key={card.id} className="trash-card" layout>
+                    <div className="trash-card-content">
+                      <h3 style={{ fontSize: '1rem', marginBottom: 4 }}>{content ? studySideText(content) : card.front}</h3>
+                      {back && (
+                        <p style={{ fontSize: '0.85rem', color: '#cbd5e1', margin: '0 0 8px 0', lineHeight: 1.4 }}>
+                          {back}
+                        </p>
                       )}
-                    </button>
-                  </div>
-                </motion.div>
-              ))
+                      <div className="trash-card-meta">
+                        📚 {card.deck_name}
+                      </div>
+                      {card.offline_lifecycle && <small role="status">{tr('Ожидает синхронизации')}</small>}
+                      {card.offline_edit && <small role="status">{tr('Локальный черновик сохранён.')}</small>}
+                    </div>
+                    <div className="trash-card-actions">
+                      <button
+                        className="trash-restore-btn"
+                        onClick={() => handleRestoreCard(card)}
+                        disabled={Boolean(card.offline_lifecycle) || restoringId === `card-${card.id}`}
+                      >
+                        {restoringId === `card-${card.id}` ? (
+                          <RefreshCw size={16} className="spin" />
+                        ) : (
+                          <><RotateCcw size={16} />{' '}{tr("Восстановить")}</>
+                        )}
+                      </button>
+                    </div>
+                  </motion.div>
+                );
+              })
             )}
           </motion.div>
         )}

@@ -257,8 +257,11 @@ export const useCardEditor = () => {
     try {
       const card = visibleCard(cardId);
       if (!card) throw new Error("Card revision unavailable");
-      await networkApi.delete(`/cards/${cardId}`, { headers: { 'If-Match': JSON.stringify(card.revision) } });
-      showToast(tr("Карточка удалена"), "success");
+      const { data } = await api.post('/cards/batch-delete', {
+        request_id: crypto.randomUUID(), card_ids: [Number(cardId)], revisions: { [cardId]: card.revision },
+      });
+      if (!data.is_deleted) return;
+      showToast(tr(data.offline_lifecycle ? 'Ожидает синхронизации' : 'Карточка удалена'), 'success');
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
@@ -305,7 +308,7 @@ export const useCardEditor = () => {
       }
     } catch (err) {
       console.error('Delete Card Error:', err);
-      showToast(tr("Ошибка при удалении"));
+      showToast(err.message || tr("Ошибка при удалении"), 'error');
     } finally {
       setLoading(false);
     }
@@ -540,12 +543,15 @@ export const useCardEditor = () => {
     if (!skipConfirm && !window.confirm(tr("Удалить выбранные карточки ({{p0}} шт.)?", { p0: cardIds.length }))) return false;
     setLoading(true);
     try {
-      await networkApi.post('/cards/batch-delete', {
+      const transport = cardIds.length === 1 ? api : networkApi;
+      const { data } = await transport.post('/cards/batch-delete', {
         request_id: crypto.randomUUID(),
         card_ids: cardIds.map(Number),
         revisions: Object.fromEntries(cardIds.map(id => [id, visibleCard(id)?.revision]))
       });
-      showToast(tr("Удалено карточек: {{p0}}", { p0: cardIds.length }), "success");
+      if (cardIds.length === 1 && !data.is_deleted) return false;
+      showToast(data.offline_lifecycle ? tr('Ожидает синхронизации')
+        : tr("Удалено карточек: {{p0}}", { p0: cardIds.length }), "success");
 
       const session = useSessionStore.getState();
       const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
@@ -582,7 +588,7 @@ export const useCardEditor = () => {
       return true;
     } catch (err) {
       console.error('Batch Delete Error:', err);
-      showToast(tr("Ошибка при удалении"));
+      showToast(cardIds.length === 1 ? err.message || tr("Ошибка при удалении") : tr("Ошибка при удалении"), 'error');
       return false;
     } finally {
       setLoading(false);

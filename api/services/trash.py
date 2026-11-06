@@ -2,7 +2,9 @@ import logging
 import datetime
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db
 from peewee import fn
+from fastapi import HTTPException
 from .collaborative_service import _require_can_mutate
+from .structured_card_api import lifecycle_state
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +48,8 @@ def get_trash_items(user_id: int):
             "context": c.context,
             "deck_id": c.deck_id,
             "deck_name": c.deck.name if c.deck else "Без колоды",
-            "updated_at": c.updated_at.isoformat() if c.updated_at else datetime.datetime.now().isoformat()
+            "updated_at": c.updated_at.isoformat() if c.updated_at else datetime.datetime.now().isoformat(),
+            **(lifecycle_state(c) if c.content_v2 is not None else {}),
         } for c in deleted_cards_query]
 
         return {
@@ -92,6 +95,8 @@ def restore_card(card_id: int, user_id: int):
             return False
 
         _require_can_mutate(user_id, 'deck', card.deck_id, allow_deleted=True)
+        if card.content_v2 is not None:
+            raise HTTPException(422, 'V2 restore requires a revision and request ID')
 
         now = datetime.datetime.now()
         with tma_db.atomic():
@@ -107,6 +112,8 @@ def restore_card(card_id: int, user_id: int):
 
         logger.info(f"Restored card {card.id} for user {user_id}")
         return True
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error restoring card: {e}", exc_info=True)
         raise e

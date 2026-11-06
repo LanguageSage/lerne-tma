@@ -80,6 +80,7 @@ export function updateOfflineEditUi({ detail }) {
     editingCard: updateEditor(state.editingCard),
     studyHistory: state.studyHistory.map(update),
   }));
+  if (card.is_deleted) refreshOfflineUi({ detail });
   if (confirmed) useUiStore.getState().showToast(tr('Карточка синхронизирована'), 'success');
 }
 
@@ -104,6 +105,12 @@ export async function refreshOfflineUi({ detail }) {
   if (detail.userId !== getUserId()) return;
   try {
     const state = useDeckStore.getState();
+    if (detail.cardLifecycleRejection) {
+      useUiStore.getState().showToast(tr(detail.cardLifecycleRejection === 409
+        ? 'Конфликт версий' : 'Ошибка синхронизации. Карточка сохранена на устройстве.'), 'error');
+    }
+    if (useUiStore.getState().view === 'trash') await state.fetchTrash();
+    if (detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
     await state.fetchDecks(true);
     if (detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
     const current = useDeckStore.getState().currentDeck;

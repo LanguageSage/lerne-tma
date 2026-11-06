@@ -71,6 +71,11 @@ class UpdateCard(CardReplacement):
     request_id: UUID
 
 
+class RestoreCard(Request):
+    revision: Revision
+    request_id: UUID
+
+
 class BulkUpdate(CardReplacement):
     card_id: ID
 
@@ -200,27 +205,31 @@ def content_response(card):
     }
 
 
-def _lock_decks(ids, user_id, *, writable):
-    decks = {deck.id: deck for deck in TMA_Deck.select().where(
-        TMA_Deck.id.in_(ids), TMA_Deck.is_deleted == False
-    ).order_by(TMA_Deck.id).for_update()}
+def _lock_decks(ids, user_id, *, writable, trash_owner=False):
+    query = TMA_Deck.select().where(TMA_Deck.id.in_(ids))
+    if trash_owner:
+        query = query.where(TMA_Deck.user_id == user_id)
+    else:
+        query = query.where(TMA_Deck.is_deleted == False)
+    decks = {deck.id: deck for deck in query.order_by(TMA_Deck.id).for_update()}
     if len(decks) != len(ids):
         raise HTTPException(404, 'Deck not found')
     for deck_id in sorted(ids):
         if deck_id in writable:
-            _require_can_mutate(user_id, 'deck', deck_id)
+            _require_can_mutate(user_id, 'deck', deck_id, allow_deleted=trash_owner)
         elif not get_effective_user_role(user_id, 'deck', deck_id):
             raise HTTPException(403, 'Access denied')
     return decks
 
 
-def _lock_cards(ids, user_id, *, targets=(), write=True, allow_deleted=False):
+def _lock_cards(ids, user_id, *, targets=(), write=True, allow_deleted=False, trash_owner=False):
     locations = dict(TMA_Card.select(TMA_Card.id, TMA_Card.deck).where(TMA_Card.id.in_(ids)).tuples())
     if len(locations) != len(ids):
         raise HTTPException(404, 'Card not found')
     sources = set(locations.values())
     targets = set(targets)
-    decks = _lock_decks(sources | targets, user_id, writable=(sources if write else set()) | targets)
+    decks = _lock_decks(sources | targets, user_id, writable=(sources if write else set()) | targets,
+                        trash_owner=trash_owner)
     cards = {card.id: card for card in TMA_Card.select().where(TMA_Card.id.in_(ids))
              .order_by(TMA_Card.id).for_update()}
     for card_id, location in locations.items():
@@ -246,6 +255,17 @@ def _finish(receipt, result):
 def _touch(decks):
     for deck_id, deck in sorted(decks.items()):
         touch_deck_and_parent_folders(deck_id, deck_obj=deck)
+
+
+def lifecycle_state(card):
+    return {**content_response(card), 'id': card.id, 'deck_id': card.deck_id,
+            'is_deleted': card.is_deleted, 'updated_at': card.updated_at.isoformat() if card.updated_at else None,
+            **{field: getattr(card, field) for field in MEDIA_PATHS}}
+
+
+def _lifecycle_conflict(card):
+    return HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id,
+                               'card': lifecycle_state(card)})
 
 
 def _position(deck_id, *, start=False, count=1):
@@ -362,11 +382,13 @@ def _replace(card, data):
 def update_card(card_id, data, user_id):
     require_account(user_id)
     with tma_db.atomic():
-        (card,), decks = _lock_cards([card_id], user_id)
+        (card,), decks = _lock_cards([card_id], user_id, allow_deleted=True)
         receipt, replay = _receipt('update', user_id, data.request_id,
                                    [card_id, data.model_dump(mode='json', exclude_unset=True)])
         if replay is not None:
             return replay
+        if card.is_deleted:
+            raise _lifecycle_conflict(card)
         card = _replace(card, data)
         _touch(decks)
         return _finish(receipt, _response(card, user_id, decks[card.deck_id]))
@@ -463,7 +485,11 @@ def change_selection(data, user_id, *, delete):
         now = datetime.datetime.now()
         if delete:
             for card in cards:
-                if not card.is_deleted and content_response(card)['revision'] != data.revisions[card.id]:
+                if card.is_deleted and len(cards) > 1:
+                    continue
+                if card.is_deleted or content_response(card)['revision'] != data.revisions[card.id]:
+                    if len(cards) == 1:
+                        raise _lifecycle_conflict(card)
                     raise HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id})
             count = TMA_Card.update(is_deleted=True, updated_at=now).where(
                 TMA_Card.id.in_(data.card_ids), TMA_Card.is_deleted == False).execute()
@@ -475,7 +501,31 @@ def change_selection(data, user_id, *, delete):
                 TMA_Card.update(position=position, updated_at=now).where(TMA_Card.id == card.id).execute()
             count = len(cards)
         _touch(decks)
-        return _finish(receipt, {'status': 'success', 'count': count})
+        result = {'status': 'success', 'count': count}
+        if delete and len(cards) == 1:
+            card.is_deleted, card.updated_at = True, now
+            result['card'] = lifecycle_state(card)
+        return _finish(receipt, result)
+
+
+def restore_card(card_id, data, user_id):
+    require_account(user_id)
+    with tma_db.atomic():
+        (card,), decks = _lock_cards([card_id], user_id, allow_deleted=True, trash_owner=True)
+        receipt, replay = _receipt('restore', user_id, data.request_id, [card_id, data.model_dump(mode='json')])
+        if replay is not None:
+            return replay
+        if not card.is_deleted or content_response(card)['revision'] != data.revision:
+            raise _lifecycle_conflict(card)
+        now = datetime.datetime.now()
+        card.is_deleted, card.updated_at = False, now
+        card.save(only=[TMA_Card.is_deleted, TMA_Card.updated_at])
+        deck = decks[card.deck_id]
+        if deck.is_deleted:
+            deck.is_deleted = False
+            deck.save(only=[TMA_Deck.is_deleted])
+        _touch(decks)
+        return _finish(receipt, {'status': 'success', 'card': lifecycle_state(card)})
 
 
 def delete_card(card_id, revision, user_id):

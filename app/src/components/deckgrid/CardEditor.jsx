@@ -137,6 +137,7 @@ export const CardEditor = () => {
               {edit.server && <EditVersion title={tr('Серверная версия')} card={edit.server} />}
             </div>
             {conflict && !edit.server && <p>{tr('Серверная версия ещё недоступна. Локальный черновик сохранён.')}</p>}
+            {edit.server?.is_deleted && <p>{tr('Сначала восстановите карточку из корзины.')}</p>}
             {merging ? <p>{tr('Сохраните объединённый вариант, затем подтвердите его отправку.')}</p> : (
               <div className="card-edit-actions">
                 {!editingDraft && <button type="button" className="btn btn-secondary" disabled={busy}
@@ -144,7 +145,7 @@ export const CardEditor = () => {
                 {conflict && edit.server ? <>
                   <button type="button" className="btn btn-secondary" disabled={busy}
                     onClick={() => resolve(false)}>{tr('Оставить серверную версию')}</button>
-                  <button type="button" className="btn btn-primary" disabled={busy}
+                  <button type="button" className="btn btn-primary" disabled={busy || edit.server.is_deleted}
                     onClick={() => resolve(true)}>{tr('Сохранить мою версию')}</button>
                 </> : (edit.status !== 'error' || edit.httpStatus !== 422) &&
                   <button type="button" className="btn btn-secondary" disabled={busy}

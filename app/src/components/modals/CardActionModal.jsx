@@ -302,7 +302,7 @@ export const CardActionModal = ({
                   </div>
                   <div className="action-menu-text">
                     <strong style={{ color: '#ef4444' }}>{tr("Удалить карточку")}</strong>
-                    <span>{tr("Это действие нельзя отменить")}</span>
+                    <span>{tr(card.content_v2 ? 'Карточку можно восстановить из корзины' : 'Это действие нельзя отменить')}</span>
                   </div>
                 </button>}
                 <button type="button" className="action-menu-item" aria-label={tr('Мои заметки')} onClick={() => setMode('notes')}>

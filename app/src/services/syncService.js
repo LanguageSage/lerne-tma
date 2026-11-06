@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale.js';
-import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_MOVE_KEY, prepareLocalDb } from './localDb.js';
+import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prepareLocalDb } from './localDb.js';
 import { networkApi } from './networkApi.js';
 import { getAccessToken, getSessionIdentity, getUserId, isRetiredSession } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
@@ -137,7 +137,9 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
         if (card.content_v2.card?.type !== payload.content_v2.card.type) {
           throw new Error(tr('Сервер не подтвердил сохранение изменений'));
         }
-        await update(() => ({ ...card, is_dirty: 0, offline_confirmed_at: Date.now() }), { confirmed: true });
+        await update(current => ({ ...(current.offline_edit.server?.is_deleted && !current.offline_edit.next
+          ? current.offline_edit.server : card),
+          is_dirty: 0, offline_confirmed_at: Date.now() }), { confirmed: true });
         continue;
       } catch (error) {
         const status = error.response?.status;
@@ -145,7 +147,10 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
           // Persist rejection before fetching the remote side. A failed GET cannot cause a second PATCH.
           edit = (await update(card => {
             const { requestId, draftId } = card.offline_edit;
-            return { ...card, offline_edit: { requestId, ...(draftId && { draftId }), status: 'conflict' } };
+            const tombstone = error.response.data.detail.card;
+            const server = tombstone?.is_deleted ? validate(tombstone) : undefined;
+            return { ...card, ...(server && { is_deleted: true }),
+              offline_edit: { requestId, ...(draftId && { draftId }), status: 'conflict', server } };
           }))?.offline_edit;
         } else {
           await update(card => ({ ...card, offline_edit: { ...card.offline_edit, status: 'error', httpStatus: status,
@@ -163,7 +168,8 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
       } catch (error) {
         const status = error.response?.status;
         await update(card => ({ ...card, offline_edit: { ...card.offline_edit, httpStatus: status } }), { status });
-        firstError ||= error;
+        // The active card read omits tombstones. Let the existing V2 pull reconcile them.
+        if (status !== 404) firstError ||= error;
       }
     }
   }
@@ -213,6 +219,50 @@ async function deliverCardMoves(db, operations, options, isCurrent) {
     firstError ||= error;
   }
   if (changed && isCurrent()) notifySyncUi('lerne:synced', { userId }, {});
+  if (firstError) throw firstError;
+}
+
+async function deliverCardLifecycle(db, operations, options, isCurrent) {
+  const userId = options._expectedUserId;
+  let firstError;
+  for (const { key, cardId, deleting, payload } of operations) {
+    if (!isCurrent()) throw new Error('Session changed');
+    let server, error;
+    const valid = card => card?.id === cardId && card.content_v2?.schema_version === 2
+      && typeof card.is_deleted === 'boolean' && /^[0-9a-f]{64}$/.test(card.revision);
+    try {
+      const path = deleting ? '/cards/batch-delete' : `/trash/card/${cardId}/restore`;
+      const { data } = await networkApi.post(path, payload, options);
+      if (data?.status !== 'success' || !valid(data.card) || data.card.is_deleted !== deleting) {
+        throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+      }
+      server = data.card;
+    } catch (cause) {
+      error = cause;
+      const state = cause.response?.data?.detail?.card;
+      if (valid(state)) server = state;
+    }
+    if (!isCurrent()) throw new Error('Session changed');
+    firstError ||= error;
+    const status = error?.response?.status;
+    if (error && ![403, 404, 409, 422].includes(status)) continue;
+    const applied = await db.transaction('rw', db.cards, db.syncState, async () => {
+      const [card, pending] = await Promise.all([db.cards.get(cardId), db.syncState.get(key)]);
+      if (!isCurrent() || !card?.offline_lifecycle || pending?.payload.request_id !== payload.request_id) return false;
+      const next = server && !card.offline_edit ? { ...card, ...server } : { ...card };
+      next.is_deleted = server?.is_deleted ?? !deleting;
+      if (server && card.offline_edit) next.offline_edit = { ...card.offline_edit, server };
+      delete next.offline_lifecycle;
+      next.offline_confirmed_at = Date.now();
+      await db.cards.put(next);
+      await db.syncState.delete(key);
+      if (!isCurrent()) throw new Error('Session changed');
+      return true;
+    });
+    if (applied && isCurrent()) {
+      notifySyncUi('lerne:synced', { userId, cardLifecycleRejection: status }, {});
+    }
+  }
   if (firstError) throw firstError;
 }
 
@@ -327,8 +377,19 @@ async function syncLearningPreferences(db, options, isCurrent) {
 }
 
 export function keepLocalCard(card, requestStartedAt) {
-  return card?.offline_edit || card?.offline_move || card?.offline_confirmed_at >= requestStartedAt
+  return card?.offline_edit || card?.offline_move || card?.offline_lifecycle || card?.offline_confirmed_at >= requestStartedAt
     || card?.offline_read_started_at > requestStartedAt;
+}
+
+export function reconcileCardEditLifecycle(local, server, readStartedAt) {
+  const deleted = Boolean(server.is_deleted);
+  if (!local?.offline_edit || local.offline_lifecycle || local.offline_confirmed_at >= readStartedAt
+      || local.offline_read_started_at > readStartedAt) return;
+  const edit = local.offline_edit;
+  if (Boolean(local.is_deleted) === deleted && (!deleted || edit.server?.revision === server.revision)) return;
+  // A tombstone or a restore changes visibility without replacing the local draft.
+  return { ...local, is_deleted: deleted, offline_read_started_at: readStartedAt,
+    offline_edit: { ...edit, server: edit.status === 'conflict' || deleted ? server : undefined } };
 }
 
 async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
@@ -348,6 +409,11 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
       for (const item of data[name]) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
+        if (name === 'cards' && local?.offline_edit) {
+          const reconciled = reconcileCardEditLifecycle(local, item, pullStartedAt);
+          if (reconciled) await db.cards.put(reconciled);
+          continue;
+        }
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)
             || (name === 'cards' && (legacyIds.has(item.id) || keepLocalCard(local, pullStartedAt)))
             || (name === 'progress' && legacyIds.has(item.card_id))) continue;
@@ -406,13 +472,16 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     });
     const moves = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_MOVE_KEY)
       .filter(move => !move.rejected).toArray();
-    if (pendingNativeOnly && !creates.length && !edits.length && !moves.length) return { success: true };
+    const lifecycle = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_LIFECYCLE_KEY).toArray();
+    if (pendingNativeOnly && !creates.length && !edits.length && !moves.length && !lifecycle.length) return { success: true };
     let nativeError;
     try { await deliverCardCreates(db, creates, options, isCurrent); }
     catch (error) { nativeError = error; }
     try { await deliverCardEdits(db, edits, options, isCurrent); }
     catch (error) { nativeError ||= error; }
     try { await deliverCardMoves(db, moves, options, isCurrent); }
+    catch (error) { nativeError ||= error; }
+    try { await deliverCardLifecycle(db, lifecycle, options, isCurrent); }
     catch (error) { nativeError ||= error; }
     if (!isCurrent()) throw new Error('Session changed');
     const batch = pendingNativeOnly || pullOnly ? null : await pendingBatch(db, userId);

@@ -33,7 +33,8 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       window.addEventListener('online', event => event.stopImmediatePropagation(), true);
     }
   }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : profile.user_id },
-    manualSync: (Boolean(fixture.card || fixture.edit_cards) && !owner) || fixture.isolation || Boolean(fixture.move),
+    manualSync: (Boolean(fixture.card || fixture.edit_cards) && !owner) || fixture.isolation
+      || Boolean(fixture.move || fixture.lifecycle),
     isolation: fixture.isolation, startOffline });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
@@ -45,7 +46,9 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       url: fixture.origin + pathname + search, maxRetries: 0,
       ...(updating && phase === 'unauthorized' ? { headers: { ...route.request().headers(), authorization: 'Bearer invalid' } } : {}),
     });
-    if (pathname === '/api/cards/save' || (fixture.move && pathname === '/api/cards/batch-move') || updating) {
+    const lifecycleWrite = fixture.lifecycle && route.request().method() === 'POST'
+      && (pathname === '/api/cards/batch-delete' || /^\/api\/trash\/card\/\d+\/restore$/.test(pathname));
+    if (pathname === '/api/cards/save' || (fixture.move && pathname === '/api/cards/batch-move') || updating || lifecycleWrite) {
       const payload = route.request().postDataJSON();
       if (controlWrite) return controlWrite({ route, pathname, payload, fetchFromServer });
       if (phase === 'reject') {
@@ -62,7 +65,8 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     if (fixture.isolation && pathname === '/api/sync/collab-pull') {
       return route.fulfill({ response: await fetchFromServer() });
     }
-    if (/^\/api\/(sync\/v2\/|cards\/\d+|decks\/\d+\/cards|collaborative\/deck\/\d+\/role)/.test(pathname)) {
+    if ((fixture.lifecycle && pathname === '/api/trash')
+        || /^\/api\/(sync\/v2\/|cards\/\d+|decks\/\d+\/cards|collaborative\/deck\/\d+\/role)/.test(pathname)) {
       return route.fulfill({ response: await fetchFromServer() });
     }
     const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
@@ -1432,5 +1436,219 @@ test('moves V2 cards across decks with durable placement, replay and rejection',
     expect(attempts).toHaveLength(attemptCount);
   } finally {
     await other.close();
+  }
+});
+
+test('deletes and restores V2 through Chromium restarts without losing local edits', async ({ browser }, testInfo) => {
+  test.skip(!fixture?.lifecycle, 'Card lifecycle fixture only');
+  test.setTimeout(150000);
+  const [card, conflict] = fixture.lifecycle;
+  const promptOf = value => value.content_v2.card.data.prompt;
+  const attempts = [];
+  let phase = 'ready';
+  let device, page;
+  const peerDevice = await browser.newContext({ serviceWorkers: 'block' });
+  const peer = await peerDevice.newPage();
+  const origin = 'http://127.0.0.1:5199/';
+  const row = (tab, id) => tab.locator('#card-item-' + id);
+  const trashItem = (tab, value) => tab.locator('.trash-card').filter({ hasText: promptOf(value) });
+  const openTrash = async tab => {
+    await tab.evaluate(async () => (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('trash'));
+    await tab.getByRole('button', { name: /^Карточки/ }).click();
+  };
+  const inspect = (tab, id) => tab.evaluate(async id => {
+    const { prepareLocalDb, CARD_LIFECYCLE_KEY, CARD_EDIT_KEY } = await import('/src/services/localDb.js');
+    const db = await prepareLocalDb();
+    return db.transaction('r', db.cards, db.syncState, async () => ({
+      card: await db.cards.get(id), lifecycle: await db.syncState.get(CARD_LIFECYCLE_KEY + id),
+      edit: await db.syncState.get(CARD_EDIT_KEY + id),
+    }));
+  }, id);
+  const setPhase = async value => {
+    phase = value;
+    await page.evaluate(offline => {
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: !offline });
+    }, value === 'offline');
+  };
+  const sync = (tab, options = { pendingNativeOnly: true, skipPull: true }) => tab.evaluate(async options => {
+    const { syncService } = await import('/src/services/syncService.js');
+    let result;
+    for (let attempt = 0; attempt < 20; attempt++) {
+      result = await syncService.sync(options);
+      if (result.reason !== 'Already syncing') return result;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    return result;
+  }, options);
+  const open = async tab => {
+    await tab.goto(origin);
+    await expect(tab.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await openList(tab);
+  };
+  const launch = async () => {
+    device = await browser.browserType().launchPersistentContext(testInfo.outputPath('lifecycle-device'), {
+      viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
+    });
+    await setupDevice(device, () => phase, (payload, status, receipt) => attempts.push({ payload, status, receipt }));
+    page = device.pages()[0];
+    await open(page);
+  };
+  const remove = async (tab, id) => {
+    await row(tab, id).getByRole('button', { name: 'Действия с карточкой' }).click();
+    await tab.getByRole('dialog', { name: 'Управление карточкой' })
+      .getByRole('button', { name: /Удалить карточку/ }).click();
+  };
+  const peerRequest = (path, options = {}, token = fixture.access_token) => peerDevice.request.fetch(
+    fixture.origin + '/api/' + path, { ...options, headers: { authorization: 'Bearer ' + token } });
+
+  try {
+    await setupDevice(peerDevice, () => 'ready', () => {});
+    await launch();
+    await open(peer);
+    await setPhase('offline');
+    await remove(page, card.id);
+    await expect(row(page, card.id)).toHaveCount(0);
+    await openTrash(page);
+    await expect(trashItem(page, card).getByRole('status')).toHaveText('Ожидает синхронизации');
+    await expect(trashItem(page, card).getByRole('button', { name: 'Восстановить' })).toBeDisabled();
+    await expect(page.getByRole('button', { name: 'Очистить корзину' })).toBeDisabled();
+    const deletion = await inspect(page, card.id);
+    expect(deletion.card).toMatchObject({ is_deleted: true, content_v2: card.content_v2 });
+    expect(deletion.lifecycle.payload.revisions).toEqual({ [card.id]: card.revision });
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(trashItem(page, card)).toBeVisible();
+      await expect.poll(() => page.locator('#app-container').evaluate(app => app.scrollWidth <= app.clientWidth))
+        .toBe(true);
+      const button = await trashItem(page, card).getByRole('button', { name: 'Восстановить' }).boundingBox();
+      expect(button.x + button.width).toBeLessThanOrEqual(width);
+    }
+    await page.screenshot({ path: testInfo.outputPath('pending-delete-1280.png') });
+    await page.setViewportSize({ width: 375, height: 844 });
+    await page.screenshot({ path: testInfo.outputPath('pending-delete-375.png') });
+
+    await setPhase('ready');
+    await openList(page);
+    await expect(row(page, card.id)).toHaveCount(0); // An online list still contains the server's active row.
+    await setPhase('lose-response');
+    expect((await sync(page)).success).toBe(false);
+    expect(await inspect(page, card.id)).toEqual(deletion);
+    expect(attempts.at(-1)).toMatchObject({ status: 200, receipt: { card: { is_deleted: true } } });
+    const tombstone = attempts.at(-1).receipt.card;
+    expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+    expect((await inspect(peer, card.id)).card).toMatchObject({ is_deleted: true, revision: tombstone.revision });
+    await openTrash(peer);
+    await expect(trashItem(peer, card).getByRole('button', { name: 'Восстановить' })).toBeEnabled();
+
+    const restorePath = `trash/card/${card.id}/restore`;
+    expect((await peerRequest(restorePath, { method: 'POST' })).status()).toBe(422);
+    const staleRestore = { method: 'POST', data: { request_id: crypto.randomUUID(), revision: card.revision } };
+    const rejected = await peerRequest(restorePath, staleRestore);
+    expect(rejected.status()).toBe(409);
+    expect((await rejected.json()).detail.card.revision).toBe(tombstone.revision);
+    expect((await peerRequest(restorePath, { method: 'POST', data: {
+      request_id: crypto.randomUUID(), revision: tombstone.revision,
+    } }, fixture.editor_token)).status()).toBe(404);
+
+    await device.close();
+    phase = 'offline';
+    await launch();
+    expect(await inspect(page, card.id)).toEqual(deletion);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(true);
+    expect(attempts[1]).toEqual(attempts[0]);
+    await openTrash(page);
+    await setPhase('offline');
+    await trashItem(page, card).getByRole('button', { name: 'Восстановить' }).click();
+    await expect(trashItem(page, card)).toHaveCount(0);
+    const restoration = await inspect(page, card.id);
+    expect(restoration.lifecycle.payload.revision).toBe(tombstone.revision);
+    await openList(page);
+    await expect(row(page, card.id).getByRole('status')).toHaveText('Ожидает синхронизации');
+    await setPhase('lose-response');
+    expect((await sync(page)).success).toBe(false);
+    expect(await inspect(page, card.id)).toEqual(restoration);
+    expect(attempts.at(-1)).toMatchObject({ status: 200, receipt: { card: { is_deleted: false } } });
+    await device.close();
+    phase = 'ready';
+    await launch();
+    await expect.poll(async () => (await inspect(page, card.id)).lifecycle).toBeUndefined();
+    expect(attempts[3]).toEqual(attempts[2]);
+    expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+    expect((await inspect(peer, card.id)).card.is_deleted).toBe(false);
+    await openList(peer);
+    await expect(row(peer, card.id)).toBeVisible();
+    expect((await inspect(peer, card.id)).card).toMatchObject({
+      revision: attempts[2].receipt.card.revision, content_v2: card.content_v2 });
+
+    await setPhase('offline');
+    await remove(page, conflict.id);
+    await expect(row(page, conflict.id)).toHaveCount(0);
+    const peerEdit = structuredClone(conflict.content_v2);
+    peerEdit.card.data.prompt = 'Server version before deletion';
+    const updated = await peerRequest(`cards/${conflict.id}`, { method: 'PATCH',
+      data: { content_v2: peerEdit, revision: conflict.revision, request_id: crypto.randomUUID() } });
+    expect(updated.ok()).toBe(true);
+    const current = await updated.json();
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(false);
+    await openList(page);
+    await expect(row(page, conflict.id)).toContainText(peerEdit.card.data.prompt);
+    expect(await inspect(page, conflict.id)).toMatchObject({
+      card: { content_v2: peerEdit, revision: current.revision }, lifecycle: undefined,
+    });
+
+    await setPhase('offline');
+    const localDraft = structuredClone(peerEdit);
+    localDraft.card.data.prompt = 'Local draft survives deletion on the second device';
+    const editPayload = { content_v2: localDraft, revision: current.revision, request_id: crypto.randomUUID() };
+    await page.evaluate(async ({ id, editPayload }) => {
+      const { default: api } = await import('/src/services/api.js');
+      await api.patch('/cards/' + id, editPayload, { offlineCardEdit: true });
+    }, { id: conflict.id, editPayload });
+    await openList(page);
+    await remove(page, conflict.id);
+    await expect(page.getByText('Сначала синхронизируйте правку карточки.', { exact: true })).toBeVisible();
+    expect((await inspect(page, conflict.id)).edit.payload).toEqual(editPayload);
+    await openList(peer);
+    await remove(peer, conflict.id);
+    await expect(row(peer, conflict.id)).toHaveCount(0);
+
+    await setPhase('ready');
+    await sync(page);
+    await openTrash(page);
+    const draftTrash = trashItem(page, current);
+    await expect(draftTrash.getByText('Локальный черновик сохранён.')).toBeVisible();
+    const draft = await inspect(page, conflict.id);
+    expect(draft.card).toMatchObject({ content_v2: localDraft, is_deleted: true, offline_edit: {
+      status: 'conflict', server: { content_v2: peerEdit, is_deleted: true },
+    } });
+    expect(draft.edit.payload).toEqual(editPayload);
+    // A rejection persisted before this release can lack the tombstone. An
+    // active-card GET returns 404, so the same sync cycle must continue to pull.
+    await page.evaluate(async id => {
+      const { prepareLocalDb } = await import('/src/services/localDb.js');
+      const db = await prepareLocalDb();
+      await db.cards.update(id, { is_deleted: false, 'offline_edit.server': undefined });
+    }, conflict.id);
+    expect((await sync(page, {})).success).toBe(true);
+    expect((await inspect(page, conflict.id)).card).toMatchObject({ is_deleted: true, content_v2: localDraft,
+      offline_edit: { server: { is_deleted: true } } });
+    await draftTrash.getByRole('button', { name: 'Восстановить' }).click();
+    await expect(draftTrash).toHaveCount(0);
+    await expect.poll(async () => (await inspect(page, conflict.id)).lifecycle).toBeUndefined();
+    const recovered = await inspect(page, conflict.id);
+    expect(recovered.card).toMatchObject({ content_v2: localDraft, is_deleted: false, offline_edit: {
+      status: 'conflict', server: { content_v2: peerEdit, is_deleted: false },
+    } });
+    expect(recovered.edit.payload).toEqual(editPayload);
+    await openList(page);
+    await row(page, conflict.id).getByRole('button', { name: 'Открыть локальную правку' }).click();
+    await page.getByRole('button', { name: 'Сохранить мою версию' }).click();
+    await expect.poll(async () => (await inspect(page, conflict.id)).edit).toBeUndefined();
+    expect((await (await peerRequest(`cards/${conflict.id}`)).json()).content_v2).toEqual(localDraft);
+  } finally {
+    await device?.close();
+    await peerDevice.close();
   }
 });

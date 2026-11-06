@@ -3,7 +3,8 @@ import { getSessionIdentity, getUserId } from '../utils/auth.js';
 import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb.js';
 import { offlineApi } from './offlineApi.js';
 import { networkApi as axiosInstance } from './networkApi.js';
-import { keepLocalCard, syncService } from './syncService.js';
+import { keepLocalCard, reconcileCardEditLifecycle, syncService } from './syncService.js';
+import { tr } from '../i18n/locale.js';
 
 // Проксируем методы Axios для поддержки офлайн-режима и автоматического фоллбека
 const api = new Proxy(axiosInstance, {
@@ -39,6 +40,30 @@ const api = new Proxy(axiosInstance, {
           assertCurrent();
           return { data: card ?? local.data };
         }
+        const singleDelete = propKey === 'post' && url === '/cards/batch-delete'
+          && args[0]?.card_ids?.length === 1 && args[0].revisions;
+        const nativeRestore = propKey === 'post' && /^\/trash\/card\/\d+\/restore$/.test(url) && args[0]?.revision;
+        if (singleDelete || nativeRestore) {
+          const db = await prepareLocalDb();
+          assertCurrent();
+          if (singleDelete && navigator.onLine && args[0].card_ids[0] > 0
+              && !await db.cards.get(args[0].card_ids[0])) {
+            await api.get(`/cards/${args[0].card_ids[0]}`, { freshCard: true });
+          }
+          const local = await localRequest(...args);
+          if (!navigator.onLine) return local;
+          await syncService.sync({ pendingNativeOnly: true, skipPull: true });
+          const card = await db.cards.get(local.data.id);
+          assertCurrent();
+          return { data: card ?? local.data };
+        }
+        if (requestAccount && propKey === 'delete' && url === '/trash/clear') {
+          const db = await prepareLocalDb();
+          const pending = await db.cards.filter(card => card.offline_lifecycle
+            || (card.is_deleted && card.offline_edit)).first();
+          assertCurrent();
+          if (pending) throw new Error(tr('Сначала завершите синхронизацию удаления или восстановления.'));
+        }
         const requestStartedAt = Date.now();
         const nativeCreate = propKey === 'post' && url === '/cards/save' && Object.hasOwn(args[0] ?? {}, 'content_v2');
         const configIndex = ['get', 'delete'].includes(propKey) ? 0 : 1;
@@ -63,12 +88,14 @@ const api = new Proxy(axiosInstance, {
           url.startsWith('/init');
 
         const cardMatch = propKey === 'get' && url.match(/^\/cards\/(\d+)$/);
-        if (requestAccount && cardMatch) {
-          const db = await prepareLocalDb();
-          if (!isCurrent()) throw new axios.CanceledError('Session changed before offline routing');
-          const local = await db.cards.get(Number(cardMatch[1]));
-          if (local?.offline_edit || local?.offline_move) return localRequest(...args);
+        const studyCardMatch = propKey === 'get' && url.match(/^\/study\/card\/(\d+)$/);
+        if (requestAccount && (cardMatch || studyCardMatch)) {
+          const local = await prepareLocalDb().then(db => db.cards.get(Number((cardMatch || studyCardMatch)[1])))
+            .catch(error => { if (cardMatch) throw error; });
           assertCurrent();
+          if (local?.offline_lifecycle || (cardMatch && (local?.offline_edit || local?.offline_move))) {
+            return localRequest(...args);
+          }
         }
         const forceOffline = (!nativeCreate && !(cardMatch && args[0]?.freshCard) && isOfflineMode())
           || !navigator.onLine || /^\/cards\/-\d+$/.test(url);
@@ -120,12 +147,18 @@ const api = new Proxy(axiosInstance, {
           }
           const response = await Reflect.get(target, propKey, receiver).call(target, url, ...args);
           assertCurrent();
+          if (requestAccount && propKey === 'get' && /^\/decks\/\d+\/next(?:\?|$)/.test(url) && response.data?.id) {
+            const local = await prepareLocalDb().then(db => db.cards.get(response.data.id)).catch(() => undefined);
+            assertCurrent();
+            if (local?.is_deleted && local.offline_lifecycle) return localRequest(...args);
+          }
           if (needsRefresh) {
             await syncService.sync();
             assertCurrent();
           }
           const deckMatch = propKey === 'get' && url.match(/^\/decks\/(\d+)\/cards$/);
-          if (requestAccount && (isLibraryRead || deckMatch || cardMatch)
+          const trashRead = propKey === 'get' && url === '/trash';
+          if (requestAccount && (isLibraryRead || deckMatch || cardMatch || trashRead)
               && requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
             try {
               const db = await prepareLocalDb();
@@ -138,11 +171,16 @@ const api = new Proxy(axiosInstance, {
                       db.cards.bulkGet(cards.map(card => card.id)), db.syncState.get('lastSync'),
                     ]);
                     if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
-                    const visible = cards.map((card, index) => {
+                    const visible = await Promise.all(cards.map(async (card, index) => {
                       const cached = local[index];
+                      const reconciled = card.content_v2 && reconcileCardEditLifecycle(cached, card, requestStartedAt);
+                      if (reconciled) {
+                        await db.cards.put(reconciled);
+                        return reconciled;
+                      }
                       if (keepLocalCard(cached, requestStartedAt)) return cached;
                       return card;
-                    });
+                    }));
                     await db.cards.bulkPut(cards.filter((card, index) => visible[index] === card
                       && card.content_v2?.schema_version === 2 && card.revision
                       && (local[index] ? local[index].content_v2 && !local[index].is_dirty
@@ -153,13 +191,45 @@ const api = new Proxy(axiosInstance, {
                       const deckId = Number(deckMatch[1]);
                       const ids = new Set(cards.map(card => card.id));
                       const pending = await db.cards.where('deck_id').equals(deckId)
-                        .filter(card => !ids.has(card.id) && (card.offline_create_status
-                          || card.offline_edit || (!card.is_deleted && keepLocalCard(card, requestStartedAt)))).toArray();
-                      return [...visible.filter((card, index) => card === cards[index] || card.deck_id === deckId), ...pending];
+                        .filter(card => !ids.has(card.id) && !card.is_deleted && (card.offline_create_status
+                          || keepLocalCard(card, requestStartedAt))).toArray();
+                      return [...visible.filter((card, index) => !card.is_deleted
+                        && (card === cards[index] || card.deck_id === deckId)), ...pending];
                     }
                     return visible[0];
                   });
                   if (isCurrent()) return { ...response, data: merged };
+                } else if (trashRead && Array.isArray(response.data?.cards)) {
+                  const cards = await db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+                    const [lastSync, decks] = await Promise.all([db.syncState.get('lastSync'), db.decks.toArray()]);
+                    const ownDecks = new Map(decks.filter(d => d.user_id === requestAccount || d.role === 'owner')
+                      .map(d => [d.id, d.name]));
+                    const incoming = new Set();
+                    const visible = [];
+                    for (const server of response.data.cards) {
+                      incoming.add(server.id);
+                      if (!server.content_v2) {
+                        visible.push(server);
+                        continue;
+                      }
+                      const local = await db.cards.get(server.id);
+                      const reconciled = reconcileCardEditLifecycle(local, server, requestStartedAt);
+                      if (reconciled) await db.cards.put(reconciled);
+                      const card = reconciled || (keepLocalCard(local, requestStartedAt) ? local : server);
+                      if (card === server && (!local || (local.content_v2 && !local.is_dirty))
+                          && !(lastSync?.readStartedAt > requestStartedAt)) {
+                        await db.cards.put({ ...server, is_dirty: 0, offline_read_started_at: requestStartedAt });
+                      }
+                      if (card.is_deleted) visible.push({ ...card, deck_name: server.deck_name });
+                    }
+                    const pending = await db.cards.filter(card => card.content_v2 && card.is_deleted
+                      && !incoming.has(card.id) && ownDecks.has(card.deck_id)
+                      && keepLocalCard(card, requestStartedAt)).toArray();
+                    assertCurrent();
+                    return [...visible, ...pending.map(card => ({ ...card, deck_name: ownDecks.get(card.deck_id) }))];
+                  });
+                  assertCurrent();
+                  return { ...response, data: { ...response.data, cards } };
                 } else {
                   const library = url.startsWith('/init') ? response.data
                     : { [url.startsWith('/decks') ? 'decks' : 'folders']: response.data };

@@ -4,6 +4,7 @@ import logging
 from api import services
 from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
+from api.services import structured_card_api as native
 
 logger = logging.getLogger(__name__)
 
@@ -28,8 +29,11 @@ def restore_trash_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 
 @router.post("/card/{card_id}/restore")
 @db_worker
-def restore_trash_card(card_id: int, user_id: int = Depends(get_user_id)):
+def restore_trash_card(card_id: int, data: native.RestoreCard | None = None,
+                       user_id: int = Depends(get_user_id)):
     logger.info(f"POST /api/trash/card/{card_id}/restore - authenticated account: {user_id}")
+    if data is not None:
+        return native.restore_card(card_id, data, user_id)
     if services.trash.restore_card(card_id, user_id):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Card not found or restore failed")

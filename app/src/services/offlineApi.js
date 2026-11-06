@@ -1,5 +1,5 @@
 import { tr } from '../i18n/locale';
-import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
+import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
@@ -21,6 +21,7 @@ const notFound = () => { throw new Error(tr("Запись не найдена н
 const readOnly = () => { throw new Error(tr("У вас доступ только для чтения")); };
 const pendingCreate = () => { throw new Error(tr('Сначала синхронизируйте новую карточку.')); };
 const pendingMove = () => { throw new Error(tr('Сначала завершите синхронизацию переноса.')); };
+const pendingLifecycle = () => { throw new Error(tr('Сначала завершите синхронизацию удаления или восстановления.')); };
 const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
 async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
@@ -80,6 +81,7 @@ async function queueCardMove(db, body, isCurrent) {
     const [card, target] = await Promise.all([db.cards.get(id), db.decks.get(targetId)]);
     if (card?.content_v2?.schema_version !== 2 || card.is_deleted || !target || target.is_deleted) notFound();
     if (card.offline_move) pendingMove();
+    if (card.offline_lifecycle) pendingLifecycle();
     if (card.offline_edit || card.is_dirty) throw new Error(tr('Сначала синхронизируйте правку карточки.'));
     if (!card.revision || card.revision !== body.revisions[id]) {
       throw new Error(tr('Исходная ревизия карточки недоступна.'));
@@ -100,6 +102,38 @@ async function queueCardMove(db, body, isCurrent) {
   });
 }
 
+async function queueCardLifecycle(db, id, payload, deleting, userId, isCurrent) {
+  if (!Number.isSafeInteger(id) || id <= 0) pendingCreate();
+  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+    const card = await db.cards.get(id);
+    if (!card?.content_v2) notFound();
+    if (card.offline_lifecycle) pendingLifecycle();
+    if (card.offline_move) pendingMove();
+    const edit = card.offline_edit;
+    const recoveringDraft = !deleting && edit?.status === 'conflict' && edit.server?.is_deleted;
+    if (card.is_dirty || (edit && !recoveringDraft)) {
+      throw new Error(tr('Сначала синхронизируйте правку карточки.'));
+    }
+    const revision = deleting ? payload.revisions?.[id] : payload.revision;
+    if (!payload.request_id || !revision || revision !== (recoveringDraft ? edit.server.revision : card.revision)
+        || Boolean(card.is_deleted) === deleting) {
+      throw new Error(tr('Исходная ревизия карточки недоступна.'));
+    }
+    const deck = await db.decks.get(card.deck_id);
+    if (deleting) {
+      if (!deck || deck.is_deleted) notFound();
+      if (isContentReadOnly(deck)) readOnly();
+    } else if (deck && deck.user_id !== userId && deck.role !== 'owner') {
+      readOnly();
+    }
+    const local = { ...card, is_deleted: deleting, offline_lifecycle: deleting ? 'delete' : 'restore' };
+    await db.cards.put(local);
+    await db.syncState.add({ key: CARD_LIFECYCLE_KEY + id, cardId: id, deleting, payload });
+    if (!isCurrent()) throw new Error('Session changed');
+    return result(local);
+  });
+}
+
 async function saveNativeEdit(db, id, body, expectedConflict) {
   if (body.content_v2?.schema_version !== 2 || !cardTypes.includes(body.content_v2.card?.type)) throw unsupported();
   if (body.content_v2.card.type === 'standard') validateStandardDraft(body.content_v2.card);
@@ -107,8 +141,9 @@ async function saveNativeEdit(db, id, body, expectedConflict) {
   return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
     const key = CARD_EDIT_KEY + id;
     const current = await db.cards.get(id);
-    if (!current?.content_v2 || current.is_deleted) notFound();
+    if (!current?.content_v2) notFound();
     if (current.offline_move) pendingMove();
+    if (current.offline_lifecycle) pendingLifecycle();
     const operation = await db.syncState.get(key);
     const sent = operation?.payload;
     const next = current.offline_edit?.next;
@@ -128,8 +163,10 @@ async function saveNativeEdit(db, id, body, expectedConflict) {
     if (!conflict) await requireContentWrite(db, 'cards', current);
     const replace = !operation || (current.offline_edit?.status === 'error' && current.offline_edit.httpStatus === 422);
     const payload = replace && sent ? { ...body, revision: sent.revision } : body;
+    const tombstone = current.is_deleted && (current.offline_edit ? current.offline_edit.server : current);
     const offlineEdit = replace
-      ? { status: 'pending', requestId: payload.request_id }
+      ? { status: tombstone?.is_deleted ? 'conflict' : 'pending', requestId: payload.request_id,
+        ...(tombstone?.is_deleted && { server: tombstone }) }
       : { ...current.offline_edit, draftId: body.request_id };
     if (!replace && !conflict) offlineEdit.next = { ...next, ...body };
     const draft = {
@@ -162,6 +199,8 @@ export async function resolveCardEdit(id, expected, keepLocal) {
     const [card, operation] = await Promise.all([db.cards.get(id), db.syncState.get(key)]);
     const edit = card?.offline_edit;
     const server = edit?.server;
+    if (card?.offline_lifecycle) pendingLifecycle();
+    if (server?.is_deleted && keepLocal) throw new Error(tr('Сначала восстановите карточку из корзины.'));
     if (!server || edit.status !== 'conflict' || edit.requestId !== expected.requestId || edit.draftId !== expected.draftId
         || server.revision !== expected.server?.revision || operation?.payload.request_id !== edit.requestId) {
       throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
@@ -275,7 +314,8 @@ export const offlineApi = {
     const userId = getUserId();
     const identity = getSessionIdentity();
     const db = await prepareLocalDb();
-    if (userId !== getUserId() || identity !== getSessionIdentity()) throw new Error('Session changed');
+    const isCurrent = () => userId === getUserId() && identity === getSessionIdentity();
+    if (!isCurrent()) throw new Error('Session changed');
     const parsed = new URL(rawUrl, 'https://local.invalid');
     const url = parsed.pathname.replace(/\/$/, '') || '/';
     const params = parsed.searchParams;
@@ -590,10 +630,12 @@ export const offlineApi = {
     }
     if (m === 'post' && url === '/cards/batch-delete') {
       const cardIds = (body.card_ids || []).map(Number);
+      if (cardIds.length === 1 && body.revisions) return queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent);
       return db.transaction('rw', db.cards, db.decks, async () => {
         for (const cid of cardIds) {
           const card = await db.cards.get(cid);
           if (card) {
+            if (card.content_v2) throw unsupported();
             await requireContentWrite(db, 'cards', card);
             await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
           }
@@ -700,11 +742,20 @@ export const offlineApi = {
       return result(await Promise.all(cards.filter(c => counts.get(c.front_text) > 1).map(c => cardView(db, c, userId))));
     }
     if (url === '/trash' && m === 'get') {
+      const decks = await db.decks.toArray();
+      const ownDecks = new Map(decks.filter(d => d.user_id === userId || d.role === 'owner').map(d => [d.id, d]));
       return result({ decks: await db.decks.filter(d => !!d.is_deleted && !d.hard_deleted_locally).toArray(),
-        cards: await db.cards.filter(c => !!c.is_deleted && !c.hard_deleted_locally).toArray() });
+        cards: (await db.cards.filter(c => !!c.is_deleted && !c.hard_deleted_locally
+          && (!c.content_v2 || ownDecks.has(c.deck_id) || c.deck_name)).toArray())
+          .map(card => ({ ...card, deck_name: ownDecks.get(card.deck_id)?.name || card.deck_name })) });
     }
     match = url.match(/^\/trash\/(deck|card)\/(-?\d+)\/restore$/);
     if (match && m === 'post') {
+      if (match[1] === 'card') {
+        const id = Number(match[2]);
+        if (body.revision) return queueCardLifecycle(db, id, body, false, userId, isCurrent);
+        if ((await db.cards.get(id))?.content_v2) throw unsupported();
+      }
       await requireContentWrite(db, `${match[1]}s`, await db[`${match[1]}s`].get(Number(match[2])));
       await change(db[`${match[1]}s`], Number(match[2]), { is_deleted: 0, hard_deleted_locally: false });
       return success();
