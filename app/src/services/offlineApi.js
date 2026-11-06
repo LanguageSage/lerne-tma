@@ -43,11 +43,10 @@ function validateStandard(content) {
   }
 }
 
-async function saveStandard(db, body, flag, userId) {
+async function saveStandard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
   if (body.content_v2?.card?.type !== 'standard' || body.content_v2.schema_version !== 2) {
     throw new Error(tr('Офлайн доступно создание только карточек Standard.'));
   }
-  validateStandard(body.content_v2);
   if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
   if (!body.request_id) throw new Error('Missing card create request ID');
 
@@ -62,12 +61,22 @@ async function saveStandard(db, body, flag, userId) {
       ? await db.decks.filter(d => d.id > 0 && d.is_inbox && (d.role === 'owner' || d.user_id === userId)
           && (!d.target_language || d.target_language === 'de') && !d.is_deleted).first()
       : await db.decks.get(body.deck_id);
-    if (!deck || deck.id <= 0 || deck.is_deleted) notFound();
-    await requireContentWrite(db, 'decks', deck);
+    if (!deck || deck.id <= 0 || deck.is_deleted) {
+      if (ifAvailable) return null;
+      notFound();
+    }
+    if (isContentReadOnly(deck)) {
+      if (ifAvailable) return null;
+      readOnly();
+    }
     const siblings = await db.cards.where('deck_id').equals(deck.id).filter(c => !c.is_deleted).toArray();
     const after = body.after_card_id == null ? null
       : siblings.find(c => c.id === body.after_card_id && c.id > 0 && c.content_v2);
-    if (body.after_card_id != null && !after) pendingCreate();
+    if (body.after_card_id != null && !after) {
+      if (ifAvailable) return null;
+      pendingCreate();
+    }
+    validateStandard(body.content_v2);
     const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
     let id;
     do { id = getNextTempId(); } while (aliases[id] || await db.cards.get(id));
@@ -89,21 +98,29 @@ async function saveStandardEdit(db, id, body, expectedConflict) {
     const current = await db.cards.get(id);
     if (!current?.content_v2 || current.is_deleted) notFound();
     const operation = await db.syncState.get(key);
-    if (operation?.payload.request_id === body.request_id) {
-      if (JSON.stringify(operation.payload) !== JSON.stringify(body)) throw new Error('Card edit request changed');
+    const sent = operation?.payload;
+    const next = current.offline_edit?.next;
+    if (sent?.request_id === body.request_id || next?.request_id === body.request_id) {
+      const replay = sent?.request_id === body.request_id
+        ? JSON.stringify(sent) === JSON.stringify(body)
+        : Object.keys(body).every(field => JSON.stringify(next[field]) === JSON.stringify(body[field]));
+      if (!replay) throw new Error('Card edit request changed');
       return result(current);
     }
 
     const conflict = current.offline_edit?.status === 'conflict';
-    if (operation && !(conflict && expectedConflict === operation.payload.request_id)) {
-      throw new Error(tr('Сначала завершите сохранённую правку карточки.'));
+    if ((conflict && expectedConflict !== sent?.request_id) || (expectedConflict && !conflict)
+        || (sent && (current.offline_edit?.requestId !== sent.request_id || body.revision !== current.revision))) {
+      throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
     }
-    if (expectedConflict && !conflict) throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
     if (!conflict) await requireContentWrite(db, 'cards', current);
+    const offlineEdit = operation
+      ? { ...current.offline_edit, draftId: body.request_id }
+      : { status: 'pending', requestId: body.request_id };
+    if (operation && !conflict) offlineEdit.next = { ...next, ...body };
     const draft = {
       ...current, content_v2: body.content_v2, revision: body.revision,
-      offline_edit: conflict ? { ...current.offline_edit, draftId: body.request_id }
-        : { status: 'pending', requestId: body.request_id },
+      offline_edit: offlineEdit,
     };
     for (const field of mediaPaths) {
       if (!Object.hasOwn(body, field)) continue;
@@ -111,8 +128,8 @@ async function saveStandardEdit(db, id, body, expectedConflict) {
       draft[field] = body[field];
     }
     await db.cards.put(draft);
-    // A manual merge changes the draft only. A separate confirmation creates a new operation.
-    if (!conflict) await db.syncState.add({ key, cardId: id, payload: body });
+    // Keep the oldest payload until its outcome is known, including after a reload.
+    if (!operation) await db.syncState.add({ key, cardId: id, payload: body });
     return result(draft);
   });
 }
@@ -152,11 +169,14 @@ const initialProgress = (card, userId) => ({
   // Older caches stored personal fields on the card; retain them on first review.
   flag: card.flag ?? 0, want_to_learn: card.want_to_learn ?? false,
 });
+const isContentReadOnly = owner => !owner || owner.role === 'viewer'
+  || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor');
+
 async function requireContentWrite(db, entity, item) {
   if (!item) notFound();
   if (entity === 'cards' && item.offline_create_status) pendingCreate();
   const owner = entity === 'cards' ? await db.decks.get(item.deck_id) : item;
-  if (!owner || owner.role === 'viewer' || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor')) readOnly();
+  if (isContentReadOnly(owner)) readOnly();
 }
 
 export const normalizeCardKey = (text) => {
@@ -366,7 +386,7 @@ export const offlineApi = {
       return nextCard(db, card.deck_id, userId, nextParams);
     }
     if (m === 'post' && url === '/cards/save') {
-      if (Object.hasOwn(body, 'content_v2')) return saveStandard(db, body, config.offlineCreateFlag, userId);
+      if (Object.hasOwn(body, 'content_v2')) return saveStandard(db, body, config, userId);
       return db.transaction('rw', db.cards, db.decks, db.progress, async () => {
         const id = Number(body.card_id || body.id) || getNextTempId();
         const previous = await db.cards.get(id);

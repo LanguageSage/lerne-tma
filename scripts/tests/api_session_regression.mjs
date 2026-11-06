@@ -220,6 +220,14 @@ test('expected-account mismatch cancels before sending without offline fallback'
   assert.equal(f.refreshes, 0);
 });
 
+test('an operation captured before re-login cannot use the new session of the same account', async () => {
+  const f = fixture();
+  f.session = { ...f.session, client_session_id: 'session-b' };
+  await assert.rejects(f.api.patch('/cards/42', {}, { _expectedUserId: 101, _expectedSessionIdentity: 'session-a' }),
+    error => error.code === 'ERR_CANCELED');
+  assert.equal(f.calls.length, 0);
+});
+
 test('timeout exposes the existing 504 detail and skips offline fallback', async () => {
   const f = fixture();
   f.offlineRead = () => assert.fail('normalized timeout must retain its error');

@@ -10,7 +10,7 @@ const deck = fixture && { id: fixture.deck_id, name: 'Offline Standard fixture',
   user_id: fixture.card ? 2 : 1, target_language: 'de', role: fixture.card ? 'editor' : 'owner', stats: { total: 0 } };
 const profile = { user_id: 1, first_name: 'Test learner', is_guest: false };
 
-async function setupDevice(context, getPhase, observeSave, owner = false) {
+async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite) {
   await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
     ? route.continue() : route.abort('blockedbyclient'));
   await context.routeWebSocket('**/*', () => {});
@@ -35,13 +35,14 @@ async function setupDevice(context, getPhase, observeSave, owner = false) {
     const phase = getPhase();
     if (phase === 'offline') return route.abort('internetdisconnected');
     const cardPath = '/api/cards/' + fixture.card?.id;
-    const updating = pathname === cardPath && route.request().method() === 'PATCH';
+    const updating = /^\/api\/cards\/\d+$/.test(pathname) && route.request().method() === 'PATCH';
     const fetchFromServer = () => route.fetch({
       url: fixture.origin + pathname + search, maxRetries: 0,
       ...(updating && phase === 'unauthorized' ? { headers: { ...route.request().headers(), authorization: 'Bearer invalid' } } : {}),
     });
     if (pathname === '/api/cards/save' || updating) {
       const payload = route.request().postDataJSON();
+      if (controlWrite) return controlWrite({ route, pathname, payload, fetchFromServer });
       if (phase === 'reject') {
         observeSave(payload);
         return route.fulfill({ status: 503, json: { detail: 'Synthetic unavailable' } });
@@ -231,7 +232,7 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
 });
 
 test('resolves Standard revisions across two devices and preserves the draft on auth errors', async ({ page, context, browser }, testInfo) => {
-  test.skip(!fixture?.card, 'Editing fixture only');
+  test.skip(!fixture?.card || fixture.second_card, 'Conflict fixture only');
   test.setTimeout(150000);
   const attempts = [];
   let phase = 'ready';
@@ -404,7 +405,8 @@ test('resolves Standard revisions across two devices and preserves the draft on 
     expect((await sync()).success).toBe(true);
     await openDraft();
     await expect(panel.getByText(serverTwo, { exact: true })).toBeVisible();
-    await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toHaveCount(0);
+    // The previous offline save displays a toast for six seconds.
+    await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toHaveCount(0, { timeout: 7000 });
     for (const width of [320, 375, 430, 768, 1280]) {
       await page.setViewportSize({ width, height: 900 });
       await expect(panel.getByRole('button', { name: 'Сохранить мою версию' })).toBeVisible();
@@ -464,4 +466,207 @@ test('resolves Standard revisions across two devices and preserves the draft on 
   } finally {
     await second.close();
   }
+});
+
+test('survives interrupted Standard delivery and preserves later drafts', async ({ page, context }, testInfo) => {
+  test.skip(!fixture?.second_card, 'Delivery fixture only');
+  test.setTimeout(120000);
+  const { card, second_card: second } = fixture;
+  const attempts = [];
+  const editPath = '/api/cards/' + card.id;
+  let intercept = () => undefined;
+  await setupDevice(context, () => 'ready', () => {}, false, async ({ route, pathname, payload, fetchFromServer }) => {
+    const attempt = { pathname, payload };
+    attempts.push(attempt);
+    const fault = intercept(attempt);
+    if (fault === 'before') return route.abort('connectionreset');
+    const response = await fetchFromServer();
+    Object.assign(attempt, { status: response.status(), result: await response.json() });
+    const outcome = fault ? await fault : null;
+    if (outcome === 'after') return route.abort('connectionreset');
+    return route.fulfill({ response });
+  });
+  await page.setViewportSize({ width: 375, height: 844 });
+  await page.goto('/');
+  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await openList(page);
+
+  const idle = () => expect.poll(() => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.isSyncing)).toBe(false);
+  const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync({ pendingNativeOnly: true }));
+  const inspect = id => page.evaluate(async id => {
+    const { prepareLocalDb, CARD_EDIT_KEY, CARD_CREATE_KEY } = await import('/src/services/localDb.js');
+    const db = await prepareLocalDb();
+    return {
+      card: await db.cards.get(id),
+      operation: await db.syncState.get(CARD_EDIT_KEY + id),
+      creates: await db.syncState.where('key').startsWith(CARD_CREATE_KEY).toArray(),
+      alias: (await db.syncState.get('aliases'))?.mappings.cards?.[id],
+    };
+  }, id);
+  const stage = (item, prompt) => page.evaluate(async ({ item, prompt }) => {
+    const { default: api } = await import('/src/services/api.js');
+    item.content_v2.card.data.prompt = prompt;
+    const payload = { content_v2: item.content_v2, revision: item.revision, request_id: crypto.randomUUID() };
+    await api.patch('/cards/' + item.id, payload, { offlineStandardEdit: true });
+    return payload;
+  }, { item, prompt });
+  const remote = (id, prompt) => page.evaluate(async ({ id, prompt }) => {
+    const { networkApi } = await import('/src/services/networkApi.js');
+    const path = '/cards/' + id;
+    const { data } = await networkApi.get(path);
+    if (!prompt) return data;
+    data.content_v2.card.data.prompt = prompt;
+    return (await networkApi.patch(path, {
+      content_v2: data.content_v2, revision: data.revision, request_id: crypto.randomUUID(),
+    })).data;
+  }, { id, prompt });
+  const promptOf = item => item.content_v2.card.data.prompt;
+  const writesFor = id => attempts.filter(a => a.pathname === '/api/cards/' + id);
+  const holdEdit = () => {
+    let release;
+    const gate = new Promise(resolve => { release = resolve; });
+    intercept = ({ pathname }) => pathname === editPath ? gate : undefined;
+    return release;
+  };
+
+  await idle();
+  const a = await stage(card, 'Draft A');
+  const independent = await stage(second, 'Independent edit');
+  intercept = ({ pathname }) => pathname === editPath ? 'before' : undefined;
+  expect((await sync()).success).toBe(false);
+  expect(writesFor(card.id)).toEqual([{ pathname: editPath, payload: a }]);
+  expect((await remote(card.id)).revision).toBe(card.revision);
+  expect((await inspect(card.id)).operation.payload).toEqual(a);
+  expect((await inspect(second.id)).operation).toBeUndefined();
+  expect((await remote(second.id)).content_v2).toEqual(independent.content_v2);
+
+  await openList(page);
+  const releaseFirst = holdEdit();
+  const first = sync();
+  try {
+    await expect.poll(() => writesFor(card.id).at(-1).status).toBe(200);
+    await page.locator('#card-item-' + card.id).getByRole('button', { name: 'Открыть локальную правку' }).click();
+    await page.getByRole('button', { name: 'Продолжить редактирование' }).click();
+    await page.locator('#card-editor-front').fill('Draft B');
+    await page.locator('.btn-save-action').click();
+    await expect(page.locator('#card-item-' + card.id)).toContainText('Draft B');
+    expect((await inspect(card.id)).operation.payload).toEqual(a);
+    expect((await inspect(card.id)).card.offline_edit.status).toBe('error');
+    await page.screenshot({ path: testInfo.outputPath('later-draft-375.png') });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  } finally {
+    releaseFirst('after');
+    expect((await first).success).toBe(false);
+  }
+  const committed = writesFor(card.id).at(-1).result;
+  const interrupted = await inspect(card.id);
+  expect(promptOf(interrupted.card)).toBe('Draft B');
+  expect(promptOf(await remote(card.id))).toBe('Draft A');
+
+  // Startup retries the 6B.2-shaped operation. A response from the previous
+  // login must not acknowledge it even when the account and UUID match.
+  const releaseOldSession = holdEdit();
+  try {
+    await page.reload();
+    await expect.poll(() => writesFor(card.id).length).toBe(3);
+    await expect.poll(() => writesFor(card.id).at(-1).result).toEqual(committed);
+    expect(await inspect(card.id)).toEqual(interrupted);
+    await page.evaluate(() => {
+      const key = 'lerne_auth_v2_session';
+      const session = JSON.parse(localStorage.getItem(key));
+      localStorage.setItem(key, JSON.stringify({ ...session, client_session_id: crypto.randomUUID() }));
+    });
+  } finally {
+    releaseOldSession();
+  }
+  await idle();
+  expect(await inspect(card.id)).toEqual(interrupted);
+  intercept = () => undefined;
+  await page.evaluate(() => {
+    window.deliveredEdits = [];
+    window.addEventListener('lerne:card-edit-changed', ({ detail }) => window.deliveredEdits.push(detail));
+  });
+  const pull = page.waitForResponse(response => response.url().includes('/api/sync/v2/pull') && response.ok());
+  expect((await sync()).success).toBe(true);
+  expect((await (await pull).json()).cards.find(item => item.id === card.id)).toMatchObject({ revision: committed.revision });
+  const promoted = await inspect(card.id);
+  expect(promptOf(promoted.card)).toBe('Draft B');
+  expect(promoted.card.offline_edit.status).toBe('pending');
+  expect(promoted.operation.payload).toMatchObject({ revision: committed.revision, content_v2: promoted.card.content_v2 });
+  expect(promoted.operation.payload.request_id).not.toBe(a.request_id);
+  expect(writesFor(card.id).map(attempt => attempt.payload)).toEqual(Array(4).fill(a));
+  expect(await page.evaluate(() => window.deliveredEdits)).toMatchObject([
+    { deliveredRequestId: a.request_id, confirmed: false, card: { id: card.id } },
+  ]);
+  await openList(page);
+  const releaseSecond = holdEdit();
+  const deliveringSecond = sync();
+  try {
+    await expect.poll(() => writesFor(card.id).length).toBe(5);
+    await page.locator('#card-item-' + card.id).getByRole('button', { name: 'Открыть локальную правку' }).click();
+    await page.getByRole('button', { name: 'Продолжить редактирование' }).click();
+    await page.locator('#card-editor-front').fill('Unsaved text while B is sending');
+  } finally {
+    releaseSecond();
+    expect((await deliveringSecond).success).toBe(true);
+  }
+  await expect(page.locator('#card-editor-front')).toHaveValue('Unsaved text while B is sending');
+  await page.locator('.view-editor .back-btn').press('Enter');
+  expect(writesFor(card.id).at(-1).payload).toEqual(promoted.operation.payload);
+  expect((await inspect(card.id)).operation).toBeUndefined();
+  expect(promptOf(await remote(card.id))).toBe('Draft B');
+
+  const confirmed = await inspect(card.id);
+  const c = await stage(confirmed.card, 'Rejected Draft C');
+  await stage(confirmed.card, 'Latest Draft D');
+  const newerServer = await remote(card.id, 'Concurrent server edit');
+  expect((await sync()).success).toBe(true);
+  expect(writesFor(card.id).at(-1)).toMatchObject({ payload: c, status: 409 });
+  const conflict = await inspect(card.id);
+  expect(conflict.card.offline_edit).toMatchObject({ status: 'conflict', server: { revision: newerServer.revision } });
+  expect(promptOf(conflict.card)).toBe('Latest Draft D');
+  expect(conflict.operation.payload).toEqual(c);
+  expect((await remote(card.id)).revision).toBe(newerServer.revision);
+
+  // An online create in a cached deck is also persisted before its first
+  // HTTP write. If the server ID was cached before the receipt arrived, the
+  // stale create receipt must preserve the edit already attached to that ID.
+  let releaseCreate;
+  const createGate = new Promise(resolve => { releaseCreate = resolve; });
+  const createPath = '/api/cards/save';
+  intercept = ({ pathname }) => pathname === createPath ? createGate : undefined;
+  const createViaApi = () => page.evaluate(async ({ deckId, content }) => {
+    const { default: api } = await import('/src/services/api.js');
+    return (await api.post('/cards/save', { deck_id: deckId, content_v2: content, request_id: crypto.randomUUID() })).data;
+  }, { deckId: deck.id, content: card.content_v2 });
+  const creating = createViaApi();
+  let created, create, freshDraft;
+  try {
+    await expect.poll(() => attempts.find(a => a.pathname === createPath)?.status).toBe(200);
+    created = attempts.find(a => a.pathname === createPath).result;
+    [create] = (await inspect(created.id)).creates;
+    expect(create.payload).toEqual(attempts.find(a => a.pathname === createPath).payload);
+    expect(create.tempId).toBeLessThan(0);
+    expect((await inspect(create.tempId)).card.offline_create_status).toBe('pending');
+    await page.evaluate(async id => (await (await import('/src/services/api.js')).default.get('/cards/' + id)).data, created.id);
+    freshDraft = await stage(created, 'Draft on discovered server ID');
+  } finally {
+    releaseCreate('after');
+    await creating;
+  }
+  intercept = ({ pathname }) => pathname === '/api/cards/' + created.id ? 'before' : undefined;
+  expect((await sync()).success).toBe(false);
+  expect((await inspect(create.tempId)).alias).toBe(created.id);
+  expect((await inspect(create.tempId)).card).toBeUndefined();
+  expect((await inspect(created.id)).creates).toEqual([]);
+  expect((await inspect(created.id)).operation.payload).toEqual(freshDraft);
+  expect(promptOf((await inspect(created.id)).card)).toBe('Draft on discovered server ID');
+  expect(attempts.filter(a => a.pathname === createPath).map(a => a.result)).toEqual([created, created]);
+  intercept = () => undefined;
+  expect((await sync()).success).toBe(true);
+  expect((await remote(created.id)).content_v2).toEqual(freshDraft.content_v2);
+  const online = await createViaApi();
+  expect(online.id).toBeGreaterThan(created.id);
+  expect(online.offline_create_status).toBeUndefined();
+  expect((await inspect(online.id)).creates).toEqual([]);
 });

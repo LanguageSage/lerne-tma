@@ -19,6 +19,9 @@ axiosInstance.interceptors.request.use((config) => {
   if (config._expectedUserId !== undefined && config._expectedUserId !== getUserId()) {
     throw new axios.CanceledError('Account changed before request');
   }
+  if (config._expectedSessionIdentity !== undefined && config._expectedSessionIdentity !== getSessionIdentity()) {
+    throw new axios.CanceledError('Session changed before request');
+  }
   if (IS_LOCAL && (config.baseURL !== '/api' || !config.url?.startsWith('/') || config.url.startsWith('//'))) {
     throw new Error('External API requests disabled in LOCAL');
   }

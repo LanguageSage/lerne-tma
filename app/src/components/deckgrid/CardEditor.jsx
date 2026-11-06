@@ -43,13 +43,13 @@ export const CardEditor = () => {
   const { playAudio } = useAudio();
 
   const [animDone, setAnimDone] = React.useState(false);
-  const [mergeRequest, setMergeRequest] = React.useState(null);
+  const [editingDraft, setEditingDraft] = React.useState(false);
   const [busy, setBusy] = React.useState(false);
 
   React.useEffect(() => {
     if (view === 'editor') {
       setAnimDone(false);
-      setMergeRequest(null);
+      setEditingDraft(false);
     }
   }, [view]);
 
@@ -71,10 +71,10 @@ export const CardEditor = () => {
 
   const edit = editingCard?.offline_edit;
   const conflict = edit?.status === 'conflict';
-  const merging = conflict && mergeRequest === edit.requestId;
-  const handleSave = async () => {
-    const saved = await saveCard();
-    if (saved && merging) setMergeRequest(null);
+  const merging = conflict && editingDraft;
+  const handleSave = async (awaitDelivery = false) => {
+    const saved = await saveCard(null, { awaitDelivery });
+    if (saved) setEditingDraft(false);
     return saved;
   };
 
@@ -138,8 +138,8 @@ export const CardEditor = () => {
             {conflict && !edit.server && <p>{tr('Серверная версия ещё недоступна. Локальный черновик сохранён.')}</p>}
             {merging ? <p>{tr('Сохраните объединённый вариант, затем подтвердите его отправку.')}</p> : (
               <div className="card-edit-actions">
-                {conflict && <button type="button" className="btn btn-secondary" disabled={busy}
-                  onClick={() => setMergeRequest(edit.requestId)}>{tr('Продолжить редактирование')}</button>}
+                {!editingDraft && <button type="button" className="btn btn-secondary" disabled={busy}
+                  onClick={() => setEditingDraft(true)}>{tr('Продолжить редактирование')}</button>}
                 {conflict && edit.server ? <>
                   <button type="button" className="btn btn-secondary" disabled={busy}
                     onClick={() => resolve(false)}>{tr('Оставить серверную версию')}</button>
@@ -151,11 +151,11 @@ export const CardEditor = () => {
             )}
           </section>
         )}
-        {(!edit || merging) && (
+        {(!edit || editingDraft) && (
           <CardForm
             cardData={editingCard}
             setCardData={setEditingCard}
-            onSave={handleSave}
+            onSave={() => handleSave()}
             onAiGenerate={handleAiGenerate}
             onStopGeneration={stopAiGeneration}
             onGenerateAudio={generateAudioInternal}
@@ -164,7 +164,7 @@ export const CardEditor = () => {
           />
         )}
         {!edit && <LocalPublishButton cardId={editingCard?.id} beforeOpen={async () => {
-          const saved = await handleSave();
+          const saved = await handleSave(true);
           return saved?.offline_edit ? null : saved;
         }} />}
 

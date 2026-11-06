@@ -22,6 +22,9 @@ const api = new Proxy(axiosInstance, {
         }
         const requestStartedAt = Date.now();
         const standardCreate = propKey === 'post' && url === '/cards/save' && args[0]?.content_v2?.card?.type === 'standard';
+        if (standardCreate) {
+          args[1] = { ...args[1], _expectedUserId: requestAccount, _expectedSessionIdentity: requestIdentity };
+        }
         if (isOfflineMode() || /\/-\d+(?:\/|\?|$)/.test(url) || (standardCreate && args[0]?.after_card_id < 0)) {
           await prepareLocalDb();
           const resolved = await resolveLocalRequest(url, args[0]);
@@ -65,6 +68,23 @@ const api = new Proxy(axiosInstance, {
           }
         }
 
+        if (standardCreate && requestAccount && !args[1]?.offlineCreateFlag) {
+          // Persist the same operation before the first HTTP attempt when the
+          // destination supports offline creation.
+          const local = await offlineApi.handle(propKey, url, args[0], { offlineCreateIfAvailable: true });
+          if (!isCurrent()) throw new axios.CanceledError('Session changed before card delivery');
+          if (local) {
+            const db = await prepareLocalDb();
+            await syncService.sync({ pendingNativeOnly: true, skipPull: true });
+            const card = await db.transaction('r', db.cards, db.syncState, async () => {
+              const aliases = (await db.syncState.get('aliases'))?.mappings.cards;
+              return db.cards.get(aliases?.[local.data.id] ?? local.data.id);
+            });
+            if (!isCurrent()) throw new axios.CanceledError('Session changed during card delivery');
+            return { data: card ?? local.data };
+          }
+        }
+
         // Try online server request first
         try {
           const needsRefresh = !standardCreate && isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
@@ -90,6 +110,7 @@ const api = new Proxy(axiosInstance, {
                   if (!Array.isArray(cards)) return response;
                   const merged = await db.transaction('rw', db.cards, async () => {
                     const local = await db.cards.bulkGet(cards.map(card => card.id));
+                    if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
                     const visible = cards.map((card, index) => {
                       const cached = local[index];
                       if (cached?.offline_edit || cached?.offline_confirmed_at >= requestStartedAt) return cached;
@@ -99,6 +120,7 @@ const api = new Proxy(axiosInstance, {
                       && card.content_v2?.card?.type === 'standard' && card.revision
                       && (!local[index] || (local[index].content_v2 && !local[index].is_dirty)))
                       .map(card => ({ ...card, is_dirty: 0 })));
+                    if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
                     if (deckMatch) {
                       const ids = new Set(cards.map(card => card.id));
                       const pending = await db.cards.where('deck_id').equals(Number(deckMatch[1]))
@@ -122,6 +144,7 @@ const api = new Proxy(axiosInstance, {
                 }
               }
             } catch (error) {
+              if (!isCurrent()) throw new axios.CanceledError('Session changed during offline cache update');
               console.warn('Offline library unavailable', error.name);
             }
           }

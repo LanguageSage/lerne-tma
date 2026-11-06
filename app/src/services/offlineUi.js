@@ -18,12 +18,16 @@ export function remapOfflineUi({ detail }) {
     return next;
   };
   const deck = item => item && ({ ...item, id: id('decks', item.id), folder_id: id('folders', item.folder_id) });
+  const cards = items => items
+    .filter(item => !confirmedCard || item.id === confirmedCard.id || id('cards', item.id) !== confirmedCard.id
+      || !items.some(existing => existing.id === confirmedCard.id))
+    .map(card);
   const state = useDeckStore.getState();
   useDeckStore.setState({
     decks: state.decks.map(deck), currentDeck: deck(state.currentDeck),
-    deckCards: state.deckCards.map(card), duplicateCards: state.duplicateCards.map(card),
-    cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([key, cards]) =>
-      [id('decks', key), cards.map(card)])),
+    deckCards: cards(state.deckCards), duplicateCards: cards(state.duplicateCards),
+    cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([key, items]) =>
+      [id('decks', key), cards(items)])),
     folders: state.folders.map(f => ({ ...f, id: id('folders', f.id), parent_id: id('folders', f.parent_id) })),
   });
   if (state.currentDeck) localStorage.setItem('lerne_current_deck_id', String(id('decks', state.currentDeck.id)));
@@ -36,7 +40,7 @@ export function remapOfflineUi({ detail }) {
     lastSelectedCardId: id('cards', ui.lastSelectedCardId),
     deckToRename: deck(ui.deckToRename),
   });
-  if (confirmedCard) ui.showToast(tr('Карточка синхронизирована'), 'success');
+  if (confirmedCard && !confirmedCard.offline_edit) ui.showToast(tr('Карточка синхронизирована'), 'success');
 }
 
 export function markOfflineCreateError({ detail }) {
@@ -50,10 +54,18 @@ export function markOfflineCreateError({ detail }) {
 
 export function updateOfflineEditUi({ detail }) {
   if (detail.userId !== getUserId()) return;
-  const { card, confirmed } = detail;
+  const { card, confirmed, deliveredRequestId } = detail;
   const update = item => {
     if (item?.id !== card.id) return item;
     const next = { ...item, ...card };
+    if (!card.offline_edit) delete next.offline_edit;
+    return next;
+  };
+  const updateEditor = item => {
+    if (!deliveredRequestId) return update(item);
+    if (item?.id !== card.id || item.offline_edit?.requestId !== deliveredRequestId) return item;
+    // Delivery updates the base of an open form without replacing its input.
+    const next = { ...item, revision: card.revision, offline_edit: card.offline_edit };
     if (!card.offline_edit) delete next.offline_edit;
     return next;
   };
@@ -64,10 +76,7 @@ export function updateOfflineEditUi({ detail }) {
   }));
   useSessionStore.setState(state => ({
     card: update(state.card),
-    editingCard: state.editingCard?.id === card.id && state.editingCard.offline_edit?.status === 'conflict'
-      && card.offline_edit?.status === 'conflict'
-      ? { ...state.editingCard, offline_edit: card.offline_edit }
-      : update(state.editingCard),
+    editingCard: updateEditor(state.editingCard),
     studyHistory: state.studyHistory.map(update),
   }));
   if (confirmed) useUiStore.getState().showToast(tr('Карточка синхронизирована'), 'success');

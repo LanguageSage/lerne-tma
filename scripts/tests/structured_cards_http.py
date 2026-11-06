@@ -15,7 +15,7 @@ import httpx
 import uvicorn
 
 
-def verify(db, *, offline_create_browser=False, offline_edit_browser=False):
+def verify(db, *, offline_create_browser=False, offline_edit_browser=False, offline_delivery_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -65,7 +65,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False):
                 return False
             if offline_edit_browser and not _run_offline_edit_browser(client, port, models, headers):
                 return False
-            if offline_create_browser or offline_edit_browser:
+            if offline_delivery_browser and not _run_offline_edit_browser(client, port, models, headers, delivery=True):
+                return False
+            if offline_create_browser or offline_edit_browser or offline_delivery_browser:
                 return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
@@ -94,7 +96,7 @@ def _run_offline_create_browser(port, models, authorization):
     return True
 
 
-def _run_offline_edit_browser(client, port, models, headers):
+def _run_offline_edit_browser(client, port, models, headers, *, delivery=False):
     deck = models.TMA_Deck.create(user_id=2, name='Offline Standard fixture', target_language='de')
     models.TMA_Collaborator.create(target_type='deck', target_id=deck.id, user_id=1, role='editor')
     content = {'schema_version': 2, 'card': {'type': 'standard', 'id': 'authored-id',
@@ -110,6 +112,20 @@ def _run_offline_edit_browser(client, port, models, headers):
     config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'card': card,
               'access_token': headers[1]['Authorization'].split(' ', 1)[1],
               'owner_token': headers[2]['Authorization'].split(' ', 1)[1]}
+    if delivery:
+        second = client.post('cards/save', headers=headers[2], json={
+            'request_id': str(uuid4()), 'deck_id': deck.id, 'content_v2': content,
+        })
+        second.raise_for_status()
+        config['second_card'] = second.json()
+        edits = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:update:1:'))
+        before = edits.count()
+        if not _run_offline_browser(config, 'survives interrupted Standard delivery'):
+            return False
+        # A, B, the independent edit, the concurrent server edit, and the edit after remap.
+        assert edits.count() == before + 5
+        assert models.TMA_Card.select().where(models.TMA_Card.deck == deck).count() == 4
+        return True
     if not _run_offline_browser(config, 'resolves Standard revisions'):
         return False
     saved = client.get(f"cards/{card['id']}", headers=headers[2])

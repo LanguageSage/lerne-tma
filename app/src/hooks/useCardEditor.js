@@ -31,7 +31,7 @@ export const useCardEditor = () => {
   const { setLoading, showToast } = useUiStore();
   const { fetchNextCard } = useStudySession();
 
-  const saveCard = async (manualCardData = null) => {
+  const saveCard = async (manualCardData = null, { awaitDelivery = false } = {}) => {
     const session = useSessionStore.getState();
     const ui = useUiStore.getState();
     const { currentDeck } = useDeckStore.getState();
@@ -75,7 +75,8 @@ export const useCardEditor = () => {
       if (identity !== getSessionIdentity()) return;
 
       if (standardEdit) res.data = { ...data, ...res.data };
-      if (standardEdit && navigator.onLine && !conflict) {
+      const deliverEdit = standardEdit && navigator.onLine && !conflict;
+      if (deliverEdit && awaitDelivery) {
         const db = await prepareLocalDb();
         await syncService.sync({ pendingNativeOnly: true });
         const cached = await db.cards.get(data.id);
@@ -222,6 +223,7 @@ export const useCardEditor = () => {
           ui.setView(sourceView);
         }
       }
+      if (deliverEdit && !awaitDelivery) void syncService.sync({ pendingNativeOnly: true });
       return savedCard;
     } catch (err) {
       console.error(err);
