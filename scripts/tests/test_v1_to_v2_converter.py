@@ -850,6 +850,124 @@ class V1ToV2ConverterTests(unittest.TestCase):
             self.assertEqual(saved_report['converted_count'], 668)
             self.assertEqual(saved_report['blocked_count'], 10)
 
+    def test_composite_tags_normalized_safely(self):
+        deck = {'level': 'A1', 'topic': 'Wohnen'}
+        card = {
+            'id': 101,
+            'deck_id': 1,
+            'front_text': 'das Haus',
+            'back_text': 'дом',
+            'tags': '["german", "local-ai", "youtube"],A1',
+        }
+        res = inspect_v1_card(card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        self.assertEqual(res['content_v2']['card']['level'], 'A1')
+        self.assertEqual(
+            res['content_v2']['card']['metadata']['tags'],
+            ['german', 'local-ai', 'youtube'],
+        )
+
+        # Empty array with level
+        card_empty_tags = {
+            'id': 102,
+            'deck_id': 1,
+            'front_text': 'die Wohnung',
+            'back_text': 'квартира',
+            'tags': '[],B1',
+        }
+        res_empty = inspect_v1_card(card_empty_tags, deck=deck)
+        self.assertTrue(res_empty['ok'], res_empty['diagnostics'])
+        self.assertEqual(res_empty['content_v2']['card']['level'], 'B1')
+
+    def test_card_errors_not_masked_by_successful_invariants(self):
+        """Verify Requirement 6: card errors are NEVER hidden by successful batch/invariant checks."""
+        snapshot = {
+            'decks': [
+                {
+                    'id': 1,
+                    'name': 'Alltag A1',
+                    'level': 'A1',
+                    'topic': 'Alltag',
+                }
+            ],
+            'cards': [
+                # Card 1: valid standard card
+                {
+                    'id': 1,
+                    'deck_id': 1,
+                    'position': 1,
+                    'source_id': 'c-01',
+                    'front_text': 'Guten Morgen',
+                    'back_text': 'Доброе утро',
+                    'image_path': '/media/1.webp',
+                    'metadata': {'author': 'admin'},
+                },
+                # Card 2: broken card (empty_back)
+                {
+                    'id': 2,
+                    'deck_id': 1,
+                    'position': 2,
+                    'source_id': 'c-02',
+                    'front_text': 'Guten Abend',
+                    'back_text': '',
+                    'image_path': '/media/2.webp',
+                    'metadata': {'author': 'admin'},
+                },
+                # Card 3: valid standard card
+                {
+                    'id': 3,
+                    'deck_id': 1,
+                    'position': 3,
+                    'source_id': 'c-03',
+                    'front_text': 'Gute Nacht',
+                    'back_text': 'Спокойной ночи',
+                    'image_path': '/media/3.webp',
+                    'metadata': {'author': 'admin'},
+                },
+            ],
+        }
+        report = run_v1_migration_dry_run(snapshot, allow_shared_positions=False)
+
+        # Invariants regarding the batch remain True:
+        self.assertTrue(report['invariants']['source_unmodified'])
+        self.assertTrue(report['invariants']['id_uniqueness_ok'])
+        self.assertTrue(report['invariants']['order_preserved'])
+        self.assertTrue(report['invariants']['metadata_preserved'])
+        self.assertTrue(report['invariants']['media_links_preserved'])
+        self.assertTrue(report['invariants']['v2_valid'])
+
+        # BUT overall report MUST be False because Card 2 failed:
+        self.assertFalse(report['ok'])
+        self.assertEqual(report['converted_count'], 2)
+        self.assertEqual(report['blocked_count'], 1)
+        self.assertEqual(report['converted_ids'], [1, 3])
+        self.assertEqual(report['blocked_ids'], [2])
+        self.assertIn('empty_back', report['reasons'])
+        self.assertEqual(report['reasons']['empty_back']['card_ids'], [2])
+        self.assertFalse(report['cards'][1]['ok'])
+        self.assertEqual(report['cards'][1]['diagnostics'][0]['code'], 'empty_back')
+
+    def test_allow_shared_positions_mode(self):
+        snapshot = {
+            'decks': [{'id': 1, 'name': 'Deck 1'}],
+            'cards': [
+                {'id': 1, 'deck_id': 1, 'position': 0, 'front_text': 'A', 'back_text': '1'},
+                {'id': 2, 'deck_id': 1, 'position': 0, 'front_text': 'B', 'back_text': '2'},
+            ],
+        }
+        # Strict mode (default): duplicate position fails
+        strict_report = run_v1_migration_dry_run(snapshot, allow_shared_positions=False)
+        self.assertFalse(strict_report['ok'])
+        self.assertEqual(strict_report['blocked_count'], 1)
+        self.assertIn('duplicate_card_position', strict_report['reasons'])
+
+        # Shared positions mode: duplicate position converts with a warning
+        shared_report = run_v1_migration_dry_run(snapshot, allow_shared_positions=True)
+        self.assertTrue(shared_report['ok'])
+        self.assertEqual(shared_report['converted_count'], 2)
+        self.assertEqual(shared_report['blocked_count'], 0)
+        self.assertIn('shared_card_position', shared_report['warnings_by_code'])
+
     def test_pure_module_does_not_import_database_models(self):
         import subprocess
 

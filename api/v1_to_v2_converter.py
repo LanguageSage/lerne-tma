@@ -189,6 +189,20 @@ def _parse_tags_tokens(raw_tags: Any) -> tuple[list[str] | None, str | None]:
             try:
                 parsed = json.loads(stripped)
             except Exception as exc:
+                # Check for legacy pattern: JSON array followed by comma-separated tags, e.g. '["tag1", "tag2"],A1'
+                rbracket = stripped.rfind(']')
+                if rbracket != -1:
+                    json_part = stripped[:rbracket + 1]
+                    rest_part = stripped[rbracket + 1:].lstrip(',').strip()
+                    try:
+                        parsed_json = json.loads(json_part)
+                        if isinstance(parsed_json, list):
+                            rest_tokens = [p.strip() for p in rest_part.split(',') if p.strip()]
+                            base_tokens, base_err = _parse_tags_tokens(parsed_json)
+                            if base_err is None and base_tokens is not None:
+                                return [*base_tokens, *rest_tokens], None
+                    except Exception:
+                        pass
                 return None, f'malformed JSON list in tags: {exc}'
             if not isinstance(parsed, list):
                 return None, 'JSON tags value must be a list'
@@ -1327,6 +1341,7 @@ def convert_v1_snapshot(
     require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
     include_converted_payloads: bool = True,
+    allow_shared_positions: bool = False,
 ) -> dict[str, Any]:
     """Batch-inspect and dry-run convert a V1 snapshot without mutating source data.
 
@@ -1618,20 +1633,36 @@ def convert_v1_snapshot(
             if card_position is not None:
                 deck_pos_map = seen_positions_by_deck.setdefault(resolved_deck_id, {})
                 if card_position in deck_pos_map:
-                    order_preserved = False
-                    card_diags.append(
-                        ConversionDiagnostic(
-                            code='duplicate_card_position',
-                            message=(
-                                f'duplicate card position {card_position!r} within deck {resolved_deck_id!r} '
-                                f'(first seen at cards[{deck_pos_map[card_position]}])'
-                            ),
-                            path='card.position',
-                            card_id=card_id,
-                            deck_id=resolved_deck_id,
-                            details={'position': card_position, 'first_index': deck_pos_map[card_position]},
-                        ).to_dict()
-                    )
+                    if allow_shared_positions:
+                        card_warns.append(
+                            ConversionDiagnostic(
+                                code='shared_card_position',
+                                message=(
+                                    f'card shares position {card_position!r} within deck {resolved_deck_id!r} '
+                                    f'(first seen at cards[{deck_pos_map[card_position]}])'
+                                ),
+                                severity='WARNING',
+                                path='card.position',
+                                card_id=card_id,
+                                deck_id=resolved_deck_id,
+                                details={'position': card_position, 'first_index': deck_pos_map[card_position]},
+                            ).to_dict()
+                        )
+                    else:
+                        order_preserved = False
+                        card_diags.append(
+                            ConversionDiagnostic(
+                                code='duplicate_card_position',
+                                message=(
+                                    f'duplicate card position {card_position!r} within deck {resolved_deck_id!r} '
+                                    f'(first seen at cards[{deck_pos_map[card_position]}])'
+                                ),
+                                path='card.position',
+                                card_id=card_id,
+                                deck_id=resolved_deck_id,
+                                details={'position': card_position, 'first_index': deck_pos_map[card_position]},
+                            ).to_dict()
+                        )
                 else:
                     deck_pos_map[card_position] = idx
 
@@ -1763,6 +1794,7 @@ def run_v1_migration_dry_run(
     default_free_text_policy: str = 'controlled_text',
     include_converted_payloads: bool = False,
     verify_source_unmodified: bool = True,
+    allow_shared_positions: bool = False,
 ) -> dict[str, Any]:
     """Run a non-destructive V1 -> V2 migration dry-run on a snapshot and verify invariants."""
     before_copy = copy.deepcopy(snapshot) if verify_source_unmodified else None
@@ -1772,6 +1804,7 @@ def run_v1_migration_dry_run(
         require_explicit_free_text_policy=require_explicit_free_text_policy,
         default_free_text_policy=default_free_text_policy,
         include_converted_payloads=include_converted_payloads,
+        allow_shared_positions=allow_shared_positions,
     )
     if verify_source_unmodified:
         source_unmodified = (snapshot == before_copy)
@@ -1884,6 +1917,11 @@ def main(argv: list[str] | None = None) -> int:
         action='store_true',
         help='(Default behavior) Convert V1 free_text cards without grading_policy to controlled_text with a warning',
     )
+    parser.add_argument(
+        '--allow-shared-positions',
+        action='store_true',
+        help='Allow multiple cards in a deck to share the same position value (e.g. 0) with a warning instead of error',
+    )
     args = parser.parse_args(argv)
     require_explicit = bool(args.strict_free_policy and not args.allow_implicit_free_policy)
     try:
@@ -1893,6 +1931,7 @@ def main(argv: list[str] | None = None) -> int:
                 raw,
                 require_explicit_free_text_policy=require_explicit,
                 include_converted_payloads=args.include_payloads,
+                allow_shared_positions=args.allow_shared_positions,
             )
             report_json = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)
             if args.report_out is not None:
