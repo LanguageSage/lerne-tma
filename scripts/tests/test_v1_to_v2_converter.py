@@ -1117,6 +1117,68 @@ class V1ToV2ConverterTests(unittest.TestCase):
         diag_codes = [d['code'] for d in res_strict['diagnostics']]
         self.assertIn('empty_back', diag_codes)
 
+    def test_legacy_default_card_type_normalized_for_interactive_and_theory_cards(self):
+        deck = {'level': 'A1', 'topic': 'Grammatik'}
+        
+        # 1. card_type='standard' on @theory content converts cleanly to theory with warning
+        theory_card = {
+            'id': 6001,
+            'deck_id': 10,
+            'card_type': 'standard',
+            'front_text': '@theory\n# Präpositionen mit Dativ\naus, bei, mit, nach, seit, von, zu.',
+            'back_text': 'Правило дательного падежа',
+        }
+        res_theory = inspect_v1_card(theory_card, deck=deck)
+        self.assertTrue(res_theory['ok'], res_theory['diagnostics'])
+        self.assertEqual(res_theory['content_v2']['card']['type'], 'theory')
+        warn_codes = [w['code'] for w in res_theory['warnings']]
+        self.assertIn('legacy_default_card_type_normalized', warn_codes)
+
+        # 2. card_type='translation' on [[gap]] cloze content converts cleanly to trainer
+        trainer_card = {
+            'id': 6002,
+            'deck_id': 10,
+            'card_type': 'translation',
+            'front_text': 'Er fährt mit dem [[Zug]].',
+            'back_text': 'Поезд',
+        }
+        res_trainer = inspect_v1_card(trainer_card, deck=deck)
+        self.assertTrue(res_trainer['ok'], res_trainer['diagnostics'])
+        self.assertEqual(res_trainer['content_v2']['card']['type'], 'trainer')
+        warn_codes = [w['code'] for w in res_trainer['warnings']]
+        self.assertIn('legacy_default_card_type_normalized', warn_codes)
+
+        # 3. Explicit card_type='quiz' on plain standard content is STILL blocked with card_type_mismatch
+        mismatch_card = {
+            'id': 6003,
+            'deck_id': 10,
+            'card_type': 'quiz',
+            'front_text': 'Guten Morgen!',
+            'back_text': 'Доброе утро!',
+        }
+        res_mismatch = inspect_v1_card(mismatch_card, deck=deck)
+        self.assertFalse(res_mismatch['ok'])
+        diag_codes = [d['code'] for d in res_mismatch['diagnostics']]
+        self.assertIn('card_type_mismatch', diag_codes)
+
+    def test_legacy_ai_detector_divergence_warning_for_standard_cards(self):
+        deck = {'level': 'A1', 'topic': 'Grammatik'}
+
+        # Card has task mentioning grammar comparison which causes detect_ai_input_type to guess 'trainer',
+        # while runtime detect_card_type correctly returns 'standard'. Must convert cleanly with warning.
+        divergent_card = {
+            'id': 6004,
+            'deck_id': 10,
+            'card_type': 'standard',
+            'front_text': '::task\nСравните две конструкции и их грамматику.\n\n::exercise\nDer Laptop ist neu.\nder neue Laptop\n\nЭто почти одно и то же по смыслу и грамматике?',
+            'back_text': 'По смыслу — да, но грамматически устроены по-разному.',
+        }
+        res = inspect_v1_card(divergent_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        self.assertEqual(res['content_v2']['card']['type'], 'standard')
+        warn_codes = [w['code'] for w in res['warnings']]
+        self.assertIn('legacy_ai_detector_divergence', warn_codes)
+
     def test_pure_module_does_not_import_database_models(self):
         import subprocess
 

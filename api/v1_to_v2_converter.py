@@ -635,6 +635,9 @@ def inspect_v1_card(
             )
 
     # 6b. Stored card_type vs parsed kind.
+    det_card = detect_card_type(raw_front)
+    det_ai = detect_ai_input_type(raw_front)
+
     explicit_card_type = card.get('card_type', card.get('type'))
     if isinstance(explicit_card_type, str) and explicit_card_type.strip():
         norm_type = explicit_card_type.strip()
@@ -650,6 +653,14 @@ def inspect_v1_card(
             add_warning(
                 'legacy_translation_card_type_normalized',
                 "legacy card_type 'translation' normalized to V2 type 'standard'",
+                path='card.type',
+                stored_card_type=norm_type,
+                parsed_type=kind,
+            )
+        elif norm_type != kind and norm_type in ('standard', 'translation') and det_card == kind:
+            add_warning(
+                'legacy_default_card_type_normalized',
+                f"legacy default card_type {norm_type!r} normalized to parsed content type {kind!r}",
                 path='card.type',
                 stored_card_type=norm_type,
                 parsed_type=kind,
@@ -701,8 +712,6 @@ def inspect_v1_card(
             )
 
     # 6f. Detector consistency check (detect_card_type & detect_ai_input_type).
-    det_card = detect_card_type(raw_front)
-    det_ai = detect_ai_input_type(raw_front)
     if reclassified_to_theory:
         add_warning(
             'empty_back_theory_detector_bypass',
@@ -712,11 +721,10 @@ def inspect_v1_card(
             detect_card_type=det_card,
             detect_ai_input_type=det_ai,
         )
-    elif det_card != kind or (kind != 'quiz' and det_ai != kind):
+    elif det_card != kind:
         add_error(
             'detector_type_divergence',
-            f'legacy detectors disagree with parsed type {kind!r} '
-            f'(detect_card_type={det_card!r}, detect_ai_input_type={det_ai!r})',
+            f'legacy detector detect_card_type returned {det_card!r}, which disagrees with parsed type {kind!r}',
             path='card.type',
             parsed_type=kind,
             detect_card_type=det_card,
@@ -727,6 +735,15 @@ def inspect_v1_card(
             'legacy_ai_detector_quiz_prefix',
             f'quiz uses prefixed option markers where detect_ai_input_type={det_ai!r} while detect_card_type="quiz"',
             path='card.type',
+            detect_card_type=det_card,
+            detect_ai_input_type=det_ai,
+        )
+    elif det_ai != kind:
+        add_warning(
+            'legacy_ai_detector_divergence',
+            f'legacy authoring detector detect_ai_input_type returned {det_ai!r} while detect_card_type and parsed type are {kind!r}',
+            path='card.type',
+            parsed_type=kind,
             detect_card_type=det_card,
             detect_ai_input_type=det_ai,
         )

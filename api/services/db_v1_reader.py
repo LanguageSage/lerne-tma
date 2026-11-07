@@ -190,6 +190,22 @@ def categorize_migration_fixes(report: dict[str, Any]) -> dict[str, list[dict[st
             'affected_card_ids': info['card_ids'],
             'description': "Устаревший тип колонки 'translation' у стандартных карточек безопасно нормализуется в 'standard'.",
         })
+    if 'legacy_default_card_type_normalized' in warn_by_code:
+        info = warn_by_code['legacy_default_card_type_normalized']
+        automatic_fixes.append({
+            'code': 'legacy_default_card_type_normalized',
+            'count': info['count'],
+            'affected_card_ids': info['card_ids'],
+            'description': "Дефолтный тип колонки 'standard' или 'translation' при наличии подтверждённого интерактивного или теоретического синтаксиса безопасно нормализуется в фактический тип контента.",
+        })
+    if 'legacy_ai_detector_divergence' in warn_by_code:
+        info = warn_by_code['legacy_ai_detector_divergence']
+        automatic_fixes.append({
+            'code': 'legacy_ai_detector_divergence',
+            'count': info['count'],
+            'affected_card_ids': info['card_ids'],
+            'description': "Эвристический авторский детектор detect_ai_input_type разошёлся со study-детектором detect_card_type; карточка безопасно сохраняет подтверждённый рантайм-тип.",
+        })
     if 'shared_card_position' in warn_by_code:
         info = warn_by_code['shared_card_position']
         automatic_fixes.append({
