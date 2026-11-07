@@ -82,9 +82,10 @@ export const DraggableCardItem = React.memo(({
     overflow: 'hidden'
   };
 
-  const handleItemClick = () => {
+  const handleItemClick = (event) => {
     if (createStatus) return;
     if (isSelectMode) {
+      event.stopPropagation();
       onToggleSelect?.(c.id);
       return;
     }
@@ -144,7 +145,7 @@ export const DraggableCardItem = React.memo(({
         )}
       </div>
 
-      {createStatus && <small role="status" style={{ overflowWrap: 'anywhere' }}>{tr(createStatus === 'error'
+      {createStatus && !c.offline_move && <small role="status" style={{ overflowWrap: 'anywhere' }}>{tr(createStatus === 'error'
         ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}
         {c.offline_create_error && <> {c.offline_create_error}</>}
       </small>}

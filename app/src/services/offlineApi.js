@@ -70,35 +70,62 @@ async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreate
   });
 }
 
-async function queueCardMove(db, body, isCurrent) {
-  const [id] = body.card_ids;
+async function queueCardMove(db, body, isCurrent, copy = false) {
+  const ids = body.card_ids;
   const targetId = body.target_deck_id;
-  if (!Number.isSafeInteger(id) || id <= 0) pendingCreate();
+  if (!ids?.length || new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
   if (!Number.isSafeInteger(targetId) || targetId <= 0) notFound();
-  if (!body.request_id) throw new Error('Missing card move request ID');
+  if (!body.request_id) throw new Error('Missing card transfer request ID');
   return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
-    const key = CARD_MOVE_KEY + id;
-    const [card, target] = await Promise.all([db.cards.get(id), db.decks.get(targetId)]);
-    if (card?.content_v2?.schema_version !== 2 || card.is_deleted || !target || target.is_deleted) notFound();
-    if (card.offline_move) pendingMove();
-    if (card.offline_lifecycle) pendingLifecycle();
-    if (card.offline_edit || card.is_dirty) throw new Error(tr('Сначала синхронизируйте правку карточки.'));
-    if (!card.revision || card.revision !== body.revisions[id]) {
-      throw new Error(tr('Исходная ревизия карточки недоступна.'));
+    // Keep the existing single-move key readable by previous builds.
+    const key = CARD_MOVE_KEY + (!copy && ids.length === 1 ? ids[0] : body.request_id);
+    const previous = await db.syncState.get(key);
+    if (previous?.payload.request_id === body.request_id) {
+      if (JSON.stringify(previous.payload) !== JSON.stringify(body)) throw new Error('Card transfer request changed');
+      const cards = await db.cards.bulkGet(previous.localIds || [previous.cardId]);
+      return result(!copy && ids.length === 1 ? cards[0] : { cards, offline_transfer: true });
     }
-    const source = await db.decks.get(card.deck_id);
-    if (!source || source.id <= 0 || source.is_deleted) notFound();
-    if (isContentReadOnly(source) || isContentReadOnly(target)) readOnly();
-    if (card.deck_id === targetId) return result(card);
-
+    const [cards, target] = await Promise.all([db.cards.bulkGet(ids), db.decks.get(targetId)]);
+    if (!target || target.is_deleted) notFound();
+    if (isContentReadOnly(target)) readOnly();
+    const sources = [];
+    for (const card of cards) {
+      if (card?.content_v2?.schema_version !== 2 || card.is_deleted) notFound();
+      if (card.offline_move) pendingMove();
+      if (card.offline_lifecycle) pendingLifecycle();
+      if (card.offline_edit || card.is_dirty) throw new Error(tr('Сначала синхронизируйте правку карточки.'));
+      if (!card.revision || card.revision !== body.revisions?.[card.id]) {
+        throw new Error(tr('Исходная ревизия карточки недоступна.'));
+      }
+      const source = await db.decks.get(card.deck_id);
+      if (!source || source.id <= 0 || source.is_deleted) notFound();
+      if (!copy && isContentReadOnly(source)) readOnly();
+      sources.push(source.id);
+    }
+    if (!copy && ids.length === 1 && cards[0].deck_id === targetId) return result(cards[0]);
     const siblings = await db.cards.where('deck_id').equals(targetId).filter(item => !item.is_deleted).toArray();
-    const moved = { ...card, deck_id: targetId,
-      position: siblings.reduce((max, item) => Math.max(max, item.position || 0), 0) + 1,
-      offline_move: { status: 'pending' } };
-    await db.cards.put(moved);
-    await db.syncState.add({ key, cardId: id, sourceDeckId: source.id, payload: body });
+    let position = siblings.reduce((max, item) => Math.max(max, item.position || 0), 0);
+    const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
+    const locals = [];
+    for (const card of cards) {
+      let id = card.id;
+      if (copy) {
+        do { id = getNextTempId(); } while (aliases[id] || await db.cards.get(id));
+      }
+      // Copy only authored fields; personal progress/flags/notes stay at the source ID.
+      const local = copy ? { id, content_v2: card.content_v2, creator_id: card.creator_id,
+        creator_name: card.creator_name, creator_avatar: card.creator_avatar,
+        created_at: new Date().toISOString(), is_dirty: 0, is_deleted: false, offline_create_status: 'pending',
+        ...Object.fromEntries(mediaPaths.map(field => [field, card[field]])) } : { ...card };
+      if (copy || card.deck_id !== targetId) Object.assign(local, { deck_id: targetId, position: ++position });
+      local.offline_move = { status: 'pending', ...(copy && { copy: true }) };
+      await db.cards.put(local);
+      locals.push(local);
+    }
+    await db.syncState.add({ key, cardId: ids[0], sourceDeckId: sources[0],
+      sourceDeckIds: sources, localIds: locals.map(card => card.id), copy, payload: body });
     if (!isCurrent()) throw new Error('Session changed');
-    return result(moved);
+    return result(!copy && ids.length === 1 ? locals[0] : { cards: locals, offline_transfer: true });
   });
 }
 
@@ -475,7 +502,7 @@ export const offlineApi = {
       });
     }
     if (m === 'post' && url === '/cards/batch-move') {
-      if (body.card_ids?.length === 1 && body.revisions) {
+      if (body.revisions) {
         return queueCardMove(db, body, () => userId === getUserId() && identity === getSessionIdentity());
       }
       const targetDeckId = Number(body.target_deck_id);
@@ -550,6 +577,7 @@ export const offlineApi = {
       });
     }
     if (m === 'post' && url === '/cards/batch-copy') {
+      if (body.revisions) return queueCardMove(db, body, isCurrent, true);
       const targetDeckId = Number(body.target_deck_id);
       const cardIds = (body.card_ids || []).map(Number);
       const onDuplicate = body.on_duplicate || 'skip';
@@ -571,6 +599,7 @@ export const offlineApi = {
         for (let idx = 0; idx < cardIds.length; idx++) {
           const cid = cardIds[idx];
           const card = await db.cards.get(cid);
+          if (card?.content_v2) throw unsupported();
           if (card && !card.is_deleted) {
             await requireContentWrite(db, 'cards', card);
             const frontKey = normalizeCardKey(card.front_text || card.front);

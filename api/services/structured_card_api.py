@@ -136,10 +136,17 @@ class RevisionSelection(Selection):
 class Transfer(Selection):
     target_deck_id: ID
     on_duplicate: Literal['skip', 'keep', 'overwrite'] = 'skip'
+    revisions: dict[int, Revision] | None = None
+
+    @model_validator(mode='after')
+    def covers_transfer(self):
+        if self.revisions is not None and self.revisions.keys() != set(self.card_ids):
+            raise ValueError('revisions must cover exactly card_ids')
+        return self
 
 
-class MoveSelection(Transfer, RevisionSelection):
-    pass
+class MoveSelection(Transfer):
+    revisions: dict[int, Revision]
 
 
 def require_account(user_id):
@@ -410,15 +417,14 @@ def transfer_cards(data, user_id, *, move):
     operation = 'move' if move else 'copy'
     with tma_db.atomic():
         payload = data.model_dump(mode='json')
-        if move:
-            # Serialize the same UUID before reading the card's location.
-            receipt, replay = _receipt(operation, user_id, data.request_id, payload)
+        if not move and data.revisions is None:
+            payload.pop('revisions')  # Preserve fingerprints of older copy requests.
+        # Serialize retries before reading source locations for both operations.
+        receipt, replay = _receipt(operation, user_id, data.request_id, payload)
         cards, decks = _lock_cards(data.card_ids, user_id, targets=(target,), write=move)
-        if not move:
-            receipt, replay = _receipt(operation, user_id, data.request_id, payload)
         if replay is not None:
             return replay
-        if move:
+        if data.revisions is not None:
             for card in cards:
                 if content_response(card)['revision'] != data.revisions[card.id]:
                     raise HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id})
@@ -429,6 +435,7 @@ def transfer_cards(data, user_id, *, move):
         position = _position(target)
         created, moved, updated, skipped = 0, 0, 0, 0
         touched = {}
+        copies = []
         now = datetime.datetime.now()
         for card in cards:
             if move and card.deck_id == target:
@@ -437,6 +444,8 @@ def transfer_cards(data, user_id, *, move):
             match = existing.get(key)
             if match and data.on_duplicate == 'skip':
                 skipped += 1
+                if not move:
+                    copies.append({'source_id': card.id, 'card': None})
                 continue
             media = {field: getattr(card, field) for field in (*MEDIA_PATHS, 'image_data')}
             if match and data.on_duplicate == 'overwrite':
@@ -448,6 +457,9 @@ def transfer_cards(data, user_id, *, move):
                 for field, value in media.items():
                     setattr(match, field, value)
                 updated += 1
+                match.updated_at = now
+                copies.append({'source_id': card.id, 'card': {
+                    **lifecycle_state(match), 'creator_id': match.creator_id}})
             elif move:
                 touched[card.deck_id] = decks[card.deck_id]
                 TMA_Card.update(deck=target, position=position, updated_at=now).where(TMA_Card.id == card.id).execute()
@@ -460,6 +472,8 @@ def transfer_cards(data, user_id, *, move):
                 position += 1
                 created += 1
                 existing.setdefault(key, copied)
+                copies.append({'source_id': card.id, 'card': {
+                    **lifecycle_state(copied), 'creator_id': copied.creator_id}})
         if moved or updated or created:
             touched[target] = decks[target]
             _touch(touched)
@@ -471,6 +485,8 @@ def transfer_cards(data, user_id, *, move):
                 {'id': card.id, 'deck_id': card.deck_id, 'position': card.position,
                  'revision': content_response(card)['revision']} for card in cards
             ]
+        else:
+            result['copies'] = copies
         return _finish(receipt, result)
 
 

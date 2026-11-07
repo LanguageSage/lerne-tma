@@ -48,7 +48,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     });
     const lifecycleWrite = fixture.lifecycle && route.request().method() === 'POST'
       && (pathname === '/api/cards/batch-delete' || /^\/api\/trash\/card\/\d+\/restore$/.test(pathname));
-    if (pathname === '/api/cards/save' || (fixture.move && pathname === '/api/cards/batch-move') || updating || lifecycleWrite) {
+    if (pathname === '/api/cards/save' || (fixture.move && (pathname === '/api/cards/batch-move' || (fixture.batch && pathname === '/api/cards/batch-copy'))) || updating || lifecycleWrite) {
       const payload = route.request().postDataJSON();
       if (controlWrite) return controlWrite({ route, pathname, payload, fetchFromServer });
       if (phase === 'reject') {
@@ -1261,6 +1261,244 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect(writesFor(switching)).toHaveLength(2);
   expect(writesFor(switching)[0]).toEqual(writesFor(switching)[1]);
   expect((await inspect(peer)).queue).toEqual([]);
+});
+
+test('batch copies and moves V2 atomically across restarts and a second device', async ({ browser }, testInfo) => {
+  test.skip(!fixture?.batch, 'Batch transfer fixture only');
+  test.setTimeout(180000);
+  const { source, target, denied, cards } = fixture.move;
+  const attempts = [];
+  let phase = 'ready', device, page;
+  const inspect = tab => tab.evaluate(async () => {
+    const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+    return { cards: await db.cards.orderBy('id').toArray(),
+      operations: await db.syncState.where('key').startsWith('card-move-v2:').toArray(),
+      aliases: (await db.syncState.get('aliases'))?.mappings?.cards || {},
+      progress: await db.progress.toArray() };
+  });
+  const sync = (tab, options = { pendingNativeOnly: true, skipPull: true }) => tab.evaluate(async options => {
+    const { syncService } = await import('/src/services/syncService.js');
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const result = await syncService.sync(options);
+      if (result.reason !== 'Already syncing') return result;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Sync lock remained held');
+  }, options);
+  const setPhase = async value => {
+    phase = value;
+    await page.evaluate(offline => Object.defineProperty(navigator, 'onLine', {
+      configurable: true, value: !offline,
+    }), value === 'offline');
+  };
+  const launch = async () => {
+    device = await browser.browserType().launchPersistentContext(testInfo.outputPath('batch-device'), {
+      viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
+    });
+    await setupDevice(device, () => phase, (payload, status, receipt) => attempts.push({ payload, status, receipt }));
+    page = device.pages()[0];
+    await page.goto('http://127.0.0.1:5199/');
+    await expect(page.getByText(source.name, { exact: true }).first()).toBeVisible();
+  };
+  const transfer = async (selected, copy, to = target) => {
+    await openList(page, source);
+    await page.getByTitle('Выбрать несколько карточек', { exact: true }).click();
+    // Select in reverse order: CardList must send displayed card order.
+    for (const card of [...selected].reverse()) {
+      const row = page.locator('#card-item-' + card.id);
+      await row.locator('.card-item-text').click();
+      await expect(row).toHaveClass(/is-selected/);
+    }
+    await page.getByTitle(copy ? 'Копировать выбранные карточки' : 'Переместить выбранные карточки', { exact: true }).click();
+    const modal = page.locator('.settings-modal').filter({ hasText: copy ? 'Копировать карточки' : 'Переместить карточки' });
+    await modal.getByRole('button', { name: new RegExp(to.name) }).click();
+    await modal.getByRole('button', { name: 'Копии', exact: true }).click();
+    await modal.getByRole('button', { name: new RegExp(copy ? '^Копировать' : '^Переместить') }).click();
+    await expect(modal).toHaveCount(0);
+  };
+  const peerDevice = await browser.newContext({ serviceWorkers: 'block' });
+  try {
+    await setupDevice(peerDevice, () => 'ready', () => {});
+    const peer = await peerDevice.newPage();
+    await peer.goto('http://127.0.0.1:5199/');
+    await expect(peer.getByText(source.name, { exact: true }).first()).toBeVisible();
+    await launch();
+    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    await openList(page, source);
+    const initial = await inspect(page);
+
+    await transfer(cards.slice(0, 2), true);
+    expect((await inspect(page)).operations).toEqual([]);
+    const onlineCopies = attempts.at(-1).receipt.copies.map(item => item.card);
+    expect(onlineCopies.map(card => card.content_v2)).toEqual(cards.slice(0, 2).map(card => card.content_v2));
+    expect(onlineCopies.every(card => !cards.some(source => source.id === card.id))).toBe(true);
+    await transfer(cards.slice(0, 2), false);
+    expect((await inspect(page)).operations).toEqual([]);
+
+    await setPhase('offline');
+    const beforeFailure = await inspect(page);
+    // Legacy callers without revisions must never enqueue native cards as V1 dirty rows.
+    expect(await page.evaluate(async ({ ids, target }) => {
+      const { offlineApi } = await import('/src/services/offlineApi.js');
+      try {
+        await offlineApi.handle('post', '/cards/batch-copy', {
+          request_id: crypto.randomUUID(), card_ids: ids, target_deck_id: target, on_duplicate: 'keep',
+        });
+      } catch (error) { return error.code; }
+      return 'unexpected-success';
+    }, { ids: cards.slice(2, 4).map(card => card.id), target: target.id })).toBe('OFFLINE_UNSUPPORTED');
+    expect((await inspect(page)).cards).toEqual(beforeFailure.cards);
+    await page.evaluate(async () => {
+      const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+      const add = db.syncState.add;
+      db.syncState.add = () => { db.syncState.add = add; throw new Error('Synthetic batch outbox failure'); };
+    });
+    await openList(page, source);
+    await page.getByTitle('Выбрать несколько карточек', { exact: true }).click();
+    for (const card of cards.slice(2, 4)) await page.locator('#card-item-' + card.id).locator('.card-item-text').click();
+    await page.getByTitle('Копировать выбранные карточки', { exact: true }).click();
+    const failedModal = page.locator('.settings-modal').filter({ hasText: 'Копировать карточки' });
+    await failedModal.getByRole('button', { name: new RegExp(target.name) }).click();
+    await failedModal.getByRole('button', { name: 'Копии', exact: true }).click();
+    await failedModal.getByRole('button', { name: /^Копировать/ }).click();
+    await expect(page.getByText(/Synthetic batch outbox failure/)).toBeVisible();
+    expect((await inspect(page)).cards.map(({ offline_read_started_at, ...card }) => card)).toEqual(
+      beforeFailure.cards.map(({ offline_read_started_at, ...card }) => card));
+    expect((await inspect(page)).operations).toEqual([]);
+    // Retry the still-open dialog after transaction rollback.
+    await failedModal.getByRole('button', { name: /^Копировать/ }).click();
+    await expect(failedModal).toHaveCount(0);
+    const queuedCopy = (await inspect(page)).operations[0];
+    expect(queuedCopy.payload.card_ids).toEqual(cards.slice(2, 4).map(card => card.id));
+    const copyState = await inspect(page);
+    const copies = queuedCopy.localIds.map(id => copyState.cards.find(card => card.id === id));
+    expect(copies.map(card => card.content_v2)).toEqual(cards.slice(2, 4).map(card => card.content_v2));
+    expect(copies.every(card => card.id < 0 && !card.flag && !card.repetitions && !card.queue)).toBe(true);
+    expect((await inspect(page)).progress.filter(p => queuedCopy.localIds.includes(p.card_id))).toEqual([]);
+    await openList(page, target);
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(page.locator('#card-item-' + copies[0].id).getByRole('status').filter({ hasText: 'Копирование' }))
+        .toHaveText('Копирование ожидает синхронизации');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.screenshot({ path: testInfo.outputPath('batch-copy-pending-1280.png') });
+    await device.close();
+    await launch();
+    expect((await inspect(page)).operations).toEqual([queuedCopy]);
+    // Fail after the first copied card was acknowledged inside the transaction.
+    await page.evaluate(async id => {
+      const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+      const remove = db.cards.delete.bind(db.cards);
+      db.cards.delete = value => {
+        if (value === id) { db.cards.delete = remove; throw new Error('Synthetic batch acknowledgement failure'); }
+        return remove(value);
+      };
+    }, queuedCopy.localIds[1]);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(false);
+    const failedAck = await inspect(page);
+    expect(failedAck.operations).toEqual([queuedCopy]);
+    for (const card of copies) expect(failedAck.cards.find(item => item.id === card.id)).toEqual(card);
+    for (const id of queuedCopy.localIds) expect(failedAck.aliases[id]).toBeUndefined();
+    await setPhase('lose-response');
+    expect((await sync(page)).success).toBe(false);
+    expect((await inspect(page)).operations).toEqual([queuedCopy]);
+    expect(attempts.at(-1).status).toBe(200);
+    await device.close();
+    phase = 'offline';
+    await launch();
+    expect((await inspect(page)).operations).toEqual([queuedCopy]);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(true);
+    expect((await inspect(page)).operations).toEqual([]);
+    const copyAttempts = attempts.filter(item => item.payload.request_id === queuedCopy.payload.request_id);
+    expect(copyAttempts).toHaveLength(3);
+    expect(copyAttempts[1]).toEqual(copyAttempts[0]);
+    expect(copyAttempts[2]).toEqual(copyAttempts[0]);
+    const offlineCopies = copyAttempts[0].receipt.copies.map(item => item.card);
+    for (const [index, id] of queuedCopy.localIds.entries()) {
+      expect((await inspect(page)).aliases[id]).toBe(offlineCopies[index].id);
+    }
+
+    await setPhase('offline');
+    await transfer(cards.slice(2, 4), false);
+    const queuedMove = (await inspect(page)).operations[0];
+    const progressBefore = (await inspect(page)).progress;
+    await device.close();
+    await launch();
+    expect((await inspect(page)).operations).toEqual([queuedMove]);
+    await setPhase('lose-response');
+    expect((await sync(page)).success).toBe(false);
+    expect((await inspect(page)).operations).toEqual([queuedMove]);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(true);
+    const moveAttempts = attempts.filter(item => item.payload.request_id === queuedMove.payload.request_id);
+    expect(moveAttempts).toHaveLength(2);
+    expect(moveAttempts[1]).toEqual(moveAttempts[0]);
+    expect((await inspect(page)).progress).toEqual(progressBefore);
+
+    expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+    const expected = [...onlineCopies, ...cards.slice(0, 2), ...offlineCopies, ...cards.slice(2, 4)];
+    const peerCards = (await inspect(peer)).cards.filter(card => card.deck_id === target.id).sort((a, b) => a.position - b.position);
+    expect(peerCards.map(({ id, content_v2 }) => ({ id, content_v2 }))).toEqual(
+      expected.map(({ id, content_v2 }) => ({ id, content_v2 })));
+    await openList(peer, target);
+    for (const card of expected) await expect(peer.locator('#card-item-' + card.id)).toBeVisible();
+
+    // A stale member rejects the whole copy and move; local snapshots and requests survive pull/restart.
+    await setPhase('offline');
+    await transfer(cards.slice(4, 6), true);
+    await transfer(cards.slice(4, 6), false);
+    const stale = cards[5];
+    const edit = await peerDevice.request.patch(fixture.origin + '/api/cards/' + stale.id, {
+      headers: { authorization: 'Bearer ' + fixture.access_token },
+      data: { request_id: crypto.randomUUID(), revision: stale.revision, content_v2: stale.content_v2 },
+    });
+    expect(edit.ok()).toBe(true);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(false);
+    expect((await inspect(page)).operations).toHaveLength(2);
+    expect((await inspect(page)).operations.every(op => op.rejected)).toBe(true);
+    expect((await inspect(page)).cards.filter(card => card.offline_move).every(card => card.offline_move.httpStatus === 409)).toBe(true);
+
+    await setPhase('offline');
+    await transfer(cards.slice(6, 8), true, denied);
+    await transfer(cards.slice(6, 8), false, denied);
+    const revoke = await peerDevice.request.put(fixture.origin + '/api/collaborative/deck/' + denied.id + '/role', {
+      headers: { authorization: 'Bearer ' + fixture.owner_token }, data: { user_id_to_update: 1, role: 'viewer' },
+    });
+    expect(revoke.ok()).toBe(true);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(false);
+    const rejected = await inspect(page);
+    expect(rejected.operations).toHaveLength(4);
+    expect(rejected.operations.every(op => op.rejected)).toBe(true);
+    expect(rejected.cards.filter(card => card.offline_move?.httpStatus === 403)).toHaveLength(4);
+    const deliveries = attempts.length;
+    await device.close();
+    phase = 'offline';
+    await launch();
+    expect((await inspect(page)).operations).toEqual(rejected.operations);
+    await setPhase('ready');
+    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    expect((await inspect(page)).operations).toEqual(rejected.operations);
+    for (const card of rejected.cards.filter(card => card.offline_move)) {
+      expect((await inspect(page)).cards.find(item => item.id === card.id)).toEqual(card);
+    }
+    expect(attempts).toHaveLength(deliveries);
+    expect((await inspect(page)).progress.filter(p => cards.slice(0, 4).some(card => card.id === p.card_id)))
+      .toEqual(initial.progress.filter(p => cards.slice(0, 4).some(card => card.id === p.card_id)));
+    await openList(page, target);
+    await page.setViewportSize({ width: 375, height: 844 });
+    const errorStatus = page.getByText('Копирование не завершено. Карточки сохранены на устройстве.').first();
+    await errorStatus.scrollIntoViewIfNeeded();
+    await expect(errorStatus).toBeVisible();
+    await page.screenshot({ path: testInfo.outputPath('batch-rejected-375.png') });
+  } finally {
+    await device?.close();
+    await peerDevice.close();
+  }
 });
 
 test('moves V2 cards across decks with durable placement, replay and rejection', async ({ page, context, browser }, testInfo) => {

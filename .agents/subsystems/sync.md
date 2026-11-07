@@ -148,6 +148,19 @@ HTTP-запросу и при наличии сети. Подтверждени�
 отклонённого запроса. Проверка девяти типов и Standard запускается через
 `structured_cards_postgres.py --bin-dir <path> --offline-edit-browser`.
 
+## V2 batch transfer
+
+Пакетные copy/move расширяют прежние операции `card-move-v2:` в `syncState`,
+без новой очереди и схемы Dexie. `offlineApi.queueCardMove` атомарно пишет все
+локальные карточки и один UUID/payload; copy получает временные ID без личного
+прогресса. `syncService.deliverCardMoves` подтверждает весь пакет и aliases
+одной транзакцией, проверяя текущую сессию и UUID. Неизвестный ответ оставляет
+операцию для повтора; окончательный отказ сохраняет её и локальные карточки
+с отметкой `rejected`. `keepLocalCard` защищает их при обычном чтении и pull.
+Одиночные операции предыдущего этапа читаются прежним обработчиком.
+Проверки: `structured_cards_postgres.py --http` и `--offline-batch-browser`;
+[контракт 6B.5c](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5c-пакетное-копирование-и-перенос-v2-карточек).
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,

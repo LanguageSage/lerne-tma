@@ -180,42 +180,78 @@ async function deliverCardMoves(db, operations, options, isCurrent) {
   let firstError;
   let changed = false;
   const userId = options._expectedUserId;
-  for (const { key, cardId, sourceDeckId, payload } of operations) {
+  for (const operation of operations) {
+    const { key, payload, copy = false } = operation;
+    const localIds = operation.localIds || [operation.cardId];
+    const sourceDeckIds = operation.sourceDeckIds || [operation.sourceDeckId];
     if (!isCurrent()) throw new Error('Session changed');
-    let placement, error;
+    let receipt, error;
+    const startedAt = Date.now();
     try {
-      const { data } = await networkApi.post('/cards/batch-move', payload, options);
-      const [confirmed] = data?.placements || [];
-      if (data?.status !== 'success' || data.placements?.length !== 1 || confirmed?.id !== cardId
-          || ![sourceDeckId, payload.target_deck_id].includes(confirmed.deck_id)
-          || !Number.isInteger(confirmed.position) || !/^[0-9a-f]{64}$/.test(confirmed.revision)) {
-        throw new Error(tr('Сервер не подтвердил сохранение изменений'));
-      }
-      placement = confirmed;
+      const { data } = await networkApi.post(copy ? '/cards/batch-copy' : '/cards/batch-move', payload, options);
+      const items = copy ? data?.copies : data?.placements;
+      const validRevision = item => /^[0-9a-f]{64}$/.test(item?.revision);
+      const valid = Array.isArray(items) && items.length === payload.card_ids.length && items.every((item, index) => copy
+        ? item.source_id === payload.card_ids[index] && (item.card === null || (Number.isSafeInteger(item.card?.id)
+          && item.card.id > 0 && (payload.on_duplicate === 'overwrite' || !payload.card_ids.includes(item.card.id))
+          && item.card.deck_id === payload.target_deck_id
+          && item.card.content_v2?.schema_version === 2 && Number.isInteger(item.card.position) && validRevision(item.card)))
+        : item.id === payload.card_ids[index] && [sourceDeckIds[index], payload.target_deck_id].includes(item.deck_id)
+          && Number.isInteger(item.position) && validRevision(item));
+      if (data?.status !== 'success' || !valid) throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+      receipt = data;
     } catch (cause) {
       error = cause;
     }
     if (!isCurrent()) throw new Error('Session changed');
     const httpStatus = error?.response?.status;
     const rejected = [403, 404, 409, 422].includes(httpStatus);
-    const applied = await db.transaction('rw', db.cards, db.syncState, async () => {
-      const [card, pending] = await Promise.all([db.cards.get(cardId), db.syncState.get(key)]);
-      if (!isCurrent() || !card?.offline_move || pending?.payload.request_id !== payload.request_id) return false;
-      if (placement) {
-        const { deck_id, position, revision } = placement;
-        const next = { ...card, deck_id, position, revision, offline_confirmed_at: Date.now() };
-        delete next.offline_move;
-        await db.cards.put(next);
+    const confirmed = await db.transaction('rw', db.cards, db.syncState, async () => {
+      const [cards, pending] = await Promise.all([db.cards.bulkGet(localIds), db.syncState.get(key)]);
+      if (!isCurrent() || pending?.payload.request_id !== payload.request_id
+          || cards.some(card => !card?.offline_move)) return;
+      const remapped = [];
+      if (receipt) {
+        const aliases = (await db.syncState.get('aliases'))?.mappings || {};
+        for (const [index, card] of cards.entries()) {
+          if (copy) {
+            const server = receipt.copies[index].card;
+            if (server) {
+              const existing = await db.cards.get(server.id);
+              if (existing && !existing.content_v2) throw new Error(tr('Серверный ID занят локальной карточкой V1.'));
+              const next = keepLocalCard(existing, startedAt) ? existing
+                : { creator_name: card.creator_name, creator_avatar: card.creator_avatar,
+                  ...existing, ...server, is_dirty: 0, offline_confirmed_at: Date.now() };
+              await db.cards.put(next);
+              aliases.cards = { ...aliases.cards, [card.id]: server.id };
+              remapped.push({ tempId: card.id, card: next });
+            }
+            await db.cards.delete(card.id);
+          } else {
+            const next = { ...card, ...receipt.placements[index], offline_confirmed_at: Date.now() };
+            delete next.offline_move;
+            await db.cards.put(next);
+          }
+        }
+        if (copy) await db.syncState.put({ key: 'aliases', mappings: aliases });
         await db.syncState.delete(key);
       } else if (rejected) {
         const code = error.response?.data?.detail?.code;
-        await db.cards.update(cardId, { offline_move: { status: 'rejected', httpStatus, code } });
+        for (const card of cards) await db.cards.update(card.id, {
+          offline_move: { ...card.offline_move, status: 'rejected', httpStatus, code },
+        });
         await db.syncState.update(key, { rejected: true });
       }
       if (!isCurrent()) throw new Error('Session changed');
-      return Boolean(placement || rejected);
+      return { applied: Boolean(receipt || rejected), remapped };
     });
-    changed ||= applied;
+    if (confirmed && isCurrent()) {
+      for (const { tempId, card } of confirmed.remapped) {
+        const mappings = { cards: { [tempId]: card.id } };
+        notifySyncUi('lerne:ids-remapped', { mappings, userId, confirmedCard: card, silent: true }, { mappings, id: card.id });
+      }
+      changed ||= confirmed.applied;
+    }
     firstError ||= error;
   }
   if (changed && isCurrent()) notifySyncUi('lerne:synced', { userId }, {});

@@ -14,6 +14,7 @@ export function remapOfflineUi({ detail }) {
     const next = { ...item, id: id('cards', item.id), deck_id: id('decks', item.deck_id) };
     if (confirmedCard && next.id === confirmedCard.id && item.id !== next.id) {
       delete next.offline_create_status;
+      delete next.offline_move;
       Object.assign(next, confirmedCard);
     }
     return next;
@@ -93,6 +94,10 @@ export function offlineEditLabel(edit) {
 }
 
 export function offlineMoveLabel(move) {
+  if (move.copy) {
+    if (move.status === 'pending') return tr('Копирование ожидает синхронизации');
+    return tr('Копирование не завершено. Карточки сохранены на устройстве.');
+  }
   if (move.status === 'pending') return tr('Перенос ожидает синхронизации');
   if (['card_revision_conflict', 'card_location_changed'].includes(move.code)) {
     return tr('Конфликт версий. Перенос сохранён на устройстве.');

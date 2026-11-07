@@ -30,16 +30,23 @@ const api = new Proxy(axiosInstance, {
         if (propKey === 'patch' && /^\/cards\/\d+$/.test(url) && args[1]?.offlineCardEdit) {
           return localRequest(...args);
         }
-        if (propKey === 'post' && url === '/cards/batch-move' && args[0]?.card_ids?.length === 1 && args[0].revisions) {
+        if (propKey === 'post' && ['/cards/batch-move', '/cards/batch-copy'].includes(url) && args[0]?.revisions) {
           const local = await localRequest(...args);
-          if (!local.data.offline_move || !navigator.onLine) return local;
+          if (!(local.data.offline_move || local.data.offline_transfer) || !navigator.onLine) return local;
           const db = await prepareLocalDb();
           assertCurrent();
           await syncService.sync({ pendingNativeOnly: true, skipPull: true });
-          const card = await db.cards.get(local.data.id);
+          const cards = await db.transaction('r', db.cards, db.syncState, async () => {
+            const aliases = (await db.syncState.get('aliases'))?.mappings?.cards || {};
+            return (await db.cards.bulkGet((local.data.cards || [local.data]).map(card => aliases[card.id] ?? card.id))).filter(Boolean);
+          });
           assertCurrent();
-          return { data: card ?? local.data };
+          if (!local.data.cards) return { data: cards[0] ?? local.data };
+          const pending = cards.some(card => card.offline_move);
+          const count = cards.filter(card => card.deck_id === args[0].target_deck_id).length;
+          return { data: { cards, offline_transfer: pending, count, skipped: args[0].card_ids.length - count } };
         }
+
         const singleDelete = propKey === 'post' && url === '/cards/batch-delete'
           && args[0]?.card_ids?.length === 1 && args[0].revisions;
         const nativeRestore = propKey === 'post' && /^\/trash\/card\/\d+\/restore$/.test(url) && args[0]?.revision;

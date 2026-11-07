@@ -228,6 +228,7 @@ def main():
     parser.add_argument('--offline-isolation-browser', action='store_true', help='Run the account and tab isolation browser scenario')
     parser.add_argument('--offline-move-browser', action='store_true', help='Run the offline move scenario')
     parser.add_argument('--offline-lifecycle-browser', action='store_true', help='Run the offline delete and restore scenario')
+    parser.add_argument('--offline-batch-browser', action='store_true', help='Run durable batch copy/move with Chromium and PostgreSQL')
     args = parser.parse_args()
     binaries = args.bin_dir.resolve()
     suffix = '.exe' if os.name == 'nt' else ''
@@ -267,14 +268,15 @@ def main():
         try:
             if (args.http or args.offline_create_browser or args.offline_edit_browser
                     or args.offline_delivery_browser or args.offline_isolation_browser
-                    or args.offline_move_browser or args.offline_lifecycle_browser):
+                    or args.offline_move_browser or args.offline_lifecycle_browser or args.offline_batch_browser):
                 from structured_cards_http import verify as verify_http
                 return 0 if verify_http(db, offline_create_browser=args.offline_create_browser,
                                         offline_edit_browser=args.offline_edit_browser,
                                         offline_delivery_browser=args.offline_delivery_browser,
                                         offline_isolation_browser=args.offline_isolation_browser,
                                         offline_move_browser=args.offline_move_browser,
-                                        offline_lifecycle_browser=args.offline_lifecycle_browser) else 1
+                                        offline_lifecycle_browser=args.offline_lifecycle_browser,
+                                        offline_batch_browser=args.offline_batch_browser) else 1
             return 0 if verify(db) else 1
         finally:
             if not db.is_closed():

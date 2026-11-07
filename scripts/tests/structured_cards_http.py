@@ -17,7 +17,7 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False):
+           offline_lifecycle_browser=False, offline_batch_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -80,10 +80,12 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
                 return False
             if offline_move_browser and not _run_offline_move_browser(client, port, models, headers):
                 return False
+            if offline_batch_browser and not _run_offline_move_browser(client, port, models, headers, batch=True):
+                return False
             if offline_lifecycle_browser and not _run_offline_lifecycle_browser(client, port, models, headers):
                 return False
             if (offline_create_browser or offline_edit_browser or offline_delivery_browser
-                    or offline_isolation_browser or offline_move_browser or offline_lifecycle_browser):
+                    or offline_isolation_browser or offline_move_browser or offline_lifecycle_browser or offline_batch_browser):
                 return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
@@ -256,7 +258,7 @@ def _run_offline_isolation_browser(port, models):
     return True
 
 
-def _run_offline_move_browser(client, port, models, headers):
+def _run_offline_move_browser(client, port, models, headers, *, batch=False):
     authorization = headers[1]
     source = models.TMA_Deck.create(user_id=1, name='Ausgangsstapel für synthetische Übungen', target_language='de')
     target = models.TMA_Deck.create(user_id=1, name='Zielstapel mit längerer deutscher Bezeichnung', target_language='de')
@@ -269,7 +271,8 @@ def _run_offline_move_browser(client, port, models, headers):
 
     cards = []
     knowledge = models.TMAKnowledgeItem.create(name='Synthetic move concept')
-    for title in ('Online', 'Offline', 'Denied', 'Conflict'):
+    titles = ('Online A', 'Online B', 'Offline A', 'Offline B', 'Conflict A', 'Conflict B', 'Denied A', 'Denied B') if batch else ('Online', 'Offline', 'Denied', 'Conflict')
+    for title in titles:
         response = client.post('cards/save', headers=authorization, json={
             'request_id': str(uuid4()), 'deck_id': source.id, 'image_path': 'images/synthetic-move.webp',
             'video_back_path': 'videos/synthetic-move.webm',
@@ -302,25 +305,42 @@ def _run_offline_move_browser(client, port, models, headers):
     config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': source.id,
               'access_token': authorization['Authorization'].split(' ', 1)[1],
               'owner_token': headers[2]['Authorization'].split(' ', 1)[1],
+              'batch': batch,
               'move': {'source': deck_view(source, 'owner'), 'target': deck_view(target, 'owner'),
                        'denied': deck_view(denied, 'editor'), 'cards': cards}}
-    if not _run_offline_browser(config, 'moves V2 cards across decks'):
+    if not _run_offline_browser(config, 'batch copies and moves V2' if batch else 'moves V2 cards across decks'):
         return False
-    assert models.TMA_Card.select().count() == count
+    assert models.TMA_Card.select().count() == count + (4 if batch else 0)
     assert receipts.count() == receipt_count + 2
     for index, card in enumerate(cards):
         old = before[card['id']]
         new = _card_state(models, card['id'])
         row = new['card'][0]
-        assert row['deck'] == (target.id if index < 2 else source.id)
+        moved = index < (4 if batch else 2)
+        assert row['deck'] == (target.id if moved else source.id)
         assert row['content_v2'] == old['card'][0]['content_v2']
-        if index < 2:
+        if moved:
             for field in ('deck', 'position', 'updated_at'):
                 row[field] = old['card'][0][field]
-        if index == 3:  # The peer edited this card to advance its revision.
+        if index == (5 if batch else 3):  # The peer edited this card to advance its revision.
             for field in ('history', 'updated_at'):
                 row[field] = old['card'][0][field]
         assert new == old
+    if batch:
+        copy_receipts = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:copy:1:'))
+        assert copy_receipts.count() == 2
+        for receipt in copy_receipts:
+            result = json.loads(receipt.response)
+            assert result['created'] == 2
+            for item in result['copies']:
+                original = before[item['source_id']]['card'][0]
+                copied = _card_state(models, item['card']['id'])
+                row = copied['card'][0]
+                assert row['content_v2'] == original['content_v2']
+                assert row['creator_id'] == original['creator_id']
+                for field in ('image_data', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'):
+                    assert row[field] == original[field]
+                assert all(not links for name, links in copied.items() if name != 'card')
     return True
 
 
@@ -549,6 +569,92 @@ def _run_cases(client, models, headers, load_answer_context):
             self.assertEqual(self.call('POST', 'cards/batch-delete', body=delete)['count'], 1)
             self.call('DELETE', f'cards/{card_id}', extra={'If-Match': f'"{listing[1]["revision"]}"'})
             self.call('GET', f'cards/{card_id}', 404)
+
+        def test_batch_transfer_atomic_revisions_order_links_and_receipt_replay(self):
+            from fastapi import HTTPException
+            from api.services import structured_card_api as native
+
+            first = self.create(value=envelope('First'))
+            second = self.create(value={'schema_version': 2, 'card': {'type': 'theory',
+                'data': {'text': 'Second [[literal]] @quiz', 'summary': 'Синтетический текст'},
+                'metadata': {'nested': {'order': ['ä', 'я', 2]}}, 'topics': ['Grüße'],
+                'info': [{'type': 'example', 'text': 'Wörtlich'}], 'explanation': 'Erklärung'}})
+            selected = [second, first]  # The wire order, not numeric ID order, is authoritative.
+            for card in selected:
+                models.TMA_Card.update(image_data=b'synthetic', audio_path='audio/fixture.ogg',
+                    video_front_path='videos/fixture.webm', history='["authored"]', creator_id=2).where(
+                    models.TMA_Card.id == card['id']).execute()
+                models.TMAProgress.create(card_id=card['id'], user_id=1, repetitions=7, flag=3)
+                models.TMAReviewHistory.create(card_id=card['id'], user_id=1, rating=2)
+                models.TMACardNote.create(id=str(uuid4()), card=card['id'], user_id=1, text='Private')
+                models.TMACardRating.create(card=card['id'], user_id=1, rating=1)
+            selected = [self.call('GET', f'cards/{card["id"]}') for card in selected]
+            before = {card['id']: _card_state(models, card['id']) for card in selected}
+            payload = {'request_id': str(uuid4()), 'card_ids': [card['id'] for card in selected],
+                       'revisions': {str(card['id']): card['revision'] for card in selected},
+                       'target_deck_id': self.target.id, 'on_duplicate': 'keep'}
+            count = models.TMA_Card.select().count()
+            self.call('POST', 'cards/batch-copy', 422, body={**payload, 'revisions': {}})
+            deck_states = list(models.TMA_Deck.select().order_by(models.TMA_Deck.id).dicts())
+            calls = 0
+            def fail_second(*args, **kwargs):
+                nonlocal calls
+                calls += 1
+                if calls == 2:
+                    raise HTTPException(409, {'code': 'synthetic_second_card_failure'})
+                return clone(*args, **kwargs)
+            clone = native._clone
+            with patch.object(native, '_clone', side_effect=fail_second):
+                self.call('POST', 'cards/batch-copy', 409, body=payload)
+            self.assertEqual(calls, 2)
+            self.assertEqual(models.TMA_Card.select().count(), count)
+            self.assertEqual(list(models.TMA_Deck.select().order_by(models.TMA_Deck.id).dicts()), deck_states)
+            key = f'cards-v2:copy:1:{payload["request_id"]}'
+            self.assertFalse(models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key == key).exists())
+            with ThreadPoolExecutor(2) as pool:
+                copied, replay = list(pool.map(lambda _: self.call('POST', 'cards/batch-copy', body=payload), range(2)))
+            self.assertEqual(copied, replay)
+            self.assertEqual(copied['created'], 2)
+            self.assertEqual([item['source_id'] for item in copied['copies']], payload['card_ids'])
+            self.assertEqual(models.TMA_Card.select().count(), count + 2)
+            for original, item in zip(selected, copied['copies']):
+                card = item['card']
+                self.assertNotIn(card['id'], payload['card_ids'])
+                self.assertEqual(card['content_v2'], original['content_v2'])
+                self.assertEqual(card['creator_id'], 2)
+                self.assertEqual(self.call('GET', f'cards/{card["id"]}')['revision'], card['revision'])
+                stored = models.TMA_Card.get_by_id(card['id'])
+                self.assertEqual(bytes(stored.image_data), b'synthetic')
+                self.assertEqual(stored.audio_path, 'audio/fixture.ogg')
+                self.assertEqual(stored.video_front_path, 'videos/fixture.webm')
+                self.assertTrue(all(not rows for name, rows in _card_state(models, card['id']).items() if name != 'card'))
+            self.assertLess(copied['copies'][0]['card']['position'], copied['copies'][1]['card']['position'])
+            self.assertEqual({card['id']: _card_state(models, card['id']) for card in selected}, before)
+            for mode in ('skip', 'overwrite'):
+                duplicate = self.call('POST', 'cards/batch-copy', body={**payload,
+                    'request_id': str(uuid4()), 'on_duplicate': mode})
+                self.assertEqual(duplicate['created'], 0)
+                self.assertEqual(duplicate['skipped' if mode == 'skip' else 'updated'], 2)
+                self.assertEqual(len(duplicate['copies']), 2)
+            stale = {**payload, 'request_id': str(uuid4()),
+                     'revisions': {**payload['revisions'], str(first['id']): '0' * 64}}
+            for operation in ('copy', 'move'):
+                self.call('POST', f'cards/batch-{operation}', 409, body=stale)
+            self.assertEqual({card['id']: _card_state(models, card['id']) for card in selected}, before)
+            self.call('POST', 'cards/batch-move', 409, body={**payload, 'request_id': str(uuid4()), 'on_duplicate': 'overwrite'})
+            moved = self.call('POST', 'cards/batch-move', body=payload)
+            self.assertEqual(self.call('POST', 'cards/batch-move', body=payload), moved)
+            self.assertEqual(moved['moved'], 2)
+            self.assertEqual([item['id'] for item in moved['placements']], payload['card_ids'])
+            for card in selected:
+                after = _card_state(models, card['id'])
+                old = before[card['id']]
+                self.assertEqual(after['card'][0]['deck'], self.target.id)
+                for field in ('deck', 'position', 'updated_at'):
+                    after['card'][0][field] = old['card'][0][field]
+                self.assertEqual(after, old)
+            self.call('POST', 'cards/batch-copy', 409, body={**payload, 'on_duplicate': 'skip'})
+            self.assertEqual(self.call('POST', 'cards/batch-copy', body=payload), copied)
 
         def test_codex_import_writes_only_canonical_cards(self):
             path = 'decks/import-json'

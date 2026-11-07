@@ -470,6 +470,21 @@ legacyAdapter удалён, новый personal record создаётся неп
 
 CI fixtures: `tests/fixtures/`, только вымышленные данные; приватные снимки и артефакты остаются в `local/test-data/`. Политика и воспроизводимость: [TEST_DATA](../../docs/TEST_DATA.md).
 
+## V2: пакетные copy/move (6B.5c)
+
+`useCardEditor.js` отправляет оба действия через `api.js` → `offlineApi.js`:
+одна Dexie-транзакция карточек и существующего `syncState.card-move-v2:*`.
+`syncService.deliverCardMoves` доставляет весь пакет через прежние native API;
+серверный владелец V2 — `structured_card_api.transfer_cards`. Copy принимает
+необязательные ревизии источников и возвращает упорядоченные `copies` с
+`source_id` и созданной карточкой либо null для skip; move возвращает
+`placements`. Квитанция и изменения фиксируются вместе. Подтверждение copy
+атомарно заменяет временные ID через aliases; перенос сохраняет ID и связи.
+Сетевые ошибки сохраняют пакет для повтора, 403/404/409/422 сохраняют
+отклонённый пакет и локальные карточки без автоматической повторной отправки.
+Контракт, ограничения и команды PostgreSQL/Chromium/HTTP:
+[6B.5c](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5c-пакетное-копирование-и-перенос-v2-карточек).
+
 ## C1: выполнение DB-операций в worker-потоках
 
 Шесть прежних async-обработчиков `save_card`, `batch_move_cards`,
