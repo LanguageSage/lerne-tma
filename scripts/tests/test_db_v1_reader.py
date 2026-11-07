@@ -95,14 +95,18 @@ class LocalDbV1ReaderTests(unittest.TestCase):
                 'implicit_free_text_policy': {'count': 3, 'card_ids': [30, 31, 32]},
                 'legacy_translation_card_type_normalized': {'count': 10, 'card_ids': [40]},
                 'shared_card_position': {'count': 8, 'card_ids': [50]},
+                'single_sided_audio_card': {'count': 15, 'card_ids': [60, 61]},
+                'empty_back_converted_to_theory': {'count': 7, 'card_ids': [70]},
             },
         }
         fixes = categorize_migration_fixes(mock_report)
-        self.assertEqual(len(fixes['automatic']), 3)
+        self.assertEqual(len(fixes['automatic']), 5)
         auto_codes = [f['code'] for f in fixes['automatic']]
         self.assertIn('implicit_free_text_policy', auto_codes)
         self.assertIn('legacy_translation_card_type_normalized', auto_codes)
         self.assertIn('shared_card_position', auto_codes)
+        self.assertIn('single_sided_audio_card', auto_codes)
+        self.assertIn('empty_back_converted_to_theory', auto_codes)
 
         self.assertEqual(len(fixes['manual']), 2)
         manual_codes = [f['code'] for f in fixes['manual']]

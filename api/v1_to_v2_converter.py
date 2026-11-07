@@ -53,6 +53,61 @@ _INLINE_MARKER_RE = re.compile(
 _ANY_BLOCK_MARKER_RE = re.compile(r'^[ \t]*::([a-zA-Z0-9_-]+)[ \t]*$', re.MULTILINE)
 _DIRECTIVE_START_RE = re.compile(r'^[ \t]*@([a-zA-Z0-9_-]+)\b')
 _UNDERSCORE_BLANK_RE = re.compile(r'_{3,}')
+_CYRILLIC_CHAR_RE = re.compile(r'[\u0400-\u04FF]')
+
+
+def _card_has_audio(card: dict[str, Any], metadata: dict[str, Any]) -> bool:
+    if card.get('audio_path') or card.get('audio_back_path'):
+        return True
+    if metadata.get('audio_filename'):
+        return True
+    resources = metadata.get('resources')
+    if isinstance(resources, list):
+        for res in resources:
+            if isinstance(res, dict) and res.get('type') == 'audio':
+                return True
+    return False
+
+
+def _classify_empty_back(
+    prompt: str,
+    card: dict[str, Any],
+    metadata: dict[str, Any],
+    deck: dict[str, Any] | None,
+) -> str:
+    """Classify a standard/translation card with empty back into:
+    - 'audio_standard': single-sided audio shadowing/listening card
+    - 'theory': grammar explanation or reading passage without answer
+    - 'block': defective isolated word/fragment with missing answer
+    """
+    stripped_prompt = prompt.strip()
+    if not stripped_prompt:
+        return 'block'
+    words = stripped_prompt.split()
+    num_words = len(words)
+    has_audio = _card_has_audio(card, metadata)
+
+    cyr_count = len(_CYRILLIC_CHAR_RE.findall(stripped_prompt))
+    lat_count = len(re.findall(r'[a-zA-Z]', stripped_prompt))
+    is_cyrillic = cyr_count > lat_count
+
+    deck_name = (deck.get('name') or '').lower() if isinstance(deck, dict) else ''
+    deck_meta = str(deck.get('metadata') or '').lower() if isinstance(deck, dict) else ''
+    is_theory_deck = 'теория' in deck_name or 'theory' in deck_meta
+
+    if has_audio and (not is_cyrillic or num_words >= 3):
+        return 'audio_standard'
+
+    if is_theory_deck:
+        return 'theory'
+
+    if is_cyrillic and num_words >= 4:
+        return 'theory'
+
+    if not is_cyrillic and (num_words >= 4 or '\n' in stripped_prompt):
+        return 'theory'
+
+    return 'block'
 
 
 def encode_v2_content(card: Card | dict[str, Any]) -> dict[str, Any]:
@@ -349,6 +404,7 @@ def inspect_v1_card(
     strip_synthesized_back_note: bool = True,
     require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
+    classify_empty_back: bool = True,
 ) -> dict[str, Any]:
     """Inspect and convert a single V1 card dictionary without mutating input."""
     if not isinstance(card, dict):
@@ -543,11 +599,54 @@ def inspect_v1_card(
         return _build_result(raw_card_id, raw_deck_id, index, None, None, errors, warnings)
 
     # 6. Post-parse structural & semantic ambiguity checks.
-    # 6a. Stored card_type vs parsed kind.
+    # 6a. Classify empty back on standard cards before card_type and detector checks.
+    reclassified_to_theory = False
+    if kind == 'standard' and not data.get('answer', '').strip():
+        if classify_empty_back:
+            classification = _classify_empty_back(data.get('prompt', ''), card, metadata, deck)
+            if classification == 'audio_standard':
+                data['answer'] = data.get('prompt', '')
+                add_warning(
+                    'single_sided_audio_card',
+                    'standard card has empty back but contains audio; back (answer) mirrored from front prompt for listening/shadowing practice',
+                    path='card.back',
+                    prompt=data.get('prompt', ''),
+                )
+            elif classification == 'theory':
+                kind = 'theory'
+                data = {'text': data.get('prompt', ''), 'summary': ''}
+                reclassified_to_theory = True
+                add_warning(
+                    'empty_back_converted_to_theory',
+                    'standard card with empty back reclassified as theory text/reading passage',
+                    path='card.type',
+                )
+            else:
+                add_error(
+                    'empty_back',
+                    'standard card requires non-empty back (answer)',
+                    path='card.back',
+                )
+        else:
+            add_error(
+                'empty_back',
+                'standard card requires non-empty back (answer)',
+                path='card.back',
+            )
+
+    # 6b. Stored card_type vs parsed kind.
     explicit_card_type = card.get('card_type', card.get('type'))
     if isinstance(explicit_card_type, str) and explicit_card_type.strip():
         norm_type = explicit_card_type.strip()
-        if norm_type == 'translation' and kind == 'standard':
+        if reclassified_to_theory and norm_type in ('standard', 'translation'):
+            add_warning(
+                'legacy_card_type_reclassified_to_theory',
+                f"legacy card_type {norm_type!r} reclassified to 'theory' due to empty back and theory content",
+                path='card.type',
+                stored_card_type=norm_type,
+                parsed_type=kind,
+            )
+        elif norm_type == 'translation' and kind == 'standard':
             add_warning(
                 'legacy_translation_card_type_normalized',
                 "legacy card_type 'translation' normalized to V2 type 'standard'",
@@ -563,14 +662,6 @@ def inspect_v1_card(
                 stored_card_type=norm_type,
                 parsed_type=kind,
             )
-
-    # 6b. Standard card requires non-empty answer (back).
-    if kind == 'standard' and not data.get('answer', '').strip():
-        add_error(
-            'empty_back',
-            'standard card requires non-empty back (answer)',
-            path='card.back',
-        )
 
     # 6c. Unconverted fill-in-the-blank underscores in standard cards.
     if kind == 'standard' and _UNDERSCORE_BLANK_RE.search(data.get('prompt', '')):
@@ -612,7 +703,16 @@ def inspect_v1_card(
     # 6f. Detector consistency check (detect_card_type & detect_ai_input_type).
     det_card = detect_card_type(raw_front)
     det_ai = detect_ai_input_type(raw_front)
-    if det_card != kind or (kind != 'quiz' and det_ai != kind):
+    if reclassified_to_theory:
+        add_warning(
+            'empty_back_theory_detector_bypass',
+            f"legacy detectors detected {det_card!r} for empty-back card reclassified as 'theory'",
+            path='card.type',
+            parsed_type=kind,
+            detect_card_type=det_card,
+            detect_ai_input_type=det_ai,
+        )
+    elif det_card != kind or (kind != 'quiz' and det_ai != kind):
         add_error(
             'detector_type_divergence',
             f'legacy detectors disagree with parsed type {kind!r} '
@@ -1043,6 +1143,7 @@ def convert_v1_card(
     strip_synthesized_back_note: bool = True,
     require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
+    classify_empty_back: bool = True,
 ) -> dict[str, Any]:
     """Convert a single V1 card dictionary to a canonical `content_v2` payload.
 
@@ -1055,6 +1156,7 @@ def convert_v1_card(
         strip_synthesized_back_note=strip_synthesized_back_note,
         require_explicit_free_text_policy=require_explicit_free_text_policy,
         default_free_text_policy=default_free_text_policy,
+        classify_empty_back=classify_empty_back,
     )
     if not result['ok'] or result['content_v2'] is None:
         diags = [
@@ -1215,6 +1317,7 @@ def convert_v1_document(
     strip_synthesized_back_note: bool = True,
     require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
+    classify_empty_back: bool = True,
 ) -> Document:
     """Convert a legacy `{deck, cards}` document into a validated V2 `Document`.
 
@@ -1258,6 +1361,7 @@ def convert_v1_document(
             strip_synthesized_back_note=strip_synthesized_back_note,
             require_explicit_free_text_policy=require_explicit_free_text_policy,
             default_free_text_policy=default_free_text_policy,
+            classify_empty_back=classify_empty_back,
         )
         if not res['ok'] or res['content_v2'] is None:
             for d in res['diagnostics']:
@@ -1342,6 +1446,7 @@ def convert_v1_snapshot(
     default_free_text_policy: str = 'controlled_text',
     include_converted_payloads: bool = True,
     allow_shared_positions: bool = False,
+    classify_empty_back: bool = True,
 ) -> dict[str, Any]:
     """Batch-inspect and dry-run convert a V1 snapshot without mutating source data.
 
@@ -1557,6 +1662,7 @@ def convert_v1_snapshot(
             strip_synthesized_back_note=strip_synthesized_back_note,
             require_explicit_free_text_policy=require_explicit_free_text_policy,
             default_free_text_policy=default_free_text_policy,
+            classify_empty_back=classify_empty_back,
         )
 
         card_diags = list(res['diagnostics'])
@@ -1795,6 +1901,7 @@ def run_v1_migration_dry_run(
     include_converted_payloads: bool = False,
     verify_source_unmodified: bool = True,
     allow_shared_positions: bool = False,
+    classify_empty_back: bool = True,
 ) -> dict[str, Any]:
     """Run a non-destructive V1 -> V2 migration dry-run on a snapshot and verify invariants."""
     before_copy = copy.deepcopy(snapshot) if verify_source_unmodified else None
@@ -1805,6 +1912,7 @@ def run_v1_migration_dry_run(
         default_free_text_policy=default_free_text_policy,
         include_converted_payloads=include_converted_payloads,
         allow_shared_positions=allow_shared_positions,
+        classify_empty_back=classify_empty_back,
     )
     if verify_source_unmodified:
         source_unmodified = (snapshot == before_copy)
@@ -1922,8 +2030,14 @@ def main(argv: list[str] | None = None) -> int:
         action='store_true',
         help='Allow multiple cards in a deck to share the same position value (e.g. 0) with a warning instead of error',
     )
+    parser.add_argument(
+        '--strict-empty-back',
+        action='store_true',
+        help='Block all standard cards with empty back (disable automatic classification into audio shadowing or theory)',
+    )
     args = parser.parse_args(argv)
     require_explicit = bool(args.strict_free_policy and not args.allow_implicit_free_policy)
+    classify_empty = not args.strict_empty_back
     try:
         raw = json.loads(args.file.read_text(encoding='utf-8-sig'))
         if args.dry_run:
@@ -1932,6 +2046,7 @@ def main(argv: list[str] | None = None) -> int:
                 require_explicit_free_text_policy=require_explicit,
                 include_converted_payloads=args.include_payloads,
                 allow_shared_positions=args.allow_shared_positions,
+                classify_empty_back=classify_empty,
             )
             report_json = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)
             if args.report_out is not None:
@@ -1949,17 +2064,29 @@ def main(argv: list[str] | None = None) -> int:
             return 0
 
         if isinstance(raw, dict) and 'decks' in raw and 'cards' in raw:
-            result = convert_v1_snapshot(raw, require_explicit_free_text_policy=require_explicit)
+            result = convert_v1_snapshot(
+                raw,
+                require_explicit_free_text_policy=require_explicit,
+                classify_empty_back=classify_empty,
+            )
             out_stream = sys.stdout if result['ok'] else sys.stderr
             print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False), file=out_stream)
             if args.summary:
                 print(format_dry_run_summary(result), file=sys.stderr)
             return 0 if result['ok'] else 1
         if isinstance(raw, dict) and 'deck' in raw and 'cards' in raw:
-            doc = convert_v1_document(raw, require_explicit_free_text_policy=require_explicit)
+            doc = convert_v1_document(
+                raw,
+                require_explicit_free_text_policy=require_explicit,
+                classify_empty_back=classify_empty,
+            )
             print(json.dumps(doc.model_dump(mode='json'), ensure_ascii=False, indent=2, allow_nan=False))
             return 0
-        payload = convert_v1_card(raw, require_explicit_free_text_policy=require_explicit)
+        payload = convert_v1_card(
+            raw,
+            require_explicit_free_text_policy=require_explicit,
+            classify_empty_back=classify_empty,
+        )
         print(json.dumps(payload, ensure_ascii=False, indent=2, allow_nan=False))
         return 0
     except V1ConversionError as exc:

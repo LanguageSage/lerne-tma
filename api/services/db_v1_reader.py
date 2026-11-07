@@ -199,6 +199,24 @@ def categorize_migration_fixes(report: dict[str, Any]) -> dict[str, list[dict[st
             'description': 'Неуникальные значения position (дефолт 0) в колоде безопасно ре-индексируются по порядку '
                            'ORDER BY position ASC, id ASC.',
         })
+    if 'single_sided_audio_card' in warn_by_code:
+        info = warn_by_code['single_sided_audio_card']
+        automatic_fixes.append({
+            'code': 'single_sided_audio_card',
+            'count': info['count'],
+            'affected_card_ids': info['card_ids'],
+            'description': 'Карточки с аудио без обратной стороны безопасно сохраняются как standard '
+                           '(back = prompt) для тренировки аудирования / shadowing.',
+        })
+    if 'empty_back_converted_to_theory' in warn_by_code:
+        info = warn_by_code['empty_back_converted_to_theory']
+        automatic_fixes.append({
+            'code': 'empty_back_converted_to_theory',
+            'count': info['count'],
+            'affected_card_ids': info['card_ids'],
+            'description': 'Карточки без обратной стороны с теоретическим материалом или длинным текстом/диалогом '
+                           'безопасно преобразуются в V2 theory.',
+        })
 
     # Manual fixes: each blocked code in reasons
     reasons = report.get('reasons', {})
@@ -206,7 +224,7 @@ def categorize_migration_fixes(report: dict[str, Any]) -> dict[str, list[dict[st
         desc = info.get('sample_message', code)
         recommendation = 'Требуется ручное исправление перед миграцией.'
         if code == 'empty_back':
-            recommendation = 'Карточки без обратной стороны (ответа). Требуется указать перевод или преобразовать в @theory.'
+            recommendation = 'Дефектные карточки без обратной стороны и без аудио (изолированные слова или фрагменты черновиков). Требуется указать перевод либо удалить.'
         elif code == 'card_type_mismatch':
             recommendation = 'Сохранённый card_type конфликтует с синтаксисом карточки. Требуется согласовать тип с контентом.'
         elif code == 'unmarked_preamble_before_directive':
@@ -245,6 +263,7 @@ def run_local_db_migration_dry_run(
     include_deleted: bool = False,
     allow_shared_positions: bool = True,
     include_payloads: bool = False,
+    classify_empty_back: bool = True,
 ) -> dict[str, Any]:
     """Execute mass dry-run on real LOCAL PostgreSQL data without mutating the database."""
     db_status = check_local_db_availability()
@@ -284,6 +303,7 @@ def run_local_db_migration_dry_run(
             snapshot,
             include_converted_payloads=include_payloads,
             allow_shared_positions=allow_shared_positions,
+            classify_empty_back=classify_empty_back,
         )
         scope_reports[s] = rep
         total_decks += rep['total_decks']
@@ -439,6 +459,11 @@ def main(argv: list[str] | None = None) -> int:
         help='Fail on shared/duplicate position values within a deck instead of auto-normalizing with warning',
     )
     parser.add_argument(
+        '--strict-empty-back',
+        action='store_true',
+        help='Block all standard cards with empty back (disable automatic classification into audio shadowing or theory)',
+    )
+    parser.add_argument(
         '--summary',
         action='store_true',
         help='Print human-readable summary',
@@ -461,6 +486,7 @@ def main(argv: list[str] | None = None) -> int:
         include_deleted=args.include_deleted,
         allow_shared_positions=not args.strict_positions,
         include_payloads=args.include_payloads,
+        classify_empty_back=not args.strict_empty_back,
     )
 
     report_json = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)

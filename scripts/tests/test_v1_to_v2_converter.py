@@ -968,6 +968,155 @@ class V1ToV2ConverterTests(unittest.TestCase):
         self.assertEqual(shared_report['blocked_count'], 0)
         self.assertIn('shared_card_position', shared_report['warnings_by_code'])
 
+    def test_empty_back_audio_shadowing_converts_to_standard(self):
+        deck = {'level': 'A1', 'topic': 'Aussprache'}
+        v1_card = {
+            'id': 5001,
+            'deck_id': 10,
+            'front_text': 'Guten Morgen, wie geht es Ihnen?',
+            'back_text': '',
+            'audio_path': 'uploads/audio/5001.mp3',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        self.assertIsNotNone(res['content_v2'])
+        v2_card = decode_v2_content(res['content_v2'])
+        self.assertEqual(v2_card.type, 'standard')
+        self.assertEqual(v2_card.data.prompt, 'Guten Morgen, wie geht es Ihnen?')
+        self.assertEqual(v2_card.data.answer, 'Guten Morgen, wie geht es Ihnen?')
+        warning_codes = [w['code'] for w in res['warnings']]
+        self.assertIn('single_sided_audio_card', warning_codes)
+
+    def test_empty_back_audio_in_metadata_converts_to_standard(self):
+        deck = {'level': 'A2', 'topic': 'Hörverstehen'}
+        v1_card = {
+            'id': 5002,
+            'deck_id': 10,
+            'front_text': 'Ich fahre morgen nach Berlin.',
+            'back_text': '',
+            'metadata': {'audio_filename': 'berlin.mp3'},
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        v2_card = decode_v2_content(res['content_v2'])
+        self.assertEqual(v2_card.type, 'standard')
+        self.assertEqual(v2_card.data.answer, 'Ich fahre morgen nach Berlin.')
+        warning_codes = [w['code'] for w in res['warnings']]
+        self.assertIn('single_sided_audio_card', warning_codes)
+
+    def test_empty_back_german_reading_passage_converts_to_theory(self):
+        deck = {'level': 'B1', 'topic': 'Lesen'}
+        prompt = 'Eine echte Alternative zur Reeperbahn! Übrigens: Ganz in der Nähe vom Hasselbrack befindet sich der Park.'
+        v1_card = {
+            'id': 5003,
+            'deck_id': 11,
+            'front_text': prompt,
+            'back_text': '',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        v2_card = decode_v2_content(res['content_v2'])
+        self.assertEqual(v2_card.type, 'theory')
+        self.assertEqual(v2_card.data.text, prompt)
+        self.assertEqual(v2_card.data.summary, '')
+        warning_codes = [w['code'] for w in res['warnings']]
+        self.assertIn('empty_back_converted_to_theory', warning_codes)
+        self.assertIn('empty_back_theory_detector_bypass', warning_codes)
+
+    def test_empty_back_russian_grammar_rule_converts_to_theory(self):
+        deck = {'level': 'A1', 'topic': 'Grammatik'}
+        prompt = 'Многие глаголы требуют дополнения в падеже аккузатив.'
+        v1_card = {
+            'id': 5004,
+            'deck_id': 12,
+            'front_text': prompt,
+            'back_text': '',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        v2_card = decode_v2_content(res['content_v2'])
+        self.assertEqual(v2_card.type, 'theory')
+        self.assertEqual(v2_card.data.text, prompt)
+        warning_codes = [w['code'] for w in res['warnings']]
+        self.assertIn('empty_back_converted_to_theory', warning_codes)
+
+    def test_empty_back_theory_deck_context_converts_to_theory(self):
+        deck = {'name': 'Урок 1: Теория и правила', 'level': 'A1', 'topic': 'Regeln'}
+        v1_card = {
+            'id': 5005,
+            'deck_id': 13,
+            'front_text': 'Kurze Notiz',
+            'back_text': '',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        v2_card = decode_v2_content(res['content_v2'])
+        self.assertEqual(v2_card.type, 'theory')
+        self.assertEqual(v2_card.data.text, 'Kurze Notiz')
+
+    def test_empty_back_isolated_word_remains_strictly_blocked(self):
+        deck = {'level': 'A1', 'topic': 'Wortschatz'}
+        v1_card = {
+            'id': 5006,
+            'deck_id': 14,
+            'front_text': 'Kaffeesonne',
+            'back_text': '',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertFalse(res['ok'])
+        diag_codes = [d['code'] for d in res['diagnostics']]
+        self.assertIn('empty_back', diag_codes)
+
+    def test_empty_back_russian_fragment_remains_strictly_blocked(self):
+        deck = {'level': 'A1', 'topic': 'Wortschatz'}
+        v1_card = {
+            'id': 5007,
+            'deck_id': 14,
+            'front_text': 'задание',
+            'back_text': '',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertFalse(res['ok'])
+        diag_codes = [d['code'] for d in res['diagnostics']]
+        self.assertIn('empty_back', diag_codes)
+
+    def test_empty_back_with_explicit_translation_card_type(self):
+        deck = {'level': 'A2', 'topic': 'Lesen'}
+        prompt = 'Das ist eine interessante Geschichte über Hamburg und die Elbe.'
+        v1_card = {
+            'id': 5008,
+            'deck_id': 15,
+            'card_type': 'translation',
+            'front_text': prompt,
+            'back_text': '',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        v2_card = decode_v2_content(res['content_v2'])
+        self.assertEqual(v2_card.type, 'theory')
+        warning_codes = [w['code'] for w in res['warnings']]
+        self.assertIn('legacy_card_type_reclassified_to_theory', warning_codes)
+        self.assertIn('empty_back_converted_to_theory', warning_codes)
+
+    def test_strict_empty_back_mode_blocks_classification(self):
+        deck = {'level': 'A1', 'topic': 'Aussprache'}
+        v1_audio_card = {
+            'id': 5009,
+            'deck_id': 16,
+            'front_text': 'Guten Morgen!',
+            'back_text': '',
+            'audio_path': 'audio.mp3',
+        }
+        # In default mode: converts safely
+        res_default = inspect_v1_card(v1_audio_card, deck=deck, classify_empty_back=True)
+        self.assertTrue(res_default['ok'])
+
+        # In strict mode: blocked with empty_back
+        res_strict = inspect_v1_card(v1_audio_card, deck=deck, classify_empty_back=False)
+        self.assertFalse(res_strict['ok'])
+        diag_codes = [d['code'] for d in res_strict['diagnostics']]
+        self.assertIn('empty_back', diag_codes)
+
     def test_pure_module_does_not_import_database_models(self):
         import subprocess
 
