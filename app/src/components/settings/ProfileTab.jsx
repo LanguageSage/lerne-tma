@@ -6,7 +6,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import api from '../../services/api';
-import { isOfflineMode, db } from '../../services/localDb';
+import { db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { openExternalLink, closeApp } from '../../utils/platform';
 import { getSessionIdentity, getUserId, resetUserSession } from '../../utils/auth';
@@ -25,6 +25,9 @@ export const ProfileTab = ({ userId }) => {
   const [passwordConfirmation, setPasswordConfirmation] = useState('');
   const [savingPassword, setSavingPassword] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
+  const [syncReport, setSyncReport] = useState(null);
+  const [syncing, setSyncing] = useState(false);
+  useEffect(() => { setSyncReport(null); }, [userId, userProfile?.user_id]);
 
   useEffect(() => {
     if (userProfile?.first_name && userProfile.first_name !== 'Пользователь') {
@@ -304,29 +307,37 @@ export const ProfileTab = ({ userId }) => {
           </div>
         )}
 
-        {isOfflineMode() && (
+        {getUserId() != null && (
           <div className="link-telegram-section glass" style={{ marginTop: '15px' }}>
             <h4>{tr("Локальная база данных")}</h4>
             <p>{tr("Данные сохраняются на вашем устройстве. Синхронизируйте их с сервером при наличии сети.")}</p>
             <button 
               className="btn btn-primary"
+              disabled={syncing}
               onClick={async () => {
                 const identity = getSessionIdentity();
                 const account = getUserId();
+                setSyncing(true);
+                setSyncReport(null);
                 showToast(tr("Синхронизация..."));
-                const res = await syncService.sync();
+                let res;
+                try { res = await syncService.sync(); }
+                finally { setSyncing(false); }
                 if (identity !== getSessionIdentity() || account !== getUserId()) return;
+                setSyncReport(res);
                 if (res.success) {
-                  showToast(res.card_notes_pending
-                    ? tr('Колоды и прогресс сохранены. Часть заметок ожидает синхронизации.')
-                    : tr("Синхронизация успешно завершена!"), res.card_notes_pending ? 'info' : 'success');
+                  showToast(tr("Синхронизация успешно завершена!"), 'success');
                   const { fetchDecks } = useDeckStore.getState();
                   fetchDecks(true);
                 } else {
-                  showToast(tr("Сбой синхронизации: {{p0}}", { p0: res.reason || tr("нет сети") }));
+                  showToast(res.reason || tr('На устройстве остаются неподтверждённые изменения. Очередь сохранена.'), 'warning');
                 }
               }}
             >{tr("Синхронизировать сейчас")}{' '}</button>
+            {syncReport && <p role="status" style={{ overflowWrap: 'anywhere' }}>
+              {syncReport.success ? tr('Синхронизация успешно завершена!')
+                : <>{syncReport.native_success && <>{tr('Доставка V2 завершена. Общая синхронизация не завершена.')} </>}{syncReport.reason}</>}
+            </p>}
           </div>
         )}
 

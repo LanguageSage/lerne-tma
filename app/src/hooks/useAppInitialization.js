@@ -79,7 +79,7 @@ export const useAppInitialization = (checkStartParam) => {
       try { await initPromise; } finally { useUiStore.setState({ loading: false, hasInitialized: true }); }
     };
 
-    const runBackgroundSync = () => syncService.sync({ pendingNativeOnly: !isOfflineMode() })
+    const runBackgroundSync = () => syncService.sync()
       .catch(error => console.error('Background sync failed', error));
     init();
     useAuthStore.getState().initListeners();

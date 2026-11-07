@@ -142,7 +142,9 @@ test('revoked card annotation access cannot block entity/progress synchronizatio
   networkApi.put = async () => { throw Object.assign(new Error('Denied'), { response: { status: 403 } }); };
   const { syncService } = await import('../syncService.js');
   const result = await syncService.sync();
-  assert.equal(result.success, true);
+  assert.equal(result.success, false);
+  assert.equal(result.native_success, true);
+  assert.equal(result.entities_success, true);
   assert.equal(result.card_notes_pending, true);
   const db = await prepareLocalDb();
   assert.equal((await db.card_notes.get(row.id)).is_dirty, 1);

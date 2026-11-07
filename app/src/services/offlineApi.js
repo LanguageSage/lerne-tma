@@ -7,8 +7,10 @@ import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, 
 import { writeCardNote } from './cardNotes.js';
 import { cardTypes, validateStandardDraft } from '../utils/cardDraft.js';
 
-export const dirtyFields = () => ({
+export const dirtyFields = previous => ({
   is_dirty: 1, local_revision: crypto.randomUUID(), updated_at: new Date().toISOString(),
+  ...(previous && !previous.is_dirty && Object.hasOwn(previous, 'updated_at')
+    ? { sync_base: { updated_at: previous.updated_at } } : {}),
 });
 const ordered = (items) => items.sort((a, b) => (a.position || 0) - (b.position || 0) || a.id - b.id);
 const jsonObject = (value, fallback = {}) => {
@@ -382,7 +384,7 @@ export const offlineApi = {
       if (!item) notFound();
       const owner = table.name === 'cards' ? await db.decks.get(item.deck_id) : item;
       if (owner?.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
-      const updated = { ...item, ...fields, ...dirtyFields() };
+      const updated = { ...item, ...fields, ...dirtyFields(item) };
       await table.put(updated);
       return updated;
     };
@@ -485,7 +487,7 @@ export const offlineApi = {
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
         // UUID reviews own native server SRS; a later label edit may outlive their ack.
         const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context),
-          ...(card.content_v2 && { flag_only: true }), ...dirtyFields() };
+          ...(card.content_v2 && { flag_only: true }), ...dirtyFields(progress) };
         await db.progress.put(updated);
         // Same transaction as progress; every grade survives reload and batch retry.
         await db.syncState.put({ key: `grade:${actionId}`, fingerprint });
@@ -513,7 +515,7 @@ export const offlineApi = {
           front_text: body.front ?? body.front_text ?? previous?.front_text ?? '',
           back_text: body.back ?? body.back_text ?? previous?.back_text ?? '',
           created_at: previous?.created_at || new Date().toISOString(),
-          position: previous?.position ?? Math.max(-1, ...siblings.map(c => c.position || 0)) + 1, ...dirtyFields() };
+          position: previous?.position ?? Math.max(-1, ...siblings.map(c => c.position || 0)) + 1, ...dirtyFields(previous) };
         for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path']) {
           if (Object.hasOwn(body, key)) card[key] = body[key];
         }
@@ -521,7 +523,7 @@ export const offlineApi = {
         await db.cards.put(card);
         let progress = await db.progress.get([id, userId]);
         if (Object.hasOwn(body, 'flag')) {
-          progress = { ...(progress || initialProgress(card, userId)), flag: Number(body.flag) || 0, ...dirtyFields() };
+          progress = { ...(progress || initialProgress(card, userId)), flag: Number(body.flag) || 0, ...dirtyFields(progress) };
           await db.progress.put(progress);
         }
         return result({ ...card, front: card.front_text, back: card.back_text, flag: progress?.flag ?? card.flag ?? 0 });
@@ -579,9 +581,9 @@ export const offlineApi = {
                 tags: card.tags || existingMatch.tags,
                 metadata: card.metadata || existingMatch.metadata,
                 position: updatedPos,
-                ...dirtyFields()
+                ...dirtyFields(existingMatch)
               });
-              await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
+              await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields(card) });
               updatedCount += 1;
               continue;
             }
@@ -594,7 +596,7 @@ export const offlineApi = {
               cardPos = maxPos;
             }
 
-            await db.cards.put({ ...card, deck_id: targetDeckId, position: cardPos, ...dirtyFields() });
+            await db.cards.put({ ...card, deck_id: targetDeckId, position: cardPos, ...dirtyFields(card) });
             movedCount += 1;
             if (frontKey) existingByFront.set(frontKey, card);
           }
@@ -652,7 +654,7 @@ export const offlineApi = {
                 tags: card.tags || existingMatch.tags,
                 metadata: card.metadata || existingMatch.metadata,
                 position: updatedPos,
-                ...dirtyFields()
+                ...dirtyFields(existingMatch)
               });
               updatedCount += 1;
               continue;
@@ -694,7 +696,7 @@ export const offlineApi = {
           if (card) {
             if (card.content_v2) throw unsupported();
             await requireContentWrite(db, 'cards', card);
-            await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields() });
+            await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields(card) });
           }
         }
         return success({ count: cardIds.length });
@@ -751,7 +753,7 @@ export const offlineApi = {
             const oldProg = await db.progress.get([card.id, userId]) || {};
             await db.progress.put({ ...oldProg, card_id: card.id, user_id: userId, queue: 'new', interval: 0,
               ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null,
-              flag_only: false, ...dirtyFields() });
+              flag_only: false, ...dirtyFields(oldProg) });
           }
           return success();
         }
@@ -762,9 +764,9 @@ export const offlineApi = {
           if (entity !== 'cards') throw unsupported();
           if (item.offline_create_status) pendingCreate();
           const prog = await db.progress.get([id, userId]) || initialProgress(item, userId);
-          if (item.content_v2 && !prog.is_dirty) prog.flag_only = true;
+          if (!prog.is_dirty) prog.flag_only = true;
           prog.flag = Number(body.flag) || 0;
-          Object.assign(prog, dirtyFields());
+          Object.assign(prog, dirtyFields(prog));
           await db.progress.put(prog);
           return success({ id, flag: prog.flag });
         }

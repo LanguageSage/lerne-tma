@@ -59,7 +59,13 @@ async function open(context) {
     window.knowledgeSync = () => import('/src/services/knowledgeSyncService.js').then(m => m.syncKnowledgeAttempts(1));
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     useSettingsStore.setState({ autoPlay: false, studyMode: 'classic', gradingCollapsed: false, gradeSoundEnabled: false });
+    // Settings are a real adjacent outbox now included in overall completion.
+    // Obtain its actual server ACK instead of treating startup's pending record
+    // or an in-flight background lock as completed synchronization.
+    await useSettingsStore.getState().saveCurrentSettingsToServer();
   });
+  await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held
+    .some(lock => lock.name === 'lerne-offline-sync'))).toBe(false);
   return page;
 }
 
@@ -222,7 +228,10 @@ test('all nine V2 types integrate study, private data, retries and lifecycle', a
     page.on('pageerror', error => errors.push(error.message));
     await expect.poll(() => page.evaluate(() => db.knowledge_attempt_outbox.filter(row => row.sync_status === 'pending').count())).toBe(9);
     control.blockKnowledge = false;
-    expect((await page.evaluate(() => sync())).success).toBe(true);
+    const pendingKnowledge = await page.evaluate(() => sync());
+    expect(pendingKnowledge.entities_success).toBe(true);
+    expect(pendingKnowledge.success).toBe(false);
+    expect(pendingKnowledge.pending.blockers['knowledge_attempt_outbox:retained']).toBe(9);
     expect((await page.evaluate(() => knowledgeSync())).succeededCount).toBe(9);
     expect(await page.evaluate(() => db.syncState.filter(row => row.key.startsWith('review:')).count())).toBe(0);
     // Commit grade but drop its HTTP response: the API fallback retains the SAME
@@ -242,7 +251,9 @@ test('all nine V2 types integrate study, private data, retries and lifecycle', a
     const batch = await page.evaluate(() => db.syncState.get('pending'));
     expect(batch.reviews).toHaveLength(9);
     control.lose = null;
-    expect((await page.evaluate(() => sync())).success).toBe(true);
+    const replayed = await page.evaluate(() => sync());
+    expect(replayed.entities_success).toBe(true);
+    expect(replayed.success).toBe(false); // Knowledge still awaits its own ACK.
     control.lose = '/api/knowledge/attempts/sync';
     expect((await page.evaluate(() => knowledgeSync())).transportFailed).toBe(true);
     control.lose = null;

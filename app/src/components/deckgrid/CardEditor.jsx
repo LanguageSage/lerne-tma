@@ -90,7 +90,7 @@ export const CardEditor = () => {
       }
       if (keepLocal !== false) {
         const result = await syncService.sync({ pendingNativeOnly: true });
-        if (!result.success && identity === getSessionIdentity()) {
+        if (!result.native_success && identity === getSessionIdentity()) {
           showToast(typeof result.reason === 'string' ? result.reason : tr('Ошибка синхронизации. Карточка сохранена на устройстве.'), 'warning');
         }
       }

@@ -1059,6 +1059,152 @@ python scripts/structured_cards_preflight.py --dsn-env CUTOVER_DATABASE_URL
 компиляция затронутых Python и `git diff --check` прошли. Общий suite и build
 не запускались: production runtime не подключает новые диагностические модули.
 
+## Этап 7.5a. Безопасное завершение V1-очередей
+
+Baseline `2a2db1f`. Режим приложения, конвертер Antigravity, рабочие БД,
+миграции, merge/deploy не затрагиваются. Это доставка сохранённых намерений
+старого клиента перед будущим cutoff, без нового V1/V2 renderer/runtime.
+
+**Причины ложного успеха в 7.4:** `pendingBatch` возвращал null для V1 batch;
+новый пакет содержал `cards:[]` и только native progress/reviews;
+`pendingNativeOnly` мог вернуть success до проверки оставшихся очередей;
+rejected/conflict native операции исключались из попыток отправки, notes errors
+были только дополнительным флагом, Knowledge/import/settings не учитывались.
+Успешный pull устанавливал UI last-sync time независимо от этих остатков.
+Background в online web запускал только native delivery. В Chromium с модулем
+sync из `2a2db1f` воспроизведено `{success:true}` при неизменном V1 pending.
+
+### Один прежний механизм доставки
+
+`syncState.pending`, UUID, `payloadFor`, `acknowledge`, `/sync/v2` и
+`TMAOfflineBatch` остаются владельцами batch delivery. Новые пакеты снова
+собирают dirty V1 cards, progress и reviews. Уже существующий пакет не режется
+на части и не получает новый UUID; старым reviews внутри него не добавляется
+action_id задним числом. Только ещё не включённые в пакет события получают
+устойчивый action UUID, сохраняемый до отправки. Существующий UUID сохраняется.
+
+Для пакетов с V1/неизвестными card IDs либо folders/decks клиент использует
+`POST /sync/v2/push-legacy`: тонкий защищённый вход в тот же `push_offline`,
+транзакцию и receipts. Это не новый протокол/очередь. Отдельный путь нужен,
+чтобы старый backend вернул 404: query flag старый сервер мог бы проигнорировать
+и применить опасный last-write-wins. Старый `/sync/v2/push` не изменяет политику
+для старых clients; он остаётся writer, который потребуется закрыть при cutoff.
+
+Receipt lookup предшествует проверкам изменений: потерянный ACK ранее принятого
+пакета возвращает прежний результат. `drain_bases` не входит в fingerprint,
+старые квитанции продолжают читаться. Для новой положительной ID правки
+проверяется серверный `updated_at` под `FOR UPDATE`; база захватывается из
+чистой кешированной строки **до** первой локальной правки и затем не заменяется
+временем следующего edit/pull. Старый dirty record без базы не получает её
+автоматически из свежего server read. Без базы допускается только no-op по
+записываемым полям; несовпадающая правка блокируется `legacy_base_unknown`.
+Изменившаяся база даёт `legacy_revision_conflict`. Будущая дата клиента не
+является доказательством отсутствия конфликта. Negative-ID create, новые progress
+и штатные UUID reviews доставляются прежним механизмом; полный старый SRS
+snapshot не заменяет более свежий progress без проверенной базы.
+Явная V1-правка только цветовой метки использует существующий `flag_only`:
+не переносит stale SRS/bookmark snapshot и сохраняет более свежую оценку peer.
+
+Полный пакет откатывается при 403/409/422; сервер не фиксирует частичные записи
+или квитанцию. Пакеты с V2 content либо legacy `topics/level/difficulty/history/
+image_data`, которых прежний transport не сохраняет, блокируются до записи.
+Эти поля нельзя тихо отбросить, назвать доставленными или очистить через pull.
+Автоматического преобразования/принудительного overwrite/сброса очереди нет.
+
+ACK атомарно remaps folders/decks/cards/progress, поздно созданные дочерние
+V1 cards, reviews, grade receipts, card notes и Knowledge outbox. Удаляются
+только подтверждённый batch и его review events; revision comparison сохраняет
+более новую правку. Guarded receipt содержит версии собственного commit:
+они обновляют base последующего локального черновика, не принимая незамеченный
+peer edit. Историческая квитанция без versions не даёт права придумывать base.
+String/number account IDs сверяются по одному владельцу; response старого
+аккаунта/сеанса не подтверждает его очередь после смены session.
+
+Отдельный `GET /sync/v2/pull?card_schema=1` возвращает только V1 и его progress,
+в том числе при наличии native в БД. Клиент обновляет существующий legacy cache,
+сохраняя dirty rows и другой формат; не скачивает остальную V1 библиотеку для
+native runtime. Native pull остаётся `card_schema=2`. Notes отправляются и при
+ошибке entity batch, где их ID уже разрешены; failed/неразрешённые rows остаются.
+Knowledge имеет прежний отдельный sender/orchestrator, его retained outbox
+блокирует общий success независимо от состояния основного batch.
+
+### Статус и readonly preflight
+
+- `native_success`: нет оставшихся native content операций/черновиков и ошибки
+  их доставки. Это не подтверждение всех SRS/notes/settings или всех устройств.
+- `entities_success`: подтверждены entities/progress/reviews и их read phases.
+  Существующий API gate использует его, чтобы notes/Knowledge не блокировали
+  независимые online actions после сохранения entity dependencies.
+- `success`: нет ошибки запрошенных фаз и нет обнаруженных durable pending в
+  доступных Lerne хранилищах этого origin/profile, включая старую unscoped БД,
+  другие аккаунты, rejected/conflict, notes, Knowledge и persisted
+  imports/design settings. Это вычисляется существующими readonly
+  `inspectCardCutover` / `inspectCutoverDatabase` / `inspectCutoverStorage`, а не новым счётчиком.
+
+Если поздний edit, следующий batch, failed attempt, unknown queue или ошибка
+остаются, `success:false` сопровождается причиной и pending summary. Профиль
+доступен online/offline, показывает частичную доставку V2 и причину незавершённой
+общей синхронизации, без success toast. Последнее успешное UI-время меняется
+только при полном цикле; pull checkpoint в Dexie остаётся отдельным наблюдением.
+`lerne:synced` остаётся invalidation событием; промежуточные сообщения несут
+`complete:false`, полное подтверждение — `complete:true`. Reject lifecycle
+сохраняет исходную native operation и её локальное намерение с причиной.
+
+Исторический `migrateLegacy` копировал entities из unscoped `LerneLocalDB`, но
+не pending UUID/reviews. Поэтому её незавершённый или нечитаемый источник
+блокирует отправку entity batch **до** создания нового UUID: старый запрос мог
+уже быть принят сервером, и повтор копии создал бы дубликат. Источник остаётся
+неизменным и видимым preflight; его автоматическое объединение/очистка не
+выполняются. Native UUID операции независимы. Проверено и состояние пустой
+текущей БД при незавершённом старом источнике: native confirmation не выдаёт
+общий success. Для этой группы старых данных требуется отдельная сверка
+владельца, оригинального batch и серверной квитанции; загрузка нового bundle
+не является разрешением повторно отправить копию.
+
+**Допуск к миграции остаётся закрыт**, пока полный device preflight видит
+незавершённые очереди. Он по-прежнему читает все account DB и старую unscoped
+БД данного origin/profile без upgrade/очистки; native/entities confirmation не
+отменяет блокеры другого аккаунта или старой БД. `safe_to_stop_v1_writes` остаётся false.
+Недоступные устройства, несохранённые in-memory формы и general settings без
+durable ACK-маркера требуют отдельной сверки; глобальные fence/backup/restore
+и приёмка конвертера Antigravity из 7.4 по-прежнему обязательны.
+
+Проверки 7.5a воспроизводятся на синтетических данных, без startup lifespan
+и миграций рабочих БД:
+
+```powershell
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --legacy-drain-browser
+# Контроль исходного дефекта: ожидаемое падение первого assertion на success=true:
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --legacy-drain-browser --legacy-drain-baseline
+```
+
+Сценарии: offline; V2 delivery при V1 pending; неизменный пакет без action_id,
+потеря ответа/restart/replay; remap notes/failed Knowledge/позднего child;
+свежая V1 правка и UUID grade; конфликт второго устройства; новый local edit/grade
+во время ACK; unknown base/old server/account switch. PostgreSQL отдельно
+подтверждает ровно одну create/review/receipt, содержание заметки и сохранность
+peer edit. Дополнительные HTTP checks проверяют 401/403, старую квитанцию,
+UUID payload mismatch, неподдержанные поля, конкурентный CAS и недоверие к
+локальному времени. ProfileTab проверяется в RU на 320/375/430/768/1280 px и EN
+на 375 px; артефакты только ignored `local/test-data/`.
+
+Итог проверок: новый Chromium/FastAPI/PostgreSQL suite **5/5** (включая полный
+restart Chromium с тем же persistent profile), дополнительные guarded HTTP
+checks прошли; readonly preflight **2/2**; существующий native delivery **1/1**;
+native learning **2/2**, PostgreSQL подтвердил **27** уникальных reviews/Attempts
+и сохранность mastery/notes/ratings. Frontend suite **620/620**, backend offline
+sync **13/13**, targeted ESLint, Python compilation и production build прошли
+(прежнее предупреждение о размере bundle). Assertions существующих browser
+тестов уточнены: queued next draft/conflict/Knowledge нельзя больше считать
+общим success; подтверждение entity/native delivery проверяется отдельно.
+
+CAS опирается на существующий `updated_at` и соблюдение его контракта writers;
+прямые SQL-процессы вне этого контракта всё ещё требуют fence из 7.4. Браузерная
+оболочка и вспомогательные ответы нового стенда синтетические; sync/cards/
+grade/notes mutations и проверки доступа выполняются настоящим FastAPI/PG.
+Реальная LOCAL и её старые устройства не изменялись/не очищались. Внешние AI,
+Storage/CDN и rollout service worker этой проверкой не подтверждаются.
+
 ## Исходная архитектура до перехода
 
 | Путь | Владелец и ограничения |

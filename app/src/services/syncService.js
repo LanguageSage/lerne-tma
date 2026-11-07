@@ -4,6 +4,7 @@ import { networkApi } from './networkApi.js';
 import { getAccessToken, getSessionIdentity, getUserId, isRetiredSession } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
 import { cardWriteError } from '../utils/cardDraft.js';
+import { inspectCardCutover, inspectCutoverDatabase, inspectCutoverStorage } from './cardCutoverPreflight.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
@@ -21,8 +22,10 @@ export function subscribeSyncUi(listener) {
 }
 
 function notifySyncUi(type, detail, hint) {
+  if (type === 'lerne:synced') detail = { complete: false, ...detail };
   window.dispatchEvent(new CustomEvent(type, { detail }));
-  if (hint) syncChannel?.postMessage({ type, userId: detail.userId, ...hint });
+  if (hint) syncChannel?.postMessage({ type, userId: detail.userId,
+    ...(type === 'lerne:synced' && { complete: detail.complete }), ...hint });
 }
 
 export function notifyCardEdit(card, userId, confirmed = false, deliveredRequestId) {
@@ -327,12 +330,13 @@ async function deliverCardLifecycle(db, operations, options, isCurrent) {
       const [card, pending] = await Promise.all([db.cards.get(cardId), db.syncState.get(key)]);
       if (!isCurrent() || !card?.offline_lifecycle || pending?.payload.request_id !== payload.request_id) return false;
       const next = server && !card.offline_edit ? { ...card, ...server } : { ...card };
-      next.is_deleted = server?.is_deleted ?? !deleting;
+      next.is_deleted = error ? card.is_deleted : server.is_deleted;
       if (server && card.offline_edit) next.offline_edit = { ...card.offline_edit, server };
-      delete next.offline_lifecycle;
-      next.offline_confirmed_at = Date.now();
+      if (error) next.offline_list_error = status;
+      else { delete next.offline_lifecycle; next.offline_confirmed_at = Date.now(); }
       await db.cards.put(next);
-      await db.syncState.delete(key);
+      if (error) await db.syncState.update(key, { rejected: true });
+      else await db.syncState.delete(key);
       if (!isCurrent()) throw new Error('Session changed');
       return true;
     });
@@ -345,27 +349,25 @@ async function deliverCardLifecycle(db, operations, options, isCurrent) {
 
 async function pendingBatch(db, userId) {
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
-    const nativeIds = new Set((await db.cards.filter(card => card.id > 0 && !!card.content_v2).toArray()).map(card => card.id));
-    const nativeProgress = item => nativeIds.has(item.card_id);
     const pending = await db.syncState.get('pending');
     if (pending) {
-      // An existing V1 batch is immutable. Leave it intact, even if it also
-      // contains non-card changes, and let native creates sync independently.
-      if (pending.cards?.length || ![...pending.progress, ...(pending.reviews || [])].every(nativeProgress)) return null;
+      if (String(pending.userId) !== String(userId)) throw new Error(tr('Владелец старого пакета не подтверждён. Очередь сохранена.'));
       return pending;
     }
     const batch = { key: 'pending', request_id: crypto.randomUUID(), userId, cards: [] };
     for (const name of ['folders', 'decks']) {
-      batch[name] = await db[name].where('is_dirty').equals(1)
-        .filter(item => item.role !== 'viewer' && (!item.is_global_readonly || ['owner', 'editor'].includes(item.role))).toArray();
+      batch[name] = await db[name].where('is_dirty').equals(1).toArray();
     }
-    batch.progress = await db.progress.where('is_dirty').equals(1).filter(nativeProgress).toArray();
-    batch.reviews = await db.syncState.filter(item => item.key.startsWith('review:') && nativeProgress(item)).toArray();
+    batch.cards = await db.cards.where('is_dirty').equals(1).filter(card => !card.content_v2).toArray();
+    batch.progress = await db.progress.where('is_dirty').equals(1)
+      .filter(item => String(item.user_id) === String(userId)).toArray();
+    batch.reviews = await db.syncState.filter(item => item.key.startsWith('review:')).toArray();
     // Upgrade unsent legacy events using their already durable UUID. An existing
     // pending batch above remains byte-for-byte compatible with its receipt.
     for (const event of batch.reviews) {
       if (!event.action_id) {
-        event.action_id = event.key.slice('review:'.length);
+        const original = event.key.slice('review:'.length);
+        event.action_id = /^[0-9a-f]{8}-(?:[0-9a-f]{4}-){3}[0-9a-f]{12}$/i.test(original) ? original : crypto.randomUUID();
         await db.syncState.put(event);
       }
     }
@@ -379,7 +381,7 @@ function payloadFor(batch) {
   const payload = { request_id: batch.request_id };
   if (batch.reviews?.length) payload.reviews = batch.reviews;
   for (const name of entities) {
-    payload[name] = batch[name].map(item => {
+    payload[name] = (batch[name] || []).map(item => {
       const copy = { ...item };
       for (const key of ['metadata', 'tags']) {
         if (copy[key] != null && typeof copy[key] !== 'string') copy[key] = JSON.stringify(copy[key]);
@@ -390,21 +392,27 @@ function payloadFor(batch) {
   return payload;
 }
 
-async function acknowledge(db, batch, mappings, isCurrent) {
-  const userId = batch.userId;
-  return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
+async function acknowledge(db, batch, mappings, isCurrent, versions = {}) {
+  const userId = getUserId();
+  return db.transaction('rw', [...entities.map(name => db[name]), db.syncState, db.card_notes, db.knowledge_attempt_outbox], async () => {
     const pending = await db.syncState.get('pending');
-    if (!isCurrent() || pending?.request_id !== batch.request_id || pending.userId !== userId) return false;
+    if (!isCurrent() || pending?.request_id !== batch.request_id || String(pending.userId) !== String(userId)) return false;
     for (const name of entities) {
-      for (const sent of batch[name]) {
+      for (const sent of batch[name] || []) {
         const key = keyFor(name, sent, userId);
         const current = await db[name].get(key);
         if (!current) continue;
-        const isUnchanged = revision(current) === revision(sent);
+        const isUnchanged = revision(sent) ? revision(current) === revision(sent)
+          : JSON.stringify(current) === JSON.stringify(sent);
         const mapped = name === 'progress'
           ? { ...current, card_id: remap(mappings.cards, current.card_id) }
           : { ...current, id: remap(mappings[name], current.id) };
-        if (isUnchanged) mapped.is_dirty = 0;
+        if (isUnchanged) { mapped.is_dirty = 0; delete mapped.sync_base; }
+        const versionKey = `${name}:${name === 'progress' ? sent.card_id : sent.id}`;
+        if (Object.hasOwn(versions, versionKey)) {
+          if (isUnchanged) mapped.updated_at = versions[versionKey];
+          else mapped.sync_base = { updated_at: versions[versionKey] };
+        }
         await db[name].delete(key);
         await db[name].put(mapped);
       }
@@ -412,7 +420,7 @@ async function acknowledge(db, batch, mappings, isCurrent) {
     // Include children created while the request was in flight.
     await db.folders.toCollection().modify(f => { f.parent_id = remap(mappings.folders, f.parent_id); });
     await db.decks.toCollection().modify(d => { d.folder_id = remap(mappings.folders, d.folder_id); });
-    await db.cards.filter(c => !!c.content_v2).modify(c => { c.deck_id = remap(mappings.decks, c.deck_id); });
+    await db.cards.toCollection().modify(c => { c.deck_id = remap(mappings.decks, c.deck_id); });
     for (const p of await db.progress.toArray()) {
       const id = remap(mappings.cards, p.card_id);
       if (id !== p.card_id) {
@@ -421,6 +429,11 @@ async function acknowledge(db, batch, mappings, isCurrent) {
       }
     }
     for (const sent of batch.reviews || []) await db.syncState.delete(sent.key);
+    for (const table of [db.card_notes, db.knowledge_attempt_outbox]) {
+      await table.filter(row => String(row.user_id) === String(userId)).modify(row => {
+        row.card_id = remap(mappings.cards, row.card_id);
+      });
+    }
     for (const event of await db.syncState.filter(item => item.key.startsWith('review:') && remap(mappings.cards, item.card_id) !== item.card_id).toArray()) {
       await db.syncState.put({ ...event, card_id: remap(mappings.cards, event.card_id) });
     }
@@ -470,8 +483,9 @@ export function reconcileCardEditLifecycle(local, server, readStartedAt) {
 }
 
 async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
-  if (data.status !== 'success' || data.card_schema !== 2 || !entities.every(name => Array.isArray(data[name]))
-      || data.cards.some(card => card.content_v2?.schema_version !== 2)) {
+  const legacy = data.card_schema === 1;
+  if (data.status !== 'success' || ![1, 2].includes(data.card_schema) || !entities.every(name => Array.isArray(data[name]))
+      || data.cards.some(card => legacy ? !!card.content_v2 : card.content_v2?.schema_version !== 2)) {
     throw new Error(tr("Некорректный ответ синхронизации"));
   }
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
@@ -479,21 +493,26 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
     const lastSync = await db.syncState.get('lastSync');
     if (Date.parse(lastSync?.time) > Date.parse(data.server_time)) return false;
     const localCards = await db.cards.toArray();
-    const legacyIds = new Set(localCards.filter(card => !card.content_v2).map(card => card.id));
-    const nativeIds = new Set([...localCards.filter(card => card.content_v2), ...data.cards].map(card => card.id));
+    const otherIds = new Set(localCards.filter(card => legacy ? !!card.content_v2 : !card.content_v2).map(card => card.id));
+    const scopeIds = new Set([...localCards.filter(card => legacy ? !card.content_v2 : !!card.content_v2),
+      ...(legacy ? [] : data.cards)].map(card => card.id));
     for (const name of entities) {
       const incoming = new Set(data[name].map(item => name === 'progress' ? item.card_id : item.id));
       for (const item of data[name]) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
+        // Drain refreshes the device's existing V1 cache. It does not opt a
+        // native device into downloading/rendering the rest of the V1 library.
+        if (legacy && name === 'cards' && !local) continue;
+        if (legacy && name === 'progress' && !scopeIds.has(item.card_id)) continue;
         if (name === 'cards' && local?.offline_edit) {
           const reconciled = reconcileCardEditLifecycle(local, item, pullStartedAt);
           if (reconciled) await db.cards.put(reconciled);
           continue;
         }
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)
-            || (name === 'cards' && (legacyIds.has(item.id) || keepLocalCard(local, pullStartedAt)))
-            || (name === 'progress' && legacyIds.has(item.card_id))) continue;
+            || (name === 'cards' && (otherIds.has(item.id) || keepLocalCard(local, pullStartedAt)))
+            || (name === 'progress' && otherIds.has(item.card_id))) continue;
         await db[name].put({ ...item,
           ...(name === 'cards' && { offline_read_started_at: pullStartedAt }),
           ...(name === 'progress' && { user_id: userId }), is_dirty: 0 });
@@ -501,8 +520,8 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
       // A full snapshot also carries hard deletions and revoked access.
       for (const item of name === 'cards' ? localCards : await db[name].toArray()) {
         const id = name === 'progress' ? item.card_id : item.id;
-        if ((name === 'cards' && (legacyIds.has(id) || keepLocalCard(item, pullStartedAt)))
-            || (name === 'progress' && (legacyIds.has(id) || !nativeIds.has(id)))) continue;
+        if ((name === 'cards' && (otherIds.has(id) || keepLocalCard(item, pullStartedAt)))
+            || (name === 'progress' && (otherIds.has(id) || !scopeIds.has(id)))) continue;
         if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
       }
     }
@@ -536,8 +555,12 @@ export const syncService = {
 
 async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false, skipPull = false, pullOnly = false } = {}) {
   const options = { _expectedUserId: userId, _expectedSessionIdentity: identity };
+  let db, nativeError, entityError, firstError, serverTime;
+  let pullSuccess = false;
+  let pullFailed = false;
+  const remember = error => { firstError ||= error; };
   try {
-    const db = await prepareLocalDb();
+    db = await prepareLocalDb();
     if (!isCurrent()) throw new Error('Session changed');
     const creates = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_CREATE_KEY)
       .filter(create => !create.rejected).toArray();
@@ -550,8 +573,6 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     const moves = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_MOVE_KEY)
       .filter(move => !move.rejected).toArray();
     const lifecycle = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_LIFECYCLE_KEY).filter(operation => !operation.rejected).toArray();
-    if (pendingNativeOnly && !creates.length && !edits.length && !moves.length && !lifecycle.length) return { success: true };
-    let nativeError;
     try { await deliverCardCreates(db, creates, options, isCurrent); }
     catch (error) { nativeError = error; }
     try { await deliverCardEdits(db, edits, options, isCurrent); }
@@ -561,46 +582,132 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     try { await deliverCardLifecycle(db, lifecycle, options, isCurrent); }
     catch (error) { nativeError ||= error; }
     if (!isCurrent()) throw new Error('Session changed');
-    const batch = pendingNativeOnly || pullOnly ? null : await pendingBatch(db, userId);
-    if (batch) {
-      const response = await networkApi.post('/sync/v2/push', payloadFor(batch), options);
-      if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
-      if (batch.reviews?.length && response.data.review_count !== batch.reviews.length) {
-        throw new Error(tr("Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации."));
-      }
-      const mappings = response.data.mappings;
-      for (const name of ['folders', 'decks', 'cards']) {
-        for (const item of batch[name].filter(item => item.id < 0)) {
-          if (!(mappings[name]?.[String(item.id)] > 0)) throw new Error(tr("Сервер не вернул идентификатор новой записи"));
+    try {
+      if (!pendingNativeOnly && !pullOnly) {
+        // Historical import copied entities, not the old receipt UUID/reviews.
+        // Never submit such copies under a fresh UUID while their source is
+        // unresolved: the original request may already be committed remotely.
+        const device = await inspectCardCutover();
+        if (device.errors.length || device.databases.some(item => item.name === 'LerneLocalDB' && !item.pending_free)) {
+          throw new Error(tr('В старой локальной базе есть непроверенные изменения. Нужна сверка исходной очереди; данные сохранены.'));
         }
       }
-      if (!isCurrent()) throw new Error('Session changed');
-      const acknowledged = await acknowledge(db, batch, mappings, isCurrent);
-      if (acknowledged && isCurrent()) notifySyncUi('lerne:ids-remapped', { mappings, userId }, { mappings });
+      const batch = pendingNativeOnly || pullOnly ? null : await pendingBatch(db, userId);
+      if (batch) {
+        const payload = payloadFor(batch);
+        const nativeCards = await db.cards.filter(card => !!card.content_v2).toArray();
+        const nativeIds = new Set(nativeCards.map(card => card.id));
+        const guarded = batch.cards?.length || ['folders', 'decks'].some(name => batch[name]?.length)
+          || [...(batch.progress || []), ...(batch.reviews || [])].some(item => !nativeIds.has(item.card_id));
+        if (guarded) {
+          if (batch.cards?.some(card => card.content_v2 != null
+            || ['topics', 'level', 'difficulty', 'history', 'image_data'].some(field => Object.hasOwn(card, field)))) {
+            throw new Error(tr('Старый пакет содержит поля, которые этот транспорт не сохраняет. Требуется сверка; очередь сохранена.'));
+          }
+          payload.drain_bases = {};
+          for (const name of entities) for (const item of batch[name] || []) {
+            if (item.sync_base && Object.hasOwn(item.sync_base, 'updated_at')) {
+              payload.drain_bases[`${name}:${name === 'progress' ? item.card_id : item.id}`] = item.sync_base.updated_at;
+            }
+          }
+        }
+        const response = await networkApi.post(guarded ? '/sync/v2/push-legacy' : '/sync/v2/push', payload, options);
+        if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
+        if (batch.reviews?.length && response.data.review_count !== batch.reviews.length) {
+          throw new Error(tr("Сервер не подтвердил сохранение оценок. Обновите сервер синхронизации."));
+        }
+        const mappings = response.data.mappings;
+        const versions = response.data.versions;
+        if (versions !== undefined && (!versions || typeof versions !== 'object' || Array.isArray(versions)
+          || Object.values(versions).some(value => value !== null && (typeof value !== 'string' || !Number.isFinite(Date.parse(value)))))) {
+          throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+        }
+        for (const name of ['folders', 'decks', 'cards']) {
+          for (const item of (batch[name] || []).filter(item => item.id < 0)) {
+            const mapped = mappings[name]?.[String(item.id)];
+            if (!Number.isSafeInteger(mapped) || mapped <= 0) throw new Error(tr("Сервер не вернул идентификатор новой записи"));
+          }
+        }
+        if (!isCurrent()) throw new Error('Session changed');
+        const acknowledged = await acknowledge(db, batch, mappings, isCurrent, response.data.versions);
+        if (acknowledged && isCurrent()) notifySyncUi('lerne:ids-remapped', { mappings, userId }, { mappings });
+      }
+    } catch (error) { entityError = error; remember(error); }
+    remember(nativeError);
+    entityError ||= nativeError;
+    if (!isCurrent()) throw new Error('Session changed');
+    if (!pendingNativeOnly && !pullOnly) {
+      try { await syncLearningPreferences(db, options, isCurrent); } catch (error) { entityError ||= error; remember(error); }
+      try { await syncCardNotes(db, userId); } catch (error) { remember(error); }
     }
-    if (nativeError) throw nativeError;
-    if (pendingNativeOnly && skipPull) return { success: true };
-    if (!pendingNativeOnly && !pullOnly) await syncLearningPreferences(db, options, isCurrent);
-    const pullStartedAt = Date.now();
-    const response = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: 2 } });
-    if (!isCurrent()) throw new Error('Session changed');
-    const applied = await applySnapshot(db, response.data, userId, pullStartedAt, isCurrent);
-    if (!isCurrent()) throw new Error('Session changed');
-    let notesPending = false;
-    try { if (!pendingNativeOnly && !pullOnly) await syncCardNotes(db, userId); }
-    catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.
-    if (!isCurrent()) throw new Error('Session changed');
-    if (applied) {
-      localStorage.setItem('lerne_last_sync_time', response.data.server_time);
-      localStorage.setItem('lerne_last_sync_user_id', String(userId));
-      notifySyncUi('lerne:synced', { userId }, {});
+    if (!(pendingNativeOnly && (skipPull || !creates.length && !edits.length && !moves.length && !lifecycle.length))) {
+      const hasLegacy = !pendingNativeOnly && !pullOnly && await db.cards.filter(card => !card.content_v2).count();
+      for (const cardSchema of hasLegacy ? [1, 2] : [2]) {
+        try {
+          const pullStartedAt = Date.now();
+          const response = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: cardSchema } });
+          if (response.data?.card_schema !== cardSchema) throw new Error(tr('Сервер не подтвердил формат синхронизации. Очередь сохранена.'));
+          if (!isCurrent()) throw new Error('Session changed');
+          const applied = await applySnapshot(db, response.data, userId, pullStartedAt, isCurrent);
+          if (applied && isCurrent()) notifySyncUi('lerne:synced', { userId, complete: false }, {});
+          serverTime = response.data.server_time;
+          pullSuccess = true;
+        } catch (error) { pullFailed = true; entityError ||= error; remember(error); }
+      }
     }
-    return { success: true, server_time: response.data.server_time, card_notes_pending: notesPending };
   } catch (error) {
-    const reason = error.response?.status === 404
-      ? tr("Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.")
-      : error.response?.data?.detail || error.message;
-    console.warn('[Sync]', reason);
-    return { success: false, reason };
+    entityError ||= error;
+    remember(error);
   }
+  if (!db) return { success: false, native_success: false, reason: tr('Не удалось проверить оставшиеся изменения. Очередь сохранена.') };
+  if (!isCurrent()) return { success: false, native_success: false, reason: tr('Сессия изменилась. Очередь сохранена.') };
+  try {
+    // Reuse the readonly cutover checks: no second definition of "empty queue".
+    const pending = await inspectCutoverDatabase(db);
+    const storagePending = inspectCutoverStorage(localStorage, userId);
+    const devicePending = !(await inspectCardCutover()).pending_free;
+    if (!isCurrent()) return { success: false, native_success: false, reason: 'Session changed' };
+    const nativePending = pending.blockers['syncState:native_operation'] || pending.blockers['cards:unacknowledged_native_state']
+      || pending.blockers['cards:native_dirty'];
+    const success = !firstError && pending.pending_free && !Object.keys(storagePending).length && !devicePending;
+    const entityPending = Object.keys(pending.blockers).some(key => !['card_notes:dirty', 'knowledge_attempt_outbox:retained'].includes(key));
+    const detail = firstError?.response?.data?.detail;
+    const reason = detail?.code === 'legacy_revision_conflict'
+      ? tr('Старая правка конфликтует с изменениями на сервере. Очередь сохранена.')
+      : detail?.code === 'legacy_base_unknown'
+        ? tr('У старой правки нет подтверждённой серверной версии. Требуется сверка; очередь сохранена.')
+        : firstError?.response?.status === 404 && firstError.config?.url?.startsWith('/sync/v2/')
+          ? tr('Сервер ещё не обновлён для безопасной доставки старых изменений. Очередь сохранена.')
+          : detail?.code === 'native_card_requires_v2_sync'
+            ? tr('Серверная карточка уже имеет формат V2. Старая правка сохранена для сверки.')
+            : detail?.code === 'card_revision_conflict'
+              ? tr('Есть конфликт карточки V2. Локальная правка и очередь сохранены.')
+            : firstError?.response?.status === 422
+              ? tr('Сервер отклонил пакет изменений. Проверьте данные; очередь сохранена.')
+            : typeof detail === 'string' ? detail : firstError?.message
+              || (pending.pending_free && !Object.keys(storagePending).length && devicePending
+                ? tr('В старой базе или другом аккаунте этого устройства остались изменения. Данные сохранены; требуется сверка.')
+                : pendingReason(pending.blockers, storagePending));
+    if (success && !pendingNativeOnly && !pullOnly) {
+      localStorage.setItem('lerne_last_sync_time', serverTime || new Date().toISOString());
+      localStorage.setItem('lerne_last_sync_user_id', String(userId));
+      notifySyncUi('lerne:synced', { userId, complete: true }, {});
+    }
+    return { success, native_success: !nativeError && !nativePending, pull_success: pullSuccess && !pullFailed,
+      entities_success: !entityError && !entityPending,
+      scope: pendingNativeOnly ? 'native-content' : pullOnly ? 'pull' : 'device', device_pending: devicePending,
+      server_time: serverTime, pending, storage_pending: storagePending, reason: success ? undefined : reason,
+      card_notes_pending: !!pending.blockers['card_notes:dirty'], error_code: detail?.code };
+  } catch {
+    return { success: false, native_success: false, reason: tr('Не удалось проверить оставшиеся изменения. Очередь сохранена.') };
+  }
+}
+
+function pendingReason(blockers, storage) {
+  if (blockers['cards:offline_conflict']) return tr('Есть конфликт карточки V2. Локальная правка и очередь сохранены.');
+  if (blockers['syncState:rejected_operation']) return tr('Некоторые операции отклонены сервером. Локальные данные и очередь сохранены.');
+  if (blockers['knowledge_attempt_outbox:retained']) return tr('Попытки Knowledge ещё не подтверждены сервером.');
+  if (blockers['card_notes:dirty']) return tr('Часть заметок ожидает синхронизации.');
+  if (Object.keys(storage).length) return tr('Импорт или настройки ещё не подтверждены сервером.');
+  return tr('На устройстве остаются неподтверждённые изменения. Очередь сохранена.');
 }

@@ -19,6 +19,7 @@ export async function inspectCutoverDatabase(database) {
       await table.each(row => {
         tables[table.name]++;
         if (dirty(row.is_dirty)) add(`${table.name}:dirty`);
+        if (table.name === 'cards' && row.content_v2 && dirty(row.is_dirty)) add('cards:native_dirty');
         if (dirty(row.learning_dirty)) add(`${table.name}:learning_dirty`);
         if (['folders', 'decks', 'cards', 'progress'].includes(table.name)
             && [row.id, row.card_id, row.deck_id, row.folder_id, row.parent_id].some(id => Number(id) < 0)) {
@@ -27,12 +28,14 @@ export async function inspectCutoverDatabase(database) {
         if (row.offline_edit || row.offline_lifecycle || row.offline_move || row.offline_create_status) {
           add(`${table.name}:unacknowledged_native_state`);
         }
+        if (row.offline_edit?.status === 'conflict') add('cards:offline_conflict');
         // Successful attempts are removed by the existing sender. Anything left,
         // including failed/syncing/unknown states, still requires reconciliation.
         if (table.name === 'knowledge_attempt_outbox') add('knowledge_attempt_outbox:retained');
         if (table.name === 'syncState') {
           const key = String(row.key);
           if (inertKeys.has(key) || key.startsWith('grade:')) return;
+          if (row.rejected) add('syncState:rejected_operation');
           // Even an expired refresh lease is not evidence that other tabs stopped.
           add(key === 'pending' ? 'syncState:pending_batch'
             : key.startsWith('review:') ? 'syncState:review'
@@ -46,11 +49,13 @@ export async function inspectCutoverDatabase(database) {
     pending_free: Object.keys(blockers).length === 0 };
 }
 
-export function inspectCutoverStorage(storage) {
+export function inspectCutoverStorage(storage, userId) {
   const blockers = {};
   for (let index = 0; index < storage.length; index++) {
     const key = storage.key(index);
     if (!/lerne_bulk_import_|lerne:personal-design:v2:/.test(key)) continue;
+    if (userId != null && !(key.includes(`lerne_bulk_import_${userId}_`)
+      || key.includes('lerne:personal-design:v2:') && key.endsWith(`:${userId}`))) continue;
     try {
       const value = JSON.parse(storage.getItem(key));
       if (key.includes('lerne_bulk_import_')) {

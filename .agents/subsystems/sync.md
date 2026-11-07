@@ -170,8 +170,9 @@ Dirty entities/progress/tombstones, learning preferences, reviews, pending batch
 все native операции (включая rejected), notes, Knowledge и pending imports/design
 settings блокируют локальную готовность. Неизвестные таблицы/операции и ошибки
 чтения также блокируют её. `grade:*` — сохранённые квитанции, не review outbox.
-Существующий sync намеренно не отправляет V1 pending batch и V1 progress/reviews;
-успех native sync не означает отсутствия старых изменений.
+В 7.4 sync не отправлял V1 pending batch и V1 progress/reviews. Этап 7.5a
+возвращает их доставку через защищённый вход того же batch/receipt механизма;
+успех native delivery по-прежнему не означает отсутствия остальных изменений.
 
 `api/card_cutover_preflight.py` и `scripts/structured_cards_preflight.py`
 читают PostgreSQL отдельной READ ONLY REPEATABLE READ транзакцией, без startup
@@ -183,6 +184,45 @@ settings блокируют локальную готовность. Неизв�
 PostgreSQL, FastAPI, physical restore) и `browser/card-cutover-preflight.spec.cjs`
 (Chromium/Dexie, неизменность содержимого и версии после повторного запуска).
 
+## Доставка старых очередей (7.5a)
+
+`syncService` повторяет существующий `syncState.pending` без замены UUID/данных.
+Новые пакеты снова включают dirty V1 cards, progress и reviews, сохраняя native
+outboxes отдельно. `/sync/v2/push-legacy` использует `offline_sync.push_offline`
+с теми же fingerprints, receipts, permissions, mappings и транзакцией; при
+повторе сначала возвращается квитанция. Для ранее не принятой правки сервер
+проверяет `drain_bases` под row lock. База захватывается `dirtyFields(previous)`
+до первой правки чистой серверной строки; локальное время правки не является
+базой. Без неё допускается только неизменяющий содержимое повтор. Конфликты,
+неизвестная база, нетранспортабельные поля, отсутствие прав/нового endpoint
+оставляют пакет и локальные строки. Old push сохраняет свой контракт.
+
+ACK сохраняет более новые локальные правки и переносит все временные связи,
+включая notes/Knowledge. Версии собственного commit находятся в квитанции и
+позволяют повторить следующий локальный черновик без принятия версии другого
+устройства. Legacy pull `card_schema=1` обновляет только уже имеющийся V1 cache;
+native pull остаётся отдельным `card_schema=2`. Dirty/другой формат защищены.
+
+Результат содержит `native_success` (native content outboxes), `entities_success`
+(entities/progress/reviews) и `success` (нет обнаруженных pending в доступных
+Lerne DB/storage этого origin/profile, нет ошибки запрошенных фаз). Последний считается
+через тот же readonly preflight. Notes/Knowledge ошибки не блокируют уже
+подтверждённую доставку других сущностей, но запрещают общий success. Knowledge
+доставляет прежний orchestrator. Invalidation `lerne:synced` имеет `complete:false`;
+`complete:true` и last-sync UI time выдаются только полным успешным циклом.
+Профиль показывает сохранённую причину частичного результата и в online mode.
+Доставка не запускает конвертер, миграции или переключение формата.
+
+Незавершённый источник `LerneLocalDB` блокирует entity batch до создания нового
+UUID: исторический importer копировал entities без исходного pending/reviews.
+Его копии нельзя повторно отправлять, пока не сверены оригинальные квитанции.
+Источник не очищается/не апгрейдится. Native UUID outboxes доставляются отдельно;
+полный device-preflight не позволяет их success скрыть старую БД/другой аккаунт.
+
+Сквозные тесты: `structured_cards_postgres.py --legacy-drain-browser`,
+`browser/legacy-sync-drain.spec.cjs`. Контракт, ограничения и допуск:
+[7.5a](../../project_docs/STRUCTURED_CARDS_V2.md#этап-75a-безопасное-завершение-v1-очередей).
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,
@@ -192,7 +232,8 @@ refresh flights и Dexie refresh lease. `api.js` оборачивает его o
 
 ```text
 api -> networkApi, offlineApi, syncService, localDb, auth, axios
-syncService -> networkApi, cardNotes, localDb, auth, locale, cardDraft
+syncService -> networkApi, cardNotes, localDb, auth, locale, cardDraft, cardCutoverPreflight
+cardCutoverPreflight -> dexie
 offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale, cardDraft
 cardNotes -> networkApi, localDb, auth
 networkApi -> localDb, auth, apiConfig, localMode, axios

@@ -157,7 +157,7 @@ const api = new Proxy(axiosInstance, {
           const needsRefresh = !nativeCreate && isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
           if (needsRefresh) {
             const synced = await syncService.sync();
-            if (!synced.success) throw new Error(synced.reason);
+            if (!(synced.entities_success ?? synced.success)) throw new Error(synced.reason);
             assertCurrent();
             const resolved = await resolveLocalRequest(url, args[0]);
             url = resolved.url;

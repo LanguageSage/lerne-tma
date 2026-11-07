@@ -995,7 +995,9 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
     window.addEventListener('lerne:card-edit-changed', ({ detail }) => window.deliveredEdits.push(detail));
   });
   const pull = page.waitForResponse(response => response.url().includes('/api/sync/v2/pull') && response.ok());
-  expect((await sync()).success).toBe(true);
+  const promotedResult = await sync();
+  expect(promotedResult.success).toBe(false);
+  expect(promotedResult.native_success).toBe(false); // Draft B is still queued.
   expect((await (await pull).json()).cards.find(item => item.id === card.id)).toMatchObject({ revision: committed.revision });
   const promoted = await inspect(card.id);
   expect(promptOf(promoted.card)).toBe('Draft B');
@@ -1016,7 +1018,7 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
     await page.locator('#card-editor-front').fill('Unsaved text while B is sending');
   } finally {
     releaseSecond();
-    expect((await deliveringSecond).success).toBe(true);
+    expect((await deliveringSecond).native_success).toBe(true);
   }
   await expect(page.locator('#card-editor-front')).toHaveValue('Unsaved text while B is sending');
   await page.locator('.view-editor .back-btn').press('Enter');
@@ -1028,7 +1030,7 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
   const c = await stage(confirmed.card, 'Rejected Draft C');
   await stage(confirmed.card, 'Latest Draft D');
   const newerServer = await remote(card.id, 'Concurrent server edit');
-  expect((await sync()).success).toBe(true);
+  expect((await sync()).success).toBe(false); // The rejected draft remains durable.
   expect(writesFor(card.id).at(-1)).toMatchObject({ payload: c, status: 409 });
   const conflict = await inspect(card.id);
   expect(conflict.card.offline_edit).toMatchObject({ status: 'conflict', server: { revision: newerServer.revision } });
@@ -1071,7 +1073,9 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
   expect(promptOf((await inspect(created.id)).card)).toBe('Draft on discovered server ID');
   expect(attempts.filter(a => a.pathname === createPath).map(a => a.result)).toEqual([created, created]);
   intercept = () => undefined;
-  expect((await sync()).success).toBe(true);
+  const partial = await sync();
+  expect(partial.success).toBe(false);
+  expect(partial.pending.blockers['cards:offline_conflict']).toBeGreaterThan(0);
   expect((await remote(created.id)).content_v2).toEqual(freshDraft.content_v2);
   const online = await createViaApi();
   expect(online.id).toBeGreaterThan(created.id);

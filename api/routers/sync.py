@@ -1,6 +1,6 @@
 import logging
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 from typing import List, Optional, Literal
 
@@ -108,6 +108,18 @@ class OfflinePushRequest(BaseModel):
     cards: List[OfflineCardItem] = Field(default_factory=list)
     progress: List[SyncProgressItem] = Field(default_factory=list)
     reviews: List[OfflineReviewItem] = Field(default_factory=list)
+    drain_bases: dict[str, str | None] = Field(default_factory=dict)
+
+
+class LegacyDrainRequest(OfflinePushRequest):
+    @field_validator('cards', mode='before')
+    @classmethod
+    def retain_untransported_content(cls, cards):
+        for card in cards or []:
+            if isinstance(card, dict) and (card.get('content_v2') is not None or
+                    any(field in card for field in ('topics', 'level', 'difficulty', 'history', 'image_data'))):
+                raise ValueError('Legacy content has fields not covered by this transport; original queue must be retained')
+        return cards
 
 
 @router.post('/v2/push')
@@ -117,11 +129,20 @@ def push_offline_changes(request: OfflinePushRequest, user_id: int = Depends(get
     return push_offline(request, user_id)
 
 
+@router.post('/v2/push-legacy')
+@db_worker
+def drain_legacy_changes(request: LegacyDrainRequest, user_id: int = Depends(get_user_id)) -> dict:
+    # Same batch/receipt/transaction, with conservative preconditions. A separate
+    # guarded entry makes older servers return 404 instead of ignoring a flag.
+    from api.services.offline_sync import push_offline
+    return push_offline(request, user_id, drain_legacy=True)
+
+
 @router.get('/v2/pull')
 @db_worker
-def pull_offline_changes(card_schema: Literal['2'] | None = None, user_id: int = Depends(get_user_id)) -> dict:
+def pull_offline_changes(card_schema: Literal['1', '2'] | None = None, user_id: int = Depends(get_user_id)) -> dict:
     from api.services.offline_sync import pull_offline
-    return pull_offline(user_id, native_cards=card_schema == '2')
+    return pull_offline(user_id, native_cards=card_schema == '2', legacy_only=card_schema == '1')
 
 
 # --- Endpoints ---

@@ -223,6 +223,8 @@ def main():
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
     parser.add_argument('--cutover-preflight', action='store_true', help='Read-only preflight, legacy HTTP writers and physical rollback drill; no migrations')
+    parser.add_argument('--legacy-drain-browser', action='store_true', help='Guarded V1 queue delivery over Chromium/FastAPI/disposable PostgreSQL; no migrations')
+    parser.add_argument('--legacy-drain-baseline', action='store_true', help='Reproduce 7.4 native false-success with its committed sync module')
     parser.add_argument('--offline-create-browser', action='store_true', help='Run Standard and all-type offline creation browser scenarios over socket HTTP')
     parser.add_argument('--offline-edit-browser', action='store_true', help='Run the offline edit and conflict browser scenario over socket HTTP')
     parser.add_argument('--offline-delivery-browser', action='store_true', help='Run the offline delivery failure scenarios over socket HTTP')
@@ -234,6 +236,8 @@ def main():
     parser.add_argument('--learning-browser', action='store_true', help='Run all-type study and personal-data contracts in Chromium/HTTP/PostgreSQL')
     parser.add_argument('--media-browser', action='store_true', help='Run nine-type native media/TTS/cache in Chromium/HTTP/PostgreSQL')
     args = parser.parse_args()
+    if args.legacy_drain_baseline and not args.legacy_drain_browser:
+        parser.error('--legacy-drain-baseline requires --legacy-drain-browser')
     binaries = args.bin_dir.resolve()
     suffix = '.exe' if os.name == 'nt' else ''
     for name in ('initdb', 'pg_ctl'):
@@ -270,6 +274,9 @@ def main():
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port,
                                 user='cards_test', connect_timeout=5)
         try:
+            if args.legacy_drain_browser:
+                from structured_cards_legacy_drain import verify as verify_drain
+                return 0 if verify_drain(db, baseline=args.legacy_drain_baseline) else 1
             if args.cutover_preflight:
                 from structured_cards_cutover import verify as verify_cutover
                 return 0 if verify_cutover(db, binaries, scratch) else 1

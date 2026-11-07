@@ -196,6 +196,7 @@ class OfflineSyncTests(unittest.TestCase):
     def test_legacy_batch_fingerprint_still_retries_after_server_upgrade(self):
         request = self.request()
         old_payload = request.model_dump(mode='json')
+        old_payload.pop('drain_bases')  # Reconstruct the historical wire model.
         old_payload.pop('reviews')
         old_hash = hashlib.sha256(json.dumps(old_payload, sort_keys=True).encode()).hexdigest()
         old_response = {'status': 'success', 'mappings': {'folders': {}, 'decks': {}, 'cards': {}}}
@@ -222,6 +223,7 @@ class OfflineSyncTests(unittest.TestCase):
         # Existing full progress batches/receipts retain exactly their old hash.
         legacy = self.request(progress=[stale])
         payload = legacy.model_dump(mode='json')
+        payload.pop('drain_bases')
         payload.pop('reviews')
         payload['progress'][0].pop('flag_only')
         digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
