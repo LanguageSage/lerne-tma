@@ -333,7 +333,7 @@ def inspect_v1_card(
     deck: dict[str, Any] | None = None,
     index: int | None = None,
     strip_synthesized_back_note: bool = True,
-    require_explicit_free_text_policy: bool = True,
+    require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
 ) -> dict[str, Any]:
     """Inspect and convert a single V1 card dictionary without mutating input."""
@@ -533,7 +533,15 @@ def inspect_v1_card(
     explicit_card_type = card.get('card_type', card.get('type'))
     if isinstance(explicit_card_type, str) and explicit_card_type.strip():
         norm_type = explicit_card_type.strip()
-        if norm_type != kind:
+        if norm_type == 'translation' and kind == 'standard':
+            add_warning(
+                'legacy_translation_card_type_normalized',
+                "legacy card_type 'translation' normalized to V2 type 'standard'",
+                path='card.type',
+                stored_card_type=norm_type,
+                parsed_type=kind,
+            )
+        elif norm_type != kind:
             add_error(
                 'card_type_mismatch',
                 f'stored card_type {norm_type!r} conflicts with parsed V2 card type {kind!r}',
@@ -1019,7 +1027,7 @@ def convert_v1_card(
     deck: dict[str, Any] | None = None,
     index: int | None = None,
     strip_synthesized_back_note: bool = True,
-    require_explicit_free_text_policy: bool = True,
+    require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
 ) -> dict[str, Any]:
     """Convert a single V1 card dictionary to a canonical `content_v2` payload.
@@ -1191,7 +1199,7 @@ def convert_v1_document(
     legacy_document: dict[str, Any],
     *,
     strip_synthesized_back_note: bool = True,
-    require_explicit_free_text_policy: bool = True,
+    require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
 ) -> Document:
     """Convert a legacy `{deck, cards}` document into a validated V2 `Document`.
@@ -1273,67 +1281,260 @@ def convert_v1_document(
         ]) from exc
 
 
+_MEDIA_KEYS: tuple[str, ...] = (
+    'image_path',
+    'audio_path',
+    'audio_back_path',
+    'video_front_path',
+    'video_back_path',
+)
+
+_CONSUMED_METADATA_KEYS: frozenset[str] = frozenset({
+    'grading_policy',
+    'accepted_answers',
+    'structured_topics',
+})
+
+
+def _append_grouped_reason(
+    groups: dict[str, dict[str, Any]],
+    diag: dict[str, Any],
+) -> None:
+    code = diag['code']
+    entry = groups.get(code)
+    if entry is None:
+        entry = {
+            'count': 0,
+            'severity': diag.get('severity', 'ERROR'),
+            'card_ids': [],
+            'deck_ids': [],
+            'sample_message': diag.get('message', ''),
+        }
+        groups[code] = entry
+    entry['count'] += 1
+    card_id = diag.get('card_id')
+    deck_id = diag.get('deck_id')
+    if card_id is not None and card_id not in entry['card_ids']:
+        entry['card_ids'].append(card_id)
+    if deck_id is not None and deck_id not in entry['deck_ids']:
+        entry['deck_ids'].append(deck_id)
+
+
 def convert_v1_snapshot(
-    snapshot: dict[str, Any],
+    snapshot: dict[str, Any] | list[Any],
     *,
     strip_synthesized_back_note: bool = True,
-    require_explicit_free_text_policy: bool = True,
+    require_explicit_free_text_policy: bool = False,
     default_free_text_policy: str = 'controlled_text',
+    include_converted_payloads: bool = True,
 ) -> dict[str, Any]:
-    """Batch-inspect and convert a `{decks, cards}` snapshot without mutating it."""
-    if not isinstance(snapshot, dict):
+    """Batch-inspect and dry-run convert a V1 snapshot without mutating source data.
+
+    Accepts:
+    - `{decks: [...], cards: [...]}` snapshot dict
+    - `{deck: {...}, cards: [...]}` legacy document dict
+    - `[...]` list of V1 card dicts
+    """
+    if isinstance(snapshot, list):
+        raw_decks: list[Any] = []
+        raw_cards: list[Any] = snapshot
+        has_decks_list = False
+    elif isinstance(snapshot, dict):
+        if isinstance(snapshot.get('decks'), list) and isinstance(snapshot.get('cards'), list):
+            raw_decks = snapshot['decks']
+            raw_cards = snapshot['cards']
+            has_decks_list = True
+        elif isinstance(snapshot.get('deck'), dict) and isinstance(snapshot.get('cards'), list):
+            raw_decks = [snapshot['deck']]
+            raw_cards = snapshot['cards']
+            has_decks_list = True
+        elif isinstance(snapshot.get('cards'), list) and 'decks' not in snapshot and 'deck' not in snapshot:
+            raw_decks = []
+            raw_cards = snapshot['cards']
+            has_decks_list = False
+        else:
+            diag = ConversionDiagnostic(
+                code='invalid_snapshot_object',
+                message='snapshot must be a dict with (decks, cards) or (deck, cards), or a list of cards',
+                path='snapshot',
+            ).to_dict()
+            reasons: dict[str, dict[str, Any]] = {}
+            _append_grouped_reason(reasons, diag)
+            return {
+                'ok': False,
+                'mode': 'dry_run',
+                'checked': {'decks': 0, 'cards': 0},
+                'total_decks': 0,
+                'total_cards': 0,
+                'converted_count': 0,
+                'blocked_count': 0,
+                'failed_count': 0,
+                'warning_count': 0,
+                'cards_with_warnings_count': 0,
+                'converted_ids': [],
+                'blocked_ids': [],
+                'warning_ids': [],
+                'blocked_deck_ids': [],
+                'counts_by_code': {'invalid_snapshot_object': 1},
+                'warning_counts_by_code': {},
+                'reasons': reasons,
+                'blocked_by_code': reasons,
+                'warnings_by_code': {},
+                'invariants': {
+                    'source_unmodified': True,
+                    'id_uniqueness_ok': False,
+                    'order_preserved': True,
+                    'metadata_preserved': True,
+                    'media_links_preserved': True,
+                    'v2_valid': False,
+                },
+                'decks': [],
+                'cards': [],
+                'diagnostics': [diag],
+                'warnings': [],
+            }
+    else:
         diag = ConversionDiagnostic(
             code='invalid_snapshot_object',
-            message='snapshot must be a dict with decks and cards lists',
+            message='snapshot must be a dict with (decks, cards) or (deck, cards), or a list of cards',
             path='snapshot',
-        )
+        ).to_dict()
+        reasons = {}
+        _append_grouped_reason(reasons, diag)
         return {
             'ok': False,
+            'mode': 'dry_run',
             'checked': {'decks': 0, 'cards': 0},
+            'total_decks': 0,
+            'total_cards': 0,
             'converted_count': 0,
+            'blocked_count': 0,
             'failed_count': 0,
             'warning_count': 0,
+            'cards_with_warnings_count': 0,
+            'converted_ids': [],
+            'blocked_ids': [],
+            'warning_ids': [],
+            'blocked_deck_ids': [],
             'counts_by_code': {'invalid_snapshot_object': 1},
             'warning_counts_by_code': {},
+            'reasons': reasons,
+            'blocked_by_code': reasons,
+            'warnings_by_code': {},
+            'invariants': {
+                'source_unmodified': True,
+                'id_uniqueness_ok': False,
+                'order_preserved': True,
+                'metadata_preserved': True,
+                'media_links_preserved': True,
+                'v2_valid': False,
+            },
             'decks': [],
             'cards': [],
-            'diagnostics': [diag.to_dict()],
+            'diagnostics': [diag],
             'warnings': [],
         }
 
-    raw_decks = snapshot.get('decks') if isinstance(snapshot.get('decks'), list) else []
-    raw_cards = snapshot.get('cards') if isinstance(snapshot.get('cards'), list) else []
-
     decks_by_id: dict[Any, dict[str, Any]] = {}
+    seen_deck_ids: dict[Any, int] = {}
     deck_reports: list[dict[str, Any]] = []
     all_diagnostics: list[dict[str, Any]] = []
     all_warnings: list[dict[str, Any]] = []
     counts_by_code: dict[str, int] = {}
     warning_counts_by_code: dict[str, int] = {}
+    reasons_by_code: dict[str, dict[str, Any]] = {}
+    warnings_by_code: dict[str, dict[str, Any]] = {}
+    blocked_deck_ids: list[Any] = []
+    id_uniqueness_ok = True
 
-    for deck in raw_decks:
-        if isinstance(deck, dict) and 'id' in deck:
-            decks_by_id[deck['id']] = deck
+    def record_error_dict(d: dict[str, Any]) -> None:
+        all_diagnostics.append(d)
+        counts_by_code[d['code']] = counts_by_code.get(d['code'], 0) + 1
+        _append_grouped_reason(reasons_by_code, d)
+
+    def record_warning_dict(w: dict[str, Any]) -> None:
+        all_warnings.append(w)
+        warning_counts_by_code[w['code']] = warning_counts_by_code.get(w['code'], 0) + 1
+        _append_grouped_reason(warnings_by_code, w)
+
+    for deck_idx, deck in enumerate(raw_decks):
         deck_id = deck.get('id') if isinstance(deck, dict) else None
         deck_v2, deck_errors = _extract_deck_v2_payload(deck, deck_id=deck_id)
+        if isinstance(deck, dict):
+            if deck_id is not None:
+                if deck_id in seen_deck_ids:
+                    id_uniqueness_ok = False
+                    deck_errors.append(
+                        ConversionDiagnostic(
+                            code='duplicate_deck_id',
+                            message=f'duplicate deck id {deck_id!r} (first seen at decks[{seen_deck_ids[deck_id]}])',
+                            path='deck.id',
+                            deck_id=deck_id,
+                            details={'first_index': seen_deck_ids[deck_id], 'duplicate_index': deck_idx},
+                        )
+                    )
+                else:
+                    seen_deck_ids[deck_id] = deck_idx
+                    decks_by_id[deck_id] = deck
+            elif len(raw_decks) > 1:
+                id_uniqueness_ok = False
+                deck_errors.append(
+                    ConversionDiagnostic(
+                        code='missing_deck_id',
+                        message=f'deck at decks[{deck_idx}] is missing an id in multi-deck snapshot',
+                        path='deck.id',
+                        deck_id=None,
+                    )
+                )
+
         deck_diag_dicts = [d.to_dict() for d in deck_errors]
         for d in deck_diag_dicts:
-            all_diagnostics.append(d)
-            counts_by_code[d['code']] = counts_by_code.get(d['code'], 0) + 1
+            record_error_dict(d)
+        deck_ok = len(deck_diag_dicts) == 0 and deck_v2 is not None
+        if not deck_ok and deck_id is not None and deck_id not in blocked_deck_ids:
+            blocked_deck_ids.append(deck_id)
         deck_reports.append({
             'deck_id': deck_id,
-            'ok': len(deck_diag_dicts) == 0 and deck_v2 is not None,
-            'deck_v2': deck_v2,
+            'index': deck_idx,
+            'ok': deck_ok,
+            'deck_v2': deck_v2 if deck_ok else None,
             'diagnostics': deck_diag_dicts,
         })
+
+    # Determine whether this snapshot uses explicit card IDs.
+    any_card_has_primary_id = any(
+        isinstance(c, dict) and (c.get('id') is not None or c.get('card_id') is not None)
+        for c in raw_cards
+    )
+    seen_card_ids: dict[Any, int] = {}
+    seen_author_ids_by_deck: dict[Any, dict[str, int]] = {}
+    seen_positions_by_deck: dict[Any, dict[Any, int]] = {}
 
     card_reports: list[dict[str, Any]] = []
     converted_count = 0
     failed_count = 0
+    cards_with_warnings_count = 0
+    converted_ids: list[Any] = []
+    blocked_ids: list[Any] = []
+    warning_ids: list[Any] = []
+
+    order_preserved = True
+    metadata_preserved = True
+    media_links_preserved = True
+    v2_valid = True
+
+    single_default_deck = raw_decks[0] if (len(raw_decks) == 1 and isinstance(raw_decks[0], dict)) else None
 
     for idx, card in enumerate(raw_cards):
         deck_id = card.get('deck_id') if isinstance(card, dict) else None
-        deck_obj = decks_by_id.get(deck_id)
+        if deck_id is not None and deck_id in decks_by_id:
+            deck_obj = decks_by_id[deck_id]
+        elif deck_id is None and single_default_deck is not None:
+            deck_obj = single_default_deck
+            deck_id = single_default_deck.get('id')
+        else:
+            deck_obj = None
+
         res = inspect_v1_card(
             card,
             deck=deck_obj,
@@ -1342,49 +1543,211 @@ def convert_v1_snapshot(
             require_explicit_free_text_policy=require_explicit_free_text_policy,
             default_free_text_policy=default_free_text_policy,
         )
-        if res['ok']:
-            converted_count += 1
-        else:
-            failed_count += 1
 
-        for d in res['diagnostics']:
-            all_diagnostics.append(d)
-            counts_by_code[d['code']] = counts_by_code.get(d['code'], 0) + 1
-        for w in res['warnings']:
-            all_warnings.append(w)
-            warning_counts_by_code[w['code']] = warning_counts_by_code.get(w['code'], 0) + 1
+        card_diags = list(res['diagnostics'])
+        card_warns = list(res['warnings'])
+        card_id = res['card_id']
+        resolved_deck_id = res['deck_id'] if res['deck_id'] is not None else deck_id
+        card_position = card.get('position') if isinstance(card, dict) else None
+
+        if isinstance(card, dict):
+            primary_id = card.get('id', card.get('card_id'))
+            if any_card_has_primary_id:
+                if primary_id is None or (isinstance(primary_id, str) and not primary_id.strip()):
+                    id_uniqueness_ok = False
+                    card_diags.append(
+                        ConversionDiagnostic(
+                            code='missing_card_id',
+                            message=f'card at cards[{idx}] is missing id/card_id',
+                            path='card.id',
+                            card_id=card_id,
+                            deck_id=resolved_deck_id,
+                            details={'index': idx},
+                        ).to_dict()
+                    )
+                elif primary_id in seen_card_ids:
+                    id_uniqueness_ok = False
+                    card_diags.append(
+                        ConversionDiagnostic(
+                            code='duplicate_card_id',
+                            message=f'duplicate card id {primary_id!r} (first seen at cards[{seen_card_ids[primary_id]}])',
+                            path='card.id',
+                            card_id=primary_id,
+                            deck_id=resolved_deck_id,
+                            details={'first_index': seen_card_ids[primary_id], 'duplicate_index': idx},
+                        ).to_dict()
+                    )
+                else:
+                    seen_card_ids[primary_id] = idx
+
+            if has_decks_list and len(decks_by_id) > 0 and card.get('deck_id') is not None:
+                if card['deck_id'] not in decks_by_id:
+                    id_uniqueness_ok = False
+                    card_diags.append(
+                        ConversionDiagnostic(
+                            code='orphan_card_deck_id',
+                            message=f"card references deck_id {card['deck_id']!r} not present in snapshot decks",
+                            path='card.deck_id',
+                            card_id=card_id,
+                            deck_id=card['deck_id'],
+                        ).to_dict()
+                    )
+
+            raw_source_id = card.get('source_id')
+            if isinstance(raw_source_id, str) and raw_source_id.strip():
+                norm_source_id = raw_source_id.strip()
+                deck_author_map = seen_author_ids_by_deck.setdefault(resolved_deck_id, {})
+                if norm_source_id in deck_author_map:
+                    id_uniqueness_ok = False
+                    card_diags.append(
+                        ConversionDiagnostic(
+                            code='duplicate_author_card_id',
+                            message=(
+                                f'duplicate author source_id {norm_source_id!r} within deck {resolved_deck_id!r} '
+                                f'(first seen at cards[{deck_author_map[norm_source_id]}])'
+                            ),
+                            path='card.id',
+                            card_id=card_id,
+                            deck_id=resolved_deck_id,
+                            details={'source_id': norm_source_id, 'first_index': deck_author_map[norm_source_id]},
+                        ).to_dict()
+                    )
+                else:
+                    deck_author_map[norm_source_id] = idx
+
+            if card_position is not None:
+                deck_pos_map = seen_positions_by_deck.setdefault(resolved_deck_id, {})
+                if card_position in deck_pos_map:
+                    order_preserved = False
+                    card_diags.append(
+                        ConversionDiagnostic(
+                            code='duplicate_card_position',
+                            message=(
+                                f'duplicate card position {card_position!r} within deck {resolved_deck_id!r} '
+                                f'(first seen at cards[{deck_pos_map[card_position]}])'
+                            ),
+                            path='card.position',
+                            card_id=card_id,
+                            deck_id=resolved_deck_id,
+                            details={'position': card_position, 'first_index': deck_pos_map[card_position]},
+                        ).to_dict()
+                    )
+                else:
+                    deck_pos_map[card_position] = idx
 
         media_links: dict[str, Any] = {}
         if isinstance(card, dict):
-            for media_key in (
-                'image_path',
-                'audio_path',
-                'audio_back_path',
-                'video_front_path',
-                'video_back_path',
-            ):
+            for media_key in _MEDIA_KEYS:
                 if media_key in card:
                     media_links[media_key] = card[media_key]
 
-        card_reports.append({
-            'ok': res['ok'],
-            'card_id': res['card_id'],
-            'deck_id': res['deck_id'],
+        content_v2 = res['content_v2'] if len(card_diags) == 0 else None
+        card_ok = len(card_diags) == 0 and content_v2 is not None
+
+        # Verify V2 schema, media link preservation, and custom metadata preservation on converted cards.
+        if card_ok and content_v2 is not None and isinstance(card, dict):
+            try:
+                decoded = decode_v2_content(content_v2)
+                if decoded.type != content_v2['card']['type']:
+                    v2_valid = False
+            except Exception as exc:
+                v2_valid = False
+                card_ok = False
+                content_v2 = None
+                card_diags.append(
+                    ConversionDiagnostic(
+                        code='v2_roundtrip_validation_failed',
+                        message=f'decoded content_v2 failed validation: {exc}',
+                        path='card.content_v2',
+                        card_id=card_id,
+                        deck_id=resolved_deck_id,
+                    ).to_dict()
+                )
+
+            for media_key in _MEDIA_KEYS:
+                if media_key in card and media_links.get(media_key) != card[media_key]:
+                    media_links_preserved = False
+
+            raw_img_ref = card.get('image_ref', card.get('image'))
+            if isinstance(raw_img_ref, str) and raw_img_ref.strip() and content_v2 is not None:
+                if content_v2['card'].get('image') != raw_img_ref.strip():
+                    media_links_preserved = False
+
+            raw_meta, raw_meta_err = _parse_metadata_dict(card.get('metadata'))
+            if raw_meta_err is None and isinstance(raw_meta, dict) and content_v2 is not None:
+                v2_meta = content_v2['card'].get('metadata', {})
+                for mk, mv in raw_meta.items():
+                    if mk in _CONSUMED_METADATA_KEYS or mk in ('tags', 'cefr'):
+                        continue
+                    if v2_meta.get(mk) != mv:
+                        metadata_preserved = False
+
+        if card_ok:
+            converted_count += 1
+            converted_ids.append(card_id if card_id is not None else f'index:{idx}')
+        else:
+            failed_count += 1
+            blocked_ids.append(card_id if card_id is not None else f'index:{idx}')
+
+        if card_warns:
+            cards_with_warnings_count += 1
+            warning_ids.append(card_id if card_id is not None else f'index:{idx}')
+
+        for d in card_diags:
+            record_error_dict(d)
+        for w in card_warns:
+            record_warning_dict(w)
+
+        card_entry: dict[str, Any] = {
+            'ok': card_ok,
+            'card_id': card_id,
+            'deck_id': resolved_deck_id,
             'index': idx,
-            'content_v2': res['content_v2'],
+            'position': card_position,
             'media': media_links,
-            'diagnostics': res['diagnostics'],
-            'warnings': res['warnings'],
-        })
+            'diagnostics': card_diags,
+            'warnings': card_warns,
+        }
+        if include_converted_payloads:
+            card_entry['content_v2'] = content_v2
+        elif content_v2 is not None:
+            card_entry['v2_type'] = content_v2['card']['type']
+        card_reports.append(card_entry)
+
+    # Verify order preservation across the batch.
+    if len(card_reports) != len(raw_cards) or [r['index'] for r in card_reports] != list(range(len(raw_cards))):
+        order_preserved = False
+
+    invariants = {
+        'source_unmodified': True,
+        'id_uniqueness_ok': id_uniqueness_ok,
+        'order_preserved': order_preserved,
+        'metadata_preserved': metadata_preserved,
+        'media_links_preserved': media_links_preserved,
+        'v2_valid': v2_valid,
+    }
 
     return {
-        'ok': len(all_diagnostics) == 0,
+        'ok': len(all_diagnostics) == 0 and all(invariants.values()),
+        'mode': 'dry_run',
         'checked': {'decks': len(raw_decks), 'cards': len(raw_cards)},
+        'total_decks': len(raw_decks),
+        'total_cards': len(raw_cards),
         'converted_count': converted_count,
+        'blocked_count': failed_count,
         'failed_count': failed_count,
         'warning_count': len(all_warnings),
+        'cards_with_warnings_count': cards_with_warnings_count,
+        'converted_ids': converted_ids,
+        'blocked_ids': blocked_ids,
+        'warning_ids': warning_ids,
+        'blocked_deck_ids': blocked_deck_ids,
         'counts_by_code': counts_by_code,
         'warning_counts_by_code': warning_counts_by_code,
+        'reasons': reasons_by_code,
+        'blocked_by_code': reasons_by_code,
+        'warnings_by_code': warnings_by_code,
+        'invariants': invariants,
         'decks': deck_reports,
         'cards': card_reports,
         'diagnostics': all_diagnostics,
@@ -1392,8 +1755,90 @@ def convert_v1_snapshot(
     }
 
 
+def run_v1_migration_dry_run(
+    snapshot: dict[str, Any] | list[Any],
+    *,
+    strip_synthesized_back_note: bool = True,
+    require_explicit_free_text_policy: bool = False,
+    default_free_text_policy: str = 'controlled_text',
+    include_converted_payloads: bool = False,
+    verify_source_unmodified: bool = True,
+) -> dict[str, Any]:
+    """Run a non-destructive V1 -> V2 migration dry-run on a snapshot and verify invariants."""
+    before_copy = copy.deepcopy(snapshot) if verify_source_unmodified else None
+    report = convert_v1_snapshot(
+        snapshot,
+        strip_synthesized_back_note=strip_synthesized_back_note,
+        require_explicit_free_text_policy=require_explicit_free_text_policy,
+        default_free_text_policy=default_free_text_policy,
+        include_converted_payloads=include_converted_payloads,
+    )
+    if verify_source_unmodified:
+        source_unmodified = (snapshot == before_copy)
+        report['invariants']['source_unmodified'] = source_unmodified
+        if not source_unmodified:
+            report['ok'] = False
+    return report
+
+
+def format_dry_run_summary(report: dict[str, Any]) -> str:
+    """Format a concise human-readable summary of a V1 -> V2 migration dry-run report."""
+    lines: list[str] = []
+    status = 'READY (0 blocked)' if report.get('ok') else 'BLOCKED (manual fixes required)'
+    lines.append(f"=== V1 -> V2 Migration Dry-Run Summary [{status}] ===")
+    lines.append(
+        f"Decks checked: {report.get('total_decks', 0)} "
+        f"(blocked decks: {len(report.get('blocked_deck_ids', []))})"
+    )
+    lines.append(
+        f"Cards total:   {report.get('total_cards', 0)} | "
+        f"Converted: {report.get('converted_count', 0)} | "
+        f"With warnings: {report.get('cards_with_warnings_count', 0)} "
+        f"({report.get('warning_count', 0)} warning(s)) | "
+        f"Blocked: {report.get('blocked_count', 0)}"
+    )
+
+    invariants = report.get('invariants', {})
+    if invariants:
+        inv_parts = [f"{k}={'OK' if v else 'FAIL'}" for k, v in invariants.items()]
+        lines.append(f"Invariants:    {', '.join(inv_parts)}")
+
+    warnings_by_code = report.get('warnings_by_code', {})
+    if warnings_by_code:
+        lines.append('Warnings (auto-converted safely):')
+        for code, info in sorted(warnings_by_code.items(), key=lambda kv: (-kv[1]['count'], kv[0])):
+            card_ids = info.get('card_ids', [])
+            preview = ', '.join(str(cid) for cid in card_ids[:10])
+            if len(card_ids) > 10:
+                preview += f", ... (+{len(card_ids) - 10} more)"
+            lines.append(f"  - {code}: {info['count']} (card IDs: [{preview}])")
+
+    reasons = report.get('reasons', {})
+    if reasons:
+        lines.append('Blocked Reasons (require fix before migration):')
+        for code, info in sorted(reasons.items(), key=lambda kv: (-kv[1]['count'], kv[0])):
+            card_ids = info.get('card_ids', [])
+            deck_ids = info.get('deck_ids', [])
+            targets: list[str] = []
+            if card_ids:
+                c_preview = ', '.join(str(cid) for cid in card_ids[:15])
+                if len(card_ids) > 15:
+                    c_preview += f", ... (+{len(card_ids) - 15} more)"
+                targets.append(f"card IDs: [{c_preview}]")
+            if deck_ids and not card_ids:
+                d_preview = ', '.join(str(did) for did in deck_ids[:15])
+                if len(deck_ids) > 15:
+                    d_preview += f", ... (+{len(deck_ids) - 15} more)"
+                targets.append(f"deck IDs: [{d_preview}]")
+            target_str = f" ({'; '.join(targets)})" if targets else ''
+            lines.append(f"  - {code}: {info['count']}{target_str}")
+            if info.get('sample_message'):
+                lines.append(f"      example: {info['sample_message']}")
+    return '\n'.join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
-    """CLI entrypoint for offline V1 -> V2 conversion (`python -m api.v1_to_v2_converter <file>`)."""
+    """CLI entrypoint for offline V1 -> V2 conversion and dry-run diagnostics."""
     import argparse
     from pathlib import Path
     import sys
@@ -1401,21 +1846,75 @@ def main(argv: list[str] | None = None) -> int:
     for stream in (sys.stdout, sys.stderr):
         if hasattr(stream, 'reconfigure'):
             stream.reconfigure(encoding='utf-8')
-    parser = argparse.ArgumentParser(description='Offline V1 -> JSON V2 structured card converter.')
+    parser = argparse.ArgumentParser(description='Offline V1 -> JSON V2 structured card converter and dry-run diagnostics.')
     parser.add_argument('file', type=Path, help='Path to V1 card, {deck, cards} document, or {decks, cards} snapshot JSON')
+    parser.add_argument(
+        '--dry-run',
+        action='store_true',
+        help='Run non-destructive mass migration diagnostics without failing exit code on blocked cards',
+    )
+    parser.add_argument(
+        '--summary',
+        action='store_true',
+        help='Print concise human-readable dry-run summary (to stderr when combined with JSON stdout, or stdout when used with --report-out)',
+    )
+    parser.add_argument(
+        '--report-out',
+        type=Path,
+        default=None,
+        help='Optional path to write the JSON dry-run report',
+    )
+    parser.add_argument(
+        '--include-payloads',
+        action='store_true',
+        help='Include converted content_v2 payloads in --dry-run JSON output',
+    )
+    parser.add_argument(
+        '--fail-on-blocked',
+        action='store_true',
+        help='Return non-zero exit code in --dry-run mode if any cards or decks are blocked',
+    )
+    parser.add_argument(
+        '--strict-free-policy',
+        action='store_true',
+        help='Block V1 free_text cards that do not specify an explicit grading_policy in metadata',
+    )
     parser.add_argument(
         '--allow-implicit-free-policy',
         action='store_true',
-        help='Fallback to controlled_text with a warning when a V1 free_text card has no explicit grading_policy',
+        help='(Default behavior) Convert V1 free_text cards without grading_policy to controlled_text with a warning',
     )
     args = parser.parse_args(argv)
-    require_explicit = not args.allow_implicit_free_policy
+    require_explicit = bool(args.strict_free_policy and not args.allow_implicit_free_policy)
     try:
         raw = json.loads(args.file.read_text(encoding='utf-8-sig'))
+        if args.dry_run:
+            report = run_v1_migration_dry_run(
+                raw,
+                require_explicit_free_text_policy=require_explicit,
+                include_converted_payloads=args.include_payloads,
+            )
+            report_json = json.dumps(report, ensure_ascii=False, indent=2, allow_nan=False)
+            if args.report_out is not None:
+                args.report_out.write_text(report_json + '\n', encoding='utf-8')
+                if args.summary:
+                    print(format_dry_run_summary(report))
+                else:
+                    print(report_json)
+            elif args.summary:
+                print(format_dry_run_summary(report))
+            else:
+                print(report_json)
+            if args.fail_on_blocked and not report['ok']:
+                return 1
+            return 0
+
         if isinstance(raw, dict) and 'decks' in raw and 'cards' in raw:
             result = convert_v1_snapshot(raw, require_explicit_free_text_policy=require_explicit)
             out_stream = sys.stdout if result['ok'] else sys.stderr
             print(json.dumps(result, ensure_ascii=False, indent=2, allow_nan=False), file=out_stream)
+            if args.summary:
+                print(format_dry_run_summary(result), file=sys.stderr)
             return 0 if result['ok'] else 1
         if isinstance(raw, dict) and 'deck' in raw and 'cards' in raw:
             doc = convert_v1_document(raw, require_explicit_free_text_policy=require_explicit)
@@ -1443,8 +1942,10 @@ __all__ = [
     'convert_v1_snapshot',
     'decode_v2_content',
     'encode_v2_content',
+    'format_dry_run_summary',
     'inspect_v1_card',
     'main',
+    'run_v1_migration_dry_run',
 ]
 
 

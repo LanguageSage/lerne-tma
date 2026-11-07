@@ -1,4 +1,4 @@
-"""Automated tests for Stage 7.1 pure V1 -> JSON V2 card converter."""
+"""Automated tests for Stage 7.1 & 7.2 pure V1 -> JSON V2 card converter and dry-run diagnostics."""
 
 from __future__ import annotations
 
@@ -18,6 +18,8 @@ if str(ROOT) not in sys.path:
 
 os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
 
+from api.card_core.lerne_card_core.answer_contract import GradingPolicy
+from api.services.answer_rules import evaluate_deterministic
 from api.card_core.lerne_card_core.structured_cards_import import (
     import_documents,
 )
@@ -35,8 +37,10 @@ from api.v1_to_v2_converter import (
     convert_v1_document,
     convert_v1_snapshot,
     decode_v2_content,
+    format_dry_run_summary,
     inspect_v1_card,
     main as cli_main,
+    run_v1_migration_dry_run,
 )
 
 FIXTURES = ROOT / 'tests' / 'fixtures'
@@ -503,12 +507,13 @@ class V1ToV2ConverterTests(unittest.TestCase):
 
         for expected_code, card in cases:
             with self.subTest(expected_code=expected_code):
-                res = inspect_v1_card(card, deck=deck)
+                strict_policy = expected_code == 'ambiguous_free_text_policy'
+                res = inspect_v1_card(card, deck=deck, require_explicit_free_text_policy=strict_policy)
                 self.assertFalse(res['ok'], f'expected error {expected_code}, but card converted ok')
                 codes = [d['code'] for d in res['diagnostics']]
                 self.assertIn(expected_code, codes, f'expected {expected_code} in {codes}')
                 with self.assertRaises(V1ConversionError) as ctx:
-                    convert_v1_card(card, deck=deck)
+                    convert_v1_card(card, deck=deck, require_explicit_free_text_policy=strict_policy)
                 self.assertIn(expected_code, [d.code for d in ctx.exception.diagnostics])
 
     def test_free_text_policy_explicit_vs_fallback_mode(self):
@@ -517,18 +522,8 @@ class V1ToV2ConverterTests(unittest.TestCase):
             'front_text': '@free\nBeschreiben Sie Ihr Zimmer.',
             'back_text': 'Mein Zimmer hat ein großes Fenster.',
         }
-        # By default require_explicit_free_text_policy=True rejects missing policy.
-        strict_res = inspect_v1_card(card, deck=deck)
-        self.assertFalse(strict_res['ok'])
-        self.assertEqual(strict_res['diagnostics'][0]['code'], 'ambiguous_free_text_policy')
-
-        # When require_explicit_free_text_policy=False, fallback policy is applied with a warning.
-        fallback_res = inspect_v1_card(
-            card,
-            deck=deck,
-            require_explicit_free_text_policy=False,
-            default_free_text_policy='controlled_text',
-        )
+        # By default (require_explicit_free_text_policy=False), missing policy safely converts to controlled_text with a warning.
+        fallback_res = inspect_v1_card(card, deck=deck)
         self.assertTrue(fallback_res['ok'])
         self.assertEqual(
             fallback_res['content_v2']['card']['data']['grading_policy']['mode'],
@@ -536,32 +531,104 @@ class V1ToV2ConverterTests(unittest.TestCase):
         )
         self.assertEqual(fallback_res['warnings'][0]['code'], 'implicit_free_text_policy')
 
+        # Strict mode (require_explicit_free_text_policy=True) blocks missing policy.
+        strict_res = inspect_v1_card(card, deck=deck, require_explicit_free_text_policy=True)
+        self.assertFalse(strict_res['ok'])
+        self.assertEqual(strict_res['diagnostics'][0]['code'], 'ambiguous_free_text_policy')
+
+    def test_free_text_controlled_text_policy_v1_equivalence(self):
+        deck = {'level': 'A2', 'topic': 'Einkaufen'}
+        v1_card = {
+            'id': 501,
+            'deck_id': 10,
+            'front_text': '::task\nПереведите на немецкий язык.\n::exercise\n@free\nЯ покупаю хлеб и молоко.',
+            'back_text': 'Ich kaufe Brot und Milch.',
+            'metadata': {'accepted_answers': ['Ich kaufe Brot und Milch']},
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        self.assertEqual(res['warnings'][0]['code'], 'implicit_free_text_policy')
+
+        v1_default_policy = GradingPolicy()
+        v2_card = decode_v2_content(res['content_v2'])
+        v2_policy = v2_card.data.grading_policy
+        self.assertEqual(v1_default_policy.model_dump(mode='json'), v2_policy.model_dump(mode='json'))
+
+        expected_answers = [v2_card.data.sample_answer, *v2_card.data.accepted_answers]
+        sample_user_inputs = [
+            'Ich kaufe Brot und Milch.',
+            'ich kaufe brot und milch',
+            'Ich kaufe Brot und Milch!',
+            'Ich kaufe Brod und Milch.',
+            'Ich trinke Wasser.',
+            '',
+        ]
+        for user_input in sample_user_inputs:
+            v1_eval = evaluate_deterministic(user_input, expected_answers, v1_default_policy)
+            v2_eval = evaluate_deterministic(user_input, expected_answers, v2_policy)
+            self.assertEqual(
+                v1_eval.model_dump(mode='json') if v1_eval is not None else None,
+                v2_eval.model_dump(mode='json') if v2_eval is not None else None,
+                f'V1 vs V2 deterministic evaluation diverged for input {user_input!r}',
+            )
+
+    def test_legacy_translation_card_type_normalized_safely(self):
+        deck = {'level': 'A1', 'topic': 'Begrüßung'}
+        v1_card = {
+            'id': 701,
+            'deck_id': 1,
+            'card_type': 'translation',
+            'front_text': 'Guten Tag',
+            'back_text': 'Добрый день',
+        }
+        res = inspect_v1_card(v1_card, deck=deck)
+        self.assertTrue(res['ok'], res['diagnostics'])
+        self.assertEqual(res['content_v2']['card']['type'], 'standard')
+        self.assertEqual(res['warnings'][0]['code'], 'legacy_translation_card_type_normalized')
+
+        # Non-standard card_type on standard content must still be blocked:
+        mismatch_card = dict(v1_card, card_type='quiz')
+        bad_res = inspect_v1_card(mismatch_card, deck=deck)
+        self.assertFalse(bad_res['ok'])
+        self.assertEqual(bad_res['diagnostics'][0]['code'], 'card_type_mismatch')
+
     def test_snapshot_conversion_on_lesson_qa_before_and_corrected_fixtures(self):
         before_raw = json.loads((FIXTURES / 'lesson-qa' / 'before.json').read_text(encoding='utf-8'))
         corrected_raw = json.loads((FIXTURES / 'lesson-qa' / 'corrected.json').read_text(encoding='utf-8'))
 
-        before_report = convert_v1_snapshot(before_raw)
+        before_report = run_v1_migration_dry_run(before_raw)
         self.assertFalse(before_report['ok'])
         self.assertEqual(before_report['checked'], {'decks': 14, 'cards': 678})
-        # before.json has broken deck passports, 61 free_text cards without grading_policy,
-        # 7 @puzzle cards with unmarked preamble inside ::exercise, 2 multi-exercise/info-after-exercise cards,
-        # 1 broken quiz (10002), 1 empty-back standard card (10003), and 1 unconverted ___ blank (30391).
-        self.assertIn('invalid_deck_passport', before_report['counts_by_code'])
-        self.assertEqual(before_report['counts_by_code'].get('ambiguous_free_text_policy'), 61)
+        self.assertEqual(before_report['total_cards'], 678)
+        # With safe V1-equivalent conversion of free_text without grading_policy -> controlled_text:
+        # 667 of 678 cards convert cleanly (61 with implicit_free_text_policy warning, 2 with puzzle_solution_in_translation),
+        # while 11 genuinely broken cards and 6 incomplete deck passports remain blocked.
+        self.assertEqual(before_report['converted_count'], 667)
+        self.assertEqual(before_report['blocked_count'], 11)
+        self.assertEqual(before_report['warning_counts_by_code'].get('implicit_free_text_policy'), 61)
+        self.assertEqual(before_report['warning_counts_by_code'].get('puzzle_solution_in_translation'), 2)
+        self.assertEqual(before_report['counts_by_code'].get('invalid_deck_passport'), 6)
         self.assertEqual(before_report['counts_by_code'].get('unmarked_preamble_before_directive'), 7)
         self.assertEqual(before_report['counts_by_code'].get('info_after_exercise'), 2)
         self.assertEqual(before_report['counts_by_code'].get('unconverted_blank_placeholder'), 1)
+        self.assertEqual(before_report['counts_by_code'].get('empty_back'), 1)
+        self.assertTrue(all(before_report['invariants'].values()))
 
-        corrected_report = convert_v1_snapshot(corrected_raw)
+        corrected_report = run_v1_migration_dry_run(corrected_raw)
         self.assertEqual(corrected_report['checked'], {'decks': 14, 'cards': 678})
         # All 14 decks in corrected.json have valid V2 passports:
         self.assertTrue(all(d['ok'] for d in corrected_report['decks']))
-        # In corrected.json, 668 of 678 cards convert cleanly; the remaining 10 diagnostics are:
-        # - 7 @puzzle cards with unmarked preamble before @puzzle inside ::exercise
+        self.assertEqual(corrected_report['blocked_deck_ids'], [])
+        # In corrected.json, 668 of 678 cards convert cleanly; the remaining 10 blocked cards are:
+        # - 7 @puzzle cards (30094..30096, 30204..30207) with unmarked preamble before @puzzle inside ::exercise
         # - 2 trainer cards (11201, 11202) carrying leftover free_text grading_policy/accepted_answers in metadata
         # - 1 card (30391) with an unconverted ___ blank in a standard card.
         self.assertEqual(corrected_report['converted_count'], 668)
-        self.assertEqual(corrected_report['failed_count'], 10)
+        self.assertEqual(corrected_report['blocked_count'], 10)
+        self.assertEqual(
+            corrected_report['blocked_ids'],
+            [30094, 30095, 30096, 30204, 30205, 30206, 30207, 30391, 11201, 11202],
+        )
         self.assertEqual(
             corrected_report['counts_by_code'],
             {
@@ -570,6 +637,184 @@ class V1ToV2ConverterTests(unittest.TestCase):
                 'unconverted_blank_placeholder': 1,
             },
         )
+        self.assertTrue(all(corrected_report['invariants'].values()))
+        summary_text = format_dry_run_summary(corrected_report)
+        self.assertIn('Cards total:   678 | Converted: 668', summary_text)
+        self.assertIn('unmarked_preamble_before_directive: 7', summary_text)
+
+    def test_dry_run_on_large_dataset_repeatability_and_invariants(self):
+        corrected_raw = json.loads((FIXTURES / 'lesson-qa' / 'corrected.json').read_text(encoding='utf-8'))
+        decks = copy.deepcopy(corrected_raw['decks'])
+        large_cards: list[dict] = []
+        next_id = 100000
+        for rep in range(3):
+            for pos, src_card in enumerate(corrected_raw['cards'], start=1):
+                c = copy.deepcopy(src_card)
+                c['id'] = next_id
+                c['position'] = rep * 1000 + pos
+                c['source_id'] = f"card-{rep}-{src_card['id']}"
+                c['image_path'] = f"/media/images/{next_id}.webp"
+                c['audio_path'] = f"/media/audio/{next_id}_front.mp3"
+                c['audio_back_path'] = f"/media/audio/{next_id}_back.mp3"
+                c['video_front_path'] = None
+                c['video_back_path'] = None
+                raw_meta = c.get('metadata')
+                if isinstance(raw_meta, str):
+                    meta = json.loads(raw_meta) if raw_meta.strip() else {}
+                elif isinstance(raw_meta, dict):
+                    meta = copy.deepcopy(raw_meta)
+                else:
+                    meta = {}
+                meta['custom_batch_tag'] = f'batch-{rep}'
+                c['metadata'] = meta
+                large_cards.append(c)
+                next_id += 1
+
+        large_snapshot = {'decks': decks, 'cards': large_cards}
+        self.assertEqual(len(large_cards), 2034)
+
+        report_1 = run_v1_migration_dry_run(large_snapshot, include_converted_payloads=True)
+        report_2 = run_v1_migration_dry_run(large_snapshot, include_converted_payloads=True)
+
+        # Deterministic repeatability across runs:
+        self.assertEqual(report_1, report_2)
+        self.assertEqual(report_1['total_cards'], 2034)
+        self.assertEqual(report_1['converted_count'], 668 * 3)
+        self.assertEqual(report_1['blocked_count'], 10 * 3)
+        self.assertEqual(
+            report_1['invariants'],
+            {
+                'source_unmodified': True,
+                'id_uniqueness_ok': True,
+                'order_preserved': True,
+                'metadata_preserved': True,
+                'media_links_preserved': True,
+                'v2_valid': True,
+            },
+        )
+        # Verify order and media links on every card entry:
+        self.assertEqual([c['card_id'] for c in report_1['cards']], [c['id'] for c in large_cards])
+        self.assertEqual([c['position'] for c in report_1['cards']], [c['position'] for c in large_cards])
+        for src, rep_card in zip(large_cards, report_1['cards']):
+            self.assertEqual(rep_card['media']['image_path'], src['image_path'])
+            self.assertEqual(rep_card['media']['audio_path'], src['audio_path'])
+            self.assertEqual(rep_card['media']['audio_back_path'], src['audio_back_path'])
+            if rep_card['ok']:
+                self.assertEqual(
+                    rep_card['content_v2']['card']['metadata']['custom_batch_tag'],
+                    src['metadata']['custom_batch_tag'],
+                )
+                self.assertEqual(rep_card['content_v2']['card']['id'], src['source_id'])
+
+    def test_dry_run_partially_corrupted_snapshot_and_id_uniqueness(self):
+        base_deck = {
+            'id': 1,
+            'name': 'Wohnen A2',
+            'level': 'A2',
+            'topic': 'Wohnen',
+        }
+        snapshot = {
+            'decks': [
+                base_deck,
+                {'id': 1, 'name': 'Duplicate Deck 1'},
+            ],
+            'cards': [
+                # 0: Valid standard card with media & legacy card_type='translation'
+                {
+                    'id': 10,
+                    'deck_id': 1,
+                    'position': 1,
+                    'source_id': 'w-01',
+                    'card_type': 'translation',
+                    'front_text': 'der Tisch',
+                    'back_text': 'стол',
+                    'image_path': 'https://cdn.example/tisch.webp',
+                    'metadata': {'author_note': 'noun'},
+                },
+                # 1: Valid free_text card without grading_policy (auto-converted to controlled_text)
+                {
+                    'id': 11,
+                    'deck_id': 1,
+                    'position': 2,
+                    'source_id': 'w-02',
+                    'front_text': '@free\nBeschreiben Sie Ihren Tisch.',
+                    'back_text': 'Mein Tisch ist aus Holz.',
+                },
+                # 2: Duplicate card_id (10)
+                {
+                    'id': 10,
+                    'deck_id': 1,
+                    'position': 3,
+                    'source_id': 'w-03',
+                    'front_text': 'der Stuhl',
+                    'back_text': 'стул',
+                },
+                # 3: Missing card_id
+                {
+                    'deck_id': 1,
+                    'position': 4,
+                    'front_text': 'die Lampe',
+                    'back_text': 'лампа',
+                },
+                # 4: Duplicate author source_id ('w-01') within deck 1
+                {
+                    'id': 14,
+                    'deck_id': 1,
+                    'position': 5,
+                    'source_id': 'w-01',
+                    'front_text': 'das Bett',
+                    'back_text': 'кровать',
+                },
+                # 5: Duplicate position (1) within deck 1
+                {
+                    'id': 15,
+                    'deck_id': 1,
+                    'position': 1,
+                    'source_id': 'w-05',
+                    'front_text': 'der Schrank',
+                    'back_text': 'шкаф',
+                },
+                # 6: Orphan deck_id (999)
+                {
+                    'id': 16,
+                    'deck_id': 999,
+                    'position': 6,
+                    'front_text': 'das Sofa',
+                    'back_text': 'диван',
+                },
+                # 7: Corrupted metadata JSON + null byte in another card
+                {
+                    'id': 17,
+                    'deck_id': 1,
+                    'position': 7,
+                    'front_text': 'der Teppich\x00',
+                    'back_text': 'ковёр',
+                },
+            ],
+        }
+        report = run_v1_migration_dry_run(snapshot, include_converted_payloads=True)
+        self.assertFalse(report['ok'])
+        self.assertEqual(report['total_decks'], 2)
+        self.assertEqual(report['total_cards'], 8)
+        self.assertEqual(report['converted_count'], 2)
+        self.assertEqual(report['blocked_count'], 6)
+        self.assertEqual(report['converted_ids'], [10, 11])
+        self.assertFalse(report['invariants']['id_uniqueness_ok'])
+        self.assertFalse(report['invariants']['order_preserved'])
+        self.assertTrue(report['invariants']['source_unmodified'])
+        self.assertTrue(report['invariants']['media_links_preserved'])
+        self.assertTrue(report['invariants']['metadata_preserved'])
+
+        for expected_err in (
+            'duplicate_deck_id',
+            'duplicate_card_id',
+            'missing_card_id',
+            'duplicate_author_card_id',
+            'duplicate_card_position',
+            'orphan_card_deck_id',
+            'null_byte_in_content',
+        ):
+            self.assertIn(expected_err, report['reasons'], f'expected {expected_err} in {report["reasons"]}')
 
     def test_cli_convert_v1_subcommand(self):
         doc = import_documents((V2_FIXTURES / 'basics.json').read_text(encoding='utf-8'), json_input=True)[0]
@@ -586,6 +831,24 @@ class V1ToV2ConverterTests(unittest.TestCase):
             self.assertEqual(rc, 0, err.getvalue())
             parsed = json.loads(out.getvalue())
             self.assertEqual(parsed, doc.model_dump(mode='json'))
+
+            # Test --dry-run and --summary on corrected.json
+            report_path = Path(tmp) / 'dry_run_report.json'
+            out_dry = io.StringIO()
+            err_dry = io.StringIO()
+            with patch('sys.stdout', out_dry), patch('sys.stderr', err_dry):
+                rc_dry = cli_main([
+                    str(FIXTURES / 'lesson-qa' / 'corrected.json'),
+                    '--dry-run',
+                    '--summary',
+                    '--report-out',
+                    str(report_path),
+                ])
+            self.assertEqual(rc_dry, 0, err_dry.getvalue())
+            self.assertIn('V1 -> V2 Migration Dry-Run Summary', out_dry.getvalue())
+            saved_report = json.loads(report_path.read_text(encoding='utf-8'))
+            self.assertEqual(saved_report['converted_count'], 668)
+            self.assertEqual(saved_report['blocked_count'], 10)
 
     def test_pure_module_does_not_import_database_models(self):
         import subprocess
