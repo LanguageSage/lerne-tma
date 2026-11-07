@@ -104,10 +104,42 @@ test('native editor keeps every card type and retains the draft after a conflict
     await open(current);
     await expect(contextField).toHaveValue('Edited ' + type);
   }
+  // Source mode must remain literal across focus/locale/layout changes.
+  const fs = require('node:fs');
+  const path = require('node:path');
+  const evidence = path.resolve('local/test-data/native-source-browser');
+  fs.mkdirSync(evidence, { recursive: true });
+  await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+  const source = page.locator('#card-editor-json');
+  const literal = JSON.stringify(current.content_v2, null, 4) + '\n';
+  await source.fill(literal);
+  for (const locale of ['ru', 'en']) {
+    await page.evaluate(async locale => (await import('/src/i18n/locale.js')).setInterfaceLanguage(locale), locale);
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 900 });
+      await source.focus();
+      await expect(source).toHaveValue(literal);
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+      await page.screenshot({ path: path.join(evidence, `source-${locale}-${width}.png`), fullPage: true });
+    }
+  }
+  await source.fill('{"card":');
+  await expect(source).toHaveAttribute('aria-invalid', 'true');
+  await expect(page.getByRole('alert')).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Save Card', exact: true })).toBeDisabled();
+  await page.screenshot({ path: path.join(evidence, 'source-error-en.png'), fullPage: true });
+  await source.fill(literal);
+  await page.getByRole('button', { name: 'Typed form', exact: true }).click();
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('ru'));
   conflict = true;
   await contextField.fill('Retain draft');
   await save.click();
-  await expect(page.getByText(/Карточка изменилась на сервере/)).toBeVisible();
+  await expect(contextField).toHaveCount(0);
+  const cached = () => page.evaluate(async () => (await (await import('/src/services/localDb.js')).prepareLocalDb()).cards.get(1));
+  await expect.poll(async () => (await cached())?.offline_edit?.status).toBe('conflict');
+  await open(await cached());
+  await expect(page.getByRole('region', { name: 'Синхронизация карточки' })).toContainText('Retain draft');
+  await page.getByRole('button', { name: 'Продолжить редактирование', exact: true }).click();
   await expect(contextField).toHaveValue('Retain draft');
   for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: 900 });

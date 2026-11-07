@@ -70,7 +70,15 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     if ((fixture.list && ['/api/cards/search', '/api/cards/duplicates', '/api/trash'].includes(pathname))
         || (fixture.lifecycle && pathname === '/api/trash')
         || /^\/api\/(sync\/v2\/|cards\/\d+|decks\/\d+\/cards|collaborative\/deck\/\d+\/role)/.test(pathname)) {
-      return route.fulfill({ response: await fetchFromServer() });
+      try {
+        return await route.fulfill({ response: await fetchFromServer() });
+      } catch (error) {
+        // Restarting a profile cancels in-flight reads. Keep every write and
+        // every non-cancellation failure observable to the assertions below.
+        if (route.request().method() === 'GET' && route.request().failure()
+          && /Route is already handled|context.*closed|context disposed/i.test(error.message)) return;
+        throw error;
+      }
     }
     const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
     const visibleDecks = fixture.list ? [fixture.list.source, fixture.list.shared, fixture.list.foreign] : fixture.move
@@ -300,19 +308,31 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
     await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toBeVisible();
     await expect(page.getByText('Ожидает синхронизации')).toBeVisible();
 
-    const { saved, bad } = await page.evaluate(async ({ contents, deckId }) => {
+    const saved = [];
+    for (const [kind, content] of Object.entries(fixture.contents)) {
+      if (kind === 'theory') continue;
+      await page.evaluate(async () => {
+        (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('creator');
+      });
+      await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+      await page.getByRole('textbox', { name: 'Полный content_v2 JSON' }).fill(JSON.stringify(content, null, 2));
+      await page.getByRole('button', { name: 'Типизированная форма', exact: true }).click();
+      await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(kind);
+      await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+      await expect(page.getByRole('textbox', { name: 'Полный content_v2 JSON' })).toHaveValue(JSON.stringify(content, null, 2));
+      await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+      await expect(page.getByRole('textbox', { name: 'Полный content_v2 JSON' })).toHaveCount(0);
+      const state = await inspectLocal(page);
+      const operation = state.operations.find(op => op.payload.content_v2.card.type === kind);
+      saved.push({ card: state.cards.find(card => card.id === operation.tempId), payload: operation.payload });
+    }
+    const bad = await page.evaluate(async deckId => {
       const { default: api } = await import('/src/services/api.js');
-      const create = async (content_v2, deck_id = deckId) => {
-        const payload = { content_v2, deck_id, request_id: crypto.randomUUID() };
-        const { data: card } = await api.post('/cards/save', payload);
-        return { card, payload };
-      };
-      const saved = [];
-      for (const [kind, content] of Object.entries(contents)) {
-        if (kind !== 'theory') saved.push(await create(content));
-      }
-      return { saved, bad: await create({ schema_version: 2, card: { type: 'match', data: {} } }) };
-    }, { contents: fixture.contents, deckId: deck.id });
+      const payload = { content_v2: { schema_version: 2, card: { type: 'match', data: {} } },
+        deck_id: deckId, request_id: crypto.randomUUID() };
+      const { data: card } = await api.post('/cards/save', payload);
+      return { card, payload };
+    }, deck.id);
     const queued = await inspectLocal(page);
     expect(queued.cards).toHaveLength(10);
     expect(queued.operations).toHaveLength(10);
@@ -469,7 +489,31 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
     for (const [index, [kind, card]] of cards.entries()) {
       await openEditor(card.id);
       await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(kind);
+      await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+      const source = page.getByRole('textbox', { name: 'Полный content_v2 JSON' });
+      expect(JSON.parse(await source.inputValue())).toEqual(card.content_v2);
+      const literal = JSON.stringify(expected.get(card.id), null, 4) + '\n';
+      await source.fill('{"schema_version":');
+      await expect(page.getByRole('alert')).toBeVisible();
+      await expect(page.getByRole('button', { name: 'Сохранить карточку', exact: true })).toBeDisabled();
+      await source.fill(literal);
+      await source.blur();
+      await expect(source).toHaveValue(literal);
+      if (index === 0) {
+        for (const width of [320, 375, 430, 768, 1280]) {
+          await page.setViewportSize({ width, height: 900 });
+          expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+          await page.screenshot({ path: testInfo.outputPath('source-' + width + '.png'), fullPage: true });
+        }
+        await page.setViewportSize({ width: 375, height: 844 });
+      }
+      await page.getByRole('button', { name: 'Типизированная форма', exact: true }).click();
+      await expect(contextField()).toHaveValue(expected.get(card.id).card.explanation);
+      await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+      expect(JSON.parse(await source.inputValue())).toEqual(expected.get(card.id));
+      await page.getByRole('button', { name: 'Типизированная форма', exact: true }).click();
       await contextField().fill(expected.get(card.id).card.explanation);
+      if (index % 2) await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
       if (index === cards.length - 1) {
         // The same Save button must commit locally even while connected.
         phase = 'lose-response';

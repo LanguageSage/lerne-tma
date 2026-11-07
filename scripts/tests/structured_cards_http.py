@@ -165,6 +165,11 @@ def _run_all_types_edit_browser(client, port, models, headers):
     deck = models.TMA_Deck.create(user_id=2, name='Offline V2 edit fixture', target_language='de')
     models.TMA_Collaborator.create(target_type='deck', target_id=deck.id, user_id=1, role='editor')
     examples = _native_examples()
+    for content in examples.values():
+        content['card']['metadata']['acceptance'] = {
+            'literal': '{"quoted": "Grüße [[literal]] @quiz"}\nКонтекст',
+            'ordered': [None, True, {'nested': [3, 1, 2]}],
+        }
     cards = {}
     for kind, content in examples.items():
         response = client.post('cards/save', headers=headers[2], json={
@@ -847,6 +852,25 @@ def _run_cases(client, models, headers, load_answer_context):
                     self.assertEqual(reopened['content_v2'], edited)
                     self.assertEqual(result['revision'], reopened['revision'])
                     self.assertNotEqual(current['revision'], result['revision'])
+
+        def test_document_import_preserves_all_nine_types_and_replays(self):
+            examples = _native_examples()
+            for kind, value in examples.items():
+                value['card']['id'] = f'import-{kind}'
+                # In a document null topics request inheritance; an explicit
+                # empty array tests literal retention without a passport.
+                if value['card']['topics'] is None:
+                    value['card']['topics'] = []
+                value['card']['metadata']['extension'] = {'literal': '"{}" [[x]]', 'ordered': [None, True, [3, 1, 2]]}
+            document = {'schema_version': 2, 'deck': {'name': 'Synthetic nine-type import'},
+                        'cards': [value['card'] for value in examples.values()]}
+            payload = {'import_id': str(uuid4()), 'document': document}
+            imported = self.call('POST', 'decks/import-json', body=payload)
+            self.addCleanup(lambda: models.TMA_Card.delete().where(models.TMA_Card.deck == imported['deck_id']).execute())
+            self.assertEqual(self.call('POST', 'decks/import-json', body=payload), imported)
+            rows = self.call('GET', f'decks/{imported["deck_id"]}/cards')
+            self.assertEqual(len(rows), 9)
+            self.assertEqual({row['content_v2']['card']['type']: row['content_v2'] for row in rows}, examples)
 
         def test_library_import_uses_native_content_and_retains_progress_on_repeat(self):
             library = models.Deck.create(name='Native library fixture')

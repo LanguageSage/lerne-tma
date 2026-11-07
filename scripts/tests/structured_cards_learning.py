@@ -117,6 +117,13 @@ def _verify_lifecycle(request, cards, target, models):
         semantic = lambda rows: [{k: v for k, v in row.items() if k not in ('id', 'card_id', 'created_at')} for row in rows]
         assert semantic(related['knowledge']) == semantic(before[copy['source_id']]['knowledge']), 'Copied V2 lost skill mappings'
     request('POST', 'cards/batch-move', {**copy_request, 'request_id': str(uuid4())})
+    content_before = {cid: request('GET', f'cards/{cid}')['content_v2'] for cid in ids}
+    request('POST', 'cards/reorder', {'card_ids': list(reversed(ids)), 'request_id': str(uuid4()),
+        'revisions': {cid: request('GET', f'cards/{cid}')['revision'] for cid in ids}})
+    ordered = list(models.TMA_Card.select().where(models.TMA_Card.id.in_(ids)).order_by(models.TMA_Card.position))
+    assert [row.id for row in ordered] == list(reversed(ids))
+    for row in ordered:
+        assert row.content_v2 == content_before[row.id] and links(row.id) == before[row.id]
     revisions = {cid: request('GET', f'cards/{cid}')['revision'] for cid in ids}
     deleted = request('POST', 'cards/batch-delete', {'card_ids': ids, 'revisions': revisions, 'request_id': str(uuid4())})
     for card in deleted['cards']:
@@ -134,4 +141,4 @@ def _verify_lifecycle(request, cards, target, models):
     request('GET', f'card-notes/{cid}', user=3, status=403)
     request('PUT', f'card-ratings/{cid}', {'rating': 1}, user=3, status=403)
     request('POST', f'cards/{cid}/flag', {'flag': 1}, user=3, status=403)
-    print('PASS: nine-type edit/copy/replay/move/delete/restore preserve links and isolate personal data', flush=True)
+    print('PASS: nine-type edit/copy/replay/move/reorder/delete/restore preserve links and isolate personal data', flush=True)

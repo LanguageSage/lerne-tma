@@ -2091,5 +2091,10 @@
   "Не удалось загрузить видео": "Unable to load video",
   "Видео недоступно без сети": "Video unavailable offline",
   "Загрузка видео...": "Loading video...",
-  "Для создания озвучки нужно подключение к сети": "Connect to the internet to generate audio"
+  "Для создания озвучки нужно подключение к сети": "Connect to the internet to generate audio",
+  "Исходный JSON": "Source JSON",
+  "Типизированная форма": "Typed form",
+  "Полный content_v2 JSON": "Full content_v2 JSON",
+  "Некорректный JSON. Исправьте исходный текст.": "Invalid JSON. Correct the source text.",
+  "Ожидается полный content_v2: schema_version: 2 и card с типом и данными.": "Expected full content_v2: schema_version: 2 and card with type and data."
 }

@@ -27,6 +27,15 @@
 [этапе 5](../../project_docs/STRUCTURED_CARDS_V2.md#этап-5-редакторы-и-публикация).
 `StructuredCardFields.jsx` изменяет черновик `content_v2`, API проверяет
 пакет `lerne-card-core`, а сохранение и открытие используют ревизию.
+`CardForm` переключает типизированную форму и полный исходный JSON envelope.
+Буквальный текст хранится в локальном поле черновика `content_v2_source`;
+при корректной структуре он обновляет тот же `content_v2`. Общий `saveCard`
+разбирает исходник также для внешних callers (включая local publication),
+не передаёт UI-поле по сети и использует существующую очередь Dexie.
+Синтаксическая ошибка сохраняет текст для исправления и блокирует запись;
+доменная валидация остаётся серверной. Регрессии: `cardDraft.test.js`,
+all-types create/edit в `native-offline-create.spec.cjs`; матрица — этап 6B.8c
+в `project_docs/STRUCTURED_CARDS_V2.md`.
 Ниже сохранены ориентиры по прежним путям для сопровождения импорта и миграции.
 
 1. CardCreator/CardEditor → CardForm → CardContentEditor редактирует `cardData.front`.

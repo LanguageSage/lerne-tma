@@ -1,4 +1,5 @@
 import { tr } from '../i18n/locale.js';
+import { studySideText } from './structuredStudyCard.js';
 
 const text = { type: 'text', text: '' };
 const option = { text: '', correct: false };
@@ -29,6 +30,26 @@ export function changeDraft(setter, update) {
     const content = current.content_v2;
     return { ...current, content_v2: { ...content, card: update(content.card) } };
   });
+}
+
+// Only guard the editor's readable shape. Domain validation still belongs to
+// card-core on the server, including validation of queued offline writes.
+export function parseCardSource(source) {
+  let content;
+  try { content = JSON.parse(source); }
+  catch { throw new Error(tr('Некорректный JSON. Исправьте исходный текст.')); }
+  const card = content?.card;
+  try {
+    if (content.schema_version !== 2 || !cardTypes.includes(card?.type)
+      || !card.data || Array.isArray(card.data) || typeof card.data !== 'object'
+      || (card.info != null && !Array.isArray(card.info))
+      || (card.topics != null && !Array.isArray(card.topics))
+      || (card.explanation != null && typeof card.explanation !== 'string')
+      || typeof studySideText(card) !== 'string' || typeof studySideText(card, 'back') !== 'string') {
+      throw new Error();
+    }
+  } catch { throw new Error(tr('Ожидается полный content_v2: schema_version: 2 и card с типом и данными.')); }
+  return content;
 }
 
 export function validateStandardDraft(card) {

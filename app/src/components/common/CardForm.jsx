@@ -5,7 +5,8 @@ import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, 
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { StructuredCardFields } from './StructuredCardFields';
-import { answerField, changeDraft } from '../../utils/cardDraft';
+import './CardContentEditor.css';
+import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
 import { studySideText } from '../../utils/structuredStudyCard';
 import { getResolvedStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
@@ -56,6 +57,19 @@ export const CardForm = ({
   const [isEditingExistingImage, setIsEditingExistingImage] = useState(false);
   const [isClassifyingLevel, setIsClassifyingLevel] = useState(false);
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
+  const source = cardData?.content_v2_source ?? null;
+  const setSource = text => setCardData(current => {
+    let parsed;
+    if (text !== null) {
+      try { parsed = parseCardSource(text); } catch { /* Keep invalid source for correction. */ }
+    }
+    return { ...current, content_v2_source: text, ...(parsed ? { content_v2: parsed } : {}) };
+  });
+  let sourceError;
+  if (source !== null) {
+    try { parseCardSource(source); }
+    catch (error) { sourceError = error.message; }
+  }
   
   const backRef = useRef(null);
   const contextRef = useRef(null);
@@ -151,6 +165,26 @@ export const CardForm = ({
 
   return (
     <div className="creator-form glass" style={{ marginTop: '4px' }}>
+      <button type="button" className="btn-secondary" style={{ minHeight: '44px' }}
+        disabled={loading || Boolean(sourceError)}
+        onClick={() => setSource(source === null ? JSON.stringify(cardData.content_v2, null, 2) : null)}>
+        {source === null ? tr('Исходный JSON') : tr('Типизированная форма')}
+      </button>
+      {source !== null && <div className="card-form-text-field card-editor-field">
+        <label htmlFor="card-editor-json">{tr('Полный content_v2 JSON')}</label>
+        <textarea id="card-editor-json" className="textarea-preview card-editor-raw" rows={18} spellCheck={false}
+          value={source} onChange={event => setSource(event.target.value)}
+          aria-invalid={Boolean(sourceError)} aria-describedby={sourceError ? 'card-editor-json-error' : undefined}
+          style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', minHeight: '280px' }} />
+        {sourceError && <p id="card-editor-json-error" role="alert">{sourceError}</p>}
+        <button type="button" className="btn btn-primary btn-save-action" disabled={loading || Boolean(sourceError)}
+          style={{ minHeight: '44px' }}
+          aria-label={t('creator.save', 'Сохранить')}
+          onClick={() => onSave()}>
+          {t('creator.save', 'Сохранить')}
+        </button>
+      </div>}
+      <div hidden={source !== null}>
       
       {isCreator && (
         <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -524,7 +558,7 @@ export const CardForm = ({
               type="button"
               className="btn btn-primary btn-save-action"
               aria-label={t('creator.save', 'Сохранить')}
-              onClick={onSave}
+              onClick={() => onSave()}
               disabled={loading}
               style={{ padding: '8px 16px', minHeight: '44px' }}
             >
@@ -655,6 +689,7 @@ export const CardForm = ({
         }}
         title={tr("Редактировать картинку")}
       />
+      </div>
     </div>
   );
 };

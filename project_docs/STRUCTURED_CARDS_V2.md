@@ -766,6 +766,112 @@ PostgreSQL HTTP-набором. Общий `npm run check` в 6B.7 заново 
   после серверной записи и перезапуска Chromium, конфликты, исправление
   отклонённой правки и регрессии Standard на FastAPI и одноразовом PostgreSQL.
 
+## Этап 6B.8c. Сквозная приёмка (2026-11-07)
+
+Baseline TMA: `52b54d1`, ветка `feature/native-structured-cards-v2`.
+Согласованный Admin: `d88b717` той же feature-ветки, wheel `lerne-card-core==0.1.4`.
+Данные полностью синтетические; каждый независимый browser-сценарий запускается
+на новом PostgreSQL. Рабочие базы, main и worktree конвертера не изменялись.
+
+Матрица существовавшего покрытия и точечных дополнений:
+
+| Область | Существующее покрытие | Дополнение 6B.8c |
+| --- | --- | --- |
+| Создание/просмотр/правка 9 типов | HTTP round-trip; all-types create/edit, native Study | Создание всех типов через UI; полный JSON ↔ форма; сохранение непосредственно из JSON |
+| Поля и расширения | HTTP editor round-trip; metadata в offline payload/receipt | Буквальные кавычки, скобки, Unicode, маркеры, вложенные metadata, null/boolean и порядок массивов; ошибки исходника |
+| Импорт | Все типы в чистом import parser; HTTP/Codex/library на отдельных типах | HTTP JSON document всех 9 типов, точный content_v2 и повтор import_id |
+| Copy/move/delete/restore | HTTP, batch/lifecycle browser; learning lifecycle всех типов | Повтор существующих сценариев; полная сортировка 9 типов с проверкой контента и личных связей |
+| Offline-first | create/edit/delivery/isolation/list/batch; потеря ответа, restart, conflicts, peer | Те же очереди и UUID проверены с JSON-редактором; новых параллельных механизмов доставки нет |
+| SRS/Knowledge/личные данные | native-learning, authoritative PostgreSQL assertions | Повтор 27 уникальных reviews/Attempts, mastery, заметок, рейтингов, флагов и account isolation |
+| Медиа/TTS/ошибки | native-media + локальный TTS/Storage provider | Повтор девяти типов, кеша/restart/retry/lifecycle и loading/error/offline |
+| TMA ↔ Admin | Admin native PG contracts и browser editor/preview | Same-row HTTP TMA → Admin → TMA для 9 типов, stale conflicts в обе стороны, сохранение progress/notes/ratings |
+| UI | native editor/Study; адаптивность media/list | Буквальный исходник, focus/error, RU/EN, 320/375/430/768/1280 px |
+
+**Исправленный дефект продукта:** в TMA отсутствовал полный исходный JSON.
+`CardForm` теперь переключает типизированную форму и обычный textarea полного
+envelope `content_v2` (включая `schema_version` и `card`). Текст не проходит через
+Markdown, DSL или проекцию полей; скобки, кавычки, экранирование и введённые
+отступы остаются буквальными во время редактирования. После возврата в форму
+и повторного открытия JSON используется форматирование `JSON.stringify`,
+значения всех полей сохраняются. Синтаксическая ошибка оставляет исходник
+для исправления и блокирует запись. Клиент проверяет только читаемую структуру;
+полная доменная валидация остаётся в существующем backend/card-core.
+
+Исходник принадлежит тому же локальному черновику, что и типизированные поля.
+Общий save handler, включая вызов перед local publication, разбирает актуальный
+исходник; UI-поле `content_v2_source` не отправляется на сервер. Корректный JSON
+сохраняется через прежние Dexie/outbox и revision checks. Переключение режимов
+работает без сети. Открытие/переключение/сохранение не конвертирует V2 в DSL.
+Регрессия отсутствующего JSON воспроизведена на исходном коде до исправления.
+
+Визуальная проверка обнаружила также потерянное подключение общих стилей:
+`card-form-text-field` остался в CSS прежнего компонента, который native форма
+больше не монтирует. `CardForm` теперь явно импортирует существующий CSS;
+исходник занимает ширину формы, имеет вертикальную прокрутку и видимый focus.
+Новая система стилей не вводилась. Desktop editor smoke актуализирован под
+сохранение через local outbox и последующее открытие панели конфликта.
+
+Исправление стенда: отменённый Chromium GET при перезапуске профиля мог
+завершаться `Route is already handled`. Игнорируется только подтверждённая
+отмена чтения (`request.failure()`); ошибки записей и остальные сбои остаются
+ошибками теста. Объединение независимых флагов в одном PG загрязняет глобальный
+поиск карточками предыдущих fixtures: такие сценарии запускаются отдельно.
+Assertions поиска и доставки не ослаблялись.
+
+Воспроизводимые проверки (каждый флаг — отдельный запуск):
+
+```powershell
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --http
+# Отдельно: --offline-create-browser, --offline-edit-browser,
+# --offline-delivery-browser, --offline-isolation-browser, --offline-list-browser,
+# --offline-move-browser, --offline-lifecycle-browser, --offline-batch-browser,
+# --learning-browser, --media-browser
+node node_modules/@playwright/test/cli.js test native-card-editor.spec.cjs --project=critical --workers=1
+node node_modules/@playwright/test/cli.js test native-structured-study.spec.cjs --project=extended --workers=1
+python scripts/tests/structured_cards_admin.py --bin-dir <postgresql-bin> --admin-root <native-admin-checkout>
+npm --prefix app test
+npm --prefix app run build
+```
+
+Для optional same-row теста интерпретатору нужен reviewed wheel Admin 0.1.4;
+`--admin-root` задаётся явно. Production-код не импортирует соседний проект.
+Тест монтирует только native Admin router, сохраняет независимый DB guard и
+пишет в одну одноразовую БД через два отдельных Peewee connection owner.
+Это проверка контракта HTTP/данных, а не launcher/Host/Origin perimeter Admin.
+Ревизии — opaque tokens соответствующего API: после изменения другим
+приложением старый собственный token отклоняется обоими приложениями.
+
+Отдельно выполнены существующие Admin native PostgreSQL contracts (6),
+проверки reviewed wheel/provenance/автономного импорта (7) и два desktop browser
+теста editor/preview. Admin checkout и wheel не изменялись.
+
+Итог целевой приёмки: HTTP **14/14**, frontend **620/620**, pure V2/import
+**43 + 6**, Admin PG **6/6**, Admin wheel **7/7**, Admin browser **2/2**;
+десять различных offline browser-сценариев, learning **2/2**, media **1/1**,
+Study smoke **3/3** и editor/source smoke **1/1** прошли. Same-row TMA/Admin
+round-trip прошёл для всех девяти типов. ESLint затронутых JS/JSX и Python
+compilation прошли, production build успешен с прежним предупреждением о
+размере bundle. Скриншоты source RU/EN и error/focus проверены визуально;
+артефакты — ignored `local/test-data/native-source-browser/`.
+
+**Заглушки и внешние ограничения:** offline fixtures подменяют init/deck chrome
+и некоторые вспомогательные ответы; card/sync mutations и bearer authorization
+выполняются настоящим FastAPI/PostgreSQL. UI editor/Study и desktop Admin browser
+smoke используют HTTP fixtures. Media suite использует синтетические PNG/WebM/WAV
+и локальный TTS/Storage provider; реальные облачные запросы не выполняются.
+Free Text/Edit используют настоящий exact checker с синтетическими ответами;
+семантическое оценивание внешним AI не проверялось. Реальные edge-tts/голоса,
+Storage/CDN/CORS/права облака, внешняя диктовка и Telegram/Google login требуют
+отдельного стенда с реальными сервисами. Shell загружает Vite, затем сеть
+отключается: установка/обновление production service worker и холодный запуск
+никогда не открывавшегося приложения без сети этой проверкой не подтверждены.
+Прежние online-only границы uploads/TTS/рейтингов/AI из 6B.7 сохранены.
+
+Общий `npm run check` заново не запускался: известный baseline-долг 6B.6/6B.7
+не закрыт этой целевой приёмкой. Конвертер и массовая миграция V1 → V2,
+merge и deploy не выполнялись. Готовность к этапу 7 относится к native V2
+жизненному циклу; не является разрешением на миграцию или выпуск.
+
 ## Исходная архитектура до перехода
 
 | Путь | Владелец и ограничения |

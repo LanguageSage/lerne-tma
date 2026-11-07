@@ -5,7 +5,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 
-import { cardWriteError, validateStandardDraft } from '../utils/cardDraft';
+import { cardWriteError, validateStandardDraft, parseCardSource } from '../utils/cardDraft';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { prepareLocalDb } from '../services/localDb';
 import { offlineLifecycleLabel, offlineMoveLabel } from '../services/offlineUi';
@@ -48,6 +48,8 @@ export const useCardEditor = () => {
     const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
+      // All save callers, including local publication, consume the same source.
+      const content = data.content_v2_source != null ? parseCardSource(data.content_v2_source) : data.content_v2;
       if (data.offline_move) throw new Error(tr('Сначала завершите синхронизацию переноса.'));
       if (data.id < 0) throw new Error(tr('Сначала синхронизируйте новую карточку.'));
       let finalDeckId = data.deck_id;
@@ -56,7 +58,7 @@ export const useCardEditor = () => {
       }
 
       const path = data.id ? '/cards/' + data.id : '/cards/save';
-      const reqData = { content_v2: data.content_v2 };
+      const reqData = { content_v2: content };
       if (data.id) reqData.revision = data.revision;
       else {
         if (finalDeckId) reqData.deck_id = Number(finalDeckId);
@@ -72,7 +74,7 @@ export const useCardEditor = () => {
       reqData.request_id = pendingSave.id;
       const nativeEdit = data.id > 0;
       const conflict = data.offline_edit?.status === 'conflict';
-      if (!data.id && data.content_v2.card.type === 'standard') validateStandardDraft(data.content_v2.card);
+      if (!data.id && content.card.type === 'standard') validateStandardDraft(content.card);
       const res = nativeEdit ? await api.patch(path, reqData, {
         offlineCardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
       })
