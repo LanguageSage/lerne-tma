@@ -149,6 +149,16 @@ class MoveSelection(Transfer):
     revisions: dict[int, Revision]
 
 
+class OrderSelection(Selection):
+    revisions: dict[int, Revision] | None = None
+
+    @model_validator(mode='after')
+    def covers_order(self):
+        if self.revisions is not None and self.revisions.keys() != set(self.card_ids):
+            raise ValueError('revisions must cover exactly card_ids')
+        return self
+
+
 def require_account(user_id):
     if TMAUser.select().where(TMAUser.user_id == user_id, TMAUser.is_guest == True).exists():
         raise HTTPException(403, 'Guest accounts cannot change cards')
@@ -494,30 +504,38 @@ def change_selection(data, user_id, *, delete):
     require_account(user_id)
     operation = 'batch-delete' if delete else 'reorder'
     with tma_db.atomic():
+        payload = data.model_dump(mode='json')
+        if not delete and data.revisions is None:
+            payload.pop('revisions')
+        receipt, replay = _receipt(operation, user_id, data.request_id, payload)
         cards, decks = _lock_cards(data.card_ids, user_id, allow_deleted=delete)
-        receipt, replay = _receipt(operation, user_id, data.request_id, data.model_dump(mode='json'))
         if replay is not None:
             return replay
         now = datetime.datetime.now()
         if delete:
             for card in cards:
-                if card.is_deleted and len(cards) > 1:
-                    continue
                 if card.is_deleted or content_response(card)['revision'] != data.revisions[card.id]:
                     if len(cards) == 1:
                         raise _lifecycle_conflict(card)
                     raise HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id})
             count = TMA_Card.update(is_deleted=True, updated_at=now).where(
                 TMA_Card.id.in_(data.card_ids), TMA_Card.is_deleted == False).execute()
+            for card in cards:
+                card.is_deleted, card.updated_at = True, now
         else:
             if len(decks) != 1:
                 raise HTTPException(422, 'Reordering requires one deck')
+            if data.revisions is not None:
+                for card in cards:
+                    if content_response(card)['revision'] != data.revisions[card.id]:
+                        raise _lifecycle_conflict(card)
             # Reassign the selected positions, preserving unselected rows and their order.
             for position, card in zip(sorted(item.position for item in cards), cards):
                 TMA_Card.update(position=position, updated_at=now).where(TMA_Card.id == card.id).execute()
+                card.position, card.updated_at = position, now
             count = len(cards)
         _touch(decks)
-        result = {'status': 'success', 'count': count}
+        result = {'status': 'success', 'count': count, 'cards': [lifecycle_state(card) for card in cards]}
         if delete and len(cards) == 1:
             card.is_deleted, card.updated_at = True, now
             result['card'] = lifecycle_state(card)

@@ -93,6 +93,12 @@ export function offlineEditLabel(edit) {
   return tr('Ошибка синхронизации. Карточка сохранена на устройстве.');
 }
 
+export function offlineLifecycleLabel(card) {
+  if (card.offline_list_error === 409) return tr('Конфликт версий');
+  if (card.offline_list_error) return tr('Ошибка синхронизации. Карточка сохранена на устройстве.');
+  return tr('Ожидает синхронизации');
+}
+
 export function offlineMoveLabel(move) {
   if (move.copy) {
     if (move.status === 'pending') return tr('Копирование ожидает синхронизации');

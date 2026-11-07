@@ -328,3 +328,16 @@ legacyAdapter удалён, новый personal record создаётся неп
 актуальные V2 config/preset/offline edits сохраняются. Общие publication backups
 не затрагиваются. Исторические условия cutoff этапов 3–4D отменены этим решением.
 [Реализация и проверки](../../docs/DESIGN_V2_STAGE5_LEGACY_REMOVAL.md).
+
+## V2: список, удаление, порядок и поиск (6B.5d)
+
+`offlineApi.queueCardSelection` атомарно пишет пакет удаления/порядка и UUID
+в существующую очередь `CARD_LIFECYCLE_KEY`. `syncService.deliverCardSelection`
+доставляет через прежние `/cards/batch-delete` и `/cards/reorder` и подтверждает
+весь `cards` одной транзакцией. Отклонённые пакеты сохраняются с локальными
+карточками и исключаются из автоматического повтора. Новых схем/очередей нет.
+`createDeckSlice.reorderCards` пишет до изменения store, без отложенного таймера.
+Поиск читает V2 через `utils/search.matchCard`; дубликаты используют полный
+V2-ключ `cardDuplicateKey` и собственные колоды, как сервер. DuplicateManager
+отображает V2 напрямую. Контракт, ограничения, HTTP/PostgreSQL/Chromium проверки:
+[6B.5d](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5d-завершение-операций-со-списком-v2).

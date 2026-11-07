@@ -258,10 +258,51 @@ async function deliverCardMoves(db, operations, options, isCurrent) {
   if (firstError) throw firstError;
 }
 
+async function deliverCardSelection(db, operation, options, isCurrent) {
+  const { key, cardIds, action, payload } = operation;
+  let receipt, error;
+  try {
+    const path = action === 'delete' ? '/cards/batch-delete' : '/cards/reorder';
+    const { data } = await networkApi.post(path, payload, options);
+    if (data?.status !== 'success' || data.cards?.length !== cardIds.length
+        || !data.cards.every((card, index) => card?.id === cardIds[index] && card.content_v2?.schema_version === 2
+          && card.is_deleted === (action === 'delete') && Number.isInteger(card.position) && /^[0-9a-f]{64}$/.test(card.revision))) {
+      throw new Error(tr('Сервер не подтвердил сохранение изменений'));
+    }
+    receipt = data;
+  } catch (cause) { error = cause; }
+  if (!isCurrent()) throw new Error('Session changed');
+  const status = error?.response?.status;
+  if (error && ![403, 404, 409, 422].includes(status)) throw error;
+  const applied = await db.transaction('rw', db.cards, db.syncState, async () => {
+    const [cards, pending] = await Promise.all([db.cards.bulkGet(cardIds), db.syncState.get(key)]);
+    if (!isCurrent() || pending?.payload.request_id !== payload.request_id || cards.some(card => card?.offline_lifecycle !== action)) return false;
+    for (const [index, card] of cards.entries()) {
+      const next = receipt ? { ...card, ...receipt.cards[index], offline_confirmed_at: Date.now() }
+        : { ...card, offline_list_error: status };
+      if (receipt) { delete next.offline_lifecycle; delete next.offline_list_error; }
+      await db.cards.put(next);
+    }
+    if (receipt) await db.syncState.delete(key);
+    else await db.syncState.update(key, { rejected: true });
+    if (!isCurrent()) throw new Error('Session changed');
+    return true;
+  });
+  if (applied && isCurrent()) notifySyncUi('lerne:synced', { userId: options._expectedUserId }, {});
+  if (error) throw error;
+}
+
 async function deliverCardLifecycle(db, operations, options, isCurrent) {
   const userId = options._expectedUserId;
   let firstError;
-  for (const { key, cardId, deleting, payload } of operations) {
+  for (const operation of operations) {
+    if (!isCurrent()) throw new Error('Session changed');
+    if (operation.cardIds) {
+      try { await deliverCardSelection(db, operation, options, isCurrent); }
+      catch (error) { firstError ||= error; }
+      continue;
+    }
+    const { key, cardId, deleting, payload } = operation;
     if (!isCurrent()) throw new Error('Session changed');
     let server, error;
     const valid = card => card?.id === cardId && card.content_v2?.schema_version === 2
@@ -508,7 +549,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     });
     const moves = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_MOVE_KEY)
       .filter(move => !move.rejected).toArray();
-    const lifecycle = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_LIFECYCLE_KEY).toArray();
+    const lifecycle = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_LIFECYCLE_KEY).filter(operation => !operation.rejected).toArray();
     if (pendingNativeOnly && !creates.length && !edits.length && !moves.length && !lifecycle.length) return { success: true };
     let nativeError;
     try { await deliverCardCreates(db, creates, options, isCurrent); }

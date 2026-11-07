@@ -504,3 +504,16 @@ worker-соединения, включая ошибки. Асинхронные
 C2a завершает worker scopes пяти оставшихся sync handlers cards и cleanup при
 ошибке входа в DB scope. Карта всего FastAPI, границы частей C2 и отдельные
 grade/permissions риски: [DB_CONNECTION_OWNERSHIP](../../docs/DB_CONNECTION_OWNERSHIP.md).
+
+## V2: список, удаление, порядок и поиск (6B.5d)
+
+`offlineApi.queueCardSelection` атомарно пишет пакет удаления/порядка и UUID
+в существующую очередь `CARD_LIFECYCLE_KEY`. `syncService.deliverCardSelection`
+доставляет через прежние `/cards/batch-delete` и `/cards/reorder` и подтверждает
+весь `cards` одной транзакцией. Отклонённые пакеты сохраняются с локальными
+карточками и исключаются из автоматического повтора. Новых схем/очередей нет.
+`createDeckSlice.reorderCards` пишет до изменения store, без отложенного таймера.
+Поиск читает V2 через `utils/search.matchCard`; дубликаты используют полный
+V2-ключ `cardDuplicateKey` и собственные колоды, как сервер. DuplicateManager
+отображает V2 напрямую. Контракт, ограничения, HTTP/PostgreSQL/Chromium проверки:
+[6B.5d](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5d-завершение-операций-со-списком-v2).

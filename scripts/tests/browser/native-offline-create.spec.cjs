@@ -34,7 +34,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     }
   }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : profile.user_id },
     manualSync: (Boolean(fixture.card || fixture.edit_cards) && !owner) || fixture.isolation
-      || Boolean(fixture.move || fixture.lifecycle),
+      || Boolean(fixture.move || fixture.lifecycle || fixture.list),
     isolation: fixture.isolation, startOffline });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
@@ -46,9 +46,11 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       url: fixture.origin + pathname + search, maxRetries: 0,
       ...(updating && phase === 'unauthorized' ? { headers: { ...route.request().headers(), authorization: 'Bearer invalid' } } : {}),
     });
+    const listWrite = fixture.list && route.request().method() === 'POST'
+      && ['/api/cards/batch-delete', '/api/cards/reorder'].includes(pathname);
     const lifecycleWrite = fixture.lifecycle && route.request().method() === 'POST'
       && (pathname === '/api/cards/batch-delete' || /^\/api\/trash\/card\/\d+\/restore$/.test(pathname));
-    if (pathname === '/api/cards/save' || (fixture.move && (pathname === '/api/cards/batch-move' || (fixture.batch && pathname === '/api/cards/batch-copy'))) || updating || lifecycleWrite) {
+    if (pathname === '/api/cards/save' || (fixture.move && (pathname === '/api/cards/batch-move' || (fixture.batch && pathname === '/api/cards/batch-copy'))) || updating || lifecycleWrite || listWrite) {
       const payload = route.request().postDataJSON();
       if (controlWrite) return controlWrite({ route, pathname, payload, fetchFromServer });
       if (phase === 'reject') {
@@ -65,12 +67,13 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     if (fixture.isolation && pathname === '/api/sync/collab-pull') {
       return route.fulfill({ response: await fetchFromServer() });
     }
-    if ((fixture.lifecycle && pathname === '/api/trash')
+    if ((fixture.list && ['/api/cards/search', '/api/cards/duplicates', '/api/trash'].includes(pathname))
+        || (fixture.lifecycle && pathname === '/api/trash')
         || /^\/api\/(sync\/v2\/|cards\/\d+|decks\/\d+\/cards|collaborative\/deck\/\d+\/role)/.test(pathname)) {
       return route.fulfill({ response: await fetchFromServer() });
     }
     const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
-    const visibleDecks = fixture.move
+    const visibleDecks = fixture.list ? [fixture.list.source, fixture.list.shared, fixture.list.foreign] : fixture.move
       ? [fixture.move.source, fixture.move.target, fixture.move.denied]
       : [asSecond ? fixture.private_deck : deck];
     if (fixture.isolation && pathname === '/api/auth/v2/me') return route.fulfill({ response: await fetchFromServer() });
@@ -1261,6 +1264,230 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect(writesFor(switching)).toHaveLength(2);
   expect(writesFor(switching)[0]).toEqual(writesFor(switching)[1]);
   expect((await inspect(peer)).queue).toEqual([]);
+});
+
+test('completes V2 list operations with search parity and durable atomic delivery', async ({ browser }, testInfo) => {
+  test.skip(!fixture?.list, 'V2 list fixture only');
+  test.setTimeout(180000);
+  const { source, foreign, cards, foreign_id: foreignId } = fixture.list;
+  let phase = 'ready', device, page;
+  const attempts = [];
+  const inspect = tab => tab.evaluate(async () => {
+    const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+    return { cards: await db.cards.orderBy('id').toArray(), progress: await db.progress.toArray(),
+      operations: await db.syncState.where('key').startsWith('card-lifecycle-v2:').toArray() };
+  });
+  const sync = (tab, options = { pendingNativeOnly: true, skipPull: true }) => tab.evaluate(async options => {
+    const { syncService } = await import('/src/services/syncService.js');
+    for (let i = 0; i < 30; i++) {
+      const result = await syncService.sync(options);
+      if (result.reason !== 'Already syncing') return result;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Sync lock remained held');
+  }, options);
+  const setPhase = async value => {
+    phase = value;
+    await page.evaluate(offline => Object.defineProperty(navigator, 'onLine', {
+      configurable: true, value: !offline,
+    }), value === 'offline');
+  };
+  const launch = async () => {
+    device = await browser.browserType().launchPersistentContext(testInfo.outputPath('list-device'), {
+      viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
+    });
+    device.setDefaultTimeout(10000);
+    await setupDevice(device, () => phase, (payload, status, receipt) => attempts.push({ payload, status, receipt }));
+    page = device.pages()[0];
+    await page.goto('http://127.0.0.1:5199/');
+    await expect(page.getByText(source.name, { exact: true }).first()).toBeVisible();
+  };
+  const closeDevice = async () => {
+    await device.unrouteAll({ behavior: 'wait' });
+    await device.close();
+  };
+  const row = (tab, id) => tab.locator('#card-item-' + id);
+  const reorder = (ids, tab = page) => tab.evaluate(async ({ ids, deck }) => {
+    await (await import('/src/store/useDeckStore.js')).useDeckStore.getState().reorderCards(ids, deck);
+  }, { ids, deck: source.id });
+  const remove = async selected => {
+    await openList(page, source);
+    await page.getByTitle('Выбрать несколько карточек', { exact: true }).click();
+    for (const card of selected) await row(page, card.id).locator('.card-item-text').click();
+    page.once('dialog', dialog => dialog.accept());
+    await page.getByTitle('Удалить выбранные карточки', { exact: true }).click();
+    await expect.poll(async () => (await inspect(page)).cards.filter(card => selected.some(item => item.id === card.id))
+      .every(card => card.is_deleted)).toBe(true);
+  };
+  const read = (tab, path) => tab.evaluate(async path => (await (await import('/src/services/api.js')).default.get(path)).data, path);
+  const peerDevice = await browser.newContext({ serviceWorkers: 'block' });
+  try {
+    await setupDevice(peerDevice, () => 'ready', () => {});
+    const peer = await peerDevice.newPage();
+    await peer.goto('http://127.0.0.1:5199/');
+    await expect(peer.getByText(source.name, { exact: true }).first()).toBeVisible();
+    await launch();
+    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    const initial = await inspect(page);
+
+    const queries = ['', 'osterreich', 'LOSUNGSNACHWEIS', 'Beispielnachweis', 'erklarungsnachweis', 'Fachgebiet', 'unsichtbar'];
+    const searchPath = (q, language = 'de') => '/cards/search?' + new URLSearchParams({ q, target_language: language });
+    const online = [];
+    for (const q of queries) online.push(await read(page, searchPath(q)));
+    expect(online.map(result => result.cards.length)).toEqual([0, 4, 1, 1, 1, 1, 0]);
+    const duplicates = await read(page, '/cards/duplicates');
+    expect(duplicates.map(card => card.id)).toEqual([cards[0].id, cards[1].id, foreignId]);
+    const openDuplicates = async () => {
+      await page.evaluate(async () => {
+        await (await import('/src/store/useDeckStore.js')).useDeckStore.getState().fetchDuplicates();
+        (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('duplicates');
+      });
+      await expect(page.locator('.duplicate-group')).toHaveCount(1);
+      await expect(page.locator('.group-header')).toContainText('Österreichischer Suchtext');
+      await expect(page.locator('.duplicate-group')).toContainText('Antwort 0');
+    };
+    await openDuplicates();
+    await setPhase('offline');
+    for (const [index, q] of queries.entries()) {
+      const local = await read(page, searchPath(q));
+      expect(local.decks.map(deck => deck.id)).toEqual(online[index].decks.map(deck => deck.id));
+      expect(local.cards.map(({ id, content_v2, card_number, total_cards, flag }) => ({ id, content_v2, card_number, total_cards, flag })))
+        .toEqual(online[index].cards.map(({ id, content_v2, card_number, total_cards, flag }) => ({ id, content_v2, card_number, total_cards, flag })));
+    }
+    expect((await read(page, searchPath('osterreich', 'fr'))).cards.map(card => card.id)).toEqual([foreignId]);
+    expect((await read(page, '/cards/duplicates')).map(card => card.id)).toEqual(duplicates.map(card => card.id));
+    await openDuplicates();
+    await page.screenshot({ path: testInfo.outputPath('list-duplicates-offline-375.png') });
+    expect((await read(page, searchPath('osterreich') + '&folder_id=2147483647')).cards).toEqual([]);
+
+    await setPhase('ready');
+    await openList(page, source);
+    const handle = row(page, cards[0].id).getByTitle('Зажмите и потяните для перетаскивания карточки');
+    await handle.focus();
+    await page.keyboard.press('Space');
+    await page.keyboard.press('ArrowDown');
+    await page.waitForTimeout(200);
+    await page.keyboard.press('Space');
+    await expect.poll(async () => (await inspect(page)).cards.find(card => card.id === cards[0].id)?.position).toBe(cards[1].position);
+    await expect.poll(async () => (await inspect(page)).operations.length).toBe(0);
+    await remove(cards.slice(6, 8));
+    await expect.poll(async () => (await inspect(page)).operations.length).toBe(0);
+
+    await setPhase('offline');
+    await openList(page, source);
+    const beforeFailure = await inspect(page);
+    await page.evaluate(async () => {
+      const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+      const add = db.syncState.add;
+      db.syncState.add = () => { db.syncState.add = add; throw new Error('Synthetic list outbox failure'); };
+    });
+    const order = cards.slice(3, 6).reverse().map(card => card.id);
+    await reorder(order);
+    expect(await inspect(page)).toEqual(beforeFailure);
+    await reorder(order);
+    const queuedOrder = (await inspect(page)).operations[0];
+    expect(queuedOrder.payload.card_ids).toEqual(order);
+    await closeDevice();
+    await launch();
+    expect((await inspect(page)).operations).toEqual([queuedOrder]);
+    const beforeAck = await inspect(page);
+    await page.evaluate(async id => {
+      const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+      const put = db.cards.put.bind(db.cards);
+      db.cards.put = card => {
+        if (card.id === id) { db.cards.put = put; throw new Error('Synthetic list acknowledgement failure'); }
+        return put(card);
+      };
+    }, order[1]);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(false);
+    expect(await inspect(page)).toEqual(beforeAck);
+    await setPhase('lose-response');
+    expect((await sync(page)).success).toBe(false);
+    expect((await inspect(page)).operations).toEqual([queuedOrder]);
+    await closeDevice();
+    phase = 'offline';
+    await launch();
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(true);
+    const orderAttempts = attempts.filter(item => item.payload.request_id === queuedOrder.payload.request_id);
+    expect(orderAttempts).toHaveLength(3);
+    expect(orderAttempts[1]).toEqual(orderAttempts[0]);
+    expect(orderAttempts[2]).toEqual(orderAttempts[0]);
+
+    await setPhase('offline');
+    await remove(cards.slice(0, 2));
+    const queuedDelete = (await inspect(page)).operations[0];
+    expect((await read(page, '/cards/duplicates'))).toEqual([]);
+    await page.evaluate(async () => (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('trash'));
+    await page.getByRole('button', { name: /^Карточки/ }).click();
+    for (const width of [320, 375, 430, 768, 1280]) {
+      await page.setViewportSize({ width, height: 844 });
+      await expect(page.locator('.trash-card').getByRole('status').first()).toHaveText('Ожидает синхронизации');
+      expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    }
+    await page.screenshot({ path: testInfo.outputPath('list-delete-pending-1280.png') });
+    await closeDevice();
+    await launch();
+    expect((await inspect(page)).operations).toEqual([queuedDelete]);
+    await setPhase('lose-response');
+    expect((await sync(page)).success).toBe(false);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(true);
+    const deleteAttempts = attempts.filter(item => item.payload.request_id === queuedDelete.payload.request_id);
+    expect(deleteAttempts).toHaveLength(2);
+    expect(deleteAttempts[1]).toEqual(deleteAttempts[0]);
+
+    expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+    const remote = (await inspect(peer)).cards.filter(card => card.deck_id === source.id && !card.is_deleted)
+      .sort((a, b) => a.position - b.position).map(card => card.id);
+    expect(remote).toEqual([cards[2].id, cards[5].id, cards[4].id, cards[3].id]);
+    const peerEdit = async id => {
+      const current = await read(peer, '/cards/' + id);
+      expect((await peerDevice.request.patch(fixture.origin + '/api/cards/' + id, {
+        headers: { authorization: 'Bearer ' + fixture.access_token },
+        data: { request_id: crypto.randomUUID(), revision: current.revision, content_v2: current.content_v2 },
+      })).ok()).toBe(true);
+    };
+    await setPhase('offline');
+    await openList(page, source);
+    await reorder([cards[4].id, cards[5].id]);
+    await remove(cards.slice(2, 4));
+    await peerEdit(cards[5].id);
+    await peerEdit(cards[3].id);
+    await setPhase('ready');
+    expect((await sync(page)).success).toBe(false);
+    const rejected = await inspect(page);
+    expect(rejected.operations).toHaveLength(2);
+    expect(rejected.operations.every(operation => operation.rejected)).toBe(true);
+    expect(rejected.cards.filter(card => card.offline_list_error === 409)).toHaveLength(4);
+    const sent = attempts.length;
+    await closeDevice();
+    phase = 'offline';
+    await launch();
+    expect((await inspect(page)).operations).toEqual(rejected.operations);
+    await setPhase('ready');
+    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    const final = await inspect(page);
+    expect(final.operations).toEqual(rejected.operations);
+    for (const card of rejected.cards.filter(card => card.offline_lifecycle)) {
+      expect(final.cards.find(item => item.id === card.id)).toEqual(card);
+    }
+    expect(final.progress).toEqual(initial.progress);
+    expect(attempts).toHaveLength(sent);
+    await openList(page, source);
+    await page.setViewportSize({ width: 375, height: 844 });
+    const conflict = row(page, cards[4].id).getByRole('status');
+    await conflict.scrollIntoViewIfNeeded();
+    await expect(conflict).toHaveText('Конфликт версий');
+    await page.screenshot({ path: testInfo.outputPath('list-order-conflict-375.png') });
+    expect((await read(page, '/cards/search?' + new URLSearchParams({ q: 'osterreich', target_language: 'fr' }))).cards
+      .every(card => card.deck_id === foreign.id)).toBe(true);
+  } finally {
+    if (device) await closeDevice();
+    await peerDevice.unrouteAll({ behavior: 'wait' });
+    await peerDevice.close();
+  }
 });
 
 test('batch copies and moves V2 atomically across restarts and a second device', async ({ browser }, testInfo) => {

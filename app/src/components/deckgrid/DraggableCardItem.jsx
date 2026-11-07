@@ -14,7 +14,7 @@ import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { cleanBracketSyntax } from '../../utils/clozeParser';
-import { offlineEditLabel, offlineMoveLabel } from '../../services/offlineUi';
+import { offlineEditLabel, offlineLifecycleLabel, offlineMoveLabel } from '../../services/offlineUi';
 
 export const DraggableCardItem = React.memo(({
   c,
@@ -150,7 +150,7 @@ export const DraggableCardItem = React.memo(({
         {c.offline_create_error && <> {c.offline_create_error}</>}
       </small>}
       {c.offline_move && <small role="status">{offlineMoveLabel(c.offline_move)}</small>}
-      {c.offline_lifecycle && <small role="status">{tr('Ожидает синхронизации')}</small>}
+      {c.offline_lifecycle && <small role="status">{offlineLifecycleLabel(c)}</small>}
       {c.offline_edit && (
         <div className="card-edit-status">
           <small role="status">{offlineEditLabel(c.offline_edit)}</small>

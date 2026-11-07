@@ -10,6 +10,8 @@ import { useSessionStore } from '../../store/useSessionStore';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
 import { useCardActions } from '../../hooks/useCardActions';
 import { stripMarkdown } from '../../utils/text';
+import { cardDuplicateKey } from '../../utils/search';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard';
 import { navigateUp } from '../../utils/navigation';
 
 export const DuplicateManager = () => {
@@ -79,17 +81,14 @@ export const DuplicateManager = () => {
 
   const onEdit = (e, card) => {
     e.stopPropagation();
-    openEditor(card.deck_id, {
-      ...card,
-      front: card.front,
-      back: card.back
-    }, 'duplicates');
+    openEditor(card.deck_id, card, 'duplicates');
   };
 
-  // Group duplicates by front text to show pairs/triplets together
+  // Use the same full-content identity as the native duplicate endpoint.
   const groups = duplicateCards.reduce((acc, card) => {
-    if (!acc[card.front]) acc[card.front] = [];
-    acc[card.front].push(card);
+    const key = card.content_v2 ? cardDuplicateKey(card.content_v2) : card.front;
+    if (!acc[key]) acc[key] = [];
+    acc[key].push(card);
     return acc;
   }, {});
 
@@ -112,8 +111,8 @@ export const DuplicateManager = () => {
         </div>
 
         <div className="duplicate-list-container" style={{ padding: '0 16px 80px' }}>
-          {Object.entries(groups).map(([front, cards]) => (
-            <div key={front} className="duplicate-group glass" style={{ 
+          {Object.entries(groups).map(([key, cards]) => (
+            <div key={key} className="duplicate-group glass" style={{
               marginBottom: 20, 
               padding: 16, 
               borderRadius: 18, 
@@ -122,7 +121,7 @@ export const DuplicateManager = () => {
             }}>
               <div className="group-header" style={{ marginBottom: 12, display: 'flex', alignItems: 'center', gap: 8 }}>
                 <Copy size={16} color="#818cf8" />
-                <strong style={{ color: '#818cf8', fontSize: '0.9rem' }}>{tr("Группа:")}{' '}{stripMarkdown(front)}</strong>
+                <strong style={{ color: '#818cf8', fontSize: '0.9rem' }}>{tr("Группа:")}{' '}{stripMarkdown(studyContent(cards[0]) ? studySideText(studyContent(cards[0])) : cards[0].front)}</strong>
               </div>
 
               <div className="cards-stack" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
@@ -149,7 +148,7 @@ export const DuplicateManager = () => {
                         <button onClick={(e) => onDelete(e, card.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: 4 }}><Trash2 size={16} /></button>
                       </div>
                     </div>
-                    <div style={{ fontSize: '0.9rem', color: '#fff' }}>{stripMarkdown(card.back)}</div>
+                    <div style={{ fontSize: '0.9rem', color: '#fff' }}>{stripMarkdown(studyContent(card) ? studySideText(studyContent(card), 'back') : card.back)}</div>
                   </div>
                 ))}
               </div>

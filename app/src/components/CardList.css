@@ -467,6 +467,10 @@
 }
 
 /* Floating Batch Actions Dock */
+.view-cards.has-batch-selection {
+  padding-bottom: calc(160px + env(safe-area-inset-bottom, 0px));
+}
+
 .batch-actions-bar {
   position: fixed;
   bottom: calc(18px + env(safe-area-inset-bottom, 0px));

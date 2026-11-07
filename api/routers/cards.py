@@ -63,7 +63,7 @@ def batch_delete_cards(data: native.RevisionSelection, user_id: int = Depends(ge
 
 @router.post("/reorder")
 @db_worker
-def reorder_cards(data: native.Selection, user_id: int = Depends(get_user_id)):
+def reorder_cards(data: native.OrderSelection, user_id: int = Depends(get_user_id)):
     return native.change_selection(data, user_id, delete=False)
 
 

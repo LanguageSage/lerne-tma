@@ -47,6 +47,16 @@ const api = new Proxy(axiosInstance, {
           return { data: { cards, offline_transfer: pending, count, skipped: args[0].card_ids.length - count } };
         }
 
+        const selection = propKey === 'post' && args[0]?.revisions
+          && (url === '/cards/reorder' || (url === '/cards/batch-delete' && args[0]?.card_ids?.length > 1));
+        if (selection) {
+          const db = await prepareLocalDb();
+          const local = await localRequest(...args);
+          if (navigator.onLine) await syncService.sync({ pendingNativeOnly: true, skipPull: true });
+          const cards = await db.cards.bulkGet(args[0].card_ids);
+          assertCurrent();
+          return { data: { cards, offline_lifecycle: cards.some(card => card?.offline_lifecycle) ? local.data.offline_lifecycle : undefined } };
+        }
         const singleDelete = propKey === 'post' && url === '/cards/batch-delete'
           && args[0]?.card_ids?.length === 1 && args[0].revisions;
         const nativeRestore = propKey === 'post' && /^\/trash\/card\/\d+\/restore$/.test(url) && args[0]?.revision;

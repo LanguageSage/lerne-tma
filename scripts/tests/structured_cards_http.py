@@ -17,7 +17,7 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False, offline_batch_browser=False):
+           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -78,6 +78,8 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
                 return False
             if offline_isolation_browser and not _run_offline_isolation_browser(port, models):
                 return False
+            if offline_list_browser and not _run_offline_list_browser(client, port, models, headers):
+                return False
             if offline_move_browser and not _run_offline_move_browser(client, port, models, headers):
                 return False
             if offline_batch_browser and not _run_offline_move_browser(client, port, models, headers, batch=True):
@@ -85,7 +87,7 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
             if offline_lifecycle_browser and not _run_offline_lifecycle_browser(client, port, models, headers):
                 return False
             if (offline_create_browser or offline_edit_browser or offline_delivery_browser
-                    or offline_isolation_browser or offline_move_browser or offline_lifecycle_browser or offline_batch_browser):
+                    or offline_isolation_browser or offline_move_browser or offline_lifecycle_browser or offline_batch_browser or offline_list_browser):
                 return True
             return _run_cases(client, models, headers, load_answer_context)
     finally:
@@ -258,6 +260,72 @@ def _run_offline_isolation_browser(port, models):
     return True
 
 
+def _run_offline_list_browser(client, port, models, headers):
+    source = models.TMA_Deck.create(user_id=1, name='V2 Listenübungen mit längerer Bezeichnung', target_language='de')
+    shared = models.TMA_Deck.create(user_id=2, name='Shared list fixture', target_language='de')
+    foreign = models.TMA_Deck.create(user_id=1, name='French list fixture', target_language='fr')
+    models.TMA_Collaborator.create(target_type='deck', target_id=shared.id, user_id=1, role='editor')
+    def deck_view(deck, role):
+        return {'id': deck.id, 'name': deck.name, 'user_id': deck.user_id, 'target_language': deck.target_language,
+                'role': role, 'stats': {'total': 0}}
+    contents = []
+    for index in range(8):
+        contents.append({'schema_version': 2, 'card': {'type': 'standard',
+            'data': {'prompt': 'Österreichischer Suchtext' if index < 3 else f'Listenkarte {index}',
+                     'answer': 'Lösungsnachweis' if index == 2 else f'Antwort {0 if index == 1 else index}'},
+            'info': [{'type': 'example', 'text': 'Beispielnachweis'}] if index == 3 else [],
+            'explanation': 'Erklärungsnachweis' if index == 3 else '',
+            'topics': ['Fachgebiet'] if index == 3 else [], 'metadata': {'hidden': 'unsichtbar'}}})
+    cards = []
+    knowledge = models.TMAKnowledgeItem.create(name='Synthetic list concept')
+    for index, content in enumerate(contents):
+        response = client.post('cards/save', headers=headers[1], json={
+            'request_id': str(uuid4()), 'deck_id': source.id, 'content_v2': content,
+            'image_path': 'images/list.webp', 'video_back_path': 'videos/list.webm'})
+        response.raise_for_status()
+        card_id = response.json()['id']
+        models.TMA_Card.update(image_data=b'list-image', audio_path='audio/list.ogg', history='["fixture"]').where(
+            models.TMA_Card.id == card_id).execute()
+        models.TMAProgress.create(card_id=card_id, user_id=1, repetitions=3, flag=2)
+        review = models.TMAReviewHistory.create(card_id=card_id, user_id=1, rating=2)
+        models.TMACardNote.create(id=str(uuid4()), card=card_id, user_id=1, text='Synthetic list note')
+        models.TMACardRating.create(card=card_id, user_id=1, rating=1)
+        models.TMACardKnowledgeItem.create(card_id=card_id, knowledge_item=knowledge)
+        models.TMAKnowledgeAttempt.create(card_id=card_id, user_id=1, knowledge_item=knowledge,
+            client_event_id=str(uuid4()), review_id=review.id)
+        current = client.get(f'cards/{card_id}', headers=headers[1])
+        current.raise_for_status()
+        cards.append(current.json())
+    for deck, user in ((shared, 2), (foreign, 1)):
+        response = client.post('cards/save', headers=headers[user], json={
+            'request_id': str(uuid4()), 'deck_id': deck.id, 'content_v2': contents[0]})
+        response.raise_for_status()
+    # A same-content French card is an owned duplicate globally, while search is language-scoped.
+    foreign_card = models.TMA_Card.get(models.TMA_Card.deck == foreign.id)
+    before = {card['id']: _card_state(models, card['id']) for card in cards}
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': source.id,
+              'access_token': headers[1]['Authorization'].split(' ', 1)[1],
+              'list': {'source': deck_view(source, 'owner'), 'shared': deck_view(shared, 'editor'),
+                       'foreign': deck_view(foreign, 'owner'), 'cards': cards, 'foreign_id': foreign_card.id}}
+    if not _run_offline_browser(config, 'completes V2 list operations'):
+        return False
+    assert models.TMA_Card.select().count() == 10
+    for index, card in enumerate(cards):
+        state = _card_state(models, card['id'])
+        old = before[card['id']]
+        row = state['card'][0]
+        assert row['is_deleted'] == (index in (0, 1, 6, 7))
+        for field in ('position', 'updated_at', 'is_deleted'):
+            row[field] = old['card'][0][field]
+        if index in (3, 5):  # Peer edits deliberately advance these revisions.
+            row['history'] = old['card'][0]['history']
+        assert state == old
+    for action in ('reorder', 'batch-delete'):
+        assert models.TMAOfflineBatch.select().where(
+            models.TMAOfflineBatch.key.startswith(f'cards-v2:{action}:1:')).count() == 2
+    return True
+
+
 def _run_offline_move_browser(client, port, models, headers, *, batch=False):
     authorization = headers[1]
     source = models.TMA_Deck.create(user_id=1, name='Ausgangsstapel für synthetische Übungen', target_language='de')
@@ -384,6 +452,9 @@ def _run_offline_lifecycle_browser(client, port, models, headers):
     models.TMAKnowledgeAttempt.create(card_id=card_id, user_id=1, knowledge_item=knowledge,
                                       client_event_id=str(uuid4()), review_id=review.id)
     before = _card_state(models, card_id)
+    initial_receipts = {action: models.TMAOfflineBatch.select().where(
+        models.TMAOfflineBatch.key.startswith(f'cards-v2:{action}:1:')).count()
+        for action in ('batch-delete', 'restore')}
     config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': deck.id, 'deck_name': deck.name,
               'access_token': authorization['Authorization'].split(' ', 1)[1],
               'editor_token': headers[2]['Authorization'].split(' ', 1)[1], 'lifecycle': cards}
@@ -396,7 +467,7 @@ def _run_offline_lifecycle_browser(client, port, models, headers):
     assert models.TMA_Card.select().where(models.TMA_Card.deck == deck.id).count() == 2
     for action in ('batch-delete', 'restore'):
         assert models.TMAOfflineBatch.select().where(
-            models.TMAOfflineBatch.key.startswith(f'cards-v2:{action}:1:')).count() == 2
+            models.TMAOfflineBatch.key.startswith(f'cards-v2:{action}:1:')).count() == initial_receipts[action] + 2
     return True
 
 
@@ -655,6 +726,53 @@ def _run_cases(client, models, headers, load_answer_context):
                 self.assertEqual(after, old)
             self.call('POST', 'cards/batch-copy', 409, body={**payload, 'on_duplicate': 'skip'})
             self.assertEqual(self.call('POST', 'cards/batch-copy', body=payload), copied)
+
+        def test_list_selection_revisions_rollback_replay_and_preserved_links(self):
+            from fastapi import HTTPException
+            from api.services import structured_card_api as native
+            cards = [self.create(value=envelope(f'List {i}')) for i in range(3)]
+            for card in cards:
+                models.TMA_Card.update(image_data=b'synthetic', audio_path='audio/list.ogg',
+                    video_back_path='videos/list.webm', history='["fixture"]').where(models.TMA_Card.id == card['id']).execute()
+                models.TMAProgress.create(card_id=card['id'], user_id=1, repetitions=5, flag=2)
+                models.TMAReviewHistory.create(card_id=card['id'], user_id=1, rating=2)
+                models.TMACardNote.create(id=str(uuid4()), card=card['id'], user_id=1, text='Private list note')
+            cards = [self.call('GET', f'cards/{card["id"]}') for card in cards]
+            ids = [cards[2]['id'], cards[0]['id']]
+            before = {card['id']: _card_state(models, card['id']) for card in cards}
+            body = {'request_id': str(uuid4()), 'card_ids': ids,
+                    'revisions': {str(card['id']): card['revision'] for card in (cards[2], cards[0])}}
+            for action in ('reorder', 'batch-delete'):
+                invalid = {**body, 'revisions': {str(ids[0]): cards[2]['revision']}}
+                self.call('POST', f'cards/{action}', 422, body=invalid)
+                stale = {**body, 'revisions': {**body['revisions'], str(ids[1]): '0' * 64}}
+                self.call('POST', f'cards/{action}', 409, body=stale)
+                self.call('POST', f'cards/{action}', 403, body=body, user=2)
+                with patch.object(native, '_touch', side_effect=HTTPException(409, 'Synthetic list failure')):
+                    self.call('POST', f'cards/{action}', 409, body=body)
+                self.assertEqual({card['id']: _card_state(models, card['id']) for card in cards}, before)
+                self.assertFalse(models.TMAOfflineBatch.select().where(
+                    models.TMAOfflineBatch.key == f'cards-v2:{action}:1:{body["request_id"]}').exists())
+            with ThreadPoolExecutor(2) as pool:
+                receipt, replay = list(pool.map(lambda _: self.call('POST', 'cards/reorder', body=body), range(2)))
+            self.assertEqual(receipt, replay)
+            self.assertEqual([card['id'] for card in receipt['cards']], ids)
+            self.assertEqual([card['position'] for card in receipt['cards']], [cards[0]['position'], cards[2]['position']])
+            self.assertEqual(_card_state(models, cards[1]['id']), before[cards[1]['id']])
+            self.call('POST', 'cards/reorder', 409, body={**body, 'card_ids': list(reversed(ids))})
+            delete = {'request_id': str(uuid4()), 'card_ids': ids,
+                      'revisions': {str(card['id']): card['revision'] for card in receipt['cards']}}
+            deleted = self.call('POST', 'cards/batch-delete', body=delete)
+            self.assertEqual(self.call('POST', 'cards/batch-delete', body=delete), deleted)
+            self.assertTrue(all(card['is_deleted'] for card in deleted['cards']))
+            for card_id in ids:
+                after = _card_state(models, card_id)
+                old = before[card_id]
+                for field in ('position', 'updated_at', 'is_deleted'):
+                    after['card'][0][field] = old['card'][0][field]
+                self.assertEqual(after, old)
+            fresh = {**delete, 'request_id': str(uuid4())}
+            self.call('POST', 'cards/batch-delete', 409, body=fresh)
 
         def test_codex_import_writes_only_canonical_cards(self):
             path = 'decks/import-json'

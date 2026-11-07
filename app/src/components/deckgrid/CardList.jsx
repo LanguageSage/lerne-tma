@@ -281,7 +281,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const canEditContent = currentDeck.role === 'owner' || currentDeck.role === 'editor' || (!currentDeck.role && !currentDeck.is_global_readonly);
 
   return (
-    <div className="view-cards">
+    <div className={`view-cards ${isSelectMode ? 'has-batch-selection' : ''}`}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
         <div className="header-compact header-compact-sticky">
           <button 

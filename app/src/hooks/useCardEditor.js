@@ -8,7 +8,7 @@ import { useUiStore } from '../store/useUiStore';
 import { cardWriteError, validateStandardDraft } from '../utils/cardDraft';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { prepareLocalDb } from '../services/localDb';
-import { offlineMoveLabel } from '../services/offlineUi';
+import { offlineLifecycleLabel, offlineMoveLabel } from '../services/offlineUi';
 import { notifyCardEdit, syncService } from '../services/syncService';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
@@ -503,58 +503,34 @@ export const useCardEditor = () => {
   const handleBatchDeleteCards = async (cardIds, skipConfirm = false) => {
     if (!cardIds || cardIds.length === 0) return false;
     if (!skipConfirm && !window.confirm(tr("Удалить выбранные карточки ({{p0}} шт.)?", { p0: cardIds.length }))) return false;
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
-      const transport = cardIds.length === 1 ? api : networkApi;
-      const { data } = await transport.post('/cards/batch-delete', {
-        request_id: crypto.randomUUID(),
-        card_ids: cardIds.map(Number),
-        revisions: Object.fromEntries(cardIds.map(id => [id, visibleCard(id)?.revision]))
+      const { data } = await api.post('/cards/batch-delete', {
+        request_id: crypto.randomUUID(), card_ids: cardIds.map(Number),
+        revisions: Object.fromEntries(cardIds.map(id => [id, visibleCard(id)?.revision])),
       });
-      if (cardIds.length === 1 && !data.is_deleted) return false;
-      showToast(data.offline_lifecycle ? tr('Ожидает синхронизации')
-        : tr("Удалено карточек: {{p0}}", { p0: cardIds.length }), "success");
-
+      if (!isCurrent()) return false;
+      const cards = data.cards || [data];
+      if (cards.some(card => !card.is_deleted)) return false;
+      const pending = cards.find(card => card.offline_lifecycle);
+      showToast(pending ? offlineLifecycleLabel(pending)
+        : tr('Удалено карточек: {{p0}}', { p0: cardIds.length }), pending ? (pending.offline_list_error ? 'error' : 'info') : 'success');
       const session = useSessionStore.getState();
-      const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
-      const cardIdsSet = new Set(cardIds.map(String));
-
-      const updatedDeckCards = (deckCards || []).filter(c => !cardIdsSet.has(String(c.id)));
-      const sourceDeckId = currentDeck?.id;
-      const updatedCardsByDeck = sourceDeckId
-        ? { ...cardsByDeck, [sourceDeckId]: updatedDeckCards }
-        : cardsByDeck;
-
-      const count = cardIds.length;
-      const updatedDecks = sourceDeckId
-        ? (decks || []).map(d => {
-            if (d.id === sourceDeckId) {
-              const oldStats = d.stats || { total: count, new: 0, learning: 0, due: 0 };
-              return {
-                ...d,
-                stats: { ...oldStats, total: Math.max(0, (oldStats.total || count) - count) }
-              };
-            }
-            return d;
-          })
-        : decks;
-
-      useDeckStore.setState({
-        deckCards: updatedDeckCards,
-        cardsByDeck: updatedCardsByDeck,
-        decks: updatedDecks
-      });
-
       cardIds.forEach(id => session.removeCardFromSession(id));
-      fetchDecks(true);
+      const { currentDeck } = useDeckStore.getState();
+      if (currentDeck && currentDeck.id !== 'duplicates') await fetchDeckCards(currentDeck.id).catch(() => {});
+      if (isCurrent()) fetchDecks(true).catch(() => {});
       return true;
     } catch (err) {
-      console.error('Batch Delete Error:', err);
-      showToast(cardIds.length === 1 ? err.message || tr("Ошибка при удалении") : tr("Ошибка при удалении"), 'error');
+      if (isCurrent()) showToast(cardWriteError(err), 'error');
       return false;
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
+
   };
 
   const handleBatchCopyCards = (cardIds, targetDeckId, onDuplicate = 'skip') =>

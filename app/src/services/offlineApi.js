@@ -3,7 +3,7 @@ import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prep
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { localMediaURL } from './mediaCache';
-import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
+import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
 import { cardTypes, validateStandardDraft } from '../utils/cardDraft.js';
 
@@ -158,6 +158,39 @@ async function queueCardLifecycle(db, id, payload, deleting, userId, isCurrent) 
     await db.syncState.add({ key: CARD_LIFECYCLE_KEY + id, cardId: id, deleting, payload });
     if (!isCurrent()) throw new Error('Session changed');
     return result(local);
+  });
+}
+
+async function queueCardSelection(db, payload, action, isCurrent) {
+  const ids = payload.card_ids;
+  if (!payload.request_id || !ids?.length || new Set(ids).size !== ids.length
+      || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
+  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+    const key = CARD_LIFECYCLE_KEY + payload.request_id;
+    const pending = await db.syncState.get(key);
+    if (pending) {
+      if (pending.action !== action || JSON.stringify(pending.payload) !== JSON.stringify(payload)) throw new Error('Card selection request changed');
+      return result({ cards: await db.cards.bulkGet(ids), offline_lifecycle: action });
+    }
+    const cards = await db.cards.bulkGet(ids);
+    for (const card of cards) {
+      if (card?.content_v2?.schema_version !== 2 || card.is_deleted) notFound();
+      if (card.offline_lifecycle) pendingLifecycle();
+      if (card.offline_move) pendingMove();
+      if (card.offline_edit || card.is_dirty) throw new Error(tr('Сначала синхронизируйте правку карточки.'));
+      if (!card.revision || card.revision !== payload.revisions?.[card.id]) throw new Error(tr('Исходная ревизия карточки недоступна.'));
+      const deck = await db.decks.get(card.deck_id);
+      if (!deck || deck.is_deleted) notFound();
+      if (isContentReadOnly(deck)) readOnly();
+    }
+    if (action === 'reorder' && new Set(cards.map(card => card.deck_id)).size !== 1) throw new Error('Reordering requires one deck');
+    const positions = cards.map(card => card.position).sort((a, b) => a - b);
+    const locals = cards.map((card, index) => ({ ...card, offline_lifecycle: action,
+      ...(action === 'delete' ? { is_deleted: true } : { position: positions[index] }) }));
+    await db.cards.bulkPut(locals);
+    await db.syncState.add({ key, cardIds: ids, action, payload });
+    if (!isCurrent()) throw new Error('Session changed');
+    return result({ cards: locals, offline_lifecycle: action });
   });
 }
 
@@ -375,6 +408,7 @@ export const offlineApi = {
     }
     if (m === 'get' && url === '/cards/search') {
       const q = params.get('q') || '';
+      if (!q.trim()) return result({ folders: [], decks: [], cards: [] });
       const rawFolderId = params.get('folder_id');
       const folderId = rawFolderId !== null && rawFolderId !== undefined && rawFolderId !== '' ? Number(rawFolderId) : null;
       const targetLang = params.get('target_language') || localStorage.getItem('lerne_target_language') || 'de';
@@ -395,19 +429,14 @@ export const offlineApi = {
 
       const matchedCards = [];
       if (deckIds.size > 0 && q.trim()) {
-        const allCards = await db.cards.filter(c => !c.is_deleted && deckIds.has(c.deck_id)).toArray();
+        const allCards = (await db.cards.filter(c => c.content_v2 && !c.is_deleted && deckIds.has(c.deck_id)).toArray())
+          .sort((a, b) => a.deck_id - b.deck_id || a.position - b.position || a.id - b.id);
         for (const c of allCards) {
           if (matchCard(c, q)) {
-            const meta = jsonObject(c.metadata);
-            matchedCards.push({
-              id: c.id,
-              front: c.front_text || c.front,
-              back: c.back_text || c.back,
-              context: c.context || '',
-              level: c.level || meta?.cefr?.level,
-              deck_id: c.deck_id,
-              deck_name: deckNameMap.get(c.deck_id) || '',
-              folder_id: deckFolderMap.get(c.deck_id)
+            const siblings = allCards.filter(card => card.deck_id === c.deck_id);
+            matchedCards.push({ ...await cardView(db, c, userId),
+              deck_name: deckNameMap.get(c.deck_id) || '', folder_id: deckFolderMap.get(c.deck_id),
+              card_number: siblings.findIndex(card => card.id === c.id) + 1, total_cards: siblings.length,
             });
             if (matchedCards.length >= limit) break;
           }
@@ -659,7 +688,9 @@ export const offlineApi = {
     }
     if (m === 'post' && url === '/cards/batch-delete') {
       const cardIds = (body.card_ids || []).map(Number);
-      if (cardIds.length === 1 && body.revisions) return queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent);
+      if (body.revisions) return cardIds.length === 1
+        ? queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent)
+        : queueCardSelection(db, body, 'delete', isCurrent);
       return db.transaction('rw', db.cards, db.decks, async () => {
         for (const cid of cardIds) {
           const card = await db.cards.get(cid);
@@ -687,12 +718,17 @@ export const offlineApi = {
       await table.put(item);
       return success(item);
     }
+    if (m === 'post' && url === '/cards/reorder' && body.revisions) return queueCardSelection(db, body, 'reorder', isCurrent);
     match = url.match(/^\/(cards|decks|folders)\/reorder$/);
     if (m === 'post' && match) {
       const table = db[match[1]];
       const ids = body[`${match[1].slice(0, -1)}_ids`] || [];
       await db.transaction('rw', table, db.decks, async () => {
-        for (const id of ids) await requireContentWrite(db, match[1], await table.get(Number(id)));
+        for (const id of ids) {
+          const card = await table.get(Number(id));
+          if (match[1] === 'cards' && card?.content_v2) throw unsupported();
+          await requireContentWrite(db, match[1], card);
+        }
         for (const [position, id] of ids.entries()) await change(table, Number(id), { position });
       });
       return success();
@@ -764,11 +800,18 @@ export const offlineApi = {
       });
     }
     if (url === '/cards/duplicates' && m === 'get') {
-      const decks = new Set((await db.decks.filter(d => !d.is_deleted).toArray()).map(d => d.id));
-      const cards = await db.cards.filter(c => !c.is_deleted && decks.has(c.deck_id)).toArray();
+      const decks = new Map((await db.decks.filter(d => !d.is_deleted
+        && (d.user_id === userId || d.role === 'owner')).toArray()).map(d => [d.id, d]));
+      const cards = (await db.cards.filter(c => c.content_v2 && !c.is_deleted && decks.has(c.deck_id)).toArray())
+        .sort((a, b) => a.deck_id - b.deck_id || a.position - b.position || a.id - b.id);
       const counts = new Map();
-      for (const c of cards) counts.set(c.front_text, (counts.get(c.front_text) || 0) + 1);
-      return result(await Promise.all(cards.filter(c => counts.get(c.front_text) > 1).map(c => cardView(db, c, userId))));
+      for (const card of cards) {
+        const key = cardDuplicateKey(card.content_v2);
+        counts.set(key, (counts.get(key) || 0) + 1);
+      }
+      return result(await Promise.all(cards.filter(c => counts.get(cardDuplicateKey(c.content_v2)) > 1)
+        .map(async card => ({ ...await cardView(db, card, userId), deck_name: decks.get(card.deck_id).name }))));
+
     }
     if (url === '/trash' && m === 'get') {
       const decks = await db.decks.toArray();

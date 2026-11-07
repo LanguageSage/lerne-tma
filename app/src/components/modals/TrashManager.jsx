@@ -8,6 +8,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { navigateUp } from '../../utils/navigation';
 import { studyContent, studySideText } from '../../utils/structuredStudyCard';
 import '../TrashManager.css';
+import { offlineLifecycleLabel } from '../../services/offlineUi';
 
 export const TrashManager = () => {
   useInterfaceLocale();
@@ -183,7 +184,7 @@ export const TrashManager = () => {
                       <div className="trash-card-meta">
                         📚 {card.deck_name}
                       </div>
-                      {card.offline_lifecycle && <small role="status">{tr('Ожидает синхронизации')}</small>}
+                      {card.offline_lifecycle && <small role="status">{offlineLifecycleLabel(card)}</small>}
                       {card.offline_edit && <small role="status">{tr('Локальный черновик сохранён.')}</small>}
                     </div>
                     <div className="trash-card-actions">
