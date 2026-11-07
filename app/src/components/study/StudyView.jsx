@@ -355,6 +355,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
             const generated = await api.post('/media/generate-card-audio', {
               card_id: cardId,
               side: 'front',
+              force: alwaysRegenerateAudio,
               text: studySideText(studyContent(currentCardData)),
               lang: targetLanguage,
               rate: `${Number(settings.ttsSpeed) >= 0 ? '+' : ''}${Number(settings.ttsSpeed) || 0}%`,

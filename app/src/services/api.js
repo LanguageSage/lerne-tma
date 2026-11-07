@@ -1,4 +1,5 @@
 import axios from 'axios';
+import { cardMediaView } from './mediaCache.js';
 import { getSessionIdentity, getUserId } from '../utils/auth.js';
 import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb.js';
 import { offlineApi } from './offlineApi.js';
@@ -215,7 +216,11 @@ const api = new Proxy(axiosInstance, {
                     }
                     return visible[0];
                   });
-                  if (isCurrent()) return { ...response, data: merged };
+                  if (isCurrent()) {
+                    const data = deckMatch ? merged : await cardMediaView(db, merged);
+                    assertCurrent();
+                    return { ...response, data };
+                  }
                 } else if (trashRead && Array.isArray(response.data?.cards)) {
                   const cards = await db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
                     const [lastSync, decks] = await Promise.all([db.syncState.get('lastSync'), db.decks.toArray()]);
@@ -265,6 +270,31 @@ const api = new Proxy(axiosInstance, {
             } catch (error) {
               if (!isCurrent()) throw new axios.CanceledError('Session changed during offline cache update');
               console.warn('Offline library unavailable', error.name);
+            }
+          }
+          if (requestAccount && propKey === 'get' && response.data?.content_v2
+              && (studyCardMatch || /^\/decks\/\d+\/next(?:\?|$)/.test(url))) {
+            try {
+              const db = await prepareLocalDb();
+              response.data = await cardMediaView(db, response.data);
+            } catch (error) {
+              assertCurrent();
+              console.warn('Offline media unavailable', error.name);
+            }
+          }
+          if (requestAccount && propKey === 'post' && url === '/media/generate-card-audio') {
+            // Re-read through the existing reconciliation path: persist the new
+            // revision and paths, without overwriting an unsent local draft.
+            const { card_id: id, side = 'front' } = args[0];
+            try {
+              const fresh = await api.get(`/cards/${id}`, { freshCard: true });
+              const field = side === 'back' ? 'audio_back' : 'audio';
+              if (fresh.data[`${field}_path`] === response.data.path) {
+                response.data.url = fresh.data[`${field}_url`] || response.data.url;
+              }
+            } catch (error) {
+              assertCurrent();
+              console.warn('Audio saved; local refresh unavailable', error.name);
             }
           }
           assertCurrent();

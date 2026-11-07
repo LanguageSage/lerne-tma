@@ -83,7 +83,7 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
 
     // The promise is cached before awaiting: pause/resume and deck loops reuse it.
     const request = api.post('/media/generate-card-audio', {
-      card_id: card.id, side, text, lang, voice, rate: `${speed >= 0 ? '+' : ''}${speed}%`,
+      card_id: card.id, side, text, lang, voice, force, rate: `${speed >= 0 ? '+' : ''}${speed}%`,
     }).then(({ data }) => {
       const url = getAudioUrl(data.url || data.path);
       if (!url) throw new Error(tr("Не удалось получить аудио"));

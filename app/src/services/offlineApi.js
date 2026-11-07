@@ -2,7 +2,7 @@ import { tr } from '../i18n/locale';
 import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
-import { localMediaURL } from './mediaCache';
+import { cardMediaView } from './mediaCache';
 import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
 import { cardTypes, validateStandardDraft } from '../utils/cardDraft.js';
@@ -310,16 +310,11 @@ async function cardView(db, card, userId, reviewContext = 'scheduled') {
   const metadata = jsonObject(card.metadata);
   const content = card.content_v2?.card;
   return {
-    ...card, ...(content ? { level: content.level } : {
+    ...await cardMediaView(db, card), ...(content ? { level: content.level } : {
       front: card.front_text, back: card.back_text,
       card_type: card.card_type || 'standard', metadata, cefr: metadata.cefr,
       level: card.level || metadata.cefr?.level,
     }),
-    image_url: await localMediaURL(db, card.image_path, 'images'),
-    audio_url: await localMediaURL(db, card.audio_path, 'audio'),
-    audio_back_url: await localMediaURL(db, card.audio_back_path, 'audio'),
-    video_front_url: await localMediaURL(db, card.video_front_path, 'videos'),
-    video_back_url: await localMediaURL(db, card.video_back_path, 'videos'),
     intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress?.lapses || 0),
     next_review: progress?.next_review, last_reviewed: progress?.last_reviewed,
     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,

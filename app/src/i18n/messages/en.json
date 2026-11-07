@@ -2084,5 +2084,12 @@
   "Если браузер не открылся, закройте это окно и вернитесь к исходной вкладке Lerne. Вход завершится там.": "If your browser did not open, close this window and return to your original Lerne tab. Sign-in will finish there.",
   "Открыть в Chrome": "Open in Chrome",
   "Копирование ожидает синхронизации": "Copy pending sync",
-  "Копирование не завершено. Карточки сохранены на устройстве.": "Copy is incomplete. Cards are saved on this device."
+  "Копирование не завершено. Карточки сохранены на устройстве.": "Copy is incomplete. Cards are saved on this device.",
+  "Изображение недоступно без сети": "Image unavailable offline",
+  "Аудио недоступно без сети": "Audio unavailable offline",
+  "Не удалось воспроизвести аудио. Повторите попытку.": "Unable to play audio. Please try again.",
+  "Не удалось загрузить видео": "Unable to load video",
+  "Видео недоступно без сети": "Video unavailable offline",
+  "Загрузка видео...": "Loading video...",
+  "Для создания озвучки нужно подключение к сети": "Connect to the internet to generate audio"
 }

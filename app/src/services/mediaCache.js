@@ -1,4 +1,4 @@
-import { mediaURL } from './apiConfig';
+import { mediaURL } from './apiConfig.js';
 
 const objectUrls = new Map();
 const pending = new Set();
@@ -18,7 +18,7 @@ export async function localMediaURL(database, path, kind) {
       // Fallback to network URL if blob is unreadable
     }
   }
-  if (navigator.onLine && kind !== 'videos' && !pending.has(key) && pending.size < 4) {
+  if (navigator.onLine && !pending.has(key) && pending.size < 4) {
     pending.add(key);
     cacheMedia(database, url).catch(error => console.warn('Media cache:', error.message))
       .finally(() => pending.delete(key));
@@ -34,7 +34,7 @@ async function cacheMedia(database, url) {
     if (!response.ok || Number(response.headers.get('content-length')) > MAX_FILE_BYTES) return;
     const blob = await response.blob();
     let finalBlob = blob;
-    if (!/^(image|audio)\//.test(blob.type)) {
+    if (!/^(image|audio|video)\//.test(blob.type)) {
       if (/\.mp3(\?|$)/i.test(url)) {
         finalBlob = new Blob([blob], { type: 'audio/mpeg' });
       } else if (/\.(png|jpe?g|webp|gif)(\?|$)/i.test(url)) {
@@ -52,4 +52,15 @@ async function cacheMedia(database, url) {
   } finally {
     clearTimeout(timeout);
   }
+}
+
+// Derived URLs never replace the durable paths stored on the card.
+export async function cardMediaView(database, card) {
+  const result = { ...card };
+  for (const [field, kind] of [['image', 'images'], ['audio', 'audio'], ['audio_back', 'audio'],
+    ['video_front', 'videos'], ['video_back', 'videos']]) {
+    const path = card[`${field}_path`] || card[`${field}_url`];
+    result[`${field}_url`] = await localMediaURL(database, path, kind);
+  }
+  return result;
 }

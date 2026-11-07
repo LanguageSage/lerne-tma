@@ -124,6 +124,7 @@ export const ExerciseRenderer = React.memo(({
           key={reviewKey || exerciseCard.id}
           card={exerciseCard}
           wordBankData={data}
+          renderAudioPlayer={renderAudioPlayer}
           designConfig={effectiveDesign}
           onTrainerAnswer={onTrainerAnswer}
           savedState={savedState}

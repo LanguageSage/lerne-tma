@@ -7,7 +7,6 @@ import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useLidStore } from '../store/useLidStore';
-import { db } from '../services/localDb';
 
 /**
  * useVoicePicker — manages per-card voice selection and on-demand audio preview generation.
@@ -99,7 +98,8 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
-      const msg = err?.response?.data?.detail || err.message || tr("Ошибка генерации");
+      const msg = !navigator.onLine ? tr("Для создания озвучки нужно подключение к сети")
+        : err?.response?.data?.detail || err.message || tr("Ошибка генерации");
       setGenerateError(msg);
       console.error('[useVoicePicker] generate failed:', msg);
       return null;
@@ -128,6 +128,7 @@ export const useVoicePicker = (
 
   // Update the text ref whenever cardText changes (used by auto-generate)
   const setCardText = useCallback((text) => {
+    if (cardTextRef.current !== text) setGenerateError(null);
     cardTextRef.current = text;
   }, []);
 
@@ -163,6 +164,7 @@ export const useVoicePicker = (
         voice,
         rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
         with_boundaries: true,
+        force: options.force === true,
       });
 
       const url = res.data?.url;
@@ -207,12 +209,6 @@ export const useVoicePicker = (
           }
         } catch { /* ignore */ }
 
-        try {
-          if (db?.cards) {
-            await db.cards.update(cardId, isBack ? { audio_back_path: path } : { audio_path: path });
-          }
-        } catch { /* ignore */ }
-
         if (!options.silent) {
           useUiStore.getState().showToast(tr("Озвучка обновлена"), 'success');
         }
@@ -221,7 +217,8 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
-      const msg = err?.response?.data?.detail || err.message || tr("Ошибка генерации и сохранения");
+      const msg = !navigator.onLine ? tr("Для создания озвучки нужно подключение к сети")
+        : err?.response?.data?.detail || err.message || tr("Ошибка генерации и сохранения");
       setGenerateError(msg);
       console.error('[useVoicePicker] generateAndSaveToCard failed:', msg);
       return null;

@@ -35,6 +35,18 @@ import { useCardNotes } from '../../hooks/useCardNotes';
 import { studyContent, studyExerciseType, studyInfoBlocks, studyQuiz, studySideText } from '../../utils/structuredStudyCard.js';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 
+// Keep playback/error state with the mounted physical side.
+const CardVideo = ({ src }) => {
+  const [status, setStatus] = useState('loading');
+  return <div className="video-container-card">
+    {status === 'loading' && <p role="status">{tr('Загрузка видео...')}</p>}
+    {status === 'error' && <p role="status">{tr(navigator.onLine
+      ? 'Не удалось загрузить видео' : 'Видео недоступно без сети')}</p>}
+    <video src={src} controls autoPlay loop muted playsInline
+      onLoadedData={() => setStatus('loaded')} onError={() => setStatus('error')} />
+  </div>;
+};
+
 export const StudyCard = React.memo(({
   card,
   isFlipped,
@@ -384,6 +396,8 @@ export const StudyCard = React.memo(({
                 />
               )}
 
+              {card.video_front_url && <CardVideo key={card.video_front_url} src={card.video_front_url} />}
+
               {requiredActionContent ?? <>
               {!showExercise && studyMode !== 'speak' && (
                 <>
@@ -562,7 +576,8 @@ export const StudyCard = React.memo(({
                 const rawBackText = studySideText(content, promptPhysicalSide === 'back' ? 'front' : 'back');
                 const backClean = stripMarkdown(rawBackText).trim();
                 const hasDistinctBack = Boolean(backClean && backClean !== frontText.trim());
-                if (!hasDistinctBack && !card.video_back_url && !deckVideo?.url) return null;
+                const backAudio = getResolvedAudioUrl(card, studyMode !== 'reverse');
+                if (!hasDistinctBack && !backAudio && !card.video_back_url && !deckVideo?.url) return null;
 
                 return (
                   <>
@@ -578,13 +593,11 @@ export const StudyCard = React.memo(({
                     )}
 
                     {(card.video_back_url || deckVideo?.url) && (
-                      <div className="video-container-card">
-                        <video src={card.video_back_url || deckVideo?.url} autoPlay loop muted playsInline />
-                      </div>
+                      <CardVideo key={card.video_back_url || deckVideo?.url} src={card.video_back_url || deckVideo?.url} />
                     )}
                     
                     {/* 3. BACK ANSWER BLOCK */}
-                    {hasDistinctBack && (
+                    {(hasDistinctBack || backAudio) && (
                       <div className="back-answer-block">
                         {(() => {
                           const targetBackAudioUrl = studyMode === 'reverse'

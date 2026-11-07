@@ -17,7 +17,7 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False):
+           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, media_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -64,6 +64,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
+            if media_browser:
+                from structured_cards_media import verify_media
+                return verify_media(client, port, models, headers, app)
             if learning_browser:
                 from structured_cards_learning import verify_learning
                 return verify_learning(client, port, models, headers)
@@ -911,7 +914,7 @@ def _run_cases(client, models, headers, load_answer_context):
                 generator.assert_not_called()
                 generated = self.call('POST', 'media/generate-card-audio', body=body)
                 generator.assert_awaited_once_with('@match is literal. chosen|value', voice='test',
-                                                 rate='+0%', force=True, structured=True)
+                                                 rate='+0%', force=False, structured=True)
             self.assertEqual(generated['path'], permanent)
             self.assertEqual(self.call('GET', f'cards/{item["id"]}')['revision'], generated['revision'])
             with patch('api.utils.audio.generate_audio', return_value=(permanent, [])) as generator:

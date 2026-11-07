@@ -19,6 +19,7 @@ import {
 export const StudyCardWordBank = React.memo(({
   card,
   wordBankData,
+  renderAudioPlayer,
   onTrainerAnswer,
   designConfig,
   savedState,
@@ -180,6 +181,7 @@ export const StudyCardWordBank = React.memo(({
 
   return (
     <div className={`interactive-mode-container word-bank-exercise${footerActionTarget ? ' has-footer-action' : ''}`} onClick={event => event.stopPropagation()}>
+      {renderAudioPlayer?.()}
       <div className="word-bank-text-area" style={cardStyle}>
         {renderText()}
       </div>

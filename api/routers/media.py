@@ -239,10 +239,11 @@ def _persist_card_audio(card_id, side, user_id, card_source_text, field, previou
     else:
         text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
         same_content = (text_field == card_source_text) & models.TMA_Card.content_v2.is_null(True)
+    updates = {field: path}
+    if path != previous_path or not isinstance(card_source_text, dict):
+        updates['updated_at'] = models.datetime.datetime.now()
     with models.tma_db.atomic():
-        changed = models.TMA_Card.update(**{
-            field: path, 'updated_at': models.datetime.datetime.now()
-        }).where(
+        changed = models.TMA_Card.update(**updates).where(
             (models.TMA_Card.id == card_id) &
             (models.TMA_Card.deck_id == card.deck_id) &
             (models.TMA_Card.is_deleted == False) &
@@ -366,7 +367,7 @@ async def generate_card_audio_endpoint(
     try:
         from api.utils.audio import generate_audio
         options = {'structured': True} if isinstance(card_source_text, dict) else {}
-        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=True, **options)
+        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=(data.get('force') is True or not isinstance(card_source_text, dict)), **options)
         result = result[0] if isinstance(result, tuple) else result
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
