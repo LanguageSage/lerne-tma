@@ -65,6 +65,9 @@ def push_offline(request, user_id: int) -> dict:
     for event in payload.get('reviews', []):
         if event.get('action_id') is None:
             event.pop('action_id', None)
+    for progress in payload.get('progress', []):
+        if not progress.get('flag_only'):
+            progress.pop('flag_only', None)  # Preserve receipts from before 6B.6.
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     key = f'{user_id}:{request.request_id}'
     maps = {'folders': {}, 'decks': {}, 'cards': {}}
@@ -188,7 +191,11 @@ def push_offline(request, user_id: int) -> dict:
             require_study_card(card_id)
             raw_progress = item.model_dump(exclude_unset=True)
             values = {field: raw_progress[field] for field in FIELDS['progress'] if field in raw_progress}
-            if card_id in action_cards:
+            if item.flag_only:
+                # Changing a personal label never replaces another device's SRS
+                # or bookmark with the stale offline snapshot carried alongside it.
+                values = {field: value for field, value in values.items() if field == 'flag'}
+            elif card_id in action_cards:
                 # UUID events apply once against authoritative SRS; stale fallback
                 # snapshots must never overwrite an already committed grade.
                 values = {field: value for field, value in values.items() if field in ('flag', 'want_to_learn')}

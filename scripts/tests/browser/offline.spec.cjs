@@ -414,6 +414,40 @@ test('legacy flag progress survives save, grade, clear, restart and native pull'
   expect(await page.evaluate(async id => (await getDb().progress.get([id, 1])), state.card)).toEqual(state.cleared);
 });
 
+test('native flag snapshots never own SRS, while explicit reset remains a full change', async ({ page, context }) => {
+  await harness(page, context);
+  const state = await page.evaluate(async () => {
+    const db = getDb();
+    await db.decks.put({ id: 10, user_id: 1, role: 'owner', name: 'Synthetic V2' });
+    await db.cards.put({ id: 20, deck_id: 10, content_v2: { schema_version: 2,
+      card: { type: 'standard', data: { prompt: 'Synthetic', answer: 'Answer' } } } });
+    await db.progress.put({ card_id: 20, user_id: 1, queue: 'review', interval: 10,
+      repetitions: 5, lapses: 0, ease_factor: 2.5, flag: 2, want_to_learn: true, is_dirty: 0 });
+    await api.post('/cards/20/flag', { flag: 0 });
+    const flag = await db.progress.get([20, 1]);
+    await api.post('/study/grade', { card_id: 20, grade: 2, return_next: false });
+    const grade = await db.progress.get([20, 1]);
+    await api.post('/decks/10/reset', {});
+    await api.post('/cards/20/flag', { flag: 3 });
+    return { flag, grade, reset: await db.progress.get([20, 1]),
+      reviews: await db.syncState.filter(row => row.key.startsWith('review:')).count() };
+  });
+  expect(state.flag).toMatchObject({ flag_only: true, flag: 0, repetitions: 5, interval: 10, want_to_learn: true });
+  expect(state.grade).toMatchObject({ flag_only: true, flag: 0, repetitions: 6 });
+  expect(state.reset).toMatchObject({ flag_only: false, flag: 3, repetitions: 0, queue: 'new', interval: 0 });
+  expect(state.reviews).toBe(1);
+  const pending = await page.evaluate(async () => {
+    const db = getDb();
+    await db.cards.update(20, { offline_create_status: 'pending' });
+    let rejected = false;
+    try { await api.post('/cards/20/flag', { flag: 1 }); }
+    catch { rejected = true; }
+    return { rejected, progress: await db.progress.get([20, 1]) };
+  });
+  expect(pending.rejected).toBe(true);
+  expect(pending.progress).toEqual(state.reset);
+});
+
 test('grading legacy cached flags preserves them while explicit zero takes precedence', async ({ page, context }) => {
   await harness(page, context);
   const state = await page.evaluate(async () => {

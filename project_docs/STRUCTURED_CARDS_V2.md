@@ -539,6 +539,88 @@ HTTP проверяет права, полные ревизии, rollback изм
 320, 375, 430, 768 и 1280 px. Дополнительно:
 `app/src/utils/__tests__/nativeListSearch.test.js`.
 
+## Этап 6B.6. Обучение и персональные данные
+
+Проверены `theory`, `standard`, `trainer`, `quiz`, `match`, `puzzle`,
+`word_bank`, `free_text`, `editable_text` через действующие StudyView,
+SRS, Dexie, `/study/grade`, `/sync/v2/*`, заметки, рейтинги и Knowledge.
+Новых хранилищ, миграций, алгоритмов SRS или очередей не добавлено.
+
+Исправлены две воспроизведённые несовместимости:
+
+- Доставка офлайн-флага могла заменить свежий SRS второго устройства старым
+  progress snapshot: откатывались интервал, repetitions и даты повторения.
+  Новые V2-изменения метки помечают запись существующей очереди `flag_only`;
+  сервер меняет только `flag`, сохраняя SRS и bookmark. V2-оценки также
+  используют эту отметку: SRS применяют UUID-события reviews, поэтому
+  последующая правка флага во время доставки не возвращает старый snapshot.
+  Явный reset снимает отметку и сохраняет прежнюю семантику полного сброса.
+  Старые pending batches не переписываются; отсутствие/false нового поля
+  исключено из fingerprint, чтобы уже выданные квитанции оставались валидны.
+  Новая/скопированная карточка с временным ID отклоняет установку метки
+  прежним `pendingCreate` guard до подтверждения ID, как уже делает оценка;
+  progress не остаётся на удалённом временном ID.
+- Копирование карточек и колод теряло общие связи с навыками, после чего
+  Knowledge capture не находил primary KI. Общий `_clone` теперь копирует
+  `TMACardKnowledgeItem` (primary/secondary, complexity, weight) в той же
+  транзакции, что карточку и квитанцию. Личные SRS, review history, флаги,
+  заметки, Like/Dislike и Knowledge Attempts не копируются. Состояние mastery
+  по прежнему принадлежит паре пользователь–KI, а не копии карточки.
+
+Подтверждённые контракты:
+
+- Онлайн-оценка, офлайн-оценка после скачивания и повтор после потери ответа
+  используют существующий `action_id`. Online commit → offline fallback →
+  повтор push создают ровно один review и одно применение SRS на действие.
+- Knowledge сохраняет native `card_type`, self-rating либо реальные evidence
+  evaluator, primary mapping и стабильный outbox event ID. Повтор отправки
+  после потери ответа не начисляет mastery повторно; diagnostics совпадает
+  с пересчётом из raw Attempts. Secondary связи не создают вторую попытку.
+- Личные заметки остаются в отдельном account-scoped outbox; онлайн и офлайн
+  редактирование переживают перезапуск. Like/Dislike сохраняют существующий
+  онлайн-контракт и откат optimistic vote при сетевом отказе; офлайн-очередь
+  рейтингов не вводилась. Второе устройство читает серверные личные данные
+  своего аккаунта. Другой читатель общей колоды имеет собственные записи.
+- Заметки и рейтинги отсутствуют в `content_v2` и entity snapshot. Edit,
+  move, soft delete и restore сохраняют ID и связанные данные обоих
+  пользователей. Copy получает новые ID, общие навыки и пустой личный прогресс.
+
+Регрессии и воспроизводимый запуск на **новом одноразовом** PostgreSQL:
+
+```sh
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --learning-browser
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --http
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --offline-batch-browser
+python scripts/test_backend.py scripts/tests/test_offline_sync.py
+npm run check
+```
+
+`native-learning.spec.cjs` / `structured_cards_learning.py` проверяют реальные
+Chromium → TCP FastAPI/auth → PostgreSQL: девять типов, реальные exercise
+controls/checkers, онлайн и офлайн, полный перезапуск Chromium, потерю ответов
+grade/push/Knowledge, отдельные профили устройств, изоляцию аккаунтов,
+27 уникальных reviews и Attempts, mastery rebuild и lifecycle всех типов.
+Синтетические Free Text/Edit используют действующий exact checker без вызова
+платного ИИ. Их серверная проверка без сети недоступна: UI сохраняет ответ,
+показывает unavailable и не создаёт objective Attempt. Самооценка этих двух
+типов офлайн дополнительно проверяется через существующие API/capture services;
+это не утверждение об автономной работе удалённого checker. Entity init chrome
+в стенде синтетический; auth, учебные API, заметки, рейтинги, sync и Knowledge
+идут в настоящий backend. Артефакты — только ignored `local/test-data/`.
+
+Общий `npm run check` на 2026-11-07 **не зелёный**: ESLint, Vite build и
+614 тестов приложения прошли, но остаются 26 ошибок frontend harness,
+14 падающих backend suites и 20 critical browser cases. Сравнение с чистым
+`8de59b9` воспроизвело те же 26 frontend cases, тот же полный набор backend
+ошибок и все 20 браузерных сбоев. Среди причин — отсутствующий mock
+`getSessionIdentity`, исторический fingerprint Admin import, прежние
+SQLite/legacy fixtures и сценарии редактора/навигации. Assertions, checks и
+guards ради PASS не ослаблялись. Это существующий долг общей приёмки;
+успешные целевые проверки 6B.6 не означают, что весь проект прошёл gate.
+
+Медиа/TTS остаются предметом 6B.7, общая приёмка — 6B.8. Миграция V1,
+merge в main и deploy в этом этапе не выполнялись.
+
 ## Этап 6B.8a. Офлайн-создание всех типов V2
 
 `standard`, `theory`, `trainer`, `quiz`, `match`, `puzzle`, `word_bank`,

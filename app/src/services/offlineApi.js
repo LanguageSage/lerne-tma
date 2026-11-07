@@ -488,7 +488,9 @@ export const offlineApi = {
           return;
         }
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
-        const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context), ...dirtyFields() };
+        // UUID reviews own native server SRS; a later label edit may outlive their ack.
+        const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context),
+          ...(card.content_v2 && { flag_only: true }), ...dirtyFields() };
         await db.progress.put(updated);
         // Same transaction as progress; every grade survives reload and batch retry.
         await db.syncState.put({ key: `grade:${actionId}`, fingerprint });
@@ -753,7 +755,8 @@ export const offlineApi = {
           for (const card of await db.cards.where('deck_id').equals(id).toArray()) {
             const oldProg = await db.progress.get([card.id, userId]) || {};
             await db.progress.put({ ...oldProg, card_id: card.id, user_id: userId, queue: 'new', interval: 0,
-              ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null, ...dirtyFields() });
+              ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null,
+              flag_only: false, ...dirtyFields() });
           }
           return success();
         }
@@ -762,7 +765,9 @@ export const offlineApi = {
         if (action === 'color') fields = { color: body.color };
         if (action === 'flag') {
           if (entity !== 'cards') throw unsupported();
+          if (item.offline_create_status) pendingCreate();
           const prog = await db.progress.get([id, userId]) || initialProgress(item, userId);
+          if (item.content_v2 && !prog.is_dirty) prog.flag_only = true;
           prog.flag = Number(body.flag) || 0;
           Object.assign(prog, dirtyFields());
           await db.progress.put(prog);

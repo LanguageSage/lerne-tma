@@ -203,6 +203,32 @@ class OfflineSyncTests(unittest.TestCase):
             response=json.dumps(old_response))
         self.assertEqual(sync.push_offline(request, 1), old_response)
 
+    def test_flag_only_preserves_authoritative_srs_bookmark_history_and_legacy_receipt(self):
+        deck = models.TMA_Deck.create(user_id=1, name='Synthetic flag')
+        card = models.TMA_Card.create(deck=deck, front_text='Synthetic', back_text='Answer')
+        progress = models.TMAProgress.create(card_id=card.id, user_id=1, queue='review', interval=23,
+            repetitions=6, ease_factor=2.8, want_to_learn=True, flag=2)
+        before = models.TMAProgress.get_by_id(progress.id).__data__.copy()
+        stale = {'card_id': card.id, 'queue': 'new', 'interval': 0, 'repetitions': 0,
+                 'ease_factor': 2.5, 'lapses': 0, 'flag': 0, 'want_to_learn': False}
+        request = self.request(progress=[{**stale, 'flag_only': True}])
+        sync.push_offline(request, 1)
+        self.assertEqual(sync.push_offline(request, 1)['review_count'], 0)
+        after = models.TMAProgress.get_by_id(progress.id).__data__
+        self.assertEqual(after['flag'], 0)
+        self.assertEqual({k: v for k, v in before.items() if k not in ('flag', 'updated_at')},
+                         {k: v for k, v in after.items() if k not in ('flag', 'updated_at')})
+        self.assertEqual(models.TMAReviewHistory.select().count(), 0)
+        # Existing full progress batches/receipts retain exactly their old hash.
+        legacy = self.request(progress=[stale])
+        payload = legacy.model_dump(mode='json')
+        payload.pop('reviews')
+        payload['progress'][0].pop('flag_only')
+        digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+        response = {'status': 'success', 'mappings': {'folders': {}, 'decks': {}, 'cards': {}}, 'review_count': 0}
+        models.TMAOfflineBatch.create(key=f'1:{legacy.request_id}', payload_hash=digest, response=json.dumps(response))
+        self.assertEqual(sync.push_offline(legacy, 1), response)
+
 
 if __name__ == '__main__':
     unittest.main()

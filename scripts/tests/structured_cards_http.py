@@ -17,7 +17,7 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False):
+           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -30,7 +30,7 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMA_Collaborator,
         models.TMAUser, models.TMAProgress, models.TMAReviewHistory, models.TMAOfflineBatch,
         models.TMASetting, models.TMAMedia, models.TMACardNote, models.TMAKnowledgeItem,
-        models.TMACardKnowledgeItem, models.TMAKnowledgeAttempt, models.TMACardRating,
+        models.TMACardKnowledgeItem, models.TMAKnowledgeAttempt, models.TMACardRating, models.TMAUserKnowledgeState,
         models.LibraryCategory, models.Deck, models.Card,
         *models.AUTH_FOUNDATION_MODELS,
     ])
@@ -64,6 +64,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
+            if learning_browser:
+                from structured_cards_learning import verify_learning
+                return verify_learning(client, port, models, headers)
             if offline_create_browser:
                 if not _run_offline_create_browser(port, models, headers[1]):
                     return False
@@ -408,7 +411,11 @@ def _run_offline_move_browser(client, port, models, headers, *, batch=False):
                 assert row['creator_id'] == original['creator_id']
                 for field in ('image_data', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'):
                     assert row[field] == original[field]
-                assert all(not links for name, links in copied.items() if name != 'card')
+                assert all(not links for name, links in copied.items() if name not in ('card', 'knowledge'))
+                assert [{k: v for k, v in row.items() if k not in ('id', 'card_id', 'created_at')}
+                        for row in copied['knowledge']] == [
+                    {k: v for k, v in row.items() if k not in ('id', 'card_id', 'created_at')}
+                    for row in before[item['source_id']]['knowledge']]
     return True
 
 
@@ -503,6 +510,26 @@ def _run_cases(client, models, headers, load_answer_context):
                 'request_id': str(uuid4()), 'deck_id': deck or self.source.id,
                 'content_v2': value or envelope(), **fields,
             })
+
+        def test_copy_preserves_authored_skill_mappings_without_personal_progress(self):
+            card = self.create()
+            ki = models.TMAKnowledgeItem.create(name='Synthetic copy skill')
+            models.TMACardKnowledgeItem.create(card_id=card['id'], knowledge_item=ki, complexity=4, weight=.75)
+            models.TMAProgress.create(card_id=card['id'], user_id=1, repetitions=5)
+            copied = self.call('POST', 'cards/batch-copy', body={'card_ids': [card['id']],
+                'target_deck_id': self.target.id, 'on_duplicate': 'keep', 'request_id': str(uuid4())})
+            cid = copied['copies'][0]['card']['id']
+            mappings = self.call('GET', f'knowledge/decks/{self.target.id}')['card_knowledge_items']
+            self.assertEqual([(m['card_id'], m['knowledge_item_id'], m['role'], m['complexity'], m['weight'])
+                              for m in mappings], [(cid, ki.id, 'primary', 4, .75)])
+            self.assertFalse(models.TMAProgress.select().where(models.TMAProgress.card_id == cid).exists())
+            self.legacy.is_deleted = True
+            self.legacy.save()
+            deck = self.call('POST', f'decks/{self.source.id}/copy', body={'request_id': str(uuid4())})
+            [mapping] = self.call('GET', f'knowledge/decks/{deck["id"]}')['card_knowledge_items']
+            self.assertEqual(mapping['knowledge_item_id'], ki.id)
+            self.assertEqual(mapping['complexity'], 4)
+            self.assertFalse(models.TMAProgress.select().where(models.TMAProgress.card_id == mapping['card_id']).exists())
 
         def test_native_pull_is_opt_in_and_account_scoped(self):
             payload = {'request_id': str(uuid4()), 'deck_id': self.source.id, 'content_v2': {
@@ -659,12 +686,15 @@ def _run_cases(client, models, headers, load_answer_context):
                 models.TMAReviewHistory.create(card_id=card['id'], user_id=1, rating=2)
                 models.TMACardNote.create(id=str(uuid4()), card=card['id'], user_id=1, text='Private')
                 models.TMACardRating.create(card=card['id'], user_id=1, rating=1)
+                ki = models.TMAKnowledgeItem.create(name=f'Synthetic batch skill {card["id"]}')
+                models.TMACardKnowledgeItem.create(card_id=card['id'], knowledge_item=ki)
             selected = [self.call('GET', f'cards/{card["id"]}') for card in selected]
             before = {card['id']: _card_state(models, card['id']) for card in selected}
             payload = {'request_id': str(uuid4()), 'card_ids': [card['id'] for card in selected],
                        'revisions': {str(card['id']): card['revision'] for card in selected},
                        'target_deck_id': self.target.id, 'on_duplicate': 'keep'}
             count = models.TMA_Card.select().count()
+            mapping_count = models.TMACardKnowledgeItem.select().count()
             self.call('POST', 'cards/batch-copy', 422, body={**payload, 'revisions': {}})
             deck_states = list(models.TMA_Deck.select().order_by(models.TMA_Deck.id).dicts())
             calls = 0
@@ -679,6 +709,7 @@ def _run_cases(client, models, headers, load_answer_context):
                 self.call('POST', 'cards/batch-copy', 409, body=payload)
             self.assertEqual(calls, 2)
             self.assertEqual(models.TMA_Card.select().count(), count)
+            self.assertEqual(models.TMACardKnowledgeItem.select().count(), mapping_count)
             self.assertEqual(list(models.TMA_Deck.select().order_by(models.TMA_Deck.id).dicts()), deck_states)
             key = f'cards-v2:copy:1:{payload["request_id"]}'
             self.assertFalse(models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key == key).exists())
@@ -698,7 +729,10 @@ def _run_cases(client, models, headers, load_answer_context):
                 self.assertEqual(bytes(stored.image_data), b'synthetic')
                 self.assertEqual(stored.audio_path, 'audio/fixture.ogg')
                 self.assertEqual(stored.video_front_path, 'videos/fixture.webm')
-                self.assertTrue(all(not rows for name, rows in _card_state(models, card['id']).items() if name != 'card'))
+                related = _card_state(models, card['id'])
+                self.assertTrue(all(not rows for name, rows in related.items() if name not in ('card', 'knowledge')))
+                self.assertEqual([row['knowledge_item'] for row in related['knowledge']],
+                                 [row['knowledge_item'] for row in before[original['id']]['knowledge']])
             self.assertLess(copied['copies'][0]['card']['position'], copied['copies'][1]['card']['position'])
             self.assertEqual({card['id']: _card_state(models, card['id']) for card in selected}, before)
             for mode in ('skip', 'overwrite'):

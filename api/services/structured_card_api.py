@@ -5,10 +5,10 @@ from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import HTTPException
-from peewee import fn
+from peewee import fn, Value
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from api.models import TMA_Card, TMA_Deck, TMAUser, tma_db
+from api.models import TMA_Card, TMA_Deck, TMAUser, TMACardKnowledgeItem, tma_db
 from .card_text_update import _claim_receipt, _digest
 from .collaborative_service import _require_can_mutate, get_effective_user_role, touch_deck_and_parent_folders
 from .structured_card_storage import create_v2_card, decode_v2_content, replace_v2_card
@@ -578,6 +578,13 @@ def _clone(card, deck_id, position, *, media=None):
     if media is None:
         media = {field: getattr(card, field) for field in (*MEDIA_PATHS, 'image_data')}
     copied = create_v2_card(require_native(card), deck_id=deck_id, creator_id=card.creator_id, position=position)
+    # Skill mappings describe the authored task. Attempts/mastery and other
+    # personal records stay at the source ID. The caller owns this transaction.
+    fields = ('card_id', 'knowledge_item', 'role', 'complexity', 'weight')
+    TMACardKnowledgeItem.insert_from(TMACardKnowledgeItem.select(
+        Value(copied.id), *(getattr(TMACardKnowledgeItem, field) for field in fields[1:]),
+        Value(datetime.datetime.now())
+    ).where(TMACardKnowledgeItem.card_id == card.id), (*fields, 'created_at')).execute()
     TMA_Card.update(**media, source='user').where(TMA_Card.id == copied.id).execute()
     for field, value in media.items():
         setattr(copied, field, value)

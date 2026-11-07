@@ -59,6 +59,7 @@ class SyncProgressItem(BaseModel):
     updated_at: Optional[str] = None
     flag: int = 0
     want_to_learn: bool = False
+    flag_only: bool = False
 
 class SyncFolderItem(BaseModel):
     id: int
