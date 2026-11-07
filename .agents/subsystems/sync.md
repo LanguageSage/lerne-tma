@@ -161,6 +161,28 @@ HTTP-запросу и при наличии сети. Подтверждени�
 Проверки: `structured_cards_postgres.py --http` и `--offline-batch-browser`;
 [контракт 6B.5c](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5c-пакетное-копирование-и-перенос-v2-карточек).
 
+## Подготовка cutoff V1 (7.4, без переключения)
+
+`app/src/services/cardCutoverPreflight.js:inspectCardCutover` автономно читает
+все Lerne IndexedDB этого origin/profile, включая старую unscoped БД и чужие
+аккаунты, без `prepareLocalDb`, обновления схемы, отправки или удаления очередей.
+Dirty entities/progress/tombstones, learning preferences, reviews, pending batch,
+все native операции (включая rejected), notes, Knowledge и pending imports/design
+settings блокируют локальную готовность. Неизвестные таблицы/операции и ошибки
+чтения также блокируют её. `grade:*` — сохранённые квитанции, не review outbox.
+Существующий sync намеренно не отправляет V1 pending batch и V1 progress/reviews;
+успех native sync не означает отсутствия старых изменений.
+
+`api/card_cutover_preflight.py` и `scripts/structured_cards_preflight.py`
+читают PostgreSQL отдельной READ ONLY REPEATABLE READ транзакцией, без startup
+и миграций. Эти наблюдения не доказывают полноту устройств, остановку writers
+или проверенный откат; `safe_to_stop_v1_writes` остаётся false. Контракт,
+инвентаризация writers, условия допуска/retry/rollback и проверка восстановления:
+[этап 7.4](../../project_docs/STRUCTURED_CARDS_V2.md#этап-74-подготовка-безопасного-переключения-без-миграции).
+Тесты: `structured_cards_postgres.py --cutover-preflight` (новый синтетический
+PostgreSQL, FastAPI, physical restore) и `browser/card-cutover-preflight.spec.cjs`
+(Chromium/Dexie, неизменность содержимого и версии после повторного запуска).
+
 ## Клиентские зависимости транспорта
 
 `networkApi.js` владеет единственным Axios instance, auth-interceptors,

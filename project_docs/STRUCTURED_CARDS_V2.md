@@ -872,6 +872,193 @@ Storage/CDN/CORS/права облака, внешняя диктовка и Tel
 merge и deploy не выполнялись. Готовность к этапу 7 относится к native V2
 жизненному циклу; не является разрешением на миграцию или выпуск.
 
+## Этап 7.4. Подготовка безопасного переключения без миграции
+
+Baseline: TMA `d46cc85`, Admin `d88b717`; 2026-11-07. Выполнены автономные
+проверки и синтетические тесты. Режим приложения, API записи, схемы рабочих БД
+и конвертер не изменялись. Реальную LOCAL-базу независимо проверяет Antigravity;
+его результат и приёмка конвертера остаются отдельным условием допуска.
+
+### Оставшиеся writers и граница остановки
+
+| Путь | Фактическое состояние на baseline |
+| --- | --- |
+| PostgreSQL `tma_card` / `card` | `content_v2 IS NULL` остаётся допустимым источником V1. Constraints 93/94 разделяют представления, но не запрещают создание V1. Прямые SQL/ORM clients, импортёры, LOCAL seed и старые процессы сохраняют возможность записи; единого cutoff/fence сейчас нет. |
+| TMA `/sync/push` → `sync_service.execute_sync_push` | Живой V1 writer: создание, правка, удаление/порядок карточек и progress, last-write-wins по времени. Нет batch UUID/квитанции нового протокола; слепое повторение создания опасно дубликатами. Проверено реальным FastAPI/PostgreSQL. |
+| TMA `/sync/v2/push` → `offline_sync.push_offline` | Живой V1 writer: `FIELDS.cards`, negative-ID create, edit/delete/order и связанные folders/decks/progress/reviews. UUID batch и `TMAOfflineBatch` дают неизменяемый retry. Правка native карточки отклоняется 409; весь mixed batch откатывается вместе с квитанцией. Новые V1-карточки всё ещё принимаются. |
+| TMA карточки/импорт/Автор/AI | Основные `/cards/save`, PATCH, bulk-save, copy/move, `/decks/import-json` и публикация `author_service` уже сохраняют native V2; старый payload не становится V1 автоматически (422). AI возвращает native draft. Старые `services.cards.save_card/bulk_save_cards`, `card_content_service.apply_card_content`, `card_transfer`, `decks.import_deck_from_json/copy_deck_to_folder` остаются вызываемыми V1 helpers; наличие кода не означает, что актуальный native router их использует. |
+| Остальные TMA пути | `/decks|folders/.../text-update/apply` → `card_text_update` обновляет/создаёт V1, отклоняет native. Sharing → `sharing_service` копирует V1; native операции явно отклоняются. Library import копирует V1 или V2 по источнику. Guest merge, trash/restore, reorder, notes/ratings, SRS/Knowledge, media/TTS, user settings и permissions также меняют связанные данные и должны попасть в общую остановку/backup. |
+| Admin native | `routers/cards`, `services/native_cards`, `deck_import`, native bulk/regen workers используют V2/revision checks. Это не отключает старые процессы Admin или уже запущенные jobs/checkpoints. |
+| Admin остатки V1 | `services/backup_service.restore_deck_from_backup/restore_folder_from_backup` собирают FRONT/BACK и вызывают старый `core.api.services.bulk_save_cards`; replace удаляет прежние карточки. Core legacy helpers и `services/material_transfer` содержат V1-проекции/запись. Такие restore/transfer/jobs нельзя запускать в окно перехода; native UI не доказывает их отсутствия. Admin не изменялся. |
+| Устройства | Старые bundles/service workers/Capacitor могут писать V1 в Dexie и позже отправить её на оба старых sync endpoint. Нет серверного реестра, который доказывает отсутствие очереди на выключенном устройстве. Logout, сброс кеша, новый bundle или отсутствие запросов этого не доказывают. |
+
+Остановка только редактирования карточек недостаточна. До будущего изменения
+представления нужен согласованный fence всех writers, в том числе фоновых
+jobs, прямых DB clients, old sync, оценок/Knowledge и медиазаписей. В 7.4 fence
+не включён и новые ограничения записи не устанавливаются.
+
+### Автономный preflight
+
+Сервер: `scripts/structured_cards_preflight.py --dsn-env CUTOVER_DATABASE_URL`.
+DSN выбирается явно из переменной окружения; `.env`, модели, startup и сервисы
+приложения не импортируются. CLI только выводит JSON: exit **2** означает
+неполный допуск, **1** — ошибка проверки. Это не команда миграции.
+
+`api/card_cutover_preflight.inspect_postgres(database)` начинает собственную
+`REPEATABLE READ READ ONLY` транзакцию с statement/lock timeouts. Вложенная
+транзакция отклоняется. Сканируются **все public tables**, включая неизвестные,
+soft-deleted карточки, library, личные связи, auth и receipts. Выдаются counts
+V1 active/deleted/V2, SHA-256 мультимножества полных строк, columns/defaults,
+constraints/indexes, RLS flags и sequence last_value/is_called. Бинарные поля и
+полный V2 JSON участвуют в hash; содержимое строк в отчёт не попадает. Ошибки
+доступа/timeout и роль, скрывающая строки через RLS, не превращаются в успех.
+`data_fingerprint` сравнивает данные; `fingerprint` также учитывает каталог и
+sequences. Неизвестные/отсутствующие обязательные таблицы видны в отчёте.
+
+Клиент: явный вызов
+`(await import('/src/services/cardCutoverPreflight.js')).inspectCardCutover()`
+в диагностическом Vite origin. Это модуль для ручной диагностики, не новая
+кнопка и не автоматически запускаемый startup-код; для packaged production
+нужна отдельно согласованная доставка диагностики. Он не импортирует
+`localDb`, auth/store, `prepareLocalDb` или sync. Через native IndexedDB enumeration
+находит `LerneLocalDB`, `LerneLocalDB_<account>` и `LerneTestDB_<account>`, открывает
+их dynamic Dexie без upgrade и читает каждую одной readonly транзакцией.
+
+Локальный `pending_free` блокируют:
+
+- Любой `is_dirty`/`learning_dirty`, отрицательные IDs/ссылки, включая tombstones,
+  создание/правку/удаление/перенос/порядок folders/decks/cards и progress:
+  оценки, reset, флаги, bookmark/want_to_learn и предпочтение изучения колоды.
+- `syncState.pending` целиком, `review:*`, create/edit/move/lifecycle V2 outboxes,
+  `offline_create_status`, `offline_edit` (включая next/conflict/error),
+  `offline_move` и `offline_lifecycle`, даже если операция rejected.
+- Dirty `card_notes`, все оставшиеся `knowledge_attempt_outbox`:
+  pending, syncing, failed и неизвестные статусы. Успешные Attempts штатно
+  удаляются отправителем; оставшаяся строка требует разбора.
+- Pending `lerne_bulk_import_*`, personal design V2 pending/edited или
+  повреждённые записи localStorage, неизвестные таблицы/ключи syncState,
+  недоступность БД/storage/enumeration. Исходники остаются на месте.
+
+`aliases`, `lastSync`, `legacyImported`, `grade:*` — сохранённые данные/квитанции,
+не очередь review; они не удаляются и сами по себе не блокируют проверку.
+Строки могут учитываться сразу по нескольким причинам: counts blockers —
+диагностика, не число уникальных операций.
+
+**Критический baseline:** `syncService.pendingBatch` возвращает null для старого
+pending с V1 cards/progress/reviews; новый batch выбирает только native
+progress/reviews. `runSync` может успешно отправить native операции и вернуть
+success при оставшихся V1 изменениях. Нельзя считать sync success, пустую
+очередь native creates или отсутствие dirty cards доказательством drain.
+7.4 это обнаруживает, но не пытается изменить старый пакет/UUID или автоматически
+конвертировать очередь. Для каждого блокера нужна подтверждённая доставка
+совместимым старым клиентом либо отдельное сохранение и проверенное восстановление
+оригинала с явным разрешением владельца на способ дальнейшей обработки.
+Экспорт без решения судьбы изменений не означает разрешение на их потерю.
+
+### Что ещё требуется для допуска
+
+Оба отчёта намеренно возвращают `safe_to_stop_v1_writes: false`: сейчас автономно
+невозможно доказать глобальную остановку, полноту устройств и rollback.
+`pending_free: true` означает только отсутствие обнаруженной очереди в этом
+origin/profile в момент чтения. Нет глобального реестра устройств, lease cutoff
+или доверенного подтверждения restore; переключатель на основании этих
+наблюдений не добавлен.
+
+До миграции должны быть одновременно подтверждены:
+
+1. Реальный LOCAL dry-run/аудит конвертера Antigravity: все V1, включая trash и
+   library, однозначны либо явно разобраны; исходники, ID, связи и порядок сохранены.
+2. Все старые устройства, браузерные профили, origins и LOCAL/production namespaces
+   учтены. Каждый проверен доступной ему диагностикой; недоступный старый клиент
+   остаётся блокером. Открытые формы/импорт в памяти сохранены. General study
+   settings имеют localStorage cache и debounce/in-flight без универсального
+   durable pending marker: их server ACK/сверка и backup storage нужны отдельно.
+   Admin drafts и uploads также нельзя выводить из Dexie-счётчика.
+3. Старые очереди действительно доставлены/разобраны, включая ошибки и конфликты.
+   Не очищать IndexedDB, не выполнять reset/reinstall/logout как способ drain,
+   не отбрасывать rejected/failed и не менять request_id уже отправленного пакета.
+4. На время final preflight/backup/преобразования все writers остановлены,
+   in-flight запросы завершены, фоновые jobs и возобновление checkpoints запрещены.
+   Между предварительным сканированием и fence нельзя считать данные неизменными:
+   после fence отчёты и копии снимаются заново. Нужен отдельный проверенный отказ
+   старым clients с сохранением их очередей, прежде чем разрешать работу после cutoff.
+5. Копия именно fenced состояния восстановлена в независимую пустую цель;
+   данные, каталог, sequences и медиа сверены, recovery применим к нужной версии
+   приложения/Admin. Проверены фактические ACL/roles/RLS/policies/functions/triggers
+   и непубличные схемы, если они нужны среде. Эти объекты не покрыты manifest 7.4.
+
+### Backup, restore и пределы отката
+
+| Существующий механизм | Вывод проверки |
+| --- | --- |
+| `tools/backup_database.py` JSON | Только cards/decks/folders/users/settings. Не содержит progress/reviews/notes/ratings/Knowledge/receipts/все auth и SQL-каталог. Для rollback непригоден. |
+| `scripts/backup_cloud.py` SQLite | Ограниченный список таблиц, упрощённая схема, продолжение при ошибках. Не доказательство полного recovery. |
+| `local/dev.backup` / `scripts/backup_local.py` | Полный custom `pg_dump --no-owner --no-acl`, атомарная публикация файла. В БД входят оба content-представления, ID, binary media и все public таблицы/receipts; внешняя `data/media` и browser storage не входят. Restore использует single transaction и recovery backup, но сам по себе `pg_restore --list` не проверяет данные. Печатаемый совет очистить IndexedDB после restore **не применять** при pending изменениях. |
+| Admin `backup_service` deck/folder JSON restore | Частичный экспорт/восстановление материалов, переcоздаёт карточки, не восстанавливает полный снимок ID/личных связей. Не rollback V1→V2. |
+| Admin `full_database_backup` bundle | Реальный custom dump **public**, file hashes и внешние media bytes; single-transaction restore в пустую БД, проверка совместимости. Выполнен существующий синтетический PG round-trip с BYTEA, FK/tombstone, sequence и точным внешним media-файлом; missing media и непустая цель отклонены. Тест использует `enforce_contract=False` для искусственной схемы, поэтому не доказывает default contract gate реальной LOCAL. ACL/owners и вне-public schemas не восстанавливаются этим bundle. |
+
+Синтетическая TMA-проверка отдельно создала все ORM tables, migration-history
+fixture, одновременно V1/V2 и library, tombstones, progress/reviews,
+notes/ratings/messages, KI/mappings/Attempts/mastery, settings/collaborators,
+auth session/tokens, offline receipt и двоичные media/image_data. Полный dump
+восстановлен в другую пустую БД; все строки и их hashes, IDs, columns/defaults,
+indexes/FK/check constraints и sequences сверены. PostgreSQL 17 при restore
+нормализует varchar-array casts в нескольких IN-list CHECK; тест допускает
+только эквивалентную форму тех же литералов/поля, остальные constraints сравнивает
+точно. Raw catalog fingerprint поэтому может отличаться после restore:
+сначала сверять `data_fingerprint`, затем разбирать каталог, не игнорировать
+произвольные различия. Удаление квитанций в восстановленной тестовой цели
+действительно меняет hash и обнаруживается проверкой.
+
+Инъекция SQL-ошибки во время `pg_restore --single-transaction` оставила тестовую
+цель без частичных таблиц/данных; устранение искусственной причины позволило
+повторить **тот же архив**. Запись внутри preflight запрещена самим PostgreSQL;
+после ошибки повтор чтения безопасен. RLS-restricted role не получает успешного
+снимка. Отказ mixed HTTP batch не сохраняет частичные cards/receipt; sequence
+может продвинуться (`nextval` не транзакционен). Пропуск ID не является потерей
+карточки и не должен исправляться уменьшением sequence.
+
+Повтор preflight безопасен: нет writes/ACK/DDL/очистки, время отчёта обновляется,
+исходные UUID и строки сохраняются. Изменение fingerprint после fence требует
+найти продолжающийся writer и повторить final backup; нельзя продолжать по
+старому отчёту. Неполный отчёт, timeout, неизвестная операция или ошибка восстановления
+означают STOP, а не частичный успех.
+
+При будущей ошибке преобразования сохранять fence, журналы, первоначальный
+dump/media/browser snapshots и отдельную копию состояния ошибки. Не запускать
+конвертер повторно по частично изменённой базе без проверки его собственного
+transaction/journal/retry контракта. Полный rollback — восстановление принятого
+снимка в независимую цель с проверкой связей, медиа и совместимой версии кода,
+затем отдельное согласованное возвращение сервиса. Если после cutoff уже
+приняты новые V2 writes/reviews/Attempts, старый dump их потеряет: автоматический
+restore запрещён до отдельного сохранения и сверки этих изменений. Browser
+outboxes и квитанции должны оставаться согласованы с восстановленной серверной
+точкой; простой откат сервера с продолжением sync может дать повтор/потерю.
+Отключённый старый клиент остаётся неразрешённым риском до явной обработки.
+
+Воспроизводимые проверки 7.4:
+
+```powershell
+python scripts/tests/structured_cards_postgres.py --bin-dir <postgresql-bin> --cutover-preflight
+node node_modules/@playwright/test/cli.js test card-cutover-preflight.spec.cjs --project=extended --workers=1
+# В reviewed Admin checkout (код не меняется):
+python -B tests/run_full_database_postgres.py --bin-dir <postgresql-bin>
+# Предварительная standalone-инвентаризация, только явный DSN:
+python scripts/structured_cards_preflight.py --dsn-env CUTOVER_DATABASE_URL
+```
+
+Данные тестов синтетические, кластеры одноразовые; TMA-артефакты только в ignored
+`local/test-data/`. FastAPI использован с настоящими auth/middleware/worker scopes
+и PostgreSQL, без startup lifespan/миграций; Chromium использует настоящий Dexie
+со старыми схемами и блокирует API, чтобы проверка не запустила sync.
+Это проверка наблюдения и recovery primitives, не миграция реальной LOCAL,
+не приёмка её конкретного backup, не production service-worker rollout.
+
+Результат: FastAPI/PostgreSQL/recovery **6/6**, Chromium/Dexie **2/2**,
+существующий Admin full-bundle PG round-trip прошёл. ESLint нового JS,
+компиляция затронутых Python и `git diff --check` прошли. Общий suite и build
+не запускались: production runtime не подключает новые диагностические модули.
+
 ## Исходная архитектура до перехода
 
 | Путь | Владелец и ограничения |

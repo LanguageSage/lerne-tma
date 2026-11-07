@@ -222,6 +222,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
+    parser.add_argument('--cutover-preflight', action='store_true', help='Read-only preflight, legacy HTTP writers and physical rollback drill; no migrations')
     parser.add_argument('--offline-create-browser', action='store_true', help='Run Standard and all-type offline creation browser scenarios over socket HTTP')
     parser.add_argument('--offline-edit-browser', action='store_true', help='Run the offline edit and conflict browser scenario over socket HTTP')
     parser.add_argument('--offline-delivery-browser', action='store_true', help='Run the offline delivery failure scenarios over socket HTTP')
@@ -269,6 +270,9 @@ def main():
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port,
                                 user='cards_test', connect_timeout=5)
         try:
+            if args.cutover_preflight:
+                from structured_cards_cutover import verify as verify_cutover
+                return 0 if verify_cutover(db, binaries, scratch) else 1
             if (args.http or args.offline_create_browser or args.offline_edit_browser
                     or args.offline_delivery_browser or args.offline_isolation_browser
                     or args.offline_move_browser or args.offline_lifecycle_browser or args.offline_batch_browser or args.offline_list_browser or args.learning_browser or args.media_browser):
