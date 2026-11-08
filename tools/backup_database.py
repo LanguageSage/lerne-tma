@@ -5,11 +5,33 @@ if project_root not in sys.path:
     sys.path.insert(0, project_root)
 from api import models
 
+
+def check_environment_and_target():
+    from api.local_runtime import is_local
+    if not is_local():
+        raise RuntimeError(
+            "ОТКАЗ БЕЗОПАСНОСТИ: tools/backup_database.py запрещено запускать вне LERNE_MODE=LOCAL.\n"
+            "Скрипт производит частичную выгрузку и не предназначен для использования в production.\n"
+            "Используйте штатные инструменты:\n"
+            "  1. В терминале: python scripts/local_dev.py backup\n"
+            "  2. В веб-интерфейсе: Lerne Admin -> Резервные копии (Full Database Bundle)"
+        )
+    from local.runtime import validate_database_url, local_config
+    config = local_config(create_dirs=False)
+    validate_database_url(config.get("database_url", ""))
+
+
 def create_backup():
+    check_environment_and_target()
     print("=" * 65)
-    print("📦 СОЗДАНИЕ РЕЗЕРВНОЙ КОПИИ БАЗЫ ДАННЫХ LERNE")
+    print("📦 СОЗДАНИЕ ЧАСТИЧНОЙ РЕЗЕРВНОЙ КОПИИ БАЗЫ ДАННЫХ LERNE (LEGACY)")
     print("=" * 65)
-    print("\n[1/3] Подключение к базе данных...")
+    print("⚠️  ПРЕДУПРЕЖДЕНИЕ: Этот скрипт сохраняет только таблицы tma_card, tma_deck,")
+    print("    tma_folder, tma_user, tmasetting. SRS-прогресс, история повторений, заметки,")
+    print("    рейтинги и медиафайлы НЕ сохраняются.")
+    print("    Для полного бэкапа используйте: python scripts/local_dev.py backup\n")
+
+    print("[1/3] Подключение к базе данных...")
     if not models.tma_db.obj:
         models.initialize_database()
     print("  -> Подключено успешно.")
@@ -57,6 +79,7 @@ def create_backup():
     print(f"\n✅ БЭКАП УСПЕШНО СОЗДАН!")
     print(f"Файл: {backup_file} ({size_mb:.2f} MB)")
     print("=" * 65)
+
 
 if __name__ == "__main__":
     create_backup()
