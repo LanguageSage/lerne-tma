@@ -274,7 +274,7 @@ class EditableTextData(V2Model):
 # Extension metadata must never become a shadow content/answer/passport payload.
 CONTENT_KEYS = {'front', 'front_text', 'back', 'back_text', 'context', 'type', 'card_type',
                 'image', 'image_path',
-                'data', 'parts', 'info', 'layout', 'explanation', 'level', 'topics', 'cards',
+                'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
                 'accepted_answers', 'grading_policy', 'intro', 'pedagogy', 'passport',
                 'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens', 'back_note',
                 'sample_answer', 'source_text', 'correct_text', 'summary', 'translation'}

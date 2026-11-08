@@ -57,6 +57,13 @@ class V2ValidationTests(unittest.TestCase):
             self.assertEqual(moved.layout[0].id, 'picture')
             self.assertEqual(moved.data.model_dump(), before)
 
+    def test_existing_extension_metadata_stays_valid_without_defining_visual_content(self):
+        value = document()
+        value['cards'][0]['metadata'] = {'layout': {'extension': 'old author metadata'}}
+        card = validate_document(value).cards[0]
+        self.assertIsNone(card.layout)
+        self.assertEqual(card.metadata['layout'], {'extension': 'old author metadata'})
+
     def test_invalid_layout_cannot_drop_duplicate_or_reference_answers(self):
         from api.services.structured_cards_v2 import validate_card
         value = {'type': 'standard', 'data': {'prompt': 'Q', 'answer': 'SECRET'},
