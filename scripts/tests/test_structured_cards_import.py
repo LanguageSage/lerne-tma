@@ -16,6 +16,14 @@ def codex_card(front, back='', context=''):
 
 
 class NativeCardImportTests(unittest.TestCase):
+    def test_codex_keeps_repeated_information_after_exercise_in_author_order(self):
+        doc, = import_documents(codex_card('::task\nVorher.\n::exercise\nIch [[gehe]].\n::source\n**Quelle**\n\nZeile zwei.\n::example\nBeispiel.\n::source\nNoch eine Quelle.', 'Note'), default_deck_name='Layout')
+        card = doc.cards[0]
+        self.assertEqual([item.type for item in card.layout], ['info', 'exercise', 'info', 'info', 'info'])
+        self.assertEqual([item.index for item in card.layout if item.type == 'info'], [0, 1, 2, 3])
+        self.assertEqual(card.info[1].text, '**Quelle**\n\nZeile zwei.')
+        self.assertEqual(import_documents(doc.model_dump_json())[0], doc)
+
     def test_all_nine_types_from_codex_and_equivalent_json(self):
         examples = [
             ('Was?', 'Das.', 'standard', {'prompt': 'Was?', 'answer': 'Das.'}),
@@ -111,7 +119,6 @@ CONTEXT: Erklärung
             (codex_card('[[ok]] und [[offen'), 'unmatched'),
             (codex_card('@wordbank\n<<x>>\n@options\nJa | ja', 'x=ja'), 'ambiguous bank option'),
             (codex_card('@wordbank\n<<x>>\n@options\nJa | Nein', 'x=Ja\ny=Nein'), 'unknown gaps'),
-            (codex_card('Text\n::source\nSpäter', 'answer'), 'information after exercise'),
             (codex_card('Text', 'answer', '::level B1\n::level B2'), 'duplicate'),
             ('<<<LERNE_CARD>>>\nBACK: wrong order\nFRONT: Hallo', 'Expected FRONT'),
             ('<<<LERNE_CARD>>>\n::unknown 12\nFRONT: Hallo\nBACK: Hi', 'invalid Codex header'),

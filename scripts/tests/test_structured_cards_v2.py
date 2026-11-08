@@ -33,6 +33,64 @@ def choice():
 
 
 class V2ValidationTests(unittest.TestCase):
+    def test_layout_roundtrip_order_identity_and_all_nine_types(self):
+        from api.services.structured_cards_v2 import validate_card
+        values = [card.model_dump(mode='json') for path in EXAMPLES.glob('*.json')
+                  for card in load_document(path.read_text(encoding='utf-8')).cards]
+        values.append({'type': 'editable_text', 'data': {'source_text': 'Ich gehen.', 'correct_text': 'Ich gehe.'}})
+        for value in values:
+            value['info'] = [{'type': 'text', 'text': '  **Text**\n\nZeile zwei.\n'},
+                             {'type': 'example', 'text': 'Erklärung danach.'}]
+            value['layout'] = [{'id': 'literal', 'type': 'info', 'index': 0},
+                               {'id': 'picture', 'type': 'image', 'path': 'images/synthetic.webp', 'alt': 'Haus', 'caption': 'Bild'},
+                               {'id': 'exercise', 'type': 'exercise'},
+                               {'id': 'feedback', 'type': 'info', 'index': 1, 'visibility': 'after_answer'}]
+            # Empty quiz prompts still need a visible task/source.
+            if value['type'] == 'quiz' and not value['data']['prompt']:
+                value['info'][0]['type'] = 'task'
+            card = validate_card(value)
+            self.assertEqual(validate_card(json.loads(card.model_dump_json())), card)
+            self.assertEqual(card.info[0].text, value['info'][0]['text'])
+            before = card.data.model_dump()
+            value['layout'][0], value['layout'][1] = value['layout'][1], value['layout'][0]
+            moved = validate_card(value)
+            self.assertEqual(moved.layout[0].id, 'picture')
+            self.assertEqual(moved.data.model_dump(), before)
+
+    def test_invalid_layout_cannot_drop_duplicate_or_reference_answers(self):
+        from api.services.structured_cards_v2 import validate_card
+        value = {'type': 'standard', 'data': {'prompt': 'Q', 'answer': 'SECRET'},
+                 'info': [{'type': 'text', 'text': 'Intro'}]}
+        cases = [[], [{'id': 'e', 'type': 'exercise'}],
+                 [{'id': 'i', 'type': 'info', 'index': 0}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'e', 'type': 'info', 'index': 0}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': 9}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': True}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': 0, 'visibility': 'anything'}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'data', 'ref': 'answer'}]]
+        for layout in cases:
+            with self.subTest(layout=layout), self.assertRaises(ValidationError):
+                validate_card({**value, 'layout': layout})
+        for path in ['data:image/png;base64,a', 'blob:fake', 'https://example.invalid/x', '../x', 'images/../x',
+                     'images/a?token=x', 'images/a/b.png', 'images/a\\b.png']:
+            with self.subTest(path=path), self.assertRaises(ValidationError):
+                validate_card({**value, 'layout': [{'id': 'e', 'type': 'exercise'},
+                    {'id': 'i', 'type': 'info', 'index': 0}, {'id': 'p', 'type': 'image', 'path': path}]})
+
+    def test_hidden_task_cannot_be_used_as_visible_quiz_prompt(self):
+        from api.services.structured_cards_v2 import validate_card
+        with self.assertRaises(ValidationError):
+            validate_card({'type': 'quiz', 'data': {'prompt': '', 'options': [{'text': 'A', 'correct': True}, {'text': 'B'}]},
+                'info': [{'type': 'task', 'text': 'SECRET'}], 'layout': [
+                    {'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': 0, 'visibility': 'after_answer'}]})
+
+    def test_legacy_export_refuses_to_silently_drop_composition_or_images(self):
+        value = document()
+        value['cards'][0]['layout'] = [{'id': 'e', 'type': 'exercise'},
+            {'id': 'p', 'type': 'image', 'path': 'images/synthetic.webp'}]
+        with self.assertRaisesRegex(LegacyConversionError, 'JSON V2 export'):
+            to_legacy_document(validate_document(value))
+
     def assertInvalid(self, value):
         with self.assertRaises((ValidationError, ValueError)):
             validate_document(value)

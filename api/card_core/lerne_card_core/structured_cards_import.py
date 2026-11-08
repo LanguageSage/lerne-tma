@@ -136,7 +136,7 @@ def _word_bank(body, back):
 
 def _exercise(front, back, settings):
     parsed = parse_exercise_content(front)
-    info, bodies = [], []
+    info, bodies, layout = [], [], []
     for block in parsed['blocks']:
         kind, content = block['type'], block['content']
         if kind == 'exercise':
@@ -144,9 +144,8 @@ def _exercise(front, back, settings):
                 raise ImportFormatError('FRONT: empty ::exercise block')
             if content:
                 bodies.append(content)
+                layout.append({'id': 'exercise', 'type': 'exercise'})
             continue
-        if bodies:
-            raise ImportFormatError('FRONT: information after exercise cannot retain its position in V2')
         if kind in ('level', 'topic'):
             if kind in settings or not content:
                 raise ImportFormatError(f'FRONT: duplicate or empty ::{kind}')
@@ -158,6 +157,8 @@ def _exercise(front, back, settings):
             info.append({'type': kind, 'items': items})
         else:
             info.append({'type': 'source' if kind == 'context' else kind, 'text': content})
+        if kind not in ('level', 'topic'):
+            layout.append({'id': f'info-{len(info)}', 'type': 'info', 'index': len(info) - 1})
 
     exercise_markers = re.findall(r'(?im)^[ 	]*::exercise[ 	]*$', front)
     if len(bodies) != 1 or len(exercise_markers) > 1:
@@ -196,7 +197,7 @@ def _exercise(front, back, settings):
             data = {'source_text': content, 'correct_text': back}
     else:
         kind, data = _plain_exercise(body, back, parsed)
-    return kind, data, info
+    return kind, data, info, layout if info else None
 
 
 def _plain_exercise(body, back, parsed):
@@ -233,10 +234,10 @@ def _codex_card(block, deck_id):
     sections = {key: block[match.end():fields[i + 1].start() if i + 1 < len(fields) else len(block)].strip()
                 for i, (key, match) in enumerate(zip(order, fields))}
     settings, explanation = _context(sections.get('CONTEXT', ''))
-    kind, data, info = _exercise(sections['FRONT'], sections.get('BACK', ''), settings)
+    kind, data, info, layout = _exercise(sections['FRONT'], sections.get('BACK', ''), settings)
     return {
         'id': str(metadata['card_id']) if 'card_id' in metadata else None,
-        'image': metadata.get('image'), 'type': kind, 'data': data, 'info': info,
+        'image': metadata.get('image'), 'type': kind, 'data': data, 'info': info, 'layout': layout,
         'explanation': explanation, 'level': settings['level'].upper() if 'level' in settings else None,
         'topics': [settings['topic']] if 'topic' in settings else None,
     }, metadata.get('deck_id', deck_id)

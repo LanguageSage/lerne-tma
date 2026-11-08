@@ -191,6 +191,14 @@ def to_legacy_card(card, deck, index):
     V2 validity; this function never mutates the source or writes storage.
     """
     path = f'cards[{index}]'
+    if card.layout is not None:
+        expected = [('info', i) for i in range(len(card.info))] + [('exercise', None)]
+        actual = [(item.type, getattr(item, 'index', None)) for item in card.layout]
+        if actual != expected or any(getattr(item, 'visibility', 'before_answer') != 'before_answer'
+                                     for item in card.layout):
+            raise LegacyConversionError(f'{path}.layout: use JSON V2 export to preserve composition and media')
+    if any(block.type == 'text' for block in card.info):
+        raise LegacyConversionError(f'{path}.info: plain text blocks require JSON V2 export')
     if card.type == 'theory':
         body, back = card.data.text, card.data.summary
     elif card.type == 'standard':
