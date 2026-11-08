@@ -1,28 +1,28 @@
 {
   "name": "lerne-card-core",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "source_repository": "LanguageSage/lerne-tma",
-  "source_revision": "ca4935b7f536beccec27991b8728b39d8ced68ae",
-  "source_version": "0.1.5",
+  "source_revision": "c83a7316edb648bdbd8d8970dc27bed34e44bd3b",
+  "source_version": "0.1.6",
   "newline": "LF",
-  "source_state": "Exact Git source for the native V2 importer and schema.",
+  "source_state": "Exact Git source for optional ordered layout, inline media and Codex order; auto distractors preserved.",
   "source_files": {
-    "api/card_core/lerne_card_core/__init__.py": "141408f126d91539ef70021f6d0bbef615b9a0e9bd902dbacc3db3c7cfb505c4",
+    "api/card_core/lerne_card_core/__init__.py": "c05bcaff51ec48bed8fda0b7111c0541bc97394dabdce521c9898d0e5bc9c04b",
     "api/card_core/lerne_card_core/answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "api/card_core/lerne_card_core/deck_passport.py": "087073a1f4b6391de9ca086b0c778ab9746392522a90d65d27f8957e06f141db",
     "api/card_core/lerne_card_core/input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
-    "api/card_core/lerne_card_core/structured_cards_import.py": "de2a7593bbfc34a4265e33e90d2669b047e644dd87b647ea8db284c694836d17",
-    "api/card_core/lerne_card_core/structured_cards_legacy.py": "22c4c0a07bdbaae42a9c7921e6099b491199a7e806544ccabb3201b3d0eabd2e",
-    "api/card_core/lerne_card_core/structured_cards_v2.py": "4878567ce0d9bc366be269f7c555a2e390f7cc61fde3d069a710b5d8c8fd16c7"
+    "api/card_core/lerne_card_core/structured_cards_import.py": "ac3ac0e6d5ff7ded604c2a40560a00ca5adafc3328001a36e28ce56aa9f9fff6",
+    "api/card_core/lerne_card_core/structured_cards_legacy.py": "831b6d16f16cdc448ad8c8572ecf3b96098e998d3a35038421d537dd962737a1",
+    "api/card_core/lerne_card_core/structured_cards_v2.py": "f579c4347a26e84d684fb2e7ea46132ac1928046e17684ee7e577228e37caf6b"
   },
   "files": {
-    "__init__.py": "141408f126d91539ef70021f6d0bbef615b9a0e9bd902dbacc3db3c7cfb505c4",
+    "__init__.py": "c05bcaff51ec48bed8fda0b7111c0541bc97394dabdce521c9898d0e5bc9c04b",
     "answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "deck_passport.py": "087073a1f4b6391de9ca086b0c778ab9746392522a90d65d27f8957e06f141db",
     "input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
-    "structured_cards_import.py": "de2a7593bbfc34a4265e33e90d2669b047e644dd87b647ea8db284c694836d17",
-    "structured_cards_legacy.py": "22c4c0a07bdbaae42a9c7921e6099b491199a7e806544ccabb3201b3d0eabd2e",
-    "structured_cards_v2.py": "4878567ce0d9bc366be269f7c555a2e390f7cc61fde3d069a710b5d8c8fd16c7"
+    "structured_cards_import.py": "ac3ac0e6d5ff7ded604c2a40560a00ca5adafc3328001a36e28ce56aa9f9fff6",
+    "structured_cards_legacy.py": "831b6d16f16cdc448ad8c8572ecf3b96098e998d3a35038421d537dd962737a1",
+    "structured_cards_v2.py": "f579c4347a26e84d684fb2e7ea46132ac1928046e17684ee7e577228e37caf6b"
   },
   "build": {
     "setuptools": "80.9.0",

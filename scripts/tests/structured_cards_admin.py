@@ -18,6 +18,7 @@ def verify(client, models, headers, _load_answer_context):
     from lerne_admin.core.api import models as admin_models
     from lerne_admin.core.compatibility import guard_database
     from lerne_admin.routers.cards import router
+    from lerne_admin.routers.author import router as author_router
     from peewee import PostgresqlDatabase
     from structured_cards_http import _native_examples, _card_state
 
@@ -27,6 +28,7 @@ def verify(client, models, headers, _load_answer_context):
     admin_models.lerne_db.initialize(admin_db)
     guard_database(admin_db)
     app.include_router(router)
+    app.include_router(author_router)
 
     def request(method, path, body=None, status=200):
         result = client.request(method, path, headers=headers[1], json=body)
@@ -38,7 +40,15 @@ def verify(client, models, headers, _load_answer_context):
 
     try:
         deck = models.TMA_Deck.create(user_id=1, name='Synthetic cross-editor acceptance', target_language='de')
+        models.TMAMedia.create(folder='images', filename='cross-editor.webp', content=b'synthetic bytes')
         for kind, content in _native_examples().items():
+            content['card']['info'] = [{'type': 'task', 'text': 'Vorher.\nZweite Zeile.'}, {'type': 'text', 'text': 'Nachher.'}]
+            content['card']['layout'] = [
+                {'id': 'intro', 'type': 'info', 'index': 0, 'visibility': 'before_answer'},
+                {'id': 'picture', 'type': 'image', 'path': 'images/cross-editor.webp', 'alt': 'Haus', 'caption': 'Bild', 'visibility': 'before_answer'},
+                {'id': 'exercise', 'type': 'exercise'}, {'id': 'feedback', 'type': 'info', 'index': 1, 'visibility': 'after_answer'}]
+            if content['card'].get('topics') is None:
+                content['card']['topics'] = []
             content['card']['metadata']['cross_editor'] = {
                 'quoted': '{"literal": "\u00c4 @quiz [[x]]"}', 'ordered': [None, True, [3, 1, 2]]}
             tma = request('POST', 'cards/save', {'deck_id': deck.id, 'request_id': str(uuid4()), 'content_v2': content})
@@ -64,6 +74,11 @@ def verify(client, models, headers, _load_answer_context):
             request('PUT', path, {'content_v2': updated, 'revision': admin['revision']}, status=409)
             assert links(cid) == before, kind
             print('PASS same-row TMA/Admin round-trip:', kind, flush=True)
+        exported = request('GET', f'admin/author/export?deck_id={deck.id}&as_file=false')
+        from api.card_core.lerne_card_core.structured_cards_import import import_documents
+        document, = import_documents(exported['text'])
+        assert document.model_dump(mode='json')['cards'] == [row.content_v2['card'] for row in models.TMA_Card.select().where(models.TMA_Card.deck == deck).order_by(models.TMA_Card.position)]
+        print('PASS native JSON export/reimport with layout and media', flush=True)
         return True
     finally:
         admin_db.close()

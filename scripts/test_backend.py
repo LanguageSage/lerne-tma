@@ -23,6 +23,7 @@ SUITES = (
     'scripts/tests/test_card_core_release.py',
     'scripts/tests/test_shared_card_regressions.py',
     'scripts/tests/test_structured_cards_v2.py',
+    'scripts/tests/test_structured_cards_import.py',
     'scripts/tests/test_admin_interop_boundary.py',
     'scripts/tests/test_local_dev.py',
     'scripts/tests/test_test_isolation.py',

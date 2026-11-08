@@ -17,7 +17,7 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, media_browser=False):
+           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, media_browser=False, layout_browser=False):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -64,6 +64,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
+            if layout_browser:
+                from structured_cards_layout import verify_layout
+                return verify_layout(client, port, models, headers)
             if media_browser:
                 from structured_cards_media import verify_media
                 return verify_media(client, port, models, headers, app)
