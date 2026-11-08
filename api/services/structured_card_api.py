@@ -195,7 +195,10 @@ def authored_side_text(content, side):
     if kind == 'editable_text':
         return data.source_text
     if kind == 'quiz' and not data.prompt:
-        return next((block.text for block in card.info if block.type in ('task', 'source')), '')
+        visible = {item.index for item in card.layout or [] if item.type == 'info'
+                   and item.visibility == 'before_answer'} if card.layout is not None else set(range(len(card.info)))
+        return next((block.text for index, block in enumerate(card.info)
+                     if index in visible and block.type in ('task', 'source')), '')
     return data.prompt
 
 
@@ -306,6 +309,7 @@ def _set_media(card, media):
 
 
 def _create(item, user_id, position):
+    validate_layout_images(item.content_v2.card)
     try:
         card = create_v2_card(item.content_v2.card, deck_id=item.deck_id, creator_id=user_id, position=position)
     except ValueError as exc:
@@ -387,6 +391,7 @@ def _replace(card, data):
 
     if content_response(card)['revision'] != data.revision:
         raise HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id})
+    validate_layout_images(data.content_v2.card, require_native(card))
     try:
         replace_v2_card(card.id, data.content_v2.card)
     except ValueError as exc:
@@ -394,6 +399,19 @@ def _replace(card, data):
     _set_media(card, data.model_dump(include=set(MEDIA_PATHS), exclude_unset=True))
     TMA_Card.update(history=add_to_history(card.history, 'Edited manually')).where(TMA_Card.id == card.id).execute()
     return TMA_Card.get_by_id(card.id)
+
+
+def validate_layout_images(content, previous=None):
+    """New links must refer to uploaded media; old links never block text edits."""
+    from api.models import TMAMedia
+    paths = {item.path for item in content.layout or [] if item.type == 'image'}
+    old = {item.path for item in previous.layout or [] if item.type == 'image'} if previous else set()
+    names = {path.removeprefix('images/') for path in paths - old}
+    if names:
+        existing = {row.filename for row in TMAMedia.select(TMAMedia.filename).where(
+            TMAMedia.folder == 'images', TMAMedia.filename.in_(names))}
+        if existing != names:
+            raise HTTPException(422, 'Upload or select an existing image before attaching it to layout')
 
 
 def update_card(card_id, data, user_id):

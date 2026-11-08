@@ -1,0 +1,6 @@
+.card-layout-editor { min-width: 0; max-width: 100%; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.card-layout-row { min-width: 0; border-bottom: 1px solid var(--border-color, #64748b); padding-bottom: 12px; }
+.card-layout-actions { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.card-layout-actions strong { flex: 1 1 120px; }
+.card-layout-editor button, .card-layout-editor select { min-height: 44px; min-width: 44px; }
+.card-layout-editor input, .card-layout-editor textarea { width: 100%; max-width: 100%; box-sizing: border-box; }

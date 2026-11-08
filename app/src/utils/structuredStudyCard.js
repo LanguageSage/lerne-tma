@@ -1,4 +1,5 @@
 /** Study views over the canonical API envelope. No authoring syntax is interpreted here. */
+import { readableLayout } from './cardLayout.js';
 const exerciseTypes = new Set(['trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text', 'editable_text']);
 const supportedTypes = new Set(['standard', 'theory', ...exerciseTypes]);
 
@@ -11,7 +12,7 @@ export function studyContent(card) {
     // Pending drafts may still fail server validation. Only render a preview if
     // its fields can be read as text, keeping the original draft in Dexie.
     try {
-      if (typeof studySideText(envelope.card) !== 'string' || typeof studySideText(envelope.card, 'back') !== 'string') return null;
+      if (!readableLayout(envelope.card) || typeof studySideText(envelope.card) !== 'string' || typeof studySideText(envelope.card, 'back') !== 'string') return null;
     } catch {
       return null;
     }
@@ -27,6 +28,19 @@ export function studyInfoBlocks(content) {
   return (content?.info || []).map(block => block.type === 'options'
     ? { type: block.type, options: block.items }
     : { type: block.type, content: block.text });
+}
+
+// Presentation order only. Never resolve arbitrary paths into answer-bearing data.
+export function studyLayout(content, { afterAnswer = false } = {}) {
+  const layout = content?.layout ?? [
+    ...(content?.info || []).map((_, index) => ({ id: `info-${index}`, type: 'info', index })),
+    { id: 'exercise', type: 'exercise' },
+  ];
+  return layout.filter(item => item.visibility !== 'after_answer' || afterAnswer);
+}
+
+export function layoutAnswerRevealed(state) {
+  return state?.evaluationState?.completed === true || state?.isCompleted === true;
 }
 
 const firstAnswer = part => part.type === 'input' ? part.answers[0] : part.options.find(option => option.correct)?.text;
@@ -50,7 +64,10 @@ export function studySideText(content, side = 'front') {
     case 'theory': return data.text;
     case 'standard':
     case 'free_text': return data.prompt;
-    case 'quiz': return data.prompt || content.info?.find(block => block.type === 'task' || block.type === 'source')?.text || '';
+    case 'quiz': {
+      const visible = new Set(studyLayout(content).filter(item => item.type === 'info').map(item => item.index));
+      return data.prompt || content.info?.find((block, index) => visible.has(index) && (block.type === 'task' || block.type === 'source'))?.text || '';
+    }
     case 'trainer': return data.parts.map(part => part.type === 'text' ? part.text : firstAnswer(part)).join('');
     case 'match': return data.pairs.map(pair => `${pair.left} → ${pair.right}`).join('\n');
     case 'puzzle': return data.tokens.join(' ');

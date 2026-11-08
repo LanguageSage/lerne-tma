@@ -107,6 +107,18 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
 
 ## Native V2: этап 6B.7
 
+Inline-изображения: `content_v2.card.layout` хранит устойчивый `images/<filename>`,
+alt/подпись и фазу показа. `mediaCache.cardMediaView` добавляет отдельную производную
+карту `layout_media_urls[id]` из того же account-scoped кеша; blob URL не попадает
+в канонический JSON. `StructuredCardLayout` использует общий `StudyCardImage`
+(retry/error/alt, contain в адаптивном контейнере). Загрузка из редактора идёт
+через прежний authenticated `/media/upload-image`; существующую ссылку можно
+добавить без повторной загрузки. Очередь бинарных uploads не добавляется.
+Удаление/перестановка layout не удаляет файлы. Admin media catalog/cleanup учитывает
+inline-ссылки TMA/библиотеки, включая soft-deleted карточки; прежний WebP converter
+не заменяет immutable inline assets. Полный PG backup включает байты по существующему
+механизму и проверяет ссылки layout; обычный JSON экспорт переносит ссылки.
+
 - `mediaCache.cardMediaView` — общий владелец производных media URL онлайн-чтений
   отдельной карточки/учебного API и `offlineApi.cardView`. Canonical paths
   сохраняются отдельно; blob URL принадлежат текущей account-scoped Dexie.

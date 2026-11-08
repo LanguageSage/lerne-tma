@@ -62,5 +62,9 @@ export async function cardMediaView(database, card) {
     const path = card[`${field}_path`] || card[`${field}_url`];
     result[`${field}_url`] = await localMediaURL(database, path, kind);
   }
+  result.layout_media_urls = {};
+  for (const item of card.content_v2?.card?.layout || []) {
+    if (item.type === 'image') result.layout_media_urls[item.id] = await localMediaURL(database, item.path, 'images');
+  }
   return result;
 }

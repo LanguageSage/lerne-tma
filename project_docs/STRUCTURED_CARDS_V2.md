@@ -1292,3 +1292,111 @@ python scripts/structured_cards_v2.py to-legacy local/test-data/examples/structu
 python scripts/structured_cards_v2.py schema
 python -m unittest scripts.tests.test_structured_cards_v2 scripts.tests.test_structured_preview -v
 ```
+
+
+## Свободная композиция layout и inline-изображения
+
+Ветка реализации: `codex/native-v2-layout`, база `07466f4` — прямое продолжение
+`feature/native-structured-cards-v2`. Контракт `distractors: "auto"` сохраняется;
+автоматические варианты, механизмы проверки, SRS/Knowledge/progress не меняются.
+Новая структура — только расширение JSONB, без миграции схемы или содержимого.
+
+```json
+{
+  "schema_version": 2,
+  "card": {
+    "type": "standard",
+    "data": {"prompt": "Was sehen Sie?", "answer": "Ein Haus."},
+    "info": [
+      {"type": "task", "text": "**Beschreiben Sie das Bild.**\nEin Satz genügt."},
+      {"type": "text", "text": "Hier folgt eine Erklärung nach der Antwort."}
+    ],
+    "layout": [
+      {"id": "task-1", "type": "info", "index": 0, "visibility": "before_answer"},
+      {"id": "image-1", "type": "image", "path": "images/example.webp", "alt": "Ein Haus", "caption": "Die Fassade", "visibility": "before_answer"},
+      {"id": "exercise-1", "type": "exercise"},
+      {"id": "note-1", "type": "info", "index": 1, "visibility": "after_answer"}
+    ]
+  }
+}
+```
+
+- `layout` необязателен; отсутствие/null оставляет прежний порядок info → data.
+  Непустой массив имеет до 500 элементов. ID уникален внутри карточки: 1–128
+  символов `[A-Za-z0-9_-]`. ID создаётся один раз и сохраняется при перестановке.
+- `info.index` — не порядковый номер на экране, а индекс единственного владельца
+  текста в `card.info`. Все info должны быть использованы ровно один раз.
+  Повторяющиеся роли разрешены. Удаление блока перенумеровывает ссылки, не IDs.
+- Единственный `exercise` ссылается на всё `card.data` без произвольного JSON path.
+  Типизированные упражнения/ответы остаются в прежних полях всех девяти типов.
+- `image` содержит только постоянный путь `images/<filename>`, alt и подпись.
+  URL облака, blob, data/base64, query tokens и пути с traversal здесь не принимаются.
+  Это тот же объект TMAMedia/Storage, а не фон или копия бинарного содержимого.
+- `before_answer` — обычное содержимое, доступное до ответа и после него;
+  `after_answer` появляется после завершения упражнения или при разрешённом
+  раскрытии оборота. Положение после упражнения само по себе фазу не меняет.
+  `explanation` сохраняет прежний отдельный постответный механизм.
+- Расширение новыми типами визуальных элементов потребует версии валидатора и
+  рендерера, но не миграции JSONB или обязательного пересохранения старых карточек.
+  Таблицы/аудиоблоки сейчас не добавляются.
+
+Оба редактора изменяют свой существующий canonical draft: текст, порядок,
+фаза, подпись/alt, файл через существующий media store либо путь существующего
+файла. Form/JSON не пересобирают data и не регенерируют ID. TMA использует тот же
+рендерер в preview/study; переключатель preview показывает фазу после ответа.
+Admin остаётся desktop-консолью с авторским read-only preview и полным JSON.
+
+### Медиа, экспорт и границы защиты
+
+Новые ссылки на изображения при записи должны существовать в TMAMedia.
+Неизменённые старые ссылки не мешают правке; редактирование, перестановка и
+удаление элемента не удаляют файл. Загрузка остаётся сетевой функцией. Просмотр
+использует существующий account-scoped Dexie media cache с прежними лимитами:
+открытые и успешно закешированные файлы доступны offline; скачивания всей колоды
+или бинарной очереди нет. Производные `layout_media_urls` не меняют content_v2.
+
+Admin JSON-экспорт отдельной нативной колоды сохраняет layout/info/data; импорт
+использует тот же wheel. JSON содержит ссылки, а не бинарные файлы. Для переноса
+байтов и восстановления используется существующий полный PostgreSQL backup:
+он включает TMAMedia/Storage/LOCAL media и дополнительно проверяет ссылки layout
+в TMA и библиотеке. Неизвестный DB profile по-прежнему блокирует restore.
+Legacy Codex export/preview не выдаёт потерянную композицию за корректный результат.
+Экспорт смешанной/пустой native колоды, native папки в Codex и прежний material ZIP
+не получают отдельного нового формата: используйте JSON отдельных колод либо полный
+backup. Уникальность авторских card.id при JSON экспорте сохраняет контракт Document.
+
+`after_answer` — контроль отображения, не серверная секретность. Реальные GET study,
+card, sync и offline-cache уже передают доверенному клиенту data с правильными
+ответами и explanation. Эта модель доступа сохранена; DOM не содержит скрытых
+layout-блоков до разрешённого раскрытия. Ни renderer, ни TTS fallback вопроса Quiz
+не читают after-answer info до ответа. Произвольных ссылок layout на data.answer
+нет. Автор по-прежнему отвечает за смысл написанного в before-answer тексте/alt.
+Для недоверенного экзаменационного клиента понадобился бы отдельный серверный
+presentation/evaluation протокол; он в эту работу не вводится.
+
+### Контракт для отдельного конвертера V1 → V2
+
+Конвертер Antigravity не изменялся. При последующей интеграции он может создать
+`info` в исходном порядке информационных блоков, а `layout` — в исходном порядке
+всех блоков: `info` с индексом соответствующего info, одно `exercise` и изображения
+с уже разрешённым постоянным `images/<filename>`. ID можно один раз назначить
+`info-0`, `image-0`, `exercise`; после сохранения их нельзя пересоздавать при правках.
+Видимость задаётся явно; позиция после `::exercise` не превращает пример в ответ.
+Нельзя копировать решённый DSL/data в info или в metadata как вторую версию контента.
+Без информации об авторском порядке допустимо оставить layout отсутствующим.
+
+### Проверки композиции
+
+- React/Node: `npm --prefix app test`, полный lint/build и целевые layout/cache tests.
+- Схема/импорт/release: `test_structured_cards_v2.py`, `test_structured_cards_import.py`,
+  `test_card_core_release.py`; wheel сверяется с Git, provenance и RECORD.
+- `python scripts/tests/structured_cards_postgres.py --bin-dir <pgsql/bin> --layout-browser`:
+  Chromium → FastAPI → disposable PG, девять типов, реальный upload синтетического
+  PNG, права, ошибочная ссылка, copy, JSON, DOM до/после ответа, 320/375/430/768/1280,
+  offline save/cache и повторная доставка. Storage заменён локальным synthetic store.
+- `structured_cards_admin.py --admin-root <explicit checkout> --bin-dir <pgsql/bin>`:
+  same-row TMA ↔ Admin, девять типов, stale revisions, layout/media, JSON export/reimport
+  и неизменность SRS/notes/ratings. Проверка не заменяет loopback perimeter tests Admin.
+- Полные gates сравниваются с исходными commit checkout: у TMA база уже имеет 15
+  падающих suites, у Admin — 8. Они не объявляются зелёными по результатам новых тестов.
+  Логи, снимки и disposable clusters остаются только в ignored local/test-data.

@@ -1,5 +1,6 @@
 import { tr } from '../i18n/locale.js';
 import { studySideText } from './structuredStudyCard.js';
+import { readableLayout } from './cardLayout.js';
 
 const text = { type: 'text', text: '' };
 const option = { text: '', correct: false };
@@ -27,8 +28,15 @@ export const answerField = { standard: 'answer', theory: 'summary', trainer: 'ba
 
 export function changeDraft(setter, update) {
   setter(current => {
+    // A pending upload can finish while the JSON view is open. Keep one draft,
+    // and never overwrite a source string the author is still correcting.
+    if (current.content_v2_source != null) {
+      try { parseCardSource(current.content_v2_source); } catch { return current; }
+    }
     const content = current.content_v2;
-    return { ...current, content_v2: { ...content, card: update(content.card) } };
+    const next = { ...content, card: update(content.card) };
+    return { ...current, content_v2: next,
+      ...(current.content_v2_source != null ? { content_v2_source: JSON.stringify(next, null, 2) } : {}) };
   });
 }
 
@@ -43,6 +51,7 @@ export function parseCardSource(source) {
     if (content.schema_version !== 2 || !cardTypes.includes(card?.type)
       || !card.data || Array.isArray(card.data) || typeof card.data !== 'object'
       || (card.info != null && !Array.isArray(card.info))
+      || !readableLayout(card)
       || (card.topics != null && !Array.isArray(card.topics))
       || (card.explanation != null && typeof card.explanation !== 'string')
       || typeof studySideText(card) !== 'string' || typeof studySideText(card, 'back') !== 'string') {

@@ -9,7 +9,7 @@ import { parseWordBankData } from '../../utils/wordBankParser.js';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
 import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import {
-  studyContent, studyExerciseType, studyInfoBlocks, studyMatch, studyQuiz, studyTrainer, studyWordBank
+  studyContent, studyExerciseType, studyInfoBlocks, studyMatch, studyQuiz, studyTrainer, studyWordBank, layoutAnswerRevealed
 } from '../../utils/structuredStudyCard.js';
 
 import { StudyCardTrainer } from './StudyCardTrainer.jsx';
@@ -19,6 +19,7 @@ import { StudyCardFreeText } from './StudyCardFreeText.jsx';
 import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
 import { StudyCardWordBank } from './StudyCardWordBank.jsx';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
+import { StructuredCardLayout } from './StructuredCardLayout.jsx';
 
 /**
  * Universal ExerciseRenderer for all interactive exercise types:
@@ -49,6 +50,7 @@ export const ExerciseRenderer = React.memo(({
   reviewKey,
   assessmentMode = false,
   supportHistoryUnknown = false,
+  previewAfterAnswer = false,
 }) => {
   // Standalone trainer callers use the effective app design; scoped previews
   // explicitly supply their V2 draft. Null/undefined selects the active V2.
@@ -82,6 +84,8 @@ export const ExerciseRenderer = React.memo(({
   }, [nativeRender, structured, legacyCard, studyMode]);
 
   const withInformation = (exercise) => {
+    if (structured?.layout) return <StructuredCardLayout card={card} exercise={exercise}
+      afterAnswer={previewAfterAnswer || layoutAnswerRevealed(savedState)} />;
     const blocks = content?.blocks || [];
     const directive = { puzzle: 'puzzle', match: 'match', free_text: 'free', editable_text: 'edit', word_bank: 'wordbank' }[detectedType];
     const exerciseIndex = nativeRender ? -1 : blocks.findIndex(b => b.type === 'exercise'

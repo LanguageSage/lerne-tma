@@ -1,7 +1,8 @@
 import React from 'react';
 import { tr } from '../../i18n/locale';
+import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
-export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks }) => {
+export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks, markdown = false }) => {
   const blocks = propBlocks || content?.blocks || [];
   if (blocks.length === 0) return null;
 
@@ -112,7 +113,7 @@ export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks }) =
             className={`exercise-info-block exercise-info-${block.type}`}
             style={blockStyle}
           >
-            <div className="exercise-info-text">{block.content}</div>
+            <div className="exercise-info-text">{markdown ? <MarkdownRenderer>{block.content}</MarkdownRenderer> : block.content}</div>
           </div>
         );
       })}

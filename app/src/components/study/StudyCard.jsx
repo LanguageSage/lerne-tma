@@ -14,6 +14,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 // Extracted Sub-components and Utilities
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
+import { StructuredCardLayout } from './StructuredCardLayout.jsx';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { StudyCardSpeech } from './StudyCardSpeech.jsx';
 import { CardAudioPlayer } from './CardAudioPlayer.jsx';
@@ -401,11 +402,14 @@ export const StudyCard = React.memo(({
               {requiredActionContent ?? <>
               {!showExercise && studyMode !== 'speak' && (
                 <>
-                  <ExerciseInfoBlocks blocks={topBlocks} />
-                  <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
+                  {!content?.layout && <ExerciseInfoBlocks blocks={topBlocks} />}
+                  {(() => {
+                    const prompt = <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
                     {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
                       : <KaraokeText text={frontText} activeWordIndex={activeWordIndex} style={cardStyle} />}
-                  </div>
+                    </div>;
+                    return content?.layout ? <StructuredCardLayout card={card} exercise={prompt} /> : prompt;
+                  })()}
                   {renderFrontAudioPlayer()}
                 </>
               )}
@@ -488,7 +492,7 @@ export const StudyCard = React.memo(({
               )}
               {/* 1. FRONT REFERENCE SECTION */}
               <div className="card-back-front-section">
-                {exerciseType === 'quiz' && quizData ? (
+                {(() => { const reference = exerciseType === 'quiz' && quizData ? (
                   <div>
                     <div className="back-quiz-question" style={{ ...cardStyle, textAlign: 'left', fontSize: '1.2rem', marginBottom: '8px' }}>
                       {quizData.question}
@@ -514,14 +518,14 @@ export const StudyCard = React.memo(({
                   </div>
                 ) : (
                   <div className="front-mini-container" style={{ position: 'relative', width: '100%' }}>
-                    {topBlocks.length > 0 && (
+                    {!content?.layout && topBlocks.length > 0 && (
                       <ExerciseInfoBlocks blocks={topBlocks} />
                     )}
                     <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...referenceStyle }}>
                       {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : frontText}
                     </div>
                   </div>
-                )}
+                ); return content?.layout ? <StructuredCardLayout card={card} exercise={reference} afterAnswer /> : reference; })()}
 
                 {(() => {
                   const isTranslation = studyMode === 'reverse';

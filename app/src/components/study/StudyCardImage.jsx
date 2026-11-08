@@ -13,6 +13,7 @@ import { RefreshCw, ImageOff } from 'lucide-react';
  */
 export const StudyCardImage = React.memo(({
   src,
+  alt = '',
   height = 220,
   cardId,
   onResizeStart,
@@ -86,6 +87,7 @@ export const StudyCardImage = React.memo(({
       <div 
         style={{
           width: '100%',
+          boxSizing: 'border-box',
           height: `${height}px`,
           overflow: 'hidden',
           borderRadius: '12px',
@@ -172,7 +174,7 @@ export const StudyCardImage = React.memo(({
         <img
           key={effectiveSrc}
           src={effectiveSrc}
-          alt=""
+          alt={alt}
           onLoad={handleLoad}
           onError={handleError}
           style={{

@@ -23,6 +23,32 @@
 
 ## Data flow
 
+### Native V2: свободная композиция
+
+Необязательный `card.layout` принадлежит схеме общего `lerne-card-core` 0.1.6.
+Элемент имеет постоянный `id` и тип `info` (ссылка `index` в единственный
+`card.info`), `exercise` (единственное место `card.data`) либо `image`
+(`path: images/<filename>`, `alt`, `caption`). Каждый info используется ровно
+один раз; упражнение — ровно одно. Порядок массива — авторский порядок.
+`info.type: text` сохраняет обычный текст/Markdown и переносы строк.
+`visibility: before_answer | after_answer` у info/image не выводится из позиции.
+Без layout прежний порядок info → упражнение сохраняется.
+
+`StructuredCardLayout.jsx` компонует существующие упражнения всех девяти типов;
+`StructuredCardFields.jsx` и `utils/cardLayout.js` изменяют тот же draft формы/JSON.
+Удаление info перенумеровывает только ссылки; перестановка сохраняет IDs и data.
+Импорт Codex допускает info после упражнения и создаёт layout в исходном порядке.
+V2→legacy preview отклоняет непредставимую композицию вместо потери данных.
+Новый image path при записи проверяется по существующему каталогу TMAMedia;
+неизменённые старые ссылки не блокируют правку текста. Схема БД не меняется.
+
+Точные поля, граница доступа к ответам и контракт для отдельного конвертера V1→V2:
+[STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#свободная-композиция-layout-и-inline-изображения).
+Регрессии: `cardLayout.test.js`, `test_structured_cards_v2.py`,
+`test_structured_cards_import.py`; `structured_cards_postgres.py --layout-browser`
+и `structured_cards_admin.py --admin-root <explicit checkout>` используют
+только новый disposable PostgreSQL, синтетические файлы и loopback HTTP.
+
 Текущий контракт TMA и Admin описан в
 [этапе 5](../../project_docs/STRUCTURED_CARDS_V2.md#этап-5-редакторы-и-публикация).
 `StructuredCardFields.jsx` изменяет черновик `content_v2`, API проверяет

@@ -57,6 +57,20 @@ test('online views cache image/audio/video once; offline blobs survive a databas
 // Use native blob fetch only; the test network stub above has no external I/O.
 const fetchBlob = async url => new Response(await (await import('node:buffer')).resolveObjectURL(url));
 
+test('inline media uses the account cache without replacing canonical content paths', async () => {
+  const db = database();
+  const card = { content_v2: { schema_version: 2, card: { layout: [
+    { id: 'picture', type: 'image', path: 'images/inline.webp' }, { id: 'exercise', type: 'exercise' }] } } };
+  try {
+    online = false;
+    await db.media.put({ url: 'https://fixture.invalid/images/images/inline.webp', blob: new Blob(['inline'], { type: 'image/webp' }) });
+    const view = await cardMediaView(db, card);
+    assert.match(view.layout_media_urls.picture, /^blob:/);
+    assert.deepEqual(view.content_v2, card.content_v2);
+    assert.equal(card.layout_media_urls, undefined);
+  } finally { await db.delete(); }
+});
+
 test('uncached offline media retains its URL and another account cannot reuse cached blobs', async () => {
   const owner = database(), other = database();
   const url = 'https://fixture.invalid/audio/shared.mp3';

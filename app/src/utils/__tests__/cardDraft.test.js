@@ -1,6 +1,19 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cardTypes, newCardContent, parseCardSource } from '../cardDraft.js';
+import { cardTypes, newCardContent, parseCardSource, changeDraft } from '../cardDraft.js';
+import { addLayoutImage } from '../cardLayout.js';
+
+test('an upload completing in the JSON view updates the same draft without overwriting invalid source', () => {
+  let draft = { content_v2: newCardContent(), content_v2_source: null };
+  draft.content_v2_source = JSON.stringify(draft.content_v2);
+  changeDraft(update => { draft = update(draft); }, card => addLayoutImage(card, 'images/upload.webp'));
+  assert.deepEqual(JSON.parse(draft.content_v2_source), draft.content_v2);
+  assert.equal(draft.content_v2.card.layout.at(-1).path, 'images/upload.webp');
+  draft.content_v2_source = '{unfinished';
+  const before = draft;
+  changeDraft(update => { draft = update(draft); }, card => addLayoutImage(card, 'images/other.webp'));
+  assert.equal(draft, before);
+});
 
 test('source JSON preserves all nine typed drafts and arbitrary nested metadata literally', () => {
   for (const kind of cardTypes) {
