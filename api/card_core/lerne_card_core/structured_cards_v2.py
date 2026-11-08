@@ -73,8 +73,21 @@ class InputPart(V2Model):
 
 class ChoicePart(V2Model):
     type: Literal['choice']
-    options: Annotated[list[Option], Field(min_length=2)]
-    _options = field_validator('options')(check_options)
+    options: Annotated[list[Option], Field(min_length=1)]
+    distractors: Literal['auto'] | None = None
+
+    @model_validator(mode='after')
+    def check_choice(self) -> 'ChoicePart':
+        check_options(self.options)
+        if self.distractors == 'auto':
+            if len(self.options) != 1:
+                raise ValueError('Auto distractors require exactly one option')
+            if not self.options[0].correct:
+                raise ValueError('Auto distractor option must be correct')
+        else:
+            if len(self.options) < 2:
+                raise ValueError("Choice requires at least two options when distractors is not 'auto'")
+        return self
 
 
 TrainerPart = Annotated[TextPart | InputPart | ChoicePart, Field(discriminator='type')]

@@ -1,28 +1,28 @@
 {
   "name": "lerne-card-core",
-  "version": "0.1.4",
+  "version": "0.1.5",
   "source_repository": "LanguageSage/lerne-tma",
   "source_revision": "ca4935b7f536beccec27991b8728b39d8ced68ae",
-  "source_version": "0.1.4",
+  "source_version": "0.1.5",
   "newline": "LF",
   "source_state": "Exact Git source for the native V2 importer and schema.",
   "source_files": {
-    "api/card_core/lerne_card_core/__init__.py": "84d08866a4c7b952ad1691e18d08ff0efcccc5c3230db1adbf2fd7964a00153a",
+    "api/card_core/lerne_card_core/__init__.py": "141408f126d91539ef70021f6d0bbef615b9a0e9bd902dbacc3db3c7cfb505c4",
     "api/card_core/lerne_card_core/answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "api/card_core/lerne_card_core/deck_passport.py": "087073a1f4b6391de9ca086b0c778ab9746392522a90d65d27f8957e06f141db",
     "api/card_core/lerne_card_core/input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
     "api/card_core/lerne_card_core/structured_cards_import.py": "de2a7593bbfc34a4265e33e90d2669b047e644dd87b647ea8db284c694836d17",
     "api/card_core/lerne_card_core/structured_cards_legacy.py": "22c4c0a07bdbaae42a9c7921e6099b491199a7e806544ccabb3201b3d0eabd2e",
-    "api/card_core/lerne_card_core/structured_cards_v2.py": "58c8947eeb35bc8228711c14a769a5a312748c6511531251002c16f413d10af0"
+    "api/card_core/lerne_card_core/structured_cards_v2.py": "4878567ce0d9bc366be269f7c555a2e390f7cc61fde3d069a710b5d8c8fd16c7"
   },
   "files": {
-    "__init__.py": "84d08866a4c7b952ad1691e18d08ff0efcccc5c3230db1adbf2fd7964a00153a",
+    "__init__.py": "141408f126d91539ef70021f6d0bbef615b9a0e9bd902dbacc3db3c7cfb505c4",
     "answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "deck_passport.py": "087073a1f4b6391de9ca086b0c778ab9746392522a90d65d27f8957e06f141db",
     "input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
     "structured_cards_import.py": "de2a7593bbfc34a4265e33e90d2669b047e644dd87b647ea8db284c694836d17",
     "structured_cards_legacy.py": "22c4c0a07bdbaae42a9c7921e6099b491199a7e806544ccabb3201b3d0eabd2e",
-    "structured_cards_v2.py": "58c8947eeb35bc8228711c14a769a5a312748c6511531251002c16f413d10af0"
+    "structured_cards_v2.py": "4878567ce0d9bc366be269f7c555a2e390f7cc61fde3d069a710b5d8c8fd16c7"
   },
   "build": {
     "setuptools": "80.9.0",

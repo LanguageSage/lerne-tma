@@ -93,6 +93,121 @@ class V2ValidationTests(unittest.TestCase):
                                    {'type': 'input', 'answers': ['hatte', 'hätte']}]))
         self.assertEqual(len(validate_document(value).cards[0].data.parts), 3)
 
+    def test_trainer_choice_auto_distractors_valid(self):
+        # 1. Single correct option with distractors="auto"
+        auto_part = {
+            'type': 'choice',
+            'options': [{'text': 'den', 'correct': True}],
+            'distractors': 'auto',
+        }
+        val = validate_document(document(trainer([auto_part])))
+        part = val.cards[0].data.parts[0]
+        self.assertEqual(part.type, 'choice')
+        self.assertEqual(part.distractors, 'auto')
+        self.assertEqual(len(part.options), 1)
+        self.assertEqual(part.options[0].text, 'den')
+        self.assertTrue(part.options[0].correct)
+
+        # 2. Mixed trainer with text, auto choice and manual choice
+        mixed_doc = document(trainer([
+            {'type': 'text', 'text': 'Ich sehe '},
+            auto_part,
+            {'type': 'text', 'text': ' Hund, '},
+            choice(),
+        ]))
+        val_mixed = validate_document(mixed_doc)
+        parts = val_mixed.cards[0].data.parts
+        self.assertEqual(len(parts), 4)
+        self.assertEqual(parts[1].distractors, 'auto')
+        self.assertIsNone(parts[3].distractors)
+
+    def test_trainer_choice_auto_distractors_invalid_semantics(self):
+        # 1. Multiple options with distractors="auto" (ambiguous mixing of auto and manual)
+        for bad_options in (
+            [{'text': 'den', 'correct': True}, {'text': 'die', 'correct': False}],
+            [{'text': 'den', 'correct': True}, {'text': 'die', 'correct': True}],
+            [],
+        ):
+            with self.subTest(bad_options=bad_options):
+                self.assertInvalid(document(trainer([{
+                    'type': 'choice',
+                    'options': bad_options,
+                    'distractors': 'auto',
+                }])))
+
+        # 2. Single option with correct=False in auto mode
+        self.assertInvalid(document(trainer([{
+            'type': 'choice',
+            'options': [{'text': 'den', 'correct': False}],
+            'distractors': 'auto',
+        }])))
+
+        # 3. Empty or whitespace text in auto mode
+        for bad_text in ('', '   '):
+            with self.subTest(bad_text=bad_text):
+                self.assertInvalid(document(trainer([{
+                    'type': 'choice',
+                    'options': [{'text': bad_text, 'correct': True}],
+                    'distractors': 'auto',
+                }])))
+
+        # 4. Unknown values for distractors
+        for unknown in ('manual', 'none', '', 1, True, False, [], {}):
+            with self.subTest(unknown=unknown):
+                self.assertInvalid(document(trainer([{
+                    'type': 'choice',
+                    'options': [{'text': 'den', 'correct': True}],
+                    'distractors': unknown,
+                }])))
+
+        # 5. Extra fields forbidden
+        self.assertInvalid(document(trainer([{
+            'type': 'choice',
+            'options': [{'text': 'den', 'correct': True}],
+            'distractors': 'auto',
+            'unknown_field': True,
+        }])))
+
+    def test_quiz_contract_remains_strictly_manual(self):
+        # Quiz cannot have distractors="auto"
+        quiz_auto = {
+            'type': 'quiz',
+            'data': {
+                'prompt': 'Welcher Artikel?',
+                'options': [{'text': 'den', 'correct': True}, {'text': 'der', 'correct': False}],
+                'distractors': 'auto',
+            },
+        }
+        self.assertInvalid(document(quiz_auto))
+
+        # Quiz cannot have single option even if correct
+        quiz_single = {
+            'type': 'quiz',
+            'data': {
+                'prompt': 'Welcher Artikel?',
+                'options': [{'text': 'den', 'correct': True}],
+            },
+        }
+        self.assertInvalid(document(quiz_single))
+
+    def test_json_schema_matches_auto_distractors_contract(self):
+        schema = Document.model_json_schema()
+        defs = schema[next(k for k in schema if 'def' in k)]
+        choice_schema = defs['ChoicePart']
+        self.assertEqual(choice_schema['required'], ['type', 'options'])
+        self.assertEqual(choice_schema['properties']['options']['minItems'], 1)
+        self.assertIn('distractors', choice_schema['properties'])
+        distractors_prop = choice_schema['properties']['distractors']
+        self.assertIn('anyOf', distractors_prop)
+        allowed_types = {item.get('const') or item.get('type') for item in distractors_prop['anyOf']}
+        self.assertIn('auto', allowed_types)
+        self.assertIn('null', allowed_types)
+
+        # Quiz schema does not have distractors
+        quiz_schema = defs['QuizData']
+        self.assertNotIn('distractors', quiz_schema['properties'])
+        self.assertEqual(quiz_schema['properties']['options']['minItems'], 2)
+
     def test_quiz_correctness_is_explicit_and_can_have_multiple_answers(self):
         value = document({'type': 'quiz', 'data': {'prompt': 'Q', 'options': choice()['options']}})
         self.assertEqual(sum(option.correct for option in validate_document(value).cards[0].data.options), 2)
