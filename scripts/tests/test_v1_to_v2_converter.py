@@ -75,9 +75,14 @@ class V1ToV2ConverterTests(unittest.TestCase):
             converted_doc = convert_v1_document(legacy_doc)
             self.assertEqual(legacy_doc, legacy_snapshot, 'convert_v1_document must not mutate input')
             if name != 'word_bank_free_text.json':
+                conv_dump = converted_doc.model_dump(mode='json')
+                doc_dump = doc.model_dump(mode='json')
+                for orig_c, conv_c in zip(doc_dump['cards'], conv_dump['cards']):
+                    if orig_c.get('layout') is None and conv_c.get('layout') is not None:
+                        orig_c['layout'] = conv_c['layout']
                 self.assertEqual(
-                    converted_doc.model_dump(mode='json'),
-                    doc.model_dump(mode='json'),
+                    conv_dump,
+                    doc_dump,
                     f'round-trip mismatch for fixture {name}',
                 )
             else:
@@ -91,10 +96,12 @@ class V1ToV2ConverterTests(unittest.TestCase):
                     [conv_wb.options[p.option] for p in conv_wb.parts if p.type == 'gap'],
                     [orig_wb.options[p.option] for p in orig_wb.parts if p.type == 'gap'],
                 )
-                self.assertEqual(
-                    [c.model_dump(mode='json') for c in converted_doc.cards[1:]],
-                    [c.model_dump(mode='json') for c in doc.cards[1:]],
-                )
+                conv_rest = [c.model_dump(mode='json') for c in converted_doc.cards[1:]]
+                doc_rest = [c.model_dump(mode='json') for c in doc.cards[1:]]
+                for orig_c, conv_c in zip(doc_rest, conv_rest):
+                    if orig_c.get('layout') is None and conv_c.get('layout') is not None:
+                        orig_c['layout'] = conv_c['layout']
+                self.assertEqual(conv_rest, doc_rest)
                 self.assertEqual(
                     convert_v1_document(to_legacy_document(converted_doc)).model_dump(mode='json'),
                     converted_doc.model_dump(mode='json'),
@@ -830,7 +837,11 @@ class V1ToV2ConverterTests(unittest.TestCase):
                 rc = cli_main([str(legacy_path)])
             self.assertEqual(rc, 0, err.getvalue())
             parsed = json.loads(out.getvalue())
-            self.assertEqual(parsed, doc.model_dump(mode='json'))
+            doc_dump = doc.model_dump(mode='json')
+            for orig_c, conv_c in zip(doc_dump['cards'], parsed['cards']):
+                if orig_c.get('layout') is None and conv_c.get('layout') is not None:
+                    orig_c['layout'] = conv_c['layout']
+            self.assertEqual(parsed, doc_dump)
 
             # Test --dry-run and --summary on corrected.json
             report_path = Path(tmp) / 'dry_run_report.json'

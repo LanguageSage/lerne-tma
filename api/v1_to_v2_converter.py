@@ -592,11 +592,24 @@ def inspect_v1_card(
     # 5. Parse core exercise via lerne_card_core.structured_cards_import._exercise.
     front_meta: dict[str, Any] = {}
     try:
-        kind, data, info_blocks = _exercise(raw_front.strip(), raw_back.strip(), front_meta)
+        kind, data, info_blocks, layout = _exercise(raw_front.strip(), raw_back.strip(), front_meta)
     except ImportFormatError as exc:
         code, path = _classify_import_error(str(exc))
         add_error(code, str(exc), path=path)
         return _build_result(raw_card_id, raw_deck_id, index, None, None, errors, warnings)
+
+    # 5a. Support single-option trainer choice parts with V2 auto-distractors
+    if kind == 'trainer':
+        for p_idx, part in enumerate(data.get('parts', [])):
+            if part.get('type') == 'choice' and len(part.get('options', [])) == 1:
+                part['distractors'] = 'auto'
+                if part.get('options'):
+                    part['options'][0]['correct'] = True
+                add_warning(
+                    'auto_distractors_choice_part',
+                    f"trainer choice part[{p_idx}] has single option; enabled auto distractors in V2 schema",
+                    path=f"card.data.parts[{p_idx}]",
+                )
 
     # 6. Post-parse structural & semantic ambiguity checks.
     # 6a. Classify empty back on standard cards before card_type and detector checks.
@@ -1099,6 +1112,7 @@ def inspect_v1_card(
         'level': resolved_level,
         'topics': resolved_topics,
         'info': info_blocks,
+        'layout': layout,
         'explanation': context_explanation,
         'image': image_ref,
         'data': data,
