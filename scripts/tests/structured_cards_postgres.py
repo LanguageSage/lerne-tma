@@ -214,6 +214,35 @@ def verify(db):
                 self.migrate(applied=False)
             self.assertEqual(self.history(), [(92,), (migration_id,)])
 
+        def test_backend_disconnect_rolls_back_native_ddl_and_retry_succeeds(self):
+            # The entry point owns a fresh loopback cluster. Terminate only this
+            # test connection, never a PID or target taken from app configuration.
+            from peewee import InterfaceError, PostgresqlDatabase
+            self.assertEqual(db.connect_params['host'], '127.0.0.1')
+            self.assertEqual(db.connect_params['user'], 'cards_test')
+            self.restore_old_schema()
+            pid = db.execute_sql('SELECT pg_backend_pid()').fetchone()[0]
+            controller = PostgresqlDatabase(db.database, **db.connect_params)
+            execute = db.execute_sql
+
+            def disconnect_before_history(sql, *args, **kwargs):
+                if 'INSERT INTO TMA_MIGRATION_HISTORY' in sql.upper():
+                    with controller.connection_context():
+                        self.assertTrue(controller.execute_sql('SELECT pg_terminate_backend(%s)', (pid,)).fetchone()[0])
+                return execute(sql, *args, **kwargs)
+
+            try:
+                with patch.object(db, 'execute_sql', side_effect=disconnect_before_history):
+                    # A killed backend can also make the driver's ROLLBACK fail.
+                    with self.assertRaises((OperationalError, InterfaceError, MigrationError)):
+                        self.migrate()
+            finally:
+                db.close()  # Retry must use a new connection after transport loss.
+            self.assertNotIn('content_v2', {c.name for c in db.get_columns('tma_card')})
+            self.assertEqual(self.history(), [(92,)])
+            self.migrate()
+            self.assertEqual(self.history(), [(92,), (migration_id,)])
+
     return unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(StorageTests)).wasSuccessful()
 
