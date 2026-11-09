@@ -7,7 +7,7 @@ from pathlib import Path
 import shutil
 import sys
 import unittest
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 from uuid import uuid4
 
 from tools import native_v2_dry_run, native_v2_rehearsal, native_v2_snapshot
@@ -83,6 +83,18 @@ class RehearsalToolGuards(unittest.TestCase):
         report = json.loads((self.root / 'output/tma-deleted.json').read_text(encoding='utf-8'))
         self.assertFalse(report['ok'])
         self.assertEqual(report['blocked_count'], 1)
+
+    def test_local_migrator_rejects_cloud_role_and_working_local_database_before_transaction(self):
+        from tools.migrate_native_v2_local import migrate_active
+        for identity in (('postgres', 'postgres', '10.0.0.1/32', 5432, str(self.root)),
+                         ('lerne_tma_local', 'cards_test', '127.0.0.1/32', 55432, str(self.root))):
+            with self.subTest(database=identity[0]):
+                db = Mock()
+                db.in_transaction.return_value = False
+                db.execute_sql.return_value.fetchone.return_value = identity
+                with self.assertRaisesRegex(RuntimeError, 'disposable runner cluster'):
+                    migrate_active(db)
+                db.atomic.assert_not_called()
 
 
 if __name__ == '__main__':
