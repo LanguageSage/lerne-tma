@@ -69,3 +69,27 @@ SQL-каталог, схема истории и локальный механи
 
 Не запускать каталог миграций на production или локальной БД разработки для
 этих проверок. Нетранзакционные SQL-команды не поддерживаются этим runner.
+
+## Native V2: независимая репетиция
+
+- `tools/native_v2_snapshot.py`: только READ ONLY PostgreSQL, единый exported
+  MVCC snapshot для row SHA256, входов конвертера и дампов. Private outputs —
+  только новый каталог в ignored `local/test-data/`. Storage probes не являются
+  полной копией media; ACL/owners и изменения non-MVCC sequences требуют
+  отдельной проверки. Подключение к источнику не импортирует приложение.
+- `tools/native_v2_dry_run.py`: проверяет активные и удалённые записи раздельно,
+  сохраняет диагностику; exit 2 при заблокированных данных. Ничего не пишет в БД.
+- `tools/native_v2_rehearsal.py`: принимает только private snapshot, explicit
+  Admin checkout и PostgreSQL binaries. Использует новый cluster существующего
+  disposable runner, проверяет фактический PGDATA/роль/loopback/порт. Сверяет
+  public restore, DDL 93/94, повтор, strict Admin contract, V1 recovery, rescue
+  dump для синтетической записи после backup и marker поколения. Это сбор
+  доказательств, не content cutover; exit 2 означает NOT READY даже при успешно
+  завершённом сборе. Не использует DSN приложения для записи.
+- `structured_cards_postgres.py` дополнительно физически разрывает собственное
+  соединение перед записью истории 93 и проверяет rollback DDL/истории и повтор
+  на новом соединении. Этот тест допустим только в его одноразовом кластере.
+
+Полная миграция данных не реализуется этими инструментами. Успешные DDL,
+pure dry-run и синтетические browser tests не заменяют проверку content writer,
+полного media backup, writer fence и сверки данных устройств после restore.
