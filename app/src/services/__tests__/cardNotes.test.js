@@ -137,7 +137,8 @@ test('failed deck load is not repeated on each card; explicit refresh retries', 
 test('revoked card annotation access cannot block entity/progress synchronization or erase the draft', async () => {
   const row = await writeCardNote(10, { text: 'Keep this draft' });
   online = true;
-  networkApi.get = async () => ({ data: { status: 'success', card_schema: 2, server_time: '2026-10-26T10:00:00Z',
+  networkApi.get = async () => ({ data: { server_generation: 'a'.repeat(64), restored: false,
+    status: 'success', card_schema: 2, server_time: '2026-10-26T10:00:00Z',
     folders: [], decks: [], cards: [], progress: [] } });
   networkApi.put = async () => { throw Object.assign(new Error('Denied'), { response: { status: 403 } }); };
   const { syncService } = await import('../syncService.js');

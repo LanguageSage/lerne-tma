@@ -52,7 +52,7 @@ class ContractTests(unittest.TestCase):
             ('api/services/cards.py', 'validate_new_audio_path(card.audio_path, previous_audio)', 'pass'),
             ('api/services/card_transfer.py', 'validate_new_audio_path(card.audio_path, existing_match.audio_path)', 'pass'),
             ('api/services/decks.py', 'learning_states.get(d.id, False)', 'learning_states.get(d.id, True)'),
-            ('api/services/library_import.py', "_require_can_mutate(user_id, 'deck', local_deck.id, allow_deleted=True)", 'pass'),
+            ('api/services/library_import.py', "_require_can_mutate(user_id, 'deck', target.id, allow_deleted=True)", 'pass'),
         ):
             with self.subTest(source=relative):
                 def changed(path, *args, **kwargs):

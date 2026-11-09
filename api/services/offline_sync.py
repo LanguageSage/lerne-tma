@@ -328,7 +328,8 @@ def pull_offline(user_id: int, *, native_cards: bool = False, legacy_only: bool 
             data['is_learning'] = learning_states.get(item.id, False)
         return data
 
-    return {'status': 'success', 'protocol': 2, **({'card_schema': 2} if native_cards else {'card_schema': 1} if legacy_only else {}),
+    from api.services.sync_generation import generation_state
+    return {'status': 'success', 'protocol': 2, **generation_state(), **({'card_schema': 2} if native_cards else {'card_schema': 1} if legacy_only else {}),
             'folders': [serialize('folders', f) for f in folders],
             'decks': [serialize('decks', d) for d in decks],
             'cards': [serialize('cards', c) for c in cards],

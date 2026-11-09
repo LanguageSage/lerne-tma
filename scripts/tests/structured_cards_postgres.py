@@ -233,6 +233,7 @@ def main():
     parser.add_argument('--offline-lifecycle-browser', action='store_true', help='Run the offline delete and restore scenario')
     parser.add_argument('--offline-batch-browser', action='store_true', help='Run durable batch copy/move with Chromium and PostgreSQL')
     parser.add_argument('--offline-list-browser', action='store_true', help='Run V2 list operations and search parity in Chromium')
+    parser.add_argument('--recovery-browser', action='store_true', help='Physical PostgreSQL rollback, native auto choices and durable browser quarantine')
     parser.add_argument('--learning-browser', action='store_true', help='Run all-type study and personal-data contracts in Chromium/HTTP/PostgreSQL')
     parser.add_argument('--media-browser', action='store_true', help='Run nine-type native media/TTS/cache in Chromium/HTTP/PostgreSQL')
     parser.add_argument('--layout-browser', action='store_true', help='Run ordered layout, inline media and offline edits in Chromium/HTTP/disposable PostgreSQL')
@@ -283,7 +284,7 @@ def main():
                 return 0 if verify_cutover(db, binaries, scratch) else 1
             if (args.http or args.offline_create_browser or args.offline_edit_browser
                     or args.offline_delivery_browser or args.offline_isolation_browser
-                    or args.offline_move_browser or args.offline_lifecycle_browser or args.offline_batch_browser or args.offline_list_browser or args.learning_browser or args.media_browser or args.layout_browser):
+                    or args.offline_move_browser or args.offline_lifecycle_browser or args.offline_batch_browser or args.offline_list_browser or args.learning_browser or args.media_browser or args.layout_browser or args.recovery_browser):
                 from structured_cards_http import verify as verify_http
                 return 0 if verify_http(db, offline_create_browser=args.offline_create_browser,
                                         offline_edit_browser=args.offline_edit_browser,
@@ -293,6 +294,7 @@ def main():
                                         offline_lifecycle_browser=args.offline_lifecycle_browser,
                                         offline_batch_browser=args.offline_batch_browser,
                                         offline_list_browser=args.offline_list_browser,
+                                        recovery_browser=(binaries, scratch) if args.recovery_browser else None,
                                         learning_browser=args.learning_browser, media_browser=args.media_browser, layout_browser=args.layout_browser) else 1
             return 0 if verify(db) else 1
         finally:

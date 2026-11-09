@@ -167,7 +167,10 @@ def require_account(user_id):
 def require_native(card):
     if card.content_v2 is None:
         raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': card.id})
-    return decode_v2_content(card.content_v2)
+    try:
+        return decode_v2_content(card.content_v2)
+    except ValueError as error:
+        raise HTTPException(422, {'code': 'invalid_content_v2', 'card_id': card.id}) from error
 
 
 def authored_side_text(content, side):
@@ -481,7 +484,7 @@ def transfer_cards(data, user_id, *, move):
                                for field, value in media.items()):
                     raise HTTPException(409, {'code': 'unsafe_duplicate_overwrite', 'card_id': match.id})
                 media = {field: value for field, value in media.items() if getattr(match, field) is None}
-                TMA_Card.update(**media, updated_at=now).where(TMA_Card.id == match.id).execute()
+                _set_media(match, {**media, 'updated_at': now})
                 for field, value in media.items():
                     setattr(match, field, value)
                 updated += 1
@@ -603,7 +606,7 @@ def _clone(card, deck_id, position, *, media=None):
         Value(copied.id), *(getattr(TMACardKnowledgeItem, field) for field in fields[1:]),
         Value(datetime.datetime.now())
     ).where(TMACardKnowledgeItem.card_id == card.id), (*fields, 'created_at')).execute()
-    TMA_Card.update(**media, source='user').where(TMA_Card.id == copied.id).execute()
+    _set_media(copied, {**media, 'source': 'user'})
     for field, value in media.items():
         setattr(copied, field, value)
     return copied

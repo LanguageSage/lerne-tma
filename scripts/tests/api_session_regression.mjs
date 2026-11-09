@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { IS_LOCAL } from '../../app/src/utils/localMode.js';
 import axios from '../../app/node_modules/axios/index.js';
+import { generationError, observeServerGeneration } from '../../app/src/services/serverGeneration.js';
 
 const source = ['networkApi.js', 'api.js'].map(name => readFileSync(
   new URL(`../../app/src/services/${name}`, import.meta.url), 'utf8')).join('\n')
@@ -21,7 +22,9 @@ function fixture() {
     get session() { return session; }, set session(value) { session = value; },
     set userId(value) { userId = value; },
   };
-  const context = { IS_LOCAL,
+  const context = { IS_LOCAL, generationError, observeServerGeneration,
+    getLocalDb: () => ({ syncState: { get: async key => key === 'serverGeneration'
+      ? { generation: 'a'.repeat(64) } : undefined } }),
     axios: { isCancel: axios.isCancel, CanceledError: axios.CanceledError, create: config => axios.create({ ...config, adapter: async config => {
       calls.push(config);
       return f.transport(config);

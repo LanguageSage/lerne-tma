@@ -145,6 +145,13 @@ def pull_offline_changes(card_schema: Literal['1', '2'] | None = None, user_id: 
     return pull_offline(user_id, native_cards=card_schema == '2', legacy_only=card_schema == '1')
 
 
+@router.get('/v2/status')
+@db_worker
+def offline_database_status(user_id: int = Depends(get_user_id)) -> dict:
+    from api.services.sync_generation import generation_state
+    return generation_state()
+
+
 # --- Endpoints ---
 
 @router.post("/push")

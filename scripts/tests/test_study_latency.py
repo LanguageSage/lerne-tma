@@ -7,6 +7,7 @@ from unittest.mock import AsyncMock, patch
 
 from test_offline_sync import database, models, TABLES, services
 from test_forced_study import cards, study, router
+from native_fixture import content, sqlite_native
 
 media = importlib.import_module('api.services.media')
 
@@ -15,10 +16,11 @@ class StudyLatencyTests(unittest.TestCase):
     # Keep these serializer/SRS unit checks on their in-memory fixture thread;
     # test_db_workers.py checks the public ASGI scheduling and TTS boundaries.
     def setUp(self):
+        sqlite_native(self, database)
         database.create_tables([*TABLES, models.TMAMedia])
         models.TMAUser.create(user_id=1)
         self.deck = models.TMA_Deck.create(user_id=1, name='Latency')
-        self.cards = [models.TMA_Card.create(deck=self.deck, front_text=f'Word {i}', back_text='Translation', position=i)
+        self.cards = [models.TMA_Card.create(deck=self.deck, content_v2=content(f'Word {i}', 'Translation'), card_type=None, position=i)
                       for i in range(3)]
         for card in self.cards:
             models.TMAProgress.create(card_id=card.id, user_id=1, queue='new', next_review=datetime.datetime.now())
@@ -117,13 +119,13 @@ class StudyLatencyTests(unittest.TestCase):
         self.assertEqual(len(media_queries), 1)
 
     def test_card_list_exposes_topics_for_text_export_in_card_order(self):
-        self.cards[0].topics = 'Adjektive'
+        self.cards[0].content_v2['card']['topics'] = ['Adjektive']
         self.cards[0].save()
-        self.cards[1].topics = 'Konjunktionen'
+        self.cards[1].content_v2['card']['topics'] = ['Konjunktionen']
         self.cards[1].save()
         result = cards.get_cards_for_study(self.deck.id, 1)
         self.assertEqual([card['id'] for card in result], [card.id for card in self.cards])
-        self.assertEqual([card['topics'] for card in result], ['Adjektive', 'Konjunktionen', None])
+        self.assertEqual([card['content_v2']['card']['topics'] for card in result], [['Adjektive'], ['Konjunktionen'], None])
 
 
 if __name__ == '__main__':

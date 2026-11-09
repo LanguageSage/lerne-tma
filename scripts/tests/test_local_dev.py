@@ -22,6 +22,8 @@ from api.auth.errors import AuthError
 from local import router as local
 from api.routers import auth_v2, media, cards, study, folders, decks
 from scripts import local_dev
+from native_fixture import content, sqlite_native
+from api.services.structured_card_api import content_response
 
 URL = 'postgresql://lerne_local:synthetic@127.0.0.1:55432/lerne_tma_local'
 
@@ -165,6 +167,7 @@ class LocalHttpTests(unittest.TestCase):
         self.previous = (models.tma_db.obj, models.lerne_db.obj)
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
+        sqlite_native(self, self.db, writes=True)
         self.db.create_tables([models.TMAUser, models.TMASetting, models.TMA_Folder, models.TMA_Deck,
             models.TMA_Card, models.TMAProgress, models.TMAReviewHistory, models.TMAMedia,
             models.TMA_Collaborator, models.TMAOfflineBatch, *models.AUTH_FOUNDATION_MODELS,
@@ -230,11 +233,12 @@ class LocalHttpTests(unittest.TestCase):
         deck = self.client.post('/api/decks', headers=headers, json={'name': 'Synthetic deck', 'folder_id': folder['id']}).json()
         self.assertIn('id', deck, deck)
         card = self.client.post('/api/cards/save', headers=headers, json={
-            'deck_id': deck['id'], 'front': 'Haus', 'back': '**дом**\n\n- Markdown',
-            'context': '## Context\n\nEin **Haus**.', 'auto_generate_audio': False})
+            'deck_id': deck['id'], 'request_id': str(uuid4()),
+            'content_v2': content('Haus', '**дом**\n\n- Markdown',
+                info=[{'type': 'source', 'text': '## Context\n\nEin **Haus**.'}])})
         self.assertEqual(card.status_code, 200, card.text)
         card_id = card.json()['id']
-        self.assertIn('**дом**', models.TMA_Card.get_by_id(card_id).back_text)
+        self.assertIn('**дом**', models.TMA_Card.get_by_id(card_id).content_v2['card']['data']['answer'])
         next_card = self.client.get(f'/api/decks/{deck["id"]}/next', headers=headers)
         self.assertEqual(next_card.status_code, 200, next_card.text)
         grade = self.client.post('/api/study/grade', headers=headers,
@@ -243,25 +247,28 @@ class LocalHttpTests(unittest.TestCase):
         self.assertEqual(models.TMAReviewHistory.select().count(), 1)
         self.assertEqual(self.client.post(f'/api/decks/{deck["id"]}/rename', headers=headers, json={'name': 'Edited'}).status_code, 200)
         self.assertEqual(self.client.post(f'/api/folders/{folder["id"]}/rename', headers=headers, json={'name': 'Edited'}).status_code, 200)
-        self.assertEqual(self.client.post('/api/cards/save', headers=headers, json={
-            'card_id': card_id, 'deck_id': deck['id'], 'front': 'Haustür', 'back': '**дверь**',
-            'auto_generate_audio': False}).status_code, 200)
-        imported = self.client.post('/api/cards/bulk-save', headers=headers, json={'cards': [{
-            'deck_id': deck['id'], 'front': 'Buch', 'back': '**книга**', 'context': '## Markdown',
+        edited = self.client.patch(f'/api/cards/{card_id}', headers=headers, json={
+            'revision': card.json()['revision'], 'request_id': str(uuid4()),
+            'content_v2': content('Haustür', '**дверь**')})
+        self.assertEqual(edited.status_code, 200, edited.text)
+        imported = self.client.post('/api/cards/bulk-save', headers=headers, json={'import_id': str(uuid4()), 'cards': [{
+            'deck_id': deck['id'], 'content_v2': content('Buch', '**книга**',
+                info=[{'type': 'source', 'text': '## Markdown'}]),
         }]})
         self.assertEqual(imported.status_code, 200, imported.text)
-        self.assertEqual(models.TMA_Card.get(models.TMA_Card.front_text == 'Buch').context, '## Markdown')
-        self.assertEqual(self.client.delete(f'/api/cards/{card_id}', headers=headers).status_code, 200)
+        self.assertEqual(imported.json()['cards'][0]['content_v2']['card']['info'][0]['text'], '## Markdown')
+        self.assertEqual(self.client.delete(f'/api/cards/{card_id}', headers={**headers,
+            'If-Match': '"' + edited.json()['revision'] + '"'}).status_code, 200)
         self.assertEqual(self.client.delete(f'/api/decks/{deck["id"]}', headers=headers).status_code, 200)
         self.assertEqual(self.client.delete(f'/api/folders/{folder["id"]}', headers=headers).status_code, 200)
 
     def test_local_user_cannot_mutate_another_users_deck(self):
         deck = models.TMA_Deck.create(user_id=12345, name='Other synthetic user')
-        card = models.TMA_Card.create(deck=deck, front_text='Synthetic', back_text='Synthetic')
+        card = models.TMA_Card.create(deck=deck, content_v2=content('Synthetic', 'Synthetic'), card_type=None)
         headers = self.headers()
-        self.assertEqual(self.client.post('/api/cards/save', headers=headers, json={
-            'card_id': card.id, 'deck_id': deck.id, 'front': 'Spoof', 'back': 'Spoof',
-            'auto_generate_audio': False}).status_code, 403)
+        self.assertEqual(self.client.patch(f'/api/cards/{card.id}', headers=headers, json={
+            'revision': content_response(card)['revision'], 'request_id': str(uuid4()),
+            'content_v2': content('Spoof', 'Spoof')}).status_code, 403)
         self.assertEqual(self.client.post('/api/study/grade', headers=headers, json={
             'card_id': card.id, 'deck_id': deck.id, 'grade': 2, 'return_next': False}).status_code, 403)
 

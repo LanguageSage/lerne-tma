@@ -9,6 +9,8 @@ from fastapi import FastAPI, Header, HTTPException
 from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
+from native_fixture import content, sqlite_native
+from api.services.structured_card_api import content_response
 from api import models
 from api.dependencies.auth import get_user_id
 from api.routers import ai, cards, collaborative, decks, folders, media, share, sync, trash
@@ -21,18 +23,20 @@ class MaterialPermissionTests(unittest.TestCase):
         self.env = patch.dict(os.environ, ADMIN_USER_ID='505')
         self.env.start()
         self.addCleanup(self.env.stop)
-        scratch = Path(__file__).resolve().parents[2] / 'scratch'
-        scratch.mkdir(exist_ok=True)
+        scratch = Path(__file__).resolve().parents[2] / 'local/test-data/permissions'
+        scratch.mkdir(parents=True, exist_ok=True)
         self.path = scratch / f'permissions-{uuid4().hex}.sqlite3'
         self.db = SqliteDatabase(str(self.path), thread_safe=False, check_same_thread=False)
         self.previous = (models.tma_db.obj, models.lerne_db.obj)
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
+        sqlite_native(self, self.db, writes=True)
         self.addCleanup(self.cleanup)
         self.db.create_tables([models.TMAUser, models.TMA_Folder, models.TMA_Deck,
             models.TMA_Card, models.TMA_Collaborator, models.TMAProgress,
             models.TMAReviewHistory, models.TMAOfflineBatch, models.TMASetting,
-            models.TMAMedia, models.Deck, models.Card, models.LibraryCategory])
+            models.TMAMedia, models.Deck, models.Card, models.LibraryCategory,
+            models.TMAKnowledgeItem, models.TMACardKnowledgeItem])
         for uid in (101, 202, 303, 404, 505):
             models.TMAUser.create(user_id=uid, username=f'user{uid}', is_guest=False,
                                   default_decks_initialized=True)
@@ -41,7 +45,7 @@ class MaterialPermissionTests(unittest.TestCase):
         self.deck = models.TMA_Deck.create(user_id=101, folder=self.child, name='Deck')
         # Authorship deliberately differs from current access rights.
         self.card = models.TMA_Card.create(deck=self.deck, creator_id=404,
-                                          front_text='Haus', back_text='дом', tags='old')
+                                          content_v2=content(metadata={'tags': ['old']}), card_type=None)
         for uid, role in ((202, 'editor'), (303, 'viewer')):
             models.TMA_Collaborator.create(target_type='folder', target_id=self.root.id,
                                            user_id=uid, role=role, added_by=101)
@@ -68,6 +72,14 @@ class MaterialPermissionTests(unittest.TestCase):
         return self.client.request(method, '/api' + path,
                                    headers={'X-Test-User': str(uid)}, **kwargs)
 
+    def revision(self):
+        return content_response(models.TMA_Card.get_by_id(self.card.id))['revision']
+
+    def legacy_fixture(self):
+        # Deliberately unmigrated content for the V1 transport permission tests.
+        models.TMA_Card.update(content_v2=None, card_type='translation', front_text='Haus',
+            back_text='дом', tags='old').where(models.TMA_Card.id == self.card.id).execute()
+
     def publish(self):
         self.root.access_scope = 'global_readonly'
         self.root.save()
@@ -78,7 +90,7 @@ class MaterialPermissionTests(unittest.TestCase):
                 self.assertEqual(permissions.get_effective_user_role(uid, 'deck', self.deck.id), role)
                 response = self.call('GET', f'/decks/{self.deck.id}/cards', uid)
                 self.assertEqual(response.status_code, 200 if role else 403, response.text)
-                snapshot = self.call('GET', '/sync/v2/pull', uid).json()
+                snapshot = self.call('GET', '/sync/v2/pull?card_schema=2', uid).json()
                 self.assertEqual(self.card.id in {c['id'] for c in snapshot['cards']}, bool(role))
 
     def test_classify_role_matrix(self):
@@ -100,7 +112,7 @@ class MaterialPermissionTests(unittest.TestCase):
                     self.assertEqual(response.status_code, 401, response.text)
                     self.assertEqual(response.headers['www-authenticate'], 'Bearer')
         classify.assert_not_called()
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
 
     def test_classify_mixed_ids_rejected_before_any_write(self):
         foreign = models.TMA_Card.create(deck=self.targets[404], front_text='Private', back_text='')
@@ -109,7 +121,7 @@ class MaterialPermissionTests(unittest.TestCase):
                                  json={'card_ids': [self.card.id, foreign.id]})
         self.assertEqual(response.status_code, 403, response.text)
         classify.assert_not_called()
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
 
     def test_classify_missing_id_rejects_whole_batch(self):
         response = self.call('POST', '/cards/classify-batch',
@@ -133,7 +145,7 @@ class MaterialPermissionTests(unittest.TestCase):
             response = self.call('POST', '/cards/classify-batch', 202,
                                  json={'card_ids': [self.card.id], 'target_language': 'en'})
         self.assertEqual(response.status_code, 403, response.text)
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
 
     def test_classification_accepts_editor(self):
         with patch.object(ai.ai_service, 'classify_phrases_batch', new=AsyncMock(return_value=['B2'])):
@@ -141,10 +153,11 @@ class MaterialPermissionTests(unittest.TestCase):
                                  json={'card_ids': [self.card.id], 'target_language': 'en'})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertTrue(response.json()['complete'])
-        self.assertIn('B2', models.TMA_Card.get_by_id(self.card.id).tags)
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['level'], 'B2')
 
     def test_viewer_can_copy_readable_card_but_cannot_write_source(self):
         response = self.call('POST', '/cards/batch-copy', 303, json={
+            'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
             'card_ids': [self.card.id], 'target_deck_id': self.targets[303].id})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()['created'], 1)
@@ -171,11 +184,11 @@ class MaterialPermissionTests(unittest.TestCase):
 
     def test_copy_deck_accepts_inherited_reader_and_preserves_author(self):
         for uid in (202, 303):
-            response = self.call('POST', f'/decks/{self.deck.id}/copy', uid, json={})
+            response = self.call('POST', f'/decks/{self.deck.id}/copy', uid, json={'request_id': str(uuid4())})
             self.assertEqual(response.status_code, 200, response.text)
             copied = models.TMA_Card.get(models.TMA_Card.deck_id == response.json()['id'])
             self.assertEqual(copied.creator_id, 404)
-        denied = self.call('POST', f'/decks/{self.deck.id}/copy', 404, json={})
+        denied = self.call('POST', f'/decks/{self.deck.id}/copy', 404, json={'request_id': str(uuid4())})
         self.assertIn(denied.status_code, (403, 404), denied.text)
 
     def test_create_and_move_destination_guards(self):
@@ -197,16 +210,22 @@ class MaterialPermissionTests(unittest.TestCase):
 
     def test_canonical_mutation_matrix(self):
         for uid in (101, 202, 303, 404):
-            for path, payload in ((f'/decks/{self.deck.id}/rename', {'name': 'Renamed'}),
-                                  (f'/folders/{self.child.id}/rename', {'name': 'Renamed'}),
-                                  ('/cards/save', {'card_id': self.card.id, 'front': 'Neu', 'auto_generate_audio': False}),
-                                  ('/cards/bulk-save', {'cards': [{'deck_id': self.deck.id, 'front': 'Bulk'}]}),
-                                  ('/cards/reorder', {'card_ids': [self.card.id]})):
+            for method, path, payload in (
+                ('POST', f'/decks/{self.deck.id}/rename', {'name': 'Renamed'}),
+                ('POST', f'/folders/{self.child.id}/rename', {'name': 'Renamed'}),
+                ('PATCH', f'/cards/{self.card.id}', {'content_v2': content('Neu'),
+                    'revision': self.revision(), 'request_id': str(uuid4())}),
+                ('POST', '/cards/bulk-save', {'import_id': str(uuid4()), 'cards': [
+                    {'deck_id': self.deck.id, 'content_v2': content('Bulk')}]}),
+                ('POST', '/cards/reorder', {'card_ids': [self.card.id], 'request_id': str(uuid4())})):
                 with self.subTest(uid=uid, path=path):
-                    response = self.call('POST', path, uid, json=payload)
+                    # Reordering changes the revision; obtain the source at request time.
+                    if method == 'PATCH': payload['revision'] = self.revision()
+                    response = self.call(method, path, uid, json=payload)
                     self.assertEqual(response.status_code, 200 if uid in (101, 202) else 403, response.text)
 
     def test_sync_v2_matrix_and_forbidden_destination_rollback(self):
+        self.legacy_fixture()
         for uid in (101, 202, 303, 404):
             response = self.call('POST', '/sync/v2/push', uid, json={
                 'request_id': str(uuid4()), 'cards': [{'id': self.card.id,
@@ -239,10 +258,11 @@ class MaterialPermissionTests(unittest.TestCase):
             with self.subTest(uid=uid):
                 self.assertEqual(self.call('GET', f'/decks/{self.deck.id}/cards', uid).status_code, 200)
                 response = self.call('POST', '/cards/batch-copy', uid, json={
-                    'card_ids': [self.card.id], 'target_deck_id': self.targets[uid].id})
+                    'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
+            'card_ids': [self.card.id], 'target_deck_id': self.targets[uid].id})
                 self.assertEqual(response.status_code, 200, response.text)
                 for path, payload in ((f'/decks/{self.deck.id}/rename', {'name': 'Published'}),
-                                      ('/cards/batch-delete', {'card_ids': [self.card.id]})):
+                                      ('/cards/batch-delete', {'request_id': str(uuid4()), 'card_ids': [self.card.id], 'revisions': {self.card.id: self.revision()}})):
                     response = self.call('POST', path, uid, json=payload)
                     self.assertEqual(response.status_code, 200 if uid == 101 else 403, response.text)
                 # Keep the source available for the next role in this matrix.
@@ -251,17 +271,21 @@ class MaterialPermissionTests(unittest.TestCase):
     def test_batch_move_checks_both_decks_and_preserves_author(self):
         for uid in (303, 404):
             response = self.call('POST', '/cards/batch-move', uid, json={
-                'card_ids': [self.card.id], 'target_deck_id': self.targets[uid].id})
+                'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
+            'card_ids': [self.card.id], 'target_deck_id': self.targets[uid].id})
             self.assertEqual(response.status_code, 403, response.text)
         response = self.call('POST', '/cards/batch-move', 202, json={
+            'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
             'card_ids': [self.card.id], 'target_deck_id': self.targets[404].id})
         self.assertEqual(response.status_code, 403, response.text)
         response = self.call('POST', '/cards/batch-move', 202, json={
+            'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
             'card_ids': [self.card.id], 'target_deck_id': self.targets[202].id})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).creator_id, 404)
 
     def test_legacy_sync_rejects_viewer_outsider_and_global_editor(self):
+        self.legacy_fixture()
         for published in (False, True):
             if published:
                 self.publish()
@@ -278,7 +302,7 @@ class MaterialPermissionTests(unittest.TestCase):
         self.deck.save()
         models.TMA_Card.update(is_deleted=True).where(models.TMA_Card.id == self.card.id).execute()
         for path in (f'/trash/card/{self.card.id}/restore', f'/trash/deck/{self.deck.id}/restore'):
-            response = self.call('POST', path, 202)
+            response = self.call('POST', path, 202, **({'json': {'request_id': str(uuid4()), 'revision': self.revision()}} if '/card/' in path else {}))
             self.assertEqual(response.status_code, 403, response.text)
             self.assertTrue(models.TMA_Card.get_by_id(self.card.id).is_deleted)
         response = self.call('DELETE', '/trash/clear', 202)
@@ -305,7 +329,7 @@ class MaterialPermissionTests(unittest.TestCase):
         for mode in ('merge', 'replace'):
             response = self.call('POST', f'/decks/external/import/{library.id}?mode={mode}', 202)
             self.assertEqual(response.status_code, 403, response.text)
-            self.assertEqual(models.TMA_Card.get_by_id(self.card.id).front_text, 'Haus')
+            self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['data']['prompt'], 'Haus')
 
     def test_shared_import_cannot_replace_published_descendant_owned_by_reader(self):
         self.publish()
@@ -321,6 +345,7 @@ class MaterialPermissionTests(unittest.TestCase):
 
     def test_copied_card_keeps_displayed_author(self):
         response = self.call('POST', '/cards/batch-copy', 303, json={
+            'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
             'card_ids': [self.card.id], 'target_deck_id': self.targets[303].id})
         self.assertEqual(response.status_code, 200, response.text)
         response = self.call('GET', f'/decks/{self.targets[303].id}/cards', 303)
@@ -332,7 +357,8 @@ class MaterialPermissionTests(unittest.TestCase):
         target_id = self.targets[303].id
         with patch('api.services.media.validate_new_audio_path', side_effect=HTTPException(422, 'missing Storage object')):
             response = self.call('POST', '/cards/batch-copy', 303, json={
-                'card_ids': [self.card.id], 'target_deck_id': target_id})
+                'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
+            'card_ids': [self.card.id], 'target_deck_id': target_id})
         self.assertEqual(response.status_code, 422, response.text)
         self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck_id == target_id).count(), 0)
 
@@ -377,36 +403,34 @@ class MaterialPermissionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 409, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, newer)
 
-    def test_text_edit_keeps_old_audio_when_background_upload_fails(self):
+    def test_native_edit_keeps_old_audio_when_explicit_generation_fails(self):
         previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
         models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
         with patch('api.utils.audio.generate_audio', side_effect=RuntimeError('Storage upload failed')) as generate:
-            response = self.call('POST', '/cards/save', 101, json={
-                'card_id': self.card.id, 'deck_id': self.deck.id,
-                'front': 'Changed spoken text', 'audio_path': previous,
-            })
-        self.assertEqual(response.status_code, 200, response.text)
+            response = self.call('PATCH', f'/cards/{self.card.id}', json={
+                'content_v2': content('Changed spoken text'), 'revision': self.revision(), 'request_id': str(uuid4())})
+            self.assertEqual(response.status_code, 200, response.text)
+            generate.assert_not_called()
+            response = self.call('POST', '/media/generate-card-audio', json={'card_id': self.card.id})
+        self.assertEqual(response.status_code, 500, response.text)
         generate.assert_called_once()
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, previous)
 
-    def test_late_background_audio_does_not_overwrite_newer_edit(self):
+    def test_late_explicit_audio_does_not_overwrite_newer_native_edit(self):
         previous = 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3'
         newer = 'https://example.supabase.co/storage/v1/object/public/audio/manual.mp3'
         models.TMA_Card.update(audio_path=previous).where(models.TMA_Card.id == self.card.id).execute()
 
         async def finish_after_new_edit(*_args, **_kwargs):
-            models.TMA_Card.update(audio_path=newer, front_text='Newer edit').where(
+            models.TMA_Card.update(audio_path=newer, content_v2=content('Newer edit')).where(
                 models.TMA_Card.id == self.card.id).execute()
             return 'https://example.supabase.co/storage/v1/object/public/audio/generated.mp3'
 
         with patch('api.utils.audio.generate_audio', side_effect=finish_after_new_edit):
-            response = self.call('POST', '/cards/save', 101, json={
-                'card_id': self.card.id, 'deck_id': self.deck.id,
-                'front': 'First edit', 'audio_path': previous,
-            })
-        self.assertEqual(response.status_code, 200, response.text)
+            response = self.call('POST', '/media/generate-card-audio', json={'card_id': self.card.id})
+        self.assertEqual(response.status_code, 409, response.text)
         saved = models.TMA_Card.get_by_id(self.card.id)
-        self.assertEqual((saved.front_text, saved.audio_path), ('Newer edit', newer))
+        self.assertEqual((saved.content_v2['card']['data']['prompt'], saved.audio_path), ('Newer edit', newer))
 
     def test_audio_rechecks_access_after_generation(self):
         async def revoke(*_args, **_kwargs):
@@ -425,6 +449,7 @@ class MaterialPermissionTests(unittest.TestCase):
         response = self.call('POST', '/cards/classify-batch', 202, json={'deck_id': self.deck.id})
         self.assertEqual(response.status_code, 403, response.text)
         response = self.call('POST', '/cards/batch-copy', 202, json={
+            'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
             'card_ids': [self.card.id], 'target_deck_id': self.targets[202].id})
         self.assertEqual(response.status_code, 200, response.text)
 

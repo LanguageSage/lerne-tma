@@ -46,9 +46,7 @@ def restore_backup(backup_path: str, dry_run: bool = False, force: bool = False)
     with open(backup_path, "r", encoding="utf-8") as f:
         data = json.load(f)
 
-    cards = data.get("cards", [])
-    if isinstance(data, list):
-        cards = data
+    cards = data if isinstance(data, list) else data.get("cards", [])
 
     print(f"  -> Загружено записей карточек: {len(cards)}")
     print("\n[2/3] Подключение к базе данных...")
@@ -61,6 +59,14 @@ def restore_backup(backup_path: str, dry_run: bool = False, force: bool = False)
         print("  -> [DRY-RUN] Режим симуляции: изменения НЕ применены.")
         return
 
+    # The explicit override is for old V1 databases only. It must never bypass
+    # Native V2 validation, media recovery or the single-content-source contract.
+    with models.tma_db.connection_context():
+        if any(column.name == 'content_v2' for column in models.tma_db.get_columns('tma_card')):
+            raise RuntimeError('Legacy partial restore is forbidden for a Native V2 schema; use the full backup or native importer.')
+    if any(card.get('content_v2') is not None for card in cards):
+        raise RuntimeError('Legacy partial restore cannot write content_v2; use the native importer.')
+
     updated_count = 0
     with models.tma_db.atomic():
         for c in cards:
@@ -72,15 +78,10 @@ def restore_backup(backup_path: str, dry_run: bool = False, force: bool = False)
                 "context": c.get("context"),
                 "updated_at": datetime.datetime.now(datetime.timezone.utc),
             }
-            if "content_v2" in c and c.get("content_v2") is not None:
-                update_fields["content_v2"] = c.get("content_v2")
-                update_fields["front_text"] = None
-                update_fields["back_text"] = None
-            else:
-                if "front_text" in c:
-                    update_fields["front_text"] = c.get("front_text")
-                if "back_text" in c:
-                    update_fields["back_text"] = c.get("back_text")
+            if "front_text" in c:
+                update_fields["front_text"] = c.get("front_text")
+            if "back_text" in c:
+                update_fields["back_text"] = c.get("back_text")
             models.TMA_Card.update(**update_fields).where(models.TMA_Card.id == c_id).execute()
             updated_count += 1
 

@@ -15,7 +15,7 @@ from peewee import SqliteDatabase
 from api.models import (
     tma_db, TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem,
     TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory,
-    AUTH_MODELS, TMAAuthAccount, auth_utcnow,
+    AUTH_MODELS, TMAAuthAccount, TMASetting, auth_utcnow,
 )
 from api.auth.service import login_verified
 from api.auth.providers import VerifiedIdentity
@@ -25,7 +25,7 @@ from api.services.knowledge_mastery import rebuild_knowledge_state
 
 
 MODELS = [TMAUser, *AUTH_MODELS, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem,
-          TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory]
+          TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory, TMASetting]
 
 
 def self_rating(rating='good'):

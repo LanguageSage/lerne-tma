@@ -5,6 +5,7 @@ import { getAccessToken, getSessionIdentity, getUserId, isRetiredSession } from 
 import { syncCardNotes } from './cardNotes.js';
 import { cardWriteError } from '../utils/cardDraft.js';
 import { inspectCardCutover, inspectCutoverDatabase, inspectCutoverStorage } from './cardCutoverPreflight.js';
+import { observeServerGeneration, generationError, isGenerationConflict } from './serverGeneration.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
@@ -70,6 +71,7 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
         notifySyncUi('lerne:ids-remapped', { mappings, userId, confirmedCard }, { mappings, id: card.id });
       }
     } catch (error) {
+      if (isGenerationConflict(error)) throw error;
       if (!isCurrent()) throw error;
       const rejected = error.response?.status === 422;
       const changes = { offline_create_status: 'error',
@@ -145,6 +147,7 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
           is_dirty: 0, offline_confirmed_at: Date.now() }), { confirmed: true });
         continue;
       } catch (error) {
+        if (isGenerationConflict(error)) throw error;
         const status = error.response?.status;
         if (status === 409 && error.response?.data?.detail?.code === 'card_revision_conflict') {
           // Persist rejection before fetching the remote side. A failed GET cannot cause a second PATCH.
@@ -169,6 +172,7 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
         const server = validate(data);
         await update(card => ({ ...card, offline_edit: { ...card.offline_edit, server, httpStatus: undefined } }));
       } catch (error) {
+        if (isGenerationConflict(error)) throw error;
         const status = error.response?.status;
         await update(card => ({ ...card, offline_edit: { ...card.offline_edit, httpStatus: status } }), { status });
         // The active card read omits tombstones. Let the existing V2 pull reconcile them.
@@ -204,6 +208,7 @@ async function deliverCardMoves(db, operations, options, isCurrent) {
       if (data?.status !== 'success' || !valid) throw new Error(tr('Сервер не подтвердил сохранение изменений'));
       receipt = data;
     } catch (cause) {
+      if (isGenerationConflict(cause)) throw cause;
       error = cause;
     }
     if (!isCurrent()) throw new Error('Session changed');
@@ -273,7 +278,10 @@ async function deliverCardSelection(db, operation, options, isCurrent) {
       throw new Error(tr('Сервер не подтвердил сохранение изменений'));
     }
     receipt = data;
-  } catch (cause) { error = cause; }
+  } catch (cause) {
+    if (isGenerationConflict(cause)) throw cause;
+    error = cause;
+  }
   if (!isCurrent()) throw new Error('Session changed');
   const status = error?.response?.status;
   if (error && ![403, 404, 409, 422].includes(status)) throw error;
@@ -302,7 +310,7 @@ async function deliverCardLifecycle(db, operations, options, isCurrent) {
     if (!isCurrent()) throw new Error('Session changed');
     if (operation.cardIds) {
       try { await deliverCardSelection(db, operation, options, isCurrent); }
-      catch (error) { firstError ||= error; }
+      catch (error) { if (isGenerationConflict(error)) throw error; firstError ||= error; }
       continue;
     }
     const { key, cardId, deleting, payload } = operation;
@@ -318,6 +326,7 @@ async function deliverCardLifecycle(db, operations, options, isCurrent) {
       }
       server = data.card;
     } catch (cause) {
+      if (isGenerationConflict(cause)) throw cause;
       error = cause;
       const state = cause.response?.data?.detail?.card;
       if (valid(state)) server = state;
@@ -483,6 +492,8 @@ export function reconcileCardEditLifecycle(local, server, readStartedAt) {
 }
 
 async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
+  if (data.server_generation) await observeServerGeneration(db, data, isCurrent);
+  if (await db.syncState.get('serverGenerationConflict')) throw generationError();
   const legacy = data.card_schema === 1;
   if (data.status !== 'success' || ![1, 2].includes(data.card_schema) || !entities.every(name => Array.isArray(data[name]))
       || data.cards.some(card => legacy ? !!card.content_v2 : card.content_v2?.schema_version !== 2)) {
@@ -562,6 +573,8 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
   try {
     db = await prepareLocalDb();
     if (!isCurrent()) throw new Error('Session changed');
+    const { data: databaseState } = await networkApi.get('/sync/v2/status', options);
+    await observeServerGeneration(db, databaseState, isCurrent);
     const creates = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_CREATE_KEY)
       .filter(create => !create.rejected).toArray();
     const queuedEdits = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray();
@@ -574,13 +587,13 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
       .filter(move => !move.rejected).toArray();
     const lifecycle = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_LIFECYCLE_KEY).filter(operation => !operation.rejected).toArray();
     try { await deliverCardCreates(db, creates, options, isCurrent); }
-    catch (error) { nativeError = error; }
+    catch (error) { if (isGenerationConflict(error)) throw error; nativeError = error; }
     try { await deliverCardEdits(db, edits, options, isCurrent); }
-    catch (error) { nativeError ||= error; }
+    catch (error) { if (isGenerationConflict(error)) throw error; nativeError ||= error; }
     try { await deliverCardMoves(db, moves, options, isCurrent); }
-    catch (error) { nativeError ||= error; }
+    catch (error) { if (isGenerationConflict(error)) throw error; nativeError ||= error; }
     try { await deliverCardLifecycle(db, lifecycle, options, isCurrent); }
-    catch (error) { nativeError ||= error; }
+    catch (error) { if (isGenerationConflict(error)) throw error; nativeError ||= error; }
     if (!isCurrent()) throw new Error('Session changed');
     try {
       if (!pendingNativeOnly && !pullOnly) {
@@ -693,7 +706,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
       localStorage.setItem('lerne_last_sync_user_id', String(userId));
       notifySyncUi('lerne:synced', { userId, complete: true }, {});
     }
-    return { success, native_success: !nativeError && !nativePending, pull_success: pullSuccess && !pullFailed,
+    return { success, native_success: !isGenerationConflict(firstError) && !nativeError && !nativePending, pull_success: pullSuccess && !pullFailed,
       entities_success: !entityError && !entityPending,
       scope: pendingNativeOnly ? 'native-content' : pullOnly ? 'pull' : 'device', device_pending: devicePending,
       server_time: serverTime, pending, storage_pending: storagePending, reason: success ? undefined : reason,

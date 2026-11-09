@@ -1,13 +1,17 @@
 """Production upload boundary regressions; temporary Git fixtures, no deployment."""
 import unittest
 import ast
+import subprocess
 from scripts.verify_deploy_files import ROOT, ignored_paths, inspect
 
 
 class DeployManifestTests(unittest.TestCase):
     def test_tma_does_not_import_admin_or_removed_admin_fixtures(self):
-        for base in ('api', 'local', 'scripts/tests', 'tests'):
-            for path in (ROOT / base).rglob('*.py'):
+        sources = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard',
+                                          '--', 'api', 'local', 'scripts/tests', 'tests'], cwd=ROOT, text=True)
+        for relative in sorted(set(sources.splitlines())):
+            path = ROOT / relative
+            if path.suffix == '.py' and path.is_file():
                 for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
                     names = [node.module or ''] if isinstance(node, ast.ImportFrom) else [n.name for n in node.names] if isinstance(node, ast.Import) else []
                     self.assertFalse(any(n.startswith(('tools.admin', 'lerne_admin')) for n in names), str(path))

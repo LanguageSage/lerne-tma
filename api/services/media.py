@@ -26,6 +26,15 @@ def validate_new_audio_path(path: str | None, previous: str | None = None) -> No
                 media_file('audio', name).is_file()):
             return
         raise HTTPException(422, 'Аудиофайл отсутствует в LOCAL media.')
+    parsed = urlsplit(path)
+    if not parsed.scheme and not parsed.netloc:
+        name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
+        if not parsed.query and not parsed.fragment and name and '/' not in name and '\\' not in name and name not in ('.', '..'):
+            row = TMAMedia.select(fn.LENGTH(TMAMedia.content), fn.SUBSTR(TMAMedia.content, 1, 4096)).where(
+                TMAMedia.folder == 'audio', TMAMedia.filename == name, TMAMedia.content.is_null(False)).tuples().first()
+            if row and _is_valid_audio_content(row[1], row[0]):
+                return
+        raise HTTPException(422, 'Аудиофайл отсутствует в постоянном хранилище.')
     base = os.environ.get('SUPABASE_URL', '').rstrip('/')
     if not base:
         raise HTTPException(503, 'Supabase Storage не настроен; новая аудиоссылка не сохранена.')

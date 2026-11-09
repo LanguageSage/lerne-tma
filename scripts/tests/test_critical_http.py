@@ -13,6 +13,8 @@ from peewee import SqliteDatabase
 from api import models
 from api.routers import auth_v2, cards, study, sync, card_notes, messages
 from api.migrations import run_card_notes_migration
+from native_fixture import content, sqlite_native
+from api.services.structured_card_api import content_response
 
 
 class CriticalHttpTests(unittest.TestCase):
@@ -25,6 +27,7 @@ class CriticalHttpTests(unittest.TestCase):
         self.previous = (models.tma_db.obj, models.lerne_db.obj)
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
+        sqlite_native(self, self.db, writes=True)
         tables = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
                   models.TMAProgress, models.TMAReviewHistory, models.TMA_Collaborator,
                   models.TMAOfflineBatch, models.TMASetting, models.TMAMedia,
@@ -61,9 +64,13 @@ class CriticalHttpTests(unittest.TestCase):
         return {'Authorization': 'Bearer ' + (session or self.owner)['access_token']}
 
     def save(self, **values):
-        return self.client.post('/api/cards/save', headers=self.headers(), json={
-            'deck_id': self.deck.id, 'front': 'Haus', 'back': 'дом',
-            'auto_generate_audio': False, **values})
+        card_id = values.pop('card_id', None)
+        payload = {'content_v2': content(values.pop('front', 'Haus'), values.pop('back', 'дом')),
+                   'request_id': str(uuid4()), **values}
+        if card_id:
+            payload['revision'] = content_response(models.TMA_Card.get_by_id(card_id))['revision']
+            return self.client.patch(f'/api/cards/{card_id}', headers=self.headers(), json=payload)
+        return self.client.post('/api/cards/save', headers=self.headers(), json={'deck_id': self.deck.id, **payload})
 
     def test_missing_notes_table_returns_503_without_blocking_cards_grades_or_sync(self):
         response = self.save()
@@ -83,7 +90,7 @@ class CriticalHttpTests(unittest.TestCase):
         grade = self.client.post('/api/study/grade', headers=self.headers(), json={
             'card_id': card_id, 'deck_id': self.deck.id, 'grade': 2, 'return_next': False})
         self.assertEqual(grade.status_code, 200, grade.text)
-        self.assertEqual(self.client.get('/api/sync/v2/pull', headers=self.headers()).status_code, 200)
+        self.assertEqual(self.client.get('/api/sync/v2/pull?card_schema=2', headers=self.headers()).status_code, 200)
         self.assertEqual(models.TMAReviewHistory.select().count(), 1)
         self.assertFalse(self.db.table_exists('tma_card_note'))
 
@@ -97,16 +104,16 @@ class CriticalHttpTests(unittest.TestCase):
         response = self.client.get(f'/api/decks/{self.deck.id}/next', headers=self.headers())
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(response.json()['id'], card_id)
-        self.assertEqual(response.json()['front'], 'Haustür')
+        self.assertEqual(response.json()['content_v2']['card']['data']['prompt'], 'Haustür')
         grade = self.client.post('/api/study/grade', headers=self.headers(), json={
             'card_id': card_id, 'deck_id': self.deck.id, 'grade': 2, 'return_next': False})
         self.assertEqual(grade.status_code, 200, grade.text)
         progress = models.TMAProgress.get(models.TMAProgress.card_id == card_id)
         self.assertIsNotNone(progress.last_reviewed)
         self.assertEqual(models.TMAReviewHistory.select().count(), 1)
-        pulled = self.client.get('/api/sync/v2/pull', headers=self.headers())
+        pulled = self.client.get('/api/sync/v2/pull?card_schema=2', headers=self.headers())
         self.assertEqual(pulled.status_code, 200, pulled.text)
-        self.assertEqual(pulled.json()['cards'][0]['front_text'], 'Haustür')
+        self.assertEqual(pulled.json()['cards'][0]['content_v2']['card']['data']['prompt'], 'Haustür')
         self.assertEqual(pulled.json()['progress'][0]['card_id'], card_id)
 
     def test_foreign_account_cannot_edit_grade_or_pull_private_card(self):
@@ -114,14 +121,14 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         card_id = response.json()['id']
         headers = self.headers(self.other)
-        edited = self.client.post('/api/cards/save', headers=headers, json={
-            'deck_id': self.deck.id, 'card_id': card_id, 'front': 'Forbidden',
-            'auto_generate_audio': False})
+        edited = self.client.patch(f'/api/cards/{card_id}', headers=headers, json={
+            'content_v2': content('Forbidden'), 'request_id': str(uuid4()),
+            'revision': response.json()['revision']})
         self.assertEqual(edited.status_code, 403, edited.text)
         graded = self.client.post('/api/study/grade', headers=headers, json={
             'card_id': card_id, 'deck_id': self.deck.id, 'grade': 2})
         self.assertEqual(graded.status_code, 403, graded.text)
-        self.assertEqual(models.TMA_Card.get_by_id(card_id).front_text, 'Haus')
+        self.assertEqual(models.TMA_Card.get_by_id(card_id).content_v2['card']['data']['prompt'], 'Haus')
         self.assertEqual(models.TMAReviewHistory.select().count(), 0)
         response = self.client.get('/api/sync/v2/pull', headers=headers)
         self.assertEqual(response.status_code, 200, response.text)
@@ -161,6 +168,7 @@ class CriticalHttpTests(unittest.TestCase):
         response = self.save()
         self.assertEqual(response.status_code, 200, response.text)
         card_id = response.json()['id']
+        receipts = list(models.TMAOfflineBatch.select().dicts())
         for authorization in (None, 'Bearer invalid', 'Basic invalid'):
             headers = {'X-User-ID': str(self.deck.user_id)}
             if authorization:
@@ -180,14 +188,14 @@ class CriticalHttpTests(unittest.TestCase):
                     self.assertEqual(result.status_code, 401, result.text)
         self.assertEqual(models.TMA_Card.select().count(), 1)
         card = models.TMA_Card.get_by_id(card_id)
-        self.assertEqual(card.front_text, 'Haus')
+        self.assertEqual(card.content_v2['card']['data']['prompt'], 'Haus')
         self.assertFalse(card.is_deleted)
-        self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
+        self.assertEqual(list(models.TMAOfflineBatch.select().dicts()), receipts)
 
     def test_valid_bearer_owns_identity_and_logout_cannot_fall_back_to_header(self):
         other_headers = {**self.headers(self.other), 'X-User-ID': str(self.deck.user_id)}
         response = self.client.post('/api/cards/save', headers=other_headers, json={
-            'deck_id': self.deck.id, 'front': 'forged', 'auto_generate_audio': False})
+            'deck_id': self.deck.id, 'content_v2': content('forged'), 'request_id': str(uuid4())})
         self.assertEqual(response.status_code, 403, response.text)
         headers = {**self.headers(), 'X-User-ID': str(self.deck.user_id)}
         self.assertEqual(self.client.get('/api/sync/v2/pull', headers=headers).status_code, 200)
@@ -199,9 +207,10 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         card_id = response.json()['id']
         path = f'/api/cards/{card_id}'
-        self.assertEqual(self.client.delete(path, headers=self.headers(self.other)).status_code, 403)
+        revision = {'If-Match': '"' + response.json()['revision'] + '"'}
+        self.assertEqual(self.client.delete(path, headers={**self.headers(self.other), **revision}).status_code, 403)
         self.assertFalse(models.TMA_Card.get_by_id(card_id).is_deleted)
-        self.assertEqual(self.client.delete(path, headers=self.headers()).status_code, 200)
+        self.assertEqual(self.client.delete(path, headers={**self.headers(), **revision}).status_code, 200)
         self.assertTrue(models.TMA_Card.get_by_id(card_id).is_deleted)
         response = self.client.get(f'/api/decks/{self.deck.id}/next', headers=self.headers())
         self.assertEqual(response.status_code, 200, response.text)

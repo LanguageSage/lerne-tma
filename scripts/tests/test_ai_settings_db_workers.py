@@ -11,6 +11,7 @@ from api import ai_service, models
 from api.dependencies.auth import get_user_id
 from api.routers import ai, settings
 from scripts.tests import test_db_workers as fixtures
+from native_fixture import sqlite_native
 
 
 class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
@@ -21,6 +22,7 @@ class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
         scratch.mkdir(parents=True, exist_ok=True)
         self.path = scratch / f'{uuid4().hex}.sqlite3'
         self.db = self.database_factory() if self.database_factory else fixtures.TrackedDatabase(self.path)
+        sqlite_native(self, self.db, writes=True)
         previous = models.tma_db.obj, models.lerne_db.obj
 
         def restore():
@@ -38,9 +40,10 @@ class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
         ai_service.invalidate_ai_config_cache()
         with self.db.connection_context():
             self.db.create_tables([models.TMAUser, models.TMASetting, models.TMACustomPrompt, models.TMA_Folder,
-                models.TMA_Deck, models.TMA_Card, models.TMA_Collaborator, models.TMAOfflineBatch])
+                models.TMA_Deck, models.TMA_Card, models.TMA_Collaborator, models.TMAOfflineBatch,
+                models.TMAProgress])
             for uid in (1, 2):
-                models.TMAUser.create(user_id=uid)
+                models.TMAUser.create(user_id=uid, is_guest=False)
             self.deck = models.TMA_Deck.create(user_id=1, name='Fixture', target_language='de')
             for key, value in {'AI_PROVIDER': 'google', 'GOOGLE_API_KEY': 'synthetic-key',
                                'DEFAULT_MODEL': 'fixture-old', 'AI_DETECT_LEVEL': 'false'}.items():

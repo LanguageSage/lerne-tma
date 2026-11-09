@@ -52,6 +52,29 @@ def _forbid_db(*_args, **_kwargs):
 
 
 class V1ToV2ConverterTests(unittest.TestCase):
+    def test_duplicate_choice_labels_preserve_answer_text_and_option_order(self):
+        source = {'front_text': 'Die {*neuen|neue|neuer|neuen} Unterlagen.', 'back_text': 'Synthetic'}
+        original = copy.deepcopy(source)
+        result = inspect_v1_card(source)
+        self.assertTrue(result['ok'], result['diagnostics'])
+        choice = next(p for p in result['content_v2']['card']['data']['parts'] if p['type'] == 'choice')
+        self.assertEqual(choice['options'], [{'text': 'neuen', 'correct': True},
+                         {'text': 'neue', 'correct': False}, {'text': 'neuer', 'correct': False}])
+        self.assertIn('duplicate_choice_options_normalized', [w['code'] for w in result['warnings']])
+        self.assertEqual(source, original)
+
+    def test_ordered_information_after_exercise_is_preserved_in_layout(self):
+        source = {'id': 8001, 'front_text': '::task\nVorher.\n::exercise\nIch sehe {*den|dem|das} Hund.\n::example\nNachher.',
+                  'back_text': 'Example answer', 'card_type': 'trainer'}
+        before = copy.deepcopy(source)
+        result = inspect_v1_card(source)
+        self.assertTrue(result['ok'], result['diagnostics'])
+        card = result['content_v2']['card']
+        self.assertEqual([item['type'] for item in card['layout']], ['info', 'exercise', 'info'])
+        self.assertEqual(card['info'][-1], {'type': 'example', 'text': 'Nachher.'})
+        self.assertEqual(card['layout'][-1]['index'], 1)
+        self.assertEqual(source, before)
+
     def setUp(self):
         self.db_patches = [
             patch('peewee.Database.connect', side_effect=_forbid_db),
@@ -360,13 +383,6 @@ class V1ToV2ConverterTests(unittest.TestCase):
                 {'front_text': 'Guten Tag', 'back_text': 'Добрый день', 'context': '::task\nNot allowed here'},
             ),
             (
-                'info_after_exercise',
-                {
-                    'front_text': '::exercise\nGuten Tag\n\n::source\nNach dem Exercise',
-                    'back_text': 'Добрый день',
-                },
-            ),
-            (
                 'unmarked_preamble_before_directive',
                 {
                     'front_text': '::exercise\nSammeln Sie den Satz.\n\n@puzzle\nIch gehe heute nach Hause.',
@@ -608,15 +624,15 @@ class V1ToV2ConverterTests(unittest.TestCase):
         self.assertEqual(before_report['checked'], {'decks': 14, 'cards': 678})
         self.assertEqual(before_report['total_cards'], 678)
         # With safe V1-equivalent conversion of free_text without grading_policy -> controlled_text:
-        # 667 of 678 cards convert cleanly (61 with implicit_free_text_policy warning, 2 with puzzle_solution_in_translation),
-        # while 11 genuinely broken cards and 6 incomplete deck passports remain blocked.
+        # The two older after-info cases also contain a second exercise block.
         self.assertEqual(before_report['converted_count'], 667)
         self.assertEqual(before_report['blocked_count'], 11)
         self.assertEqual(before_report['warning_counts_by_code'].get('implicit_free_text_policy'), 61)
         self.assertEqual(before_report['warning_counts_by_code'].get('puzzle_solution_in_translation'), 2)
         self.assertEqual(before_report['counts_by_code'].get('invalid_deck_passport'), 6)
         self.assertEqual(before_report['counts_by_code'].get('unmarked_preamble_before_directive'), 7)
-        self.assertEqual(before_report['counts_by_code'].get('info_after_exercise'), 2)
+        self.assertNotIn('info_after_exercise', before_report['counts_by_code'])
+        self.assertEqual(before_report['counts_by_code'].get('multiple_exercise_blocks'), 2)
         self.assertEqual(before_report['counts_by_code'].get('unconverted_blank_placeholder'), 1)
         self.assertEqual(before_report['counts_by_code'].get('empty_back'), 1)
         self.assertTrue(all(before_report['invariants'].values()))

@@ -582,7 +582,7 @@ class Card(Model):
     deck = ForeignKeyField(Deck, backref='cards', column_name='deck_id')
     front_text = TextField(null=True)
     back_text = TextField(null=True)
-    content_v2 = BinaryJSONField(null=True)
+    content_v2 = BinaryJSONField(null=True, index=False)
     context = TextField(null=True)
     image_path = CharField(null=True)
     audio_path = CharField(null=True)

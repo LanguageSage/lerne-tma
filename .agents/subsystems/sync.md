@@ -405,3 +405,39 @@ legacyAdapter удалён, новый personal record создаётся неп
 V2-ключ `cardDuplicateKey` и собственные колоды, как сервер. DuplicateManager
 отображает V2 напрямую. Контракт, ограничения, HTTP/PostgreSQL/Chromium проверки:
 [6B.5d](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5d-завершение-операций-со-списком-v2).
+
+
+## Защита при полном восстановлении PostgreSQL
+
+`sync_generation.py` вычисляет `server_generation` из служебного маркера
+`tmasetting.SYNC_DATABASE_RESTORE` и PostgreSQL OID таблиц контента. Это граница
+восстановления, отдельная от ревизий карточек. Авторизованный `/sync/v2/status`
+доступен до сверки; остальные Classic API проверяют `X-Lerne-Generation` после
+проверки сессии. Полный pull также содержит поколение.
+
+`networkApi` привязывает поколение к account-scoped Dexie, `syncService` проверяет
+его до отправки очередей и применения snapshot. Несовпадение сохраняет
+`syncState.serverGenerationConflict`, возвращает 409 `database_generation_conflict`
+и останавливает чтение/запись в сервер. Карточки, SRS, заметки и очереди остаются
+на клиенте, в том числе после reload. Первый старый клиент без поколения с
+локальными данными не привязывается к явно восстановленному серверу. Пустой
+новый клиент может начать работу. Конфликт не снимается автоматически.
+
+Restore выполняется при остановленных API и клиентах. Сначала сохраните
+отдельную копию account IndexedDB и серверной БД; сопоставьте подтверждённые
+карточки и pending операции с восстановленным сервером, включая UUID receipts,
+SRS и Knowledge. До завершения сверки не очищайте IndexedDB и не заменяйте
+`serverGeneration` вручную. Автоматического объединения после отката нет.
+После согласованной сверки привязку клиента восстанавливает оператор; для
+нового чистого клиента используйте отдельный профиль, сохранив исходный.
+
+Штатные LOCAL Restore и Admin full Restore меняют маркер до открытия API.
+Ручной data-only Restore также обязан вызвать `mark_database_restored` до
+запуска API; OID покрывают `pg_restore --clean`, но не изменение строк in-place.
+Старые клиенты без заголовка допускаются только до первого штатного Restore.
+Перед внедрением API требуется одновременный выпуск нового клиента.
+
+Проверки: `test_sync_generation.py`, `serverGeneration.test.js` и
+`structured_cards_postgres.py --bin-dir <pgsql/bin> --recovery-browser`.
+Последний выполняет настоящий pg_dump/pg_restore только внутри нового
+disposable кластера и проверяет сохранность Dexie и блокировку записи в Chromium.

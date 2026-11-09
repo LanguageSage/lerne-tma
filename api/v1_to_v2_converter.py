@@ -553,19 +553,6 @@ def inspect_v1_card(
     parsed_front = parse_exercise_content(raw_front)
     parsed_blocks = parsed_front.get('blocks', [])
     exercise_block_indices = [i for i, b in enumerate(parsed_blocks) if b.get('type') == 'exercise']
-    info_block_indices = [
-        i
-        for i, b in enumerate(parsed_blocks)
-        if b.get('type') in ('task', 'options', 'source', 'context', 'example', 'level', 'topic')
-    ]
-
-    if exercise_block_indices and info_block_indices and max(info_block_indices) > min(exercise_block_indices):
-        add_error(
-            'info_after_exercise',
-            'information blocks (::task, ::source, ::example, ::options) must precede the exercise block',
-            path='card.front',
-        )
-
     if len(exercise_block_indices) > 1:
         first_ex = parsed_blocks[exercise_block_indices[0]]
         second_ex = parsed_blocks[exercise_block_indices[1]]
@@ -601,6 +588,19 @@ def inspect_v1_card(
     # 5a. Support single-option trainer choice parts with V2 auto-distractors
     if kind == 'trainer':
         for p_idx, part in enumerate(data.get('parts', [])):
+            if part.get('type') == 'choice':
+                unique = {}
+                for option in part.get('options', []):
+                    text = option['text']
+                    if text in unique:
+                        unique[text]['correct'] = unique[text]['correct'] or option['correct']
+                    else:
+                        unique[text] = dict(option)
+                if len(unique) < len(part.get('options', [])):
+                    part['options'] = list(unique.values())
+                    add_warning('duplicate_choice_options_normalized',
+                        'Repeated identical choice labels merged; the accepted answer text is unchanged',
+                        path=f'card.data.parts[{p_idx}]')
             if part.get('type') == 'choice' and len(part.get('options', [])) == 1:
                 part['distractors'] = 'auto'
                 if part.get('options'):

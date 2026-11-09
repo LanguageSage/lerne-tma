@@ -17,7 +17,7 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, media_browser=False, layout_browser=False):
+           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, media_browser=False, layout_browser=False, recovery_browser=None):
     from api import models
     from api.auth.service import _create_session, utcnow
     from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
@@ -64,6 +64,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         if not server.started:
             raise RuntimeError('HTTP test server failed to start')
         with httpx.Client(base_url=f'http://127.0.0.1:{port}/api/', trust_env=False) as client:
+            if recovery_browser:
+                from structured_cards_recovery import verify_recovery
+                return verify_recovery(client, port, models, headers, *recovery_browser)
             if layout_browser:
                 from structured_cards_layout import verify_layout
                 return verify_layout(client, port, models, headers)
@@ -510,6 +513,20 @@ def _run_cases(client, models, headers, load_answer_context):
             self.other = models.TMA_Deck.create(user_id=2, name='Synthetic private')
             self.legacy = models.TMA_Card.create(deck=self.source, front_text='Legacy', back_text='Answer', position=1)
 
+        def test_copy_validates_permanent_audio_and_rolls_back_its_receipt(self):
+            card = self.create()
+            models.TMA_Card.update(audio_path='audio/missing.ogg').where(models.TMA_Card.id == card['id']).execute()
+            payload = {'request_id': str(uuid4()), 'card_ids': [card['id']],
+                       'target_deck_id': self.target.id, 'on_duplicate': 'keep'}
+            self.call('POST', 'cards/batch-copy', 422, body=payload)
+            self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck == self.target).count(), 0)
+            self.assertFalse(models.TMAOfflineBatch.select().where(
+                models.TMAOfflineBatch.key == f'cards-v2:copy:1:{payload["request_id"]}').exists())
+            models.TMAMedia.create(folder='audio', filename='missing.ogg', content=b'OggS' + b'\x01' * 128)
+            result = self.call('POST', 'cards/batch-copy', body=payload)
+            self.assertEqual(result['copies'][0]['card']['audio_path'], 'audio/missing.ogg')
+            self.assertEqual(self.call('POST', 'cards/batch-copy', body=payload), result)
+
         def call(self, method, path, status=200, *, user=1, body=None, extra=None):
             response = client.request(method, path, json=body,
                 headers={**headers.get(user, {}), **(extra or {})})
@@ -680,6 +697,8 @@ def _run_cases(client, models, headers, load_answer_context):
             self.call('GET', f'cards/{card_id}', 404)
 
         def test_batch_transfer_atomic_revisions_order_links_and_receipt_replay(self):
+            models.TMAMedia.get_or_create(folder='audio', filename='fixture.ogg',
+                defaults={'content': b'OggS' + b'\x01' * 128})
             from fastapi import HTTPException
             from api.services import structured_card_api as native
 

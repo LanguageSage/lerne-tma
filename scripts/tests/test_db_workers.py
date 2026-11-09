@@ -15,11 +15,13 @@ import httpx
 from fastapi import FastAPI
 from peewee import SqliteDatabase, OperationalError
 
+from native_fixture import content, sqlite_native
+from api.services.structured_card_api import content_response
 from api import models, services
 from api.dependencies.auth import get_user_id
 with patch.object(models, 'create_all_tables'):
     from api.main import cache_headers_middleware
-from api.routers import cards, study, bot
+from api.routers import cards, study, bot, media
 
 
 class TrackedDatabase(SqliteDatabase):
@@ -78,6 +80,7 @@ class DbWorkerTests(unittest.TestCase):
         scratch.mkdir(parents=True, exist_ok=True)
         self.path = scratch / f'{uuid4().hex}.sqlite3'
         self.db = TrackedDatabase(self.path)
+        sqlite_native(self, self.db, writes=True)
         self.previous = models.tma_db.obj, models.lerne_db.obj
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
@@ -88,17 +91,17 @@ class DbWorkerTests(unittest.TestCase):
                 models.TMA_Collaborator, models.TMAOfflineBatch, models.TMASetting,
                 models.TMAMedia, models.TMAAuthAccount, models.TMAAuthIdentity,
                 models.TMAAuthSession, models.TMAAuthToken, models.TMAAuthPassword,
-                models.TMAAuthPasswordThrottle])
+                models.TMAAuthPasswordThrottle, models.TMAKnowledgeItem, models.TMACardKnowledgeItem])
             for uid in (1, 2, 3):
                 models.TMAUser.create(user_id=uid, is_guest=uid == 3, default_decks_initialized=True)
             self.deck = models.TMA_Deck.create(user_id=1, name='Synthetic source')
             self.target = models.TMA_Deck.create(user_id=1, name='Synthetic target')
-            self.card = models.TMA_Card.create(deck=self.deck, creator_id=1, front_text='Synthetic', back_text='Back')
-            models.TMA_Card.create(deck=self.deck, front_text='Synthetic', back_text='Duplicate')
+            self.card = models.TMA_Card.create(deck=self.deck, creator_id=1, content_v2=content('Synthetic', 'Back'), card_type=None)
+            models.TMA_Card.create(deck=self.deck, content_v2=content('Synthetic', 'Back'), card_type=None)
             models.TMAProgress.create(card_id=self.card.id, user_id=1, queue='new', next_review=datetime.datetime.now())
         self.app = FastAPI()
         self.app.middleware('http')(cache_headers_middleware)
-        for module in (cards, study, bot):
+        for module in (cards, study, bot, media):
             self.app.include_router(module.router, prefix='/api')
         self.app.dependency_overrides[get_user_id] = lambda: 1
 
@@ -112,7 +115,7 @@ class DbWorkerTests(unittest.TestCase):
         self.db.events.clear()
 
         async def run():
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app), base_url='http://fixture') as client:
+            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=self.app, raise_app_exceptions=False), base_url='http://fixture') as client:
                 return await operation(client)
 
         result = asyncio.run(run())
@@ -135,13 +138,14 @@ class DbWorkerTests(unittest.TestCase):
         return dict(card_id=self.card.id, deck_id=self.deck.id, grade=2) | extra
 
     def request_case(self, name):
-        batch = dict(card_ids=[self.card.id], target_deck_id=self.target.id)
+        revision = content_response(self.card)['revision']
+        batch = dict(card_ids=[self.card.id], target_deck_id=self.target.id, request_id=str(uuid4()), revisions={self.card.id: revision})
         return {
-            'save': ('POST', '/api/cards/save', dict(deck_id=self.deck.id, front='Saved', auto_generate_audio=False)),
+            'save': ('POST', '/api/cards/save', dict(deck_id=self.deck.id, content_v2=content('Saved'), request_id=str(uuid4()))),
             'move': ('POST', '/api/cards/batch-move', batch),
             'copy': ('POST', '/api/cards/batch-copy', batch),
-            'delete': ('POST', '/api/cards/batch-delete', batch),
-            'update': ('PATCH', f'/api/cards/{self.card.id}', dict(front='Updated')),
+            'delete': ('POST', '/api/cards/batch-delete', {key: value for key, value in batch.items() if key != 'target_deck_id'}),
+            'update': ('PATCH', f'/api/cards/{self.card.id}', dict(content_v2=content('Updated'), revision=revision, request_id=str(uuid4()))),
             'flag': ('POST', f'/api/cards/{self.card.id}/flag', dict(flag=3)),
             'stats': ('GET', '/api/study/stats', None),
             'card': ('GET', f'/api/study/card/{self.card.id}', None),
@@ -150,10 +154,10 @@ class DbWorkerTests(unittest.TestCase):
             'duplicate_next': ('GET', '/api/study/duplicates/next', None),
             'duplicate_grade': ('POST', '/api/study/duplicates/grade', self.grade_payload()),
             'diagnostics': ('GET', '/api/bot/reminder-diagnostics', None),
-            'bulk': ('POST', '/api/cards/bulk-save', {'cards': [{'deck_id': self.deck.id, 'front': 'Bulk'}]}),
+            'bulk': ('POST', '/api/cards/bulk-save', {'import_id': str(uuid4()), 'cards': [{'deck_id': self.deck.id, 'content_v2': content('Bulk')}]}),
             'single_delete': ('DELETE', f'/api/cards/{self.card.id}', None),
             'duplicates': ('GET', '/api/cards/duplicates', None),
-            'reorder': ('POST', '/api/cards/reorder', {'card_ids': [self.card.id]}),
+            'reorder': ('POST', '/api/cards/reorder', {'card_ids': [self.card.id], 'request_id': str(uuid4())}),
             'search': ('GET', '/api/cards/search?q=Synthetic', None),
         }[name]
 
@@ -174,7 +178,8 @@ class DbWorkerTests(unittest.TestCase):
 
         async def exercise(client):
             method, url, payload = self.request_case(name)
-            slow = asyncio.create_task(client.request(method, url, json=payload))
+            headers = {'If-Match': '"' + content_response(self.card)['revision'] + '"'} if method == 'DELETE' else {}
+            slow = asyncio.create_task(client.request(method, url, json=payload, headers=headers))
             try:
                 self.assertTrue(await asyncio.to_thread(entered.wait, 2))
                 self.assertFalse(expired, 'A blocking DB call stalled the event loop')
@@ -232,12 +237,13 @@ class DbWorkerTests(unittest.TestCase):
             self.assertEqual(models.TMAReviewHistory.select().count(), 1)
 
     def test_batch_failure_rolls_back_cards_and_deck_touch(self):
-        from api.services import collaborative_service
+        from api.services import structured_card_api
         async def exercise(client):
-            with patch.object(collaborative_service, 'touch_deck_and_parent_folders', side_effect=RuntimeError('touch failed')):
+            with patch.object(structured_card_api, 'touch_deck_and_parent_folders', side_effect=RuntimeError('touch failed')):
                 result = await client.post('/api/cards/batch-move', json={
-                    'card_ids': [self.card.id], 'target_deck_id': self.target.id})
-                self.assertEqual(result.status_code, 400, result.text)
+                    'card_ids': [self.card.id], 'target_deck_id': self.target.id, 'request_id': str(uuid4()),
+                    'revisions': {self.card.id: content_response(self.card)['revision']}})
+                self.assertEqual(result.status_code, 500, result.text)
         self.run_asgi(exercise)
         with self.db.connection_context():
             self.assertEqual(models.TMA_Card.get_by_id(self.card.id).deck_id, self.deck.id)
@@ -289,8 +295,8 @@ class DbWorkerTests(unittest.TestCase):
         async def exercise(client):
             for failure, attempts in ((OperationalError('connection reset'), 2), (ValueError('bad data'), 1)):
                 with patch.object(services, 'get_user_reminder_diagnostics', side_effect=failure) as call:
-                    with self.assertRaises(type(failure)):
-                        await client.get('/api/bot/reminder-diagnostics')
+                    response = await client.get('/api/bot/reminder-diagnostics')
+                    self.assertEqual(response.status_code, 500)
                     self.assertEqual(call.call_count, attempts)
         self.run_asgi(exercise)
 
@@ -299,7 +305,7 @@ class DbWorkerTests(unittest.TestCase):
             for uid in (2, 3):
                 self.app.dependency_overrides[get_user_id] = lambda: uid
                 result = await client.post('/api/cards/save', json={
-                    'deck_id': self.deck.id, 'front': 'Forbidden', 'auto_generate_audio': False})
+                    'deck_id': self.deck.id, 'content_v2': content('Forbidden'), 'request_id': str(uuid4())})
                 self.assertEqual(result.status_code, 403, result.text)
             self.app.dependency_overrides[get_user_id] = lambda: 2
             result = await client.post('/api/study/grade', json=self.grade_payload())
@@ -335,70 +341,55 @@ class DbWorkerTests(unittest.TestCase):
                 tts.assert_not_called()
         self.run_asgi(exercise)
 
-    def test_save_tts_starts_after_response_with_snapshot(self):
-        response_started = threading.Event()
-        seen = []
-        async def audio(card, user_id, *, force=False, _offload_db=False):
-            self.assertTrue(response_started.is_set(), 'TTS must remain a background task')
-            self.assertTrue(_offload_db)
-            seen.append((card['front_text'], user_id, force, threading.get_ident()))
-            await asyncio.sleep(0)
-            raise RuntimeError('TTS failed')
-        # Record the actual ASGI response-start before BackgroundTasks executes.
-        application = self.app
-        async def observed(scope, receive, send):
-            async def observe(message):
-                if message['type'] == 'http.response.start':
-                    response_started.set()
-                await send(message)
-            await application(scope, receive, observe)
-        async def exercise(_client):
-            async with httpx.AsyncClient(transport=httpx.ASGITransport(app=observed, raise_app_exceptions=False), base_url='http://fixture') as client:
-                with patch.object(services, 'ensure_card_audio', side_effect=audio):
-                    result = await client.post('/api/cards/save', json={'deck_id': self.deck.id, 'front': 'Saved snapshot'})
-                    self.assertEqual(result.status_code, 200, result.text)
-                    self.assertIsNone(result.json()['audio_url'])
+    def test_native_save_commits_without_implicit_tts(self):
+        async def exercise(client):
+            with patch.object(services, 'ensure_card_audio', new_callable=AsyncMock) as legacy_tts, \
+                 patch('api.utils.audio.generate_audio', new_callable=AsyncMock) as native_tts:
+                response = await client.post('/api/cards/save', json={'deck_id': self.deck.id,
+                    'content_v2': content('Saved snapshot'), 'request_id': str(uuid4())})
+                self.assertEqual(response.status_code, 200, response.text)
+                self.assertIsNone(response.json()['audio_url'])
+                self.assertEqual(response.json()['content_v2']['card']['data']['prompt'], 'Saved snapshot')
+                legacy_tts.assert_not_called()
+                native_tts.assert_not_called()
         self.run_asgi(exercise)
-        self.assertEqual([(text, uid, force) for text, uid, force, _ in seen], [('Saved snapshot', 1, False)])
 
-    def test_tts_persistence_success_and_failure_close_worker_connections(self):
-        from api.services import media
+    def test_explicit_tts_persistence_success_and_failure_close_worker_connections(self):
         async def exercise(client):
             with patch('api.utils.audio.generate_audio', new_callable=AsyncMock,
                        return_value=('https://fixture.invalid/generated.mp3', None)):
-                with patch.object(media, '_store_card_audio', side_effect=OperationalError('write failed')):
-                    failed = await client.post('/api/cards/save', json={
-                        'deck_id': self.deck.id, 'front': 'Failed TTS write'})
-                    self.assertEqual(failed.status_code, 200, failed.text)
-                saved = await client.post('/api/cards/save', json={
-                    'deck_id': self.deck.id, 'front': 'Successful TTS write'})
+                with patch.object(media, '_persist_card_audio', side_effect=OperationalError('write failed')):
+                    failed = await client.post('/api/media/generate-card-audio', json={'card_id': self.card.id})
+                    self.assertEqual(failed.status_code, 500, failed.text)
+                saved = await client.post('/api/media/generate-card-audio', json={'card_id': self.card.id})
                 self.assertEqual(saved.status_code, 200, saved.text)
-                self.assertIsNone(saved.json()['audio_url'])
-                return failed.json()['id'], saved.json()['id']
-        failed_id, saved_id = self.run_asgi(exercise)
+                self.assertRegex(saved.json()['revision'], r'^[a-f0-9]{64}$')
+        self.run_asgi(exercise)
         with self.db.connection_context():
-            self.assertIsNone(models.TMA_Card.get_by_id(failed_id).audio_path)
-            self.assertEqual(models.TMA_Card.get_by_id(saved_id).audio_path, 'https://fixture.invalid/generated.mp3')
+            self.assertEqual(models.TMA_Card.get_by_id(self.card.id).audio_path, 'https://fixture.invalid/generated.mp3')
 
-    def test_save_preserves_tts_refresh_and_opt_out(self):
+    def test_native_edits_preserve_audio_until_explicit_refresh_or_removal(self):
         with self.db.connection_context():
             models.TMA_Card.update(audio_path='https://fixture.invalid/old.mp3').where(models.TMA_Card.id == self.card.id).execute()
         async def exercise(client):
-            with patch.object(services, 'ensure_card_audio', new_callable=AsyncMock) as tts:
-                url = '/api/cards/save'
-                data = dict(card_id=self.card.id, deck_id=self.deck.id)
-                unchanged = await client.post(url, json=dict(data, front='Synthetic'))
-                self.assertEqual(unchanged.status_code, 200, unchanged.text)
-                tts.assert_not_called()
-                changed = await client.post(url, json=dict(data, front='Changed'))
+            current = (await client.get(f'/api/cards/{self.card.id}')).json()
+            with patch('api.utils.audio.generate_audio', new_callable=AsyncMock,
+                       return_value=('https://fixture.invalid/generated.mp3', None)) as tts:
+                changed = await client.patch(f'/api/cards/{self.card.id}', json={'content_v2': content('Changed'),
+                    'revision': current['revision'], 'request_id': str(uuid4())})
                 self.assertEqual(changed.status_code, 200, changed.text)
                 self.assertEqual(changed.json()['audio_path'], 'https://fixture.invalid/old.mp3')
+                tts.assert_not_called()
+                generated = await client.post('/api/media/generate-card-audio', json={'card_id': self.card.id, 'force': True})
+                self.assertEqual(generated.status_code, 200, generated.text)
                 tts.assert_awaited_once()
-                self.assertEqual(tts.call_args.kwargs, {'force': True, '_offload_db': True})
-                self.assertEqual(tts.call_args.args[0]['front_text'], 'Changed')
-                opted_out = await client.post(url, json=dict(data, front='Changed again', auto_generate_audio=False))
-                self.assertEqual(opted_out.status_code, 200, opted_out.text)
-                self.assertIsNone(opted_out.json()['audio_path'])
+                self.assertEqual(tts.call_args.args[0], 'Changed')
+                self.assertTrue(tts.call_args.kwargs['structured'])
+                self.assertTrue(tts.call_args.kwargs['force'])
+                removed = await client.patch(f'/api/cards/{self.card.id}', json={'content_v2': content('Changed again'),
+                    'audio_path': None, 'revision': generated.json()['revision'], 'request_id': str(uuid4())})
+                self.assertEqual(removed.status_code, 200, removed.text)
+                self.assertIsNone(removed.json()['audio_path'])
                 self.assertEqual(tts.await_count, 1)
         self.run_asgi(exercise)
 
@@ -415,23 +406,23 @@ class DbWorkerTests(unittest.TestCase):
         async def exercise(client):
             self.loop_thread = threading.get_ident()
             with patch('api.utils.audio.generate_audio', side_effect=generate):
-                saving = asyncio.create_task(client.post('/api/cards/save', json={
-                    'card_id': self.card.id, 'deck_id': self.deck.id, 'front': 'TTS snapshot'}))
+                generating = asyncio.create_task(client.post('/api/media/generate-card-audio', json={'card_id': self.card.id}))
                 try:
                     self.assertTrue(await asyncio.to_thread(entered.wait, 2))
-                    self.assertFalse(saving.done())
+                    self.assertFalse(generating.done())
                     probe = await asyncio.wait_for(client.get(f'/api/study/card/{self.card.id}'), 1)
                     self.assertEqual(probe.status_code, 200, probe.text)
-                    changed = await client.patch(f'/api/cards/{self.card.id}', json={'front': 'Newer text'})
+                    changed = await client.patch(f'/api/cards/{self.card.id}', json={'content_v2': content('Newer text'),
+                        'revision': probe.json()['revision'], 'request_id': str(uuid4())})
                     self.assertEqual(changed.status_code, 200, changed.text)
                 finally:
                     release.set()
-                    saved = await saving
-                    self.assertEqual(saved.status_code, 200, saved.text)
+                    saved = await generating
+                    self.assertEqual(saved.status_code, 409, saved.text)
         self.run_asgi(exercise)
         with self.db.connection_context():
             saved = models.TMA_Card.get_by_id(self.card.id)
-            self.assertEqual(saved.front_text, 'Newer text')
+            self.assertEqual(saved.content_v2['card']['data']['prompt'], 'Newer text')
             self.assertIsNone(saved.audio_path)
 
 

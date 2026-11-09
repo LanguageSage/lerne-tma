@@ -1,5 +1,6 @@
 /** Study views over the canonical API envelope. No authoring syntax is interpreted here. */
 import { readableLayout } from './cardLayout.js';
+import { autoGenerateChoices } from './trainerChoices.js';
 const exerciseTypes = new Set(['trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text', 'editable_text']);
 const supportedTypes = new Set(['standard', 'theory', ...exerciseTypes]);
 
@@ -91,6 +92,14 @@ export function studyTrainer(data) {
       answers: part.type === 'input' ? part.answers : part.options.filter(option => option.correct).map(option => option.text),
       choices: part.type === 'choice' ? part.options.map(option => option.text) : [],
     };
+    if (part.type === 'choice' && part.distractors === 'auto') {
+      gap.choices = autoGenerateChoices(gap.answers[0], gap.choices, gap.isAffix);
+      // Unknown words remain answerable without offering a one-answer dropdown.
+      if (gap.choices.length < 2) {
+        gap.mode = 'input';
+        gap.choices = [];
+      }
+    }
     gaps.push(gap);
     return gap;
   });

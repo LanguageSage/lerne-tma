@@ -53,6 +53,36 @@ test('trainer preserves affixes and literal gap markers, accepts whole authored 
   assert.equal(getSpeechFollowupTarget(dto('trainer', data)), null);
 });
 
+test('native auto choices cover articles, prepositions and affixes without changing authored data', () => {
+  for (const [answer, affix] of [['den', false], ['Den', false], ['mit', false], ['en', true]]) {
+    const data = { parts: [...(affix ? [{ type: 'text', text: 'klein' }] : []),
+      { type: 'choice', options: [{ text: answer, correct: true }], distractors: 'auto' }] };
+    const before = structuredClone(data);
+    const { gaps } = studyTrainer(data);
+    assert.equal(gaps[0].mode, 'choice');
+    assert.ok(gaps[0].choices.length > 1);
+    assert.equal(new Set(gaps[0].choices).size, gaps[0].choices.length);
+    assert.ok(gaps[0].choices.includes(answer));
+    assert.equal(evaluateTrainerGaps(gaps, { 0: answer }).accepted, true);
+    assert.equal(evaluateTrainerGaps(gaps, { 0: gaps[0].choices.find(text => text !== answer) }).accepted, false);
+    assert.deepEqual(data, before);
+  }
+});
+
+test('native auto fallback is typed input; explicit choices and multiple gaps preserve their keys', () => {
+  const { gaps } = studyTrainer({ parts: [
+    { type: 'choice', options: [{ text: 'unlisted-word', correct: true }], distractors: 'auto' },
+    { type: 'text', text: ' ' },
+    { type: 'choice', options: [{ text: 'den', correct: true }, { text: 'dem', correct: false }] },
+    { type: 'text', text: ' ' }, { type: 'input', answers: ['das'] },
+  ] });
+  assert.equal(gaps[0].mode, 'input');
+  assert.deepEqual(gaps[0].choices, []);
+  assert.deepEqual(gaps[1].choices, ['den', 'dem']);
+  assert.deepEqual(gaps.map(gap => gap.id), [0, 1, 2]);
+  assert.equal(evaluateTrainerGaps(gaps, { 0: 'unlisted-word', 1: 'den', 2: 'das' }).accepted, true);
+});
+
 test('quiz, match, and word bank keep authored keys and distinguish similar labels', () => {
   const { options } = studyQuiz({ prompt: '', options: [
     { text: 'A', correct: true }, { text: 'B', correct: true }, { text: 'C', correct: false },

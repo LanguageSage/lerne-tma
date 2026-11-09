@@ -3,6 +3,7 @@ import { getAccessToken, getAuthSession, saveAuthSession, requireAuthSession, ge
 import { getLocalDb } from './localDb.js';
 import { API_BASE_URL } from './apiConfig.js';
 import { IS_LOCAL } from '../utils/localMode.js';
+import { generationError, observeServerGeneration } from './serverGeneration.js';
 
 const baseURL = API_BASE_URL;
 
@@ -12,7 +13,7 @@ const axiosInstance = axios.create({
 });
 
 // Bearer is the only credential. Saved account IDs only select offline storage.
-axiosInstance.interceptors.request.use((config) => {
+axiosInstance.interceptors.request.use(async (config) => {
   if (config._retry && config._authIdentity !== getSessionIdentity()) {
     throw new axios.CanceledError('Session changed before retry');
   }
@@ -42,6 +43,21 @@ axiosInstance.interceptors.request.use((config) => {
   if (!config._retry) {
     config._authUserId = userId;
     config._authIdentity = getSessionIdentity();
+  }
+  if (token && !url.startsWith('/auth/') && url !== '/sync/v2/status') {
+    const db = getLocalDb();
+    const current = () => getSessionIdentity() === config._authIdentity && getUserId() === config._authUserId;
+    if (await db.syncState.get('serverGenerationConflict')) throw generationError();
+    let generation = (await db.syncState.get('serverGeneration'))?.generation;
+    if (!generation) {
+      const status = await axiosInstance.get('/sync/v2/status', {
+        _expectedUserId: config._authUserId, _expectedSessionIdentity: config._authIdentity,
+      });
+      generation = await observeServerGeneration(db, status.data, current);
+    }
+    if (!current()) throw new axios.CanceledError('Session changed before request');
+    config.headers = config.headers || {};
+    config.headers['X-Lerne-Generation'] = generation;
   }
   if (config.method && config.method.toLowerCase() === 'get') {
     if (/_t=\d+/.test(config.url)) {
@@ -123,9 +139,14 @@ const refreshSession = (session) => {
 };
 
 axiosInstance.interceptors.response.use(
-  (response) => {
+  async (response) => {
     if (response.config?._authIdentity !== getSessionIdentity() || response.config?._authUserId !== getUserId()) {
       throw new axios.CanceledError('Session changed before response');
+    }
+    if (response.data?.server_generation && response.config?.url !== '/sync/v2/status') {
+      const config = response.config;
+      await observeServerGeneration(getLocalDb(), response.data,
+        () => config._authIdentity === getSessionIdentity() && config._authUserId === getUserId());
     }
     return response;
   },
@@ -140,6 +161,11 @@ axiosInstance.interceptors.response.use(
         return Promise.reject(error);
       }
       return Promise.reject(new axios.CanceledError('Session changed before response'));
+    }
+    const generationState = error.response?.data?.detail;
+    if (generationState?.code === 'database_generation_conflict') {
+      await observeServerGeneration(getLocalDb(), generationState,
+        () => originalRequest._authIdentity === getSessionIdentity() && originalRequest._authUserId === getUserId());
     }
 
     const is401 = error.response && error.response.status === 401;

@@ -4,7 +4,7 @@ import Dexie from 'dexie';
 // through those modules can import legacy data or start delivery. Never do that here.
 const knownTables = new Set(['folders', 'decks', 'cards', 'progress', 'syncState', 'media',
   'knowledge_items', 'card_knowledge_items', 'knowledge_attempt_outbox', 'user_knowledge_state', 'card_notes']);
-const inertKeys = new Set(['aliases', 'lastSync', 'legacyImported']);
+const inertKeys = new Set(['aliases', 'lastSync', 'legacyImported', 'serverGeneration']);
 const dirty = value => value !== undefined && value !== null && value !== false && value !== 0;
 
 export async function inspectCutoverDatabase(database) {
@@ -37,7 +37,8 @@ export async function inspectCutoverDatabase(database) {
           if (inertKeys.has(key) || key.startsWith('grade:')) return;
           if (row.rejected) add('syncState:rejected_operation');
           // Even an expired refresh lease is not evidence that other tabs stopped.
-          add(key === 'pending' ? 'syncState:pending_batch'
+          add(key === 'serverGenerationConflict' ? 'syncState:server_generation_conflict'
+            : key === 'pending' ? 'syncState:pending_batch'
             : key.startsWith('review:') ? 'syncState:review'
               : key.startsWith('card-') ? 'syncState:native_operation' : 'syncState:unknown_or_active');
         }
