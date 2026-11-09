@@ -4,6 +4,10 @@ const fixture = JSON.parse(process.env.LERNE_NATIVE_MEDIA_FIXTURE || 'null');
 test.skip(!fixture, 'Use structured_cards_postgres.py --media-browser');
 if (fixture && !/^http:\/\/127\.0\.0\.1:\d+$/.test(fixture.origin)) throw new Error('Loopback only');
 
+test.afterEach(async ({ context }) => {
+  await context.unrouteAll({ behavior: 'ignoreErrors' });
+});
+
 async function setup(context, control = {}) {
   await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
     ? route.continue() : route.abort('blockedbyclient'));
@@ -48,7 +52,15 @@ async function open(context) {
     (await import('/src/services/knowledgeSyncOrchestrator.js')).stopKnowledgeSync();
     window.api = (await import('/src/services/api.js')).default;
     window.db = await (await import('/src/services/localDb.js')).prepareLocalDb();
-    window.sync = () => import('/src/services/syncService.js').then(m => m.syncService.sync());
+    window.sync = options => import('/src/services/syncService.js').then(m => m.syncService.sync(options));
+    window.waitSync = async options => {
+      for (let i = 0; i < 100; i++) {
+        const result = await sync(options);
+        if (result.reason !== 'Already syncing') return result;
+        await new Promise(resolve => setTimeout(resolve, 50));
+      }
+      throw new Error('Background sync never released lock');
+    };
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     useSettingsStore.setState({ autoPlay: false, playerCollapsed: false, autoGenerateCardAudio: false });
   });
@@ -91,7 +103,7 @@ test('nine native types retain playable media through cache, restart, retries an
   page.on('pageerror', error => errors.push(error.message));
   const peer = await browser.newContext();
   try {
-    expect((await page.evaluate(() => sync())).success).toBe(true);
+    expect((await page.evaluate(() => waitSync())).success).toBe(true);
     // Generate synthetic image/video with browser APIs, then use the real uploads.
     const media = await page.evaluate(async id => {
       const canvas = document.createElement('canvas');
@@ -126,7 +138,7 @@ test('nine native types retain playable media through cache, restart, retries an
         const current = (await api.get(`/cards/${id}`)).data;
         await api.patch(`/cards/${id}`, { content_v2: current.content_v2, revision: current.revision,
           request_id: crypto.randomUUID(), ...media }, { offlineCardEdit: true });
-        if (!(await sync()).success) throw new Error('Media edit delivery failed');
+        if (!(await waitSync()).success) throw new Error('Media edit delivery failed');
         const body = { card_id: id, voice: 'de-DE-KatjaNeural' };
         const first = (await api.post('/media/generate-card-audio', body)).data;
         const repeated = (await api.post('/media/generate-card-audio', body)).data;
@@ -173,7 +185,7 @@ test('nine native types retain playable media through cache, restart, retries an
     // Second device obtains canonical paths and its own blobs through real pull.
     await setup(peer);
     const second = await open(peer);
-    expect((await second.evaluate(() => sync())).success).toBe(true);
+    expect((await second.evaluate(() => waitSync())).success).toBe(true);
     for (const card of fixture.cards) { await show(second, card.id); await playable(second); }
     // Pending edit survives a lost PATCH response and a full process restart.
     await context.setOffline(true); control.offline = true;
