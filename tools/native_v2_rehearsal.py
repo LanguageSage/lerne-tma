@@ -1,7 +1,7 @@
 """Independent database-only rehearsal using a private snapshot and a fresh cluster.
 
-Does NOT implement the missing content cutover. All source data stays V1.
-Uses the existing disposable runner; never accepts an application target DSN.
+By default source data stays V1; --convert-active runs the one-transaction
+local migration. Uses the disposable runner, never an application target DSN.
 Private inputs are deliberately excluded from CI and from Git.
 """
 import argparse
@@ -50,7 +50,11 @@ def main():
     parser.add_argument('--admin-root', type=Path, required=True)
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--output', type=Path, required=True)
+    parser.add_argument('--convert-active', action='store_true', help='Migrate active cards in one local transaction; retain V1 tombstones')
+    parser.add_argument('--applications', action='store_true', help='Exercise actual TMA and Admin against a separate restored V2 copy')
     args = parser.parse_args()
+    if args.applications and not args.convert_active:
+        parser.error('--applications requires --convert-active')
     source, out = args.snapshot_dir.resolve(), args.output.resolve()
     if (not source.is_relative_to(ROOT / 'local/test-data') or
             not out.is_relative_to(ROOT / 'local/test-data') or out.exists()):
@@ -146,6 +150,48 @@ def main():
                                       'content_counts_native_total': native_counts, 'content_migration_performed': False}
         report['checks']['strict_schema_contract'] = backup._unknown_contract_tables(
             f'postgresql://cards_test@127.0.0.1:{identity[3]}/rehearsal_schema', cloud=False)
+        if args.convert_active:
+            from tools.migrate_native_v2_local import migrate_active, immutable_cards
+            from api.migrations import run_card_rating_migration
+            run_card_rating_migration(upgraded)
+            baseline = fingerprints(upgraded)
+            immutable = immutable_cards(upgraded)
+            report['checks']['atomic_migration'] = migrate_active(upgraded)
+            if immutable_cards(upgraded) != immutable:
+                raise AssertionError('ID, non-content fields or complete deleted rows changed')
+            migrated = fingerprints(upgraded)
+            changed = [k for k in baseline if baseline[k] != migrated[k]]
+            if set(changed) != {'public.tma_card', 'public.card'}:
+                raise AssertionError(f'Unexpected changed tables: {changed}')
+            # Independently revalidate every stored envelope after commit.
+            from api.card_core.lerne_card_core.structured_cards_v2 import validate_card
+            from collections import Counter
+            types = {}
+            for table in ('tma_card', 'card'):
+                counts = Counter()
+                for envelope, in upgraded.execute_sql(f'SELECT content_v2 FROM {table} WHERE NOT is_deleted'):
+                    if set(envelope) != {'schema_version', 'card'} or envelope['schema_version'] != 2:
+                        raise AssertionError('Invalid persisted envelope')
+                    counts[validate_card(envelope['card']).type] += 1
+                types[table] = dict(counts)
+            report['checks']['atomic_migration'].update(immutable_rows_equal=True, other_tables_equal=True, types=types)
+            pg('pg_dump', '--format=custom', '--no-owner', '--no-acl', '--dbname', 'rehearsal_schema', '--file', out / 'native-v2.dump')
+            v2_restored = new_database('rehearsal_v2_restored', out / 'native-v2.dump')
+            if v2_restored is None or fingerprints(v2_restored) != migrated:
+                raise AssertionError('V2 dump restore differs from migrated database')
+            report['checks']['v2_dump_restore'] = {'all_row_hashes_equal': True, 'tables': len(migrated), 'sha256': sha(out / 'native-v2.dump')}
+            v2_restored.close()
+            if args.applications:
+                application_db = new_database('rehearsal_applications', out / 'native-v2.dump')
+                if application_db is None:
+                    raise AssertionError('Application clone failed to restore')
+                from native_v2_migrated_apps import verify as verify_apps
+                report['checks']['applications'] = verify_apps(application_db, out, args.admin_root)
+                application_db.close()
+            app_result = report['checks'].get('applications', {})
+            report['verdict'] = ('NOT READY' if app_result.get('failures') or
+                app_result.get('browser', {}).get('exit_code', 0) else 'CONDITIONAL')
+            report['scope'] = 'active-card DB migration; media and production cutover excluded'
         # A full dump includes provider-managed schemas/extensions; attempt unchanged.
         full = new_database('rehearsal_all_schemas', source / 'database.dump')
         if full is not None:

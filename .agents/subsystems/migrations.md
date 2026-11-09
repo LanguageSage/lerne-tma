@@ -83,13 +83,28 @@ SQL-каталог, схема истории и локальный механи
   Admin checkout и PostgreSQL binaries. Использует новый cluster существующего
   disposable runner, проверяет фактический PGDATA/роль/loopback/порт. Сверяет
   public restore, DDL 93/94, повтор, strict Admin contract, V1 recovery, rescue
-  dump для синтетической записи после backup и marker поколения. Это сбор
-  доказательств, не content cutover; exit 2 означает NOT READY даже при успешно
-  завершённом сборе. Не использует DSN приложения для записи.
+  dump для синтетической записи после backup и marker поколения. По умолчанию
+  content остаётся V1. Не использует DSN приложения для записи.
+- `--convert-active` в том же runner применяет недостающую 92 и вызывает
+  `tools/migrate_native_v2_local.py`: полная предварительная валидация активных
+  TMA/Library карточек существующим converter, затем запись обеих таблиц одной
+  транзакцией. SQL pages ограничивают размер запроса, промежуточных commits нет.
+  Deleted V1 rows не изменяются, IDs/placement/media/history и другие таблицы
+  сравниваются отдельно. Готовый V2 dump восстанавливается в новую БД и сверяется
+  по всем row SHA256. Повтор требует исходного V1 dump, resume не предусмотрен.
+- `--applications` проверяет реальные TMA/Admin через loopback на ещё одной
+  восстановленной V2-копии. Startup DDL отключён; схемой управляет runner.
+  Только известные nullable warnings без NULL/critical findings подтверждаются
+  штатным Admin API в изолированном локальном журнале. Приватные карточки и
+  сессии не являются CI fixtures. Exit 2 — CONDITIONAL/NOT READY, не production
+  допуск; детали сохраняются в database-results.json.
 - `structured_cards_postgres.py` дополнительно физически разрывает собственное
   соединение перед записью истории 93 и проверяет rollback DDL/истории и повтор
   на новом соединении. Этот тест допустим только в его одноразовом кластере.
 
-Полная миграция данных не реализуется этими инструментами. Успешные DDL,
-pure dry-run и синтетические browser tests не заменяют проверку content writer,
-полного media backup, writer fence и сверки данных устройств после restore.
+Локальный writer конвертирует только active cards; 93/94 допускают V1 tombstones
+в других строках. Это не разрешение восстанавливать их через legacy trash API:
+перед production отдельно закрыть старые writers/legacy restore либо валидно
+конвертировать выбранную tombstone. Полного media backup и сверки устройств эти
+инструменты не делают. Production dump/restore требует отдельной остановки writes,
+совместимого приложения и проверки generation marker.
