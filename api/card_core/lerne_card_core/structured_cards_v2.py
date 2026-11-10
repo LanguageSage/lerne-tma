@@ -392,7 +392,7 @@ class Deck(V2Model):
 class Document(V2Model):
     schema_version: Literal[2]
     deck: Deck
-    cards: Annotated[list[Card], Field(min_length=1, max_length=MAX_DOCUMENT_CARDS)]
+    cards: Annotated[list[Card], Field(max_length=MAX_DOCUMENT_CARDS)]
 
     @field_validator('schema_version', mode='before')
     @classmethod
@@ -412,7 +412,9 @@ class Document(V2Model):
     @model_validator(mode='after')
     def passport_card_ranges(self):
         stages = (self.deck.passport or {}).get('pedagogy', {}).get('stages', [])
-        if any(stage.get('to_card', 0) > len(self.cards) for stage in stages):
+        if not self.cards and not self.deck.passport:
+            raise ValueError('An empty document requires a deck passport')
+        if self.cards and any(stage.get('to_card', 0) > len(self.cards) for stage in stages):
             raise ValueError('Passport stage range exceeds document card count')
         _check_size(_canonical_json(self.model_dump(mode='json')), MAX_DOCUMENT_BYTES)
         return self

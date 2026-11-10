@@ -281,7 +281,7 @@ def _codex_deck(text, name, folder):
             ids.add(source_deck_id)
     if len(ids) > 1:
         raise ImportFormatError('Conflicting ::deck_id values within one deck')
-    deck_metadata = {}
+    deck_metadata = {'source_deck_id': deck_id} if deck_id is not None else {}
     if ids:
         deck_metadata['source_deck_id'] = ids.pop()
     if folder is not None:

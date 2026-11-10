@@ -141,6 +141,16 @@ CONTEXT: Erklärung
         with self.assertRaises(ValidationError):
             import_documents(json.dumps([document, {**second, 'cards': []}]))
 
+    def test_passport_only_uses_the_same_native_document_contract(self):
+        passport = {'schema_version': 1, 'intro': {'title': 'Passport only'},
+                    'pedagogy': {'lesson_type': 'practice', 'stages': [{'id': 'first', 'title': 'First', 'goal': 'Practice', 'support': 'high', 'from_card': 1, 'to_card': 8}]}}
+        codex = '# Deck: Target\n::deck_id 22\n<<<LERNE_PASSPORT>>>\n' + json.dumps(passport) + '\n<<<END_LERNE_PASSPORT>>>\n'
+        doc, = import_documents(codex)
+        self.assertEqual(doc.cards, [])
+        self.assertEqual(doc.deck.metadata['source_deck_id'], 22)
+        self.assertEqual(doc.deck.passport, passport)
+        self.assertEqual(import_documents(doc.model_dump_json()), [doc])
+
     def test_invalid_json_is_not_retried_as_codex(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate JSON key: schema_version'):
             import_documents('{"schema_version":2,"schema_version":2}')
