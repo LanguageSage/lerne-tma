@@ -71,6 +71,22 @@ offline → online доставку заметок, Web Locks/Dexie lease и с�
 
 ## Source of truth
 
+- Избранное хранится в существующем Dexie `progress.want_to_learn`.
+  `cardFavorites.js` сначала сохраняет отметку и `favorite_dirty/favorite_revision`,
+  затем делает узкий `PUT /cards/{id}/favorite`: нажатие сердца не помечает
+  контент/SRS dirty и не отправляет устаревший учебный snapshot. Flush сериализован
+  на аккаунт; ack проверяет local revision, временные ID ждут entity remap.
+  `syncService` доставляет отметки после entity push и до pull; snapshots сохраняют
+  pending отметки и правки во время запроса. Старый persisted batch с bookmark
+  после ack вызывает повторную доставку актуальной отметки. Startup/online/
+  visibility/periodic triggers работают также в обычном браузерном режиме.
+  `favorites_pending` отделён от успешной доставки cards/reviews.
+  Отметка кеширует известные поля SRS без dirty; неполный annotation-only progress
+  не оценивается офлайн как новая карточка (`OFFLINE_PROGRESS_UNAVAILABLE`).
+  Полный список избранного дополняет SRS; интервалы быстрого повтора — `forced`.
+  Tests: `services/__tests__/cardFavorites.test.js`, `scripts/tests/test_card_favorites.py`,
+  `browser/card-favorites.spec.cjs`; новая схема Dexie/PostgreSQL не требуется.
+
 - Library reads from `api.js` identify their source: `cache` for automatic
   fallback, `local` for explicit offline mode. An empty automatic fallback is
   not a successful server library response. Cached init data is retained on

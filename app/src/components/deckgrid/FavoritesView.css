@@ -1,0 +1,34 @@
+.favorites-shortcut {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: fit-content;
+  max-width: 100%;
+  min-height: 52px;
+  margin: 0 0 16px;
+  padding: 8px 14px;
+  border: 1px solid rgba(251, 113, 133, 0.25);
+  border-radius: 14px;
+  color: var(--design-text-color, #e2e8f0);
+  font: inherit;
+  font-weight: 600;
+  cursor: pointer;
+}
+.favorites-shortcut-heart { color: #fb7185; fill: currentColor; flex-shrink: 0; }
+.favorites-shortcut-count { color: var(--design-secondary-color, #94a3b8); font-size: 0.85em; }
+.view-favorites { width: 100%; min-width: 0; }
+.view-favorites .header-compact h2 { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.favorites-description { color: var(--design-secondary-color, #94a3b8); margin: 8px 0 16px; line-height: 1.5; }
+.favorites-study { margin-bottom: 16px; }
+.favorites-empty, .favorites-status { padding: 24px; border-radius: 16px; margin-bottom: 16px; }
+.favorites-empty { text-align: center; color: var(--design-secondary-color, #94a3b8); }
+.favorites-empty svg { color: #fb7185; }
+.favorites-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 280px), 1fr)); gap: 12px; }
+.favorites-card { min-width: 0; padding: 12px 16px 4px; border-radius: 16px; }
+.favorites-card-open { display: flex; flex-direction: column; gap: 8px; text-align: left; width: 100%; padding: 4px 0;
+  border: 0; background: transparent; color: var(--design-text-color, #e2e8f0); font: inherit; cursor: pointer; overflow-wrap: anywhere; }
+.favorites-card-source { color: var(--design-secondary-color, #94a3b8); font-size: 0.75rem; }
+.favorites-card-back { color: var(--design-secondary-color, #94a3b8); font-size: 0.9rem; }
+.favorites-card-open strong, .favorites-card-back { display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.favorites-card-footer { display: flex; align-items: center; justify-content: space-between; min-height: 44px; }
+.favorites-shortcut:focus-visible, .favorites-card-open:focus-visible { outline: 2px solid #fb7185; outline-offset: 3px; }

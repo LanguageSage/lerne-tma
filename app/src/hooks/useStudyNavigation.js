@@ -10,6 +10,8 @@ import { prepareAssessmentKnowledge, saveAssessment, loadAssessment } from '../s
 import { useAuthStore } from '../store/useAuthStore';
 import { getUserId, getSessionIdentity } from '../utils/auth.js';
 import { prepareDeckKnowledge } from '../services/knowledgeContentService.js';
+import { prepareLocalDb } from '../services/localDb.js';
+import { readFavoriteCards } from '../services/cardFavorites.js';
 
 /**
  * Hook for initiating study sessions from deck grids, card lists, and search results.
@@ -33,10 +35,14 @@ export function useStudyNavigation() {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       const revision = useSessionStore.getState().sessionRevision;
-      useSessionStore.getState().setIsLearningMore(reviewContext === 'forced');
+      useSessionStore.getState().setIsLearningMore(deck.id === 'favorites' || reviewContext === 'forced');
       const state = useDeckStore.getState();
       const hasCards = state.currentDeck?.id === deck.id && state.deckCards && state.deckCards.length > 0;
-      if (deck.id === 'duplicates') {
+      if (deck.id === 'favorites') {
+        const cards = await readFavoriteCards(await prepareLocalDb(), userId, deck.target_language);
+        if (identity !== getSessionIdentity() || userId !== getUserId() || useSessionStore.getState().sessionRevision !== revision) return;
+        state.setDeckCards(cards);
+      } else if (deck.id === 'duplicates') {
         await state.fetchDuplicates();
       } else if (!hasCards) {
         await state.fetchDeckCards(deck.id);
@@ -55,7 +61,9 @@ export function useStudyNavigation() {
         useSessionStore.getState().setAssessment(active);
         return;
       }
-      await prepareDeckKnowledge(deck.id).catch(err => console.warn('[Knowledge] Content unavailable:', err));
+      const knowledgeDecks = deck.id === 'favorites'
+        ? [...new Set(useDeckStore.getState().deckCards.map(card => card.deck_id))] : [deck.id];
+      await Promise.all(knowledgeDecks.map(id => prepareDeckKnowledge(id).catch(err => console.warn('[Knowledge] Content unavailable:', err))));
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       await fetchNextCard(deck.id, true);
     } catch (err) {
@@ -82,15 +90,24 @@ export function useStudyNavigation() {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       const revision = useSessionStore.getState().sessionRevision;
-      await prepareDeckKnowledge(deck.id).catch(err => console.warn('[Knowledge] Content unavailable:', err));
+      useSessionStore.getState().setIsLearningMore(deck.id === 'favorites');
+      const sourceDeckId = deck.id === 'favorites'
+        ? useDeckStore.getState().deckCards.find(card => String(card.id) === String(cardId))?.deck_id : deck.id;
+      await prepareDeckKnowledge(sourceDeckId).catch(err => console.warn('[Knowledge] Content unavailable:', err));
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       
       const deckState = useDeckStore.getState();
-      let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (deckState.deckCards || []);
+      if (deck.id === 'favorites') {
+        const favorites = await readFavoriteCards(await prepareLocalDb(), userId, deck.target_language);
+        if (identity !== getSessionIdentity() || userId !== getUserId() || useSessionStore.getState().sessionRevision !== revision) return;
+        deckState.setDeckCards(favorites);
+      }
+      let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (useDeckStore.getState().deckCards || []);
       let localCard = cards.find(c => String(c.id) === String(cardId));
 
       // Fast path: card is already in memory -> instant transition (0ms delay)
       if (localCard) {
+        if (deck.id === 'favorites') useSessionStore.getState().markForcedSeen(localCard.id);
         if (!localCard.image_url && (localCard.image_path || localCard.media_url)) {
           const raw = localCard.image_path || localCard.media_url;
           const cleanPath = raw.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');

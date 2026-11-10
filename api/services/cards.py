@@ -280,7 +280,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "video_back_path": video_back,
         # flag and want_to_learn are per-user: read from TMAProgress (p) first
         "flag": int(flag or 0),
-        "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
+        "want_to_learn": bool(get_p('want_to_learn')),
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "is_leech": srs.is_leech(lapses),

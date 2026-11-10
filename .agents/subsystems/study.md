@@ -30,6 +30,16 @@ LiD ticket выбирает карточки и формирует ответ с
 
 ## Source of truth
 
+- Виртуальная подборка `favorites` проходит снимок избранных карточек один раз
+  через существующую историю/Next/Back. `useStudyNavigation` загружает KI исходных
+  колод; `useStudySession` отправляет обычный `/study/grade` с настоящим
+  `card.deck_id`, `review_context=forced`, `return_next=false`. Новый SRS и
+  отдельный прогресс подборки не создаются. Обновление `/study/card/{id}`
+  принимает optional `review_context` и возвращает личный `want_to_learn`.
+  Regression: `browser/card-favorites.spec.cjs` (critical) — положение сердца,
+  RU/EN/UK, 320/375/430/768/1280px, исходные ID при оценке, завершение/возврат,
+  офлайн-снятие и перезагрузка; `test_card_favorites.py` — личность и доступ.
+
 - Protected-resource 401 uses the shared auth lifecycle rather than a technical
   StudyError. The selected deck/card/review context survives login/provider
   reload via the auth store's one-time, owner-scoped navigation descriptor.

@@ -6,6 +6,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { useCardRating } from '../../hooks/useCardRating';
 import { useUiStore } from '../../store/useUiStore';
 import './CardRating.css';
+import { FavoriteButton } from '../common/FavoriteButton.jsx';
 
 const REASONS = [
   ['unclear', () => tr('Непонятное задание')],
@@ -38,7 +39,7 @@ export function CardRating({ card, deckId }) {
   }, [notice]);
 
   // Temporary offline card IDs are negative; the server cannot rate them.
-  if (!(Number(card?.id) > 0)) return null;
+  if (!card?.id) return null;
 
   const rating = value?.rating ?? null;
   const run = async action => {
@@ -93,12 +94,13 @@ export function CardRating({ card, deckId }) {
       <div className="card-rating-pill">
         <button type="button" className={`card-rating-btn is-like ${rating === 1 ? 'is-on' : ''}`}
           aria-pressed={rating === 1} aria-label={tr('Нравится')} title={tr('Нравится')}
-          disabled={busy} onClick={() => vote(1)}>
+          disabled={busy || Number(card.id) < 0} onClick={() => vote(1)}>
           <ThumbsUp size={18} aria-hidden="true" />
         </button>
+        <FavoriteButton card={card} />
         <button type="button" className={`card-rating-btn is-dislike ${rating === -1 ? 'is-on' : ''}`}
           aria-pressed={rating === -1} aria-label={tr('Не нравится')} title={tr('Не нравится')}
-          disabled={busy} onClick={() => vote(-1)}>
+          disabled={busy || Number(card.id) < 0} onClick={() => vote(-1)}>
           <ThumbsDown size={18} aria-hidden="true" />
         </button>
       </div>

@@ -88,6 +88,7 @@ export const useUiStore = create((set, get) => ({
   setLastSelectedCardId: (id) => set({ lastSelectedCardId: id }),
 
   cardsScrollTop: 0,
+  favoritesScrollTop: 0,
   setCardsScrollTop: (top) => set({ cardsScrollTop: top }),
 
   userProfile: null,

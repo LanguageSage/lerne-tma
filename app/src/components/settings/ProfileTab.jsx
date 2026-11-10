@@ -314,9 +314,11 @@ export const ProfileTab = ({ userId }) => {
                 showToast(tr("Синхронизация..."));
                 const res = await syncService.sync();
                 if (res.success) {
-                  showToast(res.card_notes_pending
-                    ? tr('Колоды и прогресс сохранены. Часть заметок ожидает синхронизации.')
-                    : tr("Синхронизация успешно завершена!"), res.card_notes_pending ? 'info' : 'success');
+                  showToast(res.favorites_pending
+                    ? tr('Колоды и прогресс сохранены. Избранное ожидает синхронизации.')
+                    : res.card_notes_pending
+                      ? tr('Колоды и прогресс сохранены. Часть заметок ожидает синхронизации.')
+                      : tr("Синхронизация успешно завершена!"), res.card_notes_pending || res.favorites_pending ? 'info' : 'success');
                   const { fetchDecks } = useDeckStore.getState();
                   fetchDecks(true);
                 } else {

@@ -25,6 +25,7 @@ import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
 import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
+import { refreshFavorites } from '../../services/cardFavorites.js';
 import { detectExerciseType } from '../../utils/exerciseDetector.js';
 import { parseWordBankData } from '../../utils/wordBankParser.js';
 import { parseQuizData } from '../../utils/quizParser.js';
@@ -58,6 +59,11 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const { submitGrade, goBack, goNext, fetchNextCard, handleDeleteCard, runAiGenerator } = useCardActions();
   const { startStudy } = useStudyNavigation();
   const { openEditor, openCreator } = useCardNavigation();
+  const favoritesLanguage = currentDeck?.target_language || 'de';
+  const favoritesUserId = userProfile?.user_id;
+  useEffect(() => {
+    if (favoritesUserId != null) refreshFavorites(favoritesLanguage).catch(() => {});
+  }, [favoritesLanguage, favoritesUserId]);
   const { uploadStudyImage } = useMediaUpload();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
@@ -110,7 +116,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   ]);
 
   const queueStats = React.useMemo(() => {
-    if (card?.deck_stats && typeof card.deck_stats === 'object') {
+    if (currentDeck?.id !== 'favorites' && card?.deck_stats && typeof card.deck_stats === 'object') {
       return {
         new: card.deck_stats.new ?? 0,
         due: card.deck_stats.due ?? 0,
@@ -149,7 +155,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
       due: currentDeck?.stats?.due ?? 0,
       learning: currentDeck?.stats?.learning ?? 0
     };
-  }, [card?.deck_stats, deckCards, currentDeck?.stats]);
+  }, [card?.deck_stats, deckCards, currentDeck?.stats, currentDeck?.id]);
 
   const currentCardSrsStatus = React.useMemo(() => {
     if (!card) return null;
@@ -642,8 +648,8 @@ ${targetCard.back}`;
             isTrainerDeck={Boolean(currentDeck?.is_trainer || (deckCards && deckCards.length > 0 && deckCards.every(c => /\{([^}]+)\}/.test(c.front || ''))))}
             card={card}
             onBack={navigateUp}
-            onOpenCreator={() => openCreator(currentDeck?.id, 'study', card?.id)}
-            onOpenEditor={() => openEditor(currentDeck?.id === 'duplicates' ? card.deck_id : currentDeck?.id, card, 'study')}
+            onOpenCreator={() => openCreator(currentDeck?.id === 'favorites' ? card?.deck_id : currentDeck?.id, 'study', card?.id)}
+            onOpenEditor={() => openEditor(['duplicates', 'favorites'].includes(currentDeck?.id) ? card.deck_id : currentDeck?.id, card, 'study')}
             onOpenSettings={() => setIsSettingsOpen(true)}
           />
 

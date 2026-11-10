@@ -46,6 +46,13 @@ its active cards in one transaction.
 
 ## Source of truth
 
+- Личная виртуальная подборка `favorites` не создаёт `TMA_Deck`/`TMA_Card`.
+  `deckgrid/FavoritesView.jsx` показывает компактный `FavoritesShortcut` на главной
+  и список оригинальных карточек для активного языка. `useFavorites.js` читает
+  account-scoped Dexie через liveQuery; серверный список — `GET /cards/favorites`.
+  Удалённые/недоступные карточки исключаются сервером. Возврат из study идёт в
+  `favorites` с восстановлением `favoritesScrollTop`; обычные меню колод к ней не применяются.
+
 - `useDeckStore.js` объединяет доменные slices; состояние папок/колод не принадлежит отдельной модалке.
 - `api/models.py`: `TMA_Deck`, `TMA_Folder`, `TMA_Card`, `TMA_Collaborator`; библиотека — `LibraryCategory`, `Deck`, `Card`.
 - `folder_id`, `parent_id`, `position`, `is_deleted` и learning status проверяйте на записи и при фильтрации.

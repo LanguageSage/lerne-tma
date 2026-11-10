@@ -8,8 +8,9 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
-import { isOfflineMode } from '../services/localDb';
+import { isOfflineMode, prepareLocalDb } from '../services/localDb';
 import { syncService } from '../services/syncService';
+import { syncCardFavorites } from '../services/cardFavorites.js';
 import { remapOfflineUi, refreshOfflineUi } from '../services/offlineUi';
 
 export const useAppInitialization = (checkStartParam) => {
@@ -17,6 +18,13 @@ export const useAppInitialization = (checkStartParam) => {
   const { setAdminSettings, setUserPrompts, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
 
   useEffect(() => {
+    const flushFavorites = async () => {
+      const userId = getUserId();
+      if (userId != null && navigator.onLine) {
+        try { await syncCardFavorites(await prepareLocalDb(), userId); }
+        catch { /* Pending favorites remain on this device for the next retry. */ }
+      }
+    };
     const unsubscribeSettingsAccount = useAuthStore.subscribe((state, previous) => {
       if (state.userProfile?.user_id !== previous.userProfile?.user_id
           || state.sessionRevision !== previous.sessionRevision) {
@@ -36,6 +44,7 @@ export const useAppInitialization = (checkStartParam) => {
         useSettingsStore.getState().activateSettingsAccount();
       }
       const profile = getUserProfile();
+      flushFavorites();
       setUserProfile(useAuthStore.getState().userProfile);
 
       // Instant UI restore from cache if available (synchronous)
@@ -91,6 +100,7 @@ export const useAppInitialization = (checkStartParam) => {
     const VISIBILITY_FETCH_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
+        flushFavorites();
         console.log("App became visible, re-checking parameters and auth...");
         useAuthStore.getState().checkPendingSession();
         setTimeout(checkStartParam, 500);
@@ -114,6 +124,7 @@ export const useAppInitialization = (checkStartParam) => {
     const handleOnline = async () => {
       console.log("[Sync] Network online detected. Triggering auto-sync...");
       await useAuthStore.getState().restoreSession();
+      flushFavorites();
       if (isOfflineMode()) {
         syncService.sync().catch(e => console.error("Online event sync failed:", e));
       } else {
@@ -129,6 +140,7 @@ export const useAppInitialization = (checkStartParam) => {
 
     // Periodic background sync every 60 seconds
     const syncInterval = setInterval(() => {
+      flushFavorites();
       if (isOfflineMode() && navigator.onLine) {
         syncService.sync().catch(e => console.error("Periodic sync failed:", e));
       }

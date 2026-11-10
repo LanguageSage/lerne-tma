@@ -14,6 +14,7 @@ import { LocalDesignBadge } from './components/common/LocalDesignBadge';
 import { GlobalLoader } from './components/common/Loader';
 import { GuestBanner } from './components/common/UserBadge';
 import { DeckGrid, CardList, CardEditor, CardCreator } from './components/deckgrid';
+import { FavoritesView } from './components/deckgrid/FavoritesView.jsx';
 import { DeckIntro } from './components/deck/DeckIntro';
 import { StudyView, TrainerView } from './components/study';
 import { 
@@ -167,7 +168,7 @@ function AppContent() {
 
     const isDeepSubView = (view === 'study' || view === 'trainer' || view === 'editor' || view === 'creator');
     const isCardListView = (view === 'cards');
-    const isDeckView = (view === 'deck_intro' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam' || view === 'messages');
+    const isDeckView = (view === 'deck_intro' || view === 'favorites' || view === 'duplicates' || view === 'trash' || view === 'lid' || view === 'lid_exam' || view === 'messages');
     const baseViewLevel = isDeepSubView
       ? folderDepth + 3
       : isCardListView
@@ -221,6 +222,7 @@ function AppContent() {
   
   // Scroll to top on view change
   useEffect(() => {
+    if (view === 'favorites') return;
     if (view === 'duplicates' && useDeckStore.getState().lastDuplicateCardId) {
       return; // Let DuplicateManager handle the scroll
     }
@@ -274,6 +276,8 @@ function AppContent() {
         );
       case 'messages':
         return <MessagesView />;
+      case 'favorites':
+        return <FavoritesView startStudy={startStudy} startStudyCard={startStudyCard} />;
       case 'duplicates':
         return <DuplicateManager />;
       case 'trash':

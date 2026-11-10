@@ -33,6 +33,17 @@
 
 ## Source of truth
 
+- Избранное принадлежит `TMAProgress.want_to_learn` для пары `(user_id, card_id)`;
+  устаревшее поле `TMA_Card.want_to_learn` не определяет избранное читателя.
+  `services/card_favorites.py` + `PUT /cards/{id}/favorite` меняют только личную
+  отметку через upsert, без изменения контента, колоды, SRS или истории.
+  `GET /cards/favorites?target_language=...` возвращает оригинальные активные
+  карточки с проверкой доступных колод и пакетной загрузкой прогресса/авторов/медиа.
+  `common/FavoriteButton.jsx` — контурное/розовое залитое сердечко; в StudyCard
+  оно находится между like/dislike в `CardRating`, в CardList — возле меню.
+  Сохранение сначала идёт в Dexie через `services/cardFavorites.js`, затем через
+  общий authenticated `networkApi`; схема БД не меняется.
+
 - Визуальное отображение `back` и `context` при изучении использует общий `app/src/components/common/MarkdownRenderer.jsx` (`react-markdown` + `remark-gfm`); список карточек отображает Markdown только в переводе. В CardForm это два постоянно открытых textarea «Обратная сторона» и «Контекст» в отдельных рамках `.card-form-text-field`, без сворачивания и предпросмотров; они редактируют исходный текст без преобразования Markdown. HTML в рендерере пропускается, URL фильтрует react-markdown; таблицы прокручиваются внутри поля. `front`, его редактор/маркеры/парсеры, сохранённые данные и глобальный `stripMarkdown()` этим рендерером не изменяются. Регрессии: `scripts/tests/browser/card-markdown.spec.cjs` (семантика, HTML/JS, стили, raw save, список/редактор, 320–430 px, tablet и desktop).
 
 - Исходный текст формы — `cardData.front`; сохранённый текст — `TMA_Card.front_text` в `api/models.py` и запись Dexie.

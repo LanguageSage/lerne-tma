@@ -55,7 +55,8 @@ export const useStudySession = () => {
     const scope = watchRequest();
     const requestToken = {};
     refreshRequests.set(requestKey, requestToken);
-    api.get(`/study/card/${card.id}`).then(({ data }) => {
+    const context = useDeckStore.getState().currentDeck?.id === 'favorites' ? '?review_context=forced' : '';
+    api.get(`/study/card/${card.id}${context}`).then(({ data }) => {
       const latest = useSessionStore.getState();
       // A reset, newer refresh, or grade invalidates this snapshot. Never navigate on refresh.
       if (!data?.id || String(data.id) !== String(card.id) || !scope.isCurrent()
@@ -92,7 +93,18 @@ export const useStudySession = () => {
     const session = useSessionStore.getState();
     session.setApiError(null);
     try {
-      if (deckId === 'duplicates') {
+      if (deckId === 'favorites') {
+        const { deckCards } = useDeckStore.getState();
+        const index = isFirst ? -1 : deckCards.findIndex(c => String(c.id) === String(session.card?.id));
+        const next = deckCards[index + 1];
+        if (next) {
+          session.markForcedSeen(next.id);
+          showLocalCard(next);
+        } else {
+          session.setIsSessionFinished(true);
+          session.setCard(null);
+        }
+      } else if (deckId === 'duplicates') {
         const { duplicateCards } = useDeckStore.getState();
         const currentCard = session.card;
         let nextDuplicateCard = null;
@@ -194,6 +206,7 @@ export const useStudySession = () => {
     if (!session.card || !currentDeck || reviewKey(session) !== renderedReviewKey) return;
 
     const userId = getUserId();
+    const isFavorites = currentDeck.id === 'favorites';
     const card = { ...session.card };
     const key = `${userId}:${card.id}`;
     let complete;
@@ -205,7 +218,7 @@ export const useStudySession = () => {
       .filter(item => item.userId === userId && item.deckId === currentDeck.id).map(item => item.done);
     const nextHistoryIndex = session.historyIndex + 1;
     let localNext = session.studyHistory[nextHistoryIndex];
-    if (!localNext && !session.isLearningMore) {
+    if (!localNext && (!session.isLearningMore || isFavorites)) {
       const cards = currentDeck.id === 'duplicates' ? duplicateCards : deckCards;
       const index = cards.findIndex(item => String(item.id) === String(card.id));
       if (index >= 0) localNext = cards[index + 1];
@@ -213,14 +226,15 @@ export const useStudySession = () => {
     const eventTime = new Date().toISOString();
     const payload = {
       action_id: crypto.randomUUID(),
-      card_id: card.id, deck_id: currentDeck.id, grade, is_extended: Boolean(isExtended),
+      card_id: card.id, deck_id: isFavorites ? card.deck_id : currentDeck.id, grade, is_extended: Boolean(isExtended),
       review_context: session.isLearningMore ? 'forced' : 'scheduled',
       exclude_ids: session.isLearningMore ? [...session.forcedSeenIds] : [],
-      return_next: !localNext
+      return_next: !localNext && !isFavorites
     };
     // Background success may patch progress, but must never navigate after a local transition.
     const scope = watchRequest(!localNext);
     if (localNext) {
+      if (isFavorites) session.markForcedSeen(localNext.id);
       if (nextHistoryIndex < session.studyHistory.length) {
         session.moveToHistory(nextHistoryIndex);
         if (!session.isLearningMore) refreshCard(localNext);
@@ -243,7 +257,7 @@ export const useStudySession = () => {
       if (getUserId() === userId) captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
 
       if (!localNext && scope.isCurrent()) {
-        if (res.data.finished) {
+        if (res.data.finished || isFavorites) {
           session.setIsSessionFinished(true);
           session.setCard(null);
         } else {

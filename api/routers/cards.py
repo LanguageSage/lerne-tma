@@ -7,6 +7,8 @@ from api import services
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_worker
 from api.services.collaborative_service import _require_cards_access
+from pydantic import BaseModel, ConfigDict, StrictBool
+from api.services.card_favorites import get_favorite_cards, set_card_favorite
 
 logger = logging.getLogger(__name__)
 
@@ -14,6 +16,23 @@ router = APIRouter(
     prefix="/cards",
     tags=["cards"],
 )
+
+
+class FavoriteWrite(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    want_to_learn: StrictBool
+
+
+@router.get('/favorites')
+@db_worker(retry_reads=True)
+def list_favorites(target_language: str = 'de', user_id: int = Depends(get_user_id)):
+    return get_favorite_cards(user_id, target_language)
+
+
+@router.put('/{card_id}/favorite')
+@db_worker
+def save_favorite(card_id: int, data: FavoriteWrite, user_id: int = Depends(get_user_id)):
+    return set_card_favorite(card_id, user_id, data.want_to_learn)
 
 
 @router.post("/save")

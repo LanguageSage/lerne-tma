@@ -1,9 +1,9 @@
-import { tr } from '../i18n/locale';
-import { prepareLocalDb, getNextTempId } from './localDb';
-import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
-import { getUserId, getUserProfile } from '../utils/auth';
-import { localMediaURL } from './mediaCache';
-import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
+import { tr } from '../i18n/locale.js';
+import { prepareLocalDb, getNextTempId } from './localDb.js';
+import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine.js';
+import { getUserId, getUserProfile } from '../utils/auth.js';
+import { localMediaURL } from './mediaCache.js';
+import { matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search.js';
 import { writeCardNote } from './cardNotes.js';
 
 export const dirtyFields = () => ({
@@ -188,7 +188,7 @@ export const offlineApi = {
     if (m === 'get' && match) {
       const card = await db.cards.get(Number(match[1]));
       if (!card || card.is_deleted) notFound();
-      return result({ ...await cardView(db, card, userId), deck_stats: await deckStats(db, card.deck_id, userId) });
+      return result({ ...await cardView(db, card, userId, params.get('review_context') === 'forced' ? 'forced' : 'scheduled'), deck_stats: await deckStats(db, card.deck_id, userId) });
     }
     if (m === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)) {
       const allowedGrades = body.is_extended ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3];
@@ -206,7 +206,15 @@ export const offlineApi = {
           if (receipt.fingerprint !== fingerprint) throw new Error('Grade action already used with different data');
           return;
         }
-        const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
+        const cachedProgress = await db.progress.get([id, userId]);
+        // A bookmark can exist without a downloaded SRS snapshot. Never grade it as a new card.
+        if (cachedProgress?.favorite_revision && ['queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index']
+          .some(field => cachedProgress[field] === undefined)) {
+          const error = new Error(tr('Прогресс карточки ещё не сохранён на устройстве. Подключитесь к сети и обновите избранное.'));
+          error.code = 'OFFLINE_PROGRESS_UNAVAILABLE';
+          throw error;
+        }
+        const progress = { ...initialProgress(card, userId), ...cachedProgress };
         const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context), ...dirtyFields() };
         await db.progress.put(updated);
         // Same transaction as progress; every grade survives reload and batch retry.

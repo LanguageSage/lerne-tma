@@ -3,6 +3,7 @@ import { prepareLocalDb, getNextTempId } from './localDb.js';
 import { networkApi } from './networkApi.js';
 import { getAccessToken, getUserId } from '../utils/auth.js';
 import { syncCardNotes } from './cardNotes.js';
+import { syncCardFavorites } from './cardFavorites.js';
 
 const entities = ['folders', 'decks', 'cards', 'progress'];
 const keyFor = (name, item, userId) => name === 'progress' ? [item.card_id, userId] : item.id;
@@ -66,6 +67,7 @@ function payloadFor(batch) {
   for (const name of entities) {
     payload[name] = batch[name].map(item => {
       const copy = { ...item };
+      if (name === 'progress' && item.favorite_revision) delete copy.want_to_learn;
       for (const key of ['metadata', 'tags']) {
         if (copy[key] != null && typeof copy[key] !== 'string') copy[key] = JSON.stringify(copy[key]);
       }
@@ -87,6 +89,8 @@ async function acknowledge(db, batch, mappings) {
         const mapped = name === 'progress'
           ? { ...current, card_id: remap(mappings.cards, current.card_id) }
           : { ...current, id: remap(mappings[name], current.id) };
+        // A persisted older batch may carry a pre-heart bookmark value.
+        if (name === 'progress' && current.favorite_revision && sent.want_to_learn !== current.want_to_learn) mapped.favorite_dirty = 1;
         if (isUnchanged) mapped.is_dirty = 0;
         await db[name].delete(key);
         await db[name].put(mapped);
@@ -129,7 +133,7 @@ async function syncLearningPreferences(db) {
   }
 }
 
-async function applySnapshot(db, data, userId) {
+async function applySnapshot(db, data, userId, favoriteVersions) {
   if (data.status !== 'success' || !entities.every(name => Array.isArray(data[name]))) {
     throw new Error(tr("Некорректный ответ синхронизации"));
   }
@@ -140,12 +144,19 @@ async function applySnapshot(db, data, userId) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)) continue;
-        await db[name].put({ ...item, ...(name === 'progress' ? { user_id: userId } : {}), is_dirty: 0 });
+        const started = name === 'progress' ? favoriteVersions.get(item.card_id) : null;
+        const favorite = name === 'progress' && local && (local.favorite_dirty || started?.dirty
+          || local.favorite_revision !== started?.revision)
+          ? { want_to_learn: local.want_to_learn, favorite_dirty: local.favorite_dirty,
+            favorite_revision: local.favorite_revision } : {};
+        await db[name].put({ ...item, ...(name === 'progress' ? { user_id: userId,
+          favorite_revision: local?.favorite_revision } : {}), ...favorite, is_dirty: 0 });
       }
       // A full snapshot also carries hard deletions and revoked access.
       for (const item of await db[name].toArray()) {
         const id = name === 'progress' ? item.card_id : item.id;
-        if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
+        if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty)
+          && !(name === 'progress' && item.favorite_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
       }
     }
     await db.syncState.put({ key: 'lastSync', time: data.server_time });
@@ -188,8 +199,13 @@ export const syncService = {
         if (getUserId() === userId) window.dispatchEvent(new CustomEvent('lerne:ids-remapped', { detail: { mappings, userId } }));
       }
       await syncLearningPreferences(db);
+      let favoritesPending = false;
+      try { await syncCardFavorites(db, userId); }
+      catch { favoritesPending = true; }
+      const favoriteVersions = new Map((await db.progress.toArray()).map(p => [p.card_id,
+        { revision: p.favorite_revision, dirty: p.favorite_dirty }]));
       const response = await networkApi.get('/sync/v2/pull', options);
-      await applySnapshot(db, response.data, userId);
+      await applySnapshot(db, response.data, userId, favoriteVersions);
       let notesPending = false;
       try { await syncCardNotes(db, userId); }
       catch { notesPending = true; } // Keep annotation errors separate from committed cards/reviews.
@@ -198,7 +214,7 @@ export const syncService = {
         localStorage.setItem('lerne_last_sync_user_id', String(userId));
         window.dispatchEvent(new CustomEvent('lerne:synced', { detail: { userId } }));
       }
-      return { success: true, server_time: response.data.server_time, card_notes_pending: notesPending };
+      return { success: true, server_time: response.data.server_time, card_notes_pending: notesPending, favorites_pending: favoritesPending };
     } catch (error) {
       const reason = error.response?.status === 404
         ? tr("Сервер ещё не обновлён для офлайн-синхронизации. Данные сохранены на устройстве.")

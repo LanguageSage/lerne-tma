@@ -78,7 +78,7 @@ export const useCardEditor = () => {
       let savedCard = (res?.data && res.data.id) ? res.data : data;
       if (data.image_height) {
         savedCard = { ...savedCard, image_height: data.image_height };
-        if (currentDeck?.id) {
+        if (currentDeck?.id && !currentDeck.is_pseudo) {
           try {
             let meta = currentDeck.metadata;
             if (typeof meta === 'string') {
@@ -113,8 +113,14 @@ export const useCardEditor = () => {
 
         const currentDeckState = useDeckStore.getState();
         const targetDeckId = finalDeckId || currentDeckState.currentDeck?.id;
+        const isFavorites = currentDeckState.currentDeck?.id === 'favorites';
+        // A virtual collection contains several decks: never cache its whole list under one source deck.
+        const targetCards = isFavorites
+          ? (currentDeckState.cardsByDeck[targetDeckId] || []).map(card => String(card.id) === String(savedCard.id) ? savedCard : card)
+          : nextCards;
         const updatedCardsByDeck = targetDeckId
-          ? { ...currentDeckState.cardsByDeck, [targetDeckId]: nextCards }
+          ? { ...currentDeckState.cardsByDeck, [targetDeckId]: targetCards,
+            ...(isFavorites ? { favorites: nextCards } : {}) }
           : currentDeckState.cardsByDeck;
 
         const isNewCard = !data.id;
@@ -282,7 +288,7 @@ export const useCardEditor = () => {
         }
       }
       
-      if (currentDeck && currentDeck.id !== 'duplicates') {
+      if (currentDeck && !['duplicates', 'favorites'].includes(currentDeck.id)) {
         fetchDeckCards(currentDeck.id);
       }
       fetchDecks(true);

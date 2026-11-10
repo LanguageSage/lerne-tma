@@ -34,6 +34,7 @@ import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
 import { SearchBar } from '../common/SearchBar';
 import { LearningShortcutsBar } from './LearningShortcutsBar';
+import { FavoritesShortcut } from './FavoritesView.jsx';
 import { matchFolder, matchDeck, getScopedFolders, getScopedDecks } from '../../utils/search';
 import { isLidRootFolder } from '../../services/lidFolderManager';
 import { LidExamCardItem } from '../lid/LidExamCardItem';
@@ -344,6 +345,8 @@ export const DeckGrid = ({
             <CollaboratorPresenceBar collaborators={collaborators} onlineCount={onlineCount} isShared={isShared} />
           </div>
         )}
+
+        {activeFolderId === null && !isSearchActive && <FavoritesShortcut />}
 
         {/* Pulsing shortcuts bar for actively studied decks */}
         {!deckSearchQuery.trim() && (

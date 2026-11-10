@@ -2044,5 +2044,17 @@
   "Вернитесь в браузер, где вы начали вход в Lerne.": "Return to the browser where you started signing in to Lerne.",
   "Открыть в браузере": "Open in browser",
   "Если браузер не открылся, закройте это окно и вернитесь к исходной вкладке Lerne. Вход завершится там.": "If your browser did not open, close this window and return to your original Lerne tab. Sign-in will finish there.",
-  "Открыть в Chrome": "Open in Chrome"
+  "Открыть в Chrome": "Open in Chrome",
+  "Избранное": "Favorites",
+  "Прогресс карточки ещё не сохранён на устройстве. Подключитесь к сети и обновите избранное.": "This card's progress has not been saved on this device yet. Connect to the internet and refresh favorites.",
+  "Колоды и прогресс сохранены. Избранное ожидает синхронизации.": "Decks and progress saved. Favorites are waiting to sync.",
+  "Добавить в избранное": "Add to favorites",
+  "Убрать из избранного": "Remove from favorites",
+  "Повторить избранное": "Review favorites",
+  "Любимые карточки из ваших колод — всё для быстрого повторения.": "Favorite cards from your decks, ready for a quick review.",
+  "Пока нет избранных карточек": "No favorite cards yet",
+  "Нажмите сердечко между лайком и дизлайком на карточке, чтобы сохранить её здесь.": "Tap the heart between like and dislike on a card to save it here.",
+  "Избранное сохранено на устройстве. Синхронизируем при подключении.": "Favorites saved on this device. They will sync when connected.",
+  "Не удалось сохранить избранное. Повторите попытку.": "Could not save favorites. Please try again.",
+  "Не удалось обновить избранное. Сохранённые карточки доступны на устройстве.": "Could not refresh favorites. Saved cards are available on this device."
 }

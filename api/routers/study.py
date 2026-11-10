@@ -98,11 +98,13 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
         "interval": interval,
         "ease_factor": ease_factor,
         "repetitions": repetitions,
+        "step_index": getattr(progress, 'step_index', 0),
         "audio_path": card.audio_path,
         "audio_back_path": card.audio_back_path,
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "flag": int(getattr(progress, 'flag', 0) or 0),
+        "want_to_learn": bool(getattr(progress, 'want_to_learn', False)),
         "deck_id": card.deck_id,
         "deck_name": deck.name if deck else None,
         "deck_metadata": deck_metadata,
@@ -232,7 +234,7 @@ def get_study_stats(user_id: int = Depends(get_user_id)):
 
 @router.get("/study/card/{card_id}")
 @db_worker(retry_reads=True)
-def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
+def get_study_card(card_id: int, user_id: int = Depends(get_user_id), review_context: Literal['scheduled', 'forced'] = 'scheduled'):
     """Возвращает конкретную карту для изучения."""
     card = models.TMA_Card.get_or_none((models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
     if not card:
@@ -244,7 +246,7 @@ def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
         user_id=user_id,
         defaults={"queue": "new", "next_review": models.datetime.datetime.now()}
     )
-    return _card_to_response(card, progress, user_id)
+    return _card_to_response(card, progress, user_id, review_context)
 
 @router.get("/decks/{deck_id}/next")
 @db_worker(retry_reads=True)

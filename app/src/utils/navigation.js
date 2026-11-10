@@ -10,7 +10,7 @@ export const returnToDeckIntro = () => {
   session.stopAutoplay();
   session.resetSession();
   const ui = useUiStore.getState();
-  ui.setView('deck_intro');
+  ui.setView(useDeckStore.getState().currentDeck?.id === 'favorites' ? 'favorites' : 'deck_intro');
 };
 
 export const returnToStudyTheme = () => {
@@ -93,7 +93,7 @@ export const navigateUp = () => {
         uiState.setLastSelectedCardId(activeCardId);
       }
     }
-    const targetView = deckState.currentDeck?.id === 'duplicates' 
+    const targetView = deckState.currentDeck?.id === 'favorites' ? 'favorites' : deckState.currentDeck?.id === 'duplicates'
       ? 'duplicates' 
       : (uiState.studySourceView === 'cards' ? 'cards' : 'deck_intro');
     uiState.setView(targetView);
@@ -144,7 +144,7 @@ export const navigateUp = () => {
     return true;
   }
 
-  if (uiState.view === 'duplicates' || uiState.view === 'trash') {
+  if (uiState.view === 'favorites' || uiState.view === 'duplicates' || uiState.view === 'trash') {
     uiState.setActiveFolderId(null);
     uiState.setView('decks');
     return true;

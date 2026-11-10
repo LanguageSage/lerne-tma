@@ -5,6 +5,7 @@ import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import { GripHorizontal, ChevronDown, ChevronUp, Check } from 'lucide-react';
 import { CardActionButton } from '../modals/CardActionModal';
+import { FavoriteButton } from '../common/FavoriteButton.jsx';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
 import { useUiStore } from '../../store/useUiStore';
@@ -154,6 +155,7 @@ export const DraggableCardItem = React.memo(({
         </div>
 
         <div className="card-item-footer-right">
+          {!isSelectMode && <FavoriteButton card={c} />}
           {typeof index === 'number' && (
             <span className="card-item-corner-number">
               {index + 1}
