@@ -45,6 +45,9 @@ def require_generation(expected):
 def mark_database_restored(database):
     """Call before reopening an explicitly restored database to clients."""
     marker = str(uuid4())
-    database.execute_sql('INSERT INTO tmasetting (key,value) VALUES (%s,%s) '
-                         'ON CONFLICT (key) DO UPDATE SET value=EXCLUDED.value', (RESTORE_KEY, marker))
+    database.execute_sql(
+        'INSERT INTO tmasetting (key, value, updated_at) VALUES (%s, %s, CURRENT_TIMESTAMP) '
+        'ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at',
+        (RESTORE_KEY, marker)
+    )
     return marker
