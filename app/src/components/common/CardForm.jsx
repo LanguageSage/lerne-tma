@@ -5,7 +5,7 @@ import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, 
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { StructuredCardFields } from './StructuredCardFields';
-import './CardContentEditor.css';
+import './CardForm.css';
 import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
 import { studySideText } from '../../utils/structuredStudyCard';
 import { getResolvedStyle } from '../../utils/style';
@@ -70,7 +70,7 @@ export const CardForm = ({
     try { parseCardSource(source); }
     catch (error) { sourceError = error.message; }
   }
-  
+
   const backRef = useRef(null);
   const contextRef = useRef(null);
   const videoFrontRef = useRef(null);
@@ -185,20 +185,20 @@ export const CardForm = ({
         </button>
       </div>}
       <div hidden={source !== null}>
-      
+
       {isCreator && (
         <div className="form-group" style={{ marginBottom: '8px' }}>
           <label className="sub-label" style={{ marginBottom: '4px', fontSize: '0.75rem', opacity: 0.7 }}>{tr("ВЫБЕРИТЕ КОЛОДУ")}</label>
-          <select 
-            className="form-input" 
-            value={cardData.deck_id || ''} 
+          <select
+            className="form-input"
+            value={cardData.deck_id || ''}
             onChange={(e) => setCardData({...cardData, deck_id: parseInt(e.target.value)})}
-            style={{ 
-              width: '100%', 
-              padding: '8px 12px', 
-              borderRadius: '10px', 
-              background: '#1e293b', 
-              color: '#ffffff', 
+            style={{
+              width: '100%',
+              padding: '8px 12px',
+              borderRadius: '10px',
+              background: '#1e293b',
+              color: '#ffffff',
               border: '1px solid rgba(255,255,255,0.1)',
               fontSize: '0.9rem',
               fontWeight: '500'
@@ -215,9 +215,9 @@ export const CardForm = ({
       <details className="card-form-secondary">
         <summary>{tr("Медиа и оформление")}</summary>
       {/* FLAG COLOR SELECTOR */}
-      <FlagPicker 
-        value={cardData.flag} 
-        onChange={(flagId) => setCardData({ ...cardData, flag: flagId })} 
+      <FlagPicker
+        value={cardData.flag}
+        onChange={(flagId) => setCardData({ ...cardData, flag: flagId })}
       />
 
       {/* Toolbar / Header Actions */}
@@ -231,9 +231,9 @@ export const CardForm = ({
           <ImageIcon size={18} />
           <span>{tr("Картинка")}</span>
         </button>
-        <button 
+        <button
           type="button"
-          className="form-toolbar-btn btn-audio" 
+          className="form-toolbar-btn btn-audio"
           onClick={() => onGenerateAudio(cardData, setCardData, playAudio)}
           disabled={loading}
           title={tr("Озвучить")}
@@ -247,11 +247,11 @@ export const CardForm = ({
       </details>
 
       <div className="form-group">
-        <div 
-          id="tut-creator-front" 
+        <div
+          id="tut-creator-front"
           className="card-preview-container glass card-front"
-          style={{ 
-            position: 'relative', 
+          style={{
+            position: 'relative',
             borderRadius: '12px',
             display: 'flex',
             flexDirection: 'column',
@@ -259,7 +259,7 @@ export const CardForm = ({
           }}
         >
           <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={cardData.id} />
-          
+
           <div className="card-preview-body" style={{ padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
             <StructuredCardFields card={content} update={update} isCreator={isCreator} textStyle={v2Styles.frontText} />
           </div>
@@ -353,22 +353,22 @@ export const CardForm = ({
           })()}
 
           {/* Dedicated Footer: Level Badge + Manual Override Controls + Audio Button */}
-          <div 
+          <div
             className="card-preview-footer"
-            style={{ 
-              display: 'flex', 
-              alignItems: 'center', 
+            style={{
+              display: 'flex',
+              alignItems: 'center',
               justifyContent: 'space-between',
               padding: '4px 8px 6px 8px',
-              position: 'relative', 
-              zIndex: 15, 
+              position: 'relative',
+              zIndex: 15,
               pointerEvents: 'auto',
               gap: '6px',
               marginTop: 'auto'
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', flexWrap: 'wrap' }}>
-              <div 
+              <div
                 style={{
                   opacity: isClassifyingLevel ? 0 : 1,
                   transform: isClassifyingLevel ? 'scale(0.8)' : 'scale(1)',
@@ -377,10 +377,10 @@ export const CardForm = ({
                 }}
                 title={tr("Нажмите для автоматического пересчета уровня")}
               >
-                <CardLevelBadge 
-                  card={cardData} 
-                  size="sm" 
-                  onClick={handleReclassifyLevel} 
+                <CardLevelBadge
+                  card={cardData}
+                  size="sm"
+                  onClick={handleReclassifyLevel}
                 />
               </div>
 
@@ -435,7 +435,7 @@ export const CardForm = ({
                   onClick={(e) => e.stopPropagation()}
                 >
                   <div style={{ fontSize: '0.68rem', color: 'rgba(255, 255, 255, 0.55)', padding: '2px 6px', fontWeight: 600 }}>{tr("Уровень сложности:")}{' '}</div>
-                  
+
                   <button
                     type="button"
                     onClick={() => handleSelectManualLevel('auto')}
@@ -627,10 +627,10 @@ export const CardForm = ({
             {(cardData.video_front_url || cardData.video_front_path) && (
               <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
                 <video src={cardData.video_front_url || `/api/media/${cardData.video_front_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <button 
+                <button
                   type="button"
-                  className="image-clear-btn" 
-                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }} 
+                  className="image-clear-btn"
+                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setCardData({...cardData, video_front_path: '', video_front_url: ''});
@@ -649,10 +649,10 @@ export const CardForm = ({
             {(cardData.video_back_url || cardData.video_back_path) && (
               <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
                 <video src={cardData.video_back_url || `/api/media/${cardData.video_back_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <button 
+                <button
                   type="button"
-                  className="image-clear-btn" 
-                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }} 
+                  className="image-clear-btn"
+                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }}
                   onClick={(e) => {
                     e.stopPropagation();
                     setCardData({...cardData, video_back_path: '', video_back_url: ''});
@@ -671,7 +671,7 @@ export const CardForm = ({
       </details>
 
       {/* MODALS FOR CAMERA / IMAGE PICKER */}
-      <MediaPicker 
+      <MediaPicker
         isOpen={isImagePickerOpen}
         onClose={() => setIsImagePickerOpen(false)}
         onImageUpload={(file) => uploadCreatorImage(file, cardData, setCardData)}

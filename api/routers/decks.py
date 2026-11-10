@@ -8,7 +8,7 @@ from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api.permissions import is_admin
 from api.services.collaborative_service import _require_can_mutate
-from api.routers.card_text_update_models import TextUpdateCard, TextUpdatePreviewRequest, TextUpdateApplyRequest
+from api.routers.card_text_update_models import TextUpdatePreviewRequest, TextUpdateApplyRequest
 from api.services.card_text_update import preview_text_update, apply_text_update
 
 
@@ -25,7 +25,7 @@ router = APIRouter(
 def get_decks(user_id: int = Depends(get_user_id)):
     logger.info(f"GET /api/decks - authenticated account: {user_id}")
     return services.get_active_decks(user_id)
-    
+
 @router.post("")
 @db_worker
 def create_deck(data: dict, user_id: int = Depends(get_user_id)):
@@ -77,7 +77,7 @@ def rename_deck(deck_id: int, data: dict, user_id: int = Depends(get_user_id)):
     if not name or not name.strip():
         raise HTTPException(status_code=400, detail="Name cannot be empty")
     _require_can_mutate(user_id, 'deck', deck_id)
-    
+
     try:
         updated_deck = services.rename_deck(deck_id, name.strip(), user_id)
         if updated_deck:
@@ -112,7 +112,7 @@ def reset_deck(deck_id: int, user_id: int = Depends(get_user_id)):
 @router.get("/{deck_id}/cards")
 @db_worker(retry_reads=True)
 def get_deck_cards(deck_id: int, user_id: int = Depends(get_user_id)):
-    return services.get_cards_for_study(deck_id, user_id, native_only=True)
+    return services.get_cards_for_study(deck_id, user_id)
 
 
 @router.post("/{deck_id}/text-update/preview")
@@ -240,7 +240,7 @@ def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_us
                 try:
                     parsed_meta = json.loads(raw_meta)
                 except Exception: pass
-            
+
             resolved_resources = []
             for res in parsed_meta.get('resources', []):
                 res_type = res.get('type')
@@ -262,5 +262,3 @@ def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_us
         raise HTTPException(status_code=404, detail="Deck not found or access denied")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-

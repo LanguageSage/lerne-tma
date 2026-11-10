@@ -331,7 +331,7 @@ class DbWorkerTests(unittest.TestCase):
 
     def test_study_does_not_start_tts_and_preserves_forced_selection(self):
         async def exercise(client):
-            with patch.object(services, 'ensure_card_audio', new_callable=AsyncMock) as tts:
+            with patch('api.utils.audio.generate_audio', new_callable=AsyncMock) as tts:
                 first = await client.get(f'/api/decks/{self.deck.id}/next?learn_more=true')
                 self.assertEqual(first.json()['id'], self.card.id)
                 self.assertIsNone(first.json()['audio_url'])
@@ -343,14 +343,12 @@ class DbWorkerTests(unittest.TestCase):
 
     def test_native_save_commits_without_implicit_tts(self):
         async def exercise(client):
-            with patch.object(services, 'ensure_card_audio', new_callable=AsyncMock) as legacy_tts, \
-                 patch('api.utils.audio.generate_audio', new_callable=AsyncMock) as native_tts:
+            with patch('api.utils.audio.generate_audio', new_callable=AsyncMock) as native_tts:
                 response = await client.post('/api/cards/save', json={'deck_id': self.deck.id,
                     'content_v2': content('Saved snapshot'), 'request_id': str(uuid4())})
                 self.assertEqual(response.status_code, 200, response.text)
                 self.assertIsNone(response.json()['audio_url'])
                 self.assertEqual(response.json()['content_v2']['card']['data']['prompt'], 'Saved snapshot')
-                legacy_tts.assert_not_called()
                 native_tts.assert_not_called()
         self.run_asgi(exercise)
 
@@ -384,7 +382,7 @@ class DbWorkerTests(unittest.TestCase):
                 self.assertEqual(generated.status_code, 200, generated.text)
                 tts.assert_awaited_once()
                 self.assertEqual(tts.call_args.args[0], 'Changed')
-                self.assertTrue(tts.call_args.kwargs['structured'])
+                self.assertNotIn('structured', tts.call_args.kwargs)
                 self.assertTrue(tts.call_args.kwargs['force'])
                 removed = await client.patch(f'/api/cards/{self.card.id}', json={'content_v2': content('Changed again'),
                     'audio_path': None, 'revision': generated.json()['revision'], 'request_id': str(uuid4())})

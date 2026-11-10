@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { findQuizOptionStart, parseQuizData } from '../quizParser.js';
 import { detectCardType, detectExerciseType } from '../exerciseDetector.js';
-import { projectEditorFields, replaceEditorRange, setQuizOptionCorrect } from '../cardEditorSyntax.js';
+
 
 const question = 'Wähle die passende Fortsetzung.\n\nDer Bus hatte eine Panne.\nWir kamen zu spät.\n\n\nWelche Aussage passt?';
 const answers = ['Wir kamen pünktlich.', 'Wir kamen wegen einer Panne zu spät.', 'Wir blieben zu Hause.'];
@@ -21,10 +21,9 @@ test('explicit Quiz supports a question in information blocks without repeating 
       assert.equal(quiz.correctAnswerText, 'Ein Forum');
       assert.deepEqual([...quiz.options].sort((a, b) => a.id - b.id).map(option => option.text),
         ['Ein Brief', 'Ein Forum', 'Eine E-Mail']);
-      const fields = projectEditorFields(front);
-      assert.deepEqual(fields.filter(field => field.kind === 'quiz-option').map(field => field.display),
-        ['Ein Brief', 'Ein Forum', 'Eine E-Mail']);
-      for (const field of fields) assert.equal(replaceEditorRange(front, field.start, field.end, field.value), front);
+
+
+
     }
   }
   for (const body of ['[*] Nur eine Antwort', '[ ] Eins\n[ ] Zwei', '[*] Eins\nErklärung\n[ ] Zwei']) {
@@ -58,12 +57,12 @@ for (const fixture of boundaries.examples) {
         assert.deepEqual([...parsed.options].sort((a, b) => a.id - b.id), fixture.answers.map((text, id) => ({
           id, text, isCorrect: id === fixture.correct,
         })));
-        const fields = projectEditorFields(front);
-        const questionField = fields.find(field => field.sectionType === 'quiz');
-        assert.equal(questionField.value, fixture.question.replace(/\n/g, newline));
-        assert.equal(questionField.display.replace(/\r\n/g, '\n'), parsed.question);
-        assert.deepEqual(fields.filter(field => field.kind === 'quiz-option').map(field => field.display), fixture.answers);
-        for (const field of fields) assert.equal(replaceEditorRange(front, field.start, field.end, field.value), front);
+
+
+
+
+
+
       });
     }
   }
@@ -73,9 +72,9 @@ for (const front of boundaries.ambiguous) {
   test(`ambiguous Quiz keeps source instead of guessing options: ${JSON.stringify(front)}`, () => {
     assert.equal(findQuizOptionStart(front.split('\n')), -1);
     assert.equal(parseQuizData({ front }), null);
-    const fields = projectEditorFields(front);
-    assert.ok(fields === null || fields.every(field => field.kind !== 'quiz-option'));
-    if (fields) assert.equal(fields.map(field => field.value).join(''), front);
+
+
+
   });
 }
 
@@ -122,9 +121,9 @@ for (const [index, fixture] of b1Cases.entries()) {
         return starBeforeLetter ? `*${label}${text}` : `${label}*${text}`;
       });
       const front = `::task\n${fixture.task}\n::exercise\n${fixture.question}\n\n${options.join('\n')}`;
-      const fields = projectEditorFields(front);
+
       const parsed = parseQuizData({ front });
-      assert.equal(fields.find(field => field.sectionType === 'quiz').value, fixture.question);
+
       assert.equal(parsed.question, fixture.question);
       assert.deepEqual([...parsed.options].sort((a, b) => a.id - b.id), fixture.answers.map((text, id) => ({
         id, text, isCorrect: id === fixture.correct,
@@ -150,7 +149,7 @@ for (const [format, options] of formats) {
     test(`quiz preserves a whole ${format} block with blank lines between answers`, () => {
       const front = `${question}\n\n${options.join('\n\n')}`;
       assert.equal(parseQuizData({ front }).question, question);
-      assert.deepEqual(projectEditorFields(front).filter(field => field.kind === 'quiz-option').map(field => field.display.replace(/^\*/, '')), answers);
+
     });
   }
   for (const newline of ['\n', '\r\n']) {
@@ -175,11 +174,11 @@ for (const options of [
 ]) {
   test(`quiz uses the same question boundary as the editor: ${options[0]}`, () => {
     const front = `${question}\n${options.join('\n')}`;
-    const fields = projectEditorFields(front);
-    assert.ok(fields);
-    assert.equal(fields[0].value, question);
+
+
+
     const parsed = parseQuizData({ front_text: front });
-    assert.equal(parsed.question, fields[0].value);
+
     assert.deepEqual(parsed.options.map(option => option.text).sort(), [...answers].sort());
     assert.equal(parsed.correctAnswerText, answers[1]);
   });
@@ -217,19 +216,12 @@ test('editor and study share Quiz text formatting, checkbox markers and literal 
   for (const newline of ['\n', '\r\n']) {
     const front = ['**Welche Stadt** [in Deutschland] ?', '',
       '[*] Berlin ist *richtig* [Hauptstadt] .', '[ ] **Bonn** [früher] .', '[x] Hamburg *heute* .'].join(newline);
-    const fields = projectEditorFields(front);
+
     const parsed = parseQuizData({ front });
-    assert.equal(fields[0].display, parsed.question);
+
     assert.equal(parsed.question, 'Welche Stadt [in Deutschland]?');
-    const options = fields.filter(field => field.kind === 'quiz-option');
-    assert.deepEqual(options.map(field => field.correct), [true, false, false]);
-    for (const [index, option] of options.entries()) {
-      const studyOption = parsed.options.find(item => item.id === index);
-      const updated = replaceEditorRange(front, option.start, option.end, setQuizOptionCorrect(option, !option.correct));
-      assert.equal(updated, front.replace(option.value, option.value.replace(/\[[*xX ]\]/, option.correct ? '[ ]' : '[*]')));
-      assert.equal(studyOption.isCorrect, option.correct);
-      assert.equal(option.prefix + option.display, option.value);
-    }
+
+    assert.deepEqual([...parsed.options].sort((a, b) => a.id - b.id).map(option => option.isCorrect), [true, false, false]);
     assert.deepEqual([...parsed.options].sort((a, b) => a.id - b.id).map(option => option.text),
       ['Berlin ist richtig [Hauptstadt].', 'Bonn [früher].', 'Hamburg heute.']);
   }
@@ -239,27 +231,14 @@ test('bold answer text is formatting and does not mark an answer correct', () =>
   for (const prefix of ['A) ', '- ', '○ ', '• ', '[ ] ']) {
     const front = `**Wo** ?\n\n${prefix}**Bonn** [früher]\n*Berlin`;
     const parsed = parseQuizData({ front });
-    const options = projectEditorFields(front).filter(field => field.kind === 'quiz-option');
+
     assert.equal(parsed.correctAnswerText, 'Berlin');
     assert.equal(parsed.options.find(option => option.id === 0).text, 'Bonn [früher]');
-    assert.equal(options[0].correct, false);
-    assert.equal(options[0].display, '**Bonn** [früher]');
-    const changed = replaceEditorRange(front, options[0].start, options[0].end, setQuizOptionCorrect(options[0], true));
-    assert.equal(parseQuizData({ front: changed }).options.find(option => option.id === 0).isCorrect, true);
-    assert.equal(parseQuizData({ front: changed }).options.find(option => option.id === 0).text, 'Bonn [früher]');
+    assert.equal(parsed.options.find(option => option.id === 0).isCorrect, false);
   }
 });
 
-test('editor includes legacy unprefixed answers before a starred answer like study', () => {
-  for (const newline of ['\n', '\r\n']) {
-    const front = ['**Wo** ?', '', 'Bonn', '*Berlin', 'Hamburg'].join(newline);
-    const fields = projectEditorFields(front);
-    assert.equal(fields[0].display, parseQuizData({ front }).question);
-    assert.equal(fields[0].value, '**Wo** ?');
-    assert.deepEqual(fields.slice(1).map(field => field.display), ['Bonn', 'Berlin', 'Hamburg']);
-    for (const field of fields) assert.equal(replaceEditorRange(front, field.start, field.end, field.value), front);
-  }
-});
+
 
 test('B1-29-D02 compact A)Text labels preserve the full question and both answer notations', () => {
   const fixture = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/quiz_compact_labels.json', import.meta.url), 'utf8'));
@@ -274,11 +253,11 @@ test('B1-29-D02 compact A)Text labels preserve the full question and both answer
     });
     const front = `::exercise\n${question}\n\n${answers.join('\n')}`;
     const parsed = parseQuizData({ front });
-    const fields = projectEditorFields(front);
+
     assert.equal(parsed.question, question);
     assert.deepEqual(parsed.options.map(option => option.text).sort(), [...fixture.answers].sort());
     assert.equal(parsed.correctAnswerText, fixture.answers[fixture.correct]);
-    assert.equal(fields[0].value, question);
-    assert.deepEqual(fields.filter(field => field.kind === 'quiz-option').map(field => field.display), fixture.answers);
+
+
   }
 });

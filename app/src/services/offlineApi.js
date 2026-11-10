@@ -73,6 +73,7 @@ async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreate
 }
 
 async function queueCardMove(db, body, isCurrent, copy = false) {
+  if (!body?.revisions) throw unsupported();
   const ids = body.card_ids;
   const targetId = body.target_deck_id;
   if (!ids?.length || new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
@@ -300,23 +301,12 @@ async function requireContentWrite(db, entity, item) {
   if (isContentReadOnly(owner)) readOnly();
 }
 
-export const normalizeCardKey = (text) => {
-  if (!text) return '';
-  // Comparison only: retain Unicode letters, marks and numbers (including ä/ß).
-  // Final NFKC composes marks introduced by filtering/lowercase, e.g. J + caron.
-  return String(text).normalize('NFKC').replace(/[^\p{L}\p{M}\p{N}]+/gu, '').toLowerCase().normalize('NFKC');
-};
-
 async function cardView(db, card, userId, reviewContext = 'scheduled') {
   const progress = await db.progress.get([card.id, userId]);
-  const metadata = jsonObject(card.metadata);
   const content = card.content_v2?.card;
+  if (!content) notFound();
   return {
-    ...await cardMediaView(db, card), ...(content ? { level: content.level } : {
-      front: card.front_text, back: card.back_text,
-      card_type: card.card_type || 'standard', metadata, cefr: metadata.cefr,
-      level: card.level || metadata.cefr?.level,
-    }),
+    ...await cardMediaView(db, card), level: content.level,
     intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress?.lapses || 0),
     next_review: progress?.next_review, last_reviewed: progress?.last_reviewed,
     queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
@@ -328,7 +318,7 @@ async function cardView(db, card, userId, reviewContext = 'scheduled') {
 async function deckCards(db, deckId) {
   const deck = await db.decks.get(deckId);
   if (!deck || deck.is_deleted) notFound();
-  return ordered(await db.cards.where('deck_id').equals(deckId).filter(c => !c.is_deleted).toArray());
+  return ordered(await db.cards.where('deck_id').equals(deckId).filter(c => c.content_v2 && !c.is_deleted).toArray());
 }
 
 async function deckStats(db, deckId, userId) {
@@ -500,207 +490,13 @@ export const offlineApi = {
       const nextParams = new URLSearchParams({ exclude_ids: exclude.join(','), review_context: context });
       return nextCard(db, card.deck_id, userId, nextParams);
     }
-    if (m === 'post' && url === '/cards/save') {
-      if (Object.hasOwn(body, 'content_v2')) return saveNativeCard(db, body, config, userId);
-      return db.transaction('rw', db.cards, db.decks, db.progress, async () => {
-        const id = Number(body.card_id || body.id) || getNextTempId();
-        const previous = await db.cards.get(id);
-        const deckId = Number(body.deck_id || previous?.deck_id);
-        const deck = await db.decks.get(deckId);
-        if (!deck || deck.is_deleted) notFound();
-        await requireContentWrite(db, 'decks', deck);
-        if (previous) await requireContentWrite(db, 'cards', previous);
-        const siblings = await db.cards.where('deck_id').equals(deckId).toArray();
-        const card = { ...previous, id, deck_id: deckId,
-          front_text: body.front ?? body.front_text ?? previous?.front_text ?? '',
-          back_text: body.back ?? body.back_text ?? previous?.back_text ?? '',
-          created_at: previous?.created_at || new Date().toISOString(),
-          position: previous?.position ?? Math.max(-1, ...siblings.map(c => c.position || 0)) + 1, ...dirtyFields(previous) };
-        for (const key of ['context', 'level', 'tags', 'card_type', 'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path']) {
-          if (Object.hasOwn(body, key)) card[key] = body[key];
-        }
-        if (body.cefr) card.metadata = { ...jsonObject(previous?.metadata), cefr: body.cefr };
-        await db.cards.put(card);
-        let progress = await db.progress.get([id, userId]);
-        if (Object.hasOwn(body, 'flag')) {
-          progress = { ...(progress || initialProgress(card, userId)), flag: Number(body.flag) || 0, ...dirtyFields(progress) };
-          await db.progress.put(progress);
-        }
-        return result({ ...card, front: card.front_text, back: card.back_text, flag: progress?.flag ?? card.flag ?? 0 });
-      });
-    }
-    if (m === 'post' && url === '/cards/batch-move') {
-      if (body.revisions) {
-        return queueCardMove(db, body, () => userId === getUserId() && identity === getSessionIdentity());
-      }
-      const targetDeckId = Number(body.target_deck_id);
-      const cardIds = (body.card_ids || []).map(Number);
-      const onDuplicate = body.on_duplicate || 'skip';
-      return db.transaction('rw', db.cards, db.decks, async () => {
-        const targetDeck = await db.decks.get(targetDeckId);
-        if (!targetDeck || targetDeck.is_deleted) notFound();
-        await requireContentWrite(db, 'decks', targetDeck);
-        const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
-        const existingByFront = new Map();
-        for (const c of siblings) {
-          const key = normalizeCardKey(c.front_text || c.front);
-          if (key) existingByFront.set(key, c);
-        }
-        let maxPos = siblings.reduce((max, c) => Math.max(max, c.position || 0), 0);
-        let movedCount = 0;
-        let updatedCount = 0;
-        let skippedCount = 0;
-
-        for (let idx = 0; idx < cardIds.length; idx++) {
-          const cid = cardIds[idx];
-          const card = await db.cards.get(cid);
-          if (card?.content_v2) throw unsupported();
-          if (card && !card.is_deleted && card.deck_id !== targetDeckId) {
-            await requireContentWrite(db, 'cards', card);
-            const frontKey = normalizeCardKey(card.front_text || card.front);
-            const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
-            if (existingMatch && onDuplicate === 'skip') {
-              skippedCount += 1;
-              continue;
-            }
-            if (existingMatch && onDuplicate === 'overwrite') {
-              const updatedPos = idx + 1;
-              await db.cards.put({
-                ...existingMatch,
-                front_text: card.front_text || card.front || '',
-                front: card.front_text || card.front || '',
-                back_text: card.back_text || card.back || '',
-                back: card.back_text || card.back || '',
-                card_type: card.card_type || existingMatch.card_type || 'standard',
-                context: card.context || '',
-                image_path: card.image_path || existingMatch.image_path,
-                audio_path: card.audio_path || existingMatch.audio_path,
-                audio_back_path: card.audio_back_path || existingMatch.audio_back_path,
-                video_front_path: card.video_front_path || existingMatch.video_front_path,
-                video_back_path: card.video_back_path || existingMatch.video_back_path,
-                tags: card.tags || existingMatch.tags,
-                metadata: card.metadata || existingMatch.metadata,
-                position: updatedPos,
-                ...dirtyFields(existingMatch)
-              });
-              await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields(card) });
-              updatedCount += 1;
-              continue;
-            }
-
-            let cardPos;
-            if (maxPos === 0 && siblings.length === 0) {
-              cardPos = (card.position !== undefined && card.position > 0) ? card.position : (idx + 1);
-            } else {
-              maxPos += 1;
-              cardPos = maxPos;
-            }
-
-            await db.cards.put({ ...card, deck_id: targetDeckId, position: cardPos, ...dirtyFields(card) });
-            movedCount += 1;
-            if (frontKey) existingByFront.set(frontKey, card);
-          }
-        }
-        return success({ count: movedCount + updatedCount, moved: movedCount, updated: updatedCount, skipped: skippedCount });
-      });
-    }
-    if (m === 'post' && url === '/cards/batch-copy') {
-      if (body.revisions) return queueCardMove(db, body, isCurrent, true);
-      const targetDeckId = Number(body.target_deck_id);
-      const cardIds = (body.card_ids || []).map(Number);
-      const onDuplicate = body.on_duplicate || 'skip';
-      return db.transaction('rw', db.cards, db.decks, async () => {
-        const targetDeck = await db.decks.get(targetDeckId);
-        if (!targetDeck || targetDeck.is_deleted) notFound();
-        await requireContentWrite(db, 'decks', targetDeck);
-        const siblings = await db.cards.where('deck_id').equals(targetDeckId).filter(c => !c.is_deleted).toArray();
-        const existingByFront = new Map();
-        for (const c of siblings) {
-          const key = normalizeCardKey(c.front_text || c.front);
-          if (key) existingByFront.set(key, c);
-        }
-        let maxPos = siblings.reduce((max, c) => Math.max(max, c.position || 0), 0);
-        let createdCount = 0;
-        let updatedCount = 0;
-        let skippedCount = 0;
-
-        for (let idx = 0; idx < cardIds.length; idx++) {
-          const cid = cardIds[idx];
-          const card = await db.cards.get(cid);
-          if (card?.content_v2) throw unsupported();
-          if (card && !card.is_deleted) {
-            await requireContentWrite(db, 'cards', card);
-            const frontKey = normalizeCardKey(card.front_text || card.front);
-            const existingMatch = frontKey ? existingByFront.get(frontKey) : null;
-            if (existingMatch && onDuplicate === 'skip') {
-              skippedCount += 1;
-              continue;
-            }
-            if (existingMatch && onDuplicate === 'overwrite') {
-              const updatedPos = idx + 1;
-              await db.cards.put({
-                ...existingMatch,
-                front_text: card.front_text || card.front || '',
-                front: card.front_text || card.front || '',
-                back_text: card.back_text || card.back || '',
-                back: card.back_text || card.back || '',
-                card_type: card.card_type || existingMatch.card_type || 'standard',
-                context: card.context || '',
-                image_path: card.image_path || existingMatch.image_path,
-                audio_path: card.audio_path || existingMatch.audio_path,
-                audio_back_path: card.audio_back_path || existingMatch.audio_back_path,
-                video_front_path: card.video_front_path || existingMatch.video_front_path,
-                video_back_path: card.video_back_path || existingMatch.video_back_path,
-                tags: card.tags || existingMatch.tags,
-                metadata: card.metadata || existingMatch.metadata,
-                position: updatedPos,
-                ...dirtyFields(existingMatch)
-              });
-              updatedCount += 1;
-              continue;
-            }
-
-            let cardPos;
-            if (maxPos === 0 && siblings.length === 0) {
-              cardPos = (card.position !== undefined && card.position > 0) ? card.position : (idx + 1);
-            } else {
-              maxPos += 1;
-              cardPos = maxPos;
-            }
-
-            const newId = getNextTempId();
-            const newCard = {
-              ...card,
-              id: newId,
-              deck_id: targetDeckId,
-              position: cardPos,
-              created_at: new Date().toISOString(),
-              ...dirtyFields()
-            };
-            await db.cards.put(newCard);
-            createdCount += 1;
-            if (frontKey) existingByFront.set(frontKey, newCard);
-          }
-        }
-        return success({ count: createdCount + updatedCount, created: createdCount, updated: updatedCount, skipped: skippedCount });
-      });
-    }
+    if (m === 'post' && url === '/cards/save') return saveNativeCard(db, body, config, userId);
+    if (m === 'post' && url === '/cards/batch-move') return queueCardMove(db, body, isCurrent);
+    if (m === 'post' && url === '/cards/batch-copy') return queueCardMove(db, body, isCurrent, true);
     if (m === 'post' && url === '/cards/batch-delete') {
       const cardIds = (body.card_ids || []).map(Number);
-      if (body.revisions) return cardIds.length === 1
-        ? queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent)
+      return cardIds.length === 1 ? queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent)
         : queueCardSelection(db, body, 'delete', isCurrent);
-      return db.transaction('rw', db.cards, db.decks, async () => {
-        for (const cid of cardIds) {
-          const card = await db.cards.get(cid);
-          if (card) {
-            if (card.content_v2) throw unsupported();
-            await requireContentWrite(db, 'cards', card);
-            await db.cards.put({ ...card, is_deleted: 1, ...dirtyFields(card) });
-          }
-        }
-        return success({ count: cardIds.length });
-      });
     }
     match = url.match(/^\/(decks|folders)$/);
     if (m === 'post' && match) {
@@ -718,14 +514,13 @@ export const offlineApi = {
       return success(item);
     }
     if (m === 'post' && url === '/cards/reorder' && body.revisions) return queueCardSelection(db, body, 'reorder', isCurrent);
-    match = url.match(/^\/(cards|decks|folders)\/reorder$/);
+    match = url.match(/^\/(decks|folders)\/reorder$/);
     if (m === 'post' && match) {
       const table = db[match[1]];
       const ids = body[`${match[1].slice(0, -1)}_ids`] || [];
       await db.transaction('rw', table, db.decks, async () => {
         for (const id of ids) {
           const card = await table.get(Number(id));
-          if (match[1] === 'cards' && card?.content_v2) throw unsupported();
           await requireContentWrite(db, match[1], card);
         }
         for (const [position, id] of ids.entries()) await change(table, Number(id), { position });
@@ -740,6 +535,7 @@ export const offlineApi = {
       return db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
         const item = await table.get(id);
         if (!item) notFound();
+        if (entity === 'cards' && action !== 'flag') throw unsupported();
         if (m === 'delete' && !action) {
           await change(table, id, { is_deleted: 1 });
           if (entity === 'folders') {
@@ -820,15 +616,14 @@ export const offlineApi = {
       const ownDecks = new Map(decks.filter(d => d.user_id === userId || d.role === 'owner').map(d => [d.id, d]));
       return result({ decks: await db.decks.filter(d => !!d.is_deleted && !d.hard_deleted_locally).toArray(),
         cards: (await db.cards.filter(c => !!c.is_deleted && !c.hard_deleted_locally
-          && (!c.content_v2 || ownDecks.has(c.deck_id) || c.deck_name)).toArray())
+          && c.content_v2 && (ownDecks.has(c.deck_id) || c.deck_name)).toArray())
           .map(card => ({ ...card, deck_name: ownDecks.get(card.deck_id)?.name || card.deck_name })) });
     }
     match = url.match(/^\/trash\/(deck|card)\/(-?\d+)\/restore$/);
     if (match && m === 'post') {
       if (match[1] === 'card') {
         const id = Number(match[2]);
-        if (body.revision) return queueCardLifecycle(db, id, body, false, userId, isCurrent);
-        if ((await db.cards.get(id))?.content_v2) throw unsupported();
+        return queueCardLifecycle(db, id, body, false, userId, isCurrent);
       }
       await requireContentWrite(db, `${match[1]}s`, await db[`${match[1]}s`].get(Number(match[2])));
       await change(db[`${match[1]}s`], Number(match[2]), { is_deleted: 0, hard_deleted_locally: false });

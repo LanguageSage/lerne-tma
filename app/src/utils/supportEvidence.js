@@ -1,4 +1,3 @@
-import { parseExerciseContent } from './exerciseContentParser.js';
 import { studyContent } from './structuredStudyCard.js';
 
 const counters = ['hint_count', 'translation_view_count', 'answer_reveal_count', 'other_help_count'];
@@ -27,12 +26,11 @@ export const captureSupportEvidence = (state, capturePoint, attemptCount) => ({
 /** Explicit authoring syntax only. Arbitrary prompt prose is not classified heuristically. */
 export function freeTextTaskSupport(card) {
   const native = studyContent(card);
-  const content = native ? null : parseExerciseContent(card?.front || card?.front_text || '');
   const info = native?.info || [];
   return {
-    answer_options_present: native ? info.some(block => block.type === 'options') : content.options.length > 0,
-    source_text_present: native ? info.some(block => block.type === 'source') : Boolean(content.source),
-    authored_example_present: native ? info.some(block => block.type === 'example') : content.examples.length > 0,
+    answer_options_present: info.some(block => block.type === 'options'),
+    source_text_present: info.some(block => block.type === 'source'),
+    authored_example_present: info.some(block => block.type === 'example'),
     sentence_frame_present: null,
     source_vocabulary_present: null,
   };

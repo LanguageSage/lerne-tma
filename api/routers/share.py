@@ -10,6 +10,7 @@ from api.auth.dependencies import get_bearer_token
 from api.auth.errors import AuthError
 from api.auth.service import authenticate
 from api.services.sharing_service import SharingService
+from api.services.structured_card_api import _digest, content_response, authored_side_text
 from api.templates.share_templates import get_share_html, get_share_error_html
 
 router = APIRouter(tags=["share"])
@@ -36,7 +37,7 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
             raise HTTPException(status_code=404, detail="Card not found")
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
-        
+
     from api.services.collaborative_service import get_effective_user_role
     target_type = 'deck' if type == 'card' else type
     target_id = item.deck_id if type == 'card' else item.id
@@ -46,7 +47,7 @@ def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: in
     if not item.share_id:
         item.share_id = SharingService.generate_unique_share_id(prefix)
         item.save()
-    
+
     share_id = item.share_id
 
     # Handle Screenshot if provided
@@ -80,7 +81,7 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
         deck = TMA_Deck.get_or_none((TMA_Deck.share_id == clean_id) & (TMA_Deck.is_deleted == False))
         if not deck:
             raise HTTPException(status_code=404, detail="Shared deck not found")
-            
+
         creator = TMAUser.get_or_none(TMAUser.user_id == deck.user_id)
         cards_count = TMA_Card.select().where((TMA_Card.deck == deck) & (TMA_Card.is_deleted == False)).count()
 
@@ -101,14 +102,14 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
             if existing_deck:
                 my_cards_count = TMA_Card.select().where((TMA_Card.deck == existing_deck) & (TMA_Card.is_deleted == False)).count()
                 my_pairs = set(
-                    (c.front_text or "", c.back_text or "") for c in TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text).where(
+                    _digest(c.content_v2) for c in TMA_Card.select(TMA_Card.content_v2).where(
                         (TMA_Card.deck == existing_deck) & (TMA_Card.is_deleted == False)
                     )
                 )
-                src_cards = list(TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text).where(
+                src_cards = list(TMA_Card.select(TMA_Card.content_v2).where(
                     (TMA_Card.deck == deck) & (TMA_Card.is_deleted == False)
                 ))
-                missing_cards = sum(1 for c in src_cards if (c.front_text or "", c.back_text or "") not in my_pairs)
+                missing_cards = sum(1 for c in src_cards if _digest(c.content_v2) not in my_pairs)
                 comparison = {
                     "already_exists": True,
                     "existing_id": existing_deck.id,
@@ -134,7 +135,7 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
         folder = TMA_Folder.get_or_none((TMA_Folder.share_id == clean_id) & (TMA_Folder.is_deleted == False))
         if not folder:
             raise HTTPException(status_code=404, detail="Shared folder not found")
-            
+
         creator = TMAUser.get_or_none(TMAUser.user_id == folder.user_id)
         decks_count = TMA_Deck.select().where((TMA_Deck.folder == folder) & (TMA_Deck.is_deleted == False)).count()
         cards_count = TMA_Card.select().join(TMA_Deck).where((TMA_Deck.folder == folder) & (TMA_Card.is_deleted == False) & (TMA_Deck.is_deleted == False)).count()
@@ -196,15 +197,15 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
         card = TMA_Card.get_or_none((TMA_Card.share_id == clean_id) & (TMA_Card.is_deleted == False))
         if not card:
             raise HTTPException(status_code=404, detail="Shared card not found")
-            
+
         creator_id = card.creator_id or (card.deck.user_id if card.deck else None)
         creator = TMAUser.get_or_none(TMAUser.user_id == creator_id)
         card_lang = (card.deck.target_language if card.deck else "de") or "de"
         return {
             "type": "card",
             "id": card.id,
-            "front_text": card.front_text,
-            "back_text": card.back_text,
+            "name": authored_side_text(card.content_v2, 'front'),
+            **content_response(card),
             "image_path": card.image_path,
             "target_language": card_lang,
             "creator_name": creator.username or creator.first_name if creator else "Unknown",
@@ -268,7 +269,7 @@ def view_shared_item(share_id: str, request: Request):
             )
         )
 
-    title = info.get("name") or info.get("front_text") or "Lerne TMA"
+    title = info.get("name") or info.get("name") or "Lerne TMA"
     creator = info.get('creator_name', 'Пользователь Lerne')
     if info.get("type") == "deck":
         description = f"Колода от {creator} | Уровень: {info.get('level', '—')} | Тема: {info.get('topic', '—')}"
@@ -294,18 +295,15 @@ def get_share_preview_image(share_id: str):
     """Returns a stored screenshot or generates a beautiful premium preview image."""
     filename = f"preview_{share_id}.png"
     media = TMAMedia.get_or_none(TMAMedia.filename == filename, TMAMedia.folder == 'previews')
-    
+
     headers = {
         "Cache-Control": "public, max-age=31536000",
         "Access-Control-Allow-Origin": "*"
     }
-    
+
     if media:
         return Response(content=bytes(media.content), media_type="image/jpeg", headers=headers)
 
     info = get_share_info(share_id)
     img_data = SharingService.get_preview_image(info, share_id)
     return Response(content=img_data, media_type="image/jpeg", headers=headers)
-
-
-

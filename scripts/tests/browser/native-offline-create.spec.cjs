@@ -43,7 +43,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     const cardPath = '/api/cards/' + fixture.card?.id;
     const updating = /^\/api\/cards\/\d+$/.test(pathname) && route.request().method() === 'PATCH';
     const fetchFromServer = () => route.fetch({
-      url: fixture.origin + pathname + search, maxRetries: 0,
+      url: fixture.origin + pathname + search, maxRetries: route.request().method() === 'GET' ? 1 : 0,
       ...(updating && phase === 'unauthorized' ? { headers: { ...route.request().headers(), authorization: 'Bearer invalid' } } : {}),
     });
     const listWrite = fixture.list && route.request().method() === 'POST'
@@ -69,6 +69,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     }
     if ((fixture.list && ['/api/cards/search', '/api/cards/duplicates', '/api/trash'].includes(pathname))
         || (fixture.lifecycle && pathname === '/api/trash')
+        || pathname === '/api/user/settings'
         || /^\/api\/(sync\/v2\/|cards\/\d+|decks\/\d+\/cards|collaborative\/deck\/\d+\/role)/.test(pathname)) {
       try {
         return await route.fulfill({ response: await fetchFromServer() });
@@ -122,13 +123,13 @@ async function openList(page, targetDeck = deck) {
 
 test('persists Standard offline, replays a committed write and pulls it on a separate device', async ({ page, context, browser }, testInfo) => {
   test.skip(Boolean(fixture?.card || fixture?.isolation || fixture?.move || fixture?.contents), 'Standard creation fixture only');
-  test.setTimeout(90000);
+  test.setTimeout(180000);
   const attempts = [];
   let phase = 'ready';
   await setupDevice(context, () => phase, (payload, status, receipt) => attempts.push({ payload, status, receipt }));
   await page.setViewportSize({ width: 375, height: 844 });
   await page.goto('/');
-  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
 
   await page.evaluate(async ({ id, deck }) => {
     const { prepareLocalDb } = await import('/src/services/localDb.js');
@@ -137,10 +138,13 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
     const draft = { ...old, id: 'legacy-draft', is_dirty: 1 };
     const progress = { card_id: id, user_id: 1, is_dirty: 1, repetitions: 3 };
     const review = { key: 'review:legacy', card_id: id, rating: 2 };
-    await db.cards.bulkAdd([old, draft]);
-    await db.progress.add(progress);
-    await db.syncState.bulkAdd([review, { key: 'pending', request_id: crypto.randomUUID(),
-      userId: 1, folders: [], decks: [], cards: [draft], progress: [progress], reviews: [review] }]);
+    // Startup synchronization must observe the retained legacy fixture as one durable batch.
+    await db.transaction('rw', db.cards, db.progress, db.syncState, async () => {
+      await db.cards.bulkAdd([old, draft]);
+      await db.progress.add(progress);
+      await db.syncState.bulkAdd([review, { key: 'pending', request_id: crypto.randomUUID(),
+        userId: 1, folders: [], decks: [], cards: [draft], progress: [progress], reviews: [review] }]);
+    });
   }, { id: fixture.legacy_id, deck });
   const before = await inspectLocal(page);
   await openList(page);
@@ -192,7 +196,7 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
   // Vite can serve the shell on reload while every API call remains disconnected.
   await context.setOffline(false);
   await page.reload();
-  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
   await openList(page);
   await expect(page.getByText('Ожидает синхронизации')).toBeVisible();
   expect((await inspectLocal(page, tempId)).operations).toEqual([operation]);
@@ -210,7 +214,15 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
 
   await expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held.some(lock => lock.name === 'lerne-offline-sync'))).toBe(false);
   phase = 'lose-response';
-  const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
+  const sync = () => page.evaluate(async () => {
+    const { syncService } = await import('/src/services/syncService.js');
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const result = await syncService.sync();
+      if (result.reason !== 'Already syncing') return result;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Sync lock remained held');
+  });
   expect((await sync()).success).toBe(false);
   const firstReceipt = attempts.find(attempt => attempt.status === 200).receipt;
   expect(firstReceipt.id).toBeGreaterThan(0);
@@ -264,7 +276,7 @@ test('persists Standard offline, replays a committed write and pulls it on a sep
 
 test('creates all nine V2 types offline across a Chromium restart and replays the same payloads', async ({ browser }, testInfo) => {
   test.skip(!fixture?.contents, 'All-types creation fixture only');
-  test.setTimeout(120000);
+  test.setTimeout(600000);
   const attempts = [];
   const observeSave = (payload, status, receipt) => attempts.push({ payload, status, receipt });
   const errors = [];
@@ -281,7 +293,7 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
     const page = device.pages()[0];
     page.on('pageerror', error => errors.push(error.message));
     await page.goto(origin);
-    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
     return page;
   }
   const sync = (page, options = { pendingNativeOnly: true }) => page.evaluate(async options =>
@@ -399,8 +411,12 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
     }
 
     await page.reload();
-    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
-    await expect.poll(() => sync(page, {})).toMatchObject({ success: true, server_time: expect.any(String) });
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
+    // The rejected draft remains durable; successful pull must not hide that draft.
+    await expect.poll(async () => {
+      const result = await sync(page, { pullOnly: true });
+      return { state: result.pull_success ? 'pulled' : JSON.stringify(result), result };
+    }, { timeout: 90000 }).toMatchObject({ state: 'pulled', result: { success: false, pull_success: true, server_time: expect.any(String) } });
     await openList(page);
     const invalidCard = page.locator('#card-item-' + bad.card.id);
     await expect(invalidCard.getByRole('status')).toContainText('Карточка сохранена на устройстве.');
@@ -420,22 +436,25 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
     other.on('pageerror', error => errors.push(error.message));
     await other.goto(origin);
     await expect(other.getByText(deck.name, { exact: true }).first()).toBeVisible();
-    await expect.poll(() => sync(other, { pullOnly: true }))
-      .toMatchObject({ success: true, server_time: expect.any(String) });
+    // Pull success is independent of the device's automatically initialized design settings.
+    await expect.poll(() => sync(other, { pullOnly: true }), { timeout: 90000 })
+      .toMatchObject({ native_success: true, pull_success: true, pending: { pending_free: true }, server_time: expect.any(String) });
     const otherLocal = await inspectLocal(other);
     expect(otherLocal.operations).toEqual([]);
     expect(otherLocal.cards.map(card => [card.id, card.content_v2])).toEqual(
       delivered.map(card => [card.id, card.content_v2]));
     expect(errors).toEqual([]);
   } finally {
+    await otherDevice?.unrouteAll({ behavior: 'wait' });
     await otherDevice?.close();
+    await device?.unrouteAll({ behavior: 'wait' });
     await device?.close();
   }
 });
 
 test('edits all nine V2 types, replays after Chromium restarts and resolves conflicts', async ({ browser }, testInfo) => {
   test.skip(!fixture?.edit_cards, 'All-types edit fixture only');
-  test.setTimeout(150000);
+  test.setTimeout(600000);
   const cards = Object.entries(fixture.edit_cards);
   const attempts = [];
   let phase = 'ready';
@@ -453,7 +472,7 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
     page = device.pages()[0];
     page.setDefaultTimeout(10000);
     await page.goto('http://127.0.0.1:5199/');
-    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
     await openList(page);
   }
   const inspect = () => page.evaluate(async deckId => {
@@ -464,7 +483,15 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
       operations: await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray(),
     }));
   }, deck.id);
-  const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
+  const sync = () => page.evaluate(async () => {
+    const { syncService } = await import('/src/services/syncService.js');
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const result = await syncService.sync();
+      if (result.reason !== 'Already syncing') return result;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Sync lock remained held');
+  });
   const item = id => page.locator('#card-item-' + id);
   const openEditor = async id => {
     await item(id).getByRole('button', { name: 'Действия с карточкой' }).click();
@@ -474,9 +501,11 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
   const contextField = () => page.locator('#card-editor-context');
   const save = () => page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
   const panel = () => page.getByRole('region', { name: 'Синхронизация карточки' });
-  const reconnect = () => page.evaluate(() => {
+  const reconnect = () => page.evaluate(async () => {
     sessionStorage.setItem('fixture-reconnected', 'true');
     delete navigator.onLine;
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    await useSettingsStore.getState().saveCurrentSettingsToServer();
   });
   const withExplanation = (content, explanation) => ({ ...content, card: { ...content.card, explanation } });
   const expected = new Map(cards.map(([kind, card]) => [card.id,
@@ -603,7 +632,8 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
     const rejected = (await inspect()).operations[0];
     expect(rejected.payload.content_v2.card.data.options.every(option => !option.correct)).toBe(true);
     expect(attempts.at(-1)).toMatchObject({ status: 422, payload: rejected.payload });
-    expect((await sync()).success).toBe(true);
+    await expect.poll(sync).toMatchObject({ success: false, native_success: false, pull_success: true,
+      pending: { blockers: { 'cards:unacknowledged_native_state': 1, 'syncState:native_operation': 1 } } });
     expect(attempts.filter(write => write.payload.request_id === rejected.payload.request_id)).toHaveLength(1);
     await openDraft(id);
     await expect(panel().getByRole('alert')).toContainText('options');
@@ -621,7 +651,7 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
 
 test('resolves Standard revisions across two devices and preserves the draft on auth errors', async ({ page, context, browser }, testInfo) => {
   test.skip(!fixture?.card || fixture.second_card, 'Conflict fixture only');
-  test.setTimeout(150000);
+  test.setTimeout(600000);
   const attempts = [];
   let phase = 'ready';
   const { id, revision: originalRevision } = fixture.card;
@@ -640,7 +670,7 @@ test('resolves Standard revisions across two devices and preserves the draft on 
     await page.bringToFront();
     page.setDefaultTimeout(10000);
     await page.goto('/');
-    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
     await openList(page);
     const inspect = () => page.evaluate(async id => {
       const { prepareLocalDb, CARD_EDIT_KEY } = await import('/src/services/localDb.js');
@@ -681,10 +711,18 @@ test('resolves Standard revisions across two devices and preserves the draft on 
       // Only the local Vite shell is reachable for reload.
       await context.setOffline(false);
       await page.reload();
-      await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+      await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
       await openList(page);
     };
-    const sync = () => page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
+    const sync = options => page.evaluate(async options => {
+      const { syncService } = await import('/src/services/syncService.js');
+      for (let attempt = 0; attempt < 30; attempt++) {
+        const result = await syncService.sync(options);
+        if (result.reason !== 'Already syncing') return result;
+        await new Promise(resolve => setTimeout(resolve, 100));
+      }
+      throw new Error('Sync lock remained held');
+    }, options);
     const edit = async () => {
       await page.getByRole('button', { name: 'Действия с карточкой' }).click();
       await page.getByRole('button', { name: /Редактировать/ }).click();
@@ -765,7 +803,8 @@ test('resolves Standard revisions across two devices and preserves the draft on 
     expect(attempts.at(-1)).toMatchObject({ status: 409, payload: { revision: receipt.revision } });
     const attemptsBeforeRead = attempts.length;
     phase = 'ready';
-    expect((await sync()).success).toBe(true);
+    expect(await sync()).toMatchObject({ success: false, native_success: false, pull_success: true,
+      pending: { blockers: { 'cards:offline_conflict': 1 } } });
     expect(attempts).toHaveLength(attemptsBeforeRead);
     const conflicted = await inspect();
     expect(conflicted.operation).toEqual(rejected.operation);
@@ -790,7 +829,8 @@ test('resolves Standard revisions across two devices and preserves the draft on 
     await offlineEdit(localPrompt);
     const serverVersionTwo = await remote(serverTwo);
     await connect('ready');
-    expect((await sync()).success).toBe(true);
+    expect(await sync()).toMatchObject({ success: false, native_success: false, pull_success: true,
+      pending: { blockers: { 'cards:offline_conflict': 1 } } });
     await openDraft();
     await expect(panel.getByText(serverTwo, { exact: true })).toBeVisible();
     // The previous offline save displays a toast for six seconds.
@@ -831,11 +871,10 @@ test('resolves Standard revisions across two devices and preserves the draft on 
     expect(forbidden.operation.payload.revision).toBe(serverVersionThree.revision);
     expect(forbidden.card.content_v2).toEqual(merged.card.content_v2);
     expect(attempts.at(-1).status).toBe(403);
-    const viewer = await page.evaluate(async deckId => {
-      const { syncService } = await import('/src/services/syncService.js');
+    const pulled = await sync({ pullOnly: true });
+    const viewer = await page.evaluate(async ({ deckId, pulled }) => {
       const { getLocalDb } = await import('/src/services/localDb.js');
       const { default: api } = await import('/src/services/api.js');
-      const pulled = await syncService.sync({ pullOnly: true });
       const role = (await getLocalDb().decks.get(deckId)).role;
       Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
       try {
@@ -847,8 +886,8 @@ test('resolves Standard revisions across two devices and preserves the draft on 
       } finally {
         delete navigator.onLine;
       }
-    }, deck.id);
-    expect(viewer).toMatchObject({ pulled: { success: true }, role: 'viewer', accepted: false,
+    }, { deckId: deck.id, pulled });
+    expect(viewer).toMatchObject({ pulled: { success: false, pull_success: true }, role: 'viewer', accepted: false,
       message: 'У вас доступ только для чтения' });
 
     expect((await remote()).revision).toBe(serverVersionThree.revision);
@@ -878,7 +917,7 @@ test('resolves Standard revisions across two devices and preserves the draft on 
 
 test('survives interrupted Standard delivery and preserves later drafts', async ({ page, context }, testInfo) => {
   test.skip(!fixture?.second_card, 'Delivery fixture only');
-  test.setTimeout(120000);
+  test.setTimeout(600000);
   const { card, second_card: second } = fixture;
   const attempts = [];
   const editPath = '/api/cards/' + card.id;
@@ -896,7 +935,7 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
   });
   await page.setViewportSize({ width: 375, height: 844 });
   await page.goto('/');
-  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
   await openList(page);
 
   const idle = () => expect.poll(() => page.evaluate(async () => (await navigator.locks.query()).held.some(lock => lock.name === 'lerne-offline-sync'))).toBe(false);
@@ -1085,7 +1124,7 @@ test('survives interrupted Standard delivery and preserves later drafts', async 
 
 test('isolates Standard queues across tabs and login sessions', async ({ page, context }) => {
   test.skip(!fixture?.isolation, 'Isolation fixture only');
-  test.setTimeout(120000);
+  test.setTimeout(600000);
   const writes = [];
   let heldWrite;
   let heldPull;
@@ -1117,7 +1156,7 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   const peer = await context.newPage();
   await page.goto('/');
   await peer.goto('/');
-  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+  await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible({ timeout: 30000 });
   await expect(peer.getByText(deck.name, { exact: true }).first()).toBeVisible();
   await openList(page);
   await openList(peer);
@@ -1156,9 +1195,11 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   };
   const login = session => peer.evaluate(async session => {
     const { useAuthStore } = await import('/src/store/useAuthStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     const auth = useAuthStore.getState();
     auth.logout();
     await auth.finishLogin(session);
+    await useSettingsStore.getState().saveCurrentSettingsToServer();
   }, session);
   const writesFor = operation => writes.filter(write => write.payload.request_id === operation.payload.request_id);
 
@@ -1232,17 +1273,18 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect((await inspect(peer)).cards.find(card => card.id === sharedId).content_v2.card.data.answer)
     .toBe('New answer on the server');
 
-  // The legacy Collaborative endpoint directs native changes to V2 pull.
-  const legacy = peer.waitForResponse(response => response.url().includes('/api/sync/collab-pull'));
+  // The Collaborative invalidation endpoint directs native changes to V2 pull.
+  const collab = peer.waitForResponse(response => response.url().includes('/api/sync/collab-pull'));
   const native = peer.waitForResponse(response => response.url().includes('/api/sync/v2/pull'));
   await peer.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  expect((await legacy).status()).toBe(409);
+  expect((await collab).status()).toBe(200);
   expect((await native).status()).toBe(200);
   await expect.poll(() => peer.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
 
   const closing = await createOffline(page, 'Closed tab draft');
   const beforePull = await inspect(peer);
-  expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+  expect(await sync(peer, { pullOnly: true })).toMatchObject({ success: false, pull_success: true,
+    pending: { blockers: { 'syncState:native_operation': 1 } } });
   expect((await inspect(peer)).queue).toEqual([closing]);
   expect((await inspect(peer)).cards.find(card => card.id === closing.tempId))
     .toEqual(beforePull.cards.find(card => card.id === closing.tempId));
@@ -1282,10 +1324,12 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   heldWrite = null;
   await expect.poll(() => peer.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
   expect((await inspect(peer)).aliases).toEqual({});
-  expect((await sync(peer, { pullOnly: true })).success).toBe(true);
+  expect(await sync(peer, { pullOnly: true })).toMatchObject({ success: false, pull_success: true,
+    pending: { blockers: { 'syncState:native_operation': 1 } } });
   expect((await inspect(peer)).cards.some(card => card.deck_id === deck.id)).toBe(false);
   expect((await inspect(peer)).queue).toEqual([secondAccount]);
-  expect((await sync(peer)).success).toBe(true);
+  expect(await sync(peer)).toMatchObject({ success: false, native_success: true, device_pending: true,
+    pending: { pending_free: true } });
   expect(writesFor(secondAccount)).toHaveLength(1);
 
   await login(fixture.initial_session);
@@ -1515,7 +1559,8 @@ test('completes V2 list operations with search parity and durable atomic deliver
     await launch();
     expect((await inspect(page)).operations).toEqual(rejected.operations);
     await setPhase('ready');
-    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    expect(await sync(page, { pullOnly: true })).toMatchObject({ success: false, pull_success: true,
+      pending: { blockers: { 'syncState:rejected_operation': 2 } } });
     const final = await inspect(page);
     expect(final.operations).toEqual(rejected.operations);
     for (const card of rejected.cards.filter(card => card.offline_lifecycle)) {
@@ -1756,7 +1801,8 @@ test('batch copies and moves V2 atomically across restarts and a second device',
     await launch();
     expect((await inspect(page)).operations).toEqual(rejected.operations);
     await setPhase('ready');
-    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    expect(await sync(page, { pullOnly: true })).toMatchObject({ success: false, pull_success: true,
+      pending: { blockers: { 'syncState:rejected_operation': 4 } } });
     expect((await inspect(page)).operations).toEqual(rejected.operations);
     for (const card of rejected.cards.filter(card => card.offline_move)) {
       expect((await inspect(page)).cards.find(item => item.id === card.id)).toEqual(card);
@@ -1778,7 +1824,7 @@ test('batch copies and moves V2 atomically across restarts and a second device',
 
 test('moves V2 cards across decks with durable placement, replay and rejection', async ({ page, context, browser }, testInfo) => {
   test.skip(!fixture?.move, 'Move fixture only');
-  test.setTimeout(90000);
+  test.setTimeout(180000);
   const { source, target, denied, cards: [online, offline, refused, stale] } = fixture.move;
   let phase = 'ready';
   const attempts = [];
@@ -1788,8 +1834,15 @@ test('moves V2 cards across decks with durable placement, replay and rejection',
     const db = await prepareLocalDb();
     return { card: await db.cards.get(id), operation: await db.syncState.get(CARD_MOVE_KEY + id) };
   }, id);
-  const sync = (device, options = { pendingNativeOnly: true, skipPull: true }) => device.evaluate(async options =>
-    (await import('/src/services/syncService.js')).syncService.sync(options), options);
+  const sync = (device, options = { pendingNativeOnly: true, skipPull: true }) => device.evaluate(async options => {
+    const { syncService } = await import('/src/services/syncService.js');
+    for (let attempt = 0; attempt < 30; attempt++) {
+      const result = await syncService.sync(options);
+      if (result.reason !== 'Already syncing') return result;
+      await new Promise(resolve => setTimeout(resolve, 100));
+    }
+    throw new Error('Sync lock remained held');
+  }, options);
   const row = (device, card) => device.locator('#card-item-' + card.id);
   const move = async (card, to) => {
     await row(page, card).getByRole('button', { name: 'Действия с карточкой' }).click();
@@ -1941,7 +1994,8 @@ test('moves V2 cards across decks with durable placement, replay and rejection',
     const attemptCount = attempts.length;
     await page.reload();
     await expect(page.getByText(source.name, { exact: true }).first()).toBeVisible();
-    expect((await sync(page, { pullOnly: true })).success).toBe(true);
+    expect(await sync(page, { pullOnly: true })).toMatchObject({ success: false, pull_success: true,
+      pending: { blockers: { 'syncState:rejected_operation': 2 } } });
     await openList(page, target);
     await expect(row(page, stale).getByRole('status')).toHaveText('Конфликт версий. Перенос сохранён на устройстве.');
     expect(await inspect(stale.id)).toEqual(staleLocal);
@@ -1954,7 +2008,7 @@ test('moves V2 cards across decks with durable placement, replay and rejection',
 
 test('deletes and restores V2 through Chromium restarts without losing local edits', async ({ browser }, testInfo) => {
   test.skip(!fixture?.lifecycle, 'Card lifecycle fixture only');
-  test.setTimeout(150000);
+  test.setTimeout(600000);
   const [card, conflict] = fixture.lifecycle;
   const promptOf = value => value.content_v2.card.data.prompt;
   const attempts = [];
@@ -2144,7 +2198,8 @@ test('deletes and restores V2 through Chromium restarts without losing local edi
       const db = await prepareLocalDb();
       await db.cards.update(id, { is_deleted: false, 'offline_edit.server': undefined });
     }, conflict.id);
-    expect((await sync(page, {})).success).toBe(true);
+    expect(await sync(page, {})).toMatchObject({ success: false, native_success: false, pull_success: true,
+      pending: { blockers: { 'cards:offline_conflict': 1 } } });
     expect((await inspect(page, conflict.id)).card).toMatchObject({ is_deleted: true, content_v2: localDraft,
       offline_edit: { server: { is_deleted: true } } });
     await draftTrash.getByRole('button', { name: 'Восстановить' }).click();

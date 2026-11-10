@@ -1,10 +1,7 @@
 import { stripMarkdown } from './text.js';
 import { getInteractiveExerciseContent } from './exerciseContentParser.js';
 
-export const normalizeMatchValue = (str) => {
-  if (!str) return '';
-  return str.trim().replace(/\s+/g, ' ');
-};
+export { normalizeMatchValue } from './text.js';
 
 // Include boundary spacing so the source editor can use the same label ranges.
 export const findMatchSeparator = (line) => /\s*=>\s*/.exec(line);

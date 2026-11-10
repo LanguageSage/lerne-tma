@@ -9,6 +9,7 @@ from unittest.mock import patch
 
 from test_offline_sync import database, models, TABLES, ROOT, services
 from api import srs
+from native_fixture import content, sqlite_native
 
 cards = importlib.import_module('api.services.cards')
 study = importlib.import_module('api.services.study')
@@ -22,10 +23,11 @@ class ForcedStudyTests(unittest.TestCase):
     # Unit-level SRS checks use the synchronous body with the in-memory fixture.
     # Real worker dispatch/connection ownership is covered by test_db_workers.py.
     def setUp(self):
+        sqlite_native(self, database)
         database.create_tables(TABLES)
         models.TMAUser.create(user_id=1)
         self.deck = models.TMA_Deck.create(user_id=1, name='Study')
-        self.cards = [models.TMA_Card.create(deck=self.deck, front_text=str(i), back_text='x', position=i) for i in range(3)]
+        self.cards = [models.TMA_Card.create(deck=self.deck, content_v2=content(str(i), 'x'), card_type=None, position=i) for i in range(3)]
         for card in self.cards:
             models.TMAProgress.create(card_id=card.id, user_id=1, queue='review', interval=10,
                 last_reviewed=NOW - datetime.timedelta(days=2), next_review=datetime.datetime.now() + datetime.timedelta(days=8))

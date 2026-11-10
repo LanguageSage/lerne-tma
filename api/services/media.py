@@ -1,13 +1,11 @@
 import os
-import datetime
 import logging
 import time
 import json
 from urllib.parse import unquote, urlsplit
 from fastapi import HTTPException
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia
-from .. import srs
-from peewee import fn, JOIN
+from ..models import tma_db, TMAMedia
+from peewee import fn
 from functools import lru_cache
 from api.local_runtime import is_local
 
@@ -73,7 +71,7 @@ def _get_cached_tma_settings():
 def _build_media_exists_map(cards_dicts: list) -> set:
     """Собирает множество существующих и пригодных медиа одним запросом."""
     from ..models import TMAMedia
-    
+
     filenames = set()
     for c in cards_dicts:
         for path_field, folder in [
@@ -86,10 +84,10 @@ def _build_media_exists_map(cards_dicts: list) -> set:
             path_str = c.get(path_field)
             if path_str and not path_str.startswith('http'):
                 filenames.add(os.path.basename(path_str))
-    
+
     if not filenames:
         return set()
-    
+
     try:
         existing = set()
         filenames_list = list(filenames)
@@ -174,7 +172,7 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None, *,
     if path_str.startswith("http://") or path_str.startswith("https://"):
         return path_str
     filename = clean_filename
-    
+
     folder = "images"
     if media_type in ("videos", "video_front", "video_back"):
         folder = "videos"
@@ -189,7 +187,7 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None, *,
 
     if path_str.startswith("/api/media/"):
         return path_str
-    
+
     return f"/api/media/{folder}/{filename}"
 
 
@@ -212,128 +210,3 @@ def is_user_auto_generate_audio_enabled(user_id: int) -> bool:
     except Exception as e:
         logger.warning(f"Error checking user auto-generate audio setting for user {user_id}: {e}")
     return True
-
-
-def _prepare_card_audio(card, user_id: int, *, force: bool = False):
-    """Read the existing TTS policy and return scalar generation parameters."""
-    if is_local():
-        return
-    import re
-    from ..models import TMAMedia, TMASetting
-    from .collaborative_service import can_edit_audio
-
-    if not can_edit_audio(user_id, 'deck', card.deck_id):
-        return
-
-    if user_id and not is_user_auto_generate_audio_enabled(user_id):
-        return
-    
-    # 1. Проверяем, есть ли уже озвучка
-    has_valid_audio = False
-    if card.audio_path:
-        if card.audio_path.startswith("http"):
-            has_valid_audio = True
-        else:
-            filename = os.path.basename(card.audio_path)
-            # Проверяем только наличие записи по ID (без скачивания гигабайтных/мегабайтных BLOB из БД)
-            has_valid_audio = _check_media_exists(filename, "audio")
-                
-    if has_valid_audio and not force:
-        return
-        
-    # 2. Озвучки нет или она повреждена. Генерируем новую.
-    if not card.front_text or not card.front_text.strip():
-        return
-        
-    # Определяем язык по наличию кириллицы либо языку колоды
-    if re.search(r'[а-яА-ЯёЁ]', card.front_text):
-        lang = "ru"
-    else:
-        deck_lang = getattr(card, 'target_language', None)
-        if not deck_lang and getattr(card, 'deck_id', None):
-            from ..models import TMA_Deck
-            deck_obj = TMA_Deck.get_or_none(TMA_Deck.id == card.deck_id)
-            if deck_obj and deck_obj.target_language:
-                deck_lang = deck_obj.target_language
-        lang = (deck_lang or "de").lower().strip()
-    
-    # Загружаем настройки озвучки (с простым TTL кэшем)
-    db_settings = _get_cached_tma_settings()
-        
-    voice = None
-    rate = None
-    
-    # Маппинг голосов по умолчанию
-    LANG_DEFAULT_VOICES = {
-        "de": "de-DE-KatjaNeural",
-        "ru": "ru-RU-SvetlanaNeural",
-        "en": "en-US-JennyNeural",
-        "no": "nb-NO-FinnNeural",
-        "uk": "uk-UA-PolinaNeural",
-    }
-    
-    clean_lang = (lang or "de").lower().strip()
-    if clean_lang == "de":
-        voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
-        rate = db_settings.get("TTS_SPEED") or "+0%"
-    elif clean_lang == "ru":
-        voice = db_settings.get("TTS_VOICE_RU") or LANG_DEFAULT_VOICES["ru"]
-        rate = db_settings.get("TTS_SPEED_RU") or db_settings.get("TTS_SPEED") or "+0%"
-    elif clean_lang in LANG_DEFAULT_VOICES:
-        voice = db_settings.get(f"TTS_VOICE_{clean_lang.upper()}") or LANG_DEFAULT_VOICES[clean_lang]
-        rate = db_settings.get("TTS_SPEED") or "+0%"
-    else:
-        voice = db_settings.get("TTS_VOICE") or LANG_DEFAULT_VOICES["de"]
-        rate = db_settings.get("TTS_SPEED") or "+0%"
-        
-    return voice, rate, card.audio_path, card.front_text
-
-
-def _store_card_audio(card_type, card_id, original_text, previous_audio, result):
-    return card_type.update(audio_path=result).where(
-        (card_type.id == card_id) &
-        (card_type.front_text == original_text) &
-        (card_type.audio_path == previous_audio) &
-        (card_type.is_deleted == False)
-    ).execute()
-
-
-async def ensure_card_audio(card, user_id: int, *, force: bool = False, _offload_db=False):
-    """Generate missing front audio; /cards/save offloads its DB phases only."""
-    from ..utils.audio import generate_audio
-    from api.db_workers import run_db
-
-    if _offload_db:
-        # /cards/save passes a plain snapshot, never an ORM instance from its worker.
-        def prepare_snapshot():
-            return _prepare_card_audio(TMA_Card(**card), user_id, force=force)
-        prepared = await run_db(prepare_snapshot)
-        card_type, card_id = TMA_Card, card['id']
-    else:
-        prepared = _prepare_card_audio(card, user_id, force=force)
-        card_type, card_id = type(card), card.id
-    if prepared is None:
-        return
-    voice, rate, previous_audio, original_text = prepared
-    try:
-        # Генерируем аудио
-        result = await generate_audio(original_text, voice=voice, rate=rate)
-        if isinstance(result, tuple):
-            result = result[0]
-            
-        if not result:
-            logger.error(f"Failed to generate audio for card {card_id}")
-            return
-            
-        if not result.startswith("http"):
-            raise RuntimeError("Generated audio was not saved to permanent Storage")
-        if _offload_db:
-            updated = await run_db(_store_card_audio, card_type, card_id, original_text, previous_audio, result)
-        else:
-            updated = _store_card_audio(card_type, card_id, original_text, previous_audio, result)
-        if updated:
-            if not _offload_db:
-                card.audio_path = result
-            logger.info("Generated cloud audio for card %s: %s", card_id, result)
-    except Exception as e:
-        logger.error(f"Failed to ensure audio for card {card_id}: {e}", exc_info=True)

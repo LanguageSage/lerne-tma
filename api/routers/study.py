@@ -43,7 +43,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
         try:
             deck_metadata = json.loads(deck.metadata)
         except Exception: pass
-    
+
     resolved_resources = []
     for res in deck_metadata.get('resources', []):
         res_type = res.get('type')
@@ -94,7 +94,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
         "deck_id": card.deck_id,
         "deck_name": deck.name if deck else None,
         "deck_metadata": deck_metadata,
-        "deck_stats": services.get_deck_stats_counts(user_id, card.deck_id, native_only=True)
+        "deck_stats": services.get_deck_stats_counts(user_id, card.deck_id)
     }
 
 @router.get("/study/stats")
@@ -248,11 +248,11 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
 
     _require_study_access(user_id, deck_id)
     context = 'forced' if learn_more else review_context
-    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context, native_only=True)
-    
+    card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context)
+
     if isinstance(card, dict) and "error" in card:
         return card # Возвращаем ошибку для отладки
-        
+
     if not card:
         active = models.TMA_Card.select(models.TMA_Card.id).where(
             models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted == False)
@@ -260,7 +260,7 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
             raise HTTPException(409, {'code': 'deck_requires_migration'})
         logger.info(f"User {user_id} finished deck {deck_id}")
         return {"finished": True}
-    
+
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
     return _card_to_response(card, progress, user_id, context)
 
@@ -302,7 +302,7 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
         services.update_card_progress(
             data.card_id,
-            user_id, 
+            user_id,
             data.grade,
             is_extended=data.is_extended,
             review_context=context,
@@ -311,10 +311,10 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
         logger.info("submit_grade: Progress updated successfully")
         if not data.return_next:
             return {"status": "success"}
-        
+
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
         exclude = list(set([*data.exclude_ids, data.card_id])) if context == 'forced' else data.exclude_ids
-        card, progress = services.get_next_card(user_id, data.deck_id, exclude_ids=exclude, review_context=context, native_only=True)
+        card, progress = services.get_next_card(user_id, data.deck_id, exclude_ids=exclude, review_context=context)
         if isinstance(card, dict) and "error" in card:
             return card
         if not card:
@@ -338,7 +338,7 @@ def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_
         try:
             parsed_exclude = [int(i) for i in exclude_ids.split(',') if i.strip()]
         except ValueError: pass
-    
+
     card, progress = services.get_next_duplicate_card(user_id, exclude_ids=parsed_exclude)
     if not card:
         return {"finished": True}
@@ -363,9 +363,9 @@ def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
         except (ValueError, TypeError, AttributeError):
             raise HTTPException(422, 'Invalid action_id')
     services.update_card_progress(
-        data['card_id'], 
-        user_id, 
-        data['grade'], 
+        data['card_id'],
+        user_id,
+        data['grade'],
         is_extended=bool(data.get('is_extended', False)),
         **({'action_id': action_id} if action_id else {})
     )

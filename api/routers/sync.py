@@ -1,4 +1,3 @@
-import logging
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
@@ -6,7 +5,7 @@ from typing import List, Optional, Literal
 
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_worker
-from api.services.sync_service import execute_sync_push, execute_sync_pull, execute_collab_pull
+from api.services.sync_service import execute_collab_pull
 
 
 router = APIRouter(
@@ -73,11 +72,6 @@ class SyncFolderItem(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-class PushRequest(BaseModel):
-    folders: List[SyncFolderItem] = []
-    decks: List[SyncDeckItem] = []
-    cards: List[SyncCardItem] = []
-    progress: List[SyncProgressItem] = []
 
 
 class OfflineDeckItem(SyncDeckItem):
@@ -140,9 +134,9 @@ def drain_legacy_changes(request: LegacyDrainRequest, user_id: int = Depends(get
 
 @router.get('/v2/pull')
 @db_worker
-def pull_offline_changes(card_schema: Literal['1', '2'] | None = None, user_id: int = Depends(get_user_id)) -> dict:
+def pull_offline_changes(card_schema: Literal['2'] = '2', user_id: int = Depends(get_user_id)) -> dict:
     from api.services.offline_sync import pull_offline
-    return pull_offline(user_id, native_cards=card_schema == '2', legacy_only=card_schema == '1')
+    return pull_offline(user_id)
 
 
 @router.get('/v2/status')
@@ -154,18 +148,8 @@ def offline_database_status(user_id: int = Depends(get_user_id)) -> dict:
 
 # --- Endpoints ---
 
-@router.post("/push")
-@db_worker
-def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
-    """Receives offline changes from client, inserts/updates them via service."""
-    return execute_sync_push(request, user_id)
 
 
-@router.get("/pull")
-@db_worker
-def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id)):
-    """Returns all changes that happened on the server since the given timestamp for this user."""
-    return execute_sync_pull(since, user_id)
 
 
 @router.get("/collab-pull")

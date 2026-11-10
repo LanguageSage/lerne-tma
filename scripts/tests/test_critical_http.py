@@ -228,16 +228,11 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertEqual(self.client.get('/api/sync/v2/pull', headers=headers).status_code, 401)
         self.assertEqual(self.client.get('/api/auth/v2/me', headers=self.headers()).status_code, 401)
 
-    def test_http_sync_retry_creates_one_card_and_rejects_changed_payload(self):
+    def test_http_sync_rejects_legacy_card_creation_without_writing(self):
         payload = {'request_id': str(uuid4()), 'cards': [{
             'id': -1, 'deck_id': self.deck.id, 'front_text': 'Hallo', 'back_text': 'Привет'}]}
-        first = self.client.post('/api/sync/v2/push', headers=self.headers(), json=payload)
-        self.assertEqual(first.status_code, 200, first.text)
-        retry = self.client.post('/api/sync/v2/push', headers=self.headers(), json=payload)
-        self.assertEqual(retry.status_code, 200, retry.text)
-        self.assertEqual(retry.json(), first.json())
-        self.assertEqual(models.TMA_Card.select().count(), 1)
-        payload['cards'][0]['front_text'] = 'Changed'
-        response = self.client.post('/api/sync/v2/push', headers=self.headers(), json=payload)
-        self.assertEqual(response.status_code, 409, response.text)
-        self.assertEqual(models.TMA_Card.get().front_text, 'Hallo')
+        for path in ('/api/sync/v2/push', '/api/sync/v2/push-legacy'):
+            first = self.client.post(path, headers=self.headers(), json=payload)
+            self.assertEqual(first.status_code, 409, first.text)
+            self.assertEqual(models.TMA_Card.select().count(), 0)
+            self.assertEqual(models.TMAOfflineBatch.select().count(), 0)

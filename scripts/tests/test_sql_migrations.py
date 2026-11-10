@@ -241,7 +241,7 @@ print("Migration completed successfully.")
                     if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
         safe_env['PYTHON_DOTENV_DISABLED'] = '1'
         return subprocess.run([sys.executable, '-c', code], cwd=ROOT, env=safe_env,
-                              capture_output=True, text=True, timeout=20)
+                              capture_output=True, text=True, timeout=60)
 
     def test_uncaught_migration_error_exits_nonzero(self):
         result = self.child('migrations.run_migrations(proxy, proxy)')

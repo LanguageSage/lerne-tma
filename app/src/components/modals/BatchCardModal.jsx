@@ -10,7 +10,8 @@ import { usePendingImport } from '../../hooks/usePendingImport';
 import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
 
-import { hasCardSeparatorLine, LERNE_CARD_SEPARATOR } from '../../utils/batchCardParser';
+const LERNE_CARD_SEPARATOR = '<<<LERNE_CARD>>>';
+const hasCardSeparatorLine = text => /^\s*<<<LERNE_CARD>>>\s*$/m.test(text);
 import { studyContent, studySideText } from '../../utils/structuredStudyCard';
 import { cardWriteError } from '../../utils/cardDraft';
 import { networkApi } from '../../services/api';
@@ -303,19 +304,19 @@ BACK:
   return (
     <AnimatePresence>
       <div className="settings-overlay" onClick={handleClose} style={{ zIndex: 1100, overflowY: 'auto', overscrollBehavior: 'contain', WebkitOverflowScrolling: 'touch' }}>
-        <motion.div 
-          initial={{ opacity: 0, scale: 0.95, y: 20 }} 
-          animate={{ opacity: 1, scale: 1, y: 0 }} 
-          exit={{ opacity: 0, scale: 0.95, y: 20 }} 
-          className="settings-modal" 
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95, y: 20 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          exit={{ opacity: 0, scale: 0.95, y: 20 }}
+          className="settings-modal"
           onClick={e => e.stopPropagation()}
-          style={{ 
-            maxWidth: 540, 
-            width: '100%', 
-            maxHeight: 'calc(100dvh - 32px)', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            overflow: 'hidden', 
+          style={{
+            maxWidth: 540,
+            width: '100%',
+            maxHeight: 'calc(100dvh - 32px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             padding: '20px',
             margin: 'auto',
             boxSizing: 'border-box'
@@ -453,7 +454,7 @@ BACK:
                         lineHeight: 1.4
                       }}
                     />
-                    
+
                     {/* Live parsing summary badge bar */}
                     <div style={{
                       display: 'flex', justifyContent: 'space-between', alignItems: 'center',
@@ -706,4 +707,3 @@ BACK:
     </AnimatePresence>
   );
 };
-

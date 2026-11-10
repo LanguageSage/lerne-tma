@@ -338,13 +338,14 @@ async function deliverCardLifecycle(db, operations, options, isCurrent) {
     const applied = await db.transaction('rw', db.cards, db.syncState, async () => {
       const [card, pending] = await Promise.all([db.cards.get(cardId), db.syncState.get(key)]);
       if (!isCurrent() || !card?.offline_lifecycle || pending?.payload.request_id !== payload.request_id) return false;
+      const resolvedConflict = status === 409 && server && !card.offline_edit;
       const next = server && !card.offline_edit ? { ...card, ...server } : { ...card };
-      next.is_deleted = error ? card.is_deleted : server.is_deleted;
+      next.is_deleted = (error && !resolvedConflict) ? card.is_deleted : server.is_deleted;
       if (server && card.offline_edit) next.offline_edit = { ...card.offline_edit, server };
-      if (error) next.offline_list_error = status;
-      else { delete next.offline_lifecycle; next.offline_confirmed_at = Date.now(); }
+      if (error && !resolvedConflict) next.offline_list_error = status;
+      else { delete next.offline_lifecycle; delete next.offline_list_error; next.offline_confirmed_at = Date.now(); }
       await db.cards.put(next);
-      if (error) await db.syncState.update(key, { rejected: true });
+      if (error && !resolvedConflict) await db.syncState.update(key, { rejected: true });
       else await db.syncState.delete(key);
       if (!isCurrent()) throw new Error('Session changed');
       return true;
@@ -494,9 +495,8 @@ export function reconcileCardEditLifecycle(local, server, readStartedAt) {
 async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
   if (data.server_generation) await observeServerGeneration(db, data, isCurrent);
   if (await db.syncState.get('serverGenerationConflict')) throw generationError();
-  const legacy = data.card_schema === 1;
-  if (data.status !== 'success' || ![1, 2].includes(data.card_schema) || !entities.every(name => Array.isArray(data[name]))
-      || data.cards.some(card => legacy ? !!card.content_v2 : card.content_v2?.schema_version !== 2)) {
+  if (data.status !== 'success' || data.card_schema !== 2 || !entities.every(name => Array.isArray(data[name]))
+      || data.cards.some(card => card.content_v2?.schema_version !== 2)) {
     throw new Error(tr("Некорректный ответ синхронизации"));
   }
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
@@ -504,18 +504,14 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
     const lastSync = await db.syncState.get('lastSync');
     if (Date.parse(lastSync?.time) > Date.parse(data.server_time)) return false;
     const localCards = await db.cards.toArray();
-    const otherIds = new Set(localCards.filter(card => legacy ? !!card.content_v2 : !card.content_v2).map(card => card.id));
-    const scopeIds = new Set([...localCards.filter(card => legacy ? !card.content_v2 : !!card.content_v2),
-      ...(legacy ? [] : data.cards)].map(card => card.id));
+    const otherIds = new Set(localCards.filter(card => !card.content_v2).map(card => card.id));
+    const scopeIds = new Set([...localCards.filter(card => !!card.content_v2),
+      ...data.cards].map(card => card.id));
     for (const name of entities) {
       const incoming = new Set(data[name].map(item => name === 'progress' ? item.card_id : item.id));
       for (const item of data[name]) {
         const key = keyFor(name, item, userId);
         const local = await db[name].get(key);
-        // Drain refreshes the device's existing V1 cache. It does not opt a
-        // native device into downloading/rendering the rest of the V1 library.
-        if (legacy && name === 'cards' && !local) continue;
-        if (legacy && name === 'progress' && !scopeIds.has(item.card_id)) continue;
         if (name === 'cards' && local?.offline_edit) {
           const reconciled = reconcileCardEditLifecycle(local, item, pullStartedAt);
           if (reconciled) await db.cards.put(reconciled);
@@ -653,9 +649,11 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
       try { await syncLearningPreferences(db, options, isCurrent); } catch (error) { entityError ||= error; remember(error); }
       try { await syncCardNotes(db, userId); } catch (error) { remember(error); }
     }
-    if (!(pendingNativeOnly && (skipPull || !creates.length && !edits.length && !moves.length && !lifecycle.length))) {
-      const hasLegacy = !pendingNativeOnly && !pullOnly && await db.cards.filter(card => !card.content_v2).count();
-      for (const cardSchema of hasLegacy ? [1, 2] : [2]) {
+    // A committed creation with a lost acknowledgement has two IDs until its UUID receipt is replayed.
+    // Do not discover the server copy through pull before that remap commits.
+    const unacknowledgedCreates = !pullOnly && await db.syncState.where('key').startsWith(CARD_CREATE_KEY).filter(item => !item.rejected).count();
+    if (!unacknowledgedCreates && !(pendingNativeOnly && (skipPull || !creates.length && !edits.length && !moves.length && !lifecycle.length))) {
+      for (const cardSchema of [2]) {
         try {
           const pullStartedAt = Date.now();
           const response = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: cardSchema } });

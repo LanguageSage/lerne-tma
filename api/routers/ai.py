@@ -3,7 +3,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel, ConfigDict, Field, ValidationError
 import logging
 import asyncio
-from api import ai_service, models, permissions, services
+from api import ai_service, models, permissions
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_phases, run_db
 from api.provider_url import resolve_public_provider_url
@@ -53,7 +53,7 @@ async def evaluate_free_text(request: AnswerEvaluationRequest, user_id: int = De
 class PhraseRequest(BaseModel):
     phrase: str | None = None
     target_language: str = "de"
-    native_language: str = None
+    native_language: str | None = None
     action_type: str = "full_card"
     user_request: Optional[str] = None
 
@@ -110,7 +110,7 @@ async def _generate_draft(request, user_id):
         action = 'edit_structured' if request.action_type == 'custom_directive' and request.user_request else 'custom_directive'
     result = await ai_service.generate_card_fields(
         user_id, phrase, request.target_language, request.native_language,
-        action, directive, plain=True,
+        action, directive,
     )
     if result.get('error'):
         return result
@@ -272,14 +272,12 @@ async def generate_card(request: DraftRequest | PhraseRequest, user_id: int = De
         return await _generate_draft(request, user_id)
     if not request.phrase:
         raise HTTPException(422, 'Phrase is required')
-    return await ai_service.generate_card_fields(
-        user_id=user_id,
-        phrase=request.phrase,
-        target_language=request.target_language,
-        native_language=request.native_language,
-        action_type=request.action_type,
-        user_request=request.user_request,
-    )
+    return await _generate_draft(DraftRequest(
+        content_v2={'schema_version': 2, 'card': {'type': 'standard',
+                    'data': {'prompt': request.phrase, 'answer': ''}}},
+        target_language=request.target_language, native_language=request.native_language,
+        action_type=request.action_type, user_request=request.user_request), user_id)
+
 
 
 @router.post("/ai/generate-batch")

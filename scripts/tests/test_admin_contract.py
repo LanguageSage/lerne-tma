@@ -49,8 +49,7 @@ class ContractTests(unittest.TestCase):
     def test_audio_guards_and_personal_learning_remain_in_import_contract(self):
         original = Path.read_text
         for relative, before, after in (
-            ('api/services/cards.py', 'validate_new_audio_path(card.audio_path, previous_audio)', 'pass'),
-            ('api/services/card_transfer.py', 'validate_new_audio_path(card.audio_path, existing_match.audio_path)', 'pass'),
+            ('api/services/structured_card_api.py', 'validate_new_audio_path(media[field], getattr(card, field))', 'pass'),
             ('api/services/decks.py', 'learning_states.get(d.id, False)', 'learning_states.get(d.id, True)'),
             ('api/services/library_import.py', "_require_can_mutate(user_id, 'deck', target.id, allow_deleted=True)", 'pass'),
         ):

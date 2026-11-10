@@ -342,13 +342,13 @@ def main():
         log = scratch / (name + '.log')
         with log.open('ab') as output:
             result = subprocess.run([str(binaries / (name + suffix)), *map(str, arguments)],
-                                    env=clean, stdout=output, stderr=output, timeout=90,
+                                    env=clean, stdout=output, stderr=output, timeout=300 if name == 'initdb' else 180,
                                     creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0))
         if result.returncode:
             raise RuntimeError(f'{name} failed; inspect {log}')
 
     try:
-        pg('initdb', '-D', data, '-U', 'cards_test', '-A', 'trust', '--no-locale', '-E', 'UTF8')
+        pg('initdb', '-D', data, '-U', 'cards_test', '-A', 'trust', '--no-locale', '--no-sync', '-E', 'UTF8')
         sockets = '' if os.name == 'nt' else f' -k "{scratch}"'
         pg('pg_ctl', '-D', data, '-l', scratch / 'postgres.log', '-o',
            f'-h 127.0.0.1 -p {port}{sockets}', '-w', 'start')

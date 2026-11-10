@@ -1,3 +1,4 @@
+import { nativeCard } from '../../utils/__tests__/nativeFixture.js';
 import { test, describe, beforeEach } from 'node:test';
 import assert from 'node:assert';
 import { readFileSync } from 'node:fs';
@@ -32,7 +33,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
         session.clearCurrentFeedback();
       }
       session.check(evaluatePuzzleOrder([0, 1, 2], [0, 1, 2]));
-      await captureStudyKnowledgeAttempt({ userId: '123', card: { id: cardId, front: '@puzzle\nIch sehe Anna.' },
+      await captureStudyKnowledgeAttempt({ userId: '123', card: nativeCard("puzzle", { id: cardId }, {"data": {"tokens": ["Ich", "sehe", "Anna."], "translation": "Synthetic answer"}}),
         grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
       const attempt = (await dbService.getPendingKnowledgeAttempts('123')).find(item => item.card_id === cardId);
       assert.equal(attempt.evaluation_data.card_type, 'puzzle');
@@ -72,7 +73,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
           session.check(evaluateQuizOption(options, 1));
         }
         await captureStudyKnowledgeAttempt({ userId: '123',
-          card: { id: cardId, front: type === 'match' ? '@match\nA => one\nB => two' : 'Choose\n\n- Wrong\n* Right' },
+          card: nativeCard(type, { id: cardId }, {}),
           grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
         const attempt = (await dbService.getPendingKnowledgeAttempts('123')).find(item => item.card_id === cardId);
         assert.equal(attempt.evaluation_data.card_type, type);
@@ -103,7 +104,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       assert.equal(session.evidence(), null);
       session.check(evaluate('Hund'));
       await captureStudyKnowledgeAttempt({ userId: '123',
-        card: { id: cardId, front: type === 'trainer' ? '[[Hund]]' : '@wordbank\n<<1>>\n@options\nHund', back: '1=Hund' },
+        card: nativeCard(type, { id: cardId }, {}),
         grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
       const attempt = (await dbService.getPendingKnowledgeAttempts('123')).find(item => item.card_id === cardId);
       assert.equal(attempt.evaluation_data.schema_version, 2);
@@ -126,7 +127,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       result: { verdict: 'accepted_minor', accepted: true, error_type: 'typo', error_code: 'typo.single_token', evaluator: 'rules' },
       grading_policy: { max_retries: 3 },
     }));
-    await captureStudyKnowledgeAttempt({ userId: '123', card: { id: 71, front: '@free\nTranslate.' },
+    await captureStudyKnowledgeAttempt({ userId: '123', card: nativeCard("free_text", { id: 71 }, {"data": {"prompt": "Translate.", "sample_answer": "Synthetic answer", "accepted_answers": [], "grading_policy": {"mode": "controlled_text", "typo_tolerance": true, "semantic_equivalence": true, "grammar_requires_retry": true, "case_sensitive": false, "punctuation_sensitive": false, "max_retries": 3}}}),
       grade: 2, isExtended: false, exerciseEvidence: session.evidence() });
     const [attempt] = await dbService.getPendingKnowledgeAttempts('123');
     assert.equal(attempt.evaluation_data.schema_version, 2);
@@ -146,7 +147,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       }
     }
     resetAllDatabases();
-    
+
     // Prepare DB for user 123
     const db = getLocalDb('123');
     await db.knowledge_items.bulkAdd([
@@ -171,18 +172,18 @@ describe('KnowledgeCaptureService - KI-04', () => {
   test('Test 2 - primary KI -> attempt queued', async () => {
     const db = getLocalDb('123');
     await db.card_knowledge_items.add({ card_id: 1, knowledge_item_id: 101, role: 'primary' });
-    
+
     await captureStudyKnowledgeAttempt({
       userId: '123',
-      card: { id: 1, front_text: '@puzzle\nSomething' },
+      card: nativeCard("puzzle", { id: 1 }, {"data": {"tokens": ["Something"], "translation": "Synthetic answer"}}),
       grade: 2, // Good in GradeButtons
       isExtended: false,
       eventTime: '2026-01-01T10:00:00Z'
     });
-    
+
     const pending = await dbService.getPendingKnowledgeAttempts('123');
     assert.strictEqual(pending.length, 1);
-    
+
     const attempt = pending[0];
     assert.strictEqual(attempt.knowledge_item_id, 101);
     assert.strictEqual(attempt.card_id, 1);
@@ -245,7 +246,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       { card_id: 2, knowledge_item_id: 102, role: 'secondary' },
       { card_id: 2, knowledge_item_id: 103, role: 'secondary' }
     ]);
-    
+
     await captureStudyKnowledgeAttempt({
       userId: '123',
       card: { id: 2 },
@@ -253,7 +254,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       isExtended: true, // ext_0
       eventTime: '2026-01-01T10:00:00Z'
     });
-    
+
     const pending = await dbService.getPendingKnowledgeAttempts('123');
     assert.strictEqual(pending.length, 1);
     assert.strictEqual(pending[0].knowledge_item_id, 101);
@@ -263,14 +264,14 @@ describe('KnowledgeCaptureService - KI-04', () => {
   test('Test 4 - secondary only -> no attempt', async () => {
     const db = getLocalDb('123');
     await db.card_knowledge_items.add({ card_id: 3, knowledge_item_id: 102, role: 'secondary' });
-    
+
     await captureStudyKnowledgeAttempt({
       userId: '123',
       card: { id: 3 },
       grade: 3,
       isExtended: false
     });
-    
+
     const pending = await dbService.getPendingKnowledgeAttempts('123');
     assert.strictEqual(pending.length, 0);
   });
@@ -282,7 +283,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       userId: null, // should just return early without throwing
       card: { id: 4 }
     });
-    
+
     const originalEnv = globalThis.import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED;
     globalThis.import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED = 'false';
     // should return early due to feature flag
@@ -292,7 +293,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
       grade: 3
     });
     globalThis.import.meta.env.VITE_KNOWLEDGE_LAYER_ENABLED = originalEnv;
-    
+
     const pending = await dbService.getPendingKnowledgeAttempts('123');
     assert.strictEqual(pending.length, 0); // No new attempts
   });
@@ -301,7 +302,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
   test('KI-04.1 - Exercise first try correct', async () => {
     const db = getLocalDb('123');
     await db.card_knowledge_items.add({ card_id: 10, knowledge_item_id: 101, role: 'primary' });
-    await captureStudyKnowledgeAttempt({ userId: '123', card: { id: 10, front_text: '* A' }, grade: 3, isExtended: false, exerciseEvidence: { isCorrect: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0 } });
+    await captureStudyKnowledgeAttempt({ userId: '123', card: nativeCard("standard", { id: 10 }, {}), grade: 3, isExtended: false, exerciseEvidence: { isCorrect: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0 } });
     const pending = await dbService.getPendingKnowledgeAttempts('123');
     const attempt = pending.find(a => a.card_id === 10);
     assert.strictEqual(attempt.evaluation_data.schema_version, 2);
@@ -313,7 +314,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
   test('KI-04.1 - Exercise after errors', async () => {
     const db = getLocalDb('123');
     await db.card_knowledge_items.add({ card_id: 11, knowledge_item_id: 101, role: 'primary' });
-    await captureStudyKnowledgeAttempt({ userId: '123', card: { id: 11, front_text: '* A' }, grade: 2, isExtended: false, exerciseEvidence: { isCorrect: true, isFirstTry: false, attemptCount: 4, mistakeCount: 3 } });
+    await captureStudyKnowledgeAttempt({ userId: '123', card: nativeCard("standard", { id: 11 }, {}), grade: 2, isExtended: false, exerciseEvidence: { isCorrect: true, isFirstTry: false, attemptCount: 4, mistakeCount: 3 } });
     const pending = await dbService.getPendingKnowledgeAttempts('123');
     const attempt = pending.find(a => a.card_id === 11);
     assert.strictEqual(attempt.evaluation_data.schema_version, 2);
@@ -330,7 +331,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
     const reviewEvidence1 = { isCorrect: true, isFirstTry: false, attemptCount: 4, mistakeCount: 3 };
     await captureStudyKnowledgeAttempt({
       userId: '123',
-      card: { id: 42, front_text: '@match\nA - 1' },
+      card: nativeCard("standard", { id: 42 }, {}),
       grade: 2,
       isExtended: false,
       eventTime: '2026-01-01T10:00:00Z',
@@ -341,7 +342,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
     const reviewEvidence2 = { isCorrect: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0 };
     await captureStudyKnowledgeAttempt({
       userId: '123',
-      card: { id: 42, front_text: '@match\nA - 1' },
+      card: nativeCard("standard", { id: 42 }, {}),
       grade: 3,
       isExtended: false,
       eventTime: '2026-01-01T10:05:00Z',
@@ -419,7 +420,7 @@ describe('KnowledgeCaptureService - KI-04', () => {
     // Grade card (e.g. grade 0 = 'again')
     await captureStudyKnowledgeAttempt({
       userId: '123',
-      card: { id: 88, front: '@free\nTranslate.' },
+      card: nativeCard("free_text", { id: 88 }, {"data": {"prompt": "Translate.", "sample_answer": "Synthetic answer", "accepted_answers": [], "grading_policy": {"mode": "controlled_text", "typo_tolerance": true, "semantic_equivalence": true, "grammar_requires_retry": true, "case_sensitive": false, "punctuation_sensitive": false, "max_retries": 3}}}),
       grade: 0,
       isExtended: false,
       exerciseEvidence: evidence
@@ -447,5 +448,3 @@ describe('KnowledgeCaptureService - KI-04', () => {
     assert.strictEqual(exEvidence.grading_summary.final_evaluator, 'ai');
   });
 });
-
-

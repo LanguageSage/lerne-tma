@@ -255,7 +255,15 @@ describe('KnowledgeSyncOrchestrator - KI-04.2', () => {
       mockListeners['visibilitychange']();
     }
 
-    await new Promise(r => setTimeout(r, 60));
+    await new Promise((resolve, reject) => {
+      const deadline = Date.now() + 3000;
+      const check = () => {
+        if (syncedEvents.includes('evt-vis-1')) return resolve();
+        if (Date.now() >= deadline) return reject(new Error('Visible document did not synchronize the queued event'));
+        setTimeout(check, 10);
+      };
+      check();
+    });
     assert.ok(syncedEvents.includes('evt-vis-1'));
   });
 

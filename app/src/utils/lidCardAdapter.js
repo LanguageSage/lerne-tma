@@ -1,3 +1,4 @@
+import { studyContent } from './structuredStudyCard.js';
 import { stripMarkdown } from './text.js';
 import { shuffleFY } from './shuffle.js';
 import { getAudioUrl } from './media.js';
@@ -6,7 +7,7 @@ import { getAudioUrl } from './media.js';
  * Parses a Russian back translation text into clean question and option translations.
  * Format on card back:
  * [Question in Russian]
- * 
+ *
  * 1. [Option 1]
  * 2. ✅ [Option 2]
  * 3. [Option 3]
@@ -43,9 +44,10 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
   // ИНВАРИАНТ: Данные вопроса и картинки извлекаются НАПРЯМУЮ из карточки (card.image_url / card.image_path). Внешние файлы запрещены.
   if (!card) return null;
 
-  const rawFront = (card.front || card.front_text || '').trim();
-  const rawBack = (card.back || card.back_text || '').trim();
-  const rawContext = card.context || '';
+  const content = studyContent(card);
+  if (content?.type !== 'quiz') return null;
+  const rawBack = content.data.back_note || '';
+  const rawContext = content.explanation || '';
   const audioUrl = getAudioUrl(card.audio_url || card.audio_path);
   const rawMedia = card.image_url || card.media_url || card.image_path || card.image || '';
 
@@ -60,20 +62,7 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
     }
   }
 
-  // 1. Parse German question & options from front_text
-  let questionDe = '';
-  const optionLines = [];
-
-  if (rawFront.includes('\n\n')) {
-    const parts = rawFront.split(/\n\s*\n/);
-    questionDe = parts[0].trim();
-    const optsRemaining = parts.slice(1).join('\n\n').trim();
-    optionLines.push(...optsRemaining.split('\n').map(l => l.trim()).filter(Boolean));
-  } else {
-    const allLines = rawFront.split('\n').map(l => l.trim()).filter(Boolean);
-    questionDe = allLines[0] || '';
-    optionLines.push(...allLines.slice(1));
-  }
+  const questionDe = content.data.prompt;
 
   const OPT_LETTERS = ['a', 'b', 'c', 'd', 'e', 'f'];
 
@@ -85,10 +74,10 @@ export const transformCardToExamQuestion = (card, examIndex = 1, { shuffle = tru
   const contextRu = apiTrans?.context || '';
 
   // 3. Form tightly-coupled pairs: { textDe, textRu, isCorrect }
-  const optionPairs = optionLines.map((line, idx) => {
+  const optionPairs = content.data.options.map((option, idx) => {
     const origLetter = OPT_LETTERS[idx] || String(idx + 1);
-    const isCorrect = line.startsWith('*') || line.endsWith('*');
-    const cleanText = line.replace(/^\*|\*$/g, '').trim();
+    const isCorrect = option.correct;
+    const cleanText = option.text;
 
     const optRu = (apiTrans && apiTrans[origLetter]) ||
                   parsedOptionsRu[idx] ||

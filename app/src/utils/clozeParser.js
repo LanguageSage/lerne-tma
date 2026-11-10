@@ -8,12 +8,7 @@ export { ARTICLE_GROUPS, ADJECTIVE_ENDINGS, autoGenerateChoices } from './traine
 export const isWordGap = (text, start, end) =>
   /[\p{L}\p{M}]$/u.test(text.slice(0, start)) || /^[\p{L}\p{M}]/u.test(text.slice(end));
 
-export const normalizeAnswer = (str) => {
-  if (!str) return '';
-  let res = str.trim().replace(/\s+/g, ' ').toLowerCase();
-  res = res.replace(/[.!?]+$/, '').trim();
-  return res;
-};
+export { normalizeAnswer } from './text.js';
 
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';
@@ -109,14 +104,14 @@ export const parseClozeData = (card, studyMode, sourceCards = []) => {
 
   const words = originalText.split(/\s+/).map(w => w.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "").trim()).filter(Boolean);
   if (words.length === 0) return { maskedText: originalText, correctAnswer: "", choices: [] };
-  
+
   const validWords = words.filter(w => w.length >= 3);
-  const targetWord = validWords.length > 0 
+  const targetWord = validWords.length > 0
     ? validWords.reduce((longest, current) => current.length > longest.length ? current : longest, validWords[0])
     : words[0];
 
   const cleanTarget = targetWord.replace(/[.,/#!$%^&*;:{}=\-_`~()?"'«»]/g, "");
-  
+
   let maskedText = originalText;
   try {
     const regex = new RegExp(`\\b${cleanTarget}\\b`, 'i');

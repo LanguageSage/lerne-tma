@@ -1,13 +1,5 @@
 import React, { useMemo } from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore.js';
-import { parseClozeData } from '../../utils/clozeParser.js';
-import { parseQuizData } from '../../utils/quizParser.js';
-import { parseMatchData } from '../../utils/matchParser.js';
-import { parseFreeTextData } from '../../utils/freeTextParser.js';
-import { parseEditableTextData } from '../../utils/editableTextParser.js';
-import { parseWordBankData } from '../../utils/wordBankParser.js';
-import { detectExerciseType } from '../../utils/exerciseDetector.js';
-import { parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import {
   studyContent, studyExerciseType, studyInfoBlocks, studyMatch, studyQuiz, studyTrainer, studyWordBank, layoutAnswerRevealed
 } from '../../utils/structuredStudyCard.js';
@@ -33,8 +25,6 @@ import { StructuredCardLayout } from './StructuredCardLayout.jsx';
  */
 export const ExerciseRenderer = React.memo(({
   card,
-  native = false,
-  studyMode = 'classic',
   isPureTrainerMode = false,
   isFlipped = false,
   onFlip,
@@ -58,63 +48,23 @@ export const ExerciseRenderer = React.memo(({
   const effectiveDesign = designConfig ?? activeDesign;
   const exerciseCard = card;
   const structured = studyContent(card);
-  const nativeRender = native || Boolean(structured);
-  const legacyCard = nativeRender ? null : card;
-  const { detectedType, content, data } = useMemo(() => {
-    if (nativeRender) {
-      const type = studyExerciseType(structured);
-      const value = structured?.data;
-      let projected = value;
-      if (type === 'trainer') projected = studyTrainer(value);
-      else if (type === 'quiz') projected = studyQuiz(value);
-      else if (type === 'match') projected = studyMatch(value);
-      else if (type === 'word_bank') projected = studyWordBank(value);
-      else if (type === 'free_text') projected = { prompt: value.prompt, exampleAnswer: value.sample_answer };
-      else if (type === 'editable_text') projected = { sourceText: value.source_text };
-      return { detectedType: type, content: { blocks: studyInfoBlocks(structured) }, data: projected };
-    }
-    // Editor and design previews still consume their authoring inputs.
-    const type = detectExerciseType(legacyCard, studyMode);
-    const parse = {
-      trainer: parseClozeData, quiz: parseQuizData, match: parseMatchData, free_text: parseFreeTextData,
-      editable_text: parseEditableTextData, word_bank: parseWordBankData,
-    }[type];
-    return { detectedType: type, content: parseExerciseContent(legacyCard?.front || legacyCard?.front_text || ''),
-      data: parse?.(legacyCard, studyMode) };
-  }, [nativeRender, structured, legacyCard, studyMode]);
+  const { detectedType, data } = useMemo(() => {
+    const type = studyExerciseType(structured);
+    const value = structured?.data;
+    let projected = value;
+    if (type === 'trainer') projected = studyTrainer(value);
+    else if (type === 'quiz') projected = studyQuiz(value);
+    else if (type === 'match') projected = studyMatch(value);
+    else if (type === 'word_bank') projected = studyWordBank(value);
+    else if (type === 'free_text') projected = { prompt: value.prompt, exampleAnswer: value.sample_answer };
+    else if (type === 'editable_text') projected = { sourceText: value.source_text };
+    return { detectedType: type, data: projected };
+  }, [structured]);
 
-  const withInformation = (exercise) => {
-    if (structured?.layout) return <StructuredCardLayout card={card} exercise={exercise}
-      afterAnswer={previewAfterAnswer || layoutAnswerRevealed(savedState)} />;
-    const blocks = content?.blocks || [];
-    const directive = { puzzle: 'puzzle', match: 'match', free_text: 'free', editable_text: 'edit', word_bank: 'wordbank' }[detectedType];
-    const exerciseIndex = nativeRender ? -1 : blocks.findIndex(b => b.type === 'exercise'
-      && (!directive || b.content.split('\n')[0].trim().toLowerCase() === `@${directive}`));
-    
-    let topBlocks = blocks;
-    let bottomBlocks = [];
-    
-    if (exerciseIndex !== -1) {
-      // A directive may follow a plain instruction block. Keep that instruction,
-      // but never print authored exercise syntax (including its correct answers)
-      // as an information block beside the interactive renderer. Trainer/Quiz
-      // already consume the combined exercise projection in their own parser.
-      topBlocks = blocks.slice(0, exerciseIndex).filter(b => b.type !== 'exercise' || !detectExerciseType(b.content));
-      bottomBlocks = blocks.slice(exerciseIndex + 1).filter(b => b.type !== 'exercise' || !detectExerciseType(b.content));
-    }
-
-    return (
-      <>
-        {topBlocks.length > 0 && (
-          <ExerciseInfoBlocks blocks={topBlocks} />
-        )}
-        {exercise}
-        {bottomBlocks.length > 0 && (
-          <ExerciseInfoBlocks blocks={bottomBlocks} />
-        )}
-      </>
-    );
-  };
+  const withInformation = exercise => structured?.layout
+    ? <StructuredCardLayout card={card} exercise={exercise}
+        afterAnswer={previewAfterAnswer || layoutAnswerRevealed(savedState)} />
+    : <><ExerciseInfoBlocks blocks={studyInfoBlocks(structured)} />{exercise}</>;
 
   if (!detectedType) {
     return fallback ? withInformation(fallback) : null;

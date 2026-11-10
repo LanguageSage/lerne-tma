@@ -1,7 +1,6 @@
 import React from 'react';
 import { ExerciseInfoBlocks } from '../study/ExerciseInfoBlocks.jsx';
 import { KaraokeText } from '../study/KaraokeText.jsx';
-import { cleanBracketSyntax } from '../../utils/clozeParser.js';
 import { stripMarkdown } from '../../utils/text.js';
 import '../study/StudyCard.css';
 
@@ -11,7 +10,7 @@ export function CardFrontContent({ content, textStyle, activeWordIndex = -1, id 
   let firstExercise = true;
   return content.blocks.map((block, index) => {
     if (block.type !== 'exercise') return <ExerciseInfoBlocks key={index} blocks={[block]} />;
-    const text = cleanBracketSyntax(stripMarkdown(block.content));
+    const text = stripMarkdown(block.content);
     const active = activeWordIndex - wordOffset;
     wordOffset += text.match(/\S+/g)?.length || 0;
     const elementId = firstExercise ? id : undefined;

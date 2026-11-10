@@ -1,156 +1,17 @@
-import os
 import datetime
 import logging
 import json
 import hashlib
-import time
-from contextlib import nullcontext
 from fastapi import HTTPException
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia, TMAOfflineBatch
+from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db, TMAOfflineBatch
 from .. import srs
 from peewee import fn, JOIN, Case
-from functools import lru_cache
 
 logger = logging.getLogger(__name__)
 
-from .card_transfer import batch_move_cards, batch_copy_cards, normalize_card_key
 from .media import resolve_media_url, _build_media_exists_map
-from .utils import add_to_history, resolve_deck_metadata
-from .cefr_metadata import get_cefr_metadata, merge_cefr_metadata, parse_card_metadata, serialize_card_metadata
+from .utils import resolve_deck_metadata
 
-def save_card(data, user_id, *, _batch=None):
-    """Сохраняет или обновляет карточку."""
-    if _batch is None:
-        logger.info("Saving card user_id=%s deck_id=%s", user_id, data.get('deck_id'))
-    
-    raw_card_id = data.get('card_id') or data.get('id')
-    try:
-        card_id = int(raw_card_id) if raw_card_id else None
-    except (ValueError, TypeError):
-        card_id = None
-    
-    is_new = not bool(card_id)
-    if card_id:
-        card = TMA_Card.get_or_none(TMA_Card.id == card_id)
-        if not card:
-            logger.warning(f"Card {card_id} not found, creating new.")
-            card = TMA_Card()
-            is_new = True
-    else:
-        card = TMA_Card()
-        card.creator_id = user_id
-    card._is_new = is_new
-    original_deck_id = card.deck_id if card.id else None
-        
-    raw_deck_id = data.get('deck_id')
-    try:
-        deck_id = int(raw_deck_id) if (raw_deck_id and raw_deck_id != 'duplicates') else None
-    except (ValueError, TypeError):
-        deck_id = None
-    
-    if _batch is not None:
-        card.deck_id = _batch['deck'].id
-    elif deck_id:
-        card.deck_id = deck_id
-    elif not card.id:
-        from .decks import ensure_inbox_deck
-        inbox = ensure_inbox_deck(user_id)
-        card.deck_id = inbox.id
-
-    target_deck_id = card.deck_id or deck_id
-
-    if card.id and _batch is None:
-        from .collaborative_service import _require_can_mutate
-        _require_can_mutate(user_id, 'deck', original_deck_id)
-    cached_deck = None
-    if _batch is not None:
-        cached_deck = _batch['deck']
-    elif target_deck_id:
-        cached_deck = TMA_Deck.get_or_none(TMA_Deck.id == target_deck_id)
-        from .collaborative_service import _require_can_mutate
-        _require_can_mutate(user_id, 'deck', target_deck_id)
-    card._cached_deck = cached_deck
-    
-    from .card_content_service import apply_card_content
-    from .media import validate_new_audio_path
-    previous_audio = card.audio_path
-    previous_back_audio = card.audio_back_path
-    apply_card_content(card, data)
-    validate_new_audio_path(card.audio_path, previous_audio)
-    validate_new_audio_path(card.audio_back_path, previous_back_audio)
-
-    # При создании новой карточки выставляем позицию
-    if not card.id:
-        after_card_id = data.get('after_card_id') if _batch is None else None
-        if after_card_id and deck_id:
-            try:
-                after_card_id = int(after_card_id)
-            except (ValueError, TypeError):
-                after_card_id = None
-                
-        ref_card = None
-        if after_card_id and deck_id:
-            ref_card = TMA_Card.get_or_none(
-                (TMA_Card.id == after_card_id) & 
-                (TMA_Card.deck_id == deck_id) & 
-                (TMA_Card.is_deleted == False)
-            )
-            
-        if _batch is not None:
-            card.position = _batch['position'] + 1
-        elif ref_card:
-            ref_pos = ref_card.position or 0
-            TMA_Card.update(position=TMA_Card.position + 1).where(
-                (TMA_Card.deck_id == deck_id) & 
-                (TMA_Card.position > ref_pos) & 
-                (TMA_Card.is_deleted == False)
-            ).execute()
-            card.position = ref_pos + 1
-        elif deck_id:
-            max_pos = TMA_Card.select(fn.Max(TMA_Card.position)).where(
-                TMA_Card.deck == deck_id,
-                TMA_Card.is_deleted == False
-            ).scalar()
-            card.position = (max_pos or 0) + 1
-        else:
-            card.position = 0
-
-    card.updated_at = datetime.datetime.now()
-    if not data.get('silent'):
-        card.history = add_to_history(card.history, "Edited manually")
-    
-    with (tma_db.atomic() if _batch is None else nullcontext()):
-        card.save()
-        if _batch is not None:
-            _batch['position'] = card.position
-        elif card.deck_id:
-            from .collaborative_service import touch_deck_and_parent_folders
-            touch_deck_and_parent_folders(card.deck_id, deck_obj=cached_deck)
-    if _batch is None:
-        logger.info("Card %s saved successfully", card.id)
-    return card
-
-
-def delete_card(card_id: int, user_id: int):
-    try:
-        # Мягкое удаление: помечаем карточку как is_deleted = True
-        card = TMA_Card.get_or_none(TMA_Card.id == card_id)
-        if not card or card.is_deleted:
-            # Карточка не найдена или уже удалена — считаем операцию успешной
-            return True
-
-        from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
-        _require_can_mutate(user_id, 'deck', card.deck_id)
-
-        card.is_deleted = True
-        card.updated_at = datetime.datetime.now()
-        card.save()
-        if card.deck_id:
-            touch_deck_and_parent_folders(card.deck_id)
-        return True
-    except Exception as e:
-        logger.error(f"Error deleting card: {e}", exc_info=True)
-        raise e
 
 
 def set_card_flag(card_id: int, user_id: int, flag: int):
@@ -182,40 +43,13 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
         raise e
 
 
-def batch_delete_cards(card_ids: list[int], user_id: int) -> dict:
-    """Массовое мягкое удаление карточек с проверкой прав."""
-    from .collaborative_service import _require_cards_access, touch_deck_and_parent_folders
-
-    if not card_ids:
-        return {"status": "success", "count": 0}
-
-    _require_cards_access(card_ids, user_id)
-    cards = list(TMA_Card.select().where((TMA_Card.id.in_(card_ids)) & (TMA_Card.is_deleted == False)))
-    valid_card_ids = [card.id for card in cards]
-    affected_decks = {card.deck_id for card in cards}
-
-    if not valid_card_ids:
-        return {"status": "success", "count": 0}
-
-    now = datetime.datetime.now()
-    with tma_db.atomic():
-        TMA_Card.update(
-            is_deleted=True,
-            updated_at=now
-        ).where(TMA_Card.id.in_(valid_card_ids)).execute()
-
-        for d_id in affected_decks:
-            touch_deck_and_parent_folders(d_id)
-
-    logger.info(f"User {user_id} batch deleted {len(valid_card_ids)} cards")
-    return {"status": "success", "count": len(valid_card_ids)}
 
 
 
 def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
     is_dict = isinstance(c, dict)
     get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)
-    
+
     audio_path = get_val('audio_path', 'audio_path')
     audio_back_path = get_val('audio_back_path', 'audio_back_path')
     image_path = get_val('image_path', 'image_path')
@@ -232,20 +66,6 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
             creator_name = creator.username or creator.first_name
             creator_avatar = creator.photo_url
 
-    tags_val = get_val('tags', 'tags')
-    raw_meta = get_val('metadata', 'metadata')
-    metadata = parse_card_metadata(raw_meta)
-    cefr_metadata = metadata.get("cefr") if isinstance(metadata, dict) and isinstance(metadata.get("cefr"), dict) else None
-    level_label = None
-
-    if cefr_metadata and cefr_metadata.get("level") in {"A1", "A2", "B1", "B2", "C1", "C2"}:
-        level_label = cefr_metadata.get("level")
-    elif tags_val:
-        for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
-            if lvl in str(tags_val).upper():
-                level_label = lvl
-                break
-
     get_p = lambda k: p.get(k) if isinstance(p, dict) else getattr(p, k, None) if p else None
     lapses = get_p('lapses') or 0
     queue = get_p('queue') or "new"
@@ -257,15 +77,6 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     result = {
         "id": get_val('id', 'id'),
         "deck_id": get_val('deck_id', 'deck_id'),
-        "card_type": get_val('card_type', 'card_type'),
-        "front": get_val('front_text', 'front_text'),
-        "back": get_val('back_text', 'back_text'),
-        "context": get_val('context', 'context'),
-        "tags": tags_val,
-        "topics": get_val('topics', 'topics'),
-        "level": level_label,
-        "metadata": metadata,
-        "cefr": cefr_metadata,
         "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),
         "audio_back_url": resolve_media_url(audio_back_path, "audio", exists_map=media_exists),
         "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),
@@ -287,22 +98,19 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "interval": interval
     }
 
-    if get_val('content_v2', 'content_v2') is not None:
-        from .structured_card_api import content_response
-        for field in ('front', 'back', 'context', 'card_type', 'tags', 'topics', 'level', 'metadata', 'cefr'):
-            del result[field]
-        result.update(content_response(c))
+    from .structured_card_api import content_response
+    result.update(content_response(c))
 
     if include_intervals:
         result["intervals"] = srs.get_next_intervals(p)
     else:
         nr = get_p('next_review')
         result["next_review"] = nr.isoformat() if hasattr(nr, 'isoformat') else (str(nr) if nr else None)
-        
+
     return result
 
 
-def get_cards_for_study(deck_id: int, user_id: int, *, native_only=False):
+def get_cards_for_study(deck_id: int, user_id: int):
     """Возвращает список всех карточек в колоде. Оптимизировано: проекция полей без BLOB и исключение лишних проверок."""
     try:
         from .collaborative_service import get_effective_user_role
@@ -314,30 +122,22 @@ def get_cards_for_study(deck_id: int, user_id: int, *, native_only=False):
             TMA_Card.deck.alias('deck_id'),
             TMA_Card.content_v2,
             TMA_Card.updated_at,
-            TMA_Card.front_text,
-            TMA_Card.back_text,
-            TMA_Card.context,
             TMA_Card.audio_path,
             TMA_Card.audio_back_path,
             TMA_Card.image_path,
             TMA_Card.video_front_path,
             TMA_Card.video_back_path,
-            TMA_Card.tags,
-            TMA_Card.topics,
-            TMA_Card.metadata,
-            TMA_Card.card_type,
             TMA_Card.position,
             TMA_Card.creator_id,
             TMA_Card.source
         ).where(
-            TMA_Card.deck_id == deck_id, 
+            TMA_Card.deck_id == deck_id,
             TMA_Card.is_deleted == False
         ).order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
 
-        if native_only:
-            cards_query = cards_query.where(TMA_Card.content_v2.is_null(False))
+        cards_query = cards_query.where(TMA_Card.content_v2.is_null(False))
         cards = list(cards_query.dicts())
-        
+
         if not cards:
             return []
 
@@ -360,14 +160,14 @@ def get_cards_for_study(deck_id: int, user_id: int, *, native_only=False):
                               .dicts())
                 for p in chunk_query:
                     progress_map[p['card_id']] = p
-        
+
         creator_ids = list(set([c.get('creator_id') for c in cards if c.get('creator_id')]))
         creators = {}
         if creator_ids:
             from ..models import TMAUser
             for u in TMAUser.select(TMAUser.user_id, TMAUser.username, TMAUser.first_name, TMAUser.photo_url).where(TMAUser.user_id << creator_ids).dicts():
                 creators[u['user_id']] = u
-        
+
         # Audio URLs resolve directly to Storage; batch only image/video existence checks.
         media_exists = _build_media_exists_map([
             {field: card.get(field) for field in ('image_path', 'video_front_path', 'video_back_path')}
@@ -386,16 +186,15 @@ def get_cards_for_study(deck_id: int, user_id: int, *, native_only=False):
         raise e
 
 
-def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False, review_context='scheduled', *, native_only=False):
+def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_more: bool = False, review_context='scheduled'):
     """Выбирает следующую карту для изучения (SRS). Оптимизировано: JOIN вместо 2 запросов."""
     try:
         now = datetime.datetime.now()
         exclude_ids = exclude_ids or []
         learn_more = learn_more or review_context == 'forced'
         active_card = (TMA_Card.is_deleted == False)
-        if native_only:
-            active_card &= TMA_Card.content_v2.is_null(False)
-        
+        active_card &= TMA_Card.content_v2.is_null(False)
+
         # Функция для поиска новой карты
         def get_new_card():
             subquery = TMAProgress.select(TMAProgress.card_id).where(
@@ -424,10 +223,10 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                         ))
             if not learn_more:
                 due_query = due_query.where(TMAProgress.next_review <= now)
-                
+
             if exclude_ids:
                 due_query = due_query.where(~(TMAProgress.card_id << exclude_ids))
-            
+
             p = due_query.order_by(TMAProgress.queue.asc(), TMAProgress.next_review.asc()).first()
             if p:
                 c = getattr(p, 'tma_card', None) or getattr(p, 'card', None)
@@ -451,7 +250,7 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                               ))
             if exclude_ids:
                 learning_query = learning_query.where(~(TMAProgress.card_id << exclude_ids))
-            
+
             p = learning_query.order_by(TMAProgress.next_review.asc()).first()
             if p:
                 c = getattr(p, 'tma_card', None) or getattr(p, 'card', None)
@@ -476,13 +275,13 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                     defaults={"queue": "new", "next_review": now}
                 )
                 return card, progress
-            
+
             return None, None
         else:
             card, progress = get_due_card()
             if card:
                 return card, progress
-                
+
             card = get_new_card()
             if card:
                 progress, _ = TMAProgress.get_or_create(
@@ -491,14 +290,12 @@ def get_next_card(user_id: int, deck_id: int, exclude_ids: list = None, learn_mo
                     defaults={"queue": "new", "next_review": now}
                 )
                 return card, progress
-                
+
             return get_today_learning_card()
-            
+
     except Exception as e:
         logger.error(f"Error in get_next_card: {e}")
-        if native_only:
-            raise
-        return {"error": str(e)}, None
+        raise
 
 
 def format_card_for_study(card: TMA_Card, user_id: int, deck_obj = None, media_exists=None, deck_metadata=None):
@@ -510,9 +307,9 @@ def format_card_for_study(card: TMA_Card, user_id: int, deck_obj = None, media_e
             TMAProgress.card_id == card.id,
             TMAProgress.user_id == user_id
         )
-    
+
     res = _build_card_dict(card, p=progress, media_exists=media_exists, include_intervals=True)
-    
+
     # ⚠️ CRITICAL STABILITY GUARANTEE: DO NOT ALTER OR REMOVE DECK RESOLUTION LOGIC.
     # Safely handle both model objects (TMA_Card) and dictionaries (.dicts()) without throwing AttributeError.
     deck = deck_obj or getattr(card, '_cached_deck', None)
@@ -530,10 +327,10 @@ def format_card_for_study(card: TMA_Card, user_id: int, deck_obj = None, media_e
 
     deck_name = deck.name if deck else (card.get('deck_name') if isinstance(card, dict) else getattr(card, 'deck_name', None))
     res["deck_name"] = deck_name or "Без колоды"
-    
+
     if deck_metadata is None:
         deck_metadata = resolve_deck_metadata(deck)
-    
+
     res["deck_metadata"] = deck_metadata
     return res
 
@@ -628,122 +425,9 @@ def save_ai_batch_result(result: dict, request_data: dict, user_id: int, import_
         return json.loads(serialized)
 
 
-def bulk_save_cards(cards_data: list, user_id: int, import_id: str = None, placement: str = 'end') -> dict:
-    """Save a batch; an import receipt and its cards commit in the same transaction."""
-    if placement not in ('start', 'end'):
-        raise HTTPException(422, 'Некорректное положение импорта')
-    started = time.monotonic()
-    requested = len(cards_data)
-    deck_ids = {str(item.get('deck_id')) for item in cards_data if isinstance(item, dict)}
-    deck_id = next(iter(deck_ids)) if len(deck_ids) == 1 else None
-    # Preserve the hash of pending receipts created before placement was introduced.
-    hash_payload = cards_data if placement == 'end' else {'cards': cards_data, 'placement': placement}
-    payload_hash = hashlib.sha256(json.dumps(hash_payload, sort_keys=True, ensure_ascii=False, default=str,
-                                              separators=(',', ':')).encode('utf-8')).hexdigest()
-    saved_cards = []
-    failed_cards = []
-    logged_created = 0
-    logged_failed = 0
-    try:
-        with tma_db.atomic():
-            receipt = None
-            if import_id:
-                key = f'import:{user_id}:{import_id}'
-                inserted = list(TMAOfflineBatch.insert(
-                    key=key, payload_hash=payload_hash, response='')
-                    .on_conflict_ignore().returning(TMAOfflineBatch.key).execute())
-                receipt = TMAOfflineBatch.get_by_id(key)
-                if not inserted:
-                    if receipt.payload_hash != payload_hash:
-                        raise HTTPException(409, 'Идентификатор импорта уже использован с другими данными')
-                    replayed = json.loads(receipt.response)
-                    logged_created = replayed['created']
-                    logged_failed = len(replayed['failed'])
-                    return replayed
-
-            # Direct import creates new cards in one deck. Keep the legacy path for mixed/edit batches.
-            fast_path = len(deck_ids) == 1 and all(
-                isinstance(item, dict) and not (item.get('id') or item.get('card_id'))
-                and not item.get('after_card_id') for item in cards_data)
-            if placement == 'start' and not fast_path:
-                raise HTTPException(422, 'Добавление в начало доступно только для новых карточек одной колоды')
-            batch = None
-            if fast_path:
-                try:
-                    target_id = int(deck_id)
-                except (TypeError, ValueError):
-                    if placement == 'start':
-                        raise HTTPException(422, 'Для добавления в начало нужна колода')
-                    fast_path = False
-                else:
-                    deck = TMA_Deck.get_or_none((TMA_Deck.id == target_id) & (TMA_Deck.is_deleted == False))
-                    if not deck:
-                        raise HTTPException(404, 'Колода не найдена')
-                    from .collaborative_service import _require_can_mutate
-                    _require_can_mutate(user_id, 'deck', target_id)
-                    position_function = fn.Min if placement == 'start' else fn.Max
-                    edge_position = TMA_Card.select(position_function(TMA_Card.position)).where(
-                        (TMA_Card.deck_id == target_id) & (TMA_Card.is_deleted == False)).scalar()
-                    if placement == 'start' and edge_position is not None:
-                        initial_position = edge_position - requested - 1
-                    else:
-                        initial_position = edge_position or 0
-                    batch = {'deck': deck, 'position': initial_position}
-
-            created_cards = []
-            for idx, item in enumerate(cards_data):
-                try:
-                    with tma_db.savepoint():
-                        card = save_card(item, user_id, _batch=batch)
-                        if card:
-                            created_cards.append(card)
-                except Exception as item_err:
-                    logger.error("Batch card failed import_id=%s deck_id=%s index=%s error_type=%s",
-                                 import_id, deck_id, idx, type(item_err).__name__)
-                    failed_cards.append({
-                        "index": idx,
-                        "front": (item.get("front") or item.get("front_text") or "")[:40] if isinstance(item, dict) else "",
-                        "message": str(item_err)
-                    })
-
-            if batch and created_cards:
-                from .collaborative_service import touch_deck_and_parent_folders
-                touch_deck_and_parent_folders(batch['deck'].id, deck_obj=batch['deck'])
-                batch_deck_metadata = resolve_deck_metadata(batch['deck'])
-                media_exists = _build_media_exists_map([{
-                    field: getattr(card, field) for field in ('audio_path', 'audio_back_path', 'image_path',
-                                                               'video_front_path', 'video_back_path')}
-                    for card in created_cards])
-            else:
-                batch_deck_metadata = None
-                media_exists = None
-            for card in created_cards:
-                saved_cards.append(format_card_for_study(card, user_id,
-                                                         deck_obj=batch['deck'] if batch else None,
-                                                         media_exists=media_exists,
-                                                         deck_metadata=batch_deck_metadata))
-
-            new_count = sum(bool(getattr(card, '_is_new', False)) for card in created_cards)
-            logged_created = new_count
-            logged_failed = len(failed_cards)
-            response = {
-                'status': 'success', 'requested': requested, 'created': new_count,
-                'skipped_existing': 0, 'skipped_in_batch': 0, 'failed': failed_cards,
-                'count': len(saved_cards), 'created_count': new_count,
-                'failed_count': len(failed_cards), 'cards': saved_cards,
-            }
-            serialized_response = json.dumps(response, ensure_ascii=False)
-            if receipt:
-                receipt.response = serialized_response
-                receipt.save()
-            return json.loads(serialized_response)
-    finally:
-        logger.info("Bulk import import_id=%s deck_id=%s placement=%s requested=%s created=%s failed=%s elapsed_ms=%s",
-                    import_id, deck_id, placement, requested, logged_created, logged_failed,
-                    round((time.monotonic() - started) * 1000))
 
 
-def get_deck_stats_counts(user_id: int, deck_id: int, *, native_only=False) -> dict:
+def get_deck_stats_counts(user_id: int, deck_id: int) -> dict:
     """Подсчитывает живое распределение карточек колоды: new, due (сегодня), learning, total."""
     try:
         now = datetime.datetime.now()
@@ -752,8 +436,7 @@ def get_deck_stats_counts(user_id: int, deck_id: int, *, native_only=False) -> d
         due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
 
         scope = (TMA_Card.deck_id == deck_id) & (TMA_Card.is_deleted == False)
-        if native_only:
-            scope &= TMA_Card.content_v2.is_null(False)
+        scope &= TMA_Card.content_v2.is_null(False)
         row = (TMA_Card
                .select(
                    fn.COUNT(TMA_Card.id).alias('total'),
@@ -881,6 +564,3 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
         for card in matched_cards:
             card['flag'] = flags.get(card['id'], 0)
     return {"folders": matched_folders, "decks": matched_decks, "cards": matched_cards}
-
-
-

@@ -92,12 +92,12 @@ class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
                     self.assertEqual((await client.post('/api/admin/settings', json={'DEFAULT_MODEL': 'fixture-new'})).status_code, 200)
                     self.assertEqual((await client.post('/api/user/prompts', json={**prompt, 'id': pid, 'prompt': 'fixture-two JSON {phrase}'})).status_code, 200)
                     next_result = await client.post('/api/cards/ai-generate', json=payload)
-                    self.assertEqual(next_result.json()['back'], 'Привет')
+                    self.assertEqual(next_result.json()['content_v2']['card']['data']['answer'], 'Привет')
                     await client.post('/api/ai/generate', headers=other, json=payload)
                 finally:
                     release.set()
                     result = await running
-            self.assertEqual(result.json()['front'], 'Hallo')
+            self.assertEqual(result.json()['content_v2']['card']['data']['prompt'], 'Hallo')
             self.assertEqual([call['model'] for call in calls], ['fixture-old', 'fixture-new', 'fixture-new'])
             self.assertIn('fixture-one JSON Hallo', calls[0]['system_prompt'])
             self.assertIn('fixture-two JSON Hallo', calls[1]['system_prompt'])

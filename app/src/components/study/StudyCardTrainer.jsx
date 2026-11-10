@@ -171,7 +171,7 @@ export const StudyCardTrainer = React.memo(({
   const filledCount = gaps.filter(g => (selectedOptions[g.id] || '').trim().length > 0).length;
   const allGapsFilled = gaps.length > 0 && filledCount === gaps.length;
 
-  const backText = (backNote ?? card.back_text ?? card.back ?? '').trim();
+  const backText = (backNote ?? '').trim();
   const hasBackText = backText.length > 0;
 
   const handleOpenDropdown = (gapId, e) => {
@@ -273,10 +273,10 @@ export const StudyCardTrainer = React.memo(({
     const hasValue = Boolean(rawValue && rawValue.trim());
     const label = tr('Пропуск {{p0}}', { p0: gap.id + 1 });
     const longestChoice = gap.mode === 'choice' ? (gap.choices || []).reduce((a, b) => a.length > b.length ? a : b, '') : '';
-    const sizerContent = gap.isAffix 
+    const sizerContent = gap.isAffix
       ? (longestChoice || '··')
       : `${longestChoice || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ▾`;
-    const displayContent = gap.isAffix 
+    const displayContent = gap.isAffix
       ? rawValue || '··'
       : `${rawValue || (gaps.length > 1 ? `[${gap.id + 1}] _____` : '_____')} ${status === 'correct' ? '✓' : '▾'}`;
 
@@ -311,12 +311,12 @@ export const StudyCardTrainer = React.memo(({
       buttonControl
     ) : (
       <span style={{ display: 'inline-grid', placeItems: 'center', maxWidth: '100%' }}>
-        <span aria-hidden="true" style={{ 
-          gridArea: '1 / 1', 
-          visibility: 'hidden', 
-          whiteSpace: 'pre', 
-          padding: '4px 10px', 
-          fontSize: '1em', 
+        <span aria-hidden="true" style={{
+          gridArea: '1 / 1',
+          visibility: 'hidden',
+          whiteSpace: 'pre',
+          padding: '4px 10px',
+          fontSize: '1em',
           fontWeight: 'inherit'
         }}>
           {sizerContent}
@@ -598,6 +598,3 @@ export const StudyCardTrainer = React.memo(({
     </div>
   );
 });
-
-
-

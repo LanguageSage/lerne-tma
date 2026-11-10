@@ -372,7 +372,7 @@ class V2ValidationTests(unittest.TestCase):
 
 class V2LegacyTests(unittest.TestCase):
     def test_b1_33_d10_passport_topic_with_commas_imports_as_one_topic(self):
-        from api.services.author_service import _parse_v2_json_document
+        from api.services.author_service import parse_document
 
         value = {
             'schema_version': 2,
@@ -389,18 +389,12 @@ class V2LegacyTests(unittest.TestCase):
             ],
         }
 
-        imported = _parse_v2_json_document(json.dumps(value))
+        imported = parse_document(json.dumps(value))
 
         self.assertEqual(imported['errors'], [])
         self.assertEqual(imported['decks'][0]['deck_name'], 'B1-33-D10')
-        self.assertEqual(imported['cards'][0]['topics'], 'Erholung, Gesundheit und Alltag')
-        self.assertEqual(imported['cards'][0]['metadata']['structured_topics'],
-                         ['Erholung, Gesundheit und Alltag'])
-        # Multiple authored topics can have the same display string; retain their
-        # distinct boundaries through import metadata instead of splitting commas.
-        self.assertEqual(imported['cards'][1]['topics'], imported['cards'][0]['topics'])
-        self.assertEqual(imported['cards'][1]['metadata']['structured_topics'],
-                         ['Erholung', 'Gesundheit und Alltag'])
+        self.assertEqual(imported['cards'][0]['content_v2']['card']['topics'], ['Erholung, Gesundheit und Alltag'])
+        self.assertEqual(imported['cards'][1]['content_v2']['card']['topics'], ['Erholung', 'Gesundheit und Alltag'])
 
     def test_inherited_topic_newlines_are_rejected_separately_from_commas(self):
         value = document()
@@ -665,11 +659,11 @@ class V2LegacyTests(unittest.TestCase):
         self.assertEqual(imported['structure_errors'], [])
         self.assertEqual(len(imported['cards']), 13)
         card = imported['cards'][12]
-        self.assertEqual((card['number'], card['deck_name'], card['deck_id'], card['card_type']),
+        self.assertEqual((card['number'], card['deck_name'], card['deck_id'], card['content_v2']['card']['type']),
                          (13, 'B1-33-D09', 42, 'match'))
-        self.assertIn('um mich auszuruhen => цель — отдохнуть', card['front'])
+        self.assertEqual(card['content_v2']['card']['data']['pairs'][0]['left'], 'um mich auszuruhen')
         process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
-            input=json.dumps({'legacy': imported, 'expected': value}, ensure_ascii=False),
+            input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
             capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
         self.assertEqual(process.returncode, 0, process.stderr)
         self.assertEqual(value, before)
@@ -807,10 +801,10 @@ with patch('peewee.Database.connect', side_effect=AssertionError('No database'))
         self.assertEqual(len(doc['cards']), 4)
         self.assertEqual(doc['decks'], [{'deck_name': 'Perfekt: Wortbank und Schreiben', 'deck_id': 42, 'cards_count': 4}])
         self.assertEqual(len(doc['passports']), 1)
-        self.assertEqual(doc['cards'][0]['card_type'], 'word_bank')
-        self.assertEqual(doc['cards'][1]['card_type'], 'free_text')
-        self.assertEqual(doc['cards'][1]['metadata']['grading_policy']['mode'], 'open_text')
-        self.assertEqual(doc['cards'][2]['metadata']['accepted_answers'], ['Ich habe meine Freunde besucht.'])
+        self.assertEqual(doc['cards'][0]['content_v2']['card']['type'], 'word_bank')
+        self.assertEqual(doc['cards'][1]['content_v2']['card']['type'], 'free_text')
+        self.assertEqual(doc['cards'][1]['content_v2']['card']['data']['grading_policy']['mode'], 'open_text')
+        self.assertEqual(doc['cards'][2]['content_v2']['card']['data']['accepted_answers'], ['Ich habe meine Freunde besucht.'])
 
 
 if __name__ == '__main__':

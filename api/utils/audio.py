@@ -1,11 +1,8 @@
 import os
 import re
 import hashlib
-import asyncio
 import edge_tts
 import logging
-import requests
-from pathlib import Path
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -27,7 +24,7 @@ SUPPORTED_VOICES = {
 _OFFSET_TO_SECONDS = 10_000_000
 
 
-async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False, force=False, *, structured=False):
+async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False, force=False):
     """
     Генератор аудио. Возвращает:
       - (path_or_url, None)              при with_boundaries=False
@@ -40,7 +37,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
     from api.local_runtime import is_local
     if is_local():
         raise RuntimeError('TTS is unavailable in LOCAL')
-    clean_text = _prepare_tts_text(text, structured=structured)
+    clean_text = _prepare_tts_text(text)
     if not clean_text:
         raise ValueError("Text is empty after cleanup")
 
@@ -196,113 +193,26 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
         return None
 
 
-def _clean_bracket_syntax(t):
-    if not t:
-        return ""
-    stripped = re.sub(r"^@(puzzle|match|free)\s*", "", t, flags=re.IGNORECASE)
-
-    def _repl(m):
-        raw = m.group(1) or m.group(2) or m.group(3) or ""
-        parts = [p.strip() for p in re.split(r"[|;,/]", raw) if p.strip()]
-        if not parts:
-            return ""
-        correct = next((p for p in parts if p.startswith("*")), parts[0])
-        return re.sub(r"^\*", "", correct).strip()
-
-    return re.sub(r"(?:\[\[([^\]]+)\]\]|\{([^}]+)\}|\[([^\]]+)\](?!\())", _repl, stripped).strip()
 
 
 
-def _strip_markdown(text, *, structured=False):
+def _strip_markdown(text):
     if not text:
-        return ""
-    res = text if structured else _clean_bracket_syntax(text)
-    res = res.replace("**", "").replace("__", "").replace("`", "").replace("*", "").replace("_", "")
-    res = res.replace("<center>", "").replace("</center>", "").replace("<large>", "").replace("</large>", "")
-    if not structured:
-        res = re.sub(r"\{\{.*?\}\}", "", res)
-        res = res.replace("[[", "").replace("]]", "")
+        return ''
+    res = text.replace('**', '').replace('__', '').replace('`', '').replace('*', '').replace('_', '')
+    res = res.replace('<center>', '').replace('</center>', '').replace('<large>', '').replace('</large>', '')
     import unicodedata
-    res = "".join(ch for ch in res if unicodedata.category(ch)[0] != "C")
-    res = res.replace("\u2011", "-").replace("\u2013", "-").replace("\u2014", "-")
-    return res.strip()
+    res = ''.join(ch for ch in res if unicodedata.category(ch)[0] != 'C')
+    return res.replace('‑', '-').replace('–', '-').replace('—', '-').strip()
 
 
-def _clean_quiz_option_prefix(line: str, is_back: bool = False) -> str:
-    if not line:
-        return ""
-    line = line.strip()
-    if is_back:
-        line = line.replace("✅", "").strip()
-    else:
-        line = re.sub(r"^\s*\[\*\]\s*", "", line)
-        line = re.sub(r"^\s*\*+\s*", "", line)
-    # Strip numbering or bullet prefixes like "1.", "1)", "A.", "A)", "-", "•", "○"
-    line = re.sub(r"^\s*(?:[0-9]{1,2}|[a-zA-Z])[\.\)]\s*", "", line)
-    line = re.sub(r"^\s*[-*○•\s]+", "", line)
-    return line.strip()
-
-
-def _prepare_quiz_tts_text(text: str) -> str | None:
-    if not text or "\n" not in text:
-        return None
-
-    parts = re.split(r"\n\s*\n", text.strip(), maxsplit=1)
-    if len(parts) < 2:
-        return None
-
-    question = parts[0].strip()
-    options_block = parts[1].strip()
-    option_lines = [l.strip() for l in options_block.split("\n") if l.strip()]
-
-    if len(option_lines) < 2:
-        return None
-
-    # Check front format (marker '*')
-    star_lines = [l for l in option_lines if "*" in l]
-    if len(star_lines) == 1:
-        correct_answer = _clean_quiz_option_prefix(star_lines[0], is_back=False)
-        if question and correct_answer:
-            return f"{question} . . . . . . {correct_answer}"
-
-    # Check back format (marker '✅')
-    check_lines = [l for l in option_lines if "✅" in l]
-    if len(check_lines) == 1:
-        correct_answer = _clean_quiz_option_prefix(check_lines[0], is_back=True)
-        if question and correct_answer:
-            return f"{question} . . . . . . {correct_answer}"
-
-    return None
-
-
-def _strip_standalone_parenthesized_hints(text: str) -> str:
-    """Remove hint-only lines like ``(Infinitiv verwenden)`` from speech."""
+def _prepare_tts_text(text, max_chars=900):
+    """Prepare already authored V2 speech; literal bracket/directive text stays literal."""
     if not text:
-        return ""
-    return "\n".join(
-        line for line in text.splitlines()
-        if not re.fullmatch(r"\s*\([^()\r\n]+\)\s*", line)
-    )
-
-
-
-def _prepare_tts_text(text, max_chars=900, *, structured=False):
-    if not text:
-        return ""
-
-    if not structured:
-        # Legacy input still needs its authoring syntax removed.
-        from api.services.input_parser import parse_exercise_content
-        text = parse_exercise_content(text)["exercise"]
-        text = _strip_standalone_parenthesized_hints(text)
-        quiz_text = _prepare_quiz_tts_text(text)
-        if quiz_text is not None:
-            text = quiz_text
-
-    res = _strip_markdown(text, structured=structured)
-    res = re.sub(r"https?://\S+", "", res)
-    res = re.sub(r"\s+", " ", res).strip()
+        return ''
+    res = re.sub(r'https?://\S+', '', _strip_markdown(text))
+    res = re.sub(r'\s+', ' ', res).strip()
     if len(res) <= max_chars:
         return res
-    trimmed = res[:max_chars].rsplit(" ", 1)[0].strip()
+    trimmed = res[:max_chars].rsplit(' ', 1)[0].strip()
     return trimmed or res[:max_chars].strip()

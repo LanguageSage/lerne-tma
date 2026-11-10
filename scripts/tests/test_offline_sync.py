@@ -46,11 +46,17 @@ TABLES = [models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMAProgres
           models.TMAUser, models.TMA_Collaborator, models.TMAOfflineBatch, models.TMAReviewHistory, models.TMASetting]
 
 
+from native_fixture import content, sqlite_native
+
+
 class OfflineSyncTests(unittest.TestCase):
     def setUp(self):
+        sqlite_native(self, database, writes=True)
         database.create_tables(TABLES)
-        models.TMAUser.create(user_id=1, default_decks_initialized=True)
-        models.TMAUser.create(user_id=2, default_decks_initialized=True)
+        for uid in (1, 2):
+            models.TMAUser.create(user_id=uid, is_guest=False, default_decks_initialized=True)
+        self.deck = models.TMA_Deck.create(user_id=1, name='Native')
+        self.card = models.TMA_Card.create(deck=self.deck, content_v2=content(), card_type=None)
 
     def tearDown(self):
         database.drop_tables(TABLES)
@@ -58,179 +64,101 @@ class OfflineSyncTests(unittest.TestCase):
     def request(self, **values):
         return Request(request_id=uuid4(), **values)
 
-    def test_retry_returns_same_ids_and_preserves_nested_folders(self):
-        request = self.request(
-            folders=[{'id': -2, 'name': 'Child', 'parent_id': -1}, {'id': -1, 'name': 'Parent'}],
-            decks=[{'id': -3, 'name': 'Deck', 'folder_id': -2, 'target_language': 'uk', 'metadata': '{"is_learning":true}'}],
-            cards=[{'id': -4, 'deck_id': -3, 'front_text': 'Hallo', 'back_text': 'Hello',
-                    'tags': '["A1"]', 'metadata': '{"cefr":{"level":"A1"}}', 'card_type': 'quiz',
-                    'audio_back_path': 'back.mp3', 'flag': 3}],
-            progress=[{'card_id': -4, 'queue': 'learning', 'interval': 5, 'ease_factor': 2.5,
-                       'repetitions': 1, 'lapses': 0, 'step_index': 1, 'next_review': '2026-09-05T10:00:00Z'}])
-        with patch('api.services.offline_sync.validate_new_audio_path'):
-            first = sync.push_offline(request, 1)
-            self.assertEqual(sync.push_offline(request, 1), first)
-        self.assertEqual(models.TMA_Card.select().count(), 1)
+    def progress(self, **changes):
+        return {'card_id': self.card.id, 'queue': 'review', 'interval': 5, 'ease_factor': 2.5,
+                'repetitions': 2, 'lapses': 0, **changes}
+
+    def test_retry_returns_same_entity_ids_and_nested_relationships(self):
+        request = self.request(folders=[{'id': -2, 'name': 'Child', 'parent_id': -1},
+                                       {'id': -1, 'name': 'Parent'}],
+            decks=[{'id': -3, 'name': 'Deck', 'folder_id': -2, 'target_language': 'uk'}])
+        first = sync.push_offline(request, 1)
+        self.assertEqual(sync.push_offline(request, 1), first)
         child = models.TMA_Folder.get_by_id(first['mappings']['folders']['-2'])
         self.assertEqual(child.parent_id, first['mappings']['folders']['-1'])
-        data = sync.pull_offline(1)
-        self.assertEqual(data['cards'][0]['audio_back_path'], 'back.mp3')
-        self.assertEqual(data['cards'][0]['card_type'], 'quiz')
-        self.assertEqual(json.loads(data['cards'][0]['tags']), ['A1'])
-        self.assertEqual(data['decks'][0]['target_language'], 'uk')
-        self.assertEqual(data['progress'][0]['step_index'], 1)
+        self.assertEqual(models.TMA_Deck.get_by_id(first['mappings']['decks']['-3']).folder_id, child.id)
 
-    def test_reused_batch_id_with_changed_payload_is_rejected(self):
+    def test_changed_uuid_payload_is_rejected(self):
         request = self.request(decks=[{'id': -1, 'name': 'Original'}])
         sync.push_offline(request, 1)
         request.decks[0].name = 'Different'
         with self.assertRaises(HTTPException) as error:
             sync.push_offline(request, 1)
         self.assertEqual(error.exception.status_code, 409)
-        self.assertEqual(models.TMA_Deck.get().name, 'Original')
 
-    def test_personal_flag_survives_remap_retry_partial_progress_and_explicit_clear(self):
-        state = {'queue': 'review', 'interval': 1, 'ease_factor': 2.5, 'repetitions': 1, 'lapses': 0}
-        request = self.request(decks=[{'id': -1, 'name': 'Flag'}],
-            cards=[{'id': -2, 'deck_id': -1, 'front_text': 'x', 'back_text': 'y'}],
-            progress=[{'card_id': -2, **state, 'flag': 3}])
-        result = sync.push_offline(request, 1)
-        self.assertEqual(sync.push_offline(request, 1), result)
-        card_id = result['mappings']['cards']['-2']
-        self.assertEqual(sync.pull_offline(1)['progress'][0]['flag'], 3)
-        sync.push_offline(self.request(progress=[{'card_id': card_id, **state}]), 1)
-        self.assertEqual(sync.pull_offline(1)['progress'][0]['flag'], 3)
-        sync.push_offline(self.request(progress=[{'card_id': card_id, **state, 'flag': 0}]), 1)
-        self.assertEqual(sync.pull_offline(1)['progress'][0]['flag'], 0)
-        self.assertEqual(models.TMAProgress.get(card_id=card_id, user_id=1).repetitions, 1)
-        self.assertEqual(models.TMAProgress.select().where(models.TMAProgress.user_id == 2).count(), 0)
-
-    def test_unauthorized_batch_rolls_back_receipt_and_creates(self):
-        other = models.TMA_Deck.create(user_id=2, name='Private')
-        request = self.request(decks=[{'id': -1, 'name': 'Should rollback'}],
-                               cards=[{'id': -2, 'deck_id': other.id, 'front_text': 'x', 'back_text': 'y'}])
-        with self.assertRaises(HTTPException):
-            sync.push_offline(request, 1)
+    def test_v1_card_batches_never_write_even_without_pg_constraints(self):
+        request = self.request(decks=[{'id': -1, 'name': 'Must roll back'}],
+            cards=[{'id': -2, 'deck_id': -1, 'front_text': 'Old', 'back_text': 'Old'}])
+        for drain in (False, True):
+            with self.subTest(drain=drain), self.assertRaises(HTTPException) as error:
+                sync.push_offline(request, 1, drain_legacy=drain)
+            self.assertEqual(error.exception.detail['code'], 'legacy_queue_requires_recovery')
         self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
         self.assertEqual(models.TMA_Deck.select().count(), 1)
+        self.assertEqual(models.TMA_Card.select().count(), 1)
 
-    def test_viewer_can_study_but_cannot_edit(self):
-        deck = models.TMA_Deck.create(user_id=2, name='Shared')
-        card = models.TMA_Card.create(deck=deck, front_text='x', back_text='y')
-        models.TMA_Collaborator.create(target_type='deck', target_id=deck.id, user_id=1, role='viewer')
+    def test_v2_pull_is_default_scoped_and_contains_no_v1_projection(self):
+        old = models.TMA_Card.create(deck=self.deck, front_text='Retain old archive', back_text='Old')
+        pulled = sync.pull_offline(1)
+        self.assertEqual(pulled['card_schema'], 2)
+        self.assertEqual([card['id'] for card in pulled['cards']], [self.card.id])
+        self.assertEqual(pulled['cards'][0]['content_v2'], self.card.content_v2)
+        self.assertFalse({'front_text', 'back_text', 'front', 'back', 'context', 'tags'} & pulled['cards'][0].keys())
+        self.assertEqual(sync.pull_offline(2)['cards'], [])
+        self.assertEqual(models.TMA_Card.get_by_id(old.id).front_text, 'Retain old archive')
+
+    def test_personal_flag_explicit_clear_and_retry_preserve_content(self):
+        request = self.request(progress=[self.progress(flag=3)])
+        result = sync.push_offline(request, 1)
+        self.assertEqual(sync.push_offline(request, 1), result)
+        sync.push_offline(self.request(progress=[self.progress()]), 1)
+        self.assertEqual(models.TMAProgress.get().flag, 3)
+        sync.push_offline(self.request(progress=[self.progress(flag=0)]), 1)
+        self.assertEqual(models.TMAProgress.get().flag, 0)
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2, self.card.content_v2)
+
+    def test_flag_only_does_not_replace_authoritative_srs_or_bookmark(self):
+        models.TMAProgress.create(user_id=1, card_id=self.card.id, queue='review', repetitions=9,
+                                  interval=99, want_to_learn=True)
+        sync.push_offline(self.request(progress=[self.progress(flag=4, flag_only=True)]), 1)
+        state = models.TMAProgress.get()
+        self.assertEqual((state.flag, state.repetitions, state.interval, state.want_to_learn), (4, 9, 99, True))
+
+    def test_unauthorized_progress_rolls_back_entities_and_receipt(self):
+        request = self.request(decks=[{'id': -1, 'name': 'No partial create'}], progress=[self.progress()])
         with self.assertRaises(HTTPException):
-            sync.push_offline(self.request(cards=[{'id': card.id, 'deck_id': deck.id, 'front_text': 'changed', 'back_text': 'y'}]), 1)
-        sync.push_offline(self.request(progress=[{'card_id': card.id, 'queue': 'review', 'interval': 1,
-            'ease_factor': 2.5, 'repetitions': 1, 'lapses': 0, 'step_index': None}]), 1)
-        self.assertEqual(sync.pull_offline(1)['decks'][0]['role'], 'viewer')
-
-    def test_server_time_and_explicit_media_removal(self):
-        deck = models.TMA_Deck.create(user_id=1, name='Deck')
-        card = models.TMA_Card.create(deck=deck, front_text='x', back_text='y', audio_path='old.mp3')
-        sync.push_offline(self.request(cards=[{'id': card.id, 'deck_id': deck.id, 'front_text': 'new',
-             'back_text': 'y', 'audio_path': '', 'updated_at': '2000-01-01T00:00:00Z'}]), 1)
-        updated = models.TMA_Card.get_by_id(card.id)
-        self.assertEqual(updated.front_text, 'new')
-        self.assertEqual(updated.audio_path, '')
-        self.assertGreater(updated.updated_at.year, 2000)
-
-    def test_missing_new_audio_rolls_back_sync_and_keeps_old_link(self):
-        deck = models.TMA_Deck.create(user_id=1, name='Deck')
-        card = models.TMA_Card.create(deck=deck, front_text='x', back_text='y', audio_path='old.mp3')
-        request = self.request(cards=[{'id': card.id, 'deck_id': deck.id,
-                                      'front_text': 'changed', 'back_text': 'y',
-                                      'audio_path': 'audio/missing.mp3'}])
-        with patch('api.services.offline_sync.validate_new_audio_path',
-                   side_effect=HTTPException(422, 'missing Storage object')):
-            with self.assertRaises(HTTPException) as failure:
-                sync.push_offline(request, 1)
-        self.assertEqual(failure.exception.status_code, 422)
-        self.assertEqual(models.TMA_Card.get_by_id(card.id).audio_path, 'old.mp3')
+            sync.push_offline(request, 2)
         self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
+        self.assertEqual(models.TMA_Deck.select().count(), 1)
+        self.assertEqual(models.TMAProgress.select().count(), 0)
 
-    def test_deleted_records_are_not_resurrected_and_cycles_rejected(self):
+    def test_viewer_can_study_but_not_write_content_or_entities(self):
+        models.TMA_Collaborator.create(target_type='deck', target_id=self.deck.id, user_id=2, role='viewer')
+        sync.push_offline(self.request(progress=[self.progress()]), 2)
         with self.assertRaises(HTTPException):
-            sync.push_offline(self.request(decks=[{'id': 999, 'name': 'Gone'}]), 1)
-        with self.assertRaises(HTTPException):
-            sync.push_offline(self.request(folders=[{'id': -1, 'name': 'Cycle', 'parent_id': -1}]), 1)
-        self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
+            sync.push_offline(self.request(decks=[{'id': self.deck.id, 'name': 'Forbidden'}]), 2)
+        self.assertEqual(models.TMA_Deck.get_by_id(self.deck.id).name, 'Native')
 
-    def test_owner_can_restore_soft_deleted_deck(self):
-        deck = models.TMA_Deck.create(user_id=1, name='Trash', is_deleted=True)
-        sync.push_offline(self.request(decks=[{'id': deck.id, 'name': 'Restored', 'is_deleted': False}]), 1)
-        self.assertFalse(models.TMA_Deck.get_by_id(deck.id).is_deleted)
-
-    def test_forced_history_and_progress_are_atomic_and_retry_safe(self):
-        request = self.request(decks=[{'id': -1, 'name': 'Forced'}],
-            cards=[{'id': -2, 'deck_id': -1, 'front_text': 'x', 'back_text': 'y'}],
-            progress=[{'card_id': -2, 'queue': 'review', 'interval': 13, 'ease_factor': 2.5,
-                'repetitions': 2, 'lapses': 0, 'last_reviewed': '2026-10-05T12:00:00Z',
-                'next_review': '2026-10-18T12:00:00Z'}],
-            reviews=[{'card_id': -2, 'rating': 2, 'review_context': 'forced',
-                'scheduled_interval': 13, 'review_time': '2026-10-05T12:00:00Z'}])
-        response = sync.push_offline(request, 1)
-        self.assertEqual(response['review_count'], 1)
-        self.assertEqual(sync.push_offline(request, 1), response)
-        self.assertEqual(models.TMAReviewHistory.select().count(), 1)
-        history = models.TMAReviewHistory.get()
-        progress = models.TMAProgress.get()
-        self.assertEqual(history.card_id, response['mappings']['cards']['-2'])
-        self.assertEqual(history.scheduled_interval, progress.interval)
-        self.assertEqual(history.review_time, progress.last_reviewed)
-
-    def test_unauthorized_history_rolls_back_progress(self):
-        own = models.TMA_Deck.create(user_id=1, name='Own')
-        own_card = models.TMA_Card.create(deck=own, front_text='a', back_text='b')
-        other = models.TMA_Deck.create(user_id=2, name='Private')
-        other_card = models.TMA_Card.create(deck=other, front_text='x', back_text='y')
-        request = self.request(progress=[{'card_id': own_card.id, 'queue': 'review', 'interval': 13,
-            'ease_factor': 2.5, 'repetitions': 2, 'lapses': 0}],
-            reviews=[{'card_id': other_card.id, 'rating': 2, 'review_context': 'forced',
-                'scheduled_interval': 13, 'review_time': '2026-10-05T12:00:00Z'}])
+    def test_owner_restore_and_cycles(self):
+        models.TMA_Deck.update(is_deleted=True).execute()
+        sync.push_offline(self.request(decks=[{'id': self.deck.id, 'name': 'Restored', 'is_deleted': False}]), 1)
+        self.assertFalse(models.TMA_Deck.get_by_id(self.deck.id).is_deleted)
+        request = self.request(folders=[{'id': -1, 'name': 'A', 'parent_id': -2}, {'id': -2, 'name': 'B', 'parent_id': -1}])
+        before = models.TMAOfflineBatch.select().count()
         with self.assertRaises(HTTPException):
             sync.push_offline(request, 1)
+        self.assertEqual(models.TMAOfflineBatch.select().count(), before)
+
+    def test_review_progress_receipt_are_atomic_and_replay_once(self):
+        request = self.request(progress=[self.progress()], reviews=[{
+            'card_id': self.card.id, 'rating': 2, 'review_context': 'forced',
+            'review_time': '2026-10-01T10:00:00Z', 'scheduled_interval': 5}])
+        original = models.TMAReviewHistory.create
+        with patch.object(models.TMAReviewHistory, 'create', side_effect=RuntimeError('history failure')):
+            with self.assertRaises(RuntimeError):
+                sync.push_offline(request, 1)
         self.assertEqual(models.TMAProgress.select().count(), 0)
-        self.assertEqual(models.TMAReviewHistory.select().count(), 0)
         self.assertEqual(models.TMAOfflineBatch.select().count(), 0)
-
-    def test_legacy_batch_fingerprint_still_retries_after_server_upgrade(self):
-        request = self.request()
-        old_payload = request.model_dump(mode='json')
-        old_payload.pop('drain_bases')  # Reconstruct the historical wire model.
-        old_payload.pop('reviews')
-        old_hash = hashlib.sha256(json.dumps(old_payload, sort_keys=True).encode()).hexdigest()
-        old_response = {'status': 'success', 'mappings': {'folders': {}, 'decks': {}, 'cards': {}}}
-        models.TMAOfflineBatch.create(key=f'1:{request.request_id}', payload_hash=old_hash,
-            response=json.dumps(old_response))
-        self.assertEqual(sync.push_offline(request, 1), old_response)
-
-    def test_flag_only_preserves_authoritative_srs_bookmark_history_and_legacy_receipt(self):
-        deck = models.TMA_Deck.create(user_id=1, name='Synthetic flag')
-        card = models.TMA_Card.create(deck=deck, front_text='Synthetic', back_text='Answer')
-        progress = models.TMAProgress.create(card_id=card.id, user_id=1, queue='review', interval=23,
-            repetitions=6, ease_factor=2.8, want_to_learn=True, flag=2)
-        before = models.TMAProgress.get_by_id(progress.id).__data__.copy()
-        stale = {'card_id': card.id, 'queue': 'new', 'interval': 0, 'repetitions': 0,
-                 'ease_factor': 2.5, 'lapses': 0, 'flag': 0, 'want_to_learn': False}
-        request = self.request(progress=[{**stale, 'flag_only': True}])
-        sync.push_offline(request, 1)
-        self.assertEqual(sync.push_offline(request, 1)['review_count'], 0)
-        after = models.TMAProgress.get_by_id(progress.id).__data__
-        self.assertEqual(after['flag'], 0)
-        self.assertEqual({k: v for k, v in before.items() if k not in ('flag', 'updated_at')},
-                         {k: v for k, v in after.items() if k not in ('flag', 'updated_at')})
-        self.assertEqual(models.TMAReviewHistory.select().count(), 0)
-        # Existing full progress batches/receipts retain exactly their old hash.
-        legacy = self.request(progress=[stale])
-        payload = legacy.model_dump(mode='json')
-        payload.pop('drain_bases')
-        payload.pop('reviews')
-        payload['progress'][0].pop('flag_only')
-        digest = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
-        response = {'status': 'success', 'mappings': {'folders': {}, 'decks': {}, 'cards': {}}, 'review_count': 0}
-        models.TMAOfflineBatch.create(key=f'1:{legacy.request_id}', payload_hash=digest, response=json.dumps(response))
-        self.assertEqual(sync.push_offline(legacy, 1), response)
-
-
-if __name__ == '__main__':
-    unittest.main()
+        first = sync.push_offline(request, 1)
+        self.assertEqual(sync.push_offline(request, 1), first)
+        self.assertEqual(models.TMAReviewHistory.select().count(), 1)

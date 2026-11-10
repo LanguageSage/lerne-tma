@@ -60,7 +60,7 @@ export const matchesSearchQuery = (target, query) => {
  * @param {boolean} [options.includeContext=false] - Whether to search inside context/example sentences.
  * @returns {boolean} True if card matches query.
  */
-export const matchCard = (card, query, { includeContext = false } = {}) => {
+export const matchCard = (card, query) => {
   if (!query || !query.trim()) return true;
   if (!card) return false;
 
@@ -68,17 +68,6 @@ export const matchCard = (card, query, { includeContext = false } = {}) => {
     return ['data', 'info', 'explanation', 'topics'].some(field =>
       [...authoredStrings(card.content_v2.card?.[field])].some(text => matchesSearchQuery(text, query)));
   }
-  const frontText = card.front || card.front_text;
-  const backText = card.back || card.back_text;
-
-  if (matchesSearchQuery(frontText, query) || matchesSearchQuery(backText, query)) {
-    return true;
-  }
-
-  if (includeContext && matchesSearchQuery(card.context, query)) {
-    return true;
-  }
-
   return false;
 };
 

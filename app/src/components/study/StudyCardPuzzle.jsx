@@ -15,13 +15,11 @@ import {
   useSensor,
   useSensors
 } from '@dnd-kit/core';
-import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { triggerHaptic } from '../../utils/platform';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { designConfigToCssVariables } from '../../design/designTokens.js';
-import { getInteractiveExerciseContent, parseExerciseContent } from '../../utils/exerciseContentParser.js';
 import { evaluatePuzzleOrder, puzzleBoundaryId } from '../../utils/puzzleEvaluation.js';
 import { createPuzzleLists, getPuzzleInsertion, movePuzzleToken, puzzleWordDndId } from '../../utils/puzzleDrag.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
@@ -111,12 +109,7 @@ export const StudyCardPuzzle = React.memo(({
 
   const puzzleData = useMemo(() => {
     if (!card) return null;
-    let originalWords = tokens;
-    if (!originalWords) {
-      const front = card.front || card.front_text || '';
-      const exerciseText = getInteractiveExerciseContent(front, 'puzzle') || parseExerciseContent(front).exercise;
-      originalWords = stripMarkdown(exerciseText.replace(/^@puzzle\s*/i, '').trim()).split(/\s+/).filter(Boolean);
-    }
+    const originalWords = tokens || [];
 
     const cardSeed = (card?.id || 1);
     const prng = (seed) => {
@@ -239,7 +232,7 @@ export const StudyCardPuzzle = React.memo(({
       )}
 
       {/* Target Translation Prompt */}
-      {(translation ?? card.back) && (
+      {(translation ?? '') && (
         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', width: '100%', minWidth: 0, marginBottom: '16px' }}>
           {!showTranslation ? (
             <button
@@ -261,7 +254,7 @@ export const StudyCardPuzzle = React.memo(({
               <span>{tr("Показать перевод")}</span>
             </button>
           ) : (
-            <div 
+            <div
               className="text-back"
               style={{
                 ...backCardStyle,
@@ -270,7 +263,7 @@ export const StudyCardPuzzle = React.memo(({
                 opacity: 0.95
               }}
             >
-              <MarkdownRenderer>{translation ?? card.back}</MarkdownRenderer>
+              <MarkdownRenderer>{translation ?? ''}</MarkdownRenderer>
             </div>
           )}
         </div>

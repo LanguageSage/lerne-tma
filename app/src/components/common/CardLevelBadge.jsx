@@ -22,7 +22,7 @@ export const CardLevelBadge = ({
   defaultExpanded = false
 }) => {
   useInterfaceLocale();
-  const currentCardKey = `${card?.id || ''}-${card?.front || card?.front_text || ''}-${defaultExpanded}`;
+  const currentCardKey = `${card?.id || ''}-${card?.content_v2?.card?.level || ''}-${defaultExpanded}`;
   const [prevCardKey, setPrevCardKey] = useState(currentCardKey);
   const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 

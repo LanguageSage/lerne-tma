@@ -1,10 +1,11 @@
+import { nativeCard } from './nativeFixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { assessmentFreeTextEvidence, recordAssessmentResult, assessmentAttempt } from '../assessment.js';
 
 const start = () => ({ id: 'synthetic-exam', userId: 1, deckId: 5, index: 0,
   config: { required_count: 1 }, results: {},
-  cards: [{ id: 10, metadata: { assessment: { competency_ids: ['synthetic'] } } }] });
+  cards: [nativeCard("standard", { id: 10 }, {metadata: { assessment: { competency_ids: ['synthetic'] } }})] });
 const check = (verdict, relevance) => ({ verdict, accepted: ['correct', 'accepted_minor'].includes(verdict),
   evaluator: 'ai', target_relevance: relevance, error_type: 'grammar', error_code: 'synthetic.grammar' });
 const capture = evidence => {

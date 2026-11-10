@@ -3,8 +3,7 @@ import assert from 'node:assert/strict';
 import { detectCardType, detectExerciseType, detectAiQuickActionType } from '../exerciseDetector.js';
 import { parseExerciseContent, restoreExerciseContent } from '../exerciseContentParser.js';
 import { parseBatchCardsText, detectCardTypeByContent } from '../batchCardParser.js';
-import { readableFrontText } from '../cardEditorSyntax.js';
-import { cleanBracketSyntax } from '../clozeParser.js';
+
 
 test('Theory is explicit card metadata and never selects an interactive exercise', () => {
   for (const body of ['Warum?', 'Warum?\n\n*Ein Grund\nEin anderer Grund', 'Form: [[hätte]] {*wäre|ist}', '@puzzle\nIch lerne.']) {
@@ -18,20 +17,7 @@ test('Theory is explicit card metadata and never selects an interactive exercise
   }
 });
 
-test('Theory projection hides only standalone metadata and retains information blocks', () => {
-  const raw = '@theory\n::task\nПравило\n::exercise\nWarum?\n::source\nHinweis';
-  const parsed = parseExerciseContent(raw);
-  assert.equal(parsed.isTheory, true);
-  assert.equal(parsed.exercise, 'Warum?');
-  assert.equal(parsed.task, 'Правило');
-  assert.equal(parsed.source, 'Hinweis');
-  assert.ok(parsed.blocks.every(b => !b.content.includes('@theory')));
-  assert.equal(cleanBracketSyntax('@theory\nWarum?'), 'Warum?');
-  assert.equal(readableFrontText('@theory\nWarum?'), 'Warum?');
-  for (const literal of ['Use @theory here', '@theory_other\nText', '::source\nQuoted:\n@theory\nText']) {
-    assert.equal(detectCardType(literal), null);
-  }
-});
+
 
 test('Theory after an information block works with or without ::exercise', () => {
   for (const marker of ['', '::exercise\n']) {

@@ -1,8 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { ADJECTIVE_ENDINGS, parseClozeData, cleanBracketSyntax } from '../clozeParser.js';
-import { insertEditorCommand, projectEditorFields } from '../cardEditorSyntax.js';
-import { parseBatchCardsText } from '../batchCardParser.js';
+
 
 test('short attached endings generate all adjective endings while retaining the answer', () => {
   for (const ending of ADJECTIVE_ENDINGS) {
@@ -30,15 +29,4 @@ test('explicit choices, input answers and standalone words retain their meaning'
 test('Unicode stems and prefixes attach, punctuation and whitespace do not', () => {
   const { gaps } = parseClozeData({ front: 'grün{em} біл[[ий]] {un}bekannt ({en}) Wort {en}' }, 'trainer');
   assert.deepEqual(gaps.map(gap => gap.isAffix), [true, true, true, false, false]);
-});
-
-test('the ending command wraps selected endings and stays editable and importable', () => {
-  const result = insertEditorCommand('kleinen', 'ending', 5, 7);
-  assert.equal(result.text, 'klein{en}');
-  assert.equal(result.cursor, result.text.length);
-  assert.equal(projectEditorFields(result.text)[1].kind, 'choice');
-  assert.equal(insertEditorCommand('klein', 'ending').text, 'klein{en}');
-  const [card] = parseBatchCardsText('FRONT:\nklein{en}\nBACK:\nмаленького');
-  assert.equal(card.card_type, 'trainer');
-  assert.equal(parseClozeData(card, 'trainer').gaps[0].choices.length, 5);
 });

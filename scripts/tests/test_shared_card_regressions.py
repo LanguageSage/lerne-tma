@@ -78,43 +78,34 @@ class SharedCardRegressionTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             v2.validate_document(invalid)
 
-    def test_import_save_export_reimport_preserves_quiz_and_existing_material(self):
-        database = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
+    def test_import_save_export_reimport_preserves_native_and_existing_material(self):
+        from native_fixture import content, sqlite_native
+        from api.services.structured_card_storage import create_v2_card
+        database = SqliteDatabase(':memory:')
         tables = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
-                  models.TMAProgress, models.TMAReviewHistory, models.TMA_Collaborator,
-                  models.TMAOfflineBatch, models.TMAMedia, models.TMASetting]
+                  models.TMAProgress, models.TMAOfflineBatch, models.TMAMedia, models.TMASetting]
+        previous = models.tma_db.obj, models.lerne_db.obj
         models.tma_db.initialize(database)
         models.lerne_db.initialize(database)
-        media = import_module(API + '.services.media')
-        media_check = patch.object(media, 'validate_new_audio_path') if hasattr(media, 'validate_new_audio_path') else nullcontext()
-        with database.bind_ctx(tables), media_check:
+        self.addCleanup(models.tma_db.initialize, previous[0])
+        self.addCleanup(models.lerne_db.initialize, previous[1])
+        sqlite_native(self, database, writes=True)
+        with database.bind_ctx(tables):
             database.create_tables(tables)
-            try:
-                models.TMAUser.create(user_id=1)
-                deck = models.TMA_Deck.create(user_id=1, name='Synthetic')
-                old = models.TMA_Card.create(deck=deck, creator_id=1, front_text='Old **material**',
-                                             back_text='Original', card_type='standard')
-                before = dict(models.TMA_Card.get_by_id(old.id).__data__)
-                sources = [(front, 'Berlin' if not question.startswith('Vergleiche') else 'B')
-                           for front, question, _ in QUIZZES]
-                sources += [('Haus', 'дом'), ('Ich [[lerne]] Deutsch.', 'Я учу немецкий.')]
-                for front, back in sources:
-                    with self.subTest(front=front):
-                        payload = {'deck_id': deck.id, 'front': front, 'back': back,
-                                   'context': 'Synthetic **context**'}
-                        saved = cards.save_card(payload, 1)
-                        self.assertEqual(saved.card_type, parser.detect_card_type(front))
-                        self.assertEqual(saved.front_text, front)
-                        exported = author.serialize_card(saved)
-                        imported = author.parse_cards_text(exported)
-                        self.assertEqual(len(imported), 1)
-                        self.assertEqual(imported[0]['front'], front)
-                        self.assertEqual(imported[0]['back'], back)
-                        self.assertEqual(imported[0]['card_id'], saved.id)
-                        updated = cards.save_card(imported[0], 1)
-                        self.assertEqual(author.serialize_card(updated), exported)
-                        self.assertEqual(updated.card_type, parser.detect_card_type(front))
-                self.assertEqual(models.TMA_Card.get_by_id(old.id).__data__, before)
-                self.assertEqual(models.TMA_Card.select().count(), len(sources) + 1)
-            finally:
-                database.close()
+            models.TMAUser.create(user_id=1, is_guest=False)
+            deck = models.TMA_Deck.create(user_id=1, name='Synthetic')
+            old = models.TMA_Card.create(deck=deck, content_v2=content('Old **material**', 'Original'), card_type=None)
+            before = dict(models.TMA_Card.get_by_id(old.id).__data__)
+            for front, question, _ in QUIZZES:
+                text = '# Deck: Synthetic\nFRONT:\n' + front + '\nBACK:\nBerlin\nCONTEXT:\nSynthetic **context**'
+                document = author.parse_document(text)
+                self.assertEqual(document['errors'], [])
+                envelope = document['cards'][0]['content_v2']
+                saved = create_v2_card(envelope['card'], deck_id=deck.id, creator_id=1, position=3)
+                exported = author.serialize_deck(deck, [saved])
+                imported = author.parse_document(exported)
+                self.assertEqual(imported['errors'], [])
+                self.assertEqual(imported['cards'][0]['card_id'], saved.id)
+                self.assertEqual(imported['cards'][0]['content_v2']['card']['data'], envelope['card']['data'])
+            self.assertEqual(models.TMA_Card.get_by_id(old.id).__data__, before)
+            self.assertEqual(models.TMA_Card.select().count(), len(QUIZZES) + 1)

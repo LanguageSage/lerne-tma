@@ -253,7 +253,7 @@ class LibraryImportTests(unittest.TestCase):
                                        user_id=2, role='viewer', added_by=1)
         decks.import_deck(self.library.id, 1)
         for kind, pull in (
-                ('v2_owner', offline_sync.pull_offline(1, native_cards=True)), ('v2_collab', offline_sync.pull_offline(2, native_cards=True))):
+                ('v2_owner', offline_sync.pull_offline(1)), ('v2_collab', offline_sync.pull_offline(2))):
             with self.subTest(kind=kind):
                 self.assertEqual([c['content_v2']['card']['data']['prompt'] for c in pull['cards']], ['Remote'])
                 self.assertEqual(pull['cards'][0]['deck_id'], local.id)

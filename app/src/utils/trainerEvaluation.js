@@ -1,4 +1,4 @@
-import { normalizeAnswer } from './clozeParser.js';
+import { normalizeAnswer } from './text.js';
 import { createExerciseEvaluation } from './exerciseEvaluation.js';
 
 export const evaluateTrainerGaps = (gaps = [], values = {}) => createExerciseEvaluation(

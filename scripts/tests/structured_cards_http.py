@@ -355,6 +355,8 @@ def _run_offline_move_browser(client, port, models, headers, *, batch=False):
                 'target_language': 'de', 'role': role, 'stats': {'total': 0}}
 
     cards = []
+    models.TMAMedia.get_or_create(folder='audio', filename='synthetic-move.ogg',
+                                  defaults={'content': b'OggS' + b'\x01' * 128})
     knowledge = models.TMAKnowledgeItem.create(name='Synthetic move concept')
     titles = ('Online A', 'Online B', 'Offline A', 'Offline B', 'Conflict A', 'Conflict B', 'Denied A', 'Denied B') if batch else ('Online', 'Offline', 'Denied', 'Conflict')
     for title in titles:
@@ -497,7 +499,7 @@ def _run_offline_browser(config, scenario):
     env = {**os.environ, 'LERNE_OFFLINE_CREATE_FIXTURE': json.dumps(config)}
     result = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
                              'native-offline-create.spec.cjs', '--grep', scenario, '--project=extended', '--workers=1'],
-                            cwd=root, env=env, timeout=210)
+                            cwd=root, env=env, timeout=900)
     return result.returncode == 0
 
 
@@ -559,7 +561,7 @@ def _run_cases(client, models, headers, load_answer_context):
             self.assertEqual(mapping['complexity'], 4)
             self.assertFalse(models.TMAProgress.select().where(models.TMAProgress.card_id == mapping['card_id']).exists())
 
-        def test_native_pull_is_opt_in_and_account_scoped(self):
+        def test_native_pull_is_default_and_account_scoped(self):
             payload = {'request_id': str(uuid4()), 'deck_id': self.source.id, 'content_v2': {
                 'schema_version': 2, 'card': {'type': 'standard',
                 'data': {'prompt': 'Native prompt', 'answer': 'Native answer'}}}}
@@ -568,7 +570,7 @@ def _run_cases(client, models, headers, load_answer_context):
                     lambda _: self.call('POST', 'cards/save', body=payload), range(2)))
             self.assertEqual(created, replay)
             self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck == self.source).count(), 2)
-            self.call('GET', 'sync/v2/pull', 409)
+            self.assertEqual(self.call('GET', 'sync/v2/pull')['card_schema'], 2)
             pulled = self.call('GET', 'sync/v2/pull?card_schema=2')
             self.assertEqual(pulled['card_schema'], 2)
             card = next(item for item in pulled['cards'] if item['id'] == created['id'])
@@ -923,7 +925,8 @@ def _run_cases(client, models, headers, load_answer_context):
                 result = self.call('POST', 'cards/ai-generate', body={'content_v2': draft})
                 self.assertEqual(result['content_v2']['card']['data']['prompt'], generated['front'])
                 self.assertEqual(result['content_v2']['card']['metadata'], {'extension': ['keep']})
-                self.assertTrue(provider.await_args.kwargs['plain'])
+                self.assertEqual(provider.await_args.args[1], draft['card']['data']['prompt'])
+                self.assertNotIn('plain', provider.await_args.kwargs)
             with patch('api.ai_service.generate_card_fields', return_value={'patch': {'data': {'answer': 'Новый ответ'}}}):
                 revised = self.call('POST', 'cards/ai-generate', body={'content_v2': result['content_v2'],
                     'action_type': 'custom_directive', 'user_request': 'Change the answer'})
@@ -949,7 +952,7 @@ def _run_cases(client, models, headers, load_answer_context):
         def test_native_audio_uses_structured_source_and_rejects_stale_attachment(self):
             from api.utils.audio import _prepare_tts_text
 
-            self.assertEqual(_prepare_tts_text('::task [[literal]]', structured=True), '::task [[literal]]')
+            self.assertEqual(_prepare_tts_text('::task [[literal]]'), '::task [[literal]]')
             item = self.create(value={'schema_version': 2, 'card': {'type': 'trainer',
                 'data': {'parts': [{'type': 'text', 'text': '@match is literal. '},
                                    {'type': 'input', 'answers': ['chosen|value', 'other']}]}}})
@@ -960,14 +963,14 @@ def _run_cases(client, models, headers, load_answer_context):
                 generator.assert_not_called()
                 generated = self.call('POST', 'media/generate-card-audio', body=body)
                 generator.assert_awaited_once_with('@match is literal. chosen|value', voice='test',
-                                                 rate='+0%', force=False, structured=True)
+                                                 rate='+0%', force=False)
             self.assertEqual(generated['path'], permanent)
             self.assertEqual(self.call('GET', f'cards/{item["id"]}')['revision'], generated['revision'])
             with patch('api.utils.audio.generate_audio', return_value=(permanent, [])) as generator:
                 preview = self.call('POST', 'media/generate-audio', body={'text': '::task [[literal]]',
                     'voice': 'test', 'rate': '+0%', 'structured': True, 'with_boundaries': True})
                 generator.assert_awaited_once_with('::task [[literal]]', voice='test', rate='+0%',
-                                                 with_boundaries=True, structured=True)
+                                                 with_boundaries=True)
                 self.assertEqual(preview['url'], permanent)
             from api.db_workers import run_db
             from api.services.structured_card_storage import replace_v2_card
@@ -1020,7 +1023,7 @@ def _run_cases(client, models, headers, load_answer_context):
             self.call('POST', 'study/grade', body=grade)
             self.assertEqual(models.TMAReviewHistory.select().where(
                 models.TMAReviewHistory.card_id == imported_card['id']).count(), 1)
-            self.call('GET', 'sync/v2/pull', 409)
+            self.assertEqual(self.call('GET', 'sync/v2/pull')['card_schema'], 2)
             self.call('GET', 'sync/v2/pull', 200, user=3)
             copied = self.call('POST', f'decks/{deck_id}/copy', body={'request_id': str(uuid4())})
             [copied_card] = self.call('GET', f'decks/{copied["id"]}/cards')

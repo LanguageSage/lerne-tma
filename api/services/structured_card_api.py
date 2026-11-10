@@ -667,12 +667,3 @@ def import_deck(data, user_id):
                     raise HTTPException(422, str(exc)) from exc
             deck_ids.append(deck.id)
         return _finish(receipt, {'status': 'success', 'deck_id': deck_ids[0], 'deck_ids': deck_ids})
-
-
-def require_legacy_decks(deck_ids):
-    """Keep legacy catalog/share writers from consuming or replacing native content."""
-    if tma_db.for_update:
-        list(TMA_Deck.select(TMA_Deck.id).where(TMA_Deck.id.in_(deck_ids))
-             .order_by(TMA_Deck.id).for_update())
-    if TMA_Card.select().where(TMA_Card.deck.in_(deck_ids), TMA_Card.content_v2.is_null(False)).exists():
-        raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})

@@ -1,12 +1,8 @@
-import os
 import datetime
 import logging
 import json
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, TMASetting, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
-from .. import srs
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMASetting, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
 from peewee import fn, JOIN
-from functools import lru_cache
-from fastapi import HTTPException
 
 logger = logging.getLogger(__name__)
 
@@ -14,8 +10,7 @@ logger = logging.getLogger(__name__)
 def _learning_key(user_id: int, deck_id: int) -> str:
     return f'DECK_LEARNING_{user_id}_{deck_id}'
 
-from .utils import merge_tags, add_to_history, resolve_deck_metadata
-from .media import resolve_media_url
+from .utils import resolve_deck_metadata
 
 # Compatibility entry points; library import owns its helpers and orchestration.
 from .library_import import (
@@ -71,7 +66,7 @@ def deduplicate_lid_folders(user_id: int, *, strict=False):
 
         # Выбираем лучшую папку с наибольшим числом активных колод
         best_folder = max(
-            lid_folders, 
+            lid_folders,
             key=lambda f: TMA_Deck.select().where((TMA_Deck.folder == f) & (TMA_Deck.is_deleted == False)).count()
         )
 
@@ -110,7 +105,7 @@ def deduplicate_lid_folders(user_id: int, *, strict=False):
 
 def ensure_starter_decks(user_id: int, target_language: str = None, *, strict=False):
     """
-    Ensures user account is initialized. 
+    Ensures user account is initialized.
     Auto-cloning of default decks is disabled: decks are accessed globally/publicly without copying.
     """
     try:
@@ -176,7 +171,7 @@ def merge_guest_data(guest_id: int, target_user_id: int):
             for gd in guest_decks:
                 # Перенаправляем folder_id, если папка смерджена
                 target_folder_id = folder_id_remap.get(gd.folder_id, gd.folder_id)
-                
+
                 # Проверяем, системная ли колода «Входящие»
                 if gd.is_inbox or gd.name.strip() == "📥 Входящие карточки":
                     target_inbox_deck = next((d for d in target_decks if d.is_inbox or d.name.strip() == "📥 Входящие карточки"), None)
@@ -189,26 +184,9 @@ def merge_guest_data(guest_id: int, target_user_id: int):
                 # Проверяем, есть ли уже такая колода у пользователя в той же папке
                 matching_deck = target_deck_map.get((gd.name.strip(), target_folder_id))
                 if matching_deck:
-                    # Если у пользователя в колоде 0 карточек, а у гостя есть — переносим карточки
-                    target_card_count = TMA_Card.select().where((TMA_Card.deck_id == matching_deck.id) & (TMA_Card.is_deleted == False)).count()
-                    guest_cards = list(TMA_Card.select().where((TMA_Card.deck_id == gd.id) & (TMA_Card.is_deleted == False)))
-                    
-                    if guest_cards:
-                        if target_card_count == 0:
-                            TMA_Card.update(deck_id=matching_deck.id, creator_id=target_user_id, updated_at=now).where(TMA_Card.deck_id == gd.id).execute()
-                        else:
-                            # Переносим только те карточки гостя, которых еще нет в целевой колоде
-                            existing_fronts = {c.front_text.strip() for c in TMA_Card.select(TMA_Card.front_text).where((TMA_Card.deck_id == matching_deck.id) & (TMA_Card.is_deleted == False))}
-                            for gc in guest_cards:
-                                if gc.front_text.strip() not in existing_fronts:
-                                    gc.deck_id = matching_deck.id
-                                    gc.creator_id = target_user_id
-                                    gc.updated_at = now
-                                    gc.save()
-                                else:
-                                    # Дубликат карточки — удаляем
-                                    TMAProgress.delete().where(TMAProgress.card_id == gc.id).execute()
-                                    gc.delete_instance()
+                    # Preserve card identities, tombstones and learner links during account merge.
+                    TMA_Card.update(deck_id=matching_deck.id, creator_id=target_user_id, updated_at=now).where(
+                        TMA_Card.deck_id == gd.id).execute()
 
                     # Удаляем дублирующую колоду гостя
                     gd.delete_instance()
@@ -246,10 +224,10 @@ def get_next_deck_position(user_id: int, folder_id: int = None, target_language:
     """Возвращает следующий порядковый номер position для создаваемой колоды."""
     try:
         lang = (target_language or 'de').lower().strip()
-        
+
         if folder_id is not None:
             query = TMA_Deck.select(fn.MAX(TMA_Deck.position)).where(
-                (TMA_Deck.folder_id == folder_id) & 
+                (TMA_Deck.folder_id == folder_id) &
                 (TMA_Deck.is_deleted == False)
             )
         else:
@@ -257,7 +235,7 @@ def get_next_deck_position(user_id: int, folder_id: int = None, target_language:
             accessible_ids = get_user_accessible_deck_ids(user_id)
             if not accessible_ids:
                 return 0
-            
+
             lang_cond = (TMA_Deck.target_language == lang) | (TMA_Deck.target_language.is_null() if lang == 'de' else False)
             query = TMA_Deck.select(fn.MAX(TMA_Deck.position)).where(
                 (TMA_Deck.id << list(accessible_ids)) &
@@ -265,7 +243,7 @@ def get_next_deck_position(user_id: int, folder_id: int = None, target_language:
                 (TMA_Deck.is_deleted == False) &
                 lang_cond
             )
-        
+
         max_pos = query.scalar()
         return (max_pos + 1) if max_pos is not None else 0
     except Exception as e:
@@ -383,7 +361,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
     """Возвращает список колод со статистикой. Оптимизировано для быстрой загрузки."""
     try:
         now = datetime.datetime.now()
-        
+
         if strict:
             # Init requires provisioning to succeed before taking the folder snapshot.
             ensure_starter_decks(user_id, strict=True)
@@ -405,7 +383,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
             for uf in user_folders:
                 if uf.id not in folder_map:
                     folder_map[uf.id] = uf
-        
+
         # 2. Получаем все доступные пользователю колоды (собственные и расшаренные)
         from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_batch_collaborative_info
         accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map)
@@ -444,12 +422,12 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
         deck_collab_map = collab_info.get('decks', {})
 
         from peewee import Case
-        
+
         # --- Оптимизированный запрос статистики через Peewee ---
         tracked_case = Case(None, [(TMAProgress.queue != 'new', 1)], None)
         learning_case = Case(None, [(TMAProgress.queue << ['learning', 'relearning'], 1)], None)
         due_case = Case(None, [((TMAProgress.queue == 'review') & (TMAProgress.next_review <= now), 1)], None)
-        trainer_case = Case(None, [(TMA_Card.card_type == 'trainer', 1)], None)
+        trainer_case = Case(None, [(TMA_Card.content_v2['card']['type'] == 'trainer', 1)], None)
         stats_query = (TMA_Card
                       .select(
                           TMA_Card.deck_id.alias('deck_id'),
@@ -462,14 +440,14 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
                       .join(TMAProgress, JOIN.LEFT_OUTER, on=(
                           (TMAProgress.card_id == TMA_Card.id) & (TMAProgress.user_id == user_id)
                       ))
-                      .where((TMA_Card.deck_id << deck_ids) & (TMA_Card.is_deleted == False))
+                      .where((TMA_Card.deck_id << deck_ids) & (TMA_Card.is_deleted == False) & TMA_Card.content_v2.is_null(False))
                       .group_by(TMA_Card.deck_id))
-        
+
         stats_map = {}
         for row in stats_query.dicts():
             stats_map[row['deck_id']] = {
-                'total': row['total'], 
-                'tracked': row['tracked'], 
+                'total': row['total'],
+                'tracked': row['tracked'],
                 'learning': int(row['learning'] or 0),
                 'due': int(row['due'] or 0),
                 'trainer_count': int(row['trainer_count'] or 0)
@@ -477,7 +455,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
 
         # --- Кэшированная проверка обновлений из библиотеки ---
         ext_by_name, lib_counts = _get_cached_library_info(strict=strict)
-        
+
         result = []
         for d in decks:
             s = stats_map.get(d.id, {'total': 0, 'tracked': 0, 'learning': 0, 'due': 0, 'trainer_count': 0})
@@ -487,7 +465,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
             due = s['due']
             trainer_count = s['trainer_count']
             is_trainer_deck = bool(total > 0 and trainer_count == total)
-            
+
             # Check for updates
             has_updates = False
             ext_deck = ext_by_name.get(d.name)
@@ -547,7 +525,7 @@ def get_external_decks(target_language: str = None):
     """Возвращает список всех колод из общей библиотеки с учетом изучаемого языка."""
     try:
         counts = {c.deck_id: c.count for c in Card.select(Card.deck_id, fn.COUNT(Card.id).alias('count')).group_by(Card.deck_id)}
-        
+
         query = Deck.select()
         if target_language:
             if target_language == 'de':
@@ -601,36 +579,6 @@ def get_library_categories():
         raise e
 
 
-def import_deck_from_json(data: dict, user_id: int):
-    """Импорт колоды из JSON-объекта (загруженного пользователем)."""
-    try:
-        deck_name = data.get('name', 'Imported Deck')
-        cards = data.get('cards', [])
-        
-        with tma_db.atomic():
-            local_deck, _ = TMA_Deck.get_or_create(user_id=user_id, name=deck_name)
-
-            now = datetime.datetime.now()
-            new_cards = []
-            for c in cards:
-                new_cards.append({
-                    'deck_id': local_deck.id,
-                    'front_text': c.get('front', ''),
-                    'back_text': c.get('back', ''),
-                    'context': c.get('context', ''),
-                    'image_path': c.get('image_path', ''),
-                    'audio_path': c.get('audio_path', ''),
-                    'created_at': now,
-                    'updated_at': now
-                })
-
-            for i in range(0, len(new_cards), 100):
-                TMA_Card.insert_many(new_cards[i:i+100]).execute()
-
-        return local_deck
-    except Exception as e:
-        logger.error(f"Error importing from JSON: {e}")
-        return None
 
 
 def delete_deck(deck_id: int, user_id: int):
@@ -691,7 +639,7 @@ def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
             folder = TMA_Folder.get_or_none(TMA_Folder.id == folder_id)
             if not folder:
                 raise ValueError("Target folder not found or access denied")
-        
+
         deck.folder_id = folder_id
         deck.updated_at = datetime.datetime.now()
         deck.save()
@@ -700,59 +648,6 @@ def move_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
         logger.error(f"Error moving deck {deck_id} to folder {folder_id}: {e}")
         raise e
 
-def copy_deck_to_folder(deck_id: int, folder_id: int, user_id: int):
-    """Копирует колоду в указанную папку (или в корень, если folder_id=None) вместе со всеми её активными карточками."""
-    try:
-        from .collaborative_service import get_effective_user_role, _require_can_mutate
-        deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
-        if not deck:
-            return None
-        if not get_effective_user_role(user_id, 'deck', deck_id):
-            raise HTTPException(status_code=403, detail="Access denied")
-        if folder_id is not None:
-            _require_can_mutate(user_id, 'folder', folder_id)
-            folder = TMA_Folder.get_or_none(TMA_Folder.id == folder_id)
-            if not folder:
-                raise ValueError("Target folder not found or access denied")
-        
-        with tma_db.atomic():
-            new_deck = TMA_Deck.create(
-                user_id=user_id,
-                name=f"{deck.name} (Копия)",
-                folder_id=folder_id,
-                is_inbox=False,
-                is_pinned=False,
-                created_at=datetime.datetime.now(),
-                updated_at=datetime.datetime.now()
-            )
-
-            cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck_id, TMA_Card.is_deleted == False).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
-
-            now = datetime.datetime.now()
-            card_data = [{
-                'deck_id': new_deck.id,
-                'front_text': card.front_text,
-                'back_text': card.back_text,
-                'context': card.context,
-                'image_path': card.image_path,
-                'audio_path': card.audio_path,
-                'audio_back_path': card.audio_back_path,
-                'video_front_path': card.video_front_path,
-                'video_back_path': card.video_back_path,
-                'source': card.source,
-                'creator_id': card.creator_id,
-                'position': card.position,
-                'flag': card.flag if card.flag is not None else 0,
-                'created_at': now,
-                'updated_at': now
-            } for card in cards]
-
-            if card_data:
-                TMA_Card.insert_many(card_data).execute()
-        return new_deck
-    except Exception as e:
-        logger.error(f"Error copying deck {deck_id} to folder {folder_id}: {e}")
-        raise e
 
 def rename_deck(deck_id: int, new_name: str, user_id: int):
     """Переименовывает пользовательскую колоду."""
@@ -802,7 +697,7 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
         if not deck:
             return None
-        
+
         from .collaborative_service import get_effective_user_role
         role = get_effective_user_role(user_id, 'deck', deck_id)
         if not role or role not in ('owner', 'editor', 'admin'):
@@ -824,11 +719,11 @@ def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
         if not deck:
             return None
-        
+
         role = get_effective_user_role(user_id, 'deck', deck_id)
         if not role:
             return None
-        
+
         key = _learning_key(user_id, deck_id)
         setting = TMASetting.get_or_none(TMASetting.key == key)
         current_status = setting.value == '1' if setting else False
@@ -843,7 +738,3 @@ def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
     except Exception as e:
         logger.error(f"Error toggling deck learning {deck_id}: {e}", exc_info=True)
         raise e
-
-
-
-

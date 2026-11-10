@@ -29,7 +29,6 @@ SUITES = (
     'scripts/tests/test_test_isolation.py',
     'scripts/tests/test_media_storage_migration.py',
     'scripts/tests/test_audio_force_regeneration.py',
-    'scripts/tests/test_card_content_service.py',
     'scripts/tests/test_deploy_manifest.py',
     'scripts/tests/test_local_deployment.py',
     'scripts/tests/test_deck_passport.py',
@@ -38,15 +37,12 @@ SUITES = (
     'scripts/tests/test_api_errors.py',
     'scripts/tests/test_admin_permissions.py',
     'scripts/tests/test_material_permissions.py',
+    'scripts/tests/test_global_readonly.py',
     'scripts/tests/test_learning_reminders.py',
     'scripts/tests/test_reclassification.py',
-    'scripts/tests/test_bulk_import_idempotency.py',
-    'scripts/tests/test_card_key_normalization.py',
-    'scripts/tests/test_card_transfer.py',
     'scripts/tests/test_library_import.py',
-    'scripts/tests/test_card_text_update.py',
-    'scripts/tests/test_folder_text_update.py',
     'scripts/tests/test_offline_sync.py',
+    'scripts/tests/test_native_content_updates.py',
     'scripts/tests/test_sync_generation.py',
     'scripts/tests/test_v1_to_v2_converter.py',
     'scripts/tests/test_native_v2_rehearsal_tools.py',
@@ -103,7 +99,7 @@ def isolated_suite(path):
     # Clear inherited secrets and prevent every load_dotenv() before API imports.
     safe_env = {key: value for key, value in os.environ.items()
                 if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
-    safe_env.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+    safe_env.update(PYTHONUTF8='1', VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
     with patch.dict(os.environ, safe_env, clear=True), \
             patch('dotenv.load_dotenv', return_value=False), \
             patch.object(PostgresqlDatabase, 'connect', blocked), \

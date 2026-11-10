@@ -20,7 +20,7 @@ class SharingService:
     def save_screenshot(share_id, screenshot_b64):
         if "," in screenshot_b64:
             screenshot_b64 = screenshot_b64.split(",")[1]
-        
+
         try:
             img_data = base64.b64decode(screenshot_b64)
             filename = f"preview_{share_id}.png"
@@ -44,7 +44,7 @@ class SharingService:
         # Gradient-like background
         img = Image.new('RGB', (width, height), color=(15, 23, 42)) # Slate 900
         draw = ImageDraw.Draw(img)
-        
+
         # Colors based on type
         is_deck = info.get("type") == "deck"
         if is_deck:
@@ -105,7 +105,7 @@ class SharingService:
                         )
                     except Exception:
                         FONT_PATH = None
-            
+
             if not FONT_PATH or not os.path.exists(FONT_PATH):
                 SharingService._font_cache = (ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default())
             else:
@@ -117,45 +117,33 @@ class SharingService:
         except Exception as e:
             logger.error(f"Font loading error: {e}")
             SharingService._font_cache = (ImageFont.load_default(), ImageFont.load_default(), ImageFont.load_default())
-        
+
         return SharingService._font_cache
 
     @staticmethod
     def _clone_cards_batch(source_cards, target_deck, source_tag, creator_id, now, existing_pairs=None):
-        """Batch clones a list of cards into target_deck in a single optimized SQL statement."""
-        cards_to_create = []
-        for idx, card in enumerate(source_cards):
-            if card.content_v2 is not None:
-                raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})
-            if existing_pairs and (card.front_text, card.back_text) in existing_pairs:
+        """Clone native content and Knowledge links while holding the destination lock."""
+        from api.services.structured_card_api import _clone, _digest
+        from peewee import fn
+        if tma_db.for_update:
+            TMA_Deck.select(TMA_Deck.id).where(TMA_Deck.id == target_deck.id).for_update().get()
+        if existing_pairs is not None:
+            existing_pairs = {_digest(card.content_v2) for card in TMA_Card.select(TMA_Card.content_v2).where(
+                TMA_Card.deck == target_deck.id, TMA_Card.is_deleted == False)}
+        position = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
+            TMA_Card.deck == target_deck.id, TMA_Card.is_deleted == False).scalar() or 0
+        count = 0
+        for card in source_cards:
+            if existing_pairs and _digest(card.content_v2) in existing_pairs:
                 continue
-
-            cards_to_create.append(TMA_Card(
-                deck=target_deck,
-                front_text=card.front_text,
-                back_text=card.back_text,
-                context=card.context,
-                image_path=card.image_path,
-                image_data=card.image_data,
-                audio_path=card.audio_path,
-                audio_back_path=card.audio_back_path,
-                video_front_path=card.video_front_path,
-                video_back_path=card.video_back_path,
-                tags=card.tags,
-                metadata=card.metadata,
-                card_type=card.card_type,
-                difficulty=card.difficulty,
-                topics=card.topics,
-                position=card.position if card.position is not None else idx,
-                source=source_tag,
-                creator_id=card.creator_id or creator_id,
-                created_at=now,
-                updated_at=now
-            ))
-        
-        if cards_to_create:
-            TMA_Card.bulk_create(cards_to_create, batch_size=200)
-        return len(cards_to_create)
+            position += 1
+            copied = _clone(card, target_deck.id, position)
+            TMA_Card.update(source=source_tag, creator_id=card.creator_id or creator_id).where(TMA_Card.id == copied.id).execute()
+            count += 1
+        if count:
+            from api.services.utils import touch_deck_and_parent_folders
+            touch_deck_and_parent_folders(target_deck.id)
+        return count
 
     @staticmethod
     def _draw_card_image(img, image_path, width, height, card_width):
@@ -171,7 +159,7 @@ class SharingService:
                 if new_w > card_width - 100:
                     new_w = card_width - 100
                     new_h = int(new_w / aspect)
-                
+
                 card_img = card_img.resize((new_w, new_h), Image.Resampling.LANCZOS)
                 img.paste(card_img, (int(width/2 - new_w/2), int(height/2 - new_h/2 + 20)))
         except Exception as e:
@@ -196,7 +184,7 @@ class SharingService:
         draw_text_centered(type_text, card_margin + 30, font_small, (165, 180, 252))
 
         # Main Text
-        main_text = info.get("name") or info.get("front_text") or "Lerne TMA"
+        main_text = info.get("name") or "Lerne TMA"
         words = main_text.split()
         lines = []
         current_line = []
@@ -207,11 +195,11 @@ class SharingService:
                 lines.append(" ".join(current_line))
                 current_line = [word]
         lines.append(" ".join(current_line))
-        
+
         y_start = height/2 - (len(lines)-1)*45
         if image_path:
             y_start = card_margin + 100
-            
+
         for i, line in enumerate(lines[:3]):
             draw_text_centered(line, y_start + i*90, font_large, (255, 255, 255))
 
@@ -225,21 +213,24 @@ class SharingService:
         from api.services.decks import ensure_inbox_deck
         from api.services.folders import ensure_inbox_folder
         from api.services.collaborative_service import _require_can_mutate
-        from api.services.structured_card_api import require_legacy_decks
+        from api.services.structured_card_api import require_native, _digest, authored_side_text
 
         with tma_db.atomic():
+            if tma_db.for_update:
+                # Serialize same-account imports, including creation of Inbox destinations.
+                TMAUser.select(TMAUser.user_id).where(TMAUser.user_id == user_id).for_update().get()
             now = datetime.datetime.now()
             if share_id.startswith("d_"):
-                source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id)
+                source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id, TMA_Deck.is_deleted == False)
                 if not source_deck:
                     raise HTTPException(status_code=404, detail="Shared deck not found")
-                
+
                 deck_lang = (getattr(source_deck, 'target_language', 'de') or 'de').lower().strip()
 
                 # Check if deck with same name and language exists for this user
                 existing_deck = TMA_Deck.get_or_none(
-                    TMA_Deck.user_id == user_id, 
-                    TMA_Deck.name == source_deck.name, 
+                    TMA_Deck.user_id == user_id,
+                    TMA_Deck.name == source_deck.name,
                     ((TMA_Deck.target_language == deck_lang) | (TMA_Deck.target_language.is_null() if deck_lang == 'de' else False)),
                     TMA_Deck.is_deleted == False
                 )
@@ -251,21 +242,17 @@ class SharingService:
                         "name": source_deck.name,
                         "target_language": deck_lang
                     }
-                
+
                 # Resolution handling
                 if resolution == 'cancel':
                     return {"status": "cancelled"}
-                
+
                 target_deck = None
                 if existing_deck and resolution in ('replace', 'merge'):
                     _require_can_mutate(user_id, 'deck', existing_deck.id)
-                guarded_decks = [source_deck.id]
-                if existing_deck and resolution in ('replace', 'merge'):
-                    guarded_decks.append(existing_deck.id)
-                require_legacy_decks(guarded_decks)
                 if resolution == 'replace' and existing_deck:
                     # Delete existing cards in the target deck
-                    TMA_Card.update(is_deleted=True).where(TMA_Card.deck_id == existing_deck.id).execute()
+                    TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == existing_deck.id).execute()
                     # Copy metadata & ensure language matches
                     existing_deck.metadata = source_deck.metadata
                     existing_deck.target_language = deck_lang
@@ -288,16 +275,16 @@ class SharingService:
                         created_at=now,
                         updated_at=now
                     )
-                
+
                 source_cards = list(TMA_Card.select().where(
                     (TMA_Card.deck == source_deck) & (TMA_Card.is_deleted == False)
                 ).order_by(TMA_Card.position.asc(), TMA_Card.id.asc()))
-                
+
                 # If merging, check if cards already exist
                 existing_pairs = set()
                 if resolution == 'merge' and target_deck:
                     existing_pairs = set(
-                        (c.front_text, c.back_text) for c in TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text).where(
+                        _digest(c.content_v2) for c in TMA_Card.select(TMA_Card.content_v2).where(
                             (TMA_Card.deck == target_deck) & (TMA_Card.is_deleted == False)
                         )
                     )
@@ -310,23 +297,23 @@ class SharingService:
                     now=now,
                     existing_pairs=existing_pairs if resolution == 'merge' else None
                 )
-                
+
                 return {
-                    "status": "ok", 
-                    "type": "deck", 
-                    "cards_added": cards_added, 
-                    "new_deck_id": target_deck.id, 
+                    "status": "ok",
+                    "type": "deck",
+                    "cards_added": cards_added,
+                    "new_deck_id": target_deck.id,
                     "name": target_deck.name,
                     "deck_name": target_deck.name,
                     "target_language": deck_lang,
                     "merged": resolution == 'merge'
                 }
-                
+
             elif share_id.startswith("f_"):
                 source_folder = TMA_Folder.get_or_none((TMA_Folder.share_id == share_id) & (TMA_Folder.is_deleted == False))
                 if not source_folder:
                     raise HTTPException(status_code=404, detail="Shared folder not found")
-                
+
                 folder_lang = (getattr(source_folder, 'target_language', 'de') or 'de').lower().strip()
 
                 # Check if root folder with same name exists for user
@@ -362,7 +349,6 @@ class SharingService:
                     if old_deck_ids:
                         for deck_id in old_deck_ids:
                             _require_can_mutate(user_id, 'deck', deck_id)
-                        require_legacy_decks(old_deck_ids)
                         TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id << old_deck_ids).execute()
                         TMA_Deck.update(is_deleted=True, updated_at=now).where(TMA_Deck.id << old_deck_ids).execute()
                 elif resolution == 'merge' and existing_folder:
@@ -382,7 +368,7 @@ class SharingService:
                     _require_can_mutate(user_id, 'folder', dest_f.id)
                     decks_added = 0
                     cards_added = 0
-                    
+
                     # 1. Copy decks in src_f
                     src_decks = TMA_Deck.select().where((TMA_Deck.folder == src_f) & (TMA_Deck.is_deleted == False))
                     for s_deck in src_decks:
@@ -406,11 +392,10 @@ class SharingService:
                             )
                             decks_added += 1
                         _require_can_mutate(user_id, 'deck', dest_deck.id)
-                        require_legacy_decks([s_deck.id, dest_deck.id])
-                        
+
                         existing_pairs = set(
-                            (c.front_text or "", c.back_text or "")
-                            for c in TMA_Card.select(TMA_Card.front_text, TMA_Card.back_text)
+                            _digest(c.content_v2)
+                            for c in TMA_Card.select(TMA_Card.content_v2)
                             .where((TMA_Card.deck == dest_deck) & (TMA_Card.is_deleted == False))
                         )
                         s_cards = list(
@@ -418,7 +403,7 @@ class SharingService:
                             .where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False))
                             .order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
                         )
-                        cards_to_copy = [c for c in s_cards if (c.front_text or "", c.back_text or "") not in existing_pairs]
+                        cards_to_copy = [c for c in s_cards if _digest(c.content_v2) not in existing_pairs]
                         if cards_to_copy:
                             cards_added += SharingService._clone_cards_batch(
                                 source_cards=cards_to_copy,
@@ -465,19 +450,19 @@ class SharingService:
                     "decks_added": total_decks,
                     "cards_added": total_cards
                 }
-                
+
             elif share_id.startswith("c_"):
-                source_card = TMA_Card.get_or_none(TMA_Card.share_id == share_id)
+                source_card = TMA_Card.get_or_none(TMA_Card.share_id == share_id, TMA_Card.is_deleted == False)
                 if not source_card:
                     raise HTTPException(status_code=404, detail="Shared card not found")
-                
+
                 card_lang = (getattr(source_card.deck, 'target_language', 'de') if source_card.deck else 'de') or 'de'
                 card_lang = card_lang.lower().strip()
                 inbox = ensure_inbox_deck(user_id, target_language=card_lang)
                 _require_can_mutate(user_id, 'deck', inbox.id)
-                if source_card.content_v2 is not None:
-                    raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})
-                require_legacy_decks([inbox.id])
+                require_native(source_card)
+                if tma_db.for_update:
+                    TMA_Deck.select(TMA_Deck.id).where(TMA_Deck.id == inbox.id).for_update().get()
 
                 # Check if card exists anywhere in user's decks
                 existing_card = (TMA_Card
@@ -485,24 +470,23 @@ class SharingService:
                                 .join(TMA_Deck)
                                 .where(
                                     TMA_Deck.user_id == user_id,
-                                    TMA_Card.front_text == source_card.front_text,
-                                    TMA_Card.back_text == source_card.back_text,
+                                    TMA_Card.content_v2 == source_card.content_v2,
                                     TMA_Card.is_deleted == False
                                 ).first())
-                
+
                 if existing_card and not resolution:
                     return {
                         "status": "conflict",
                         "type": "card",
                         "existing_id": existing_card.id,
                         "existing_deck_name": existing_card.deck.name if existing_card.deck else "Unknown",
-                        "front": source_card.front_text,
+                        "name": authored_side_text(source_card.content_v2, 'front'),
                         "target_language": card_lang
                     }
-                
+
                 if resolution == 'skip':
                     return {"status": "skipped"}
-                
+
                 if resolution == 'replace' and existing_card:
                     _require_can_mutate(user_id, 'deck', existing_card.deck_id)
                     existing_card.is_deleted = True
@@ -510,28 +494,12 @@ class SharingService:
 
                 source_creator = source_card.creator_id or (source_card.deck.user_id if source_card.deck else None)
 
-                new_card = TMA_Card.create(
-                    deck=inbox,
-                    front_text=source_card.front_text,
-                    back_text=source_card.back_text,
-                    context=source_card.context,
-                    image_path=source_card.image_path,
-                    image_data=source_card.image_data,
-                    audio_path=source_card.audio_path,
-                    audio_back_path=source_card.audio_back_path,
-                    video_front_path=source_card.video_front_path,
-                    video_back_path=source_card.video_back_path,
-                    tags=source_card.tags,
-                    metadata=source_card.metadata,
-                    card_type=source_card.card_type,
-                    difficulty=source_card.difficulty,
-                    topics=source_card.topics,
-                    position=source_card.position if source_card.position is not None else 0,
-                    source=f"shared_card:{source_card.share_id}",
-                    creator_id=source_creator,
-                    created_at=datetime.datetime.now(),
-                    updated_at=datetime.datetime.now()
-                )
+                from api.services.structured_card_api import _clone, _position
+                new_card = _clone(source_card, inbox.id, _position(inbox.id))
+                from api.services.utils import touch_deck_and_parent_folders
+                touch_deck_and_parent_folders(inbox.id)
+                TMA_Card.update(source=f'shared_card:{source_card.share_id}', creator_id=source_creator).where(
+                    TMA_Card.id == new_card.id).execute()
                 return {"status": "ok", "type": "card", "new_id": new_card.id, "inbox_id": inbox.id, "target_language": card_lang}
             else:
                 raise HTTPException(status_code=400, detail="Invalid share link format")

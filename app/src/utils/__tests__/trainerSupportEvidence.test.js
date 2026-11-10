@@ -1,16 +1,16 @@
+import { nativeCard } from './nativeFixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExerciseEvaluationSession } from '../exerciseEvaluation.js';
 import { evaluateTrainerGaps } from '../trainerEvaluation.js';
-import { parseClozeData } from '../clozeParser.js';
+import { studyTrainer } from '../structuredStudyCard.js';
 import { trainerTaskSupport } from '../supportEvidence.js';
 import { assessmentTrainerEvidence, recordAssessmentResult, assessmentAttempt } from '../assessment.js';
 import fs from 'node:fs';
 import process from 'node:process';
 
-const card = { id: 10, front: '::source\nSynthetic vocabulary\n::exercise\nVisible {*A|B} [[form]].',
-  metadata: { assessment: { competency_ids: ['synthetic'] } } };
-const cloze = parseClozeData(card, 'classic');
+const card = nativeCard("trainer", { id: 10 }, {"data": {"back_note": "Synthetic answer", "parts": [{"type": "text", "text": "Visible "}, {"type": "choice", "options": [{"text": "A", "correct": true}, {"text": "B", "correct": false}], "distractors": null}, {"type": "text", "text": " "}, {"type": "input", "answers": ["form"]}, {"type": "text", "text": "."}]}, "info": [{"type": "source", "text": "Synthetic vocabulary"}], metadata: { assessment: { competency_ids: ['synthetic'] } }});
+const cloze = studyTrainer(card.content_v2.card.data);
 const opts = { trackSupport: true, taskSupport: trainerTaskSupport(card, cloze) };
 const correct = { 0: 'A', 1: 'form' };
 const check = (session, values) => {
@@ -25,8 +25,8 @@ test('choice/input: fixed frame and vocabulary are static facts, not actions or 
     answer_reveal_count: null, other_help_count: null, capture_point: 'exercise_completion', answer_attempt_count: 1 });
   assert.deepEqual(result.taskSupport, { answer_options_present: true, source_text_present: true,
     authored_example_present: false, sentence_frame_present: true, source_vocabulary_present: true });
-  const allInput = { front: '[[one]] [[two]]' };
-  assert.deepEqual(trainerTaskSupport(allInput, parseClozeData(allInput, 'classic')), {
+  const allInput = nativeCard("trainer", {  }, {"data": {"back_note": "Synthetic answer", "parts": [{"type": "input", "answers": ["one"]}, {"type": "text", "text": " "}, {"type": "input", "answers": ["two"]}]}});
+  assert.deepEqual(trainerTaskSupport(allInput, studyTrainer(allInput.content_v2.card.data)), {
     answer_options_present: false, source_text_present: false, authored_example_present: false,
     sentence_frame_present: true, source_vocabulary_present: false,
   });
@@ -102,14 +102,14 @@ test('other exercise sessions retain their old evidence shape and checks', () =>
 
 if (process.env.LERNE_D14_SUPPORT === '1') {
   test('local D14 choice and inputs retain authored scaffolding without claiming independent word order', () => {
-    const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/corrected.json', import.meta.url), 'utf8'));
+    const snapshot = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/trainer-support-v2.json', import.meta.url), 'utf8'));
     for (const id of [20003, 20013, 20023]) {
       const current = snapshot.cards.find(card => card.id === id);
       assert.ok(current);
-      const cloze = parseClozeData(current, 'classic');
+      const cloze = studyTrainer(current.content_v2.card.data);
       const taskSupport = trainerTaskSupport(current, cloze);
       const session = createExerciseEvaluationSession(undefined, { trackSupport: true, taskSupport });
-      session.check(evaluateTrainerGaps(cloze.gaps, Object.fromEntries(cloze.gaps.map(gap => [gap.id, gap.correctAnswer]))));
+      session.check(evaluateTrainerGaps(cloze.gaps, Object.fromEntries(cloze.gaps.map(gap => [gap.id, gap.answers[0]]))));
       assert.equal(session.evidence().isCorrect, true);
       assert.equal(taskSupport.answer_options_present, id === 20003);
       assert.equal(taskSupport.source_text_present, id === 20023);
@@ -118,8 +118,8 @@ if (process.env.LERNE_D14_SUPPORT === '1') {
       assert.equal(session.evidence().supportEvidence.tracking_complete, false);
       assert.equal(Object.hasOwn(session.evidence(), 'independent'), false);
       if (id === 20023) {
-        assert.equal(cloze.gaps[0].correctAnswer, 'spricht');
-        assert.match(cloze.maskedText, /___GAP_0___\.$/);
+        assert.equal(cloze.gaps[0].answers[0], 'spricht');
+        assert.equal(cloze.parts.at(-1).text, '.');
       }
     }
   });

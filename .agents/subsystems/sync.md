@@ -27,7 +27,7 @@ Knowledge Attempts отправляются отдельным механизм�
    Новое значение `audio_path`/`audio_back_path` в облаке принимается только при наличии объекта в `storage.objects`; неизменённые ссылки и явное удаление поля сохраняют прежнюю семантику.
 5. Клиент подтверждает пакет, переводит временные ID, синхронизирует learning preferences и получает `/sync/v2/pull`.
 6. Snapshot применяется с сохранением локальных dirty changes; события remap/synced обновляют клиентские представления.
-7. Legacy push/pull и collab-pull остаются отдельными маршрутами; проверяйте caller перед выбором сервиса.
+7. Старые `/sync/push` и `/sync/pull` удалены. `collab-pull` возвращает только invalidation/watermark/access_version; данные загружает единый native pull.
    Все пять Sync handlers используют `db_worker`. Auth и handler освобождают
    свои соединения отдельно, транзакции push принадлежат сервисам, а ответы
    pull и `access_version` собираются внутри worker scope. PostgreSQL-регрессия
@@ -441,3 +441,22 @@ SRS и Knowledge. До завершения сверки не очищайте I
 `structured_cards_postgres.py --bin-dir <pgsql/bin> --recovery-browser`.
 Последний выполняет настоящий pg_dump/pg_restore только внутри нового
 disposable кластера и проверяет сохранность Dexie и блокировку записи в Chromium.
+
+## Native V2-only runtime (2026-11-10)
+
+`/sync/v2/pull` по умолчанию и исключительно отдаёт card_schema=2. Коллаборативная
+инвалидация применяет тот же snapshot через syncService; второго merger больше нет.
+Pull сохраняет локальные dirty/non-V2 строки и не выполняется до подтверждения
+созданий V2, чтобы потерянный ответ не создавал второй ID до UUID replay.
+
+Новые записи карточек через V1 batch (`push` и `push-legacy`) отклоняются 409
+`legacy_queue_requires_recovery` до любых записей. Уже сохранённая квитанция
+повторяется раньше этой проверки. Транспорт folders/decks/progress/reviews и их
+permissions/идемпотентность остаётся. Исходные старые очереди не удаляются и не
+переписываются: TD-001 остаётся отдельной задачей восстановления.
+
+Разделы 7.4/7.5 выше описывают историю; они не разрешают новые V1 card writes.
+Успех pull/native-content не равен полной доставке всех настроек устройства;
+коллаборативный UI обновляется по `pull_success`. Watermark снимается до чтения
+и использует те же naive часы, что и `updated_at`, чтобы polling успокаивался
+после завершённой записи.

@@ -23,18 +23,9 @@ from collections import Counter
 from pathlib import PurePosixPath
 from typing import List, Dict, Any, Optional, Tuple
 
-from api.models import tma_db, TMA_Folder, TMA_Deck, TMA_Card, TMAUser, TMAMedia
+from api.models import tma_db, TMA_Folder, TMA_Deck, TMA_Card, TMAMedia
 from api import services
-from api.services.card_text_update import (
-    preview_text_update,
-    apply_text_update,
-    preview_folder_text_update,
-    apply_folder_text_update,
-    _content,
-    _digest, _claim_receipt, _require_deck, _require_folder, _folder_paths,
-    LEVELS
-)
-from api.services.input_parser import detect_ai_input_type
+from api.services.card_text_update import preview_text_update, apply_text_update, preview_folder_text_update, apply_folder_text_update, _content, _digest, _claim_receipt, _require_deck, _require_folder, _folder_paths
 from api.services.deck_passport import validate_passport, merge_passport, passport_from_metadata, read_metadata
 
 CARD_SEPARATOR = "<<<LERNE_CARD>>>"
@@ -63,301 +54,58 @@ def get_effective_user_id(specified_user_id: Optional[int] = None, target_obj: A
 # ============================================================================
 
 def serialize_card(card: TMA_Card, deck_name: Optional[str] = None) -> str:
-    """Сериализует одну карточку в канонический формат с метаданными."""
-    content = _content(card)
-    front = content.get('front', '')
-    back = content.get('back', '')
-    context_body = content.get('context', '')
-    level = content.get('level')
-    topics = content.get('topics')
-
-    meta_lines = []
-    if card.deck_id:
-        meta_lines.append(f"::deck_id {card.deck_id}")
-    if card.id:
-        meta_lines.append(f"::card_id {card.id}")
-
-    context_lines = []
-    if level:
-        context_lines.append(f"::level {level}")
-    if topics:
-        context_lines.append(f"::topic {topics}")
-    if context_body:
-        context_lines.append(context_body)
-
-    parts = []
-    if meta_lines:
-        parts.append('\n'.join(meta_lines))
-    parts.append(f"FRONT:\n{front}")
-    parts.append(f"BACK:\n{back}")
-    if context_lines:
-        parts.append("CONTEXT:\n" + '\n'.join(context_lines))
-    else:
-        parts.append("CONTEXT:")
-
-    return '\n\n'.join(parts)
+    value = _content(card)['content_v2']['card']
+    # Source references are export metadata, never automatic persistence instructions.
+    return json.dumps(value, ensure_ascii=False, indent=2)
 
 
 def serialize_deck(deck: TMA_Deck, cards: List[TMA_Card]) -> str:
-    """Сериализует колоду со всеми карточками."""
-    header = f"# Deck: {deck.name}"
-    passport = passport_from_metadata(getattr(deck, 'metadata', None))
-    if passport:
-        header += (f"\n::deck_id {deck.id}\n\n<<<LERNE_PASSPORT>>>\n"
-                   + json.dumps(passport, ensure_ascii=False, indent=2, allow_nan=False)
-                   + "\n<<<END_LERNE_PASSPORT>>>")
-    cards_text = [serialize_card(c, deck.name) for c in cards]
-    return header + ''.join(f"\n\n{CARD_SEPARATOR}\n\n{card}" for card in cards_text) + "\n"
+    return json.dumps({'schema_version': 2,
+        'deck': {'name': deck.name, 'passport': passport_from_metadata(deck.metadata),
+                 'metadata': {**{key: value for key, value in read_metadata(deck.metadata).items()
+                                 if key not in ('intro', 'pedagogy')},
+                              'source_deck_id': deck.id, 'source_card_ids': [card.id for card in cards]}},
+        'cards': [json.loads(serialize_card(card)) for card in cards]}, ensure_ascii=False, indent=2)
 
 
 def serialize_folder(folder: TMA_Folder, decks_with_cards: List[Tuple[TMA_Deck, List[TMA_Card]]]) -> str:
-    """Сериализует папку со всеми входящими колодами."""
-    output_parts = [f"# Folder: {folder.name}\n"]
-    for deck, cards in decks_with_cards:
-        output_parts.append(serialize_deck(deck, cards))
-    return f"\n{CARD_SEPARATOR}\n\n".join(output_parts)
+    return json.dumps([json.loads(serialize_deck(deck, cards)) for deck, cards in decks_with_cards],
+                      ensure_ascii=False, indent=2)
 
 
 # ============================================================================
 # Парсер текстового формата Lerne
 # ============================================================================
 
-def _parse_card_blocks(
-    text: str,
-    default_deck_id: Optional[int] = None,
-    default_deck_name: Optional[str] = None
-) -> List[Dict[str, Any]]:
-    """
-    Разбирает текстовый файл карточек (одно- или мультиколодный).
-    Возвращает список словарей карточек с полями:
-    number, card_id, deck_id, deck_name, card_type, front, back, context, level, topics.
-    """
-    cleaned_text = text.replace('\r\n', '\n').replace('\r', '\n')
-    raw_blocks = re.split(r'(?m)^\s*(?:---+|<<<LERNE_CARD>>>)\s*$', cleaned_text)
-
-    parsed_cards = []
-    current_deck_id = default_deck_id
-    current_deck_name = default_deck_name
-
-    for block in raw_blocks:
-        block = block.strip()
-        if not block:
-            continue
-
-        # Проверяем заголовок # Folder:
-        if block.startswith('# Folder:'):
-            folder_header_m = re.match(r'# Folder:\s*(.+)', block)
-            block = block[folder_header_m.end():].strip() if folder_header_m else block
-
-        # Проверяем заголовок # Deck: или # Колода:
-        deck_header_m = re.search(r'# (?:Deck|Колода):\s*([^\n]+)', block, re.IGNORECASE)
-        if deck_header_m:
-            current_deck_name = deck_header_m.group(1).strip()
-            block = (block[:deck_header_m.start()] + block[deck_header_m.end():]).strip()
-
-        if not block:
-            continue
-
-        # Метаданные до FRONT:
-        card_id = None
-        deck_id = current_deck_id
-
-        meta_part = ""
-        front_idx = re.search(r'^\s*FRONT\s*:', block, re.IGNORECASE | re.MULTILINE)
-        if front_idx:
-            meta_part = block[:front_idx.start()]
-            card_content = block[front_idx.start():]
-        else:
-            meta_part = block
-            card_content = block
-
-        deck_m = re.search(r'::deck_id\s+(\d+)', meta_part)
-        if deck_m:
-            deck_id = int(deck_m.group(1))
-            current_deck_id = deck_id
-
-        card_m = re.search(r'::card_id\s+(\d+)', meta_part)
-        if card_m:
-            card_id = int(card_m.group(1))
-        image_m = re.search(r'(?m)^\s*::image\s+(.+?)\s*$', meta_part)
-
-        # Извлечение секций FRONT:, BACK:, CONTEXT:
-        front_m = re.search(r'FRONT:\s*\n?(.*?)(?=\n\s*BACK:|\Z)', card_content, re.DOTALL | re.IGNORECASE)
-        back_m = re.search(r'BACK:\s*\n?(.*?)(?=\n\s*CONTEXT:|\Z)', card_content, re.DOTALL | re.IGNORECASE)
-        context_m = re.search(r'CONTEXT:\s*\n?(.*)', card_content, re.DOTALL | re.IGNORECASE)
-
-        front = front_m.group(1).strip() if front_m else ""
-        back = back_m.group(1).strip() if back_m else ""
-        raw_context = context_m.group(1).strip() if context_m else ""
-
-        # Разбор CONTEXT:
-        level = None
-        topics = None
-        clean_context_lines = []
-        context_lines = raw_context.split('\n')
-        i = 0
-
-        while i < len(context_lines):
-            line_str = context_lines[i].strip()
-            level_m = re.match(r'::level(?:\s+([A-Za-z0-9]+))?$', line_str, re.IGNORECASE)
-            topic_m = re.match(r'::topic(?:\s+(.+))?$', line_str, re.IGNORECASE)
-            if level_m:
-                lvl = (level_m.group(1) or '').strip().upper()
-                if not lvl and i + 1 < len(context_lines):
-                    next_str = context_lines[i + 1].strip()
-                    if next_str and not next_str.startswith('::'):
-                        lvl = next_str.upper()
-                        i += 1
-                if lvl in LEVELS:
-                    level = lvl
-            elif topic_m:
-                top = (topic_m.group(1) or '').strip()
-                if not top and i + 1 < len(context_lines):
-                    next_str = context_lines[i + 1].strip()
-                    if next_str and not next_str.startswith('::'):
-                        top = next_str
-                        i += 1
-                if top:
-                    topics = top
-            else:
-                clean_context_lines.append(context_lines[i])
-            i += 1
-
-        clean_context = '\n'.join(clean_context_lines).strip()
-
-        if front or back:
-            card_type = detect_ai_input_type(front) or 'standard'
-            parsed_cards.append({
-                'number': len(parsed_cards) + 1,
-                'card_id': card_id,
-                'deck_id': deck_id,
-                'deck_name': current_deck_name,
-                'card_type': card_type,
-                'front': front,
-                'back': back,
-                'context': clean_context,
-                'level': level,
-                'topics': topics,
-                'image_ref': image_m.group(1) if image_m else None,
-            })
-
-    return parsed_cards
 
 
-def _parse_v2_json_document(text, default_deck_id=None, default_deck_name=None):
-    from api.services.structured_cards_v2 import load_document
-    from api.services.structured_cards_legacy import to_legacy_document
+
+
+
+
+def parse_document(text, default_deck_id=None, default_deck_name=None, *, json_input=False):
+    from api.card_core.lerne_card_core.structured_cards_import import import_documents
+    result = {key: [] for key in ('cards', 'passports', 'decks', 'errors', 'structure_errors', 'warnings')}
     try:
-        doc = load_document(text.lstrip('\ufeff'))
-        legacy = to_legacy_document(doc)
-    except Exception as exc:
-        msg = str(exc)
-        return {'cards': [], 'passports': [], 'decks': [], 'errors': [msg],
-                'structure_errors': [msg], 'warnings': []}
-    deck_name = doc.deck.name or default_deck_name or 'Без названия'
-    cards = [
-        {**c, 'number': idx + 1, 'card_id': None, 'deck_id': default_deck_id,
-         'deck_name': deck_name, 'source_id': doc.cards[idx].id,
-         'image_ref': doc.cards[idx].image}
-        for idx, c in enumerate(legacy['cards'])
-    ]
-    passports = (
-        [{'deck_name': deck_name, 'deck_id': default_deck_id, 'passport': legacy['deck']['passport']}]
-        if doc.deck.passport else []
-    )
-    decks = [{'deck_name': deck_name, 'deck_id': default_deck_id, 'cards_count': len(cards)}]
-    return {'cards': cards, 'passports': passports, 'decks': decks, 'errors': [],
-            'structure_errors': [], 'warnings': []}
-
-
-def parse_document(text, default_deck_id=None, default_deck_name=None):
-    """Remove deck passports before parsing cards; retain errors for editable preview."""
-    if str(text or '').lstrip('\ufeff').lstrip().startswith('{'):
-        return _parse_v2_json_document(text, default_deck_id, default_deck_name)
-    lines = text.lstrip('\ufeff').replace('\r\n', '\n').replace('\r', '\n').split('\n')
-    sections = []
-    section = {'deck_name': default_deck_name, 'lines': [], 'passports': []}
-    errors, warnings, validation_errors = [], [], []
-    passport_lines = None
-    for line in lines:
-        marker = line.strip()
-        if marker == '<<<LERNE_PASSPORT>>>':
-            if passport_lines is not None:
-                errors.append('Вложенные блоки паспорта запрещены.')
-            else:
-                passport_lines = []
-            continue
-        if marker == '<<<END_LERNE_PASSPORT>>>':
-            if passport_lines is None:
-                errors.append('Конец паспорта без начала.')
-            else:
-                try:
-                    def unique_keys(pairs):
-                        result = {}
-                        for key, value in pairs:
-                            if key in result:
-                                raise ValueError(f'Повтор JSON-ключа: {key}')
-                            result[key] = value
-                        return result
-                    value = json.loads('\n'.join(passport_lines), object_pairs_hook=unique_keys)
-                    section['passports'].append(value)
-                except (ValueError, RecursionError) as exc:
-                    errors.append(f"{section['deck_name'] or 'Колода'}: некорректный JSON паспорта: {exc}")
-                passport_lines = None
-            continue
-        if passport_lines is not None:
-            passport_lines.append(line)
-            continue
-        header = re.match(r'^\s*# (?:Deck|Колода):\s*(.+?)\s*$', line, re.IGNORECASE)
-        if header:
-            if section['lines'] or section['passports']:
-                sections.append(section)
-            section = {'deck_name': header.group(1), 'lines': [], 'passports': []}
-        else:
-            section['lines'].append(line)
-    if passport_lines is not None:
-        errors.append('Не найден <<<END_LERNE_PASSPORT>>>; содержимое паспорта не импортировано в карточки.')
-    sections.append(section)
-    cards, passports, decks = [], [], []
-    passport_names = set()
-    for part in sections:
-        name = part['deck_name'] or default_deck_name
-        body = '\n'.join(part['lines'])
-        parsed = _parse_card_blocks(body, default_deck_id, name)
-        for card in parsed:
-            card['number'] = len(cards) + 1
-            cards.append(card)
-        if not parsed and not part['passports']:
-            continue
-        ids = {c['deck_id'] for c in parsed if c.get('deck_id')}
-        # A deck-level ID also identifies an empty / passport-only export.
-        prefix = re.split(r'^\s*FRONT\s*:', body, maxsplit=1, flags=re.MULTILINE | re.IGNORECASE)[0]
-        ids.update(int(x) for x in re.findall(r'^\s*::deck_id\s+(\d+)\s*$', prefix, re.MULTILINE))
-        resolved_id = next(iter(ids)) if len(ids) == 1 else default_deck_id
-        if len(ids) > 1 and part['passports']:
-            errors.append(f'{name}: конфликт deck_id в колоде с паспортом.')
-        decks.append({'deck_name': name or 'Без названия', 'deck_id': resolved_id, 'cards_count': len(parsed)})
-        if len(part['passports']) > 1 or (part['passports'] and name in passport_names):
-            errors.append(f'{name}: дублирующийся паспорт колоды.')
-        for passport in part['passports'][:1]:
-            if not name:
-                errors.append('Паспорт требует заголовок # Deck: или default_deck_name.')
-            passport_names.add(name)
-            validation = validate_passport(passport)
-            validation_errors.extend(f'{name}: {error}' for error in validation)
-            passports.append({'deck_name': name, 'deck_id': resolved_id, 'passport': passport})
-            if not validation and parsed:
-                intro = passport.get('intro', {})
-                for card in parsed:
-                    if card['level'] is None:
-                        card['level'] = intro.get('level')
-                    if card['topics'] is None:
-                        card['topics'] = intro.get('topic')
-                for stage in passport.get('pedagogy', {}).get('stages', []):
-                    if stage.get('to_card', 0) > len(parsed):
-                        warnings.append(f"{name}: этап {stage['id']} выходит за число карточек файла; проверьте авторский диапазон.")
-    return {'cards': cards, 'passports': passports, 'decks': decks, 'errors': errors + validation_errors,
-            'structure_errors': errors, 'warnings': warnings}
+        documents = import_documents(text, default_deck_name=default_deck_name or 'Новый урок', json_input=json_input)
+        for document in documents:
+            deck = document.deck
+            deck_id = default_deck_id or deck.metadata.get('source_deck_id')
+            result['decks'].append({'deck_name': deck.name, 'deck_id': deck_id, 'cards_count': len(document.cards)})
+            if deck.passport:
+                result['passports'].append({'deck_name': deck.name, 'deck_id': deck_id, 'passport': deck.passport})
+            source_ids = deck.metadata.get('source_card_ids')
+            if source_ids is not None and (not isinstance(source_ids, list) or len(source_ids) != len(document.cards) or any(type(item) is not int or item <= 0 for item in source_ids) or len(set(source_ids)) != len(source_ids)):
+                raise ValueError('Invalid source_card_ids export references')
+            for index, card in enumerate(document.cards):
+                result['cards'].append({'number': len(result['cards']) + 1, 'deck_id': deck_id,
+                    'card_id': source_ids[index] if source_ids is not None else int(card.id) if card.id and card.id.isdecimal() else None,
+                    'deck_name': deck.name, 'source_id': card.id, 'image_ref': card.image,
+                    'content_v2': {'schema_version': 2, 'card': card.model_dump(mode='json')}})
+    except (ValueError, RecursionError) as error:
+        result = {key: [] for key in result}
+        result['errors'] = result['structure_errors'] = [str(error)]
+    return result
 
 
 def parse_uploaded_documents(files):
@@ -366,8 +114,7 @@ def parse_uploaded_documents(files):
     passport_names = set()
     for filename, text in files:
         name, extension = os.path.splitext(filename)
-        document = (_parse_v2_json_document(text) if extension.lower() == '.json'
-                    else parse_document(text, default_deck_name=name.strip() or None))
+        document = parse_document(text, default_deck_name=name.strip() or None, json_input=extension.lower() == '.json')
         if not document['cards'] and not document['passports'] and not document['errors']:
             message = 'В файле не найдено ни одной карточки или паспорта.'
             document['errors'].append(message)
@@ -420,8 +167,17 @@ def resolve_import_images(cards, image_names, manifest=None):
         refs = []
         if card.get('image_ref'):
             refs.append(card['image_ref'])
-        for field in ('front', 'back', 'context'):
-            body = card.get(field) or ''
+        content = card['content_v2']['card']
+        def strings(value):
+            if isinstance(value, str):
+                yield value
+            elif isinstance(value, dict):
+                for child in value.values():
+                    yield from strings(child)
+            elif isinstance(value, list):
+                for child in value:
+                    yield from strings(child)
+        for body in strings({key: content.get(key) for key in ('data', 'info', 'explanation')}):
             refs.extend(match.group(1) or match.group(2) for match in IMAGE_LINK.finditer(body))
             refs.extend(IMAGE_DIRECTIVE.findall(body))
         for index, item in enumerate(manifest):
@@ -450,10 +206,23 @@ def resolve_import_images(cards, image_names, manifest=None):
                   'missing' if not unique else 'ambiguous')
         if status == 'matched':
             card['image_ref'] = refs[0]
-            for field in ('front', 'back', 'context'):
-                body = card.get(field) or ''
-                body = IMAGE_LINK.sub('', body)
-                card[field] = IMAGE_DIRECTIVE.sub('', body).strip()
+            def remove_image_markup(value):
+                if isinstance(value, str):
+                    return IMAGE_DIRECTIVE.sub('', IMAGE_LINK.sub('', value))
+                if isinstance(value, dict):
+                    return {key: remove_image_markup(child) for key, child in value.items()}
+                if isinstance(value, list):
+                    return list(map(remove_image_markup, value))
+                return value
+            for field in ('data', 'info', 'explanation'):
+                if field in content:
+                    original = content[field]
+                    content[field] = remove_image_markup(original)
+                    if isinstance(original, str) and original != content[field]:
+                        content[field] = content[field].strip()
+            for key, value in content.get('data', {}).items():
+                if isinstance(value, str):
+                    content['data'][key] = value.strip()
         links.append({'card_number': card['number'], 'deck': card.get('deck_name'),
                       'references': refs, 'candidates': unique, 'status': status,
                       'file': unique[0] if status == 'matched' else None})
@@ -466,7 +235,7 @@ def resolve_import_images(cards, image_names, manifest=None):
 
 
 def parse_cards_text(text, default_deck_id=None, default_deck_name=None):
-    """Backward-compatible card projection; never silently discard malformed passports."""
+    """Native card projection from the single validated document parser."""
     document = parse_document(text, default_deck_id, default_deck_name)
     if document['errors']:
         raise ValueError('\n'.join(document['errors']))
@@ -733,18 +502,10 @@ def _update_passport_plan(passports, deck_id, folder_id, user_id, lock=False):
 # ============================================================================
 
 def parse_native_publication(text, default_deck_name=None):
-    from api.card_core.lerne_card_core.structured_cards_import import import_documents
-
-    documents = import_documents(text, default_deck_name=default_deck_name or 'Новый урок')
-    cards, passports = [], []
-    for document in documents:
-        deck = document.deck
-        if deck.passport:
-            passports.append({'deck_name': deck.name, 'passport': deck.passport})
-        cards.extend({'deck_name': deck.name, 'content_v2': {
-            'schema_version': 2, 'card': card.model_dump(mode='json'),
-        }} for card in document.cards)
-    return {'cards': cards, 'passports': passports}
+    document = parse_document(text, default_deck_name=default_deck_name)
+    if document['errors']:
+        raise ValueError('; '.join(document['errors']))
+    return document
 
 
 def preview_publish_content(
@@ -768,22 +529,9 @@ def preview_publish_content(
         dname = c.get('deck_name') or default_deck_name or "Без названия"
         decks_map.setdefault(dname, []).append(c)
 
-        native = c.get('content_v2')
-        front = c.get('front', '')
-        ctype = native['card']['type'] if native else (c.get('card_type') or detect_ai_input_type(front) or 'standard')
+        from .structured_card_storage import decode_v2_content
+        ctype = decode_v2_content(c['content_v2']).type
         type_counts[ctype] = type_counts.get(ctype, 0) + 1
-        if native:
-            continue
-
-        # Проверка баланса скобок [[ ]], { }, << >>
-        for op, cl in (('[[', ']]'), ('{', '}'), ('<<', '>>')):
-            if front.count(op) != front.count(cl):
-                syntax_issues.append({
-                    'card_number': c.get('number'),
-                    'deck': dname,
-                    'issue': f"Несбалансированные скобки {op}...{cl}",
-                    'front_snippet': front[:60]
-                })
 
     deck_summaries = []
     for name in passport_map:
@@ -826,7 +574,7 @@ def apply_publish_content(
     Атомарно публикует урок:
     - Создает папку при необходимости;
     - Создает или находит колоды;
-    - Сохраняет карточки через bulk_save_cards.
+    - Сохраняет карточки через native bulk_save.
     """
     passport_map = _passport_map(passports)
     if passport_only and not passport_map:

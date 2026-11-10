@@ -1,0 +1,11 @@
+.card-form-secondary { margin: 4px 0 6px; }
+.card-form-secondary > summary { min-height: 28px; padding: 4px 0; box-sizing: border-box; cursor: pointer; font-size: .8rem; }
+.card-form-text-field { display: grid; gap: 8px; min-width: 0; padding: 10px; margin: 8px 0; border: 1px solid rgba(148, 163, 184, .3); border-radius: 8px; }
+.card-form-text-field > .sub-label { margin: 0; }
+.card-form-text-field:focus-within { outline: 2px solid var(--accent-color, #a78bfa); outline-offset: 2px; }
+.card-editor-field, .card-editor-field label { display: grid; gap: 4px; min-width: 0; }
+.card-editor-field:is(fieldset) { border: 0; padding: 0; margin: 0; }
+.card-editor-field .sub-label { margin: 0; font-size: 0.72rem; opacity: 0.8; font-weight: 600; }
+.card-editor-field input.form-input, .card-editor-field textarea { width: 100%; min-width: 0; box-sizing: border-box; }
+.card-editor-field textarea { resize: vertical; overflow-y: auto; min-height: 64px; }
+.card-editor-raw { font-family: monospace; text-align: left; min-height: 72px; padding: 6px 8px; font-size: 0.82rem; line-height: 1.35; }

@@ -1,4 +1,4 @@
-import { normalizeMatchValue } from './matchParser.js';
+import { normalizeMatchValue } from './text.js';
 import { createExerciseEvaluation } from './exerciseEvaluation.js';
 
 export const matchPartId = id => `match:left-${id + 1}`;

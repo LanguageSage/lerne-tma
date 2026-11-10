@@ -1,4 +1,4 @@
-import { normalizeWordBankValue } from './wordBankParser.js';
+import { normalizeWordBankValue } from './text.js';
 import { createExerciseEvaluation } from './exerciseEvaluation.js';
 
 export const getUsedWordBankOptionIds = (assignments = {}) => new Set(Object.values(assignments));

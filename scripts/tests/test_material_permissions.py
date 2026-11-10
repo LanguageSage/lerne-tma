@@ -75,14 +75,24 @@ class MaterialPermissionTests(unittest.TestCase):
     def revision(self):
         return content_response(models.TMA_Card.get_by_id(self.card.id))['revision']
 
-    def legacy_fixture(self):
-        # Deliberately unmigrated content for the V1 transport permission tests.
-        models.TMA_Card.update(content_v2=None, card_type='translation', front_text='Haus',
-            back_text='дом', tags='old').where(models.TMA_Card.id == self.card.id).execute()
+
 
     def publish(self):
         self.root.access_scope = 'global_readonly'
         self.root.save()
+
+    def test_native_save_updates_inherited_presence_watermark(self):
+        import datetime
+        baseline = datetime.datetime(2020, 1, 1)
+        models.TMA_Folder.update(updated_at=baseline).where(models.TMA_Folder.id == self.child.id).execute()
+        before = models.TMA_Folder.get_by_id(self.child.id).updated_at
+        response = self.call('POST', '/cards/save', 202, json={'request_id': str(uuid4()),
+            'deck_id': self.deck.id, 'content_v2': content('Presence', 'Native answer')})
+        self.assertEqual(response.status_code, 200, response.text)
+        after = models.TMA_Folder.get_by_id(self.child.id).updated_at
+        self.assertGreater(after, before)
+        presence = permissions.record_and_get_presence(202, 'folder', self.child.id)
+        self.assertEqual(presence['updated_at'], after.isoformat())
 
     def test_private_and_inherited_read_matrix(self):
         for uid, role in ((101, 'owner'), (202, 'editor'), (303, 'viewer'), (404, None)):
@@ -165,22 +175,17 @@ class MaterialPermissionTests(unittest.TestCase):
         self.assertEqual(copied.creator_id, 404)
         self.assertFalse(models.TMA_Card.get_by_id(self.card.id).is_deleted)
 
-    def test_creator_without_access_cannot_copy_or_mutate_via_services(self):
-        for operation in ('copy', 'move', 'delete', 'single_delete'):
-            with self.subTest(operation=operation):
-                try:
-                    if operation == 'single_delete':
-                        card_service.delete_card(self.card.id, 404)
-                    elif operation == 'delete':
-                        card_service.batch_delete_cards([self.card.id], 404)
-                    else:
-                        getattr(card_service, f'batch_{operation}_cards')(
-                            [self.card.id], self.targets[404].id, 404)
-                except HTTPException as error:
-                    self.assertEqual(error.status_code, 403)
-                self.assertEqual(models.TMA_Card.get_by_id(self.card.id).deck_id, self.deck.id)
-                self.assertFalse(models.TMA_Card.get_by_id(self.card.id).is_deleted)
-                self.assertEqual(models.TMA_Card.select().count(), 1)
+    def test_creator_without_access_cannot_copy_or_mutate(self):
+        for operation in ('copy', 'move', 'delete'):
+            payload = {'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()}, 'card_ids': [self.card.id]}
+            if operation != 'delete':
+                payload['target_deck_id'] = self.targets[404].id
+            response = self.call('POST', f'/cards/batch-{operation}', 404, json=payload)
+            self.assertEqual(response.status_code, 403, response.text)
+            self.assertEqual(models.TMA_Card.get_by_id(self.card.id).deck_id, self.deck.id)
+            self.assertFalse(models.TMA_Card.get_by_id(self.card.id).is_deleted)
+            self.assertEqual(models.TMA_Card.select().count(), 1)
+
 
     def test_copy_deck_accepts_inherited_reader_and_preserves_author(self):
         for uid in (202, 303):
@@ -224,22 +229,19 @@ class MaterialPermissionTests(unittest.TestCase):
                     response = self.call(method, path, uid, json=payload)
                     self.assertEqual(response.status_code, 200 if uid in (101, 202) else 403, response.text)
 
-    def test_sync_v2_matrix_and_forbidden_destination_rollback(self):
-        self.legacy_fixture()
+    def test_sync_cannot_write_legacy_content_for_any_role(self):
+        before = models.TMA_Card.get_by_id(self.card.id).__data__
         for uid in (101, 202, 303, 404):
             response = self.call('POST', '/sync/v2/push', uid, json={
-                'request_id': str(uuid4()), 'cards': [{'id': self.card.id,
-                'deck_id': self.deck.id, 'front_text': 'Sync', 'back_text': 'Back'}]})
-            self.assertEqual(response.status_code, 200 if uid in (101, 202) else 403, response.text)
-        response = self.call('POST', '/sync/v2/push', 202, json={
-            'request_id': str(uuid4()), 'cards': [
-                {'id': self.card.id, 'deck_id': self.deck.id, 'front_text': 'Rollback', 'back_text': ''},
-                {'id': -1, 'deck_id': self.targets[404].id, 'front_text': 'Forbidden', 'back_text': ''}]})
-        self.assertEqual(response.status_code, 403, response.text)
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).front_text, 'Sync')
+                'request_id': str(uuid4()), 'folders': [{'id': self.child.id, 'name': 'Must roll back'}],
+                'cards': [{'id': self.card.id, 'deck_id': self.deck.id, 'front_text': 'Sync', 'back_text': 'Back'}]})
+            self.assertEqual(response.status_code, 409, response.text)
+            self.assertEqual(models.TMA_Card.get_by_id(self.card.id).__data__, before)
+            self.assertEqual(models.TMA_Folder.get_by_id(self.child.id).name, 'Child')
 
-    def test_legacy_sync_editor_can_update_inherited_folder_and_deck(self):
-        response = self.call('POST', '/sync/push', 202, json={
+
+    def test_entity_sync_editor_can_update_inherited_folder_and_deck(self):
+        response = self.call('POST', '/sync/v2/push', 202, json={'request_id': str(uuid4()),
             'folders': [{'id': self.child.id, 'name': 'Edited child', 'parent_id': self.root.id,
                          'updated_at': '2030-01-01T00:00:00'}],
             'decks': [{'id': self.deck.id, 'name': 'Edited deck', 'folder_id': self.child.id,
@@ -284,17 +286,7 @@ class MaterialPermissionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(models.TMA_Card.get_by_id(self.card.id).creator_id, 404)
 
-    def test_legacy_sync_rejects_viewer_outsider_and_global_editor(self):
-        self.legacy_fixture()
-        for published in (False, True):
-            if published:
-                self.publish()
-            for uid in ((202, 303, 404) if published else (303, 404)):
-                response = self.call('POST', '/sync/push', uid, json={'cards': [{
-                    'id': self.card.id, 'deck_id': self.deck.id, 'front_text': 'Forbidden',
-                    'back_text': '', 'updated_at': '2030-01-01T00:00:00'}]})
-                self.assertEqual(response.status_code, 403, response.text)
-                self.assertEqual(models.TMA_Card.get_by_id(self.card.id).front_text, 'Haus')
+
 
     def test_global_descendant_owner_cannot_restore_or_clear_originals(self):
         self.publish()

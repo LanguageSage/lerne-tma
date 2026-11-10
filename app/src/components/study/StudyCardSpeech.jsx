@@ -11,8 +11,6 @@ import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
 import { stopGlobalAudio } from '../../hooks/useAudio';
-import { parseExerciseContent } from '../../utils/exerciseContentParser';
-import { cleanBracketSyntax } from '../../utils/clozeParser';
 import { studyContent, studyInfoBlocks, studySideText } from '../../utils/structuredStudyCard.js';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 
@@ -37,11 +35,8 @@ export const StudyCardSpeech = React.memo(({
   const [speechSuccess, setSpeechSuccess] = useState(false);
 
   const structured = studyContent(card);
-  const exerciseContent = useMemo(() => structured
-    ? { blocks: studyInfoBlocks(structured), exercise: studySideText(structured) }
-    : parseExerciseContent(card?.front || ''), [card?.front, structured]);
-  const spokenFront = targetText ?? (structured
-    ? stripMarkdown(exerciseContent.exercise) : cleanBracketSyntax(exerciseContent.exercise));
+  const exerciseContent = useMemo(() => ({ blocks: studyInfoBlocks(structured), exercise: studySideText(structured) }), [structured]);
+  const spokenFront = targetText ?? stripMarkdown(exerciseContent.exercise);
   const speechKey = JSON.stringify([card?.id, reviewKey, spokenFront]);
   const [previousSpeechKey, setPreviousSpeechKey] = useState(speechKey);
   if (previousSpeechKey !== speechKey) {
@@ -139,10 +134,10 @@ export const StudyCardSpeech = React.memo(({
       )}
 
       <div
-        className="text-front speak-target-text" 
-        style={{ 
-          ...cardStyle, 
-          marginBottom: '28px' 
+        className="text-front speak-target-text"
+        style={{
+          ...cardStyle,
+          marginBottom: '28px'
         }}
       >
         {stripMarkdown(spokenFront)}
@@ -171,7 +166,7 @@ export const StudyCardSpeech = React.memo(({
       {/* Microphone Controls */}
       <div className="speak-mic-area">
         <div className="speak-mic-controls-row">
-          <button 
+          <button
             type="button"
             className={`btn-speak-mic ${isListening ? 'listening' : ''} ${speechSuccess ? 'success' : ''}`}
             onClick={handleMicClick}
@@ -220,7 +215,7 @@ export const StudyCardSpeech = React.memo(({
 
       {/* Recognized Transcript Bubble */}
       {recognizedText && (
-        <div 
+        <div
           className="recognized-transcript-bubble glass"
           style={{
             borderColor: speechSuccess ? 'var(--design-correct-border, #10b981)' : (isListening ? 'var(--design-front-card-border, rgba(255,255,255,.15))' : 'var(--design-wrong-border, #f43f5e)'),

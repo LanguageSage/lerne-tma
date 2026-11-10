@@ -10,10 +10,8 @@ import { CardTypeBadge } from '../common/CardTypeBadge';
 import { useUiStore } from '../../store/useUiStore';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
-import { detectCardType } from '../../utils/exerciseDetector';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import { cleanBracketSyntax } from '../../utils/clozeParser';
 import { offlineEditLabel, offlineLifecycleLabel, offlineMoveLabel } from '../../services/offlineUi';
 
 export const DraggableCardItem = React.memo(({
@@ -59,8 +57,8 @@ export const DraggableCardItem = React.memo(({
   };
 
   const structured = studyContent(c);
-  const detectedExerciseType = structured?.type ?? detectCardType(c);
-  const prompt = structured ? studySideText(structured) : (c.front || '');
+  const detectedExerciseType = structured?.type;
+  const prompt = studySideText(structured);
   const answer = structured ? studySideText(structured, 'back') : (c.back || '');
 
   const linesLimit = previewCardLines === 0 ? 0 : (previewCardLines || 2);
@@ -117,7 +115,7 @@ export const DraggableCardItem = React.memo(({
           className={`front-min ${isExpanded ? 'expanded' : ''}`}
           style={{ ...frontTypographyStyle, ...clampStyle }}
         >
-          {stripMarkdown(structured ? prompt : cleanBracketSyntax(prompt))}
+          {stripMarkdown(prompt)}
         </div>
 
         {answer && (

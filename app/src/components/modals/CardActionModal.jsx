@@ -1,3 +1,4 @@
+import { studyContent } from '../../utils/structuredStudyCard.js';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
@@ -13,7 +14,6 @@ import { getSortedFolderAndDeckTree } from '../../utils/deckUtils';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardNotes } from '../../hooks/useCardNotes';
 import { StudyCardInfo } from '../study/StudyCardInfo';
-import { parseExerciseContent } from '../../utils/exerciseContentParser';
 import { CardNotesPanel, NoteIndicator } from './CardNotesPanel';
 export const CardActionModal = ({
   isOpen,
@@ -51,8 +51,8 @@ export const CardActionModal = ({
   }, [isCurrentDeck, targetDeckId, deckCards, cardsByDeck]);
 
   const currentIdx = cardsList.findIndex(c => String(c.id) === String(card?.id));
-  const currentPosition = currentIdx !== -1 
-    ? currentIdx + 1 
+  const currentPosition = currentIdx !== -1
+    ? currentIdx + 1
     : (card?.card_number || (typeof card?.position === 'number' ? card.position + 1 : 1));
   const totalCardsCount = cardsList.length || card?.total_cards || 1;
 
@@ -144,17 +144,17 @@ export const CardActionModal = ({
 
   return (
     <AnimatePresence>
-      <div 
-        className="settings-overlay" 
+      <div
+        className="settings-overlay"
         onClick={onClose}
-        style={{ 
-          display: 'flex', 
-          alignItems: 'flex-end', 
+        style={{
+          display: 'flex',
+          alignItems: 'flex-end',
           justifyContent: 'center',
           padding: 0
         }}
       >
-        <motion.div 
+        <motion.div
           ref={modalRef}
           role="dialog"
           aria-modal="true"
@@ -166,12 +166,12 @@ export const CardActionModal = ({
             if (event.shiftKey && document.activeElement === first) { event.preventDefault(); last?.focus(); }
             if (!event.shiftKey && document.activeElement === last) { event.preventDefault(); first?.focus(); }
           }}
-          initial={{ opacity: 0, y: 100 }} 
-          animate={{ opacity: 1, y: 0 }} 
-          exit={{ opacity: 0, y: 100 }} 
-          className="card-action-modal glass" 
+          initial={{ opacity: 0, y: 100 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: 100 }}
+          className="card-action-modal glass"
           onClick={e => e.stopPropagation()}
-          style={{ 
+          style={{
             width: '100%',
             maxWidth: '450px',
             maxHeight: 'min(90vh, 90dvh)',
@@ -200,8 +200,8 @@ export const CardActionModal = ({
 
           <div className="settings-header" style={{ marginBottom: '10px', flexShrink: 0 }}>
             <h2 style={{ fontSize: '1.35rem', fontWeight: 700, margin: 0 }}>
-              {mode === 'main' ? tr("Управление карточкой") : 
-               mode === 'move' ? tr("Переместить") : 
+              {mode === 'main' ? tr("Управление карточкой") :
+               mode === 'move' ? tr("Переместить") :
                 mode === 'copy' ? tr("Копировать") : mode === 'notes' ? tr('Мои заметки') :
                 mode === 'info' ? tr('Информация о карточке') : tr("Позиция в списке")}
             </h2>
@@ -209,13 +209,13 @@ export const CardActionModal = ({
               <X size={20} />
             </button>
           </div>
-          
+
           <div className="settings-content scrollable" style={{ flex: 1, minHeight: 0, overflowY: 'auto', WebkitOverflowScrolling: 'touch' }}>
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
 
-                {canEditContent && <button 
-                  className="action-menu-item" 
+                {canEditContent && <button
+                  className="action-menu-item"
                   onClick={() => setMode('move')}
                 >
                   <div className="action-menu-icon" style={{ background: 'rgba(99, 102, 241, 0.1)', color: '#818cf8' }}>
@@ -226,9 +226,9 @@ export const CardActionModal = ({
                     <span>{tr("Перенести в другую колоду")}</span>
                   </div>
                 </button>}
-                
-                {canEditContent && <button 
-                  className="action-menu-item" 
+
+                {canEditContent && <button
+                  className="action-menu-item"
                   onClick={() => setMode('copy')}
                 >
                   <div className="action-menu-icon" style={{ background: 'rgba(168, 85, 247, 0.1)', color: '#a855f7' }}>
@@ -239,9 +239,9 @@ export const CardActionModal = ({
                     <span>{tr("Создать дубликат в другой колоде")}</span>
                   </div>
                 </button>}
-                
-                <button 
-                  className="action-menu-item" 
+
+                <button
+                  className="action-menu-item"
                   onClick={() => { onShare(card); onClose(); }}
                 >
                   <div className="action-menu-icon" style={{ background: 'rgba(56, 189, 248, 0.1)', color: '#38bdf8' }}>
@@ -252,10 +252,10 @@ export const CardActionModal = ({
                     <span>{tr("Отправить ссылку в Telegram")}</span>
                   </div>
                 </button>
-                
+
                 {canEditContent && onEdit && (
-                  <button 
-                    className="action-menu-item" 
+                  <button
+                    className="action-menu-item"
                     onClick={() => { onEdit(card); onClose(); }}
                   >
                     <div className="action-menu-icon" style={{ background: 'rgba(234, 179, 8, 0.1)', color: '#eab308' }}>
@@ -268,8 +268,8 @@ export const CardActionModal = ({
                   </button>
                 )}
 
-                {canEditContent && <button 
-                  className="action-menu-item" 
+                {canEditContent && <button
+                  className="action-menu-item"
                   onClick={() => setMode('position')}
                 >
                   <div className="action-menu-icon" style={{ background: 'rgba(168, 85, 247, 0.12)', color: '#c084fc' }}>
@@ -283,18 +283,18 @@ export const CardActionModal = ({
                   </div>
                 </button>}
 
-                <FlagPicker 
-                  value={card.flag} 
+                <FlagPicker
+                  value={card.flag}
                   onChange={(flagId) => {
                     handleSetCardFlag(card, flagId);
                     onClose();
-                  }} 
+                  }}
                 />
-                
+
                 <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '6px 0' }} />
 
-                {canEditContent && <button 
-                  className="action-menu-item delete" 
+                {canEditContent && <button
+                  className="action-menu-item delete"
                   onClick={() => { onDelete(card); onClose(); }}
                 >
                   <div className="action-menu-icon" style={{ background: 'rgba(239, 68, 68, 0.1)', color: '#ef4444' }}>
@@ -337,7 +337,7 @@ export const CardActionModal = ({
             {mode === 'info' && <StudyCardInfo card={card}
               language={card.target_language || actionDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de'}
               deckName={actionDeck?.name}
-              source={card.source || parseExerciseContent(card.front || card.front_text || '').source} />}
+              source={studyContent(card)?.info?.find(block => block.type === 'source')?.text} />}
             {(mode === 'notes' || mode === 'info') && <button type="button" className="btn-secondary btn-full mt-2"
               onClick={() => setMode('main')} style={{ minHeight: 44 }}>{tr('Назад')}</button>}
 
@@ -488,13 +488,13 @@ export const CardActionModal = ({
                 {getSortedFolderAndDeckTree(folders || [], decks || [], expandedFolders).map((item, index) => {
                   if (item.type === 'folder') {
                     return (
-                      <div 
+                      <div
                         key={`folder-${item.id}-${index}`}
                         onClick={() => toggleFolder(item.id)}
-                        style={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: '8px', 
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          gap: '8px',
                           padding: '10px 12px',
                           paddingLeft: `${12 + item.depth * 16}px`,
                           color: '#ffd043',
@@ -507,9 +507,9 @@ export const CardActionModal = ({
                           userSelect: 'none'
                         }}
                       >
-                        <span style={{ 
-                          color: '#ffd043', 
-                          fontSize: '0.7rem', 
+                        <span style={{
+                          color: '#ffd043',
+                          fontSize: '0.7rem',
                           marginRight: '4px',
                           display: 'inline-block',
                           transform: item.isExpanded ? 'rotate(90deg)' : 'none',
@@ -522,8 +522,8 @@ export const CardActionModal = ({
                     );
                   } else {
                     return (
-                      <button 
-                        key={`deck-${item.id}-${index}`} 
+                      <button
+                        key={`deck-${item.id}-${index}`}
                         className="deck-select-item"
                         onClick={() => mode === 'move' ? handleMoveClick(item.id) : handleCopyClick(item.id)}
                         style={{

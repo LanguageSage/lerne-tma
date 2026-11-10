@@ -1,28 +1,22 @@
 """Authoritative content preview and atomic maintenance updates, without SRS writes.
 
-The browser's existing Lerne parsers own text import. This service accepts only
-their content projection, validates identifiers/structure, and compares live rows.
+This service accepts complete V2 envelopes, validates identifiers and structure,
+and compares live revisions before writing in the same transaction as its receipt.
 """
 import datetime
 import hashlib
 import json
-import re
 from collections import Counter
 
 from fastapi import HTTPException
 from peewee import fn
 
 from api.models import TMA_Card, TMA_Deck, TMA_Folder, TMAUser, TMAOfflineBatch, tma_db
-from .card_content_service import LEVELS, build_text_update_values
-from .cefr_metadata import get_cefr_metadata, build_manual_cefr_payload, merge_cefr_metadata
+from .structured_card_storage import decode_v2_content, create_v2_card, replace_v2_card, _encode_card
+
 from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
-from .input_parser import parse_exercise_content
 
-CONTENT_FIELDS = ('front', 'back', 'context', 'level', 'topics')
-
-
-def _text(value):
-    return str(value or '').replace('\r\n', '\n').replace('\r', '\n').strip()
+CONTENT_FIELDS = ('content_v2',)
 
 
 def _digest(value):
@@ -31,14 +25,9 @@ def _digest(value):
 
 
 def _content(card):
-    if getattr(card, 'content_v2', None) is not None:
-        raise HTTPException(409, {'code': 'native_content_unsupported_by_legacy_operation'})
-    cefr = get_cefr_metadata(card.metadata) or {}
-    # Match the existing study/API level projection; technical classifier fields do not matter.
-    level = cefr.get('level') if cefr.get('level') in LEVELS else next(
-        (value for value in LEVELS if value in str(card.tags or '').upper()), None)
-    return {'front': _text(card.front_text), 'back': _text(card.back_text),
-            'context': _text(card.context), 'level': level, 'topics': _text(card.topics)}
+    if card.content_v2 is None:
+        raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': card.id})
+    return {'content_v2': _encode_card(decode_v2_content(card.content_v2))}
 
 
 def _require_account(user_id):
@@ -60,32 +49,15 @@ def _require_deck(deck_id, user_id, lock=False):
 
 
 def _structure_errors(item):
-    """Validate the content contract using the existing backend information parser.
-
-    Exercise-specific interpretation is handled by the established browser parsers;
-    this does not introduce a second text-file grammar on the server.
-    """
-    errors = []
-    if not _text(item['front']):
-        errors.append('invalid_sections')
-    exercise = parse_exercise_content(item['front'])['exercise']
-    for opening, closing in (('[[', ']]'), ('{', '}'), ('<<', '>>')):
-        chunks = exercise.split(opening)
-        if closing in chunks[0] or any(len(chunk.split(closing)) != 2 for chunk in chunks[1:]):
-            errors.append('unclosed_syntax')
-    if item['card_type'] in ('match', 'free_text', 'editable_text', 'puzzle', 'word_bank'):
-        if not re.sub(r'@(match|free|edit|puzzle|wordbank)\b', '', exercise, flags=re.I).strip():
-            errors.append('invalid_exercise')
-    # Service metadata and transport section boundaries must never be submitted as content.
-    for field in ('front', 'back', 'context'):
-        if re.search(r'(?im)^\s*(?:<<<LERNE_CARD>>>\s*$|(?:FRONT|BACK|CONTEXT)\s*:)', item[field]):
-            errors.append('invalid_sections')
-    return list(dict.fromkeys(errors))
+    try:
+        _encode_card(decode_v2_content(item['content_v2']))
+    except (ValueError, KeyError, TypeError):
+        return ['invalid_content_v2']
+    return []
 
 
 def _row(item, before, errors, deck_id=None):
-    after = {key: _text(item[key]) for key in ('front', 'back', 'context', 'topics')}
-    after['level'] = item.get('level') or (before['level'] if before else None)
+    after = {'content_v2': item.get('content_v2')}
     changed = [key for key in CONTENT_FIELDS if before and before[key] != after[key]]
     identifier = item.get('card_id')
     status = ('error' if errors else 'missing' if identifier and not before else
@@ -123,7 +95,8 @@ def _preview(deck, items, lock=False, duplicates=None):
         before = _content(live[identifier]) if identifier in live else None
         rows.append(_row(item, before, errors, deck.id))
     counts = _counts(rows)
-    snapshot = [{'id': card.id, 'content': _content(card)} for card in live.values()]
+    from .structured_card_api import content_response
+    snapshot = [{'id': card.id, **content_response(card)} for card in live.values()]
     token = _digest({'deck_id': deck.id, 'snapshot': snapshot, 'items': items})
     return {'deck_id': deck.id, 'deck_name': deck.name, 'total': len(items), **counts,
             'can_apply': not counts['errors'] and not counts['missing'], 'preview_token': token, 'cards': rows}
@@ -133,8 +106,6 @@ def preview_text_update(deck_id, user_id, items):
     return _preview(_require_deck(deck_id, user_id), items)
 
 
-def _update_values(card, row, item, now):
-    return build_text_update_values(card, row, item, now)
 
 
 def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
@@ -148,19 +119,18 @@ def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
     for item, row in zip(items, preview['cards']):
         if row['status'] == 'update':
             card = existing[row['card_id']]
-            # Membership is also constrained on the UPDATE, even after validation.
-            affected = TMA_Card.update(**_update_values(card, row, item, now)).where(
-                (TMA_Card.id == card.id) & (TMA_Card.deck_id == deck_id) & (TMA_Card.is_deleted == False)).execute()
-            if affected != 1:
-                raise HTTPException(409, {'code': 'preview_changed'})
+            from .structured_card_api import validate_layout_images
+            content = decode_v2_content(row['after']['content_v2'])
+            validate_layout_images(content, decode_v2_content(card.content_v2))
+            replace_v2_card(card.id, content)
             updated += 1
         elif row['status'] == 'new' and include_new:
             created += 1
-            level = row['after']['level']
-            TMA_Card.create(deck_id=deck_id, front_text=row['after']['front'], back_text=row['after']['back'],
-                            context=row['after']['context'], topics=row['after']['topics'], card_type=item['card_type'],
-                            tags=level, metadata=merge_cefr_metadata(None, build_manual_cefr_payload(level)) if level else None,
-                            position=max_position + created, creator_id=user_id, source='text_update', updated_at=now)
+            from .structured_card_api import validate_layout_images
+            content = decode_v2_content(row['after']['content_v2'])
+            validate_layout_images(content)
+            create_v2_card(content, deck_id=deck_id, position=max_position + created,
+                           creator_id=user_id)
     if touch and (updated or created):
         touch_deck_and_parent_folders(deck_id, deck_obj=deck)
     return {'status': 'success', 'updated': updated, 'created': created,

@@ -8,10 +8,11 @@ from fastapi import HTTPException
 from peewee import SqliteDatabase
 
 from api import models
+from native_fixture import content, sqlite_native
+from api.services import structured_card_api as native
 from api.services import cards, collaborative_service, decks, folders
 from api.services.offline_sync import push_offline
 from api.routers.sync import OfflinePushRequest
-from api.routers.decks import toggle_deck_learning, get_decks
 
 
 class GlobalReadonlyTests(unittest.TestCase):
@@ -21,13 +22,16 @@ class GlobalReadonlyTests(unittest.TestCase):
         self.db = SqliteDatabase(':memory:')
         models.tma_db.initialize(self.db)
         self.db.connect()
-        self.tables = [models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
+        sqlite_native(self, self.db, writes=True)
+        self.tables = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
                        models.TMA_Collaborator, models.TMAProgress, models.TMAOfflineBatch, models.TMASetting]
         self.db.create_tables(self.tables)
+        for user in (1, 2, 3, 4):
+            models.TMAUser.create(user_id=user, is_guest=False)
         self.root = models.TMA_Folder.create(user_id=1, name='Official', access_scope='global_readonly')
         self.child = models.TMA_Folder.create(user_id=1, name='Child', parent_id=self.root.id)
         self.deck = models.TMA_Deck.create(user_id=1, folder_id=self.child.id, name='Lesson')
-        self.card = models.TMA_Card.create(deck_id=self.deck.id, front_text='one', back_text='eins', flag=5, want_to_learn=True)
+        self.card = models.TMA_Card.create(deck_id=self.deck.id, content_v2=content('one', 'eins'), card_type=None, flag=5, want_to_learn=True)
         self.private = models.TMA_Folder.create(user_id=1, name='Private')
         models.TMA_Collaborator.create(target_type='folder', target_id=self.root.id, user_id=2, role='editor')
 
@@ -56,7 +60,7 @@ class GlobalReadonlyTests(unittest.TestCase):
             lambda: folders.rename_folder(self.child.id, 'Changed', 2),
             lambda: folders.create_folder('Injected', 2, parent_id=self.child.id),
             lambda: decks.create_deck('Injected', 2, folder_id=self.root.id),
-            lambda: cards.save_card({'id': self.card.id, 'deck_id': self.deck.id, 'front': 'hacked'}, 2),
+            lambda: native.update_card(self.card.id, native.UpdateCard(content_v2=content('hacked', 'eins'), revision=native.content_response(models.TMA_Card.get_by_id(self.card.id))['revision'], request_id=uuid4()), 2),
             lambda: collaborative_service._require_can_mutate(2, 'deck', self.deck.id),
         ):
             with self.assertRaises(HTTPException) as raised:
@@ -85,8 +89,8 @@ class GlobalReadonlyTests(unittest.TestCase):
         }])
         with self.assertRaises(HTTPException) as raised:
             push_offline(card_edit, 2)
-        self.assertEqual(raised.exception.status_code, 403)
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).front_text, 'one')
+        self.assertEqual(raised.exception.status_code, 409)
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2, content('one', 'eins'))
         progress_only = OfflinePushRequest(request_id=uuid4(), progress=[{
             'card_id': self.card.id, 'queue': 'learning', 'interval': 1,
             'ease_factor': 2.5, 'repetitions': 1, 'lapses': 0,
@@ -102,19 +106,27 @@ class GlobalReadonlyTests(unittest.TestCase):
     def test_canonical_update_keeps_card_id_and_progress(self):
         cards.set_card_flag(self.card.id, 2, 3)
         cards.set_card_flag(self.card.id, 4, 1)
-        owner_edit = OfflinePushRequest(request_id=uuid4(), cards=[{
-            'id': self.card.id, 'deck_id': self.deck.id,
-            'front_text': 'two', 'back_text': 'zwei', 'flag': 4,
-        }])
-        push_offline(owner_edit, 1)
+        revision = native.content_response(models.TMA_Card.get_by_id(self.card.id))['revision']
+        native.update_card(self.card.id, native.UpdateCard(content_v2=content('two', 'zwei'),
+                          revision=revision, request_id=uuid4()), 1)
         canonical = models.TMA_Card.get_by_id(self.card.id)
         self.assertEqual(canonical.id, self.card.id)
-        self.assertEqual(canonical.front_text, 'two')
+        self.assertEqual(canonical.content_v2['card']['data']['prompt'], 'two')
         self.assertEqual(canonical.flag, 5)
-        self.assertEqual(cards.get_cards_for_study(self.deck.id, 2)[0]['front'], 'two')
-        self.assertEqual(cards.get_cards_for_study(self.deck.id, 4)[0]['front'], 'two')
+        self.assertEqual(cards.get_cards_for_study(self.deck.id, 2)[0]['content_v2']['card']['data']['prompt'], 'two')
+        self.assertEqual(cards.get_cards_for_study(self.deck.id, 4)[0]['content_v2']['card']['data']['prompt'], 'two')
         self.assertEqual(models.TMAProgress.get(card_id=self.card.id, user_id=2).flag, 3)
         self.assertEqual(models.TMAProgress.get(card_id=self.card.id, user_id=4).flag, 1)
+
+    def test_trainer_stats_read_the_native_type(self):
+        value = content()
+        value['card'].update(type='trainer', data={'parts': [{'type': 'input', 'answers': ['spricht']}], 'back_note': ''})
+        models.TMA_Card.update(content_v2=value).where(models.TMA_Card.id == self.card.id).execute()
+        with patch.object(decks, 'ensure_starter_decks'), patch.object(decks, 'deduplicate_lid_folders'), \
+             patch.object(decks, '_get_cached_library_info', return_value=({}, {})):
+            snapshot = next(row for row in decks.get_active_decks(2) if row['id'] == self.deck.id)
+        self.assertEqual(snapshot['stats']['trainer_count'], 1)
+        self.assertTrue(snapshot['is_trainer'])
 
     def test_learning_preference_does_not_change_deck(self):
         before = self.deck.metadata
@@ -129,18 +141,16 @@ class GlobalReadonlyTests(unittest.TestCase):
                 patch.object(decks, 'deduplicate_lid_folders'), \
                 patch.object(decks, '_get_cached_library_info', return_value=({}, {})):
             def learning_state(user_id):
-                return next(d['is_learning'] for d in get_decks(user_id)
+                return next(d['is_learning'] for d in decks.get_active_decks(user_id)
                             if d['id'] == self.deck.id)
 
             self.assertFalse(learning_state(2))
-            self.assertEqual(toggle_deck_learning(self.deck.id, {'is_learning': True}, 2),
-                             {'status': 'success', 'is_learning': True})
+            self.assertTrue(decks.toggle_deck_learning(self.deck.id, 2, True))
             self.assertTrue(learning_state(2))
             self.assertTrue(learning_state(2))  # Fresh query, without an in-memory deck.
             self.assertFalse(learning_state(4))
-            self.assertTrue(toggle_deck_learning(self.deck.id, {'is_learning': True}, 4)['is_learning'])
-            self.assertEqual(toggle_deck_learning(self.deck.id, {'is_learning': False}, 2),
-                             {'status': 'success', 'is_learning': False})
+            self.assertTrue(decks.toggle_deck_learning(self.deck.id, 4, True))
+            self.assertFalse(decks.toggle_deck_learning(self.deck.id, 2, False))
             self.assertFalse(learning_state(2))
             self.assertTrue(learning_state(4))
             self.assertEqual(models.TMASetting.get(key=f'DECK_LEARNING_2_{self.deck.id}').value, '0')
