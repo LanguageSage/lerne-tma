@@ -132,10 +132,19 @@ CONTEXT: Erklärung
         with self.assertRaisesRegex(ImportFormatError, r'decks\[0\].*cards.0.editable_text'):
             import_documents('# Deck: First\n' + codex_card('@edit\nHallo', 'Hallo'))
 
+    def test_native_folder_json_keeps_deck_order_and_is_atomic(self):
+        document = {'schema_version': 2, 'deck': {'name': 'First'},
+                    'cards': [{'type': 'standard', 'data': {'prompt': 'Hallo', 'answer': 'Hello'}}]}
+        second = {**document, 'deck': {'name': 'Second'}}
+        self.assertEqual([doc.deck.name for doc in import_documents(json.dumps([document, second]))],
+                         ['First', 'Second'])
+        with self.assertRaises(ValidationError):
+            import_documents(json.dumps([document, {**second, 'cards': []}]))
+
     def test_invalid_json_is_not_retried_as_codex(self):
         with self.assertRaisesRegex(ValueError, 'Duplicate JSON key: schema_version'):
             import_documents('{"schema_version":2,"schema_version":2}')
-        with self.assertRaises(ValidationError):
+        with self.assertRaises(ImportFormatError):
             import_documents('[]')
         with self.assertRaises(json.JSONDecodeError):
             import_documents(codex_card('Hallo', 'Hi'), json_input=True)

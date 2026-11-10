@@ -312,7 +312,14 @@ def import_documents(text: str, *, default_deck_name: str | None = None,
     text = text.removeprefix('\ufeff').lstrip()
     if json_input or text.startswith(('{', '[')):
         try:
-            return [_with_passport_defaults(load_document(text))]
+            raw = _load_json(text, MAX_DOCUMENT_BYTES)
+            values = raw if isinstance(raw, list) else [raw]
+            if not values or len(values) > MAX_DOCUMENT_CARDS:
+                raise ImportFormatError('Expected one or more V2 deck documents')
+            documents = [_with_passport_defaults(validate_document(value)) for value in values]
+            if sum(len(document.cards) for document in documents) > MAX_DOCUMENT_CARDS:
+                raise ImportFormatError('Too many cards across V2 documents')
+            return documents
         except RecursionError as exc:
             raise ImportFormatError('JSON V2 nesting exceeds the parser limit') from exc
     text = text.replace('\r\n', '\n').replace('\r', '\n')
