@@ -15,7 +15,7 @@ function fixture(cache = data) {
   const values = new Map(cache ? [['lerne_init_cache', JSON.stringify(cache)]] : []);
   let userId = 101;
   const f = { request: async path => ({ data: path === '/decks' ? data.decks : data.folders }) };
-  const context = { createStore, getUserId: () => userId,
+  const context = { createStore, getUserId: () => userId, getSessionIdentity: () => `session-${userId}`,
     storage: { get: key => values.get(key), set: (key, value) => values.set(key, value) },
     localStorage: { getItem: key => values.get(key) },
     api: { get: (...args) => f.request(...args) }, console, setTimeout };

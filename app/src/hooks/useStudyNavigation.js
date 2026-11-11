@@ -9,6 +9,7 @@ import { createAssessment, canResumeAssessment } from '../utils/assessment.js';
 import { prepareAssessmentKnowledge, saveAssessment, loadAssessment } from '../services/assessmentService.js';
 import { useAuthStore } from '../store/useAuthStore';
 import { getUserId, getSessionIdentity } from '../utils/auth.js';
+import { isNativeStudyCard, isStudyMigrationError, studyErrorDetail } from '../utils/structuredStudyCard.js';
 import { prepareDeckKnowledge } from '../services/knowledgeContentService.js';
 
 /**
@@ -35,7 +36,7 @@ export function useStudyNavigation() {
       const revision = useSessionStore.getState().sessionRevision;
       useSessionStore.getState().setIsLearningMore(reviewContext === 'forced');
       const state = useDeckStore.getState();
-      const hasCards = state.currentDeck?.id === deck.id && state.deckCards && state.deckCards.length > 0;
+      const hasCards = state.currentDeck?.id === deck.id && state.deckCards?.some(isNativeStudyCard);
       if (deck.id === 'duplicates') {
         await state.fetchDuplicates();
       } else if (!hasCards) {
@@ -44,7 +45,7 @@ export function useStudyNavigation() {
 
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       setView('study');
-      const assessment = createAssessment(deck, useDeckStore.getState().deckCards || [], getUserId());
+      const assessment = createAssessment(deck, (useDeckStore.getState().deckCards || []).filter(isNativeStudyCard), getUserId());
       if (assessment) {
         await prepareAssessmentKnowledge(deck.id);
         const saved = await loadAssessment(assessment.userId, deck.id);
@@ -63,7 +64,7 @@ export function useStudyNavigation() {
       if (err.response?.status === 401) {
         useAuthStore.getState().deferNavigation({ deckId: deck.id, reviewContext });
       } else {
-        useSessionStore.getState().setApiError(err.response?.data?.detail || err.message);
+        useSessionStore.getState().setApiError(studyErrorDetail(err));
         setView('study');
       }
     } finally {
@@ -87,7 +88,7 @@ export function useStudyNavigation() {
       
       const deckState = useDeckStore.getState();
       let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (deckState.deckCards || []);
-      let localCard = cards.find(c => String(c.id) === String(cardId));
+      let localCard = cards.find(c => String(c.id) === String(cardId) && isNativeStudyCard(c));
 
       // Fast path: card is already in memory -> instant transition (0ms delay)
       if (localCard) {
@@ -116,7 +117,7 @@ export function useStudyNavigation() {
       }
 
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
-      localCard = cards.find(c => String(c.id) === String(cardId));
+      localCard = cards.find(c => String(c.id) === String(cardId) && isNativeStudyCard(c));
       if (localCard) {
         if (!localCard.image_url && (localCard.image_path || localCard.media_url)) {
           const raw = localCard.image_path || localCard.media_url;
@@ -133,20 +134,28 @@ export function useStudyNavigation() {
         return;
       }
 
+      const isCurrent = () => identity === getSessionIdentity() && getUserId() === userId
+        && useSessionStore.getState().sessionRevision === revision
+        && useDeckStore.getState().currentDeck?.id === deck.id
+        && useUiStore.getState().view === 'study';
       try {
-        const fetchRevision = useSessionStore.getState().sessionRevision;
         const res = await api.get(`/study/card/${cardId}`);
-        if (identity !== getSessionIdentity() || getUserId() !== userId
-          || useSessionStore.getState().sessionRevision !== fetchRevision
-          || useDeckStore.getState().currentDeck?.id !== deck.id
-          || useUiStore.getState().view !== 'study') return;
-        if (res?.data) {
+        if (!isCurrent()) return;
+        if (isNativeStudyCard(res?.data)) {
           useSessionStore.getState().addToHistory(res.data);
+        } else {
+          useSessionStore.getState().setApiError(tr('Карточка недоступна в формате Structured Cards V2.'));
         }
       } catch (apiErr) {
         if (apiErr.code === 'ERR_CANCELED') return;
         if (apiErr.response?.status === 401) {
           useAuthStore.getState().deferNavigation({ deckId: deck.id, cardId });
+          return;
+        }
+        if (!isCurrent()) return;
+        const detail = studyErrorDetail(apiErr);
+        if (isStudyMigrationError(detail)) {
+          useSessionStore.getState().setApiError(detail);
           return;
         }
         console.warn("api.get study card failed in startStudyCard:", apiErr);
@@ -157,7 +166,7 @@ export function useStudyNavigation() {
             showToast(tr("Карточка была удалена"));
             setView('cards');
           } else {
-            showToast(tr("Не удалось загрузить данные с сервера"));
+            useSessionStore.getState().setApiError(detail || tr("Не удалось загрузить данные с сервера"));
           }
         }
       }

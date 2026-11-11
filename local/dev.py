@@ -183,12 +183,16 @@ def prepare(config):
                 for name in ('Немецкий — LOCAL', 'Импорт — LOCAL'):
                     folder = models.TMA_Folder.create(user_id=user.user_id, name=name)
                     deck = models.TMA_Deck.create(user_id=user.user_id, folder=folder, name=name)
-                    for position, (front, back, card_type) in enumerate([
-                        ('Guten Morgen', '**Доброе утро**\n\n- Пример Markdown', 'translation'),
-                        ('Was passt?\n@quiz\n* das Haus\n  die Haus', 'das Haus', 'quiz'),
-                        ('@theory\n## Artikel\n**das Haus**', 'Теория', 'theory')]):
-                        models.TMA_Card.create(deck=deck, front_text=front, back_text=back,
-                            context='## Контекст\n\nEin **Beispiel**.', card_type=card_type, position=position)
+                    from api.services.structured_cards_v2 import normalize_card
+                    for position, card in enumerate([
+                        {'type': 'standard', 'data': {'prompt': 'Guten Morgen',
+                            'answer': '**Доброе утро**\n\n- Пример Markdown'}},
+                        {'type': 'quiz', 'data': {'prompt': 'Was passt?', 'options': [
+                            {'text': 'das Haus', 'correct': True}, {'text': 'die Haus', 'correct': False}]}},
+                        {'type': 'theory', 'data': {'text': '## Artikel\n**das Haus**', 'summary': 'Теория'}}]):
+                        card['info'] = [{'type': 'source', 'text': '## Контекст\n\nEin **Beispiel**.'}]
+                        models.TMA_Card.create(deck=deck, content_v2={'schema_version': 2,
+                            'card': normalize_card(card)}, card_type=None, position=position)
                 models.TMASetting.create(key='LOCAL_SEED_V1', value='1')
     finally:
         if not db.is_closed():
@@ -232,8 +236,10 @@ def restore(config, source):
                        '--exit-on-error', '--single-transaction'), config, stdin=stream)
     models = database(config)
     verify_database(models)
+    from api.services.sync_generation import mark_database_restored
+    mark_database_restored(models.tma_db)
     models.tma_db.close()
-    print('Database restored. Restart browser with ?reset=1 and clear LOCAL IndexedDB before syncing.')
+    print('Database restored. Client synchronization is blocked until retained local data is reconciled. Do not clear IndexedDB.')
 
 
 def reset(config):

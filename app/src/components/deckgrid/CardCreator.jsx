@@ -10,7 +10,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { useAudio } from '../../hooks/useAudio';
-import { resolveAiTranslation } from '../../utils/aiCardResult';
+import { newCardContent } from '../../utils/cardDraft';
 
 import { useTranslation } from '../../i18n/i18nContext';
 import { navigateUp } from '../../utils/navigation';
@@ -29,9 +29,7 @@ export const CardCreator = () => {
   const initialAfterCardId = editingCard?.after_card_id || null;
 
   const [newCardData, setNewCardData] = useState({
-    front: '',
-    back: '',
-    context: '',
+    content_v2: newCardContent(),
     audio_path: '',
     audio_url: '',
     image_path: '',
@@ -54,9 +52,7 @@ export const CardCreator = () => {
       const targetId = activeEditingDeckId !== undefined ? activeEditingDeckId : (currentDeck?.id || '');
       const activeAfterCardId = activeEditingCard?.after_card_id || null;
       setNewCardData({
-        front: '',
-        back: '',
-        context: '',
+        content_v2: newCardContent(),
         flag: 0,
         deck_id: targetId,
         after_card_id: activeAfterCardId
@@ -67,31 +63,14 @@ export const CardCreator = () => {
 
   if (view !== 'creator') return null;
 
-  const handleAiGenerate = async (actionType = 'full_card') => {
-    if (!newCardData.front) return;
-    const result = await runAiGenerator(newCardData.front, true, actionType);
-    if (result) {
-      if (actionType === 'custom_directive' || actionType === 'explain_rule') {
-        const currentCtx = newCardData.context || '';
-        const updatedCtx = currentCtx ? `${result.context}\n\n${currentCtx.trim()}` : result.context;
-        setNewCardData({
-          ...newCardData,
-          back: resolveAiTranslation(newCardData.back, result.back, actionType),
-          context: updatedCtx
-        });
-      } else {
-        const updated = {
-          ...newCardData,
-          front: result.front || newCardData.front,
-          back: result.back || newCardData.back,
-          context: result.context || newCardData.context,
-          level: result.level || newCardData.level,
-          tags: result.tags || newCardData.tags
-        };
-        setNewCardData(updated);
-        
-      }
+  const handleAiGenerate = async (actionType = 'full_card', userRequest = '') => {
+    const content = newCardData?.content_v2;
+    if (!content) return;
+    const result = await runAiGenerator(content, true, actionType, userRequest);
+    if (result?.content_v2) {
+      setNewCardData(current => current?.content_v2 === content ? { ...current, content_v2: result.content_v2 } : current);
     }
+    return result;
   };
 
   const handleSave = () => {

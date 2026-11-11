@@ -17,6 +17,8 @@ from fastapi import FastAPI, Header
 from PIL import Image
 from peewee import OperationalError
 
+from native_fixture import content, sqlite_native
+from peewee import SqliteDatabase
 from api import models
 from api.db_workers import run_db
 from api.dependencies.auth import get_user_id
@@ -38,6 +40,8 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
         self.addCleanup(cleanup_files)
         self.db = (self.database_factory() if self.database_factory else
                    fixtures.TrackedDatabase(self.root / 'fixture.sqlite3'))
+        if isinstance(self.db, SqliteDatabase):
+            sqlite_native(self, self.db, writes=True)
         self.previous = models.tma_db.obj, models.lerne_db.obj
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
@@ -49,7 +53,7 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
                 models.TMAUser.create(user_id=uid, is_guest=False, default_decks_initialized=True)
             self.deck = models.TMA_Deck.create(user_id=1, name='Synthetic media')
             self.card = models.TMA_Card.create(deck=self.deck, creator_id=1,
-                front_text='Haus', back_text='дом', audio_path='https://fixture.invalid/old.mp3')
+                content_v2=content('Haus', 'дом'), card_type=None, audio_path='https://fixture.invalid/old.mp3')
             models.TMA_Collaborator.create(target_type='deck', target_id=self.deck.id,
                                           user_id=2, role='editor', added_by=1)
             models.TMASetting.create(key='TTS_VOICE', value='de-DE-KatjaNeural')
@@ -164,14 +168,14 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
                     await asyncio.wait_for(entered.wait(), 3)
                     probe = await asyncio.wait_for(client.get('/api/media/backgrounds'), 2)
                     self.assertEqual(probe.status_code, 200)
-                    await run_db(lambda: models.TMA_Card.update(front_text='Newer text',
+                    await run_db(lambda: models.TMA_Card.update(content_v2=content('Newer text', 'дом'),
                         audio_path='https://fixture.invalid/manual.mp3').where(models.TMA_Card.id == self.card.id).execute())
                 finally:
                     release.set()
                     response = await pending
             self.assertEqual(response.status_code, 409, response.text)
             saved = await self.saved_card()
-            self.assertEqual((saved['front_text'], saved['audio_path']), ('Newer text', 'https://fixture.invalid/manual.mp3'))
+            self.assertEqual((saved['content_v2']['card']['data']['prompt'], saved['audio_path']), ('Newer text', 'https://fixture.invalid/manual.mp3'))
         self.run_asgi(exercise)
 
     def test_revocation_and_deletion_while_tts_waits_prevent_attachment(self):

@@ -61,11 +61,11 @@ class TestPassportParsing(unittest.TestCase):
                         text = header + leading + ('\n' + separator + '\n').join(bodies)
                         doc = author.parse_document(text.replace('\n', newline))
                         self.assertEqual(doc['errors'], [])
-                        self.assertEqual([(c['level'], c['topics']) for c in doc['cards']],
-                                         [('B2', 'Deck topic'), ('A2', 'Deck topic'),
-                                          ('B2', 'Card topic'), ('C1', 'Explicit')])
+                        self.assertEqual([(c['content_v2']['card']['level'], c['content_v2']['card']['topics']) for c in doc['cards']],
+                                         [('B2', ['Deck topic']), ('A2', ['Deck topic']),
+                                          ('B2', ['Card topic']), ('C1', ['Explicit'])])
                         self.assertEqual([c['deck_id'] for c in doc['cards']], [99] * 4)
-                        self.assertEqual(doc['cards'][0]['context'], 'Explanation')
+                        self.assertEqual(doc['cards'][0]['content_v2']['card']['explanation'], 'Explanation')
 
     def test_inheritance_is_scoped_to_each_deck_and_optional_fields(self):
         text = '\n'.join([
@@ -76,16 +76,15 @@ class TestPassportParsing(unittest.TestCase):
         ])
         doc = author.parse_document(text)
         self.assertEqual(doc['errors'], [])
-        self.assertEqual([(c['level'], c['topics']) for c in doc['cards']],
-                         [('B2', 'A'), (None, 'B'), ('C2', None), (None, None)])
+        self.assertEqual([(c['content_v2']['card']['level'], c['content_v2']['card']['topics']) for c in doc['cards']],
+                         [('B2', ['A']), (None, ['B']), ('C2', []), (None, [])])
 
     def test_export_uses_separator_before_first_card_and_keeps_ids(self):
         deck = SimpleNamespace(id=99, name='D', metadata=json.dumps({'intro': {'level': 'B2', 'topic': 'T'}}))
-        cards = [SimpleNamespace(id=i, deck_id=99, front_text=f'Front {i}', back_text='Back',
-                                 context='', tags='', topics='', metadata={}) for i in (1, 2)]
+        cards = [SimpleNamespace(id=i, deck_id=99, content_v2={'schema_version': 2, 'card': {'type': 'standard', 'data': {'prompt': f'Front {i}', 'answer': 'Back'}}}, position=i, updated_at='', image_path=None, audio_path=None, audio_back_path=None, video_front_path=None, video_back_path=None) for i in (1, 2)]
         text = author.serialize_deck(deck, cards)
-        self.assertEqual(text.count('<<<LERNE_CARD>>>'), 2)
-        self.assertRegex(text, r'<<<END_LERNE_PASSPORT>>>\s*<<<LERNE_CARD>>>\s*::deck_id 99')
+        self.assertEqual(json.loads(text)['schema_version'], 2)
+        self.assertEqual(len(json.loads(text)['cards']), 2)
         parsed = author.parse_cards_text(text)
         self.assertEqual([c['card_id'] for c in parsed], [1, 2])
         self.assertEqual([c['deck_id'] for c in parsed], [99, 99])

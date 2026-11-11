@@ -51,6 +51,7 @@ export const CardAudioPlayer = React.memo(({
   useInterfaceLocale();
   const isCollapsed = useSettingsStore(s => s.playerCollapsed);
   const setIsCollapsed = useSettingsStore(s => s.setPlayerCollapsed);
+  const [playbackError, setPlaybackError] = useState(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
 
@@ -70,26 +71,29 @@ export const CardAudioPlayer = React.memo(({
     || voicePicker?.isGenerating;
   const canGenerate = Boolean(voicePicker && cardText && cardId);
 
-  const generateAndPlay = async (silent = true, voiceOverride = null) => {
+  const generateAndPlay = async (silent = true, voiceOverride = null, force = false) => {
     if (!canGenerate) return null;
     const url = await voicePicker.generateAndSaveToCard(
       cardId,
       cardText,
       isBack,
       voiceOverride,
-      { silent },
+      { silent, force },
     );
     if (url) playAudio?.(url);
     return url;
   };
 
   const handlePlaybackError = async (err) => {
+    if (err?.name === 'AbortError') return;
     console.warn('[CardAudioPlayer] Playback failed for:', effectiveUrl, err);
+    setPlaybackError(effectiveUrl);
   };
 
   const handlePlayPauseClick = (e) => {
     e.stopPropagation();
     if (disabled || isLoading) return;
+    setPlaybackError(null);
     if (!effectiveUrl) {
       void generateAndPlay(false);
     } else if (togglePlayPause) {
@@ -152,7 +156,7 @@ export const CardAudioPlayer = React.memo(({
 
   const handleRegenerateAndSave = async (e) => {
     e.stopPropagation();
-    await generateAndPlay(false);
+    await generateAndPlay(false, null, true);
   };
 
   const handleOpenAudioSettings = (e) => {
@@ -184,6 +188,9 @@ export const CardAudioPlayer = React.memo(({
         className={className}
         style={style}
       >
+      {voicePicker?.generateError && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{navigator.onLine ? voicePicker.generateError : tr('Для создания озвучки нужно подключение к сети')}</p>}
+      {playbackError === effectiveUrl && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{tr(navigator.onLine
+        ? 'Не удалось воспроизвести аудио. Повторите попытку.' : 'Аудио недоступно без сети')}</p>}
       <div className={`card-audio-player-bar floating-expanded ${isThisActive ? 'active' : ''}`}>
         {/* Top Header Row with Voice Picker & Collapse toggle */}
         <div className="audio-player-header-row">

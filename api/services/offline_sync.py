@@ -6,7 +6,6 @@ import json
 from fastapi import HTTPException
 
 from api import models
-from api.services.media import validate_new_audio_path
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
@@ -18,9 +17,6 @@ from api.services.collaborative_service import (
 FIELDS = {
     'folders': ('name', 'parent_id', 'color', 'target_language', 'is_deleted', 'position'),
     'decks': ('name', 'level', 'topic', 'target_language', 'is_deleted', 'is_pinned', 'position', 'folder_id', 'metadata'),
-    'cards': ('deck_id', 'front_text', 'back_text', 'context', 'image_path', 'audio_path',
-              'audio_back_path', 'video_front_path', 'video_back_path', 'is_deleted',
-              'position', 'tags', 'metadata', 'card_type'),
     'progress': ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed', 'flag', 'want_to_learn'),
 }
 
@@ -57,19 +53,39 @@ def timestamp(value: str | None) -> datetime.datetime | None:
     return parsed
 
 
-def push_offline(request, user_id: int) -> dict:
+def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
     payload = request.model_dump(mode='json')
+    payload.pop('drain_bases', None)  # Never change the hash of a durable batch.
     # Keep fingerprints of batches created by older clients compatible.
     if not payload.get('reviews'):
         payload.pop('reviews', None)
     for event in payload.get('reviews', []):
         if event.get('action_id') is None:
             event.pop('action_id', None)
+    for progress in payload.get('progress', []):
+        if not progress.get('flag_only'):
+            progress.pop('flag_only', None)  # Preserve receipts from before 6B.6.
     fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
     key = f'{user_id}:{request.request_id}'
     maps = {'folders': {}, 'decks': {}, 'cards': {}}
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     table_map = {'folders': models.TMA_Folder, 'decks': models.TMA_Deck, 'cards': models.TMA_Card}
+
+    def guard_existing(kind, identifier, current, values):
+        if not drain_legacy or not current:
+            return
+        key = f'{kind}:{identifier}'
+        if key in request.drain_bases:
+            try:
+                if request.drain_bases[key] == '':
+                    raise ValueError('Empty base')
+                base = timestamp(request.drain_bases[key])
+            except ValueError:
+                raise HTTPException(422, {'code': 'legacy_invalid_base'}) from None
+            if base != current.updated_at:
+                raise HTTPException(409, {'code': 'legacy_revision_conflict', 'entity': kind, 'id': identifier})
+        elif any(getattr(current, field) != value for field, value in values.items()):
+            raise HTTPException(409, {'code': 'legacy_base_unknown', 'entity': kind, 'id': identifier})
 
     def resolve(kind: str, item_id: int | None) -> int | None:
         if item_id is None:
@@ -90,6 +106,10 @@ def push_offline(request, user_id: int) -> dict:
                 raise HTTPException(409, 'Идентификатор пакета уже использован с другими данными')
             return json.loads(receipt.response)
 
+        if request.cards:
+            raise HTTPException(409, {'code': 'legacy_queue_requires_recovery',
+                'message': 'Legacy card queue retained; use the explicit recovery tools.'})
+
         folders = list(request.folders)
         sorted_folders = []
         while folders:
@@ -100,24 +120,24 @@ def push_offline(request, user_id: int) -> dict:
             sorted_folders.extend(ready)
             folders = [f for f in folders if f not in ready]
 
-        for name, items in (('folders', sorted_folders), ('decks', request.decks), ('cards', request.cards)):
+        for name, items in (('folders', sorted_folders), ('decks', request.decks)):
             model = table_map[name]
             if len({item.id for item in items}) != len(items):
                 raise HTTPException(422, 'Повторяющиеся идентификаторы в пакете')
             for item in items:
                 raw = item.model_dump(exclude_unset=True)
                 values = {field: raw[field] for field in FIELDS[name] if field in raw}
-                lookup_fields = (model.id, model.deck_id) if name == 'cards' else (model.id,)
-                if name == 'cards':
-                    lookup_fields = (*lookup_fields, model.audio_path, model.audio_back_path)
-                existing = model.select(*lookup_fields).where(model.id == item.id).first() if item.id > 0 else None
+                lookup_fields = (model.id,)
+                if drain_legacy:
+                    lookup_fields = (model.id, *(getattr(model, field) for field in FIELDS[name]), model.updated_at)
+                lookup = model.select(*lookup_fields)
+                if drain_legacy:
+                    lookup = lookup.for_update()
+                existing = lookup.where(model.id == item.id).first() if item.id > 0 else None
                 if item.id >= 0 and existing is None:
                     raise HTTPException(409, 'Запись удалена на сервере. Локальные изменения сохранены.')
                 if existing:
-                    if name == 'cards':
-                        require_access(user_id, 'deck', existing.deck_id)
-                    else:
-                        require_access(user_id, name[:-1], existing.id)
+                    require_access(user_id, name[:-1], existing.id)
 
                 if name == 'folders':
                     parent_id = resolve('folders', item.parent_id)
@@ -139,18 +159,9 @@ def push_offline(request, user_id: int) -> dict:
                     values['folder_id'] = folder_id
                     if values.get('metadata') is None:
                         values.pop('metadata', None)
-                else:
-                    deck_id = resolve('decks', item.deck_id)
-                    if not deck_id:
-                        raise HTTPException(422, 'Карточке нужна колода')
-                    if not existing or existing.deck_id != deck_id:
-                        require_access(user_id, 'deck', deck_id)
-                    values['deck_id'] = deck_id
-                    for field in ('audio_path', 'audio_back_path'):
-                        if field in values:
-                            validate_new_audio_path(values[field], getattr(existing, field) if existing else None)
-
-                # Last committed edit wins across devices; client clock skew cannot hide it.
+                guard_existing(name, item.id, existing, values)
+                # Original push retains its contract; guarded drain checks the
+                # actual server base, never the client's edit timestamp.
                 values['updated_at'] = now
                 if existing:
                     for field, value in values.items():
@@ -158,11 +169,7 @@ def push_offline(request, user_id: int) -> dict:
                     existing.save(only=[getattr(model, field) for field in values])
                 else:
                     values['created_at'] = now
-                    if name != 'cards':
-                        values['user_id'] = user_id
-                    else:
-                        values['source'] = 'user'
-                        values['creator_id'] = user_id
+                    values['user_id'] = user_id
                     new_item = model.create(**values)
                     maps[name][str(item.id)] = new_item.id
 
@@ -186,7 +193,11 @@ def push_offline(request, user_id: int) -> dict:
             require_study_card(card_id)
             raw_progress = item.model_dump(exclude_unset=True)
             values = {field: raw_progress[field] for field in FIELDS['progress'] if field in raw_progress}
-            if card_id in action_cards:
+            if item.flag_only:
+                # Changing a personal label never replaces another device's SRS
+                # or bookmark with the stale offline snapshot carried alongside it.
+                values = {field: value for field, value in values.items() if field == 'flag'}
+            elif card_id in action_cards:
                 # UUID events apply once against authoritative SRS; stale fallback
                 # snapshots must never overwrite an already committed grade.
                 values = {field: value for field, value in values.items() if field in ('flag', 'want_to_learn')}
@@ -195,8 +206,11 @@ def push_offline(request, user_id: int) -> dict:
             for field in ('next_review', 'last_reviewed'):
                 if field in values:
                     values[field] = timestamp(values[field])
+            progress, created_progress = models.TMAProgress.get_or_create(card_id=card_id, user_id=user_id)
+            if drain_legacy and not created_progress and item.card_id > 0 and not item.flag_only:
+                progress = models.TMAProgress.select().where(models.TMAProgress.id == progress.id).for_update().get()
+                guard_existing('progress', item.card_id, progress, values)
             values['updated_at'] = now
-            progress, _ = models.TMAProgress.get_or_create(card_id=card_id, user_id=user_id)
             for field, value in values.items():
                 setattr(progress, field, value)
             progress.save()
@@ -215,6 +229,23 @@ def push_offline(request, user_id: int) -> dict:
                 scheduled_interval=event.scheduled_interval, review_time=timestamp(event.review_time))
 
         response = {'status': 'success', 'mappings': maps, 'review_count': len(request.reviews)}
+        if drain_legacy:
+            # Receipt-owned commit versions let a newer local edit rebase only
+            # across this acknowledged write, never across an unseen peer edit.
+            versions = {}
+            for name, items in (('folders', request.folders), ('decks', request.decks), ('cards', request.cards), ('progress', request.progress)):
+                model = models.TMAProgress if name == 'progress' else table_map[name]
+                originals = [item.card_id if name == 'progress' else item.id for item in items]
+                resolved = {original: maps['cards' if name == 'progress' else name].get(str(original), original) for original in originals}
+                identity = model.card_id if name == 'progress' else model.id
+                query = model.select(identity, model.updated_at).where(identity.in_(list(resolved.values())))
+                if name == 'progress':
+                    query = query.where(model.user_id == user_id)
+                current = {getattr(row, identity.name): row.updated_at for row in query}
+                for original, identifier in resolved.items():
+                    value = current[identifier]
+                    versions[f'{name}:{original}'] = value.isoformat() + 'Z' if value else None
+            response['versions'] = versions
         receipt.response = json.dumps(response)
         receipt.save()
         return response
@@ -235,7 +266,12 @@ def pull_offline(user_id: int) -> dict:
     deck_ids.update(d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id))
     folders = list(models.TMA_Folder.select(*(getattr(models.TMA_Folder, f) for f in PULL_FIELDS['folders'])).where(models.TMA_Folder.id.in_(folder_ids)))
     decks = list(models.TMA_Deck.select(*(getattr(models.TMA_Deck, f) for f in PULL_FIELDS['decks'])).where(models.TMA_Deck.id.in_(deck_ids)))
-    cards = list(models.TMA_Card.select(*(getattr(models.TMA_Card, f) for f in PULL_FIELDS['cards'])).where(models.TMA_Card.deck_id.in_(deck_ids)))
+    from api.services.structured_card_api import content_response
+    card_fields = ('id', 'deck_id', 'is_deleted', 'position', 'created_at', 'updated_at',
+                   'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path')
+    cards = list(models.TMA_Card.select(models.TMA_Card.content_v2,
+        *(getattr(models.TMA_Card, f) for f in card_fields)).where(
+            models.TMA_Card.deck_id.in_(deck_ids), models.TMA_Card.content_v2.is_null(False)))
     progress = list(models.TMAProgress.select(*(getattr(models.TMAProgress, f) for f in PULL_FIELDS['progress'])).where(
         (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
     roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders, folder_map=folder_map)
@@ -244,7 +280,10 @@ def pull_offline(user_id: int) -> dict:
         models.TMASetting.key, models.TMASetting.value).where(models.TMASetting.key.in_(list(learning_keys)))}
 
     def serialize(name: str, item) -> dict:
-        data = {field: getattr(item, field) for field in PULL_FIELDS[name]}
+        fields = card_fields if name == 'cards' else PULL_FIELDS[name]
+        data = {field: getattr(item, field) for field in fields}
+        if name == 'cards':
+            data.update(content_response(item))
         for field, value in data.items():
             if isinstance(value, datetime.datetime):
                 data[field] = value.isoformat() + 'Z'
@@ -258,7 +297,8 @@ def pull_offline(user_id: int) -> dict:
             data['is_learning'] = learning_states.get(item.id, False)
         return data
 
-    return {'status': 'success', 'protocol': 2,
+    from api.services.sync_generation import generation_state
+    return {'status': 'success', 'protocol': 2, **generation_state(), 'card_schema': 2,
             'folders': [serialize('folders', f) for f in folders],
             'decks': [serialize('decks', d) for d in decks],
             'cards': [serialize('cards', c) for c in cards],

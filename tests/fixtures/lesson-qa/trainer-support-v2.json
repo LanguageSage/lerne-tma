@@ -1,0 +1,199 @@
+{
+  "cards": [
+    {
+      "id": 20003,
+      "deck_id": 114,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wortschatz: malen — paint"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": "B1",
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2948, Wort582 я Wort965.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "malt",
+                    "correct": true
+                  },
+                  {
+                    "text": "malen",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " ein Bild."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20013,
+      "deck_id": 114,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wortschatz: malen — paint"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": "B1",
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort843 Wort800, с Wort775 я Wort1870 Wort378 Wort1922 Wort708 Wort2959.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "malt"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " ein Bild."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20023,
+      "deck_id": 114,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wortschatz: sprechen — speak"
+            },
+            {
+              "type": "source",
+              "text": "Ein Roboter im Museum."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": "B1",
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_word_order"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort951 Wort2732, Wort549 Wort733 Wort1113 Wort1039 Wort378-Wort1654.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "spricht"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    }
+  ]
+}

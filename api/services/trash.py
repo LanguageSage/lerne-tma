@@ -2,7 +2,9 @@ import logging
 import datetime
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db
 from peewee import fn
+from fastapi import HTTPException
 from .collaborative_service import _require_can_mutate
+from .structured_card_api import lifecycle_state
 
 logger = logging.getLogger(__name__)
 
@@ -36,17 +38,15 @@ def get_trash_items(user_id: int):
         deleted_cards_query = (TMA_Card
                                .select(TMA_Card, TMA_Deck)
                                .join(TMA_Deck, on=(TMA_Card.deck_id == TMA_Deck.id))
-                               .where((TMA_Deck.user_id == user_id) & (TMA_Card.is_deleted == True))
+                               .where((TMA_Deck.user_id == user_id) & (TMA_Card.is_deleted == True) & TMA_Card.content_v2.is_null(False))
                                .order_by(TMA_Card.updated_at.desc()))
 
         cards_data = [{
             "id": c.id,
-            "front": c.front_text,
-            "back": c.back_text,
-            "context": c.context,
             "deck_id": c.deck_id,
             "deck_name": c.deck.name if c.deck else "Без колоды",
-            "updated_at": c.updated_at.isoformat() if c.updated_at else datetime.datetime.now().isoformat()
+            "updated_at": c.updated_at.isoformat() if c.updated_at else datetime.datetime.now().isoformat(),
+            **lifecycle_state(c),
         } for c in deleted_cards_query]
 
         return {
@@ -68,6 +68,8 @@ def restore_deck(deck_id: int, user_id: int):
 
         now = datetime.datetime.now()
         with tma_db.atomic():
+            if TMA_Card.select().where(TMA_Card.deck_id == deck.id, TMA_Card.content_v2.is_null(True)).exists():
+                raise HTTPException(409, {'code': 'deck_requires_migration'})
             deck.is_deleted = False
             deck.updated_at = now
             deck.save()
@@ -80,36 +82,6 @@ def restore_deck(deck_id: int, user_id: int):
         logger.error(f"Error restoring deck: {e}", exc_info=True)
         raise e
 
-def restore_card(card_id: int, user_id: int):
-    """Восстанавливает отдельную карточку."""
-    try:
-        card = (TMA_Card
-                .select(TMA_Card, TMA_Deck)
-                .join(TMA_Deck, on=(TMA_Card.deck_id == TMA_Deck.id))
-                .where((TMA_Card.id == card_id) & (TMA_Deck.user_id == user_id))
-                .first())
-        if not card:
-            return False
-
-        _require_can_mutate(user_id, 'deck', card.deck_id, allow_deleted=True)
-
-        now = datetime.datetime.now()
-        with tma_db.atomic():
-            card.is_deleted = False
-            card.updated_at = now
-            card.save()
-
-            # Если колода карточки тоже была удалена, восстанавливаем и колоду
-            if card.deck and card.deck.is_deleted:
-                card.deck.is_deleted = False
-                card.deck.updated_at = now
-                card.deck.save()
-
-        logger.info(f"Restored card {card.id} for user {user_id}")
-        return True
-    except Exception as e:
-        logger.error(f"Error restoring card: {e}", exc_info=True)
-        raise e
 
 def clear_trash(user_id: int):
     """Окончательно удаляет все элементы в корзине (HARD DELETE)."""

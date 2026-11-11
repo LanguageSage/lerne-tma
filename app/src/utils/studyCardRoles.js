@@ -1,3 +1,4 @@
+import { studyContent, studySideText } from './structuredStudyCard.js';
 export const PHYSICAL_SIDE = Object.freeze({ FRONT: 'front', BACK: 'back' });
 export const PEDAGOGICAL_ROLE = Object.freeze({
   PROMPT: 'prompt', ANSWER: 'answer', TRANSLATION: 'translation', EXAMPLE: 'example', DIALOGUE: 'dialogue',
@@ -13,8 +14,7 @@ export function getStudyRolePhysicalSide(role, studyMode = 'classic') {
 }
 
 export function getPhysicalSideText(card, physicalSide) {
-  if (physicalSide === PHYSICAL_SIDE.FRONT) return card?.front || card?.front_text || '';
-  if (physicalSide === PHYSICAL_SIDE.BACK) return card?.back || card?.back_text || '';
+  if (physicalSide === PHYSICAL_SIDE.FRONT || physicalSide === PHYSICAL_SIDE.BACK) return studySideText(studyContent(card), physicalSide);
   return '';
 }
 

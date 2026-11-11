@@ -1,4 +1,4 @@
-"""Opt-in authoring contract for Structured Cards V2.
+"""Canonical content contract for Structured Cards V2.
 
 The Pydantic models are the schema owner; JSON Schema is derived from them.
 Passports and grading policies retain their existing owners.
@@ -73,8 +73,21 @@ class InputPart(V2Model):
 
 class ChoicePart(V2Model):
     type: Literal['choice']
-    options: Annotated[list[Option], Field(min_length=2)]
-    _options = field_validator('options')(check_options)
+    options: Annotated[list[Option], Field(min_length=1)]
+    distractors: Literal['auto'] | None = None
+
+    @model_validator(mode='after')
+    def check_choice(self) -> 'ChoicePart':
+        check_options(self.options)
+        if self.distractors == 'auto':
+            if len(self.options) != 1:
+                raise ValueError('Auto distractors require exactly one option')
+            if not self.options[0].correct:
+                raise ValueError('Auto distractor option must be correct')
+        else:
+            if len(self.options) < 2:
+                raise ValueError("Choice requires at least two options when distractors is not 'auto'")
+        return self
 
 
 TrainerPart = Annotated[TextPart | InputPart | ChoicePart, Field(discriminator='type')]
@@ -86,7 +99,7 @@ class GapPart(V2Model):
 
 
 class InfoText(V2Model):
-    type: Literal['task', 'source', 'example']
+    type: Literal['task', 'source', 'example', 'text']
     text: Text
 
 
@@ -96,6 +109,41 @@ class InfoOptions(V2Model):
 
 
 Info = Annotated[InfoText | InfoOptions, Field(discriminator='type')]
+
+
+ElementId = Annotated[str, Field(min_length=1, max_length=128, pattern=r'^[A-Za-z0-9_-]+$')]
+Visibility = Literal['before_answer', 'after_answer']
+
+
+class LayoutInfo(V2Model):
+    id: ElementId
+    type: Literal['info']
+    index: Annotated[int, Field(ge=0)]  # Content has one owner: card.info.
+    visibility: Visibility = 'before_answer'
+
+
+class LayoutExercise(V2Model):
+    id: ElementId
+    type: Literal['exercise']  # Content/answers have one owner: card.data.
+
+
+class LayoutImage(V2Model):
+    id: ElementId
+    type: Literal['image']
+    path: Annotated[str, Field(max_length=1024, pattern=r'^images/[A-Za-z0-9_-][A-Za-z0-9_.-]*$')]
+    alt: str = ''
+    caption: str = ''
+    visibility: Visibility = 'before_answer'
+
+    @field_validator('path')
+    @classmethod
+    def durable_image_path(cls, value):
+        if any(part in ('', '.', '..') for part in value.split('/')):
+            raise ValueError('Image must reference a durable images/ media path')
+        return value
+
+
+LayoutElement = Annotated[LayoutInfo | LayoutExercise | LayoutImage, Field(discriminator='type')]
 
 
 class TheoryData(V2Model):
@@ -109,6 +157,7 @@ class StandardData(V2Model):
 
 
 class TrainerData(V2Model):
+    back_note: str = ''
     parts: Annotated[list[TrainerPart], Field(min_length=1)]
 
     @field_validator('parts')
@@ -120,7 +169,8 @@ class TrainerData(V2Model):
 
 
 class QuizData(V2Model):
-    prompt: Text
+    back_note: str = ''
+    prompt: str
     options: Annotated[list[Option], Field(min_length=2)]
     _options = field_validator('options')(check_options)
 
@@ -131,6 +181,7 @@ class Pair(V2Model):
 
 
 class MatchData(V2Model):
+    back_note: str = ''
     pairs: Annotated[list[Pair], Field(min_length=2)]
 
 
@@ -225,7 +276,7 @@ CONTENT_KEYS = {'front', 'front_text', 'back', 'back_text', 'context', 'type', '
                 'image', 'image_path',
                 'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
                 'accepted_answers', 'grading_policy', 'intro', 'pedagogy', 'passport',
-                'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens',
+                'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens', 'back_note',
                 'sample_answer', 'source_text', 'correct_text', 'summary', 'translation'}
 
 
@@ -240,6 +291,7 @@ class CardBase(V2Model):
     id: Text | None = None  # Author's reference only; never a database write target.
     image: Text | None = None  # Relative image filename resolved by the author import.
     info: list[Info] = Field(default_factory=list)
+    layout: Annotated[list[LayoutElement], Field(min_length=1, max_length=500)] | None = None
     explanation: str = ''  # Post-answer explanation, legacy CONTEXT.
     level: Level | None = None
     topics: list[Text] | None = None
@@ -248,6 +300,15 @@ class CardBase(V2Model):
 
     @model_validator(mode='after')
     def bounded_content(self):
+        if self.layout is not None:
+            ids = [element.id for element in self.layout]
+            if len(set(ids)) != len(ids):
+                raise ValueError('Layout element IDs must be unique')
+            if sum(element.type == 'exercise' for element in self.layout) != 1:
+                raise ValueError('Layout must contain exactly one exercise')
+            references = [element.index for element in self.layout if element.type == 'info']
+            if sorted(references) != list(range(len(self.info))):
+                raise ValueError('Layout must reference every info block exactly once')
         _check_size(_canonical_json(self.model_dump(mode='json')), MAX_CARD_BYTES)
         return self
 
@@ -270,6 +331,16 @@ class TrainerCard(CardBase):
 class QuizCard(CardBase):
     type: Literal['quiz']
     data: QuizData
+
+    @model_validator(mode='after')
+    def has_prompt(self):
+        visible = {item.index for item in self.layout or [] if item.type == 'info'
+                   and item.visibility == 'before_answer'} if self.layout is not None else set(range(len(self.info)))
+        if not self.data.prompt.strip() and not any(
+            index in visible and block.type in ('task', 'source') for index, block in enumerate(self.info)
+        ):
+            raise ValueError('Quiz requires a prompt or a task/source block')
+        return self
 
 
 class MatchCard(CardBase):
@@ -321,7 +392,7 @@ class Deck(V2Model):
 class Document(V2Model):
     schema_version: Literal[2]
     deck: Deck
-    cards: Annotated[list[Card], Field(min_length=1, max_length=MAX_DOCUMENT_CARDS)]
+    cards: Annotated[list[Card], Field(max_length=MAX_DOCUMENT_CARDS)]
 
     @field_validator('schema_version', mode='before')
     @classmethod
@@ -341,7 +412,9 @@ class Document(V2Model):
     @model_validator(mode='after')
     def passport_card_ranges(self):
         stages = (self.deck.passport or {}).get('pedagogy', {}).get('stages', [])
-        if any(stage.get('to_card', 0) > len(self.cards) for stage in stages):
+        if not self.cards and not self.deck.passport:
+            raise ValueError('An empty document requires a deck passport')
+        if self.cards and any(stage.get('to_card', 0) > len(self.cards) for stage in stages):
             raise ValueError('Passport stage range exceeds document card count')
         _check_size(_canonical_json(self.model_dump(mode='json')), MAX_DOCUMENT_BYTES)
         return self

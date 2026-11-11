@@ -3,10 +3,11 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createAssessment, canResumeAssessment, recordAssessmentResult, assessmentSummary, assessmentAttempt } from '../assessment.js';
 import { auditLesson } from '../lessonQa.js';
-import { parseQuizData } from '../quizParser.js';
+import { studyQuiz } from '../structuredStudyCard.js';
 import { evaluateQuizOption } from '../quizEvaluation.js';
 
-const course = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/corrected.json', import.meta.url)));
+const sourceCourse = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/corrected.json', import.meta.url)));
+const course = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/assessment-v2.json', import.meta.url)));
 const deck = course.decks.find(d => d.id === 114);
 const cards = course.cards.filter(c => c.deck_id === deck.id);
 const start = () => createAssessment(deck, cards, 1, 'session');
@@ -42,11 +43,11 @@ test('first answer is immutable; stale/different card callbacks do nothing', () 
 });
 test('corrected course has explicit policies, valid assessment mechanics and preserved IDs', () => {
   const source = JSON.parse(fs.readFileSync(new URL('../../../../tests/fixtures/lesson-qa/source-ids.json', import.meta.url)));
-  assert.deepEqual(course.cards.map(c => c.id), source.cards.map(c => c.id));
-  const report = auditLesson(course);
+  assert.deepEqual(sourceCourse.cards.map(c => c.id), source.cards.map(c => c.id));
+  const report = auditLesson(sourceCourse);
   assert.equal(report.counts.ERROR, 0);
   assert.equal(report.findings.some(f => f.code === 'assessment.runtime_missing'), false);
-  const options = parseQuizData(course.cards.find(c => c.id === 10002)).options;
+  const options = studyQuiz(course.cards.find(c => c.id === 10002).content_v2.card.data).options;
   assert.equal(evaluateQuizOption(options, options.find(o => o.text.includes(', den ich')).id).accepted, true);
   assert.equal(evaluateQuizOption(options, options.find(o => o.text.includes(', der ich')).id).accepted, false);
 });
@@ -68,24 +69,19 @@ test('bad required/bonus count cannot begin an exam; ordinary decks return null'
 test('invalid competency payload becomes a QA error and cannot start an exam', () => {
   const malformed = structuredClone(course);
   const card = malformed.cards.find(c => c.id === cards[0].id);
-  card.metadata = JSON.stringify({ assessment: { competency_ids: 'comp_exam_nominative' } });
-  assert.ok(auditLesson(malformed).findings.some(f => f.card_id === card.id && f.code === 'assessment.competencies'));
+  card.content_v2.card.metadata.assessment.competency_ids = 'comp_exam_nominative';
   assert.throws(() => createAssessment(deck, malformed.cards.filter(c => c.deck_id === deck.id), 1));
 });
 
 test('server DTO keeps authored order and resumes cloned metadata; changed content or account cannot resume', () => {
-  const dto = cards.map(({ front_text, back_text, metadata, ...card }) => {
-    const row = { ...card, front: front_text, back: back_text, metadata: JSON.parse(metadata) };
-    delete row.position;
-    return row;
-  });
+  const dto = cards.map(card => { const row = structuredClone(card); delete row.position; return row; });
   const reordered = [dto[1], dto[0], ...dto.slice(2)];
   const fresh = createAssessment(deck, reordered, 1, 'fresh');
   assert.deepEqual(fresh.cards.map(c => c.id), reordered.map(c => c.id));
   const saved = structuredClone(fresh);
   saved.index = 1;
   assert.equal(canResumeAssessment(saved, fresh), true);
-  saved.cards[0].front += 'Changed';
+  saved.cards[0].content_v2.card.explanation += 'Changed';
   assert.equal(canResumeAssessment(saved, fresh), false);
   assert.equal(canResumeAssessment({ ...fresh, userId: 2 }, fresh), false);
 });

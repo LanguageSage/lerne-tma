@@ -1,3 +1,4 @@
+import { nativeCard } from '../../utils/__tests__/nativeFixture.js';
 import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
@@ -19,7 +20,7 @@ const { createFreeTextEvaluationSession } = await import('../../utils/freeTextEv
 const { freeTextTaskSupport } = await import('../../utils/supportEvidence.js');
 const { trainerTaskSupport } = await import('../../utils/supportEvidence.js');
 const { createExerciseEvaluationSession } = await import('../../utils/exerciseEvaluation.js');
-const { parseClozeData } = await import('../../utils/clozeParser.js');
+const { studyTrainer } = await import('../../utils/structuredStudyCard.js');
 const { evaluateTrainerGaps } = await import('../../utils/trainerEvaluation.js');
 const { assessmentTrainerEvidence } = await import('../../utils/assessment.js');
 
@@ -28,12 +29,12 @@ const content = (ki = 10) => ({ card_ids: [1, 2], knowledge_items: [{ id: ki, na
 const attempt = (id = 'same-id') => ({ client_event_id: id, user_id: userId, knowledge_item_id: 10,
   card_id: 1, event_time: '2026-10-30T10:00:00Z', evaluation_data: { schema_version: 1,
     evaluation_type: 'self_rating', rating: 'good' } });
-const capture = () => captureStudyKnowledgeAttempt({ userId, card: { id: 1, deck_id: 5, front: 'Synthetic' }, grade: 2 });
+const capture = () => captureStudyKnowledgeAttempt({ userId, card: nativeCard("standard", { id: 1, deck_id: 5 }, {"data": {"prompt": "Synthetic", "answer": "Synthetic answer"}}), grade: 2 });
 const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
 
 const assessment = relevance => recordAssessmentResult({ id: 'synthetic-exam', userId: 1, deckId: 5, index: 0,
   config: { required_count: 1 }, results: {},
-  cards: [{ id: 1, metadata: { assessment: { competency_ids: ['synthetic'] } } }] }, 1,
+  cards: [nativeCard("standard", { id: 1 }, {metadata: { assessment: { competency_ids: ['synthetic'] } }})] }, 1,
 assessmentFreeTextEvidence({ verdict: 'incorrect', accepted: false, evaluator: 'ai', target_relevance: relevance }));
 
 beforeEach(() => {
@@ -132,7 +133,7 @@ test('Assessment save leaves frozen annotated and old unannotated payloads uncha
 
 test('v2/v3 support survives offline, database reopen, account switch, conflict and duplicate replay', async () => {
   await prepareDeckKnowledge(5);
-  const card = { id: 1, front: '@free\nSynthetic prompt' };
+  const card = nativeCard("free_text", { id: 1 }, {"data": {"prompt": "Synthetic prompt", "sample_answer": "Synthetic answer", "accepted_answers": [], "grading_policy": {"mode": "controlled_text", "typo_tolerance": true, "semantic_equivalence": true, "grammar_requires_retry": true, "case_sensitive": false, "punctuation_sensitive": false, "max_retries": 3}}});
   for (const version of [2, 3]) {
     const checker = createFreeTextEvaluationSession(undefined, { trackSupport: true,
       assessmentMode: version === 3, taskSupport: freeTextTaskSupport(card) });
@@ -269,9 +270,8 @@ test('late sync acknowledgement deletes only the sending account event with the 
 
 test('Trainer v2/v3 frozen support survives offline/reopen/conflict and late acknowledgement across accounts', async () => {
   await prepareDeckKnowledge(5);
-  const card = { id: 1, front: 'Visible [[form]].', back: 'Synthetic translation',
-    metadata: { assessment: { competency_ids: ['synthetic'] } } };
-  const cloze = parseClozeData(card, 'classic');
+  const card = nativeCard("trainer", { id: 1 }, {"data": {"back_note": "Synthetic translation", "parts": [{"type": "text", "text": "Visible "}, {"type": "input", "answers": ["form"]}, {"type": "text", "text": "."}]}, metadata: { assessment: { competency_ids: ['synthetic'] } }});
+  const cloze = studyTrainer(card.content_v2.card.data);
   for (const version of [2, 3]) {
     const owner = createExerciseEvaluationSession(undefined, { trackSupport: true, assessmentMode: version === 3,
       taskSupport: trainerTaskSupport(card, cloze) });

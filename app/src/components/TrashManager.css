@@ -1,6 +1,8 @@
 .trash-container {
   padding: 24px 16px;
+  width: 100%;
   max-width: 800px;
+  box-sizing: border-box;
   margin: 0 auto;
   color: #f8fafc;
   min-height: 100vh;
@@ -126,7 +128,7 @@
 
 .trash-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(min(280px, 100%), 1fr));
   gap: 16px;
 }
 
@@ -146,6 +148,10 @@
   border-color: rgba(239, 68, 68, 0.3);
   transform: translateY(-2px);
   box-shadow: 0 8px 24px rgba(0, 0, 0, 0.2);
+}
+
+.trash-card-content {
+  overflow-wrap: anywhere;
 }
 
 .trash-card-content h3 {
@@ -170,6 +176,7 @@
 
 .trash-restore-btn {
   flex: 1;
+  min-height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -185,11 +192,16 @@
   font-size: 0.9rem;
 }
 
-.trash-restore-btn:hover {
+.trash-restore-btn:hover:not(:disabled) {
   background: rgba(16, 185, 129, 0.2);
   border-color: rgba(16, 185, 129, 0.5);
   color: #6ee7b7;
   box-shadow: 0 0 12px rgba(16, 185, 129, 0.2);
+}
+
+.trash-restore-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
 }
 
 .trash-empty {
@@ -208,4 +220,25 @@
   color: #94a3b8;
   margin: 0;
   max-width: 300px;
+}
+
+@media (max-width: 480px) {
+  .trash-container {
+    padding-inline: 0;
+  }
+
+  .trash-header {
+    flex-wrap: wrap;
+    gap: 8px;
+  }
+
+  .trash-title {
+    order: -1;
+    width: 100%;
+  }
+
+  .trash-back-btn,
+  .trash-clear-btn {
+    min-height: 44px;
+  }
 }

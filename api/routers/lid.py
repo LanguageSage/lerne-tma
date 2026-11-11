@@ -1,9 +1,7 @@
-import os
-import json
 import re
 import logging
 import random
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Query
 from api.db_workers import db_worker
 from api.dependencies.auth import get_user_id
 from api import models
@@ -61,7 +59,8 @@ def serialize_card(card, deck_name=""):
     pos = getattr(card, 'position', 0) or 0
     d_name = deck_name or (card.deck.name if hasattr(card, 'deck') and card.deck else "")
 
-    trans_ru = parse_back_translation(card.back_text or "")
+    from api.services.structured_card_api import content_response, authored_side_text
+    trans_ru = parse_back_translation(authored_side_text(card.content_v2, 'back'))
 
     # Calculate BAMF catalog question number (1..300 general, or Land code):
     bamf_num = getattr(card, 'bamf_num', None) or 0
@@ -83,15 +82,12 @@ def serialize_card(card, deck_name=""):
         "id": card.id,
         "deck_id": card.deck_id,
         "deck_name": d_name,
-        "front": card.front_text or "",
-        "back": card.back_text or "",
-        "context": card.context or "",
+        **content_response(card),
         "image_path": img,
         "image_url": img_url,
         "media_url": img_url or img,
         "audio_url": aud_url or aud,
         "audio_path": aud,
-        "card_type": getattr(card, 'card_type', 'quiz') or 'quiz',
         "position": pos,
         "bamf_num": bamf_num,
         "translationRu": trans_ru,
@@ -129,7 +125,7 @@ def get_exam_ticket(
     def get_cards(deck):
         if not deck:
             return []
-        return list(models.TMA_Card.select().where(models.TMA_Card.deck == deck, models.TMA_Card.is_deleted == False))
+        return list(models.TMA_Card.select().where(models.TMA_Card.deck == deck, models.TMA_Card.is_deleted == False, models.TMA_Card.content_v2.is_null(False)))
 
     c1 = get_cards(b1)
     c2 = get_cards(b2)

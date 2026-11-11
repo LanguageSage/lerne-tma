@@ -50,13 +50,14 @@ export function useCardSelectMode(filteredCards, currentDeckId, view) {
     });
   }, []);
 
+  const selectableCount = filteredCards.filter(card => !card.offline_create_status).length;
   const handleSelectAll = useCallback(() => {
-    if (selectedCardIds.size === filteredCards.length && filteredCards.length > 0) {
+    if (selectedCardIds.size === selectableCount && selectableCount > 0) {
       setSelectedCardIds(new Set());
     } else {
-      setSelectedCardIds(new Set(filteredCards.map(c => c.id)));
+      setSelectedCardIds(new Set(filteredCards.filter(card => !card.offline_create_status).map(card => card.id)));
     }
-  }, [selectedCardIds.size, filteredCards]);
+  }, [selectedCardIds.size, selectableCount, filteredCards]);
 
   const handleApplyRange = useCallback((e) => {
     e?.preventDefault();
@@ -66,7 +67,8 @@ export function useCardSelectMode(filteredCards, currentDeckId, view) {
       showToast(tr("Карточки по указанным номерам не найдены"), "warning");
       return;
     }
-    const targetIds = indices.map(idx => filteredCards[idx - 1]?.id).filter(Boolean);
+    const targetIds = indices.map(idx => filteredCards[idx - 1])
+      .filter(card => card && !card.offline_create_status).map(card => card.id);
     setSelectedCardIds(new Set(targetIds));
     showToast(tr("Выбрано карточек: {{p0}}", { p0: targetIds.length }), "info");
   }, [rangeInput, filteredCards, showToast]);
@@ -85,6 +87,7 @@ export function useCardSelectMode(filteredCards, currentDeckId, view) {
     toggleSelectMode,
     handleToggleSelectCard,
     handleSelectAll,
+    selectableCount,
     handleApplyRange,
   };
 }

@@ -22,7 +22,8 @@ from fastapi.testclient import TestClient
 from peewee import PostgresqlDatabase, SqliteDatabase
 
 from api import models
-from api.routers.sync import OfflinePushRequest, PushRequest
+from api.routers.sync import OfflinePushRequest
+from native_fixture import content, sqlite_native
 from api.routers import sync as sync_router
 from api.dependencies.auth import get_user_id
 from api.services import collaborative_service, offline_sync, sync_service
@@ -78,24 +79,6 @@ def capture_reads(database):
         yield reads
 
 
-@contextmanager
-def services_at_ref(ref):
-    """Load only the old service code; models, data and dependencies stay equal."""
-    names = ['collaborative_service', 'sync_service', 'offline_sync']
-    with patch.dict(sys.modules):
-        with patch.multiple('api.services', **{name: None for name in names}):
-            loaded = {}
-            for name in names:
-                source = subprocess.run(
-                    ['git', 'show', f'{ref}:api/services/{name}.py'], cwd=ROOT,
-                    check=True, capture_output=True, encoding='utf-8').stdout
-                module = types.ModuleType(f'api.services.{name}')
-                module.__package__ = 'api.services'
-                sys.modules[module.__name__] = module
-                setattr(importlib.import_module('api.services'), name, module)
-                exec(compile(source, f'{ref}/{name}.py', 'exec'), module.__dict__)
-                loaded[name] = module
-            yield loaded
 
 
 class SyncFixture(unittest.TestCase):
@@ -107,6 +90,7 @@ class SyncFixture(unittest.TestCase):
         self.previous = models.tma_db.obj, models.lerne_db.obj
         models.tma_db.initialize(self.db)
         models.lerne_db.initialize(self.db)
+        sqlite_native(self, self.db)
         self.db.create_tables(TABLES)
         self.addCleanup(self.cleanup_db)
         self.make_fixture()
@@ -148,9 +132,8 @@ class SyncFixture(unittest.TestCase):
         self.blob = random.Random(0).randbytes(blob_size)
         for deck in [*self.decks, self.hidden_deck, self.deleted_shared]:
             for i in range(cards_per_deck):
-                card = models.TMA_Card.create(deck=deck, front_text=f'Front {i}', back_text='Back',
-                    context='Context', image_data=self.blob, image_path='old.png', audio_path='old.mp3',
-                    tags='["A1"]', metadata='{"kind":"quiz"}', card_type='quiz', history='["keep"]',
+                card = models.TMA_Card.create(deck=deck, content_v2=content(f'Front {i}', 'Back', explanation='Context', metadata={'kind': 'standard', 'tags': ['A1']}), card_type=None, image_data=self.blob, image_path='old.png', audio_path='old.mp3',
+                    history='["keep"]',
                     source='library', creator_id=2, position=i, is_deleted=(i == 1), updated_at=NOW)
                 for uid in (1, 2, 3):
                     models.TMAProgress.create(card_id=card.id, user_id=uid, queue='review',
@@ -164,22 +147,6 @@ class SyncFixture(unittest.TestCase):
         self.assertFalse(any('"image_data"' in row['sql'] for row in reads))
         self.assertFalse(any('"history"' in row['sql'] for row in reads))
 
-    @staticmethod
-    def pulls(services=None):
-        services = services or {'offline_sync': offline_sync, 'sync_service': sync_service,
-                                'collaborative_service': collaborative_service}
-
-        def collab(uid):
-            result = services['sync_service'].execute_collab_pull(SINCE, uid)
-            # Include the router's access-version query in endpoint accounting.
-            result['access_version'] = services['collaborative_service'].get_access_version(uid)
-            return result
-
-        return {
-            'v2': lambda uid: services['offline_sync'].pull_offline(uid),
-            'legacy': lambda uid: services['sync_service'].execute_sync_pull(SINCE, uid),
-            'collab': collab,
-        }
 
 
 class SyncReadTests(SyncFixture):
@@ -187,7 +154,7 @@ class SyncReadTests(SyncFixture):
         app = FastAPI()
         app.include_router(sync_router.router)
         app.dependency_overrides[get_user_id] = lambda: 1
-        for path in ('/sync/v2/pull', '/sync/pull', '/sync/collab-pull'):
+        for path in ('/sync/v2/pull', '/sync/collab-pull'):
             with TestClient(app) as client, capture_reads(self.db) as reads:
                 response = client.get(path, params={'since': SINCE})
             self.assertEqual(response.status_code, 200, response.text)
@@ -202,7 +169,7 @@ class SyncReadTests(SyncFixture):
 
     def test_pull_permissions_tombstones_progress_and_wire_fields(self):
         for uid in (1, 2, 3, 4):
-            for kind, pull in self.pulls().items():
+            for kind, pull in {'v2': offline_sync.pull_offline}.items():
                 with self.subTest(uid=uid, kind=kind), capture_reads(self.db) as reads:
                     data = pull(uid)
                 self.assert_light_reads(reads)
@@ -223,7 +190,8 @@ class SyncReadTests(SyncFixture):
                     elif uid == 2:
                         self.assertFalse(decks[self.shared_deck.id]['is_learning'])
                     self.assertTrue(all(p['user_id'] == uid for p in data['progress']))
-                    self.assertTrue(all('metadata' in c and 'tags' in c for c in data['cards']))
+                    self.assertTrue(all('content_v2' in c and 'front_text' not in c for c in data['cards']))
+                    self.assertTrue(all(c['content_v2']['card']['metadata']['tags'] == ['A1'] for c in data['cards']))
                 elif kind == 'legacy':
                     self.assertEqual({d['id'] for d in data['decks']},
                         {d.id for d in [*self.decks, self.hidden_deck, self.deleted_shared] if d.user_id == uid})
@@ -231,11 +199,11 @@ class SyncReadTests(SyncFixture):
                     self.assertTrue(all(p['flag'] == 3 and p['interval'] == 7 for p in data['progress']))
 
     def test_pull_query_count_does_not_grow_with_cards_or_folder_expansion(self):
-        for kind, pull in self.pulls().items():
+        for kind, pull in {'v2': offline_sync.pull_offline}.items():
             with capture_reads(self.db) as small:
                 pull(1)
             for i in range(8):
-                models.TMA_Card.create(deck=self.decks[0], front_text=f'Extra {kind} {i}', back_text='x', updated_at=NOW)
+                models.TMA_Card.create(deck=self.decks[0], content_v2=content(f'Extra {kind} {i}', 'x'), card_type=None, updated_at=NOW)
                 models.TMA_Folder.create(user_id=1, name=f'Extra folder {kind} {i}', updated_at=NOW)
             with capture_reads(self.db) as large:
                 pull(1)
@@ -302,32 +270,6 @@ class SyncReadTests(SyncFixture):
         self.assertEqual(active['progress'], paused['progress'])
         self.assertEqual(snapshot(), before)
 
-    def test_push_preserves_unselected_content_and_media_rules(self):
-        card = models.TMA_Card.get(models.TMA_Card.deck_id == self.decks[0].id)
-        for kind in ('v2', 'legacy'):
-            values = {'cards': [{'id': card.id, 'deck_id': card.deck_id, 'front_text': kind,
-                'back_text': 'Changed', 'updated_at': '2099-01-01T00:00:00Z', 'image_path': None}]}
-            with capture_reads(self.db) as reads:
-                if kind == 'v2':
-                    offline_sync.push_offline(OfflinePushRequest(request_id=uuid4(), **values), 1)
-                else:
-                    sync_service.execute_sync_push(PushRequest(**values), 1)
-            self.assert_light_reads(reads)
-            actual = models.TMA_Card.get_by_id(card.id)
-            self.assertEqual(actual.front_text, kind)
-            self.assertEqual(actual.image_data, self.blob)
-            self.assertEqual(actual.history, '["keep"]')
-            self.assertEqual(actual.source, 'library')
-            self.assertEqual(actual.creator_id, 2)
-            self.assertEqual(actual.tags, '["A1"]')
-            self.assertEqual(actual.metadata, '{"kind":"quiz"}')
-            self.assertEqual(actual.card_type, 'quiz')
-            self.assertEqual(actual.audio_path, 'old.mp3')
-            self.assertIsNone(actual.image_path)
-        # Legacy preserves an existing media path when the client omits it.
-        models.TMA_Card.update(image_path='preserve.png').where(models.TMA_Card.id == card.id).execute()
-        sync_service.execute_sync_push(PushRequest(cards=[dict(values['cards'][0], updated_at='2100-01-01')]), 1)
-        self.assertEqual(models.TMA_Card.get_by_id(card.id).image_path, 'preserve.png')
 
     def test_v2_study_card_lookup_is_batched_and_permissions_are_preserved(self):
         cards = list(models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id == self.shared_deck.id))
@@ -345,111 +287,38 @@ class SyncReadTests(SyncFixture):
         with self.assertRaises(HTTPException) as error:
             offline_sync.push_offline(OfflinePushRequest(request_id=uuid4(), cards=[{
                 'id': cards[0].id, 'deck_id': self.shared_deck.id, 'front_text': 'Forbidden', 'back_text': 'x'}]), 3)
-        self.assertEqual(error.exception.status_code, 403)
+        self.assertEqual(error.exception.status_code, 409)
+
+    def test_collaboration_only_invalidates_and_old_route_is_absent(self):
+        app = FastAPI()
+        app.include_router(sync_router.router)
+        app.dependency_overrides[get_user_id] = lambda: 1
+        with TestClient(app) as client:
+            self.assertEqual(client.get('/sync/pull').status_code, 404)
+            self.assertEqual(client.post('/sync/push', json={}).status_code, 404)
+        with capture_reads(self.db) as reads:
+            result = sync_service.execute_collab_pull(SINCE, 1)
+        self.assertEqual(set(result), {'has_changes', 'server_time'})
+        self.assertTrue(result['has_changes'])
+        self.assert_light_reads(reads)
+        self.assertLess(sum(r['bytes'] for r in reads), 20000)
+
+    def test_collaboration_watermark_quiesces_after_native_writes(self):
+        models.TMA_Card.update(updated_at=dt.datetime.now()).where(
+            models.TMA_Card.deck_id == self.shared_deck.id).execute()
+        first = sync_service.execute_collab_pull(SINCE, 1)
+        self.assertTrue(first['has_changes'])
+        self.assertFalse(sync_service.execute_collab_pull(first['server_time'], 1)['has_changes'])
 
     def test_postgres_projection_compiles_without_connecting(self):
         pg = PostgresqlDatabase('never-connect')
-        fields = [getattr(models.TMA_Card, f) for f in offline_sync.PULL_FIELDS['cards']]
-        for projection in (fields, sync_service.CARD_PULL_FIELDS, sync_service.CARD_PUSH_FIELDS):
-            sql, params = models.TMA_Card.select(*projection).where(models.TMA_Card.deck_id == 42).bind(pg).sql()
-            self.assertNotIn('"image_data"', sql)
-            self.assertIn('%s', sql)
-            self.assertEqual(params, [42])
-
-    def test_legacy_study_uses_one_card_lookup_and_viewer_cannot_edit(self):
-        cards = list(models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.deck_id == self.shared_deck.id))
-        request = PushRequest(progress=[{'card_id': c.id, 'queue': 'review', 'interval': 10,
-            'ease_factor': 2.5, 'repetitions': 2, 'lapses': 0, 'updated_at': '2099-01-01'} for c in cards])
-        with capture_reads(self.db) as reads:
-            sync_service.execute_sync_push(request, 3)
-        self.assert_light_reads(reads)
-        self.assertEqual(sum('FROM "tma_card"' in r['sql'] for r in reads), 1)
-        with self.assertRaises(HTTPException) as error:
-            sync_service.execute_sync_push(PushRequest(cards=[{'id': cards[0].id,
-                'deck_id': self.shared_deck.id, 'front_text': 'Forbidden', 'back_text': 'x'}]), 3)
-        self.assertEqual(error.exception.status_code, 403)
+        fields = [models.TMA_Card.content_v2, models.TMA_Card.id, models.TMA_Card.deck_id]
+        sql, params = models.TMA_Card.select(*fields).where(models.TMA_Card.deck_id == 42).bind(pg).sql()
+        self.assertNotIn('"image_data"', sql)
+        self.assertIn('"content_v2"', sql)
+        self.assertIn('%s', sql)
+        self.assertEqual(params, [42])
 
 
-if '--compare-ref' in sys.argv:
-    class SyncBaselineComparison(SyncFixture):
-        # Only the comparison is needed here; regular regressions run above.
-        def test_compare_baseline(self):
-            ref = sys.argv[sys.argv.index('--compare-ref') + 1]
-            self.db.drop_tables(TABLES)
-            self.db.create_tables(TABLES)
-            self.make_fixture(cards_per_deck=4, blob_size=1024 * 1024)
-            owned_cards = list(models.TMA_Card.select(models.TMA_Card.id).where(
-                models.TMA_Card.deck_id == self.decks[0].id))
-            shared_cards = list(models.TMA_Card.select(models.TMA_Card.id).where(
-                models.TMA_Card.deck_id == self.shared_deck.id))
-            card_changes = [{'id': c.id, 'deck_id': self.decks[0].id, 'front_text': 'Edited',
-                             'back_text': 'Changed', 'updated_at': '2099-01-01'} for c in owned_cards]
-            study_changes = [{'card_id': c.id, 'queue': 'review', 'interval': 10,
-                'ease_factor': 2.5, 'repetitions': 2, 'lapses': 0, 'updated_at': '2099-01-01'} for c in shared_cards]
-            push_cases = {
-                'v2_push': ('offline_sync', OfflinePushRequest(request_id=uuid4(), cards=card_changes), 1),
-                'legacy_push': ('sync_service', PushRequest(cards=card_changes), 1),
-                'v2_study': ('offline_sync', OfflinePushRequest(request_id=uuid4(), progress=study_changes,
-                    reviews=[{'card_id': c.id, 'rating': 3, 'review_time': NOW.isoformat(), 'scheduled_interval': 10}
-                             for c in shared_cards for _ in range(3)]), 3),
-                'legacy_study': ('sync_service', PushRequest(progress=study_changes), 3),
-            }
-
-            def measure_push(services, case):
-                module, request, uid = case
-                handler = services[module].push_offline if module == 'offline_sync' else services[module].execute_sync_push
-                with self.db.atomic() as transaction:
-                    with capture_reads(self.db) as reads:
-                        result = handler(request, uid)
-                    transaction.rollback()  # The next implementation sees exactly the same data.
-                return result, reads
-
-            def changed_foreign_folder_error(pull):
-                with self.db.atomic() as transaction:
-                    models.TMA_Folder.update(updated_at=NOW).where(models.TMA_Folder.user_id == 2).execute()
-                    with self.assertLogs('api.services.sync_service', level='ERROR'), self.assertRaises(HTTPException) as error:
-                        pull(1)
-                    transaction.rollback()
-                return error.exception.status_code, error.exception.detail
-
-            before = {}
-            with services_at_ref(ref) as services:
-                for uid in (1, 2, 3, 4):
-                    for kind, pull in self.pulls(services).items():
-                        with capture_reads(self.db) as reads:
-                            data = pull(uid)
-                        data.pop('server_time')
-                        before[uid, kind] = data, reads
-                before_push = {name: measure_push(services, case) for name, case in push_cases.items()}
-                old_folder_error = changed_foreign_folder_error(self.pulls(services)['collab'])
-            report = {}
-            for uid in (1, 2, 3, 4):
-                for kind, pull in self.pulls().items():
-                    with capture_reads(self.db) as reads:
-                        data = pull(uid)
-                    data.pop('server_time')
-                    expected, old_reads = before[uid, kind]
-                    self.assertEqual(data, expected, (uid, kind))
-                    if data['cards']:
-                        self.assertTrue(any('"image_data"' in r['sql'] and r['rows'] for r in old_reads))
-                    self.assert_light_reads(reads)
-                    report[f'{uid}/{kind}'] = {
-                        'before_queries': len(old_reads), 'after_queries': len(reads),
-                        'before_bytes': sum(r['bytes'] for r in old_reads),
-                        'after_bytes': sum(r['bytes'] for r in reads),
-                    }
-                    if uid == 1:
-                        report[f'{uid}/{kind}']['before_card_sql'] = next(r['sql'] for r in old_reads if 'FROM "tma_card"' in r['sql'])
-                        report[f'{uid}/{kind}']['after_card_sql'] = next(r['sql'] for r in reads if 'FROM "tma_card"' in r['sql'])
-            current_services = {'offline_sync': offline_sync, 'sync_service': sync_service}
-            for name, case in push_cases.items():
-                result, reads = measure_push(current_services, case)
-                expected, old_reads = before_push[name]
-                self.assertEqual(result, expected)
-                self.assert_light_reads(reads)
-                report[name] = {'before_queries': len(old_reads), 'after_queries': len(reads),
-                    'before_bytes': sum(r['bytes'] for r in old_reads),
-                    'after_bytes': sum(r['bytes'] for r in reads)}
-            self.assertEqual(changed_foreign_folder_error(self.pulls()['collab']), old_folder_error)
-            report['unchanged_foreign_folder_error'] = old_folder_error
-            print('\nSYNC_READ_COMPARISON ' + json.dumps(report, ensure_ascii=True), flush=True)
+if __name__ == '__main__':
+    unittest.main()

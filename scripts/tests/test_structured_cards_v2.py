@@ -33,6 +33,71 @@ def choice():
 
 
 class V2ValidationTests(unittest.TestCase):
+    def test_layout_roundtrip_order_identity_and_all_nine_types(self):
+        from api.services.structured_cards_v2 import validate_card
+        values = [card.model_dump(mode='json') for path in EXAMPLES.glob('*.json')
+                  for card in load_document(path.read_text(encoding='utf-8')).cards]
+        values.append({'type': 'editable_text', 'data': {'source_text': 'Ich gehen.', 'correct_text': 'Ich gehe.'}})
+        for value in values:
+            value['info'] = [{'type': 'text', 'text': '  **Text**\n\nZeile zwei.\n'},
+                             {'type': 'example', 'text': 'Erklärung danach.'}]
+            value['layout'] = [{'id': 'literal', 'type': 'info', 'index': 0},
+                               {'id': 'picture', 'type': 'image', 'path': 'images/synthetic.webp', 'alt': 'Haus', 'caption': 'Bild'},
+                               {'id': 'exercise', 'type': 'exercise'},
+                               {'id': 'feedback', 'type': 'info', 'index': 1, 'visibility': 'after_answer'}]
+            # Empty quiz prompts still need a visible task/source.
+            if value['type'] == 'quiz' and not value['data']['prompt']:
+                value['info'][0]['type'] = 'task'
+            card = validate_card(value)
+            self.assertEqual(validate_card(json.loads(card.model_dump_json())), card)
+            self.assertEqual(card.info[0].text, value['info'][0]['text'])
+            before = card.data.model_dump()
+            value['layout'][0], value['layout'][1] = value['layout'][1], value['layout'][0]
+            moved = validate_card(value)
+            self.assertEqual(moved.layout[0].id, 'picture')
+            self.assertEqual(moved.data.model_dump(), before)
+
+    def test_existing_extension_metadata_stays_valid_without_defining_visual_content(self):
+        value = document()
+        value['cards'][0]['metadata'] = {'layout': {'extension': 'old author metadata'}}
+        card = validate_document(value).cards[0]
+        self.assertIsNone(card.layout)
+        self.assertEqual(card.metadata['layout'], {'extension': 'old author metadata'})
+
+    def test_invalid_layout_cannot_drop_duplicate_or_reference_answers(self):
+        from api.services.structured_cards_v2 import validate_card
+        value = {'type': 'standard', 'data': {'prompt': 'Q', 'answer': 'SECRET'},
+                 'info': [{'type': 'text', 'text': 'Intro'}]}
+        cases = [[], [{'id': 'e', 'type': 'exercise'}],
+                 [{'id': 'i', 'type': 'info', 'index': 0}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'e', 'type': 'info', 'index': 0}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': 9}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': True}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': 0, 'visibility': 'anything'}],
+                 [{'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'data', 'ref': 'answer'}]]
+        for layout in cases:
+            with self.subTest(layout=layout), self.assertRaises(ValidationError):
+                validate_card({**value, 'layout': layout})
+        for path in ['data:image/png;base64,a', 'blob:fake', 'https://example.invalid/x', '../x', 'images/../x',
+                     'images/a?token=x', 'images/a/b.png', 'images/a\\b.png']:
+            with self.subTest(path=path), self.assertRaises(ValidationError):
+                validate_card({**value, 'layout': [{'id': 'e', 'type': 'exercise'},
+                    {'id': 'i', 'type': 'info', 'index': 0}, {'id': 'p', 'type': 'image', 'path': path}]})
+
+    def test_hidden_task_cannot_be_used_as_visible_quiz_prompt(self):
+        from api.services.structured_cards_v2 import validate_card
+        with self.assertRaises(ValidationError):
+            validate_card({'type': 'quiz', 'data': {'prompt': '', 'options': [{'text': 'A', 'correct': True}, {'text': 'B'}]},
+                'info': [{'type': 'task', 'text': 'SECRET'}], 'layout': [
+                    {'id': 'e', 'type': 'exercise'}, {'id': 'i', 'type': 'info', 'index': 0, 'visibility': 'after_answer'}]})
+
+    def test_legacy_export_refuses_to_silently_drop_composition_or_images(self):
+        value = document()
+        value['cards'][0]['layout'] = [{'id': 'e', 'type': 'exercise'},
+            {'id': 'p', 'type': 'image', 'path': 'images/synthetic.webp'}]
+        with self.assertRaisesRegex(LegacyConversionError, 'JSON V2 export'):
+            to_legacy_document(validate_document(value))
+
     def assertInvalid(self, value):
         with self.assertRaises((ValidationError, ValueError)):
             validate_document(value)
@@ -92,6 +157,121 @@ class V2ValidationTests(unittest.TestCase):
         value = document(trainer([choice(), {'type': 'text', 'text': ' '},
                                    {'type': 'input', 'answers': ['hatte', 'hätte']}]))
         self.assertEqual(len(validate_document(value).cards[0].data.parts), 3)
+
+    def test_trainer_choice_auto_distractors_valid(self):
+        # 1. Single correct option with distractors="auto"
+        auto_part = {
+            'type': 'choice',
+            'options': [{'text': 'den', 'correct': True}],
+            'distractors': 'auto',
+        }
+        val = validate_document(document(trainer([auto_part])))
+        part = val.cards[0].data.parts[0]
+        self.assertEqual(part.type, 'choice')
+        self.assertEqual(part.distractors, 'auto')
+        self.assertEqual(len(part.options), 1)
+        self.assertEqual(part.options[0].text, 'den')
+        self.assertTrue(part.options[0].correct)
+
+        # 2. Mixed trainer with text, auto choice and manual choice
+        mixed_doc = document(trainer([
+            {'type': 'text', 'text': 'Ich sehe '},
+            auto_part,
+            {'type': 'text', 'text': ' Hund, '},
+            choice(),
+        ]))
+        val_mixed = validate_document(mixed_doc)
+        parts = val_mixed.cards[0].data.parts
+        self.assertEqual(len(parts), 4)
+        self.assertEqual(parts[1].distractors, 'auto')
+        self.assertIsNone(parts[3].distractors)
+
+    def test_trainer_choice_auto_distractors_invalid_semantics(self):
+        # 1. Multiple options with distractors="auto" (ambiguous mixing of auto and manual)
+        for bad_options in (
+            [{'text': 'den', 'correct': True}, {'text': 'die', 'correct': False}],
+            [{'text': 'den', 'correct': True}, {'text': 'die', 'correct': True}],
+            [],
+        ):
+            with self.subTest(bad_options=bad_options):
+                self.assertInvalid(document(trainer([{
+                    'type': 'choice',
+                    'options': bad_options,
+                    'distractors': 'auto',
+                }])))
+
+        # 2. Single option with correct=False in auto mode
+        self.assertInvalid(document(trainer([{
+            'type': 'choice',
+            'options': [{'text': 'den', 'correct': False}],
+            'distractors': 'auto',
+        }])))
+
+        # 3. Empty or whitespace text in auto mode
+        for bad_text in ('', '   '):
+            with self.subTest(bad_text=bad_text):
+                self.assertInvalid(document(trainer([{
+                    'type': 'choice',
+                    'options': [{'text': bad_text, 'correct': True}],
+                    'distractors': 'auto',
+                }])))
+
+        # 4. Unknown values for distractors
+        for unknown in ('manual', 'none', '', 1, True, False, [], {}):
+            with self.subTest(unknown=unknown):
+                self.assertInvalid(document(trainer([{
+                    'type': 'choice',
+                    'options': [{'text': 'den', 'correct': True}],
+                    'distractors': unknown,
+                }])))
+
+        # 5. Extra fields forbidden
+        self.assertInvalid(document(trainer([{
+            'type': 'choice',
+            'options': [{'text': 'den', 'correct': True}],
+            'distractors': 'auto',
+            'unknown_field': True,
+        }])))
+
+    def test_quiz_contract_remains_strictly_manual(self):
+        # Quiz cannot have distractors="auto"
+        quiz_auto = {
+            'type': 'quiz',
+            'data': {
+                'prompt': 'Welcher Artikel?',
+                'options': [{'text': 'den', 'correct': True}, {'text': 'der', 'correct': False}],
+                'distractors': 'auto',
+            },
+        }
+        self.assertInvalid(document(quiz_auto))
+
+        # Quiz cannot have single option even if correct
+        quiz_single = {
+            'type': 'quiz',
+            'data': {
+                'prompt': 'Welcher Artikel?',
+                'options': [{'text': 'den', 'correct': True}],
+            },
+        }
+        self.assertInvalid(document(quiz_single))
+
+    def test_json_schema_matches_auto_distractors_contract(self):
+        schema = Document.model_json_schema()
+        defs = schema[next(k for k in schema if 'def' in k)]
+        choice_schema = defs['ChoicePart']
+        self.assertEqual(choice_schema['required'], ['type', 'options'])
+        self.assertEqual(choice_schema['properties']['options']['minItems'], 1)
+        self.assertIn('distractors', choice_schema['properties'])
+        distractors_prop = choice_schema['properties']['distractors']
+        self.assertIn('anyOf', distractors_prop)
+        allowed_types = {item.get('const') or item.get('type') for item in distractors_prop['anyOf']}
+        self.assertIn('auto', allowed_types)
+        self.assertIn('null', allowed_types)
+
+        # Quiz schema does not have distractors
+        quiz_schema = defs['QuizData']
+        self.assertNotIn('distractors', quiz_schema['properties'])
+        self.assertEqual(quiz_schema['properties']['options']['minItems'], 2)
 
     def test_quiz_correctness_is_explicit_and_can_have_multiple_answers(self):
         value = document({'type': 'quiz', 'data': {'prompt': 'Q', 'options': choice()['options']}})
@@ -192,7 +372,7 @@ class V2ValidationTests(unittest.TestCase):
 
 class V2LegacyTests(unittest.TestCase):
     def test_b1_33_d10_passport_topic_with_commas_imports_as_one_topic(self):
-        from api.services.author_service import _parse_v2_json_document
+        from api.services.author_service import parse_document
 
         value = {
             'schema_version': 2,
@@ -209,18 +389,12 @@ class V2LegacyTests(unittest.TestCase):
             ],
         }
 
-        imported = _parse_v2_json_document(json.dumps(value))
+        imported = parse_document(json.dumps(value))
 
         self.assertEqual(imported['errors'], [])
         self.assertEqual(imported['decks'][0]['deck_name'], 'B1-33-D10')
-        self.assertEqual(imported['cards'][0]['topics'], 'Erholung, Gesundheit und Alltag')
-        self.assertEqual(imported['cards'][0]['metadata']['structured_topics'],
-                         ['Erholung, Gesundheit und Alltag'])
-        # Multiple authored topics can have the same display string; retain their
-        # distinct boundaries through import metadata instead of splitting commas.
-        self.assertEqual(imported['cards'][1]['topics'], imported['cards'][0]['topics'])
-        self.assertEqual(imported['cards'][1]['metadata']['structured_topics'],
-                         ['Erholung', 'Gesundheit und Alltag'])
+        self.assertEqual(imported['cards'][0]['content_v2']['card']['topics'], ['Erholung, Gesundheit und Alltag'])
+        self.assertEqual(imported['cards'][1]['content_v2']['card']['topics'], ['Erholung', 'Gesundheit und Alltag'])
 
     def test_inherited_topic_newlines_are_rejected_separately_from_commas(self):
         value = document()
@@ -485,11 +659,11 @@ class V2LegacyTests(unittest.TestCase):
         self.assertEqual(imported['structure_errors'], [])
         self.assertEqual(len(imported['cards']), 13)
         card = imported['cards'][12]
-        self.assertEqual((card['number'], card['deck_name'], card['deck_id'], card['card_type']),
+        self.assertEqual((card['number'], card['deck_name'], card['deck_id'], card['content_v2']['card']['type']),
                          (13, 'B1-33-D09', 42, 'match'))
-        self.assertIn('um mich auszuruhen => цель — отдохнуть', card['front'])
+        self.assertEqual(card['content_v2']['card']['data']['pairs'][0]['left'], 'um mich auszuruhen')
         process = subprocess.run(['node', str(ROOT / 'tools/structured_cards_v2_compat.mjs')],
-            input=json.dumps({'legacy': imported, 'expected': value}, ensure_ascii=False),
+            input=json.dumps({'legacy': to_legacy_document(value), 'expected': value}, ensure_ascii=False),
             capture_output=True, text=True, encoding='utf-8', cwd=ROOT, timeout=30)
         self.assertEqual(process.returncode, 0, process.stderr)
         self.assertEqual(value, before)
@@ -627,10 +801,10 @@ with patch('peewee.Database.connect', side_effect=AssertionError('No database'))
         self.assertEqual(len(doc['cards']), 4)
         self.assertEqual(doc['decks'], [{'deck_name': 'Perfekt: Wortbank und Schreiben', 'deck_id': 42, 'cards_count': 4}])
         self.assertEqual(len(doc['passports']), 1)
-        self.assertEqual(doc['cards'][0]['card_type'], 'word_bank')
-        self.assertEqual(doc['cards'][1]['card_type'], 'free_text')
-        self.assertEqual(doc['cards'][1]['metadata']['grading_policy']['mode'], 'open_text')
-        self.assertEqual(doc['cards'][2]['metadata']['accepted_answers'], ['Ich habe meine Freunde besucht.'])
+        self.assertEqual(doc['cards'][0]['content_v2']['card']['type'], 'word_bank')
+        self.assertEqual(doc['cards'][1]['content_v2']['card']['type'], 'free_text')
+        self.assertEqual(doc['cards'][1]['content_v2']['card']['data']['grading_policy']['mode'], 'open_text')
+        self.assertEqual(doc['cards'][2]['content_v2']['card']['data']['accepted_answers'], ['Ich habe meine Freunde besucht.'])
 
 
 if __name__ == '__main__':

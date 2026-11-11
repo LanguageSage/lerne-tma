@@ -34,6 +34,12 @@ audio path, не перезаписывая более свежие текст/�
 в worker с одним bounded read retry; cache/LOCAL files/audio redirects не открывают
 соединение. Image optimization и синхронная Storage-загрузка offload отдельно от DB.
 
+Для нативной карточки `/media/generate-card-audio` читает физическую сторону
+из `content_v2.card` и возвращает новую `revision` после условного сохранения.
+При предпрослушивании учебный клиент передаёт `structured: true` в
+`/media/generate-audio`, чтобы озвучить подготовленный текст без разбора
+авторских маркеров.
+
 ## Source of truth
 
 - В LOCAL uploads хранят файлы во внешнем `data/media`, а `TMAMedia` — metadata; чтение идёт только через media routes, missing → 404 без Supabase redirect. Генерация TTS отключена. См. [local-development](local-development.md).
@@ -98,3 +104,39 @@ rg -n 'generate_audio|ensure_card_audio|force|TMAMedia' api/services/media.py ap
 - Существующие владельцы: `useDeckImageResize` — высота, mouse/touch listeners и запись show_in_cards; `DeckAudioPlayer` — playback; `DeckMediaModal` — управление ресурсами; `ImageEditorModal` — преобразование; `useMediaUpload` — upload и замена ресурса через deck store с чтением актуальной колоды. Их состояние не дублируется; время жизни не меняется.
 - Более широкое выделение потребовало бы переноса модалок, hook/state и связей с актуальной колодой. Scroll restoration, DnD, SRS, Adaptive, API и существующая видимость/авторизация controls не меняются.
 - `scripts/tests/browser/cardlist-media.spec.cjs` включён в critical CI: источники, mixed-resource index при upload, сохранение metadata, resize, show-in-cards, роли, смена колоды, пустой fallback и 320/375/430/768/1280 px.
+
+## Native V2: этап 6B.7
+
+Inline-изображения: `content_v2.card.layout` хранит устойчивый `images/<filename>`,
+alt/подпись и фазу показа. `mediaCache.cardMediaView` добавляет отдельную производную
+карту `layout_media_urls[id]` из того же account-scoped кеша; blob URL не попадает
+в канонический JSON. `StructuredCardLayout` использует общий `StudyCardImage`
+(retry/error/alt, contain в адаптивном контейнере). Загрузка из редактора идёт
+через прежний authenticated `/media/upload-image`; существующую ссылку можно
+добавить без повторной загрузки. Очередь бинарных uploads не добавляется.
+Удаление/перестановка layout не удаляет файлы. Admin media catalog/cleanup учитывает
+inline-ссылки TMA/библиотеки, включая soft-deleted карточки; прежний WebP converter
+не заменяет immutable inline assets. Полный PG backup включает байты по существующему
+механизму и проверяет ссылки layout; обычный JSON экспорт переносит ссылки.
+
+- `mediaCache.cardMediaView` — общий владелец производных media URL онлайн-чтений
+  отдельной карточки/учебного API и `offlineApi.cardView`. Canonical paths
+  сохраняются отдельно; blob URL принадлежат текущей account-scoped Dexie.
+  Существующий кеш принимает image/audio/video с прежними лимитами 15/150 MiB,
+  четырьмя параллельными fetch и таймаутом 10 с. Это кеш открываемых файлов,
+  а не загрузчик всей колоды; внешние CORS и размер могут оставить media сетевым.
+- Native `/generate-card-audio` использует `authored_side_text(content_v2, side)`
+  и прежний детерминированный TTS cache без принудительного синтеза по умолчанию.
+  Явная перезапись передаёт `force`; повтор неизменённой привязки сохраняет revision.
+  После успеха общий `api.js` перечитывает карточку через существующую reconciliation
+  для согласованной записи путей и revision; unsent draft остаётся защищённым.
+- `StudyCard` отображает front/back video и аудио оборота без back text;
+  Word Bank использует общий `CardAudioPlayer` через `ExerciseRenderer`.
+  Плеер показывает playback/generation errors, video — loading/error,
+  изображения/аудио/видео — отсутствие сети. TTS/uploads/AI/Like-Dislike остаются
+  сетевыми функциями; бинарной очереди uploads не создавалось.
+- Регрессии: `scripts/tests/structured_cards_postgres.py --media-browser`,
+  `structured_cards_media.py`, `browser/native-media.spec.cjs`,
+  `app/src/services/__tests__/mediaCache.test.js`. Реальные Chromium/FastAPI/PG,
+  синтетические файлы и локальная подмена только TTS/Storage; подробная матрица
+  и ограничения — в `project_docs/STRUCTURED_CARDS_V2.md`, этап 6B.7.

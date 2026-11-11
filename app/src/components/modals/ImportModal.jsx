@@ -18,7 +18,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
   const [shareInfo, setShareInfo] = useState(null);
   const [conflict, setConflict] = useState(null);
   const [showMoreActions, setShowMoreActions] = useState(false);
-  
+
   const { fetchDecks, decks, folders } = useDeckStore();
   const { showToast } = useUiStore();
 
@@ -47,7 +47,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       (shareInfo.type === 'folder' && folders.some(f => f.id === shareInfo.id))
     )) ||
     isServerExists ||
-    existingFolder || 
+    existingFolder ||
     existingDeck
   );
 
@@ -173,7 +173,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
         } else if (res.data.type === 'folder') msg = tr("Папка «{{p0}}» добавлена!", { p0: itemName });
         else if (res.data.type === 'deck') msg = tr("Колода «{{p0}}» добавлена!", { p0: itemName });
         else if (res.data.type === 'card') msg = tr("Карточка добавлена в «📥 Входящие»!", {  });
-        
+
         showToast(msg, 'success');
 
         if (res.data.type === 'folder') {
@@ -224,7 +224,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     const lastName = tgUser?.last_name || user?.last_name || '';
     const username = tgUser?.username || user?.username || '';
     const photoUrl = tgUser?.photo_url || user?.photo_url || '';
-    
+
     // Construct authenticated URL for external browser with exact parameters
     const params = new URLSearchParams();
     params.set('user_id', currentUserId);
@@ -233,9 +233,9 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
     if (lastName) params.set('last_name', lastName);
     if (username) params.set('username', username);
     if (photoUrl) params.set('photo', photoUrl);
-    
+
     const browserUrl = `https://tma-amber.vercel.app/?${params.toString()}`;
-    
+
     const tg = window.Telegram?.WebApp;
     if (tg && tg.openLink) {
       tg.openLink(browserUrl);
@@ -269,13 +269,13 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
       >
         <motion.div
           className="settings-modal"
-          style={{ 
-            maxWidth: 420, 
+          style={{
+            maxWidth: 420,
             width: '100%',
-            maxHeight: 'calc(100dvh - 32px)', 
-            display: 'flex', 
-            flexDirection: 'column', 
-            overflow: 'hidden', 
+            maxHeight: 'calc(100dvh - 32px)',
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
             padding: '20px',
             margin: 'auto',
             boxSizing: 'border-box'
@@ -349,12 +349,12 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 {/* Title & Language */}
                 <div style={{ width: '100%' }}>
                   <p style={{ color: '#818cf8', fontSize: '0.92rem', fontWeight: 600, marginBottom: 4 }}>
-                    {isCollab 
-                      ? tr("Приглашение в совместный доступ:", {  }) 
+                    {isCollab
+                      ? tr("Приглашение в совместный доступ:", {  })
                       : tr("Вам отправили {{p0}}:", { p0: isFolder ? tr("папку с колодами") : (isCard ? tr("карточку") : tr("колоду")) })}
                   </p>
                   <h3 style={{ fontSize: '1.15rem', fontWeight: 700, color: 'white', margin: 0, wordBreak: 'break-word' }}>
-                    {isCard ? shareInfo.front_text : shareInfo.name}
+                    {isCard ? shareInfo.name : shareInfo.name}
                   </h3>
                   {isFolder && (
                     <p style={{ color: '#64748b', fontSize: '0.82rem', marginTop: 4, marginBottom: 0 }}>{tr("Колод:")}{' '}{shareInfo.decks_count || 0}{' '}{tr("• Карточек:")}{' '}{shareInfo.cards_count || 0}
@@ -389,7 +389,7 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     <p style={{ fontSize: '0.82rem', color: '#e2e8f0', margin: 0, lineHeight: 1.4 }}>
                       {isFolder
                         ? tr("Папка «{{p0}}» в языке {{p1}} {{p2}} уже существует. Что сделать?", { p0: conflict.name, p1: langObj.flag, p2: langObj.name })
-                        : (isCard 
+                        : (isCard
                           ? tr("Карточка уже существует в колоде <{{p0}}>. Что сделать?", { p0: conflict.existing_deck_name })
                           : tr("Колода с названием <{{p0}}> в языке {{p1}} {{p2}} уже существует. Что сделать?", { p0: conflict.name, p1: langObj.flag, p2: langObj.name })
                         )
@@ -477,8 +477,8 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
             <div style={{ width: '100%', marginTop: 16, flexShrink: 0 }}>
               {error || !shareInfo ? (
                 <div style={{ display: 'flex', justifyContent: 'center', width: '100%' }}>
-                  <button 
-                    className="btn btn-secondary" 
+                  <button
+                    className="btn btn-secondary"
                     onClick={onClose}
                     style={{ width: '100%', padding: '12px' }}
                   >{tr("Закрыть")}{' '}</button>
@@ -487,20 +487,20 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                 <div className="choice-grid" style={{ width: '100%' }}>
                   {isCard ? (
                     <>
-                      <button 
-                        className="btn btn-secondary choice-btn" 
+                      <button
+                        className="btn btn-secondary choice-btn"
                         onClick={() => handleImport('replace')}
                         disabled={importing}
                         style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', width: '100%', padding: '12px 16px' }}
                       >{tr("🔄 Заменить (удалить старую)")}{' '}</button>
-                      <button 
-                        className="btn btn-secondary choice-btn" 
+                      <button
+                        className="btn btn-secondary choice-btn"
                         onClick={() => handleImport('add')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
                       >{tr("➕ Оставить обе (добавить копию)")}{' '}</button>
-                      <button 
-                        className="btn btn-primary choice-btn" 
+                      <button
+                        className="btn btn-primary choice-btn"
                         onClick={() => handleImport('skip')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
@@ -508,26 +508,26 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     </>
                   ) : (
                     <>
-                      <button 
-                        className="btn btn-secondary choice-btn" 
+                      <button
+                        className="btn btn-secondary choice-btn"
                         onClick={() => handleImport('replace')}
                         disabled={importing}
                         style={{ background: 'rgba(239, 68, 68, 0.1)', borderColor: 'rgba(239, 68, 68, 0.2)', color: '#fca5a5', width: '100%', padding: '12px 16px' }}
                       >{tr("🔄 Заменить (удалить старые карточки)")}{' '}</button>
-                      <button 
-                        className="btn btn-secondary choice-btn" 
+                      <button
+                        className="btn btn-secondary choice-btn"
                         onClick={() => handleImport('merge')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
                       >{tr("🔀 Объединить (добавить только новые)")}{' '}</button>
-                      <button 
-                        className="btn btn-secondary choice-btn" 
+                      <button
+                        className="btn btn-secondary choice-btn"
                         onClick={() => handleImport('copy')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px' }}
                       >{tr("📂 Создать новую колоду-копию")}{' '}</button>
-                      <button 
-                        className="btn btn-primary choice-btn" 
+                      <button
+                        className="btn btn-primary choice-btn"
                         onClick={() => handleImport('cancel')}
                         disabled={importing}
                         style={{ width: '100%', padding: '12px 16px', background: 'rgba(255, 255, 255, 0.05)', color: 'white', borderColor: 'rgba(255, 255, 255, 0.1)' }}
@@ -709,9 +709,9 @@ export const ImportModal = ({ shareId, onClose, onImportSuccess }) => {
                     </div>
                   )}
 
-                  <button 
+                  <button
                     type="button"
-                    onClick={onClose} 
+                    onClick={onClose}
                     disabled={importing}
                     style={{
                       background: 'none', border: 'none', color: '#64748b',

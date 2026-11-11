@@ -1,8 +1,9 @@
+import { nativeCard } from './nativeFixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { getPhysicalSideText, getPhysicalSideAudioSource, getStudyRolePhysicalSide, resolveStudyAudio } from '../studyCardRoles.js';
 
-const card = { front: 'Deutsch', back: 'Перевод', audio_path: 'front.mp3', audio_back_path: 'back.mp3' };
+const card = nativeCard("standard", { audio_path: 'front.mp3', audio_back_path: 'back.mp3' }, {"data": {"prompt": "Deutsch", "answer": "Перевод"}});
 
 test('reverse rebinds prompt/answer while physical sides and translation keep their meaning', () => {
   assert.equal(getStudyRolePhysicalSide('prompt'), 'front');
@@ -25,7 +26,7 @@ test('audio retains URL/path fallback and does not invent recordings for future 
     assert.deepEqual(resolveStudyAudio(card, role), { audioRole: role, physicalSide: null, source: '' });
   }
   assert.equal(getPhysicalSideAudioSource(null, 'front'), '');
-  assert.equal(getPhysicalSideText({ front_text: 'alias' }, 'front'), 'alias');
+  assert.equal(getPhysicalSideText(nativeCard("standard", {  }, {"data": {"prompt": "alias", "answer": "Synthetic answer"}}), 'front'), 'alias');
 });
 
 test('logical audio roles can bind independent recordings, legacy sides or explicit absence', () => {

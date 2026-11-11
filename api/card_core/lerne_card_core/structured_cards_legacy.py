@@ -109,7 +109,7 @@ def _quiz_body(card, path):
     lines = [('[*] ' if option.correct else '[ ] ')
              + _quiz_text(option.text, f'{path}.data.options[{i}].text', option=True)
              for i, option in enumerate(card.data.options)]
-    return prompt + '\n\n' + '\n'.join(lines), correct[0].text
+    return '\n\n'.join(filter(None, (prompt, '\n'.join(lines)))), correct[0].text
 
 
 _STRUCTURAL_LINE = r'(?im)^[\s\ufeff]*(?:@(?:match|puzzle|wordbank|free|edit|theory|options)|::(?:exercise|task|source|example|options|level|topic))[\s\ufeff]*$'
@@ -191,6 +191,14 @@ def to_legacy_card(card, deck, index):
     V2 validity; this function never mutates the source or writes storage.
     """
     path = f'cards[{index}]'
+    if card.layout is not None:
+        expected = [('info', i) for i in range(len(card.info))] + [('exercise', None)]
+        actual = [(item.type, getattr(item, 'index', None)) for item in card.layout]
+        if actual != expected or any(getattr(item, 'visibility', 'before_answer') != 'before_answer'
+                                     for item in card.layout):
+            raise LegacyConversionError(f'{path}.layout: use JSON V2 export to preserve composition and media')
+    if any(block.type == 'text' for block in card.info):
+        raise LegacyConversionError(f'{path}.info: plain text blocks require JSON V2 export')
     if card.type == 'theory':
         body, back = card.data.text, card.data.summary
     elif card.type == 'standard':
@@ -217,6 +225,9 @@ def to_legacy_card(card, deck, index):
         body, back = _editable_text_body(card, path)
     else:
         raise LegacyConversionError(f'{path}.type: {card.type} conversion is not implemented')
+
+    if card.type in ('trainer', 'quiz', 'match') and card.data.back_note:
+        back = card.data.back_note
 
     pieces, expected_info = [], []
     if card.type == 'theory':

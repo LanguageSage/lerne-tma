@@ -84,7 +84,7 @@ def get_range_response(request: Request, content: bytes, media_type: str) -> Res
     file_size = len(content)
     range_header = request.headers.get("range")
     etag = f'"{hashlib.md5(content[:1024]).hexdigest()}"'
-    
+
     cors_headers = {
         "Access-Control-Allow-Origin": "*",
         "Access-Control-Allow-Methods": "*",
@@ -110,12 +110,12 @@ def get_range_response(request: Request, content: bytes, media_type: str) -> Res
         byte_range = range_header.replace("bytes=", "").split("-")
         start = int(byte_range[0]) if byte_range[0] else 0
         end = int(byte_range[1]) if len(byte_range) > 1 and byte_range[1] else file_size - 1
-        
+
         if start >= file_size or end >= file_size:
             return Response(status_code=416, headers={"Content-Range": f"bytes */{file_size}", "Access-Control-Allow-Origin": "*"})
-            
+
         chunk = content[start:end+1]
-        
+
         range_cors_headers = {
             **cors_headers,
             "Content-Range": f"bytes {start}-{end}/{file_size}",
@@ -144,7 +144,7 @@ async def upload_image(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Image file is empty")
-    
+
     # Мы всё равно проверяем формат перед сжатием
     try:
         image = Image.open(io.BytesIO(content))
@@ -200,12 +200,12 @@ def _prepare_card_audio_request(card_id, side, data, user_id):
     if not can_edit_audio(user_id, 'deck', card.deck_id):
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
 
-    card_source_text = card.front_text if side == 'front' else card.back_text
+    from api.services.structured_card_api import require_native, authored_side_text
+    require_native(card)
+    source = card.content_v2
+    text_value = authored_side_text(source, side)
     field = 'audio_back_path' if side == 'back' else 'audio_path'
     previous_path = getattr(card, field)
-    text_value = data.get('text')
-    if not isinstance(text_value, str) or not text_value.strip() or (card_source_text and ("*" in card_source_text or "✅" in card_source_text)):
-        text_value = card_source_text
     if not text_value or not text_value.strip():
         raise HTTPException(status_code=400, detail="Text is required")
 
@@ -218,7 +218,7 @@ def _prepare_card_audio_request(card_id, side, data, user_id):
         voice = settings.get(f'TTS_VOICE_{clean_lang.upper()}') or settings.get('TTS_VOICE') or LANG_DEFAULT_VOICES.get(clean_lang, LANG_DEFAULT_VOICES['de'])
         rate = _normalize_tts_rate(settings.get('TTS_SPEED_RU' if clean_lang == 'ru' else 'TTS_SPEED')) or rate
 
-    return card_source_text, field, previous_path, text_value.strip(), voice, rate
+    return source, field, previous_path, text_value.strip(), voice, rate
 
 
 def _persist_card_audio(card_id, side, user_id, card_source_text, field, previous_path, path):
@@ -228,24 +228,28 @@ def _persist_card_audio(card_id, side, user_id, card_source_text, field, previou
         (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
     if not card or not can_edit_audio(user_id, 'deck', card.deck_id):
         raise HTTPException(status_code=403, detail="Audio editing is not allowed for this shared item")
-    text_field = models.TMA_Card.front_text if side == 'front' else models.TMA_Card.back_text
-    changed = models.TMA_Card.update(**{
-        field: path, 'updated_at': models.datetime.datetime.now()
-    }).where(
-        (models.TMA_Card.id == card_id) &
-        (models.TMA_Card.deck_id == card.deck_id) &
-        (models.TMA_Card.is_deleted == False) &
-        (text_field == card_source_text) &
-        (getattr(models.TMA_Card, field) == previous_path)
-    ).execute()
-    if changed != 1:
-        raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
+    same_content = (models.TMA_Card.content_v2 == card_source_text)
+    updates = {field: path}
+    if path != previous_path:
+        updates['updated_at'] = models.datetime.datetime.now()
+    with models.tma_db.atomic():
+        changed = models.TMA_Card.update(**updates).where(
+            (models.TMA_Card.id == card_id) &
+            (models.TMA_Card.deck_id == card.deck_id) &
+            (models.TMA_Card.is_deleted == False) &
+            same_content &
+            (getattr(models.TMA_Card, field) == previous_path)
+        ).execute()
+        if changed != 1:
+            raise HTTPException(status_code=409, detail="Card changed while audio was being generated")
+        from api.services.structured_card_api import content_response
+        return content_response(models.TMA_Card.get_by_id(card_id))['revision']
 
 
 @router.post("/generate-audio")
 @db_phases
 async def generate_audio_endpoint(
-    data: dict = Body(None), 
+    data: dict = Body(None),
     text: str = Query(None),
     lang: str = Query("de"),
     voice: str = Query(None),
@@ -265,7 +269,7 @@ async def generate_audio_endpoint(
     lang = _clean_param(lang, "de")
     voice = _clean_param(voice)
     rate = _clean_param(rate)
-    
+
     if not text:
         raise HTTPException(status_code=400, detail="Text is required")
 
@@ -291,7 +295,7 @@ async def generate_audio_endpoint(
             voice = db_settings.get("TTS_VOICE_EN") or LANG_DEFAULT_VOICES["en"]
         else:
             voice = db_settings.get(f"TTS_VOICE_{clean_lang.upper()}") or LANG_DEFAULT_VOICES.get(clean_lang, LANG_DEFAULT_VOICES["de"])
-            
+
     # 3. Определяем скорость
     if not rate:
         if lang == "de":
@@ -301,25 +305,25 @@ async def generate_audio_endpoint(
         else:
             rate = db_settings.get("TTS_SPEED")
     rate = _normalize_tts_rate(rate) or "+0%"
-    
+
     logger.info(f"AUDIO GENERATION START: Text='{text[:30]}...', Voice={voice}, Rate={rate}, Boundaries={with_boundaries}")
-            
+
     try:
         from api.utils import audio
         result, word_boundaries = await audio.generate_audio(
             text, voice=voice, rate=rate, with_boundaries=with_boundaries
         )
-        
+
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
-            
+
         if result.startswith("http"):
             return {
                 "path": result,
                 "url": result,
                 "word_boundaries": word_boundaries
             }
-        
+
         raise HTTPException(status_code=503, detail="Audio was not saved to permanent Storage")
     except HTTPException:
         raise
@@ -347,7 +351,8 @@ async def generate_card_audio_endpoint(
 
     try:
         from api.utils.audio import generate_audio
-        result = await generate_audio(text_value.strip(), voice=voice, rate=rate, force=True)
+        result = await generate_audio(text_value.strip(), voice=voice, rate=rate,
+                                      force=data.get('force') is True)
         result = result[0] if isinstance(result, tuple) else result
         if not result:
             raise HTTPException(status_code=500, detail="Failed to generate audio")
@@ -357,9 +362,12 @@ async def generate_card_audio_endpoint(
         path = result
         url = result
 
-        await run_db(_persist_card_audio, card_id, side, user_id,
-                     card_source_text, field, previous_path, path)
-        return {'path': path, 'url': url}
+        revision = await run_db(_persist_card_audio, card_id, side, user_id,
+                                card_source_text, field, previous_path, path)
+        result = {'path': path, 'url': url}
+        if revision is not None:
+            result['revision'] = revision
+        return result
     except HTTPException:
         raise
     except Exception as exc:
@@ -378,7 +386,7 @@ async def upload_audio_file(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Audio file is empty")
-    
+
     # 20MB max
     if len(content) > 20 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Audio is too large. Maximum size is 20 MB")
@@ -386,7 +394,7 @@ async def upload_audio_file(
     filename = f"aud_{user_id}_{uuid.uuid4().hex[:12]}.mp3"
     if is_local():
         return await run_db(_save_local_media, 'audio', filename, content)
-    
+
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_KEY")
     if supabase_url and supabase_key:
@@ -421,7 +429,7 @@ class MediaMemoryCache:
         size = len(content)
         if size > 10 * 1024 * 1024:
             return
-        
+
         if key in self.cache:
             old_content, _ = self.cache[key]
             self.current_bytes -= len(old_content)
@@ -496,7 +504,7 @@ async def get_image(filename: str, request: Request):
         supabase_url = os.environ.get("SUPABASE_URL", "https://wdopyuulhiykrextyvnt.supabase.co").rstrip("/")
         direct_url = f"{supabase_url}/storage/v1/object/public/images/{storage_object_path(clean_filename)}"
         return RedirectResponse(url=direct_url, status_code=307)
-    
+
     # Handle legacy/archived zstandard-compressed images
     if content.startswith(b'\x28\xb5\x2f\xfd'):
         try:
@@ -518,7 +526,7 @@ async def get_image(filename: str, request: Request):
     else:
         ext = clean_filename.split('.')[-1].lower()
         media_type = f"image/{ext}" if ext != 'jpg' else "image/jpeg"
-    
+
     _media_cache.set('images', clean_filename, content, media_type)
     return get_range_response(request, content, media_type)
 
@@ -532,7 +540,7 @@ async def upload_video(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Video file is empty")
-    
+
     # 20MB max for now
     if len(content) > 20 * 1024 * 1024:
         raise HTTPException(status_code=413, detail="Video is too large. Maximum size is 20 MB")
@@ -565,7 +573,7 @@ async def upload_background(
     content = await file.read()
     if not content:
         raise HTTPException(status_code=400, detail="Background file is empty")
-    
+
     filename = f"bg_{user_id}_{uuid.uuid4().hex[:12]}.mp4"
     if is_local():
         return await run_db(_save_local_media, 'backgrounds', filename, content)

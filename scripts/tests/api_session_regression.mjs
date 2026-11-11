@@ -5,6 +5,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { IS_LOCAL } from '../../app/src/utils/localMode.js';
 import axios from '../../app/node_modules/axios/index.js';
+import { generationError, observeServerGeneration } from '../../app/src/services/serverGeneration.js';
 
 const source = ['networkApi.js', 'api.js'].map(name => readFileSync(
   new URL(`../../app/src/services/${name}`, import.meta.url), 'utf8')).join('\n')
@@ -21,7 +22,9 @@ function fixture() {
     get session() { return session; }, set session(value) { session = value; },
     set userId(value) { userId = value; },
   };
-  const context = { IS_LOCAL,
+  const context = { IS_LOCAL, generationError, observeServerGeneration,
+    getLocalDb: () => ({ syncState: { get: async key => key === 'serverGeneration'
+      ? { generation: 'a'.repeat(64) } : undefined } }),
     axios: { isCancel: axios.isCancel, CanceledError: axios.CanceledError, create: config => axios.create({ ...config, adapter: async config => {
       calls.push(config);
       return f.transport(config);
@@ -218,6 +221,14 @@ test('expected-account mismatch cancels before sending without offline fallback'
   await assert.rejects(f.proxy.get('/decks', { _expectedUserId: 202 }), error => error.code === 'ERR_CANCELED');
   assert.equal(f.calls.length, 0);
   assert.equal(f.refreshes, 0);
+});
+
+test('an operation captured before re-login cannot use the new session of the same account', async () => {
+  const f = fixture();
+  f.session = { ...f.session, client_session_id: 'session-b' };
+  await assert.rejects(f.api.patch('/cards/42', {}, { _expectedUserId: 101, _expectedSessionIdentity: 'session-a' }),
+    error => error.code === 'ERR_CANCELED');
+  assert.equal(f.calls.length, 0);
 });
 
 test('timeout exposes the existing 504 detail and skips offline fallback', async () => {

@@ -6,11 +6,13 @@ import { triggerHaptic } from '../../utils/platform';
 import { getDesignStylesFromV2, getHarmonizedOptionStyles } from '../../utils/cardStyles';
 import { stripMarkdown } from '../../utils/text';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
+import { shuffleFY } from '../../utils/shuffle.js';
 import { evaluateQuizOption, quizPartId } from '../../utils/quizEvaluation.js';
 
 export const StudyCardQuiz = ({
   card,
   quizData,
+  backNote,
   onTrainerAnswer,
   renderAudioPlayer,
   designConfig,
@@ -21,7 +23,10 @@ export const StudyCardQuiz = ({
   const [selectedOptionId, setSelectedOptionId] = useState(savedState?.selectedOptionId ?? null);
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const isChecked = evaluation.state.completed;
-  const [optionOrder] = useState(() => savedState?.optionOrder || quizData.options.map(option => option.id));
+  const [optionOrder] = useState(() => {
+    const ids = quizData.options.map(option => option.id);
+    return savedState?.optionOrder || (backNote === undefined ? ids : shuffleFY(ids));
+  });
   const options = useMemo(() => optionOrder.map(id => quizData.options.find(option => option.id === id)).filter(Boolean), [optionOrder, quizData.options]);
 
   const v2Text = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
@@ -35,7 +40,7 @@ export const StudyCardQuiz = ({
   if (!card || !quizData) return null;
 
   const { question } = quizData;
-  const backText = stripMarkdown(card?.back || '').trim().toLowerCase();
+  const backText = stripMarkdown(backNote ?? card?.back ?? '').trim().toLowerCase();
   const displayQuestion = (question && question.trim().toLowerCase() === backText) ? null : question;
 
   const handleSelectOption = (optionId, e) => {
@@ -70,7 +75,7 @@ export const StudyCardQuiz = ({
     return str.replace(/\s+([?!.,;:])/g, '$1').trim();
   };
 
-  const cleanDisplayQuestion = displayQuestion ? formatPunctuation(displayQuestion) : null;
+  const cleanDisplayQuestion = backNote !== undefined ? question : displayQuestion ? formatPunctuation(displayQuestion) : null;
 
   return (
     <div className="quiz-container" style={{ width: '100%', padding: '4px 0' }}>

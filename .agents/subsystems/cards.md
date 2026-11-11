@@ -11,92 +11,85 @@
 
 | Задача | Файлы |
 | --- | --- |
-| Форма и редактор содержимого | `app/src/components/common/CardForm.jsx`, `app/src/components/common/CardContentEditor.jsx`, `app/src/components/common/CardContentEditor.css` |
+| Форма и редактор содержимого | `app/src/components/common/CardForm.jsx`, `app/src/components/common/StructuredCardFields.jsx`, `app/src/components/common/CardForm.css` |
 | Создание, редактирование и сохранение | `app/src/components/deckgrid/CardCreator.jsx`, `app/src/components/deckgrid/CardEditor.jsx`, `app/src/hooks/useCardEditor.js` |
 | Список / действия / возврат | `app/src/components/deckgrid/CardList.jsx`, `app/src/components/deckgrid/DeckActionsMenu.jsx`, `app/src/hooks/useCardActions.js`, `app/src/hooks/useCardNavigation.js`, `app/src/utils/navigation.js` |
 | Batch import | `app/src/components/modals/BatchCardModal.jsx`, `app/src/hooks/usePendingImport.js`, `app/src/utils/batchCardParser.js` |
-| Синтаксис и распознавание | `app/src/utils/cardEditorSyntax.js`, `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js`, `api/services/input_parser.py` |
+| Синтаксис и распознавание | `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js`, `api/services/input_parser.py` |
 | Парсеры упражнений | `app/src/utils/wordBankParser.js`, `app/src/utils/clozeParser.js`, `app/src/utils/matchParser.js`, `app/src/utils/quizParser.js`, `app/src/utils/freeTextParser.js` |
-| Structured Cards V2 (Authoring → DSL) | `api/services/structured_cards_v2.py`, `api/services/structured_cards_legacy.py`, `api/services/author_service.py`, `lerne-admin:src/lerne_admin/services/structured_preview.py` |
-| Сеть / хранение | `api/routers/cards.py`, `api/services/cards.py`, `api/services/card_content_service.py`, `app/src/services/offlineApi.js` |
-| Перенос между колодами | `api/services/card_transfer.py` (`batch_copy_cards`, `batch_move_cards`, `normalize_card_key`); совместимые реэкспорты в `cards.py` и `api.services` |
+| Structured Cards V2 (authoring) | `api/services/structured_cards_v2.py`, `api/services/structured_cards_legacy.py`, `api/services/author_service.py`, `lerne-admin:src/lerne_admin/services/structured_preview.py` |
+| Сеть / хранение | `api/routers/cards.py`, `api/services/cards.py`, `api/services/structured_card_api.py`, `api/services/structured_card_storage.py`, `app/src/services/offlineApi.js` |
+| Перенос между колодами | `api/services/structured_card_api.py` (`copy_cards`, `move_cards`), UUID receipts и revisions |
 
 ## Data flow
 
-1. CardCreator/CardEditor → CardForm → CardContentEditor редактирует `cardData.front`.
-   Панель действий CardForm расположена между лицевой и обратной сторонами. Для существующего Quiz генерацию заменяет «Разбор теста»; «Выполнить просьбу» находится рядом с «Дополнительно». Контракт и проверки — в [AI](ai.md#одиночный-разбор-существующего-quiz).
-2. `cardEditorSyntax.js` использует `parseExerciseContent` для проекции и вставки команд в исходный текст.
-3. `useCardEditor.js` → API-клиент → `/cards/save` → server `save_card` (`card_content_service.apply_card_content`) либо offline API → Dexie.
-4. BatchCardModal разбирает ввод и отправляет `/cards/bulk-save`; pending import хранит исходный payload и `import_id` для повтора.
-5. Серверный bulk-save фиксирует результат импорта через `TMAOfflineBatch`; AI batch имеет отдельный путь в [ai](ai.md).
-6. В «Авторе» (`api/services/author_service.py`) документ V2 JSON (`schema_version: "lerne.structured-card.v2"`) валидируется через `structured_cards_v2.py`, детерминированно компилируется в legacy DSL через `structured_cards_legacy.py` с round-trip проверкой и публикуется через `bulk_save_cards`.
+### Native V2: свободная композиция
 
-## Source of truth
+Необязательный `card.layout` принадлежит схеме общего `lerne-card-core` 0.1.6.
+Элемент имеет постоянный `id` и тип `info` (ссылка `index` в единственный
+`card.info`), `exercise` (единственное место `card.data`) либо `image`
+(`path: images/<filename>`, `alt`, `caption`). Каждый info используется ровно
+один раз; упражнение — ровно одно. Порядок массива — авторский порядок.
+`info.type: text` сохраняет обычный текст/Markdown и переносы строк.
+`visibility: before_answer | after_answer` у info/image не выводится из позиции.
+Без layout прежний порядок info → упражнение сохраняется.
 
-- Визуальное отображение `back` и `context` при изучении использует общий `app/src/components/common/MarkdownRenderer.jsx` (`react-markdown` + `remark-gfm`); список карточек отображает Markdown только в переводе. В CardForm это два постоянно открытых textarea «Обратная сторона» и «Контекст» в отдельных рамках `.card-form-text-field`, без сворачивания и предпросмотров; они редактируют исходный текст без преобразования Markdown. HTML в рендерере пропускается, URL фильтрует react-markdown; таблицы прокручиваются внутри поля. `front`, его редактор/маркеры/парсеры, сохранённые данные и глобальный `stripMarkdown()` этим рендерером не изменяются. Регрессии: `scripts/tests/browser/card-markdown.spec.cjs` (семантика, HTML/JS, стили, raw save, список/редактор, 320–430 px, tablet и desktop).
+`StructuredCardLayout.jsx` компонует существующие упражнения всех девяти типов;
+`StructuredCardFields.jsx` и `utils/cardLayout.js` изменяют тот же draft формы/JSON.
+Удаление info перенумеровывает только ссылки; перестановка сохраняет IDs и data.
+Импорт Codex допускает info после упражнения и создаёт layout в исходном порядке.
+V2→legacy preview отклоняет непредставимую композицию вместо потери данных.
+Новый image path при записи проверяется по существующему каталогу TMAMedia;
+неизменённые старые ссылки не блокируют правку текста. Схема БД не меняется.
 
-- Исходный текст формы — `cardData.front`; сохранённый текст — `TMA_Card.front_text` в `api/models.py` и запись Dexie.
-- Открытие/закрытие редактора, предпросмотр и сохранение не пересобирают исходный текст. Старые утилиты Simple-проекции остаются совместимыми, но основной UI использует предпросмотр и один исходный текст.
-- Официальные информационные маркеры распознаёт `exerciseContentParser.js`; кнопка «Подсказка» вставляет `::source`.
-- Команды вставки определены в `cardEditorSyntax.js`; `::hint` не входит в официальный набор маркеров.
-- Структура панели определяется `editorCommandGroups` в `cardEditorSyntax.js`; информационные команды назначают роль выделенному тексту. `wrapEditorBlock` сохраняет соседние части и их роли, добавляет необходимые границы `::exercise`, включая legacy-границы по пустым строкам. Выделение тела целого блока либо блока с маркером меняет его роль без вложения; без выделения создаётся пустой блок у курсора. Пересечение нескольких блоков и разрезание полей ответа отклоняются с сообщением. Команды тренажёра сохраняют прежнюю вставку шаблонов.
-- Верхняя область — предпросмотр физического FRONT: `CardFrontContent.jsx` общий с обычной карточкой StudyCard, `ExerciseRenderer` общий с упражнениями. Предпросмотр обновляется из того же `cardData.front`, наследует оформление; его controls отключены через fieldset, callbacks обучения/оценки не передаются. Блоки обычного текста и информации сохраняют исходный порядок.
-- Редактор исходной разметки постоянно открыт для новых и существующих карточек. Предпросмотр изначально скрыт; «Показать предпросмотр» / «Скрыть предпросмотр» раскрывает и сворачивает только его, сохраняя textarea, выделение и историю правок. Все информационные маркеры постоянно видны над текстом; команды тренажёра и правки — под текстом. Нажатия, Escape и клик снаружи не скрывают команды. Textarea автоматически растёт при вводе и изменении ширины. История правок поддерживает одну отмену на преобразование, группировку набора, Ctrl/Cmd+Z, повтор и отдельные touch-кнопки; фокус, выделение, прокрутка и CRLF сохраняются. «Выполнить просьбу» остаётся рядом с переключателем. Проверки: `scripts/tests/browser/card-editor-source.spec.cjs`, `card-editor.spec.cjs` и `cardEditorSyntax.test.js`.
-- В online-режиме результат сохраняет сервер, в offline — Dexie; перенос данных описан в [sync](sync.md).
-- Порядок карточек, удаление и повторный импорт определяются серверной логикой и соответствующими offline handlers.
+Точные поля, граница доступа к ответам и контракт для отдельного конвертера V1→V2:
+[STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#свободная-композиция-layout-и-inline-изображения).
+Регрессии: `cardLayout.test.js`, `test_structured_cards_v2.py`,
+`test_structured_cards_import.py`; `structured_cards_postgres.py --layout-browser`
+и `structured_cards_admin.py --admin-root <explicit checkout>` используют
+только новый disposable PostgreSQL, синтетические файлы и loopback HTTP.
 
-## Ключ дубликата online/offline
+Текущий контракт TMA и Admin описан в
+[этапе 5](../../project_docs/STRUCTURED_CARDS_V2.md#этап-5-редакторы-и-публикация).
+`StructuredCardFields.jsx` изменяет черновик `content_v2`, API проверяет
+пакет `lerne-card-core`, а сохранение и открытие используют ревизию.
+`CardForm` переключает типизированную форму и полный исходный JSON envelope.
+Буквальный текст хранится в локальном поле черновика `content_v2_source`;
+при корректной структуре он обновляет тот же `content_v2`. Общий `saveCard`
+разбирает исходник также для внешних callers (включая local publication),
+не передаёт UI-поле по сети и использует существующую очередь Dexie.
+Синтаксическая ошибка сохраняет текст для исправления и блокирует запись;
+доменная валидация остаётся серверной. Регрессии: `cardDraft.test.js`,
+all-types create/edit в `native-offline-create.spec.cjs`; матрица — этап 6B.8c
+в `project_docs/STRUCTURED_CARDS_V2.md`.
+## Единственный рабочий формат — Native JSON V2
 
-`api/services/card_transfer.py:normalize_card_key` (также доступен из `cards.py`) и
-`app/src/services/offlineApi.js:normalizeCardKey` используют один контракт для
-строк FRONT (null/пустая строка дают пустой ключ): NFKC → оставить только Unicode
-категории Letter/Mark/Number (`L`, `M`, `N`) → locale-independent lowercase →
-NFKC. Последняя нормализация соединяет знаки после фильтрации/смены регистра
-(например, `J` + caron → `ǰ`) и делает ключ стабильным при повторном применении.
-Пробелы, пунктуация, `_`, символы и emoji игнорируются; границы слов не учитываются
-(`Guten Tag` = `guten-tag`). Диакритика и `ß` сохраняются: `schön` ≠ `schon`,
-`Maße` ≠ `Masse` ≠ `Mae`. Casefold и транслитерация не применяются.
+CardForm и StructuredCardFields редактируют полный `content_v2`. Девять типов,
+layout, metadata, media и авторские ID сохраняются без компиляции в V1.
+ExerciseRenderer, список, поиск, Knowledge и SRS читают V2 напрямую.
 
-Ключ вычисляется только при сравнении в batch copy/move; пустой ключ не считается
-совпадением. FRONT/BACK/context, сохранённые записи и схема БД не нормализуются и
-не мигрируют. Режимы skip/overwrite/keep сохраняют своё назначение; overwrite
-по-прежнему явно заменяет содержимое совпавшей карточки исходным текстом.
-Общий синтетический корпус: `tests/fixtures/card_key_normalization.json`;
-Python: `scripts/tests/test_card_key_normalization.py`; реальный JS/Dexie:
-Unicode cases в `scripts/tests/browser/offline.spec.cjs` (critical CI).
-`api/admin_contract.json` обновляет только import fingerprint: это совместимое
-исправление сравнения, без изменения wire format, схемы и версии import v2.
+`structured_card_api.py` владеет create/update/bulk/copy/move/delete/restore/reorder,
+permissions, revisions, UUID receipts и обновлением времени колоды/папок.
+`structured_card_storage.py` выполняет строгую V2-запись. `cards.py` оставляет
+выборку/форматирование для обучения и пакетные AI-квитанции; старые save/bulk/transfer
+реализации и реэкспорты удалены. PostgreSQL single-content-source CHECK сохранён.
 
-## Серверные границы карточек
+Ключ дубликата — полный нативный контент (`cardDuplicateKey` / серверный digest),
+без нормализации FRONT. Move сохраняет ID и личные связи; copy переносит авторские
+Knowledge mappings, но не личный прогресс. Записи в read-only глобальные материалы
+по-прежнему требуют серверного разрешения.
 
-`cards.py` сохраняет публичный вход для существующих роутеров и импортов.
-Ответственности распределены так:
+Author/Codex импорт использует общий `structured_cards_import.import_documents`:
+Codex — входной авторский синтаксис, результат только V2. Экспорт — JSON Document
+или массив документов папки. Авторский card.id не заменяется ID строки БД;
+экспортные ссылки лежат в deck.metadata.source_deck_id/source_card_ids.
+Паспорта без карточек поддерживаются тем же парсером. Обновление по ID сверяет
+preview под блокировками; изменения паспорта и карточек фиксируются атомарно.
 
-| Функции | Ответственность / зависимости |
-| --- | --- |
-| `save_card`, `delete_card`, `set_card_flag`, `batch_delete_cards` | Сохранение содержимого через `card_content_service`, удаление, личные флаги; модели, permissions, media, история и метки синхронизации |
-| `batch_copy_cards`, `batch_move_cards`, `normalize_card_key` → `card_transfer.py` | Перенос между колодами: порядок, skip/overwrite/keep, одна транзакция и обновление колод/родительских папок; только модели, Peewee, permissions и проверка аудио |
-| `_build_card_dict`, `format_card_for_study`, `get_cards_for_study`, `get_next_card` | Проекция карточки/прогресса, media URL, metadata и выбор карточки через существующий SRS |
-| `get_duplicate_cards`, `get_next_duplicate_card` | Существующий поиск по точному FRONT и выбор дубликата; не использует нормализацию переноса |
-| `prepare_ai_batch`, `_ai_batch_hash`, `_replay_ai_batch`, `save_ai_batch_result`, `bulk_save_cards` | Авторизация, сохранение через `save_card`, форматирование результата и идемпотентные квитанции `TMAOfflineBatch` |
-| `get_deck_stats_counts`, `_norm`, `search_all_in_scope` | Статистика и поиск в доступной области; нормализация поиска отличается от ключа дубликата |
-
-`card_transfer.py` не импортирует `cards.py`, SRS, AI или сериализацию карточки.
-Copy требует чтения источника и записи назначения; move — записи обоих.
-Move сохраняет ID/прогресс, overwrite мягко удаляет источник; copy не переносит
-личный прогресс. Проверки прав, аудио, порядок операций и границы транзакций
-перенесены без изменения. Реэкспорты не добавляют второй слой реализации.
-Сохранение/AI-импорт оставлены вместе: их текущие вызовы `save_card` и форматирование
-создали бы обратную зависимость при таком же простом выделении.
-
-## Theory
-
-- `@theory` отдельной строкой в FRONT задаёт `card_type: theory`. Маркер остаётся в исходнике для редактирования и экспорта. `exerciseContentParser.js` / `input_parser.py` исключают его из визуального и TTS-представления, возвращая `isTheory` / `is_theory`; буквальное упоминание внутри непрерывного информационного блока не задаёт тип.
-- `detectCardType` определяет обозначение типа для списка, редакторского сохранения и batch import. `detectExerciseType` оставляет Theory на обычном неинтерактивном пути Standard, даже при вопросах и cloze-примерах. Другие приоритеты типов сохранены.
-- Список использует существующий `CardTypeBadge` с 📚 Theory. Online/offline сохраняют существующее поле `card_type`; миграций нет. Канонический экспорт «Автора» сохраняет FRONT с маркером, серверная модель обновления текста принимает `theory`.
-- Правила агентов: `lerne-card-prompts/types/theory.md`; одиночное и пакетное AI-обогащение сохраняют исходный FRONT Theory.
-- Регрессии: `theoryCards.test.js`, `scripts/tests/test_theory_cards.py`, Theory cases в `test_ai_batch_contract.py`, `scripts/tests/browser/theory-cards.spec.cjs`.
-
+Старый редактор DSL, CardContentEditor, cardEditorSyntax, V1 write gateway и
+card_transfer удалены. Конвертеры/аудит старых архивов остаются отдельными
+одноразовыми инструментами до финальной приёмки. Они не вызываются обычным UI/API.
+Старые offline очереди сохраняются в рамках TD-001, без автоматической конвертации.
 
 ## Common symptoms
 
@@ -140,13 +133,9 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Quiz: `findQuizOptionStart`, `parseQuizOption` и `formatQuizText` в `quizParser.js` задают общие границы, маркеры и отображаемый текст для обучения и `projectQuizSection`, включая `A)Текст`, `[ ]`/`[*]` и legacy-варианты без префиксов. Предпросмотр редактора использует тот же `StudyCardQuiz` через `ExerciseRenderer`; правки текста и правильности выполняются в исходной разметке. Одиночные квадратные скобки сохраняются; `**жирный текст**` не является маркером правильного ответа. Открытие/закрытие редактора и сохранение не пересобирают Markdown. Регрессии B1-29-D02 и форматирования: `app/src/utils/__tests__/quizParser.test.js`, `scripts/tests/browser/card-editor.spec.cjs` (правка source, точное сохранение, сравнение с обучением на 320 px и desktop).
 - Явный `::exercise` может начинаться сразу с `[ ]`/`[*]`: вопрос из `::task`/`::source` не требуется дублировать в теле Quiz. Предпросмотр и обучение показывают информационные блоки и кнопки без добавленного заголовка. По-прежнему нужны минимум два непустых варианта и правильный ответ; неразмеченный текст требует вопроса. JS/Python boundary helpers принимают опциональный `allowEmptyQuestion`/`allow_empty_question`; детекторы сохраняют сведения о маркере. Пакет 0.1.2; регрессии в `quizParser.test.js`, `test_exercise_detection_corpus.py`, `test_single_quiz_analysis.py`, `card-editor.spec.cjs`.
 - Граница Quiz проверяется целым блоком: `[ ]`/`[*]`/`[x]` имеют приоритет перед нумерацией условия; весь остаток должен состоять из вариантов (допускается legacy-звёздочка вместо checkbox). Буквенные/цифровые/маркированные варианты образуют конечный согласованный блок, включая пустые строки между вариантами; legacy без обозначений требуют отдельного последнего абзаца. Смешанные буквенные/цифровые обозначения, повторные номера, разрыв вариантов текстом и незавершённые блоки не угадываются: обучение использует обычный текстовый путь, редактор — исходные текстовые поля или Raw. Python `find_quiz_option_start`/`parse_quiz_options` в `api/card_core/lerne_card_core/input_parser.py` повторяет правила для `detect_card_type` и серверного «Разбора теста»; `detect_ai_input_type` остаётся эвристикой нового AI-ввода. Синтетические fixtures двух примеров: `tests/fixtures/quiz_boundaries.json`; JS `quizParser.test.js`, Python `test_exercise_detection_corpus.py`, browser `card-editor.spec.cjs` (320/1330 px, сохранение точного FRONT). Пакет 0.1.1 обновляет parser hashes; схема хранения и версия card JSON-контракта прежние.
-- Structured Cards V2 и компиляция в DSL: `scripts/tests/test_structured_cards_v2.py`, `scripts/tests/test_author_service.py`, `scripts/tests/test_card_content_service.py`.
 - Редактор в браузере: `scripts/tests/browser/card-editor-source.spec.cjs`, `scripts/tests/browser/card-editor.spec.cjs`.
-- Перенос: `scripts/tests/test_card_transfer.py` (импорты, порядок, дубликаты внутри
   выбора, неизменность прогресса/истории, авторизация всего выбора, rollback,
   timestamps родителей, legacy/collab/v2 pull, move в ту же колоду),
-  `test_card_key_normalization.py` и Unicode batch cases в `browser/offline.spec.cjs`.
-- Batch import: `scripts/tests/test_bulk_import_idempotency.py`, `scripts/tests/test_bulk_save_partial_failure.py`.
 - Возврат в список: `scripts/tests/test_card_scroll_restoration.mjs`.
 - Меню колоды: `DeckActionsMenu` владеет открытием меню/подменю, outside mouse/touch listeners и обработчиками действий. CardList передаёт колоду, права, папки и callback открытия своей медиамодалки. Регрессии в CI: `scripts/tests/browser/cardlist-menu.spec.cjs` (роли/inbox, события, действия и ошибки, 320/375/430/768/1280 px).
   Header CardList переносит кнопки по доступной ширине; открытое меню поднимает его stacking context над FAB. `DeckActionsMenu` ограничивает высоту оставшимся viewport, сохраняет отдельную прокрутку папок, закрывается по Escape с возвратом фокуса и при уходе фокуса наружу. Browser-регрессии проверяют геометрию/hit testing, длинные папки, touch scroll и Tab на пяти размерах. Гостевой баннер использует border-box, чтобы padding не расширял app-container.
@@ -172,7 +161,6 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Извлечение служебных ID: `cardTextMetadata.js`; `cardTextUpdateParser.js` передаёт содержимое существующему batch/exercise parser, собирает все ошибки и сохраняет пустой BACK/формат CONTEXT. Обычный импорт по-прежнему создаёт новые карточки и игнорирует ID в преамбуле.
 - Сервер: `api/services/card_text_update.py`; preview сравнивает только front/back/context, CEFR и topics. Apply проверяет роль owner/editor, принадлежность card_id/deck_id, fingerprint текущего контента и выполняет content UPDATE одной транзакцией. SRS/история/медиа сохраняются, отсутствующие в файле карточки не удаляются.
 - UI: `DeckTextUpdateModal.jsx`; online service `cardTextUpdate.js` сохраняет точный запрос в account-scoped Dexie syncState до HTTP apply. Квитанция TMAOfflineBatch защищает повтор после потерянного ответа; новые карточки требуют отдельного флажка.
-- Тесты: `cardTextUpdate.test.js`, `scripts/tests/test_card_text_update.py`, `scripts/tests/browser/card-text-update.spec.cjs`. Формат, поведение и ограничения: [CARD_TEXT_UPDATE](../../docs/CARD_TEXT_UPDATE.md).
 
 ## Обновление карточек в дереве папки
 
@@ -207,21 +195,27 @@ rg -n 'detect_card_type|to_legacy_card|validate_document_v2' api/services/input_
 - Формат и правила генерации: [DECK_PASSPORT](../../docs/DECK_PASSPORT.md),
   [common.md](../../lerne-card-prompts/common.md), [validation.md](../../lerne-card-prompts/validation.md).
 
-## Structured Cards V2 (Authoring → DSL) и единый шлюз записи контента
+## Нативный импорт Structured Cards V2
 
-- **Единый детектор типа карточки**: `detect_card_type(text)` в `api/services/input_parser.py` синхронизирован с клиентским `detectExerciseType` в `app/src/utils/exerciseDetector.js` (включая `@theory`, непрозрачность информационных блоков и приоритеты директив). Нулевое расхождение между Python и JS проверяется на синтетическом корпусе `tests/fixtures/exercise_detection_corpus.json` (`scripts/tests/test_exercise_detection_corpus.py`).
-- **Authoring в V2 JSON и детерминированная компиляция в DSL**:
-  - Промпты второго прохода для генерации V2 JSON находятся в `lerne-card-prompts-v2/` (существующая папка `lerne-card-prompts/` для текстового DSL сохранена без изменений).
-  - `api/services/structured_cards_v2.py` валидирует и нормализует контракты V2 (`schema_version: 2`, 9 типов: `standard`, `trainer`, `word_bank`, `puzzle`, `match`, `quiz`, `free_text`, `editable_text`, `theory`), но не добавляет отдельную колонку хранения в БД.
-  - `api/services/structured_cards_legacy.py` (`to_legacy_card`, `to_legacy_document`) компилирует V2-карточки в канонический DSL (`front_text`, `back_text`, `context`, `level`, `metadata`) и выполняет обязательную round-trip верификацию через `detect_card_type` и `detect_ai_input_type`.
-    `topics` остаётся строкой отображения TMA; темы с запятыми допускаются, а при неоднозначности исходный массив сохраняется в `metadata.structured_topics`. Переносы строк в темах отклоняются отдельно.
-  - `api/services/author_service.py` (`parse_document`) прозрачно принимает как legacy-текст с паспортом, так и JSON-документы V2, сохраняя карточки через штатный `bulk_save_cards`.
-  - Загрузка «Автора» (`/api/admin/author/parse`) принимает `.json`, `.txt`, `.md`, `.text`; `parse_uploaded_documents` разбирает файлы отдельно, без добавления заголовка к JSON и склейки документов. JSON V2 внутри старых текстовых расширений также распознаётся. Название legacy-колоды без заголовка берётся из имени файла; паспорта, ошибки с именами файлов и сквозная нумерация сохраняются, повтор паспортов блокирует публикацию. Регрессии: `lerne-admin:tests/test_structured_preview.py`.
-  - Админский превью-сервис `lerne-admin:src/lerne_admin/services/structured_preview.py` и CLI `scripts/structured_cards_v2.py` используют тот же пайплайн валидации и компиляции.
-- **Единый шлюз записи контента (`api/services/card_content_service.py`)**:
-  - `apply_card_content` и `build_text_update_values` централизуют запись `front_text`, `back_text`, `context`, синхронизацию `level_N` тегов (`update_level_tags`) и `card.metadata` (CEFR, `topics`, `ai_input` из `parse_input_metadata`), не завися от того, пуст ли `context`.
-  - Используется в `save_card` (`api/services/cards.py`) и в `_update_values` (`api/services/card_text_update.py`).
-  - Удалены скрытые эвристики при сохранении: `save_card` больше не меняет местами `front_text`/`back_text` по соотношению кириллицы/латиницы и не вырезает строки из `context` регулярными выражениями.
+- `api/card_core/lerne_card_core/structured_cards_import.py::import_documents` принимает
+  Codex или JSON V2 и возвращает валидированные V2-документы в порядке входа.
+  Локальная точка входа — `scripts/structured_cards_v2.py import`.
+- Контракт, диагностика и текущая граница публикации описаны в
+  [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-1-единый-импорт-в-v2).
+  Профильные тесты — `scripts/tests/test_structured_cards_import.py`.
+
+## Нативное хранилище Structured Cards V2
+
+- `api/services/structured_card_storage.py` владеет проверкой и операциями с
+  `tma_card.content_v2`. `api/migrations.py::run_structured_cards_v2_migration`
+  готовит PostgreSQL и включает CHECK единственного источника содержимого.
+- Хранилище использует прежний ID карточки и существующие связи. Граница
+  legacy-строк, транзакции и план cutover описаны в
+  [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-2-postgresql-и-граница-хранения).
+  Маршруты карточек, выдача для изучения и копирование колод подключены
+  через `api/services/structured_card_api.py`. Формат HTTP, ревизии и
+  границы cutover описаны в разделе «Этап 3» того же документа.
+
 
 ## Lesson QA и регрессии Relativsätze
 
@@ -443,6 +437,21 @@ legacyAdapter удалён, новый personal record создаётся неп
 
 CI fixtures: `tests/fixtures/`, только вымышленные данные; приватные снимки и артефакты остаются в `local/test-data/`. Политика и воспроизводимость: [TEST_DATA](../../docs/TEST_DATA.md).
 
+## V2: пакетные copy/move (6B.5c)
+
+`useCardEditor.js` отправляет оба действия через `api.js` → `offlineApi.js`:
+одна Dexie-транзакция карточек и существующего `syncState.card-move-v2:*`.
+`syncService.deliverCardMoves` доставляет весь пакет через прежние native API;
+серверный владелец V2 — `structured_card_api.transfer_cards`. Copy принимает
+необязательные ревизии источников и возвращает упорядоченные `copies` с
+`source_id` и созданной карточкой либо null для skip; move возвращает
+`placements`. Квитанция и изменения фиксируются вместе. Подтверждение copy
+атомарно заменяет временные ID через aliases; перенос сохраняет ID и связи.
+Сетевые ошибки сохраняют пакет для повтора, 403/404/409/422 сохраняют
+отклонённый пакет и локальные карточки без автоматической повторной отправки.
+Контракт, ограничения и команды PostgreSQL/Chromium/HTTP:
+[6B.5c](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5c-пакетное-копирование-и-перенос-v2-карточек).
+
 ## C1: выполнение DB-операций в worker-потоках
 
 Шесть прежних async-обработчиков `save_card`, `batch_move_cards`,
@@ -450,11 +459,11 @@ CI fixtures: `tests/fixtures/`, только вымышленные данные
 синхронное тело через `api/db_workers.py`: один worker владеет соединением
 Peewee, проверками доступа, транзакциями сервисов и сериализацией ответа.
 Middleware пропускает своё DB-соединение только для помеченных маршрутов.
-Фоновая TTS сохранения получает снимок полей карточки; подготовка и сохранение
-в `ensure_card_audio(..., _offload_db=True)` открывают и закрывают отдельные
-worker-соединения, включая ошибки. Асинхронные TTS/Storage-клиенты остаются на
-исходном event loop; соединения не удерживаются во время сети. Условия auto-generate/force
-и защита от устаревшего результата TTS сохраняются.
+Явный `/media/generate-card-audio` получает текст из Native V2 и снимок ревизии;
+подготовка и сохранение выполняются в отдельных worker-соединениях, включая ошибки.
+Асинхронные TTS/Storage-клиенты остаются на исходном event loop; соединения не
+удерживаются во время сети. Устаревший результат не прикрепляется к изменённой
+карточке. Автоматической генерации при обычном сохранении больше нет.
 `scripts/tests/test_db_workers.py` проверяет реальные конкурентные ASGI-запросы
 с production middleware, thread-local SQLite без отключения thread safety,
 закрытие соединений, rollback и TTS; CI запускает suite через test_backend.py.
@@ -462,3 +471,38 @@ worker-соединения, включая ошибки. Асинхронные
 C2a завершает worker scopes пяти оставшихся sync handlers cards и cleanup при
 ошибке входа в DB scope. Карта всего FastAPI, границы частей C2 и отдельные
 grade/permissions риски: [DB_CONNECTION_OWNERSHIP](../../docs/DB_CONNECTION_OWNERSHIP.md).
+
+## V2: список, удаление, порядок и поиск (6B.5d)
+
+`offlineApi.queueCardSelection` атомарно пишет пакет удаления/порядка и UUID
+в существующую очередь `CARD_LIFECYCLE_KEY`. `syncService.deliverCardSelection`
+доставляет через прежние `/cards/batch-delete` и `/cards/reorder` и подтверждает
+весь `cards` одной транзакцией. Отклонённые пакеты сохраняются с локальными
+карточками и исключаются из автоматического повтора. Новых схем/очередей нет.
+`createDeckSlice.reorderCards` пишет до изменения store, без отложенного таймера.
+Поиск читает V2 через `utils/search.matchCard`; дубликаты используют полный
+V2-ключ `cardDuplicateKey` и собственные колоды, как сервер. DuplicateManager
+отображает V2 напрямую. Контракт, ограничения, HTTP/PostgreSQL/Chromium проверки:
+[6B.5d](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5d-завершение-операций-со-списком-v2).
+
+
+## Исправления финального аудита Native V2
+
+Native Trainer использует чистый `utils/trainerChoices.js` для auto-distractors;
+legacy parser не входит в этот цикл. Явные варианты/несколько пропусков и
+правильные ответы сохраняются. Если автоматических альтернатив меньше двух,
+учебное представление использует ввод ответа, не меняя `content_v2`.
+
+Конвертер V1 сохраняет `::example` после единственного упражнения в `layout`.
+Точные повторы одного choice label объединяются с сохранением первого порядка
+и множества принимаемых ответов; диагностируется warning. Несколько упражнений,
+неоднозначные уровни, разделители Puzzle и неверные паспорта по-прежнему блокируют
+миграцию. Это не разрешает менять исходные записи или молча выбирать ответы.
+
+## Проверки V2-only runtime (2026-11-10)
+
+`test_native_content_updates.py` покрывает атомарное обновление дерева, freshness,
+права, replay и экспорт без изменения контента. `structured_cards_postgres.py`
+проверяет реальные HTTP/PostgreSQL и Chromium/Dexie сценарии всех девяти типов.
+Frontend unit gate: `npm run test:frontend`; общий backend: `python scripts/test_backend.py`.
+Admin имеет собственные unit/PG/browser runners и получает проверенный card-core 0.1.7.

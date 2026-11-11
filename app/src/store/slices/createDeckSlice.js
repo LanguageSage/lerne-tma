@@ -1,10 +1,11 @@
-import api from '../../services/api';
-import { storage, getUserId } from '../../utils/auth';
+import api, { networkApi } from '../../services/api';
+import { storage, getSessionIdentity, getUserId } from '../../utils/auth';
 import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from './initCacheHelper';
+import { useUiStore } from '../useUiStore';
+import { tr } from '../../i18n/locale';
 import { useLanguageStore } from '../useLanguageStore';
 
 let reorderTimeout = null;
-let cardReorderTimeout = null;
 
 export const createDeckSlice = (set, get) => {
   const pendingLoads = new Map();
@@ -20,9 +21,11 @@ export const createDeckSlice = (set, get) => {
     const pending = get().getPendingLibraryLoad(kind);
     if (pending) return pending;
     const account = getUserId();
+    const identity = getSessionIdentity();
     const requestId = get().libraryRequestId + 1;
     set({ libraryRequestId: requestId });
-    const isCurrent = () => account === getUserId() && requestId === get().libraryRequestId;
+    const isCurrent = () => account === getUserId() && identity === getSessionIdentity()
+      && requestId === get().libraryRequestId;
     const entry = { isCurrent };
     entry.promise = Promise.resolve().then(() => isCurrent() ? load(isCurrent) : undefined).finally(() => {
       if (pendingLoads.get(kind) === entry) pendingLoads.delete(kind);
@@ -157,6 +160,7 @@ export const createDeckSlice = (set, get) => {
           }
         }
       }
+      if (!isCurrent()) return;
       get().setLibraryLoadError(lastError);
       console.warn('Library load failed', { status: lastError?.response?.status || 0 });
       throw lastError;
@@ -170,8 +174,10 @@ export const createDeckSlice = (set, get) => {
 
     const state = get();
     const account = getUserId();
+    const identity = getSessionIdentity();
     const requestId = state.libraryRequestId;
-    const isCurrent = () => account === getUserId() && requestId === get().libraryRequestId;
+    const isCurrent = () => account === getUserId() && identity === getSessionIdentity()
+      && requestId === get().libraryRequestId;
     const entry = { deckId, isCurrent };
     const isSameDeck = state.currentDeck?.id === deckId;
     const cached = state.cardsByDeck[deckId];
@@ -363,11 +369,10 @@ export const createDeckSlice = (set, get) => {
     if (!file) return;
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      await api.post('/decks/import-json', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
+      const text = await file.text();
+      const payload = /\.json$/i.test(file.name) ? { document: JSON.parse(text.replace(/^\uFEFF/, '')) }
+        : { codex: text, default_deck_name: file.name.replace(/\.[^.]+$/, '') };
+      await networkApi.post('/decks/import-json', { import_id: crypto.randomUUID(), ...payload });
       const { fetchDecks } = get();
       await fetchDecks(true);
       if (callback) callback();
@@ -396,7 +401,7 @@ export const createDeckSlice = (set, get) => {
 
   copyDeckToFolder: async (deckId, folderId) => {
     try {
-      await api.post(`/decks/${deckId}/copy`, { folder_id: folderId });
+      await networkApi.post(`/decks/${deckId}/copy`, { folder_id: folderId, request_id: crypto.randomUUID() });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {
@@ -490,50 +495,29 @@ export const createDeckSlice = (set, get) => {
 
     if (!orderedIds || orderedIds.length === 0 || baseCards.length === 0) return;
 
-    const cardMap = new Map();
-    baseCards.forEach(c => cardMap.set(String(c.id), c));
-    const orderedSet = new Set(orderedIds.map(String));
-
-    const reorderedCards = orderedIds
-      .map((id, idx) => {
-        const item = cardMap.get(String(id));
-        return item ? { ...item, position: idx } : null;
-      })
-      .filter(Boolean);
-
-    let updated;
-    if (reorderedCards.length === baseCards.length) {
-      updated = reorderedCards;
-    } else {
-      let reorderIdx = 0;
-      updated = baseCards.map((c, idx) => {
-        if (orderedSet.has(String(c.id))) {
-          const item = reorderedCards[reorderIdx++];
-          return { ...item, position: idx };
-        }
-        return { ...c, position: idx };
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
+    try {
+      const { data } = await api.post('/cards/reorder', {
+        request_id: crypto.randomUUID(), card_ids: orderedIds.map(Number),
+        revisions: Object.fromEntries(orderedIds.map(id => [id, baseCards.find(card => String(card.id) === String(id))?.revision])),
       });
+      if (!isCurrent()) return;
+      const changes = new Map(data.cards.map(card => [card.id, card]));
+      const updated = baseCards.map(card => changes.get(card.id) || card)
+        .sort((a, b) => a.position - b.position || a.id - b.id);
+      set(prev => ({
+        deckCards: String(prev.currentDeck?.id) === String(effectiveDeckId) ? updated : prev.deckCards,
+        cardsByDeck: { ...prev.cardsByDeck, [effectiveDeckId]: updated },
+      }));
+      const pending = data.cards.find(card => card.offline_lifecycle);
+      if (pending) useUiStore.getState().showToast(tr(pending.offline_list_error === 409 ? 'Конфликт версий'
+        : pending.offline_list_error ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации'), pending.offline_list_error ? 'error' : 'info');
+    } catch (error) {
+      if (isCurrent()) useUiStore.getState().showToast(error.message, 'error');
     }
 
-    set((prev) => {
-      const isStillCurrent = !effectiveDeckId || (prev.currentDeck && String(prev.currentDeck.id) === String(effectiveDeckId));
-      return {
-        deckCards: isStillCurrent ? updated : prev.deckCards,
-        cardsByDeck: effectiveDeckId ? { ...prev.cardsByDeck, [effectiveDeckId]: updated } : prev.cardsByDeck
-      };
-    });
-
-    if (cardReorderTimeout) {
-      clearTimeout(cardReorderTimeout);
-    }
-
-    cardReorderTimeout = setTimeout(async () => {
-      try {
-        await api.post('/cards/reorder', { card_ids: updated.map(c => c.id) });
-      } catch (err) {
-        console.error('Reorder Cards Error:', err);
-      }
-    }, 400);
   },
   });
 };

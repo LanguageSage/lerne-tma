@@ -1,4 +1,4 @@
-import { normalizeWordBankValue } from './wordBankParser.js';
+import { normalizeWordBankValue } from './text.js';
 import { createExerciseEvaluation } from './exerciseEvaluation.js';
 
 export const getUsedWordBankOptionIds = (assignments = {}) => new Set(Object.values(assignments));
@@ -51,7 +51,9 @@ export const checkWordBankAssignments = (gaps = [], options = [], assignments = 
   for (const gap of gaps) {
     const selected = optionById.get(assignments[gap.id]);
     results[gap.id] = selected
-      && normalizeWordBankValue(selected.value) === normalizeWordBankValue(gap.correctAnswer)
+      && (gap.correctOptionId == null
+        ? normalizeWordBankValue(selected.value) === normalizeWordBankValue(gap.correctAnswer)
+        : selected.value === optionById.get(gap.correctOptionId)?.value)
       ? 'correct'
       : 'incorrect';
   }

@@ -523,10 +523,18 @@ class ServerContextTests(unittest.TestCase):
         self.database.connect()
         self.database.create_tables(self.bound)
         self.deck = models.TMA_Deck.create(user_id=7, name='test', target_language='de')
-        self.card = models.TMA_Card.create(deck=self.deck, front_text='@free\nTranslate: I have a dog.',
-                                            back_text=EXPECTED, metadata=json.dumps({
-                                                'accepted_answers': ['Ich besitze einen Hund.'],
-                                                'grading_policy': {'max_retries': 2}}))
+        field = models.TMA_Card.content_v2
+        # Only serialization is adapted for these context-loader unit tests;
+        # PostgreSQL storage/constraints are checked by structured_cards_postgres.py.
+        for method, function in (('db_value', lambda value: json.dumps(value) if value is not None else None),
+                                 ('python_value', lambda value: json.loads(value) if isinstance(value, str) else value)):
+            adapter = patch.object(field, method, side_effect=function)
+            adapter.start(); self.addCleanup(adapter.stop)
+        self.card = models.TMA_Card.create(deck=self.deck, card_type=None, content_v2={
+            'schema_version': 2, 'card': {'type': 'free_text', 'data': {
+                'prompt': 'Translate: I have a dog.', 'sample_answer': EXPECTED,
+                'accepted_answers': ['Ich besitze einen Hund.'],
+                'grading_policy': {'mode': 'controlled_text', 'max_retries': 2}}}})
 
     def tearDown(self):
         self.database.close()
@@ -556,8 +564,10 @@ class ServerContextTests(unittest.TestCase):
         snapshot = json.loads((Path(__file__).resolve().parents[1] /
             'tests/fixtures/lesson-qa/before.json').read_text(encoding='utf-8'))
         synthetic = next(c for c in snapshot['cards'] if c['id'] == 10004)
-        self.card.front_text = synthetic['front_text']
-        self.card.back_text = synthetic['back_text']
+        from api.v1_to_v2_converter import inspect_v1_card
+        result = inspect_v1_card(synthetic)
+        self.assertTrue(result['ok'], result['diagnostics'])
+        self.card.content_v2 = result['content_v2']
         self.card.save()
         ctx, _ = self.load()
         self.assertIn('Welches Museum suchst du?', ctx['task'])
@@ -576,12 +586,12 @@ class ServerContextTests(unittest.TestCase):
 
     def test_non_free_text_and_invalid_policy_are_rejected(self):
         from fastapi import HTTPException
-        self.card.metadata = '{broken'
+        self.card.content_v2['card']['data']['grading_policy'] = {'mode': 'unsupported'}
         self.card.save()
         with self.assertRaises(HTTPException) as raised:
             self.load()
         self.assertEqual(raised.exception.status_code, 422)
-        self.card.front_text = 'standard card'
+        self.card.content_v2 = {'schema_version': 2, 'card': {'type': 'standard', 'data': {'prompt': 'Word', 'answer': 'Answer'}}}
         self.card.save()
         with self.assertRaises(HTTPException) as raised:
             self.load()
@@ -589,15 +599,10 @@ class ServerContextTests(unittest.TestCase):
 
 
     def test_v2_free_text_uses_the_same_server_owned_policy_and_context(self):
-        from api.services.structured_cards_legacy import to_legacy_document
-        compiled = to_legacy_document({'schema_version': 2, 'deck': {'name': 'V2'}, 'cards': [{
+        self.card.content_v2 = {'schema_version': 2, 'card': {
             'type': 'free_text', 'info': [{'type': 'source', 'text': 'Welche Stadt?'}],
             'data': {'prompt': 'Antworten Sie.', 'sample_answer': 'Berlin.',
-                     'accepted_answers': ['Hamburg.'], 'grading_policy': {'mode': 'controlled_text', 'max_retries': 2}}
-        }]})['cards'][0]
-        self.card.front_text = compiled['front']
-        self.card.back_text = compiled['back']
-        self.card.metadata = json.dumps(compiled['metadata'])
+                     'accepted_answers': ['Hamburg.'], 'grading_policy': {'mode': 'controlled_text', 'max_retries': 2}}}}
         self.card.save()
         ctx, policy = self.load()
         self.assertEqual(ctx['expected_answers'], ['Berlin.', 'Hamburg.'])

@@ -75,3 +75,17 @@ lerne_tma_local. Модели и миграции остаются в TMA; ад�
 backups и временные артефакты остаются исключены. При изменении правил проверяйте
 состав загруженных исходников и Production-сборку: локальная сборка сама по себе
 не проверяет фильтрацию CLI.
+
+
+## Native V2 и восстановление
+
+LOCAL `restore` после pg_restore меняет `SYNC_DATABASE_RESTORE`; сохранённые
+клиенты требуют сверки перед синхронизацией. API/frontend должны быть остановлены
+на время Restore. IndexedDB не очищается автоматически. Процедура и ограничения:
+[sync](sync.md#защита-при-полном-восстановлении-postgresql).
+
+`tools/restore_database.py --force-unsafe-legacy-restore` допустим только для
+старой V1 LOCAL БД: наличие `tma_card.content_v2` или Native payload запрещает
+запись даже с этим флагом. Полный backup/restore остаётся штатным путём.
+Optional same-row Admin/TMA test перенесён в `tools/native_cards_interop.py`;
+прежний путь в `scripts/tests` — совместимый launcher без runtime Admin imports.

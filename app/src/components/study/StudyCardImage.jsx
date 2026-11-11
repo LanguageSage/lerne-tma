@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { RefreshCw, ImageOff } from 'lucide-react';
 
 /**
@@ -12,11 +13,13 @@ import { RefreshCw, ImageOff } from 'lucide-react';
  */
 export const StudyCardImage = React.memo(({
   src,
+  alt = '',
   height = 220,
   cardId,
   onResizeStart,
   showResizeHandle = true,
 }) => {
+  useInterfaceLocale();
   const [loadStatus, setLoadStatus] = useState('loading'); // 'loading' | 'loaded' | 'error'
   const [retryCount, setRetryCount] = useState(0);
   const [retryTimestamp, setRetryTimestamp] = useState(null);
@@ -84,6 +87,7 @@ export const StudyCardImage = React.memo(({
       <div 
         style={{
           width: '100%',
+          boxSizing: 'border-box',
           height: `${height}px`,
           overflow: 'hidden',
           borderRadius: '12px',
@@ -140,7 +144,7 @@ export const StudyCardImage = React.memo(({
           >
             <ImageOff size={28} style={{ color: 'rgba(239, 68, 68, 0.7)' }} />
             <span style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.8)', maxWidth: '240px' }}>
-              {tr("Не удалось загрузить изображение")}
+              {tr(navigator.onLine ? 'Не удалось загрузить изображение' : 'Изображение недоступно без сети')}
             </span>
             <button
               type="button"
@@ -170,7 +174,7 @@ export const StudyCardImage = React.memo(({
         <img
           key={effectiveSrc}
           src={effectiveSrc}
-          alt=""
+          alt={alt}
           onLoad={handleLoad}
           onError={handleError}
           style={{

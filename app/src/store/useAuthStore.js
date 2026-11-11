@@ -505,6 +505,7 @@ subscribeAuthSession(({ loginRequired }) => {
   if (changed || owner !== observedOwner) {
     if (changed) {
       authGeneration++;
+      if (observedIdentity != null) useUiStore.setState({ loading: false });
       clearPending();
       stopPolling();
     }
@@ -513,6 +514,7 @@ subscribeAuthSession(({ loginRequired }) => {
       useDeckStore.getState().resetDeckStore?.();
       useSessionStore.getState().resetSession(); // Pending grades/errors remain assigned to their owner.
       useUiStore.setState({ activeFolderId: null, view: 'decks', loading: false,
+        actionCard: null, lastSelectedCardId: null, deckToRename: null,
         messageRoots: [], messageDraftCard: null, messageSourceView: null });
       if (observedOwner) closeLocalDb(observedOwner);
     }

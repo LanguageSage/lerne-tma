@@ -4,19 +4,35 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
-import { cleanMedia } from '../utils/media';
-import { detectCardType } from '../utils/exerciseDetector';
+
+import { cardWriteError, validateStandardDraft, parseCardSource } from '../utils/cardDraft';
+import { getSessionIdentity, getUserId } from '../utils/auth';
+import { prepareLocalDb } from '../services/localDb';
+import { offlineLifecycleLabel, offlineMoveLabel } from '../services/offlineUi';
+import { notifyCardEdit, syncService } from '../services/syncService';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { useStudySession } from './useStudySession';
-import { buildManualCefrMeta, getSavedCefr, updateCardLevelTags } from '../utils/levelUtils';
+
+
+// Preserve the request identifier after transport failure, for the same draft only.
+let pendingSave;
+let activeSave;
+const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
+
+function visibleCard(cardId) {
+  const deck = useDeckStore.getState();
+  const session = useSessionStore.getState();
+  return [session.editingCard, session.card, ...deck.deckCards, ...deck.duplicateCards]
+    .find(card => String(card?.id) === String(cardId) && card.revision);
+}
 
 export const useCardEditor = () => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
   const { setLoading, showToast } = useUiStore();
   const { fetchNextCard } = useStudySession();
 
-  const saveCard = async (manualCardData = null) => {
+  const saveCard = async (manualCardData = null, { awaitDelivery = false } = {}) => {
     const session = useSessionStore.getState();
     const ui = useUiStore.getState();
     const { currentDeck } = useDeckStore.getState();
@@ -24,59 +40,100 @@ export const useCardEditor = () => {
     const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
     const data = (manualCardData && !isEvent) ? manualCardData : session.editingCard;
 
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    if (!data?.content_v2 || (activeSave?.identity === identity && activeSave?.account === account)) return;
+    const flight = { identity, account };
+    activeSave = flight;
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
+      // All save callers, including local publication, consume the same source.
+      const content = data.content_v2_source != null ? parseCardSource(data.content_v2_source) : data.content_v2;
+      if (data.offline_move) throw new Error(tr('Сначала завершите синхронизацию переноса.'));
+      if (data.id < 0) throw new Error(tr('Сначала синхронизируйте новую карточку.'));
       let finalDeckId = data.deck_id;
       if (finalDeckId === 'duplicates' || !finalDeckId) {
         finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
       }
 
-      const frontText = data.front || '';
-      const computedType = detectCardType({ front: frontText }) || 'standard';
+      const path = data.id ? '/cards/' + data.id : '/cards/save';
+      const reqData = { content_v2: content };
+      if (data.id) reqData.revision = data.revision;
+      else {
+        if (finalDeckId) reqData.deck_id = Number(finalDeckId);
+        if (data.after_card_id) reqData.after_card_id = Number(data.after_card_id);
+      }
+      for (const field of mediaPaths) {
+        if (data[field] !== undefined) reqData[field] = data[field] || null;
+      }
+      const fingerprint = JSON.stringify([path, reqData]);
+      if (pendingSave?.identity !== identity || pendingSave.account !== account || pendingSave.fingerprint !== fingerprint) {
+        pendingSave = { identity, account, fingerprint, id: crypto.randomUUID() };
+      }
+      reqData.request_id = pendingSave.id;
+      const nativeEdit = data.id > 0;
+      const conflict = data.offline_edit?.status === 'conflict';
+      if (!data.id && content.card.type === 'standard') validateStandardDraft(content.card);
+      const res = nativeEdit ? await api.patch(path, reqData, {
+        offlineCardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
+      })
+        : await api.post(path, reqData, { offlineCreateFlag: data.flag });
+      if (!isCurrent()) return;
+      pendingSave = null;
 
-      let finalLevel = data.level;
-      let finalTags = data.tags;
-      let finalCefr = getSavedCefr(data);
-      if (finalLevel) {
-        if (!finalCefr || finalCefr.level !== finalLevel) {
-          finalCefr = buildManualCefrMeta(finalLevel);
+      if (nativeEdit) res.data = { ...data, ...res.data };
+      const deliverEdit = nativeEdit && navigator.onLine && !conflict;
+      if (deliverEdit && awaitDelivery) {
+        const db = await prepareLocalDb();
+        if (!isCurrent()) return;
+        await syncService.sync({ pendingNativeOnly: true });
+        const cached = await db.cards.get(data.id);
+        if (!isCurrent()) return;
+        const visible = useSessionStore.getState().editingCard;
+        if (cached) {
+          // The receipt event carries study fields omitted from the pull snapshot.
+          res.data = visible?.id === cached.id && visible.revision === cached.revision
+            ? { ...visible, ...cached } : cached;
         }
-        finalTags = updateCardLevelTags(finalTags, finalLevel);
+      }
+      if (nativeEdit && res.data.offline_edit?.status === 'conflict') {
+        notifyCardEdit(res.data, getUserId());
+        session.setEditingCard(res.data);
+        if (conflict) showToast(tr('Карточка сохранена на устройстве'), 'success');
+        return res.data;
       }
 
-      const autoGenerateCardAudio = useSettingsStore.getState().autoGenerateCardAudio;
-
-      const reqData = {
-        card_id: data.id || null,
-        deck_id: finalDeckId,
-        card_type: computedType,
-        front: frontText,
-        back: data.back || '',
-        context: data.context || '',
-        level: finalLevel || null,
-        tags: finalTags || null,
-        image_path: data.image_path || cleanMedia(data.image_url),
-        audio_path: data.audio_path || cleanMedia(data.audio_url),
-        audio_back_path: data.audio_back_path || cleanMedia(data.audio_back_url),
-        auto_generate_audio: autoGenerateCardAudio,
-        video_front_path: data.video_front_path || cleanMedia(data.video_front_url),
-        video_back_path: data.video_back_path || cleanMedia(data.video_back_url)
-      };
-      if (finalCefr) reqData.cefr = finalCefr;
-      if (data.after_card_id) reqData.after_card_id = data.after_card_id;
-
-      const res = await api.post('/cards/save', reqData);
-
-      if (res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
-        await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
-        res.data.flag = Number(data.flag);
+      const savedLocally = Boolean(res.data.offline_create_status || res.data.offline_edit);
+      if (!savedLocally && !data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path) {
+        try {
+          const audio = await api.post('/media/generate-card-audio', { card_id: res.data.id, side: 'front' });
+          Object.assign(res.data, { audio_path: audio.data.path, audio_url: audio.data.url, revision: audio.data.revision });
+        } catch {
+          if (!isCurrent()) return;
+          showToast(tr("Аудио не сгенерировано"), 'warning');
+        }
       }
 
-      showToast(tr("Карточка сохранена"), "success");
+      if (!isCurrent()) return;
+      if ((!savedLocally || nativeEdit) && res?.data?.id && data.flag !== undefined && Number(data.flag) !== Number(res.data.flag || 0)) {
+        try {
+          await api.post(`/cards/${res.data.id}/flag`, { flag: Number(data.flag) });
+          res.data.flag = Number(data.flag);
+        } catch {
+          if (!isCurrent()) return;
+          showToast(tr("Ошибка при установке метки"), 'warning');
+        }
+      }
+
+      if (!isCurrent()) return;
+      if (savedLocally || !nativeEdit) {
+        showToast(tr(savedLocally ? 'Карточка сохранена на устройстве' : 'Карточка сохранена'), 'success');
+      }
       
       const { deckCards } = useDeckStore.getState();
       let savedCard = (res?.data && res.data.id) ? res.data : data;
-      if (data.image_height) {
+      if (!savedLocally && data.image_height) {
         savedCard = { ...savedCard, image_height: data.image_height };
         if (currentDeck?.id) {
           try {
@@ -100,6 +157,7 @@ export const useCardEditor = () => {
         let nextCards = [...(deckCards || [])];
         if (existingIdx !== -1) {
           nextCards[existingIdx] = { ...nextCards[existingIdx], ...savedCard };
+          if (!savedCard.offline_edit) delete nextCards[existingIdx].offline_edit;
         } else if (data.after_card_id) {
           const afterIdx = nextCards.findIndex(c => String(c.id) === String(data.after_card_id));
           if (afterIdx !== -1) {
@@ -178,13 +236,20 @@ export const useCardEditor = () => {
           ui.setView(sourceView);
         }
       }
+      if (deliverEdit && !awaitDelivery) void syncService.sync({ pendingNativeOnly: true });
       return savedCard;
     } catch (err) {
+      if (!isCurrent()) return;
       console.error(err);
-      const detail = err.response?.data?.detail || err.message;
+      const detail = cardWriteError(err);
+      if (err.response?.status && err.response.status < 500) pendingSave = null;
       showToast(tr("Ошибка сохранения: {{p0}}", { p0: detail }), "error");
+      if (err.response?.status === 409 && data.id) {
+        ui.showToast(tr('Карточка изменилась на сервере. Черновик сохранён в форме. Откройте актуальную карточку перед повторной правкой.'), 'warning');
+      }
     } finally {
-      setLoading(false);
+      if (activeSave === flight) activeSave = null;
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -192,8 +257,13 @@ export const useCardEditor = () => {
     if (!skipConfirm && !window.confirm(tr("Удалить эту карточку?"))) return;
     setLoading(true);
     try {
-      await api.delete(`/cards/${cardId}`);
-      showToast(tr("Карточка удалена"), "success");
+      const card = visibleCard(cardId);
+      if (!card) throw new Error("Card revision unavailable");
+      const { data } = await api.post('/cards/batch-delete', {
+        request_id: crypto.randomUUID(), card_ids: [Number(cardId)], revisions: { [cardId]: card.revision },
+      });
+      if (!data.is_deleted) return;
+      showToast(tr(data.offline_lifecycle ? 'Ожидает синхронизации' : 'Карточка удалена'), 'success');
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
@@ -240,84 +310,69 @@ export const useCardEditor = () => {
       }
     } catch (err) {
       console.error('Delete Card Error:', err);
-      showToast(tr("Ошибка при удалении"));
+      showToast(err.message || tr("Ошибка при удалении"), 'error');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleMoveCard = async (targetCard, targetDeckId) => {
+  const handleMoveCard = async (targetCard, targetDeckId, onDuplicate = 'keep') => {
+    if (!targetCard) return false;
+    if (Number(targetCard.deck_id) === Number(targetDeckId)) return true;
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
-      await api.post('/cards/save', {
-        card_id: targetCard.id,
-        deck_id: targetDeckId,
-        front: targetCard.front || '',
-        back: targetCard.back || '',
-        context: targetCard.context || '',
-        image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
-        audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
-        video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
-        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url)
+      const id = Number(targetCard.id);
+      const target = Number(targetDeckId);
+      const db = await prepareLocalDb();
+      if (!isCurrent()) return false;
+      // Study can open a card without loading its deck list first.
+      if (id > 0 && navigator.onLine && !(await db.cards.get(id))) await api.get('/cards/' + id, { freshCard: true });
+      if (!isCurrent()) return false;
+      const { data: card } = await api.post('/cards/batch-move', {
+        request_id: crypto.randomUUID(), card_ids: [id], revisions: { [id]: targetCard.revision },
+        target_deck_id: target, on_duplicate: onDuplicate,
       });
-      showToast(tr("Карточка перемещена"), "success");
-      
+      if (!isCurrent()) return false;
+      if (card.offline_move) {
+        showToast(offlineMoveLabel(card.offline_move), card.offline_move.status === 'rejected' ? 'error' : 'info');
+      } else if (card.deck_id === target) {
+        showToast(tr('Карточка перемещена'), 'success');
+      } else {
+        showToast(tr('Перемещено: {{p0}} (пропущено дубликатов: {{p1}})', { p0: 0, p1: 1 }), 'success');
+        return true;
+      }
+
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
       const { currentDeck, deckCards } = useDeckStore.getState();
-      
-      const updatedDeckCards = (deckCards || []).filter(c => c.id !== targetCard.id);
-      useDeckStore.setState({ deckCards: updatedDeckCards });
-
-      session.removeCardFromSession(targetCard.id);
-      
-      const freshSession = useSessionStore.getState();
-      if (ui.view === 'study' && currentDeck) {
-        if (!freshSession.card) {
-          if (updatedDeckCards.length > 0) {
-            await fetchNextCard(currentDeck.id, true);
-          } else {
-            session.setCard(null);
-          }
-        }
-      }
-      
-      if (currentDeck && currentDeck.id !== 'duplicates') {
-        fetchDeckCards(currentDeck.id);
-      }
-      fetchDecks(true);
-    } catch (err) {
-      showToast(tr("Ошибка при перемещении: {{p0}}", { p0: err.response?.data?.detail || err.message }));
-    }
-    setLoading(false);
-  };
-
-  const handleCopyCard = async (targetCard, targetDeckId) => {
-    setLoading(true);
-    try {
-      await api.post('/cards/save', {
-        deck_id: targetDeckId,
-        front: targetCard.front || targetCard.front_text || '',
-        back: targetCard.back || targetCard.back_text || '',
-        context: targetCard.context || '',
-        image_path: targetCard.image_path || cleanMedia(targetCard.image_url),
-        audio_path: targetCard.audio_path || cleanMedia(targetCard.audio_url),
-        audio_back_path: targetCard.audio_back_path || cleanMedia(targetCard.audio_back_url),
-        video_front_path: targetCard.video_front_path || cleanMedia(targetCard.video_front_url),
-        video_back_path: targetCard.video_back_path || cleanMedia(targetCard.video_back_url),
-        allow_duplicate: true
+      const updatedDeckCards = currentDeck?.id === target ? deckCards : (deckCards || []).filter(c => c.id !== id);
+      useDeckStore.setState(state => {
+        const cardsByDeck = { ...state.cardsByDeck };
+        delete cardsByDeck[targetCard.deck_id];
+        delete cardsByDeck[target];
+        return { deckCards: updatedDeckCards, cardsByDeck };
       });
-      showToast(tr("Карточка скопирована"), "success");
-      const { currentDeck } = useDeckStore.getState();
-      if (currentDeck && currentDeck.id === targetDeckId) {
-        fetchDeckCards(currentDeck.id);
+
+      session.removeCardFromSession(id);
+      if (ui.view === 'study' && currentDeck && !useSessionStore.getState().card && updatedDeckCards.length > 0) {
+        fetchNextCard(currentDeck.id, true).catch(() => {});
       }
-      fetchDecks(true);
+      if (currentDeck && currentDeck.id !== 'duplicates') fetchDeckCards(currentDeck.id).catch(() => {});
+      fetchDecks(true).catch(() => {});
+      return true;
     } catch (err) {
-      showToast(tr("Ошибка при копировании: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      if (isCurrent()) showToast(tr('Ошибка при перемещении: {{p0}}', { p0: cardWriteError(err) }));
+      return false;
+    } finally {
+      if (isCurrent()) setLoading(false);
     }
-    setLoading(false);
   };
+
+  const handleCopyCard = (targetCard, targetDeckId) => handleBatchTransferCards(
+    [Number(targetCard.id)], targetDeckId, 'keep', true, [targetCard]);
 
   const handleShareCard = async (targetCard) => {
     if (!targetCard) return;
@@ -393,167 +448,95 @@ export const useCardEditor = () => {
     }
   };
 
-  const handleBatchMoveCards = async (cardIds, targetDeckId, onDuplicate = 'skip') => {
-    if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
+  const handleBatchTransferCards = async (cardIds, targetDeckId, onDuplicate, copy, suppliedCards) => {
+    if (!cardIds?.length || !targetDeckId) return false;
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
+    const cards = suppliedCards || cardIds.map(visibleCard);
     setLoading(true);
     try {
-      const res = await api.post('/cards/batch-move', {
-        card_ids: cardIds,
-        target_deck_id: targetDeckId,
-        on_duplicate: onDuplicate
-      });
-      const movedTotal = res.data?.count ?? cardIds.length;
-      const skipped = res.data?.skipped || 0;
-      if (skipped > 0) {
-        showToast(tr("Перемещено: {{p0}} (пропущено дубликатов: {{p1}})", { p0: movedTotal, p1: skipped }), "success");
-      } else {
-        showToast(tr("Перемещено карточек: {{p0}}", { p0: movedTotal }), "success");
+      const db = await prepareLocalDb();
+      for (const id of cardIds) {
+        if (!isCurrent()) return false;
+        if (id > 0 && navigator.onLine && !await db.cards.get(id)) await api.get('/cards/' + id, { freshCard: true });
       }
-      
-      const session = useSessionStore.getState();
-      const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
-      const cardIdsSet = new Set(cardIds.map(String));
-
-      const updatedDeckCards = (deckCards || []).filter(c => !cardIdsSet.has(String(c.id)));
-      const sourceDeckId = currentDeck?.id;
-      const updatedCardsByDeck = sourceDeckId
-        ? { ...cardsByDeck, [sourceDeckId]: updatedDeckCards }
-        : cardsByDeck;
-      
-      const count = cardIds.length;
-      const updatedDecks = (decks || []).map(d => {
-        if (d.id === sourceDeckId) {
-          const oldStats = d.stats || { total: count, new: 0, learning: 0, due: 0 };
-          return {
-            ...d,
-            stats: { ...oldStats, total: Math.max(0, (oldStats.total || count) - count) }
-          };
-        }
-        if (d.id === targetDeckId) {
-          const oldStats = d.stats || { total: 0, new: 0, learning: 0, due: 0 };
-          return {
-            ...d,
-            stats: { ...oldStats, total: (oldStats.total || 0) + count }
-          };
-        }
-        return d;
+      if (!isCurrent()) return false;
+      const { data } = await api.post(copy ? '/cards/batch-copy' : '/cards/batch-move', {
+        request_id: crypto.randomUUID(), card_ids: cardIds.map(Number),
+        revisions: Object.fromEntries(cardIds.map((id, index) => [id, cards[index]?.revision])),
+        target_deck_id: Number(targetDeckId), on_duplicate: onDuplicate,
       });
+      if (!isCurrent()) return false;
+      const pending = data.cards.find(card => card.offline_move)?.offline_move;
+      if (pending) showToast(offlineMoveLabel(pending), pending.status === 'rejected' ? 'error' : 'info');
+      else if (copy) showToast(tr('Скопировано: {{p0}} (пропущено дубликатов: {{p1}})',
+        { p0: data.count, p1: data.skipped }), 'success');
+      else showToast(tr('Перемещено: {{p0}} (пропущено дубликатов: {{p1}})',
+        { p0: data.count, p1: data.skipped }), 'success');
 
-      useDeckStore.setState({
-        deckCards: updatedDeckCards,
-        cardsByDeck: updatedCardsByDeck,
-        decks: updatedDecks
-      });
-
-      cardIds.forEach(id => session.removeCardFromSession(id));
-      if (sourceDeckId && sourceDeckId !== 'duplicates') {
-        fetchDeckCards(sourceDeckId);
+      const { currentDeck } = useDeckStore.getState();
+      const affected = new Set([...cards.map(card => card?.deck_id), Number(targetDeckId)]);
+      useDeckStore.setState(state => ({ cardsByDeck: Object.fromEntries(
+        Object.entries(state.cardsByDeck).filter(([id]) => !affected.has(Number(id)))) }));
+      if (!copy) {
+        const session = useSessionStore.getState();
+        for (const card of data.cards) {
+          if (card.deck_id === Number(targetDeckId)) session.removeCardFromSession(card.id);
+        }
       }
-      fetchDecks(true);
+      if (currentDeck && currentDeck.id !== 'duplicates') await fetchDeckCards(currentDeck.id).catch(() => {});
+      if (isCurrent()) fetchDecks(true).catch(() => {});
       return true;
     } catch (err) {
-      showToast(tr("Ошибка при перемещении: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      if (isCurrent()) showToast(copy
+        ? tr('Ошибка при копировании: {{p0}}', { p0: cardWriteError(err) })
+        : tr('Ошибка при перемещении: {{p0}}', { p0: cardWriteError(err) }), 'error');
       return false;
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
+
+  const handleBatchMoveCards = (cardIds, targetDeckId, onDuplicate = 'skip') => cardIds?.length === 1
+    ? handleMoveCard(visibleCard(cardIds[0]), targetDeckId, onDuplicate)
+    : handleBatchTransferCards(cardIds, targetDeckId, onDuplicate, false);
 
   const handleBatchDeleteCards = async (cardIds, skipConfirm = false) => {
     if (!cardIds || cardIds.length === 0) return false;
     if (!skipConfirm && !window.confirm(tr("Удалить выбранные карточки ({{p0}} шт.)?", { p0: cardIds.length }))) return false;
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
     setLoading(true);
     try {
-      await api.post('/cards/batch-delete', {
-        card_ids: cardIds
+      const { data } = await api.post('/cards/batch-delete', {
+        request_id: crypto.randomUUID(), card_ids: cardIds.map(Number),
+        revisions: Object.fromEntries(cardIds.map(id => [id, visibleCard(id)?.revision])),
       });
-      showToast(tr("Удалено карточек: {{p0}}", { p0: cardIds.length }), "success");
-
+      if (!isCurrent()) return false;
+      const cards = data.cards || [data];
+      if (cards.some(card => !card.is_deleted)) return false;
+      const pending = cards.find(card => card.offline_lifecycle);
+      showToast(pending ? offlineLifecycleLabel(pending)
+        : tr('Удалено карточек: {{p0}}', { p0: cardIds.length }), pending ? (pending.offline_list_error ? 'error' : 'info') : 'success');
       const session = useSessionStore.getState();
-      const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
-      const cardIdsSet = new Set(cardIds.map(String));
-
-      const updatedDeckCards = (deckCards || []).filter(c => !cardIdsSet.has(String(c.id)));
-      const sourceDeckId = currentDeck?.id;
-      const updatedCardsByDeck = sourceDeckId
-        ? { ...cardsByDeck, [sourceDeckId]: updatedDeckCards }
-        : cardsByDeck;
-
-      const count = cardIds.length;
-      const updatedDecks = sourceDeckId
-        ? (decks || []).map(d => {
-            if (d.id === sourceDeckId) {
-              const oldStats = d.stats || { total: count, new: 0, learning: 0, due: 0 };
-              return {
-                ...d,
-                stats: { ...oldStats, total: Math.max(0, (oldStats.total || count) - count) }
-              };
-            }
-            return d;
-          })
-        : decks;
-
-      useDeckStore.setState({
-        deckCards: updatedDeckCards,
-        cardsByDeck: updatedCardsByDeck,
-        decks: updatedDecks
-      });
-
       cardIds.forEach(id => session.removeCardFromSession(id));
-      fetchDecks(true);
+      const { currentDeck } = useDeckStore.getState();
+      if (currentDeck && currentDeck.id !== 'duplicates') await fetchDeckCards(currentDeck.id).catch(() => {});
+      if (isCurrent()) fetchDecks(true).catch(() => {});
       return true;
     } catch (err) {
-      console.error('Batch Delete Error:', err);
-      showToast(tr("Ошибка при удалении"));
+      if (isCurrent()) showToast(cardWriteError(err), 'error');
       return false;
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
+
   };
 
-  const handleBatchCopyCards = async (cardIds, targetDeckId, onDuplicate = 'skip') => {
-    if (!cardIds || cardIds.length === 0 || !targetDeckId) return false;
-    setLoading(true);
-    try {
-      const res = await api.post('/cards/batch-copy', {
-        card_ids: cardIds,
-        target_deck_id: targetDeckId,
-        on_duplicate: onDuplicate
-      });
-      const copiedTotal = res.data?.count ?? cardIds.length;
-      const skipped = res.data?.skipped || 0;
-      if (skipped > 0) {
-        showToast(tr("Скопировано: {{p0}} (пропущено дубликатов: {{p1}})", { p0: copiedTotal, p1: skipped }), "success");
-      } else {
-        showToast(tr("Скопировано карточек: {{p0}}", { p0: copiedTotal }), "success");
-      }
-      
-      const { currentDeck, decks } = useDeckStore.getState();
-      const count = cardIds.length;
-      const updatedDecks = (decks || []).map(d => {
-        if (d.id === targetDeckId) {
-          const oldStats = d.stats || { total: 0, new: 0, learning: 0, due: 0 };
-          return {
-            ...d,
-            stats: { ...oldStats, total: (oldStats.total || 0) + count }
-          };
-        }
-        return d;
-      });
-      useDeckStore.setState({ decks: updatedDecks });
-
-      if (currentDeck && currentDeck.id === targetDeckId) {
-        fetchDeckCards(currentDeck.id);
-      }
-      fetchDecks(true);
-      return true;
-    } catch (err) {
-      showToast(tr("Ошибка при копировании: {{p0}}", { p0: err.response?.data?.detail || err.message }));
-      return false;
-    } finally {
-      setLoading(false);
-    }
-  };
+  const handleBatchCopyCards = (cardIds, targetDeckId, onDuplicate = 'skip') =>
+    handleBatchTransferCards(cardIds, targetDeckId, onDuplicate, true);
 
   return {
     saveCard,

@@ -4,6 +4,7 @@ from typing import Literal
 from uuid import UUID
 from pydantic import BaseModel, Field, model_validator
 from api.services.collaborative_service import get_effective_user_role
+from api.services.structured_card_api import content_response, require_native
 
 try:
     from api import services, srs, models
@@ -42,7 +43,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
         try:
             deck_metadata = json.loads(deck.metadata)
         except Exception: pass
-    
+
     resolved_resources = []
     for res in deck_metadata.get('resources', []):
         res_type = res.get('type')
@@ -68,22 +69,9 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
     ease_factor = getattr(progress, 'ease_factor', 2.5) or 2.5
     repetitions = getattr(progress, 'repetitions', 0) or 0
 
-    tags_val = getattr(card, 'tags', None)
-    level_label = None
-    if tags_val:
-        for lvl in ["A1", "A2", "B1", "B2", "C1", "C2"]:
-            if lvl in str(tags_val).upper():
-                level_label = lvl
-                break
-    # Audio is generated on demand by the client; Study responses must not wait for TTS.
-
     return {
         "id": card.id,
-        "front": card.front_text,
-        "back": card.back_text,
-        "context": card.context,
-        "tags": tags_val,
-        "level": level_label,
+        **content_response(card),
         "audio_url": services.resolve_media_url(card.audio_path, "audio"),
         "audio_back_url": services.resolve_media_url(card.audio_back_path, "audio"),
         "image_url": services.resolve_media_url(card.image_path, "images"),
@@ -238,6 +226,7 @@ def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
     _require_study_access(user_id, card.deck_id)
+    require_native(card)
 
     progress, _ = models.TMAProgress.get_or_create(
         card_id=card.id,
@@ -260,14 +249,18 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
     _require_study_access(user_id, deck_id)
     context = 'forced' if learn_more else review_context
     card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context)
-    
+
     if isinstance(card, dict) and "error" in card:
         return card # Возвращаем ошибку для отладки
-        
+
     if not card:
+        active = models.TMA_Card.select(models.TMA_Card.id).where(
+            models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted == False)
+        if not active.where(models.TMA_Card.content_v2.is_null(False)).exists() and active.exists():
+            raise HTTPException(409, {'code': 'deck_requires_migration'})
         logger.info(f"User {user_id} finished deck {deck_id}")
         return {"finished": True}
-    
+
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
     return _card_to_response(card, progress, user_id, context)
 
@@ -309,7 +302,7 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
         services.update_card_progress(
             data.card_id,
-            user_id, 
+            user_id,
             data.grade,
             is_extended=data.is_extended,
             review_context=context,
@@ -318,7 +311,7 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
         logger.info("submit_grade: Progress updated successfully")
         if not data.return_next:
             return {"status": "success"}
-        
+
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
         exclude = list(set([*data.exclude_ids, data.card_id])) if context == 'forced' else data.exclude_ids
         card, progress = services.get_next_card(user_id, data.deck_id, exclude_ids=exclude, review_context=context)
@@ -345,7 +338,7 @@ def get_next_duplicate_card(exclude_ids: str = None, user_id: int = Depends(get_
         try:
             parsed_exclude = [int(i) for i in exclude_ids.split(',') if i.strip()]
         except ValueError: pass
-    
+
     card, progress = services.get_next_duplicate_card(user_id, exclude_ids=parsed_exclude)
     if not card:
         return {"finished": True}
@@ -370,9 +363,9 @@ def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
         except (ValueError, TypeError, AttributeError):
             raise HTTPException(422, 'Invalid action_id')
     services.update_card_progress(
-        data['card_id'], 
-        user_id, 
-        data['grade'], 
+        data['card_id'],
+        user_id,
+        data['grade'],
         is_extended=bool(data.get('is_extended', False)),
         **({'action_id': action_id} if action_id else {})
     )

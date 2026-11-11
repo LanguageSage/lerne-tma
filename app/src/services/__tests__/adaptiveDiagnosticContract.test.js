@@ -1,3 +1,4 @@
+import { nativeCard } from '../../utils/__tests__/nativeFixture.js';
 /**
  * Draft diagnostic semantics, NOT a runtime evaluator or API admission path.
  * The reference below consumes synthetic expert annotations, never parses a
@@ -150,7 +151,7 @@ test('draft: allowed target-preserving alternative and target avoidance are diff
 });
 
 async function capture(evidence) {
-  await captureStudyKnowledgeAttempt({ userId: 7001, card: { id: 9101, front: '@free\nSynthetic prompt' },
+  await captureStudyKnowledgeAttempt({ userId: 7001, card: nativeCard("free_text", { id: 9101 }, {"data": {"prompt": "Synthetic prompt", "sample_answer": "Synthetic answer", "accepted_answers": [], "grading_policy": {"mode": "controlled_text", "typo_tolerance": true, "semantic_equivalence": true, "grammar_requires_retry": true, "case_sensitive": false, "punctuation_sensitive": false, "max_retries": 3}}}),
     grade: 2, exerciseEvidence: evidence });
   return (await getLocalDb().knowledge_attempt_outbox.toArray())[0]?.evaluation_data;
 }
@@ -214,7 +215,7 @@ test('current unavailable: there is no objective evidence; later grade can still
 function assessmentSession() {
   return { id: 'synthetic-session', userId: 7001, deckId: 9201, index: 0,
     config: { required_count: 1 }, results: {}, cards: [
-      { id: 9101, metadata: { assessment: { competency_ids: ['synthetic-competency'] } } },
+      nativeCard("standard", { id: 9101 }, {metadata: { assessment: { competency_ids: ['synthetic-competency'] } }}),
     ] };
 }
 

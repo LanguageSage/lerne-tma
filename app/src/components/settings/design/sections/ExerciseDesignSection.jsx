@@ -11,15 +11,22 @@ import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { TypographyControls } from '../controls/TypographyControls';
 import { getMatchRightTypography } from '../../../../utils/cardStyles.js';
 
+const sample = (id, type, data) => ({ id, content_v2: { schema_version: 2, card: { type, data } } });
 const PREVIEW_CARDS = {
-  speech: { id: -1003, front: 'Ich lerne jeden Tag Deutsch.', back: 'Каждый день я учу немецкий.' },
-  cloze: { id: -1001, front: 'Ich [[lerne]] mit klein{en} Hunden {*heute|morgen}.', back: 'Сегодня я учусь.' },
-  puzzle: { id: -1002, front: '@puzzle\nIch lerne heute Deutsch.', back: 'Сегодня я учу немецкий.' },
-  quiz: { id: 'design-quiz', front: 'Welche Antwort passt?\n\n- Gestern\n* Heute\n- Morgen', back: '' },
-  match: { id: 'design-match', front: '@match\ndie Katze => кошка\nder Hund => собака\nder Vogel => птица', back: '' },
-  wordBank: { id: 'design-wordbank', front: '@wordbank\nIch <<1>> <<2>> Deutsch.\n@options\nlerne | heute | morgen', back: '1=lerne\n2=heute' },
-  freeText: { id: 'design-free', front: '@free\nSchreiben Sie einen Satz über Ihren Alltag.', back: 'Ich lerne jeden Tag Deutsch.' },
-  editableText: { id: 'design-edit', front: '@edit\nIch lernen jeden Tag Deutsch.', back: 'Ich lerne jeden Tag Deutsch.' },
+  speech: sample(-1003, 'standard', { prompt: 'Ich lerne jeden Tag Deutsch.', answer: 'Каждый день я учу немецкий.' }),
+  cloze: sample(-1001, 'trainer', { parts: [{ type: 'text', text: 'Ich ' }, { type: 'input', answers: ['lerne'] },
+    { type: 'text', text: ' mit klein' }, { type: 'choice', options: [{ text: 'en', correct: true }, { text: 'e', correct: false }] },
+    { type: 'text', text: ' Hunden.' }], back_note: 'Сегодня я учусь.' }),
+  puzzle: sample(-1002, 'puzzle', { tokens: ['Ich', 'lerne', 'heute', 'Deutsch.'], translation: 'Сегодня я учу немецкий.' }),
+  quiz: sample('design-quiz', 'quiz', { prompt: 'Welche Antwort passt?', options: [
+    { text: 'Gestern', correct: false }, { text: 'Heute', correct: true }, { text: 'Morgen', correct: false }] }),
+  match: sample('design-match', 'match', { pairs: [{ left: 'die Katze', right: 'кошка' },
+    { left: 'der Hund', right: 'собака' }, { left: 'der Vogel', right: 'птица' }] }),
+  wordBank: sample('design-wordbank', 'word_bank', { options: ['lerne', 'heute', 'morgen'], parts: [
+    { type: 'text', text: 'Ich ' }, { type: 'gap', option: 0 }, { type: 'text', text: ' ' },
+    { type: 'gap', option: 1 }, { type: 'text', text: ' Deutsch.' }] }),
+  freeText: sample('design-free', 'free_text', { prompt: 'Schreiben Sie einen Satz über Ihren Alltag.', sample_answer: 'Ich lerne jeden Tag Deutsch.' }),
+  editableText: sample('design-edit', 'editable_text', { source_text: 'Ich lernen jeden Tag Deutsch.', correct_text: 'Ich lerne jeden Tag Deutsch.' }),
 };
 
 const STATE_GROUPS = {
@@ -87,7 +94,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
               {previewType === 'speech' ? <StudyCardSpeech key={`speech:${previewRevision}`}
                 card={PREVIEW_CARDS.speech} designConfig={config} /> : <ExerciseRenderer key={`${previewType}:${previewRevision}`}
                 card={PREVIEW_CARDS[previewType]} designConfig={config}
-                savedState={previewType === 'freeText' ? { userInput: PREVIEW_CARDS.freeText.back } : undefined} />}
+                savedState={previewType === 'freeText' ? { userInput: PREVIEW_CARDS.freeText.content_v2.card.data.sample_answer } : undefined} />}
             </fieldset>
             <button type="button" className="btn-secondary btn-tiny"
               onClick={() => setPreviewRevision(value => value + 1)}>{tr('Сбросить')}</button>
@@ -192,7 +199,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           <h4 style={{ fontSize: '0.9rem', color: '#f8fafc', margin: '0 0 10px 0' }}>
             {tr('Выпадающий список вариантов')}
           </h4>
-          
+
           <div className="form-group" style={{ marginBottom: '10px' }}>
             <label style={{ fontSize: '0.82rem', color: '#94a3b8' }}>{tr('Шрифт')}</label>
             <select

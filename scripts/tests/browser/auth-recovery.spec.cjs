@@ -49,7 +49,10 @@ async function setup(page, context, mode = 'missing') {
     if (path === '/api/decks') return reply(200, [deck]);
     if (path === '/api/folders' || path === '/api/messages') return reply(200, []);
     if (path === '/api/decks/21/cards') return reply(200, [card]);
-    if (path === '/api/decks/21/next' || path === '/api/study/card/31') return reply(200, card);
+    if (path === '/api/decks/21/next' || path === '/api/study/card/31') {
+      return reply(200, { ...card, content_v2: { schema_version: 2,
+        card: { type: 'standard', data: { prompt: card.front, answer: card.back } } } });
+    }
     if (path === '/api/auth/sync') return reply(200, { status: 'ok', user: profile });
     return reply(200, {});
   });

@@ -1,6 +1,6 @@
 import { getInteractiveExerciseContent } from './exerciseContentParser.js';
 
-const normalizeWordBankValue = (value) => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();
+import { normalizeWordBankValue } from './text.js';
 
 const getCardField = (card, primary, fallback) => {
   if (typeof card !== 'object' || !card) return '';

@@ -1,4 +1,5 @@
 import { tr } from '../../i18n/locale';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getThemeDecks } from '../../utils/studyFlow';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
@@ -456,6 +457,9 @@ export const DeckGrid = ({
                   </div>
                   <div className="search-cards-list">
                     {searchedCards.map((c) => {
+                      const structured = studyContent(c);
+                      const prompt = structured ? studySideText(structured) : c.front;
+                      const answer = structured ? studySideText(structured, 'back') : c.back;
                       const flagStyle = getFlagStyle(c.flag);
                       const cardNum = c.card_number || (typeof c.position === 'number' ? c.position + 1 : 1);
                       return (
@@ -470,11 +474,11 @@ export const DeckGrid = ({
                             style={{ cursor: 'pointer' }}
                           >
                             <div className="front-min">
-                              {c.front}
+                              {prompt}
                             </div>
-                            {c.back && (
+                            {answer && (
                               <div className="back-min">
-                                <MarkdownRenderer>{c.back}</MarkdownRenderer>
+                                <MarkdownRenderer>{answer}</MarkdownRenderer>
                               </div>
                             )}
                           </div>
@@ -489,7 +493,7 @@ export const DeckGrid = ({
                               >
                                 📁 {c.deck_name || t('decks.deck', 'Колода')}
                               </span>
-                              {c.level && <CardLevelBadge card={c} size="sm" />}
+                              <CardLevelBadge card={c} size="sm" />
                             </div>
 
                             <div className="card-item-footer-right">

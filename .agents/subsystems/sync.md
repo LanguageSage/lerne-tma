@@ -27,7 +27,7 @@ Knowledge Attempts отправляются отдельным механизм�
    Новое значение `audio_path`/`audio_back_path` в облаке принимается только при наличии объекта в `storage.objects`; неизменённые ссылки и явное удаление поля сохраняют прежнюю семантику.
 5. Клиент подтверждает пакет, переводит временные ID, синхронизирует learning preferences и получает `/sync/v2/pull`.
 6. Snapshot применяется с сохранением локальных dirty changes; события remap/synced обновляют клиентские представления.
-7. Legacy push/pull и collab-pull остаются отдельными маршрутами; проверяйте caller перед выбором сервиса.
+7. Старые `/sync/push` и `/sync/pull` удалены. `collab-pull` возвращает только invalidation/watermark/access_version; данные загружает единый native pull.
    Все пять Sync handlers используют `db_worker`. Auth и handler освобождают
    свои соединения отдельно, транзакции push принадлежат сервисам, а ответы
    pull и `access_version` собираются внутри worker scope. PostgreSQL-регрессия
@@ -35,6 +35,193 @@ Knowledge Attempts отправляются отдельным механизм�
 8. `card_notes` (Dexie v5) is a separate personal-note outbox. `api.js` routes its mutations through `offlineApi.js` to `cardNotes.js`: persist first, then use the existing authenticated network client. Existing entity sync resolves temporary card IDs before flushing this outbox. UUIDs, tombstones, local revisions and a per-account write lock protect retries/edits; account switching cannot consume another account's responses. The study card reads visible notes from Dexie; its first server read loads the deck's notes in one batch and subsequent card changes reuse that result. Explicit refresh fetches again. Card/progress snapshots never include notes. Tests: `app/src/services/__tests__/cardNotes.test.js`, `scripts/tests/browser/card-notes.spec.cjs`.
    An annotation error leaves its draft dirty and returns `card_notes_pending`, without blocking committed entity/review synchronization or unrelated offline API actions. Manual profile sync shows this partial result explicitly; the notes panel retains its pending/error/retry states.
    A flush attempts every matching note, acknowledges only successful unchanged local revisions, and reports the first error after the loop. Rejected/network-failed records remain dirty across restarts and retry with the same UUID; one record cannot block other notes. Existing entity sync is unchanged.
+
+## Structured Cards V2, этап 6B.1
+
+Standard из редактора при недоступной сети сохраняется с отрицательным ID.
+`offlineApi` атомарно записывает `cards` и неизменяемую операцию
+`syncState.card-create-v2:<request_id>` в БД аккаунта. `syncService` повторяет
+`POST /cards/save` с тем же UUID. Нативная серверная квитанция в
+`TMAOfflineBatch` и карточка фиксируются в одной транзакции. Локальный
+ремап, замена строки и удаление ожидающей операции также атомарны.
+Ошибка сохраняет строку и очередь. Запуск приложения, восстановление
+сети и фоновый цикл повторяют доставку.
+
+`GET /sync/v2/pull?card_schema=2` передаёт нативное содержимое, ревизии и
+связанный прогресс. V1-карточки и их очередь не участвуют в новом цикле.
+Формат без параметра сохранён для старого клиента. Проверка с Chromium,
+FastAPI и одноразовым PostgreSQL запускается через
+`scripts/tests/structured_cards_postgres.py --bin-dir <path> --offline-create-browser`.
+Границы этапа описаны в [STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b1-офлайн-создание-одной-standard-карточки).
+
+## Structured Cards V2, этап 6B.2
+
+Офлайн-редактор Standard сохраняет черновик в `cards`, состояние доставки и
+версию сервера в `cards.offline_edit`, а исходный payload — в
+`syncState.card-edit-v2:<card_id>`. Запись карточки и операции, подтверждение
+и явный выбор версии атомарны в Dexie. Кеширование чтений и pull сохраняют
+карточку с активной правкой. Существующий `syncService` отправляет нативный
+`PATCH /cards/{id}` с исходной ревизией и тем же UUID до получения квитанции.
+При конфликте он сохраняет отказ до загрузки серверной версии и прекращает
+отправлять отклонённый payload. Явное сохранение локального варианта создаёт
+операцию с новым UUID и ревизией показанной версии сервера.
+
+Проверка двух Chromium-контекстов, FastAPI и одноразового PostgreSQL запускается
+через `scripts/tests/structured_cards_postgres.py --bin-dir <path> --offline-edit-browser`.
+
+## Structured Cards V2, этап 6B.3
+
+У Standard в доступной кешированной колоде запись создания предшествует
+HTTP-запросу и при наличии сети. Подтверждение создания сохраняет уже
+закешированную строку с серверным ID и добавляет alias в той же транзакции.
+Для правки `syncState.card-edit-v2:<card_id>` содержит одну отправляемую
+операцию. `cards.offline_edit.next` хранит последующий черновик до квитанции
+предыдущей операции. Квитанция атомарно переносит черновик в тот же ключ
+с подтверждённой базовой ревизией. Следующий проход доставляет его с новым UUID.
+Конфликт сохраняет последнюю локальную версию для явного разрешения. Ответ
+проверяется по сессии и UUID операции. Обычный pull пропускает ожидающие правки.
+Новые поля необязательны, версия Dexie и существующие payload сохранены.
+
+Проверки доставки с разрывами соединения, задержанными ответами и перезапуском
+в Chromium входят в `structured_cards_postgres.py --offline-delivery-browser`.
+
+## Structured Cards V2, этап 6B.4
+
+- `syncService.sync` захватывает аккаунт и идентификатор сессии перед
+  запросом Web Lock. При занятой или недоступной блокировке очередь
+  сохраняется для повтора. Единственный путь доставки проходит под
+  `lerne-offline-sync`.
+- Подтверждение сверяет UUID внутри транзакции `syncState`. Pull и кеш
+  карточек сравнивают начало чтения с метками более свежего чтения и
+  подтверждения. Межвкладочные уведомления передают ID для перечитывания
+  Dexie, содержимое карточки остаётся в БД аккаунта.
+- Collaborative при ответе `native_card_requires_v2_sync` запускает
+  только V2 pull через тот же сервис и ту же блокировку.
+- `structured_cards_postgres.py --offline-isolation-browser` запускает
+  сценарий двух вкладок и смены сессий на одноразовом PostgreSQL.
+
+## Structured Cards V2, этап 6B.5a
+
+`offlineApi` атомарно меняет размещение существующей V2-карточки в `cards`
+и сохраняет запрос в `syncState.card-move-v2:<card_id>`. `syncService`
+доставляет его через `POST /cards/batch-move` под той же Web Lock. Сервер
+проверяет ревизии и права на обе колоды, сохраняет размещение и квитанцию
+вместе. Локальное подтверждение применяет размещение и удаляет операцию
+в одной транзакции. Чтения сохраняют pending/rejected размещение, временные
+сбои повторяются с исходным UUID. Проверка: `structured_cards_postgres.py
+--bin-dir <path> --offline-move-browser`. Подробности в
+[STRUCTURED_CARDS_V2](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5a-перенос-одной-v2-карточки-между-колодами).
+
+## Structured Cards V2, этап 6B.5b
+
+Одиночные удаление и восстановление V2 используют `cards.is_deleted` и
+`syncState.card-lifecycle-v2:<card_id>` в одной Dexie-транзакции. Доставка
+использует общий `syncService`, Web Lock, серверную ревизию и квитанцию
+`TMAOfflineBatch`. При сетевой ошибке сохраняется исходный UUID. При
+конфликте ревизий очередь применяет серверное состояние и снимает ожидание.
+Если удалена карточка с локальной правкой, серверная отметка удаления
+меняет видимость, а `offline_edit` и его запрос остаются в Dexie.
+Восстановление обновляет серверную сторону конфликта, чтобы пользователь
+мог явно разрешить его. Регрессия запускается через
+`structured_cards_postgres.py --bin-dir <path> --offline-lifecycle-browser`.
+
+## Structured Cards V2, этап 6B.8a
+
+Создание любой V2-карточки в известной серверной колоде использует
+`card-create-v2:<request_id>` и ремап из этапов 6B.1–6B.4. Тип карточки
+сверяется с отправленным payload при подтверждении. Валидация содержимого
+при доставке остаётся у `POST /cards/save`. При 422 Dexie хранит исходную
+карточку и payload, сохраняет текст ошибки и исключает операцию из
+автоматических повторов. Остальные создания доставляются независимо.
+`--offline-create-browser` проверяет Standard и все девять типов в Chromium
+с FastAPI и одноразовым PostgreSQL.
+
+## Structured Cards V2, этап 6B.8b
+
+Все девять типов редактируются через `card-edit-v2:<card_id>` и общий
+`PATCH /cards/{id}` из этапов 6B.2–6B.4. Открытие редактора использует
+кешированную локальную правку или свежее чтение с офлайн-фоллбеком. Dexie
+хранит полный `content_v2` вместе с операцией, а подтверждение сверяет тип
+с исходным запросом. Конфликты используют ту же панель и правила ревизий.
+При 422 очередь хранит отклонённый черновик до исправления. Если уже
+сохранена следующая правка, она занимает тот же ключ с базовой ревизией
+отклонённого запроса. Проверка девяти типов и Standard запускается через
+`structured_cards_postgres.py --bin-dir <path> --offline-edit-browser`.
+
+## V2 batch transfer
+
+Пакетные copy/move расширяют прежние операции `card-move-v2:` в `syncState`,
+без новой очереди и схемы Dexie. `offlineApi.queueCardMove` атомарно пишет все
+локальные карточки и один UUID/payload; copy получает временные ID без личного
+прогресса. `syncService.deliverCardMoves` подтверждает весь пакет и aliases
+одной транзакцией, проверяя текущую сессию и UUID. Неизвестный ответ оставляет
+операцию для повтора; окончательный отказ сохраняет её и локальные карточки
+с отметкой `rejected`. `keepLocalCard` защищает их при обычном чтении и pull.
+Одиночные операции предыдущего этапа читаются прежним обработчиком.
+Проверки: `structured_cards_postgres.py --http` и `--offline-batch-browser`;
+[контракт 6B.5c](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5c-пакетное-копирование-и-перенос-v2-карточек).
+
+## Подготовка cutoff V1 (7.4, без переключения)
+
+`app/src/services/cardCutoverPreflight.js:inspectCardCutover` автономно читает
+все Lerne IndexedDB этого origin/profile, включая старую unscoped БД и чужие
+аккаунты, без `prepareLocalDb`, обновления схемы, отправки или удаления очередей.
+Dirty entities/progress/tombstones, learning preferences, reviews, pending batch,
+все native операции (включая rejected), notes, Knowledge и pending imports/design
+settings блокируют локальную готовность. Неизвестные таблицы/операции и ошибки
+чтения также блокируют её. `grade:*` — сохранённые квитанции, не review outbox.
+В 7.4 sync не отправлял V1 pending batch и V1 progress/reviews. Этап 7.5a
+возвращает их доставку через защищённый вход того же batch/receipt механизма;
+успех native delivery по-прежнему не означает отсутствия остальных изменений.
+
+`api/card_cutover_preflight.py` и `scripts/structured_cards_preflight.py`
+читают PostgreSQL отдельной READ ONLY REPEATABLE READ транзакцией, без startup
+и миграций. Эти наблюдения не доказывают полноту устройств, остановку writers
+или проверенный откат; `safe_to_stop_v1_writes` остаётся false. Контракт,
+инвентаризация writers, условия допуска/retry/rollback и проверка восстановления:
+[этап 7.4](../../project_docs/STRUCTURED_CARDS_V2.md#этап-74-подготовка-безопасного-переключения-без-миграции).
+Тесты: `structured_cards_postgres.py --cutover-preflight` (новый синтетический
+PostgreSQL, FastAPI, physical restore) и `browser/card-cutover-preflight.spec.cjs`
+(Chromium/Dexie, неизменность содержимого и версии после повторного запуска).
+
+## Доставка старых очередей (7.5a)
+
+`syncService` повторяет существующий `syncState.pending` без замены UUID/данных.
+Новые пакеты снова включают dirty V1 cards, progress и reviews, сохраняя native
+outboxes отдельно. `/sync/v2/push-legacy` использует `offline_sync.push_offline`
+с теми же fingerprints, receipts, permissions, mappings и транзакцией; при
+повторе сначала возвращается квитанция. Для ранее не принятой правки сервер
+проверяет `drain_bases` под row lock. База захватывается `dirtyFields(previous)`
+до первой правки чистой серверной строки; локальное время правки не является
+базой. Без неё допускается только неизменяющий содержимое повтор. Конфликты,
+неизвестная база, нетранспортабельные поля, отсутствие прав/нового endpoint
+оставляют пакет и локальные строки. Old push сохраняет свой контракт.
+
+ACK сохраняет более новые локальные правки и переносит все временные связи,
+включая notes/Knowledge. Версии собственного commit находятся в квитанции и
+позволяют повторить следующий локальный черновик без принятия версии другого
+устройства. Legacy pull `card_schema=1` обновляет только уже имеющийся V1 cache;
+native pull остаётся отдельным `card_schema=2`. Dirty/другой формат защищены.
+
+Результат содержит `native_success` (native content outboxes), `entities_success`
+(entities/progress/reviews) и `success` (нет обнаруженных pending в доступных
+Lerne DB/storage этого origin/profile, нет ошибки запрошенных фаз). Последний считается
+через тот же readonly preflight. Notes/Knowledge ошибки не блокируют уже
+подтверждённую доставку других сущностей, но запрещают общий success. Knowledge
+доставляет прежний orchestrator. Invalidation `lerne:synced` имеет `complete:false`;
+`complete:true` и last-sync UI time выдаются только полным успешным циклом.
+Профиль показывает сохранённую причину частичного результата и в online mode.
+Доставка не запускает конвертер, миграции или переключение формата.
+
+Незавершённый источник `LerneLocalDB` блокирует entity batch до создания нового
+UUID: исторический importer копировал entities без исходного pending/reviews.
+Его копии нельзя повторно отправлять, пока не сверены оригинальные квитанции.
+Источник не очищается/не апгрейдится. Native UUID outboxes доставляются отдельно;
+полный device-preflight не позволяет их success скрыть старую БД/другой аккаунт.
+
+Сквозные тесты: `structured_cards_postgres.py --legacy-drain-browser`,
+`browser/legacy-sync-drain.spec.cjs`. Контракт, ограничения и допуск:
+[7.5a](../../project_docs/STRUCTURED_CARDS_V2.md#этап-75a-безопасное-завершение-v1-очередей).
 
 ## Клиентские зависимости транспорта
 
@@ -45,8 +232,9 @@ refresh flights и Dexie refresh lease. `api.js` оборачивает его o
 
 ```text
 api -> networkApi, offlineApi, syncService, localDb, auth, axios
-syncService -> networkApi, cardNotes, localDb, auth, locale
-offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale
+syncService -> networkApi, cardNotes, localDb, auth, locale, cardDraft, cardCutoverPreflight
+cardCutoverPreflight -> dexie
+offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale, cardDraft
 cardNotes -> networkApi, localDb, auth
 networkApi -> localDb, auth, apiConfig, localMode, axios
 localDb -> auth, localMode, dexie, @capacitor/core
@@ -54,7 +242,7 @@ auth -> locale, localMode
 mediaCache -> apiConfig
 apiConfig -> media, localMode
 media -> localMode
-srsEngine -> locale
+srsEngine, cardDraft -> locale
 locale -> messages/en.json, messages/uk.json
 ```
 
@@ -82,6 +270,7 @@ offline → online доставку заметок, Web Locks/Dexie lease и с�
 - `api/models.py` задаёт серверную схему; online entities сохраняются в Peewee, offline доставка — в `offline_sync.py`.
 - Цветовая метка `flag` принадлежит progress конкретного пользователя. Offline `/cards/save` сохраняет явно переданный `flag` вместе с карточкой в одной Dexie-транзакции; отсутствие поля сохраняет прежний progress. Оценка переносит legacy cached `card.flag` только при создании progress. Явный `progress.flag = 0` имеет приоритет над legacy-значением при любой сериализации. Схема, накопленный SRS и очереди sync не сбрасываются.
 - Pending batch хранит идентичность повторного запроса; `TMAOfflineBatch` сохраняет серверную квитанцию.
+- V2 progress changes limited to a flag carry `flag_only` in the existing batch; the server updates only the personal label, preserving newer SRS/bookmarks from other devices. Native UUID grades also mark their snapshot this way: reviews own SRS. Explicit reset clears the marker. Absent/false is excluded from the receipt fingerprint, preserving old pending batches. Regression: `test_offline_sync.py` and the Chromium/PostgreSQL `--learning-browser` scenario in `structured_cards_postgres.py`.
 - Grade UUID связывает online POST и `reviews[].action_id` независимо от batch request_id. Для UUID-событий сервер применяет прежний SRS один раз к актуальному прогрессу с исходным review_time; присланный SRS snapshot этой карточки игнорируется, личные flag/bookmark сохраняются. Старые события без UUID принимаются прежним путём. Новые batches дополняют несинхронизированные legacy events UUID из `review:*`; уже pending batch не меняется. Dexie сохраняет локальные `grade:*` receipts отдельно от удаляемого review outbox, включая reload/ack/remap.
 - Mappings/aliases связывают отрицательные ID с серверными; используйте существующий remap перед следующими действиями.
 - `review:*` события и итоговый progress доставляются совместно; сервер не запускает SRS повторно для импортированного результата.
@@ -203,3 +392,71 @@ legacyAdapter удалён, новый personal record создаётся неп
 актуальные V2 config/preset/offline edits сохраняются. Общие publication backups
 не затрагиваются. Исторические условия cutoff этапов 3–4D отменены этим решением.
 [Реализация и проверки](../../docs/DESIGN_V2_STAGE5_LEGACY_REMOVAL.md).
+
+## V2: список, удаление, порядок и поиск (6B.5d)
+
+`offlineApi.queueCardSelection` атомарно пишет пакет удаления/порядка и UUID
+в существующую очередь `CARD_LIFECYCLE_KEY`. `syncService.deliverCardSelection`
+доставляет через прежние `/cards/batch-delete` и `/cards/reorder` и подтверждает
+весь `cards` одной транзакцией. Отклонённые пакеты сохраняются с локальными
+карточками и исключаются из автоматического повтора. Новых схем/очередей нет.
+`createDeckSlice.reorderCards` пишет до изменения store, без отложенного таймера.
+Поиск читает V2 через `utils/search.matchCard`; дубликаты используют полный
+V2-ключ `cardDuplicateKey` и собственные колоды, как сервер. DuplicateManager
+отображает V2 напрямую. Контракт, ограничения, HTTP/PostgreSQL/Chromium проверки:
+[6B.5d](../../project_docs/STRUCTURED_CARDS_V2.md#этап-6b5d-завершение-операций-со-списком-v2).
+
+
+## Защита при полном восстановлении PostgreSQL
+
+`sync_generation.py` вычисляет `server_generation` из служебного маркера
+`tmasetting.SYNC_DATABASE_RESTORE` и PostgreSQL OID таблиц контента. Это граница
+восстановления, отдельная от ревизий карточек. Авторизованный `/sync/v2/status`
+доступен до сверки; остальные Classic API проверяют `X-Lerne-Generation` после
+проверки сессии. Полный pull также содержит поколение.
+
+`networkApi` привязывает поколение к account-scoped Dexie, `syncService` проверяет
+его до отправки очередей и применения snapshot. Несовпадение сохраняет
+`syncState.serverGenerationConflict`, возвращает 409 `database_generation_conflict`
+и останавливает чтение/запись в сервер. Карточки, SRS, заметки и очереди остаются
+на клиенте, в том числе после reload. Первый старый клиент без поколения с
+локальными данными не привязывается к явно восстановленному серверу. Пустой
+новый клиент может начать работу. Конфликт не снимается автоматически.
+
+Restore выполняется при остановленных API и клиентах. Сначала сохраните
+отдельную копию account IndexedDB и серверной БД; сопоставьте подтверждённые
+карточки и pending операции с восстановленным сервером, включая UUID receipts,
+SRS и Knowledge. До завершения сверки не очищайте IndexedDB и не заменяйте
+`serverGeneration` вручную. Автоматического объединения после отката нет.
+После согласованной сверки привязку клиента восстанавливает оператор; для
+нового чистого клиента используйте отдельный профиль, сохранив исходный.
+
+Штатные LOCAL Restore и Admin full Restore меняют маркер до открытия API.
+Ручной data-only Restore также обязан вызвать `mark_database_restored` до
+запуска API; OID покрывают `pg_restore --clean`, но не изменение строк in-place.
+Старые клиенты без заголовка допускаются только до первого штатного Restore.
+Перед внедрением API требуется одновременный выпуск нового клиента.
+
+Проверки: `test_sync_generation.py`, `serverGeneration.test.js` и
+`structured_cards_postgres.py --bin-dir <pgsql/bin> --recovery-browser`.
+Последний выполняет настоящий pg_dump/pg_restore только внутри нового
+disposable кластера и проверяет сохранность Dexie и блокировку записи в Chromium.
+
+## Native V2-only runtime (2026-11-10)
+
+`/sync/v2/pull` по умолчанию и исключительно отдаёт card_schema=2. Коллаборативная
+инвалидация применяет тот же snapshot через syncService; второго merger больше нет.
+Pull сохраняет локальные dirty/non-V2 строки и не выполняется до подтверждения
+созданий V2, чтобы потерянный ответ не создавал второй ID до UUID replay.
+
+Новые записи карточек через V1 batch (`push` и `push-legacy`) отклоняются 409
+`legacy_queue_requires_recovery` до любых записей. Уже сохранённая квитанция
+повторяется раньше этой проверки. Транспорт folders/decks/progress/reviews и их
+permissions/идемпотентность остаётся. Исходные старые очереди не удаляются и не
+переписываются: TD-001 остаётся отдельной задачей восстановления.
+
+Разделы 7.4/7.5 выше описывают историю; они не разрешают новые V1 card writes.
+Успех pull/native-content не равен полной доставке всех настроек устройства;
+коллаборативный UI обновляется по `pull_success`. Watermark снимается до чтения
+и использует те же naive часы, что и `updated_at`, чтобы polling успокаивался
+после завершённой записи.

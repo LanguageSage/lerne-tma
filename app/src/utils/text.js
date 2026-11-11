@@ -85,3 +85,17 @@ export const normalizeSpeechText = (text, lang = 'de') => {
 export const normalizeGermanSpeechText = (text) => normalizeSpeechText(text, 'de');
 
 
+
+export const normalizeAnswer = (str) => {
+  if (!str) return '';
+  let res = str.trim().replace(/\s+/g, ' ').toLowerCase();
+  res = res.replace(/[.!?]+$/, '').trim();
+  return res;
+};
+
+export const normalizeMatchValue = (str) => {
+  if (!str) return '';
+  return str.trim().replace(/\s+/g, ' ');
+};
+
+export const normalizeWordBankValue = value => String(value || '').trim().replace(/\s+/g, ' ').toLowerCase();

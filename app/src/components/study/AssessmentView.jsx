@@ -9,7 +9,7 @@ import { assessmentSummary, recordAssessmentResult } from '../../utils/assessmen
 import { saveAssessment } from '../../services/assessmentService.js';
 import { returnToDeckIntro } from '../../utils/navigation.js';
 import { getUserId } from '../../utils/auth.js';
-import { detectExerciseType } from '../../utils/exerciseDetector.js';
+import { studyContent } from '../../utils/structuredStudyCard.js';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation.js';
 import './AssessmentView.css';
 
@@ -85,10 +85,10 @@ export function AssessmentView() {
     </section> : <>
       <p role="status">{tr('Задание')} {session.index + 1} / {session.cards.length}
         {session.index >= session.config.required_count ? ` · ${tr('Бонус')}` : ''}</p>
-      {['trainer', 'free_text', 'editable_text'].includes(detectExerciseType(card)) ? <ExerciseRenderer
+      {['trainer', 'free_text', 'editable_text'].includes(studyContent(card)?.type) ? <ExerciseRenderer
         key={`${session.id}:${card.id}`} reviewKey={`${session.id}:${card.id}`} card={card}
         supportHistoryUnknown={session.supportHistoryUnknownCardId === card.id}
-        studyMode="classic" assessmentMode styles={settings} onTrainerAnswer={save} />
+        studyMode="classic" native assessmentMode styles={settings} onTrainerAnswer={save} />
         : <p role="alert">{tr('Механика задания не поддерживается в экзамене. Вернитесь к колоде.')}</p>}
       <div className="assessment-actions">
         {result ? <button type="button" className="btn btn-primary" disabled={busy || Boolean(error)} onClick={advance}>

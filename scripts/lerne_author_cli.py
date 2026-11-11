@@ -44,6 +44,7 @@ from api.services.author_service import (
     preview_update_content,
     apply_update_content,
     preview_publish_content,
+    parse_native_publication,
     apply_publish_content,
 )
 
@@ -203,9 +204,15 @@ def handle_publish(args) -> int:
     with open(args.file, 'r', encoding='utf-8') as f:
         text = f.read()
 
-    document = parse_document(text, default_deck_name=args.deck_name)
-    if document['errors']:
-        print('\n'.join(document['errors']), file=sys.stderr)
+    try:
+        if args.passport_only and not text.lstrip().startswith(('{', '[')):
+            document = parse_document(text, default_deck_name=args.deck_name)
+            if document['errors']:
+                raise ValueError('\n'.join(document['errors']))
+        else:
+            document = parse_native_publication(text, args.deck_name)
+    except ValueError as exc:
+        print(str(exc), file=sys.stderr)
         return 1
     cards = document['cards']
     if not cards and not args.passport_only:

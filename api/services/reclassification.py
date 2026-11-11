@@ -11,7 +11,7 @@ from fastapi import HTTPException
 from starlette.concurrency import run_in_threadpool
 
 from api import ai_service, models
-from .cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload, merge_cefr_metadata
+from .cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
 from .classifier import classify_sentence_fast
 from .collaborative_service import _require_can_mutate, _require_cards_access
 
@@ -45,6 +45,8 @@ def _progress(state, operation_id, status, cards=None, error=None):
 
 
 def _claim(scope, user_id, operation_id, batch_index):
+    from .structured_card_api import authored_side_text, require_native
+
     with models.tma_db.connection_context(), models.tma_db.atomic():
         _authorize(scope, user_id)
         key = f'classify:{user_id}:{operation_id}'
@@ -53,7 +55,8 @@ def _claim(scope, user_id, operation_id, batch_index):
         if receipt is None:
             if batch_index != 0:
                 raise HTTPException(409, 'Не найдена операция переклассификации')
-            query = models.TMA_Card.select(models.TMA_Card.id).where(models.TMA_Card.is_deleted == False)
+            query = models.TMA_Card.select(models.TMA_Card.id).where(
+                models.TMA_Card.is_deleted == False, models.TMA_Card.content_v2.is_null(False))
             if scope['deck_id']:
                 query = query.where(models.TMA_Card.deck_id == scope['deck_id'])
             else:
@@ -93,9 +96,11 @@ def _claim(scope, user_id, operation_id, batch_index):
             (models.TMAOfflineBatch.key == key) & (models.TMAOfflineBatch.response == receipt.response)).execute()
         if not changed:
             return {'response': _progress(state, operation_id, 'busy', error='classification.busy')}
+        for card in cards:
+            require_native(card)
         return {'key': key, 'claimed': claimed, 'state': state, 'cards': [
-            {'id': c.id, 'deck_id': c.deck_id, 'front': c.front_text, 'updated_at': c.updated_at,
-             'tags': c.tags, 'metadata': c.metadata} for c in cards]}
+            {'id': c.id, 'deck_id': c.deck_id, 'text': authored_side_text(c.content_v2, 'front'),
+             'updated_at': c.updated_at, 'content_v2': c.content_v2} for c in cards]}
 
 
 def _finish(claim, results, error, user_id, operation_id):
@@ -112,27 +117,26 @@ def _finish(claim, results, error, user_id, operation_id):
             _require_cards_access([original['id']], user_id)
             card = models.TMA_Card.get_by_id(original['id'])
             if (card.is_deleted or card.deck_id != original['deck_id'] or
-                    card.front_text != original['front'] or card.updated_at != original['updated_at'] or
-                    card.tags != original['tags'] or card.metadata != original['metadata']):
+                    card.content_v2 != original['content_v2'] or card.updated_at != original['updated_at']):
                 error = 'classification.card_changed'
                 continue
-            tags = [t for t in (card.tags or '').split(',') if t and t.strip().upper() not in {'A1', 'A2', 'B1', 'B2', 'C1', 'C2'}]
-            card.tags = ','.join([*tags, payload['level']])
-            card.metadata = merge_cefr_metadata(card.metadata, payload)
-            card.updated_at = datetime.datetime.now()
-            # Never save stale text, media or other card fields after AI waiting.
-            saved = models.TMA_Card.update(tags=card.tags, metadata=card.metadata, updated_at=card.updated_at).where(
-                (models.TMA_Card.id == card.id) & (models.TMA_Card.updated_at == original['updated_at']) &
-                (models.TMA_Card.front_text == original['front']) & (models.TMA_Card.deck == original['deck_id']) &
-                (models.TMA_Card.tags == original['tags']) & (models.TMA_Card.metadata == original['metadata']) &
-                (models.TMA_Card.is_deleted == False)).execute()
+            value = card.content_v2['card']
+            updated_value = {'schema_version': 2, 'card': {**value, 'level': payload['level'],
+                             'metadata': {**value['metadata'], 'cefr': payload}}}
+            from .structured_card_storage import decode_v2_content
+
+            decode_v2_content(updated_value)
+            saved = models.TMA_Card.update(content_v2=updated_value, updated_at=datetime.datetime.now()).where(
+                models.TMA_Card.id == card.id, models.TMA_Card.updated_at == original['updated_at'],
+                models.TMA_Card.content_v2 == original['content_v2'], models.TMA_Card.deck == original['deck_id'],
+                models.TMA_Card.is_deleted == False).execute()
             if not saved:
                 error = 'classification.card_changed'
                 continue
             state['pending'].remove(card.id)
             state['attempts'].pop(str(card.id), None)
-            updated.append({'id': card.id, 'deck_id': card.deck_id, 'front': card.front_text,
-                            'tags': card.tags, 'level': payload['level'], 'cefr': payload,
+            updated.append({'id': card.id, 'deck_id': card.deck_id, 'content_v2': updated_value,
+                            'level': payload['level'], 'cefr': payload,
                             'source': 'local_rules' if payload['source'] == 'local' else 'ai'})
         state['lease'] = 0
         state['next_batch'] += 1
@@ -153,7 +157,7 @@ async def classify_batch(request, user_id):
     results, ambiguous = [], []
     error = None
     for card in claim['cards']:
-        local = classify_sentence_fast((card['front'] or '').strip(), 'de') if scope['target_language'] == 'de' else {}
+        local = classify_sentence_fast((card['text'] or '').strip(), 'de') if scope['target_language'] == 'de' else {}
         if local.get('confidence', 0) >= .8:
             results.append((card, build_local_cefr_payload(local)))
         else:
@@ -161,7 +165,7 @@ async def classify_batch(request, user_id):
     if ambiguous:
         try:
             levels = await asyncio.wait_for(ai_service.classify_phrases_batch(
-                [(c['front'] or '').strip() for c in ambiguous], scope['target_language'], strict=True), AI_TIMEOUT)
+                [(c['text'] or '').strip() for c in ambiguous], scope['target_language'], strict=True), AI_TIMEOUT)
             validated = [(c, build_ai_cefr_payload(level)) for c, level in zip(ambiguous, levels, strict=True)]
             if any(payload['level'] is None for _, payload in validated):
                 raise ValueError('Invalid CEFR levels')

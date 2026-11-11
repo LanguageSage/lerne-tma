@@ -1,4 +1,4 @@
-import { parseExerciseContent } from './exerciseContentParser.js';
+import { studyContent } from './structuredStudyCard.js';
 
 const counters = ['hint_count', 'translation_view_count', 'answer_reveal_count', 'other_help_count'];
 
@@ -25,11 +25,12 @@ export const captureSupportEvidence = (state, capturePoint, attemptCount) => ({
 
 /** Explicit authoring syntax only. Arbitrary prompt prose is not classified heuristically. */
 export function freeTextTaskSupport(card) {
-  const content = parseExerciseContent(card?.front || card?.front_text || '');
+  const native = studyContent(card);
+  const info = native?.info || [];
   return {
-    answer_options_present: content.options.length > 0,
-    source_text_present: Boolean(content.source),
-    authored_example_present: content.examples.length > 0,
+    answer_options_present: info.some(block => block.type === 'options'),
+    source_text_present: info.some(block => block.type === 'source'),
+    authored_example_present: info.some(block => block.type === 'example'),
     sentence_frame_present: null,
     source_vocabulary_present: null,
   };
@@ -40,9 +41,11 @@ export function trainerTaskSupport(card, clozeData) {
   const support = freeTextTaskSupport(card);
   const gaps = clozeData?.gaps || [];
   const frame = clozeData?.maskedText || '';
+  const textParts = clozeData?.parts?.filter(part => part.type === 'text');
   return { ...support,
     answer_options_present: support.answer_options_present || gaps.some(gap => gap.mode === 'choice' && gap.choices?.length > 0),
-    sentence_frame_present: gaps.length > 0 && /___GAP_\d+___/.test(frame),
-    source_vocabulary_present: support.source_text_present || /[\p{L}\p{N}]/u.test(frame.replace(/___GAP_\d+___/g, '')),
+    sentence_frame_present: gaps.length > 0 && (textParts != null || /___GAP_\d+___/.test(frame)),
+    source_vocabulary_present: support.source_text_present || /[\p{L}\p{N}]/u.test(
+      textParts ? textParts.map(part => part.text).join('') : frame.replace(/___GAP_\d+___/g, '')),
   };
 }

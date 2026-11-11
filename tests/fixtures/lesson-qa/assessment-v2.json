@@ -1,0 +1,7320 @@
+{
+  "decks": [
+    {
+      "id": 101,
+      "name": "Fixture lesson 1",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 1\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 102,
+      "name": "Fixture lesson 2",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 2\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 103,
+      "name": "Fixture lesson 3",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 3\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 104,
+      "name": "Fixture lesson 4",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 4\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 105,
+      "name": "Fixture lesson 5",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 5\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 106,
+      "name": "Fixture lesson 6",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 6\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 107,
+      "name": "Fixture lesson 7",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 7\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 108,
+      "name": "Fixture lesson 8",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 8\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 109,
+      "name": "Fixture lesson 9",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 9\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 110,
+      "name": "Fixture lesson 10",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 10\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 111,
+      "name": "Fixture lesson 11",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 11\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 112,
+      "name": "Fixture lesson 12",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 12\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 113,
+      "name": "Fixture lesson 13",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 13\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"practice\"},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    },
+    {
+      "id": 114,
+      "name": "Fixture lesson 14",
+      "target_language": "de",
+      "metadata": "{\"intro\":{\"title\":\"Fixture lesson 14\",\"level\":\"B1\"},\"pedagogy\":{\"lesson_type\":\"assessment\",\"assessment\":{\"schema_version\":1,\"required_count\":46,\"bonus_count\":2,\"bands\":[{\"id\":\"ready\",\"title\":\"Уверенное освоение\",\"min\":41,\"max\":46},{\"id\":\"review\",\"title\":\"Review\",\"min\":34,\"max\":40},{\"id\":\"practice\",\"title\":\"Practice\",\"min\":25,\"max\":33},{\"id\":\"base\",\"title\":\"Base\",\"min\":0,\"max\":24}],\"review_routes\":[{\"id\":\"route_0\",\"title\":\"Review 0\",\"competency_ids\":[\"comp_exam_nominative\",\"comp_exam_accusative\",\"comp_exam_dative\"],\"deck_ids\":[101]},{\"id\":\"route_1\",\"title\":\"Review 1\",\"competency_ids\":[\"comp_exam_prepositions\"],\"deck_ids\":[102]},{\"id\":\"route_2\",\"title\":\"Review 2\",\"competency_ids\":[\"comp_exam_word_order\"],\"deck_ids\":[103]},{\"id\":\"route_3\",\"title\":\"Review 3\",\"competency_ids\":[\"comp_exam_production\"],\"deck_ids\":[104]},{\"id\":\"route_4\",\"title\":\"Review 4\",\"competency_ids\":[\"comp_exam_genitive\"],\"deck_ids\":[105]}]},\"competencies\":[{\"id\":\"comp_exam_nominative\",\"title\":\"comp_exam_nominative\"},{\"id\":\"comp_exam_accusative\",\"title\":\"comp_exam_accusative\"},{\"id\":\"comp_exam_dative\",\"title\":\"comp_exam_dative\"},{\"id\":\"comp_exam_prepositions\",\"title\":\"comp_exam_prepositions\"},{\"id\":\"comp_exam_word_order\",\"title\":\"comp_exam_word_order\"},{\"id\":\"comp_exam_production\",\"title\":\"comp_exam_production\"},{\"id\":\"comp_exam_genitive\",\"title\":\"comp_exam_genitive\"}]},\"resources\":[\"synthetic-resource\"],\"curriculum\":{\"fixture\":true},\"is_learning\":false}"
+    }
+  ],
+  "cards": [
+    {
+      "id": 10002,
+      "deck_id": 101,
+      "position": 380,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {},
+          "type": "quiz",
+          "data": {
+            "back_note": "",
+            "prompt": "Welcher Satz?",
+            "options": [
+              {
+                "text": "Der Roboter, der ich sehe.",
+                "correct": false
+              },
+              {
+                "text": "Der Roboter, den ich sehe.",
+                "correct": true
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20001,
+      "deck_id": 114,
+      "position": 10,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort605 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_nominative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2948, Wort527 Wort1759 Wort2504.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort1533, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort88",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort132",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort162",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort40 Wort54 Wort1764."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20002,
+      "deck_id": 114,
+      "position": 20,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort660 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_accusative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2948, Wort582 я Wort2950 Wort1855.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort1533, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort88",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort132",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort162",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort2949 Wort8."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20003,
+      "deck_id": 114,
+      "position": 30,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wortschatz: malen — paint"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2948, Wort582 я Wort965.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "malt",
+                    "correct": true
+                  },
+                  {
+                    "text": "malen",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " ein Bild."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20004,
+      "deck_id": 114,
+      "position": 40,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort605 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_nominative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2429, у Wort782 Wort2111 Wort2952.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort2502, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort40",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort88",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort1212 Wort2951 Wort252."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20005,
+      "deck_id": 114,
+      "position": 50,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort739 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2429, Wort782 я Wort1587.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort2502, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort40",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort88",
+                    "correct": true
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort1406."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20006,
+      "deck_id": 114,
+      "position": 60,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort660 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_accusative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1298, Wort748 я Wort670 Wort2953.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort65 Wort993, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort65",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort162",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort667 Wort356 Wort8."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20007,
+      "deck_id": 114,
+      "position": 70,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort739 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1276, Wort582 я Wort2955 Wort2673.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort65 Wort564, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort65",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort162",
+                    "correct": true
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort77 Wort2670 Wort2954."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20008,
+      "deck_id": 114,
+      "position": 80,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort605 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_nominative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort312, Wort654 Wort655 Wort520 с Wort2496.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort283 Wort40 Wort41, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort40",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort743",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort1795 Wort2495 Wort517 Wort615."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20009,
+      "deck_id": 114,
+      "position": 90,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort660 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_accusative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort312, Wort977 Wort407 Wort670 Wort2956.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort283 Wort40 Wort41, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort40",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort743",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort29 Wort667 Wort1331 Wort320."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20010,
+      "deck_id": 114,
+      "position": 100,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort739 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort312, Wort775 Wort407 Wort1527 Wort2134 Wort2135.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort283 Wort40 Wort41, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort40",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort743",
+                    "correct": true
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort29 Wort1703 Wort2778 Wort964 Wort320."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20011,
+      "deck_id": 114,
+      "position": 110,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort723 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_nominative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort951 Wort1082, Wort527 Wort707 Wort701 Wort537.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort7 Wort684 Wort9 Wort513, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort88",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort132",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort162",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort640 Wort1410 Wort1405."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20012,
+      "deck_id": 114,
+      "position": 120,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort575 Wort530 Wort63. [Wort1928 · Wort723 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_accusative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort676, Wort669 я Wort1108 Wort1397 Wort1398, Wort550 Wort378 Wort1278.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort50 Wort513, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort88",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort132",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort162",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort688 Wort689 Wort2044, Wort547 Wort614."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20013,
+      "deck_id": 114,
+      "position": 130,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wortschatz: malen — paint"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort843 Wort800, с Wort775 я Wort1870 Wort378 Wort1922 Wort708 Wort2959.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "malt"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " ein Bild."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20014,
+      "deck_id": 114,
+      "position": 140,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort2442 Wort741 с Wort1927. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1440, Wort60 Wort748 Wort147 Wort2960 Wort2551.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort1438, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort327 Wort40",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort1501 Wort40",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort327 Wort88",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort156 Wort222 Wort2550 Wort252."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20015,
+      "deck_id": 114,
+      "position": 150,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2036 Wort741 и Wort63 Wort642 Wort2281 Wort2282. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1640, в Wort801 Wort407 Wort1629.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort65 Wort646, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort545 Wort162"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort29 Wort615."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20016,
+      "deck_id": 114,
+      "position": 160,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2036 Wort741 и Wort63 Wort642 Wort2281 Wort2222. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1640, в Wort527 Wort407 Wort2961 Wort60 Wort1579 Wort1580.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort65 Wort646, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort545 Wort65"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort29 Wort1575 Wort1576 Wort2177."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20017,
+      "deck_id": 114,
+      "position": 170,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2036 Wort741 и Wort63 Wort642 Wort2281 Wort2222. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2346, в Wort527 Wort407 Wort58 Wort2407 в Wort2964 Wort2965.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort1790, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort545 Wort40"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort29 Wort2962 Wort2963 Wort2405 Wort694."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20018,
+      "deck_id": 114,
+      "position": 180,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort2442 Wort741 с Wort1927. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1662, Wort60 Wort669 я Wort776.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort1661, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort68 Wort132",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort79 Wort132",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort767 Wort40",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort771."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20019,
+      "deck_id": 114,
+      "position": 190,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2036 Wort741 и Wort63. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort774, с Wort782 я Wort1113 Wort2967.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort142, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort79 Wort88"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort67 Wort1304 Wort2966."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20020,
+      "deck_id": 114,
+      "position": 200,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2036 Wort741 и Wort63. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1288, к Wort582 я Wort1623.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort1283, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort327 Wort40"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort67 Wort1496."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20021,
+      "deck_id": 114,
+      "position": 210,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1006 Wort2442 Wort741 с Wort1927. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1432, в Wort782 Wort843 Wort1961 Wort519 Wort677 Wort1585 Wort1515.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort1431, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort767 Wort88",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort767 Wort40",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort327 Wort88",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort840 Wort1958 Wort1795 Wort1797 Wort516."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20022,
+      "deck_id": 114,
+      "position": 220,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2036 Wort741 и Wort63. [Wort2957 · Wort2646 · 1 Wort2947]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1425, о Wort782 Wort407 Wort1286 Wort1174.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort65 Wort1424, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort769 Wort65"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort29 Wort813 Wort278."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20023,
+      "deck_id": 114,
+      "position": 230,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wortschatz: sprechen — speak"
+            },
+            {
+              "type": "source",
+              "text": "Ein Roboter im Museum."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_word_order"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort951 Wort2732, Wort549 Wort733 Wort1113 Wort1039 Wort378-Wort1654.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "spricht"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20024,
+      "deck_id": 114,
+      "position": 240,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1007 Wort557 в Wort335 Wort47 и Wort1188 в Wort817. [Wort2957 · Wort32 Wort33 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2408: Wort746 (Wort817)"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_word_order"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort774, Wort527 Wort670 Wort707 Wort965.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort770, Wort88 Wort640 Wort667 "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort964 Wort252"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20025,
+      "deck_id": 114,
+      "position": 250,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort111 в Wort137 Wort457. [Wort2047 · Wort723 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort512 Wort315 Wort40 Wort463, Wort40 Wort100 Wort1410 Wort744."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort548, Wort782 я Wort701 Wort745.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort40 Wort463, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort88"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort1410 Wort744."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20026,
+      "deck_id": 114,
+      "position": 260,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort111 в Wort2697 Wort479. [Wort2047 · Wort723 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort512 Wort315 Wort88 Wort369, Wort162 Wort26 Wort688 Wort704 Wort1321."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_nominative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort364, Wort527 Wort1551 с Wort1507 Wort708 Wort709.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort369, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort88"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort26 Wort688 Wort704 Wort1321."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20027,
+      "deck_id": 114,
+      "position": 270,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort111 Wort1157 Wort974 Wort975 Wort457. [Wort2047 · Wort723 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort847 Wort586, Wort40 Wort100 Wort1406, Wort283 Wort2969."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_dative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort1158, Wort775 я Wort1587, Wort2970.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort847 Wort586, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort743"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort1406, Wort283 Wort2969."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20028,
+      "deck_id": 114,
+      "position": 280,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort32 Wort33 в Wort1198 Wort465. [Wort2047 · Wort32 Wort33 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort7 Wort1351 Wort77 Wort186, Wort40 Wort252 Wort9 Wort1361."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_word_order"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort1354 Wort1363, у Wort782 Wort757 Wort1364.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort7 Wort1351 Wort77 Wort186, Wort40 "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort9 Wort1361 Wort252"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20029,
+      "deck_id": 114,
+      "position": 290,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort32 Wort33 в Wort817. [Wort2047 · Wort32 Wort33 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort512 Wort315 Wort65 Wort644, Wort65 Wort100 Wort8 Wort667 Wort1200."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_word_order"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort648, Wort748 я Wort670 Wort1308.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort65 Wort644, Wort65 Wort100 "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort667 Wort1200 Wort8"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20030,
+      "deck_id": 114,
+      "position": 300,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort723 Wort457 Wort115 Wort753 Wort79. [Wort2047 · Wort2646 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort512 Wort315 Wort88 Wort513, Wort79 Wort132 Wort100 Wort2687."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort515, с Wort775 я Wort1870 Wort378 Wort1922.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort513, Wort79 "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort162"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort2687."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20031,
+      "deck_id": 114,
+      "position": 310,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort723 Wort457 Wort115 Wort753 Wort545. [Wort2047 · Wort2646 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort847 Wort186, Wort545 Wort40 Wort100 Wort1427, Wort315 Wort2701."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort850, в Wort782 я Wort1428, Wort2703.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort847 Wort186, Wort545 "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort88"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort1427, Wort315 Wort2701."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20032,
+      "deck_id": 114,
+      "position": 320,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort723 Wort1879 Wort457. [Wort2047 · Wort723 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort7 Wort684 Wort9 Wort2971, Wort132 Wort848 Wort1304 Wort2668 Wort310."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_nominative"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort951 Wort2972, Wort527 Wort733 Wort1113 Wort1355 Wort2669.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort7 Wort684 Wort9 Wort2971, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort88"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort848 Wort1304 Wort2668 Wort310."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20033,
+      "deck_id": 114,
+      "position": 330,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort32 Wort33 с Wort811 Wort812. [Wort2047 · Wort32 Wort33 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort512 Wort315 Wort77 Wort1554, Wort40 Wort100 Wort1304 Wort310 Wort2487."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_word_order"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2973, Wort748 я Wort1494 Wort2903 Wort1113.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort77 Wort1554, Wort40 Wort100 "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort1304 Wort2487 Wort310"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20034,
+      "deck_id": 114,
+      "position": 340,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2046 Wort723 Wort115 Wort327 в Wort2974 Wort222 Wort1497 Wort327. [Wort2047 · Wort2646 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "Wort2048: Wort512 Wort315 Wort88 Wort324, Wort327 Wort162 Wort100 Wort67 Wort1496."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_prepositions"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1622, к Wort782 я Wort1623.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort324, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort327 Wort132"
+                ]
+              },
+              {
+                "type": "text",
+                "text": " Wort100 Wort67 Wort1496."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20035,
+      "deck_id": 114,
+      "position": 350,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Nominativ: der",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Der Roboter, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "der im Museum arbeitet"
+                ]
+              },
+              {
+                "type": "text",
+                "text": ", malt."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20036,
+      "deck_id": 114,
+      "position": 360,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2069 Wort38 в Wort18 с Wort498. [Wort2070 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "1. Wort847 Wort463 Wort315 Wort1338.\n2. Wort7 Wort8 Wort40 Wort463 Wort667 Wort1559."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort1339, с Wort782 я Wort670 Wort2975, — Wort1341.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort847 Wort463, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort40 Wort100 Wort667 Wort1559 Wort8"
+                ]
+              },
+              {
+                "type": "text",
+                "text": ", Wort315 Wort1338."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20037,
+      "deck_id": 114,
+      "position": 370,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2069 Wort38 в Wort18 с Wort498. [Wort2070 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "1. Wort24 Wort1472 Wort9 Wort797.\n2. Wort24 Wort83 Wort162 Wort797 Wort1407."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort57 Wort2976 Wort2366, Wort582 Wort407 Wort1484 Wort1537.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort24 Wort1472 Wort9 Wort797, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort162 Wort29 Wort1407 Wort83"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20038,
+      "deck_id": 114,
+      "position": 380,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2069 Wort38 в Wort18 с Wort498. [Wort2070 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "1. Wort512 Wort315 Wort462 Wort142.\n2. Wort7 Wort755 Wort1410 Wort79 Wort1590 Wort142."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1340 Wort774, с Wort782 я Wort701 Wort1418.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort462 Wort142, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort79 Wort88 Wort100 Wort1410 Wort755"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20039,
+      "deck_id": 114,
+      "position": 390,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2069 Wort38 в Wort18 с Wort498. [Wort2070 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "1. Wort7 Wort1351 Wort44 Wort126.\n2. Wort512 Wort126 Wort315 Wort153 Wort15 Wort1547."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort1354 Wort2977, Wort549 Wort5 Wort2978 Wort1548.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort7 Wort1351 Wort44 Wort126, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort65 Wort153 Wort15 Wort1547 Wort315"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20040,
+      "deck_id": 114,
+      "position": 400,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort2042, в Wort782 Wort916 Wort843 Wort915.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Das ist das Museum, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "in dem mein Roboter arbeitet"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20041,
+      "deck_id": 114,
+      "position": 410,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2069 Wort38 в Wort18 с Wort498. [Wort2070 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "1. Wort24 Wort2979 Wort77 Wort186.\n2. Wort847 Wort186 Wort252 Wort1733 Wort1714 Wort2980."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort57 Wort2981 Wort1363, у Wort782 Wort703 Wort2982 Wort2983.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort24 Wort2979 Wort77 Wort186, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort40 Wort1733 Wort1714 Wort2980 Wort252"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20042,
+      "deck_id": 114,
+      "position": 420,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort2069 Wort38 в Wort18 с Wort498. [Wort2070 · 1 Wort2947]"
+            },
+            {
+              "type": "source",
+              "text": "1. Wort7 Wort684 Wort9 Wort242.\n2. Wort7 Wort8 Wort79 Wort162 Wort242 Wort2942."
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "info-2",
+              "type": "info",
+              "index": 1,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Я Wort951 Wort2752, с Wort775 я Wort2945.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort7 Wort684 Wort9 Wort242, "
+              },
+              {
+                "type": "input",
+                "answers": [
+                  "Wort79 Wort162 Wort100 Wort2942 Wort8"
+                ]
+              },
+              {
+                "type": "text",
+                "text": "."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20043,
+      "deck_id": 114,
+      "position": 430,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "free_text",
+          "data": {
+            "prompt": "Beschreiben Sie das erfundene Museum 43.",
+            "sample_answer": "Das Museum ist neu.",
+            "accepted_answers": [
+              "Wort7 Wort1613 Wort9 Wort1533, Wort88 Wort1352 Wort1353 Wort310."
+            ],
+            "grading_policy": {
+              "mode": "open_text",
+              "typo_tolerance": true,
+              "semantic_equivalence": true,
+              "grammar_requires_retry": true,
+              "case_sensitive": false,
+              "punctuation_sensitive": false,
+              "max_retries": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 20044,
+      "deck_id": 114,
+      "position": 440,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "free_text",
+          "data": {
+            "prompt": "Beschreiben Sie das erfundene Museum 44.",
+            "sample_answer": "Das Museum ist neu.",
+            "accepted_answers": [
+              "Wort7 Wort1351 Wort77 Wort186, Wort545 Wort88 Wort180 Wort1582 Wort418 Wort177.",
+              "Wort7 Wort1351 Wort77 Wort186, Wort40 Wort848 Wort2701 Wort315."
+            ],
+            "grading_policy": {
+              "mode": "open_text",
+              "typo_tolerance": true,
+              "semantic_equivalence": true,
+              "grammar_requires_retry": true,
+              "case_sensitive": false,
+              "punctuation_sensitive": false,
+              "max_retries": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 20045,
+      "deck_id": 114,
+      "position": 450,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "free_text",
+          "data": {
+            "prompt": "Beschreiben Sie das erfundene Museum 45.",
+            "sample_answer": "Das Museum ist neu.",
+            "accepted_answers": [
+              "Wort2603 Wort65 Wort40 Wort1500, Wort88 Wort100 Wort132 Wort1947 Wort1402 Wort2021?",
+              "Wort2603 Wort65 Wort40 Wort1500, Wort88 Wort100 Wort9 Wort1947 Wort1402 Wort2021?",
+              "Wort2603 Wort65 Wort40 Wort1500, Wort88 Wort100 Wort132 Wort1947 Wort1402 Wort814?"
+            ],
+            "grading_policy": {
+              "mode": "open_text",
+              "typo_tolerance": true,
+              "semantic_equivalence": true,
+              "grammar_requires_retry": true,
+              "case_sensitive": false,
+              "punctuation_sensitive": false,
+              "max_retries": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 20046,
+      "deck_id": 114,
+      "position": 460,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [],
+          "layout": null,
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_production"
+              ]
+            }
+          },
+          "type": "free_text",
+          "data": {
+            "prompt": "Beschreiben Sie das erfundene Museum 46.",
+            "sample_answer": "Das Museum ist neu.",
+            "accepted_answers": [],
+            "grading_policy": {
+              "mode": "open_text",
+              "typo_tolerance": true,
+              "semantic_equivalence": true,
+              "grammar_requires_retry": true,
+              "case_sensitive": false,
+              "punctuation_sensitive": false,
+              "max_retries": 1
+            }
+          }
+        }
+      }
+    },
+    {
+      "id": 20047,
+      "deck_id": 114,
+      "position": 470,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1002 Wort335 Wort47 Wort457 в Wort901. [Wort2993 B1+ · Wort2994]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_genitive"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort515, Wort910 Wort915 Wort916 в Wort2996.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort315 Wort88 Wort513, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort895",
+                    "correct": true
+                  },
+                  {
+                    "text": "Wort896",
+                    "correct": false
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort305 Wort545 Wort2995 Wort914."
+              }
+            ]
+          }
+        }
+      }
+    },
+    {
+      "id": 20048,
+      "deck_id": 114,
+      "position": 480,
+      "content_v2": {
+        "schema_version": 2,
+        "card": {
+          "id": null,
+          "image": null,
+          "info": [
+            {
+              "type": "task",
+              "text": "Wort1002 Wort335 Wort47 Wort457 в Wort901. [Wort2993 B1+ · Wort2994]"
+            }
+          ],
+          "layout": [
+            {
+              "id": "info-1",
+              "type": "info",
+              "index": 0,
+              "visibility": "before_answer"
+            },
+            {
+              "id": "exercise",
+              "type": "exercise"
+            }
+          ],
+          "explanation": "",
+          "level": null,
+          "topics": null,
+          "metadata": {
+            "assessment": {
+              "competency_ids": [
+                "comp_exam_genitive"
+              ]
+            }
+          },
+          "type": "trainer",
+          "data": {
+            "back_note": "Wort514 Wort1493, Wort913 Wort2127 Wort2125 в Wort2011 Wort520.",
+            "parts": [
+              {
+                "type": "text",
+                "text": "Wort512 Wort283 Wort40 Wort1490, "
+              },
+              {
+                "type": "choice",
+                "options": [
+                  {
+                    "text": "Wort895",
+                    "correct": false
+                  },
+                  {
+                    "text": "Wort896",
+                    "correct": true
+                  }
+                ],
+                "distractors": null
+              },
+              {
+                "type": "text",
+                "text": " Wort2003 Wort517 Wort2997 Wort2007 Wort2020."
+              }
+            ]
+          }
+        }
+      }
+    }
+  ],
+  "knowledge_seed": [
+    {
+      "rule_code": "fixture.relative",
+      "name": "Fictional rule",
+      "language": "de",
+      "category": "grammar",
+      "cefr_level": "B1",
+      "is_global": true
+    }
+  ],
+  "knowledge_mappings": [
+    {
+      "card_id": 30065,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30066,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30067,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30068,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30069,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30070,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30071,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30072,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30073,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30074,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30075,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30076,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 10001,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30078,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30079,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30080,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30081,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30082,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30083,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30084,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30085,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30086,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30087,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30088,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30089,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30090,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30091,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30092,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30093,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30094,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30095,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30096,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30097,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30098,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30099,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30100,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30101,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 10002,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30103,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30104,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30105,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30106,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30107,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30108,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30109,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30110,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30111,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30112,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30113,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30114,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30115,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30116,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30117,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30118,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30119,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30120,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30121,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30122,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30123,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30124,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30125,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30126,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30127,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30128,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30129,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30130,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 10003,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30132,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30133,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30134,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30135,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30136,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30137,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30138,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30139,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30140,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30141,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30142,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30143,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30144,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30145,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30146,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30147,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30148,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30149,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30150,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30151,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30152,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30153,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30154,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30155,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30156,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30157,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30158,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30159,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30160,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30161,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30162,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30163,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30164,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30165,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30166,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30167,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30168,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30169,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30170,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30171,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30172,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30173,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30174,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30175,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30176,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30177,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30178,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30179,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30180,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30181,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30182,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30183,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30184,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30185,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30186,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30187,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30188,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30189,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30190,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30191,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30192,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30193,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30194,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30195,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30196,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30197,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30198,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30199,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30200,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30201,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30202,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30203,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30204,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30205,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30206,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30207,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30208,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30229,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30230,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30231,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30232,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30233,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30234,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30235,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30236,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30237,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30238,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30239,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30240,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30241,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30242,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30243,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30244,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30245,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30246,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30247,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30248,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30249,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30250,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30251,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30252,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30253,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30254,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30255,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30256,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30257,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30258,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30259,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30260,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30261,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30262,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30263,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30264,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30265,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30266,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30267,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30268,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30269,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30270,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30271,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30272,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30273,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30274,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30275,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30276,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30277,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30278,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30279,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30280,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30281,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30282,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30283,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30284,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30285,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30286,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30287,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30288,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30289,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30290,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30291,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30292,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30293,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30294,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30295,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30296,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30297,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30298,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30299,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30300,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30301,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30302,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30303,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30304,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30305,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30306,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30307,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30308,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30309,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30310,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30311,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30312,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30313,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30314,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30315,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30316,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30317,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30318,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30319,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30320,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30321,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30322,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30323,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30324,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30325,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30326,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30327,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30328,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30329,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30330,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30331,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30332,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30333,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30334,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30335,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30336,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30337,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30338,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30339,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30340,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30341,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30342,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30343,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30344,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30345,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30346,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30347,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30348,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30349,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30350,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30351,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30352,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30353,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30354,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30355,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30356,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30357,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30358,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30359,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30360,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30361,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30362,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30363,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30364,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30365,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30366,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30367,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30368,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30369,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30370,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30371,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30372,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30373,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30374,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30375,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30376,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 10004,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30378,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30379,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30380,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30381,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30382,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30383,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30384,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30385,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30209,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30210,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30211,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30212,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30213,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30214,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30215,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30216,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30217,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30218,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30219,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30220,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30221,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30222,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30223,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30224,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30225,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30226,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30227,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30228,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30001,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30002,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30003,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30004,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30005,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30006,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30007,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30008,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30009,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30010,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30011,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30012,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30013,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30014,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30015,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30016,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30017,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30018,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30019,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30020,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30021,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30022,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30023,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30024,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30025,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30026,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30027,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30028,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30029,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30030,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30031,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30032,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30033,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30034,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30035,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30036,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30037,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30038,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30039,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30040,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30041,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30042,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30043,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30044,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30045,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30046,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30047,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30048,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30049,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30050,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30051,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30052,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30053,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30054,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30055,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30056,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30057,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30058,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30059,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30060,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30061,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30062,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30063,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30064,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30530,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30531,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30532,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30533,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30534,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30535,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30536,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30537,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30538,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30539,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30540,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30541,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30542,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30543,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30544,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30545,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30546,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30547,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30548,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30549,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30550,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30551,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30552,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30553,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30554,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30555,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30556,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30557,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30558,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30559,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30560,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30561,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30562,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30563,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30564,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30565,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30566,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30567,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30568,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30569,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30570,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30571,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30572,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30573,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30574,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30575,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30576,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30577,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30578,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30579,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30580,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30581,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30582,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30583,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30584,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30585,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30586,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30587,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30588,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30589,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30590,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30591,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30592,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30593,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30594,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30595,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30596,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30597,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30598,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30599,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30600,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30601,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30602,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30603,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30604,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30605,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30606,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30607,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30608,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30609,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30610,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30611,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30612,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30613,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30614,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30615,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30616,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30617,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30618,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30619,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30620,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30621,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30622,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30623,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30624,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30625,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30626,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30627,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30628,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30629,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30630,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30631,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30632,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30633,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30634,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30635,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30636,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30637,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30638,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30639,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30640,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30641,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30642,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30643,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30644,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30645,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30646,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30647,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30648,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30649,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30650,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30651,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30652,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30653,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30654,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30655,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30656,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30657,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30658,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30659,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30660,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30661,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30662,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30663,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30664,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30665,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30666,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30667,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30668,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30669,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30670,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30671,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30672,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30673,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30674,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30675,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30676,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30677,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30678,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30386,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30387,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30388,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30389,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30390,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30391,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30392,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30393,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30394,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30395,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30396,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30397,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30398,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30399,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30400,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30401,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30402,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30403,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30404,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30405,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30406,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30407,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30408,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30409,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30410,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30411,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30412,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30413,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30414,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30415,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30416,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30417,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30418,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30419,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30420,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30421,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30422,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30423,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30424,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30425,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30426,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30427,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30428,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30429,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30430,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30431,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30432,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30433,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30434,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30435,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30436,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30437,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30438,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30439,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30440,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30441,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30442,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30443,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30444,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30445,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30446,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30447,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30448,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 11201,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30450,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30451,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30452,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30453,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 11202,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30455,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30456,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30457,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30458,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30459,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30460,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30461,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30462,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30463,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30464,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30465,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30466,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30467,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30468,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30469,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30470,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30471,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30472,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30473,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30474,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30475,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30476,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30477,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30478,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30479,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30480,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 30481,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20001,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20002,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20003,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20004,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20005,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20006,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20007,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20008,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20009,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20010,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20011,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20012,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20013,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20014,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20015,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20016,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20017,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20018,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20019,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20020,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20021,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20022,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20023,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20024,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20025,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20026,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20027,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20028,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20029,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20030,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20031,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20032,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20033,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20034,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20035,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20036,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20037,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20038,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20039,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20040,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20041,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20042,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20043,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20044,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20045,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20046,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20047,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    },
+    {
+      "card_id": 20048,
+      "rule_code": "fixture.relative",
+      "role": "primary",
+      "complexity": 3
+    }
+  ]
+}

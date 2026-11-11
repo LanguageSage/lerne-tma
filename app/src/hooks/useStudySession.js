@@ -8,6 +8,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { isNativeStudyCard, isStudyMigrationError, studyErrorDetail } from '../utils/structuredStudyCard.js';
 import { playGradeSound } from '../utils/gradeSounds';
 
 const reviewKey = session => `${session.sessionRevision}:${session.historyIndex}:${session.card?.id}`;
@@ -58,7 +59,7 @@ export const useStudySession = () => {
     api.get(`/study/card/${card.id}`).then(({ data }) => {
       const latest = useSessionStore.getState();
       // A reset, newer refresh, or grade invalidates this snapshot. Never navigate on refresh.
-      if (!data?.id || String(data.id) !== String(card.id) || !scope.isCurrent()
+      if (!isNativeStudyCard(data) || !data?.id || String(data.id) !== String(card.id) || !scope.isCurrent()
         || latest.gradeRevision !== gradeRevision
         || refreshRequests.get(requestKey) !== requestToken) return;
       const current = latest.studyHistory.find(item => String(item.id) === String(card.id));
@@ -70,7 +71,16 @@ export const useStudySession = () => {
       }
       latest.updateCardInSession(card.id, patch);
       useDeckStore.getState().updateCardLocal(card.id, patch);
-    }).catch(err => console.warn('Background study card refresh:', err)).finally(() => {
+    }).catch(err => {
+      const detail = studyErrorDetail(err);
+      if (scope.isCurrent() && refreshRequests.get(requestKey) === requestToken
+        && useSessionStore.getState().gradeRevision === gradeRevision
+        && String(useSessionStore.getState().card?.id) === String(card.id)
+        && isStudyMigrationError(detail)) {
+        useSessionStore.getState().setApiError(detail);
+      }
+      console.warn('Background study card refresh:', err);
+    }).finally(() => {
       scope.dispose();
       if (refreshRequests.get(requestKey) === requestToken) refreshRequests.delete(requestKey);
     });
@@ -93,7 +103,7 @@ export const useStudySession = () => {
     session.setApiError(null);
     try {
       if (deckId === 'duplicates') {
-        const { duplicateCards } = useDeckStore.getState();
+        const duplicateCards = useDeckStore.getState().duplicateCards.filter(isNativeStudyCard);
         const currentCard = session.card;
         let nextDuplicateCard = null;
 
@@ -115,7 +125,7 @@ export const useStudySession = () => {
           showLocalCard(nextDuplicateCard);
         }
       } else {
-        const { deckCards } = useDeckStore.getState();
+        const deckCards = useDeckStore.getState().deckCards.filter(isNativeStudyCard);
         const currentCard = session.card;
         let nextCardInfo = null;
 
@@ -157,7 +167,7 @@ export const useStudySession = () => {
             if (err.response?.status === 401 || scope.isCurrent()) {
               if (err.response?.status === 401) {
                 useAuthStore.getState().deferNavigation({ deckId, reviewContext: session.isLearningMore ? 'forced' : 'scheduled' });
-              } else session.setApiError(err.response?.data?.detail || err.message);
+              } else session.setApiError(studyErrorDetail(err));
             }
             return;
           } finally {
@@ -171,6 +181,9 @@ export const useStudySession = () => {
           } else if (res.data.finished) {
             session.setIsSessionFinished(true);
             session.setCard(null);
+          } else if (!isNativeStudyCard(res.data)) {
+            session.setApiError(tr('Карточка недоступна в формате Structured Cards V2.'));
+            session.setCard(null);
           } else {
             const newCard = res.data;
             if (session.isLearningMore) session.markForcedSeen(newCard.id);
@@ -183,7 +196,7 @@ export const useStudySession = () => {
       console.error("fetchNextCard Error:", err);
       if (err.response?.status === 401) {
         useAuthStore.getState().deferNavigation({ deckId, reviewContext: session.isLearningMore ? 'forced' : 'scheduled' });
-      } else session.setApiError(err.response?.data?.detail || err.message);
+      } else session.setApiError(studyErrorDetail(err));
     }
     setLoading(false);
   }, [setLoading, prefetchMedia, showLocalCard]);
@@ -191,7 +204,7 @@ export const useStudySession = () => {
   const submitGrade = useCallback(async (grade, isExtended = false, exerciseEvidence = null) => {
     const session = useSessionStore.getState();
     const { currentDeck, deckCards, duplicateCards } = useDeckStore.getState();
-    if (!session.card || !currentDeck || reviewKey(session) !== renderedReviewKey) return;
+    if (!isNativeStudyCard(session.card) || !currentDeck || reviewKey(session) !== renderedReviewKey) return;
 
     const userId = getUserId();
     const card = { ...session.card };
@@ -206,10 +219,11 @@ export const useStudySession = () => {
     const nextHistoryIndex = session.historyIndex + 1;
     let localNext = session.studyHistory[nextHistoryIndex];
     if (!localNext && !session.isLearningMore) {
-      const cards = currentDeck.id === 'duplicates' ? duplicateCards : deckCards;
+      const cards = (currentDeck.id === 'duplicates' ? duplicateCards : deckCards).filter(isNativeStudyCard);
       const index = cards.findIndex(item => String(item.id) === String(card.id));
       if (index >= 0) localNext = cards[index + 1];
     }
+    if (localNext && !isNativeStudyCard(localNext)) localNext = null;
     const eventTime = new Date().toISOString();
     const payload = {
       action_id: crypto.randomUUID(),
@@ -247,7 +261,7 @@ export const useStudySession = () => {
           session.setIsSessionFinished(true);
           session.setCard(null);
         } else {
-          if (!res.data.id) throw new Error(tr('Не удалось загрузить данные с сервера'));
+          if (!isNativeStudyCard(res.data) || !res.data.id) throw new Error(tr('Не удалось загрузить данные с сервера'));
           if (session.isLearningMore) session.markForcedSeen(res.data.id);
           session.addToHistory(res.data);
           prefetchMedia(res.data.image_url);
@@ -270,7 +284,9 @@ export const useStudySession = () => {
 
   const goBack = useCallback(async () => {
     const session = useSessionStore.getState();
-    const { currentDeck, duplicateCards, deckCards } = useDeckStore.getState();
+    const { currentDeck, duplicateCards: duplicates, deckCards: cards } = useDeckStore.getState();
+    const duplicateCards = duplicates.filter(isNativeStudyCard);
+    const deckCards = cards.filter(isNativeStudyCard);
 
     if (session.historyIndex > 0) {
       session.goBack();

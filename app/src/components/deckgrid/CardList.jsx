@@ -1,6 +1,7 @@
 import { DEFAULT_DESIGN_CONFIG_V2 } from '../../design/designConfig.js';
 import { getDesignTextStyle } from '../../utils/cardStyles';
 import { tr } from '../../i18n/locale';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
@@ -33,7 +34,7 @@ import { getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { SearchBar } from '../common/SearchBar';
-import { matchCard } from '../../utils/search';
+import { matchCard, matchesSearchQuery } from '../../utils/search';
 import { parseDeckMetadata } from '../../utils/deckUtils';
 import { DraggableCardItem } from './DraggableCardItem';
 import { FloatingBatchDock } from './FloatingBatchDock';
@@ -65,7 +66,12 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const filteredCards = React.useMemo(() => {
     if (!deckCards) return [];
     if (!searchQuery.trim()) return deckCards;
-    return deckCards.filter(c => matchCard(c, searchQuery));
+    return deckCards.filter(card => {
+      const content = studyContent(card);
+      if (!content) return matchCard(card, searchQuery);
+      return matchesSearchQuery(studySideText(content), searchQuery)
+        || matchesSearchQuery(studySideText(content, 'back'), searchQuery);
+    });
   }, [deckCards, searchQuery]);
   // Memoized Deck Metadata & Resources
   const deckMetadata = React.useMemo(() => parseDeckMetadata(currentDeck), [currentDeck]);
@@ -75,11 +81,14 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const selectMode = useCardSelectMode(filteredCards, currentDeck?.id, view);
   const {
     isSelectMode, setIsSelectMode, selectedCardIds, setSelectedCardIds,
-    isBatchMoveModalOpen, setIsBatchMoveModalOpen, batchModalMode, toggleSelectMode, handleToggleSelectCard, handleSelectAll,
+    isBatchMoveModalOpen, setIsBatchMoveModalOpen, batchModalMode, toggleSelectMode, handleToggleSelectCard, handleSelectAll, selectableCount,
   } = selectMode;
 
   const { sensors, activeCard, handleDragStart, handleDragEnd,
     customCollisionDetection, getOriginalIndex } = useCardDnd(filteredCards, deckCards);
+  const activeContent = studyContent(activeCard);
+  const activePrompt = activeContent ? studySideText(activeContent) : activeCard?.front;
+  const activeAnswer = activeContent ? studySideText(activeContent, 'back') : activeCard?.back;
 
   const { imageHeight, startResizeDrag, handleToggleShowInCards } = useDeckImageResize(deckMetadata, currentDeck);
 
@@ -147,7 +156,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
 
 
   const { uploadDeckResource } = useMediaUpload();
-  const { openCreator } = useCardNavigation();
+  const { openCreator, openEditor } = useCardNavigation();
   const isDeckViewActive = ['cards', 'study', 'trainer', 'editor'].includes(view);
   const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, isDeckViewActive);
 
@@ -272,7 +281,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const canEditContent = currentDeck.role === 'owner' || currentDeck.role === 'editor' || (!currentDeck.role && !currentDeck.is_global_readonly);
 
   return (
-    <div className="view-cards">
+    <div className={`view-cards ${isSelectMode ? 'has-batch-selection' : ''}`}>
       <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="view">
         <div className="header-compact header-compact-sticky">
           <button 
@@ -371,7 +380,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                 <X size={16} />
               </button>
               <span style={{ fontSize: '0.88rem', fontWeight: 600, color: '#f8fafc' }}>
-                {tr("Выбрано: {{p0}} из {{p1}}", { p0: selectedCardIds.size, p1: filteredCards.length })}
+                {tr("Выбрано: {{p0}} из {{p1}}", { p0: selectedCardIds.size, p1: selectableCount })}
               </span>
             </div>
 
@@ -387,7 +396,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                 background: 'rgba(255, 255, 255, 0.08)'
               }}
             >
-              {selectedCardIds.size === filteredCards.length && filteredCards.length > 0 ? tr("Снять всё") : tr("Выбрать все")}
+              {selectedCardIds.size === selectableCount && selectableCount > 0 ? tr("Снять всё") : tr("Выбрать все")}
             </button>
           </div>
         )}
@@ -531,6 +540,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       currentDeck={currentDeck} 
                       canEditContent={canEditContent}
                       startStudyCard={startStudyCard}
+                      openEditor={openEditor}
                       frontTypographyStyle={frontTypographyStyle}
                       backTypographyStyle={backTypographyStyle}
                       cardListBg={cardListBg}
@@ -559,11 +569,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     }}
                   >
                     <div className="front-min" style={{ ...frontTypographyStyle }}>
-                      {activeCard.front}
+                      {activePrompt}
                     </div>
-                    {activeCard.back && (
+                    {activeAnswer && (
                       <div className="back-min" style={{ ...backTypographyStyle, marginTop: '4px' }}>
-                        <MarkdownRenderer>{activeCard.back}</MarkdownRenderer>
+                        <MarkdownRenderer>{activeAnswer}</MarkdownRenderer>
                       </div>
                     )}
                   </div>

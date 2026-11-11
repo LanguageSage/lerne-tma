@@ -1,5 +1,5 @@
 import { getPrimaryKnowledgeItemForCard, enqueueKnowledgeAttempt, createKnowledgeAttempt } from './knowledgeDbService.js';
-import { detectExerciseType } from '../utils/exerciseDetector.js';
+import { studyContent } from '../utils/structuredStudyCard.js';
 import { getLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
 
@@ -30,7 +30,7 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
 
     const ratingStr = knowledgeRatingForGrade(grade, isExtended);
 
-    const cardType = detectExerciseType(card, 'classic') || 'standard';
+    const cardType = studyContent(card)?.type;
 
     let evaluationData;
 
@@ -62,7 +62,7 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
         schema_version: 1,
         card_type: cardType,
         evaluation_type: 'self_rating',
-        correct: null, 
+        correct: null,
         score: null,
         rating: ratingStr,
         knowledge_role: 'primary',

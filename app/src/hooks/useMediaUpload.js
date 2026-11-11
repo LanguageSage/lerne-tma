@@ -2,11 +2,12 @@ import { tr } from '../i18n/locale';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
+import { isNativeStudyCard, studyErrorDetail } from '../utils/structuredStudyCard.js';
 import { useDeckStore } from '../store/useDeckStore';
 
 export const useMediaUpload = () => {
   const { setLoading, showToast } = useUiStore();
-  const { setCard, editingCard, setEditingCard } = useSessionStore();
+  const { editingCard, setEditingCard } = useSessionStore();
   const { currentDeck } = useDeckStore();
 
   const uploadImageFile = async (file) => {
@@ -43,29 +44,23 @@ export const useMediaUpload = () => {
     }
   };
 
+  const saveStudyMedia = async (card, patch) => {
+    if (!isNativeStudyCard(card)) throw new Error(tr('Карточка недоступна в формате Structured Cards V2.'));
+    const { data } = await api.patch(`/cards/${card.id}`, {
+      request_id: crypto.randomUUID(), revision: card.revision, content_v2: card.content_v2, ...patch,
+    });
+    useSessionStore.getState().updateCardInSession(card.id, data);
+    useDeckStore.getState().updateCardLocal(card.id, data);
+  };
+
   const uploadStudyImage = async (file, targetCard) => {
     if (!file || !targetCard || !currentDeck?.id) return;
     setLoading(true);
     try {
       const uploaded = await uploadImageFile(file);
       if (uploaded) {
-        await api.post('/cards/save', {
-          card_id: targetCard.id,
-          deck_id: currentDeck.id,
-          front: targetCard.front,
-          back: targetCard.back,
-          context: targetCard.context,
-          image_path: uploaded.path,
-          audio_path: targetCard.audio_path || ''
-        });
+        await saveStudyMedia(targetCard, { image_path: uploaded.path });
 
-        const updatedCard = {
-          ...targetCard,
-          image_path: uploaded.path,
-          image_url: uploaded.url
-        };
-        setCard(updatedCard);
-        
         // Prefetch media
         const img = new Image();
         img.src = uploaded.url;
@@ -74,7 +69,7 @@ export const useMediaUpload = () => {
       }
     } catch (err) {
       console.error(err);
-      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: studyErrorDetail(err) }));
     } finally {
       setLoading(false);
     }
@@ -117,23 +112,7 @@ export const useMediaUpload = () => {
 
         if (!isEditor) {
           // Study view: save immediately
-          await api.post('/cards/save', {
-            card_id: targetCard.id,
-            deck_id: currentDeck.id,
-            front: targetCard.front,
-            back: targetCard.back,
-            context: targetCard.context,
-            image_path: targetCard.image_path || '',
-            audio_path: targetCard.audio_path || '',
-            video_front_path: side === 'front' ? uploaded.data.path : (targetCard.video_front_path || ''),
-            video_back_path: side === 'back' ? uploaded.data.path : (targetCard.video_back_path || '')
-          });
-
-          setCard({
-            ...targetCard,
-            [fieldName]: uploaded.data.path,
-            [urlName]: uploaded.data.url
-          });
+          await saveStudyMedia(targetCard, { [fieldName]: uploaded.data.path });
         } else {
           // Editor view: just update state
           setEditingCard({
@@ -147,7 +126,7 @@ export const useMediaUpload = () => {
       }
     } catch (err) {
       console.error(err);
-      showToast(tr("Ошибка загрузки видео: {{p0}}", { p0: err.response?.data?.detail || err.message }));
+      showToast(tr("Ошибка загрузки видео: {{p0}}", { p0: studyErrorDetail(err) }));
     } finally {
       setLoading(false);
     }

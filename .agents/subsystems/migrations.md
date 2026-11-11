@@ -25,6 +25,14 @@ recorded 90 with a different shape fail closed. Missing note storage is an
 isolated 503 from the notes routes. Bootstrap scope and old-schema HTTP
 regressions are covered by `test_card_notes.py` and `test_critical_http.py`.
 
+Structured Cards V2 migration 93 has a separate PostgreSQL runner,
+`run_structured_cards_v2_migration`. Only PostgreSQL LOCAL bootstrap calls it
+automatically. It adds the JSONB column and validated exclusivity constraint,
+then records 93 in the same transaction under advisory lock. Reruns check
+the recorded schema. Existing cards retain their current representation.
+The disposable PostgreSQL check is `python scripts/tests/structured_cards_postgres.py
+--bin-dir <path-to-pg-bin>`.
+
 `run_migrations` открывает собственную транзакцию. PostgreSQL advisory transaction lock
 `76120901` (ожидание блокировки максимум 5 секунд) или SQLite `BEGIN IMMEDIATE`
 сериализует запуск до создания/чтения истории. ID из истории пропускаются.
@@ -61,3 +69,42 @@ SQL-каталог, схема истории и локальный механи
 
 Не запускать каталог миграций на production или локальной БД разработки для
 этих проверок. Нетранзакционные SQL-команды не поддерживаются этим runner.
+
+## Native V2: независимая репетиция
+
+- `tools/native_v2_snapshot.py`: только READ ONLY PostgreSQL, единый exported
+  MVCC snapshot для row SHA256, входов конвертера и дампов. Private outputs —
+  только новый каталог в ignored `local/test-data/`. Storage probes не являются
+  полной копией media; ACL/owners и изменения non-MVCC sequences требуют
+  отдельной проверки. Подключение к источнику не импортирует приложение.
+- `tools/native_v2_dry_run.py`: проверяет активные и удалённые записи раздельно,
+  сохраняет диагностику; exit 2 при заблокированных данных. Ничего не пишет в БД.
+- `tools/native_v2_rehearsal.py`: принимает только private snapshot, explicit
+  Admin checkout и PostgreSQL binaries. Использует новый cluster существующего
+  disposable runner, проверяет фактический PGDATA/роль/loopback/порт. Сверяет
+  public restore, DDL 93/94, повтор, strict Admin contract, V1 recovery, rescue
+  dump для синтетической записи после backup и marker поколения. По умолчанию
+  content остаётся V1. Не использует DSN приложения для записи.
+- `--convert-active` в том же runner применяет недостающую 92 и вызывает
+  `tools/migrate_native_v2_local.py`: полная предварительная валидация активных
+  TMA/Library карточек существующим converter, затем запись обеих таблиц одной
+  транзакцией. SQL pages ограничивают размер запроса, промежуточных commits нет.
+  Deleted V1 rows не изменяются, IDs/placement/media/history и другие таблицы
+  сравниваются отдельно. Готовый V2 dump восстанавливается в новую БД и сверяется
+  по всем row SHA256. Повтор требует исходного V1 dump, resume не предусмотрен.
+- `--applications` проверяет реальные TMA/Admin через loopback на ещё одной
+  восстановленной V2-копии. Startup DDL отключён; схемой управляет runner.
+  Только известные nullable warnings без NULL/critical findings подтверждаются
+  штатным Admin API в изолированном локальном журнале. Приватные карточки и
+  сессии не являются CI fixtures. Exit 2 — CONDITIONAL/NOT READY, не production
+  допуск; детали сохраняются в database-results.json.
+- `structured_cards_postgres.py` дополнительно физически разрывает собственное
+  соединение перед записью истории 93 и проверяет rollback DDL/истории и повтор
+  на новом соединении. Этот тест допустим только в его одноразовом кластере.
+
+Локальный writer конвертирует только active cards; 93/94 допускают V1 tombstones
+в других строках. Это не разрешение восстанавливать их через legacy trash API:
+перед production отдельно закрыть старые writers/legacy restore либо валидно
+конвертировать выбранную tombstone. Полного media backup и сверки устройств эти
+инструменты не делают. Production dump/restore требует отдельной остановки writes,
+совместимого приложения и проверки generation marker.

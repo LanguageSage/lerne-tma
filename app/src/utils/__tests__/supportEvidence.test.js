@@ -1,10 +1,11 @@
+import { nativeCard } from './nativeFixture.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createSupportSession, captureSupportEvidence, freeTextTaskSupport } from '../supportEvidence.js';
 import { createFreeTextEvaluationSession } from '../freeTextEvaluationState.js';
 import { assessmentFreeTextEvidence, recordAssessmentResult, assessmentAttempt } from '../assessment.js';
 
-const taskSupport = freeTextTaskSupport({ front: '::options\nA | B\n\n::source\nSynthetic source\n\n::exercise\n@free\nWrite.' });
+const taskSupport = freeTextTaskSupport(nativeCard("free_text", {  }, {"data": {"prompt": "Write.", "sample_answer": "Synthetic answer", "accepted_answers": [], "grading_policy": {"mode": "controlled_text", "typo_tolerance": true, "semantic_equivalence": true, "grammar_requires_retry": true, "case_sensitive": false, "punctuation_sensitive": false, "max_retries": 3}}, "info": [{"type": "options", "items": ["A", "B"]}, {"type": "source", "text": "Synthetic source"}]}));
 const options = { trackSupport: true, taskSupport };
 const check = (verdict, max = 3) => ({ result: { verdict, accepted: verdict === 'correct', evaluator: 'rules' },
   grading_policy: { max_retries: max } });
@@ -113,7 +114,7 @@ test('Assessment freezes first classified result before feedback, unavailable an
   await checker.submit('first', async () => check('needs_retry'));
   const firstEvidence = assessmentFreeTextEvidence(checker.snapshot().result, checker.supportFields());
   const start = { id: 'support-exam', userId: 1, deckId: 5, index: 0, config: { required_count: 1 }, results: {},
-    cards: [{ id: 10, metadata: { assessment: { competency_ids: ['synthetic'] } } }] };
+    cards: [nativeCard("standard", { id: 10 }, {metadata: { assessment: { competency_ids: ['synthetic'] } }})] };
   const first = recordAssessmentResult(start, 10, firstEvidence);
   const frozen = assessmentAttempt(first, first.results[10], 7);
   checker.recordSupport('hint_count');

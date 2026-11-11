@@ -9,10 +9,10 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 import { CardTypeBadge } from '../common/CardTypeBadge';
 import { useUiStore } from '../../store/useUiStore';
 import { getFlagStyle } from '../../constants/cardFlags';
-import { detectCardType } from '../../utils/exerciseDetector';
+import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
-import { cleanBracketSyntax } from '../../utils/clozeParser';
+import { offlineEditLabel, offlineLifecycleLabel, offlineMoveLabel } from '../../services/offlineUi';
 
 export const DraggableCardItem = React.memo(({
   c,
@@ -20,6 +20,7 @@ export const DraggableCardItem = React.memo(({
   currentDeck,
   canEditContent = true,
   startStudyCard,
+  openEditor,
   frontTypographyStyle,
   backTypographyStyle,
   cardListBg,
@@ -30,6 +31,8 @@ export const DraggableCardItem = React.memo(({
 }) => {
   useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
+  const createStatus = c.offline_create_status;
+  const canDrag = canEditContent && !createStatus && !c.offline_move && !c.offline_lifecycle;
   const flagStyle = React.useMemo(() => getFlagStyle(c.flag), [c.flag]);
 
   const {
@@ -41,7 +44,7 @@ export const DraggableCardItem = React.memo(({
     isDragging
   } = useSortable({
     id: c.id,
-    disabled: isSelectMode || !canEditContent,
+    disabled: isSelectMode || !canDrag,
     animateLayoutChanges: () => false,
   });
 
@@ -53,11 +56,14 @@ export const DraggableCardItem = React.memo(({
     ...flagStyle
   };
 
-  const detectedExerciseType = React.useMemo(() => detectCardType(c), [c]);
+  const structured = studyContent(c);
+  const detectedExerciseType = structured?.type;
+  const prompt = studySideText(structured);
+  const answer = structured ? studySideText(structured, 'back') : (c.back || '');
 
   const linesLimit = previewCardLines === 0 ? 0 : (previewCardLines || 2);
-  const isFrontLong = linesLimit > 0 && ((c.front || '').length > (linesLimit * 45) || (c.front || '').split('\n').length > linesLimit);
-  const isBackLong = linesLimit > 0 && ((c.back || '').length > (linesLimit * 45) || (c.back || '').split('\n').length > linesLimit);
+  const isFrontLong = linesLimit > 0 && (prompt.length > (linesLimit * 45) || prompt.split('\n').length > linesLimit);
+  const isBackLong = linesLimit > 0 && (answer.length > (linesLimit * 45) || answer.split('\n').length > linesLimit);
   const isLikelyLong = isFrontLong || isBackLong;
   const showExpandBtn = linesLimit > 0 && (isLikelyLong || isExpanded);
 
@@ -74,8 +80,10 @@ export const DraggableCardItem = React.memo(({
     overflow: 'hidden'
   };
 
-  const handleItemClick = () => {
+  const handleItemClick = (event) => {
+    if (createStatus) return;
     if (isSelectMode) {
+      event.stopPropagation();
       onToggleSelect?.(c.id);
       return;
     }
@@ -91,9 +99,9 @@ export const DraggableCardItem = React.memo(({
       style={{ ...style, ...cardListBg?.style }}
       id={`card-item-${c.id}`}
       className={`card-item card-front glass ${cardListBg?.className || ''} card-item-draggable ${isDragging ? 'is-dragging' : ''} ${isSelectMode ? 'is-select-mode' : ''} ${isSelected ? 'is-selected' : ''}`}
-      onClick={isSelectMode ? () => onToggleSelect?.(c.id) : undefined}
+      onClick={isSelectMode && !createStatus ? () => onToggleSelect?.(c.id) : undefined}
     >
-      {isSelectMode && (
+      {isSelectMode && !createStatus && (
         <div className="card-select-checkbox">
           {isSelected && <Check size={16} strokeWidth={3} />}
         </div>
@@ -101,21 +109,21 @@ export const DraggableCardItem = React.memo(({
       <div
         className="card-item-text"
         onClick={handleItemClick}
-        style={{ cursor: 'pointer', position: 'relative' }}
+        style={{ cursor: createStatus ? 'default' : 'pointer', position: 'relative' }}
       >
         <div
           className={`front-min ${isExpanded ? 'expanded' : ''}`}
           style={{ ...frontTypographyStyle, ...clampStyle }}
         >
-          {stripMarkdown(cleanBracketSyntax(c.front || ''))}
+          {stripMarkdown(prompt)}
         </div>
 
-        {c.back && (
+        {answer && (
           <div
             className={`back-min ${isExpanded ? 'expanded' : ''}`}
             style={{ ...backTypographyStyle, ...clampStyle }}
           >
-            <MarkdownRenderer>{c.back}</MarkdownRenderer>
+            <MarkdownRenderer>{answer}</MarkdownRenderer>
           </div>
         )}
 
@@ -135,9 +143,25 @@ export const DraggableCardItem = React.memo(({
         )}
       </div>
 
+      {createStatus && !c.offline_move && <small role="status" style={{ overflowWrap: 'anywhere' }}>{tr(createStatus === 'error'
+        ? 'Ошибка синхронизации. Карточка сохранена на устройстве.' : 'Ожидает синхронизации')}
+        {c.offline_create_error && <> {c.offline_create_error}</>}
+      </small>}
+      {c.offline_move && <small role="status">{offlineMoveLabel(c.offline_move)}</small>}
+      {c.offline_lifecycle && <small role="status">{offlineLifecycleLabel(c)}</small>}
+      {c.offline_edit && (
+        <div className="card-edit-status">
+          <small role="status">{offlineEditLabel(c.offline_edit)}</small>
+          {!isSelectMode && (
+            <button type="button" className="btn btn-secondary" onClick={() => openEditor(c.deck_id, c)}>
+              {tr('Открыть локальную правку')}
+            </button>
+          )}
+        </div>
+      )}
       <div className="card-item-footer">
         <div className="card-item-footer-left">
-          {!isSelectMode && canEditContent && (
+          {!isSelectMode && canDrag && (
             <div
               className="deck-drag-handle-bottom"
               {...attributes}
@@ -160,7 +184,7 @@ export const DraggableCardItem = React.memo(({
             </span>
           )}
 
-          {!isSelectMode && (
+          {!isSelectMode && !createStatus && (
             <CardActionButton
               card={c}
               size={16}

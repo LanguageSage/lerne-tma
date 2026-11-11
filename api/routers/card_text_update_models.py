@@ -1,6 +1,6 @@
 """Shared deck/folder maintenance payload; no SRS or server fields."""
-from pydantic import BaseModel, ConfigDict, Field, StrictStr
-from typing import Literal
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+from api.services.structured_card_storage import decode_v2_content, _encode_card
 from uuid import UUID
 
 
@@ -9,12 +9,12 @@ class TextUpdateCard(BaseModel):
     number: int = Field(gt=0, strict=True)
     card_id: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
     deck_id: int | None = Field(default=None, gt=0, le=2147483647, strict=True)
-    front: StrictStr = Field(max_length=100000)
-    back: StrictStr = Field(max_length=100000)
-    context: StrictStr = Field(max_length=100000)
-    topics: StrictStr = Field(max_length=10000)
-    level: Literal['A1', 'A2', 'B1', 'B2', 'C1', 'C2'] | None = None
-    card_type: Literal['standard', 'theory', 'trainer', 'quiz', 'match', 'free_text', 'editable_text', 'puzzle', 'word_bank']
+    content_v2: dict
+
+    @field_validator('content_v2')
+    @classmethod
+    def valid_content(cls, value):
+        return _encode_card(decode_v2_content(value))
 
 
 class TextUpdatePreviewRequest(BaseModel):
@@ -26,4 +26,3 @@ class TextUpdateApplyRequest(TextUpdatePreviewRequest):
     preview_token: str = Field(pattern=r'^[a-f0-9]{64}$')
     request_id: UUID
     include_new: bool = Field(default=False, strict=True)
-

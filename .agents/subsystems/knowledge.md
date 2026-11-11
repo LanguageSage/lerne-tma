@@ -44,6 +44,7 @@ Study grade сохраняет SRS отдельно от доставки Knowle
 - Схема сервера: `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` в `api/models.py`.
 - Схема клиента: Dexie `knowledge_items`, `card_knowledge_items`, `knowledge_attempt_outbox`, `user_knowledge_state`.
 - Primary mapping определяет, какой KI получает evidence; без него capture не создаёт Attempt.
+- Native V2 card/deck copy retains authored `TMACardKnowledgeItem` mappings (primary/secondary, complexity, weight) via the existing transactional `structured_card_api._clone`. Personal Attempts, mastery records and SRS are never cloned. Edit/move/soft delete/restore retain source IDs and linked records. All-nine-type Chromium/HTTP/PostgreSQL regression: `structured_cards_postgres.py --learning-browser`; details and remote-checker offline limits: `project_docs/STRUCTURED_CARDS_V2.md`, stage 6B.6.
 - Raw `TMAKnowledgeAttempt.evaluation_data` — исходное evidence; `TMAUserKnowledgeState` — пересчитываемая mastery projection.
 - `knowledge_mastery.py` владеет scoring и rebuild; feedback/grading summary не вводит отдельный mastery algorithm.
 - Counters приходят из exercise lifecycle, self-rating — из grade; `interaction_count` остаётся описательным evidence.

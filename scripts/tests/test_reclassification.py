@@ -6,6 +6,7 @@ from unittest.mock import AsyncMock, patch
 from uuid import uuid4
 
 import test_material_permissions as fixture
+from native_fixture import content
 from api import ai_service, models
 from api.routers import ai
 from api.services import reclassification as service
@@ -26,7 +27,7 @@ class ReclassificationTests(unittest.TestCase):
 
     def test_hundred_cards_progress_and_committed_replay(self):
         for i in range(99):
-            models.TMA_Card.create(deck=self.deck, front_text=f'Card {i}', back_text='')
+            models.TMA_Card.create(deck=self.deck, content_v2=content(f'Card {i}'), card_type=None)
         payload = self.payload(target_language='en')
         with patch.object(ai_service, 'classify_phrases_batch', new=AsyncMock(return_value=['B2'] * 10)) as provider:
             first = self.post(payload)
@@ -40,18 +41,18 @@ class ReclassificationTests(unittest.TestCase):
         self.assertEqual((result['status'], result['complete'], result['completed_count']), ('ok', True, 100))
         self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck == self.deck).count(), 100)
         for card in models.TMA_Card.select().where(models.TMA_Card.deck == self.deck):
-            self.assertEqual(card.tags.split(',').count('B2'), 1)
+            self.assertEqual(card.content_v2['card']['level'], 'B2')
         self.assertEqual(self.post({**payload, 'batch_index': 10})['complete'], True)
 
     def test_partial_local_result_ai_error_then_explicit_resume(self):
-        second = models.TMA_Card.create(deck=self.deck, front_text='Ambiguous', back_text='')
+        second = models.TMA_Card.create(deck=self.deck, content_v2=content('Ambiguous'), card_type=None)
         payload = self.payload()
         with patch.object(service, 'classify_sentence_fast', side_effect=lambda text, _: {'level': 'A2', 'confidence': 1 if text == 'Haus' else 0}), \
                 patch.object(ai_service, 'classify_phrases_batch', new=AsyncMock(side_effect=ValueError('private provider error'))):
             result = self.post(payload)
         self.assertEqual((result['status'], result['complete'], result['completed_count']), ('partial', False, 1))
         self.assertNotIn('private provider', json.dumps(result))
-        self.assertIsNone(models.TMA_Card.get_by_id(second.id).tags)
+        self.assertIsNone(models.TMA_Card.get_by_id(second.id).content_v2['card']['level'])
         with patch.object(ai_service, 'classify_phrases_batch', new=AsyncMock(return_value=['C1'])) as provider:
             result = self.post({**payload, 'batch_index': result['next_batch']})
         self.assertEqual(provider.call_args.args[0], ['Ambiguous'])
@@ -59,7 +60,7 @@ class ReclassificationTests(unittest.TestCase):
 
     def test_hundred_cards_interrupted_at_halfway_continue_without_repeating_completed_work(self):
         for i in range(99):
-            models.TMA_Card.create(deck=self.deck, front_text=f'Card {i}', back_text='')
+            models.TMA_Card.create(deck=self.deck, content_v2=content(f'Card {i}'), card_type=None)
         payload = self.payload(target_language='en')
         with patch.object(ai_service, 'classify_phrases_batch', new=AsyncMock(return_value=['B2'] * 10)) as provider:
             for index in range(5):
@@ -86,7 +87,7 @@ class ReclassificationTests(unittest.TestCase):
         with patch.object(ai_service, 'classify_phrases_batch', side_effect=cancel):
             with self.assertRaises(asyncio.CancelledError):
                 asyncio.run(ai.classify_cards_batch_endpoint(ai.ClassifyBatchRequest(**payload), 101))
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
         with patch.object(ai_service, 'classify_phrases_batch', new=AsyncMock(return_value=['B1'])) as provider:
             self.assertEqual(self.post(payload)['status'], 'busy')
             provider.assert_not_called()
@@ -108,7 +109,7 @@ class ReclassificationTests(unittest.TestCase):
         with patch.object(ai_service, 'classify_phrases_batch', new=AsyncMock(side_effect=TimeoutError())):
             result = self.post(self.payload(target_language='en'))
         self.assertEqual((result['status'], result['complete'], result['updated_count']), ('partial', False, 0))
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
 
     def test_retries_are_bounded_and_cooldown_allows_continuation(self):
         payload = self.payload(target_language='en')
@@ -131,21 +132,23 @@ class ReclassificationTests(unittest.TestCase):
 
     def test_edited_card_is_not_overwritten_after_ai(self):
         async def edit(*args, **kwargs):
-            models.TMA_Card.update(front_text='Changed', tags='manual', metadata='{"keep":true}').where(models.TMA_Card.id == self.card.id).execute()
+            models.TMA_Card.update(content_v2=content('Changed', level='C1', metadata={'keep': True, 'tags': ['manual']})).where(models.TMA_Card.id == self.card.id).execute()
             return ['B2']
         with patch.object(ai_service, 'classify_phrases_batch', side_effect=edit):
             result = self.post(self.payload(target_language='en'))
         self.assertEqual(result['error_code'], 'classification.card_changed')
         card = models.TMA_Card.get_by_id(self.card.id)
-        self.assertEqual((card.front_text, card.tags), ('Changed', 'manual'))
+        self.assertEqual((card.content_v2['card']['data']['prompt'], card.content_v2['card']['metadata']['tags']), ('Changed', ['manual']))
+        self.assertEqual(card.content_v2['card']['level'], 'C1')
 
     def test_metadata_and_non_cefr_tags_are_preserved(self):
-        models.TMA_Card.update(metadata='{"custom":42}', tags='topic,A1,A2').where(models.TMA_Card.id == self.card.id).execute()
+        models.TMA_Card.update(content_v2=content(level='A1', metadata={'custom': 42, 'tags': ['topic']})).where(models.TMA_Card.id == self.card.id).execute()
         with patch.object(service, 'classify_sentence_fast', return_value={'level': 'C1', 'confidence': 1}):
             self.assertTrue(self.post(self.payload())['complete'])
         card = models.TMA_Card.get_by_id(self.card.id)
-        self.assertEqual(card.tags, 'topic,C1')
-        self.assertEqual(json.loads(card.metadata)['custom'], 42)
+        self.assertEqual(card.content_v2['card']['level'], 'C1')
+        self.assertEqual(card.content_v2['card']['metadata']['tags'], ['topic'])
+        self.assertEqual(card.content_v2['card']['metadata']['custom'], 42)
 
     def test_expired_worker_cannot_commit_after_a_new_claim(self):
         operation_id = str(uuid4())
@@ -156,7 +159,7 @@ class ReclassificationTests(unittest.TestCase):
         with self.assertRaises(fixture.HTTPException) as error:
             service._finish(first, [(first['cards'][0], service.build_ai_cefr_payload('C2'))], None, 101, operation_id)
         self.assertEqual(error.exception.status_code, 409)
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
         result = service._finish(second, [(second['cards'][0], service.build_ai_cefr_payload('B1'))], None, 101, operation_id)
         self.assertTrue(result['complete'])
 
@@ -168,16 +171,16 @@ class ReclassificationTests(unittest.TestCase):
             result = self.post(self.payload(target_language='en'))
         self.assertFalse(result['complete'])
         self.assertEqual(result['error_code'], 'classification.ai_unavailable')
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
 
     def test_concurrent_metadata_edit_without_timestamp_is_preserved(self):
         async def edit(*args, **kwargs):
-            models.TMA_Card.update(metadata='{"custom":99}').where(models.TMA_Card.id == self.card.id).execute()
+            models.TMA_Card.update(content_v2=content(metadata={'custom': 99})).where(models.TMA_Card.id == self.card.id).execute()
             return ['B2']
         with patch.object(ai_service, 'classify_phrases_batch', side_effect=edit):
             result = self.post(self.payload(target_language='en'))
         self.assertFalse(result['complete'])
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).metadata, '{"custom":99}')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata'], {'custom': 99})
 
     def test_receipt_and_card_writes_rollback_together(self):
         payload = self.payload()
@@ -185,7 +188,7 @@ class ReclassificationTests(unittest.TestCase):
                 patch.object(service, '_dump', side_effect=lambda x: (_ for _ in ()).throw(RuntimeError('disk full')) if 'last_result' in x else json.dumps(x)):
             with self.assertRaises(RuntimeError):
                 self.post(payload)
-        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).tags, 'old')
+        self.assertEqual(models.TMA_Card.get_by_id(self.card.id).content_v2['card']['metadata']['tags'], ['old'])
         state = json.loads(models.TMAOfflineBatch.get().response)
         self.assertEqual(state['next_batch'], 0)
 

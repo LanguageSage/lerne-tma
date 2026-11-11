@@ -1,12 +1,11 @@
-import logging
 from fastapi import APIRouter, Depends
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 from uuid import UUID
 from typing import List, Optional, Literal
 
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_worker
-from api.services.sync_service import execute_sync_push, execute_sync_pull, execute_collab_pull
+from api.services.sync_service import execute_collab_pull
 
 
 router = APIRouter(
@@ -59,6 +58,7 @@ class SyncProgressItem(BaseModel):
     updated_at: Optional[str] = None
     flag: int = 0
     want_to_learn: bool = False
+    flag_only: bool = False
 
 class SyncFolderItem(BaseModel):
     id: int
@@ -72,11 +72,6 @@ class SyncFolderItem(BaseModel):
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
 
-class PushRequest(BaseModel):
-    folders: List[SyncFolderItem] = []
-    decks: List[SyncDeckItem] = []
-    cards: List[SyncCardItem] = []
-    progress: List[SyncProgressItem] = []
 
 
 class OfflineDeckItem(SyncDeckItem):
@@ -107,6 +102,18 @@ class OfflinePushRequest(BaseModel):
     cards: List[OfflineCardItem] = Field(default_factory=list)
     progress: List[SyncProgressItem] = Field(default_factory=list)
     reviews: List[OfflineReviewItem] = Field(default_factory=list)
+    drain_bases: dict[str, str | None] = Field(default_factory=dict)
+
+
+class LegacyDrainRequest(OfflinePushRequest):
+    @field_validator('cards', mode='before')
+    @classmethod
+    def retain_untransported_content(cls, cards):
+        for card in cards or []:
+            if isinstance(card, dict) and (card.get('content_v2') is not None or
+                    any(field in card for field in ('topics', 'level', 'difficulty', 'history', 'image_data'))):
+                raise ValueError('Legacy content has fields not covered by this transport; original queue must be retained')
+        return cards
 
 
 @router.post('/v2/push')
@@ -116,27 +123,33 @@ def push_offline_changes(request: OfflinePushRequest, user_id: int = Depends(get
     return push_offline(request, user_id)
 
 
+@router.post('/v2/push-legacy')
+@db_worker
+def drain_legacy_changes(request: LegacyDrainRequest, user_id: int = Depends(get_user_id)) -> dict:
+    # Same batch/receipt/transaction, with conservative preconditions. A separate
+    # guarded entry makes older servers return 404 instead of ignoring a flag.
+    from api.services.offline_sync import push_offline
+    return push_offline(request, user_id, drain_legacy=True)
+
+
 @router.get('/v2/pull')
 @db_worker
-def pull_offline_changes(user_id: int = Depends(get_user_id)) -> dict:
+def pull_offline_changes(card_schema: Literal['2'] = '2', user_id: int = Depends(get_user_id)) -> dict:
     from api.services.offline_sync import pull_offline
     return pull_offline(user_id)
 
 
+@router.get('/v2/status')
+@db_worker
+def offline_database_status(user_id: int = Depends(get_user_id)) -> dict:
+    from api.services.sync_generation import generation_state
+    return generation_state()
+
+
 # --- Endpoints ---
 
-@router.post("/push")
-@db_worker
-def push_changes(request: PushRequest, user_id: int = Depends(get_user_id)):
-    """Receives offline changes from client, inserts/updates them via service."""
-    return execute_sync_push(request, user_id)
 
 
-@router.get("/pull")
-@db_worker
-def pull_changes(since: Optional[str] = None, user_id: int = Depends(get_user_id)):
-    """Returns all changes that happened on the server since the given timestamp for this user."""
-    return execute_sync_pull(since, user_id)
 
 
 @router.get("/collab-pull")

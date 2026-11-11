@@ -26,12 +26,15 @@ export const createTrashSlice = (set, get) => ({
     }
   },
 
-  restoreTrashCard: async (cardId) => {
+  restoreTrashCard: async (card) => {
     try {
-      await api.post(`/trash/card/${cardId}/restore`);
+      const revision = card.offline_edit?.server?.revision || card.revision;
+      const { data } = await api.post(`/trash/card/${card.id}/restore`,
+        card.content_v2 ? { revision, request_id: crypto.randomUUID() } : undefined);
       const { fetchTrash, fetchDecks } = get();
       await fetchTrash();
       await fetchDecks(true);
+      return data;
     } catch (err) {
       console.error('Restore Trash Card Error:', err);
       throw err;
