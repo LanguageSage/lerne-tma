@@ -108,3 +108,37 @@ SQL-каталог, схема истории и локальный механи
 конвертировать выбранную tombstone. Полного media backup и сверки устройств эти
 инструменты не делают. Production dump/restore требует отдельной остановки writes,
 совместимого приложения и проверки generation marker.
+
+
+## Unified Native V2 storage — 96
+
+`api/migrations.py:run_unified_cards_migration` is an explicit PostgreSQL
+maintenance operation after 93/94/95 and conversion of active content to V2.
+It is never run automatically on a populated database. Empty LOCAL bootstrap
+applies it after the historical schema baseline. Stop all writers before a real
+cutover; recovery is the pre-migration dump, not a reverse merge of later edits.
+
+The transaction locks both source/target pairs, adds scope/category_id/is_default
+and the category FK, enforces personal ownership versus ownerless library placement,
+allocates new library IDs, copies every library row, preserves binary/media paths
+and author attribution (deck metadata.author_name), remaps source_library_id and
+records 96. Failure rolls back data/DDL/history; sequence gaps may remain. Reruns
+check the recorded schema. Card scope is derived from the deck, without duplication.
+
+Mandatory: content, all media fields including the deployed-but-unmodelled
+card.image_data, categories, personal folder placement, notes and existing personal
+IDs/queues. Preserve is_default, deck metadata and author_name. Unused cloud_id,
+empty reserve/reserve_topic and collection timestamp collected_at do not drive the
+runtime. Nonempty reserve fields stop migration for review. Legacy progress and
+reviewhistory are not imported. Source card/deck and their progress/reviewhistory/
+uservoice FKs remain intact; no DROP/CASCADE is included. Retired ORM definitions
+serve only old schema bootstrap/migration tooling, never library business routes.
+
+Synthetic verification (no private CI input):
+`python scripts/tests/structured_cards_postgres.py --bin-dir <pgsql/bin> --unified-storage`.
+Explicit private rehearsal: the same runner with `--unified-dump <ignored-v2.dump>`
+and `--admin-root <checkout>` restores a fresh disposable database, checks all
+personal card hashes, library content/media/placement, categories/notes and other
+tables, then runs actual TMA/Admin HTTP and Chromium/offline tests. Use Admin's
+normal venv so its pinned card-core wheel passes the unchanged release guard.
+External Storage bytes and production cutover are outside this rehearsal.

@@ -302,6 +302,10 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
+    parser.add_argument('--unified-storage', action='store_true', help='Test migration 96 and independent library copies')
+    parser.add_argument('--unified-dump', type=Path, help='Explicit private Native V2 Supabase dump for a restored migration 96 rehearsal')
+    parser.add_argument('--admin-root', type=Path, help='Explicit independent Admin checkout for restored rehearsal')
+    parser.add_argument('--unified-smoke-only', action='store_true', help='Run HTTP and offline smoke without repeating the nine-type browser rendering')
     parser.add_argument('--cutover-preflight', action='store_true', help='Read-only preflight, legacy HTTP writers and physical rollback drill; no migrations')
     parser.add_argument('--legacy-drain-browser', action='store_true', help='Guarded V1 queue delivery over Chromium/FastAPI/disposable PostgreSQL; no migrations')
     parser.add_argument('--legacy-drain-baseline', action='store_true', help='Reproduce 7.4 native false-success with its committed sync module')
@@ -318,6 +322,10 @@ def main():
     parser.add_argument('--media-browser', action='store_true', help='Run nine-type native media/TTS/cache in Chromium/HTTP/PostgreSQL')
     parser.add_argument('--layout-browser', action='store_true', help='Run ordered layout, inline media and offline edits in Chromium/HTTP/disposable PostgreSQL')
     args = parser.parse_args()
+    if args.unified_dump and (not args.admin_root or not args.unified_dump.resolve().is_relative_to(ROOT / 'local/test-data')):
+        parser.error('--unified-dump requires --admin-root and a private dump under local/test-data')
+    if args.unified_smoke_only and not args.unified_dump:
+        parser.error('--unified-smoke-only requires --unified-dump')
     if args.legacy_drain_baseline and not args.legacy_drain_browser:
         parser.error('--legacy-drain-baseline requires --legacy-drain-browser')
     binaries = args.bin_dir.resolve()
@@ -351,11 +359,18 @@ def main():
         pg('initdb', '-D', data, '-U', 'cards_test', '-A', 'trust', '--no-locale', '--no-sync', '-E', 'UTF8')
         sockets = '' if os.name == 'nt' else f' -k "{scratch}"'
         pg('pg_ctl', '-D', data, '-l', scratch / 'postgres.log', '-o',
-           f'-h 127.0.0.1 -p {port}{sockets}', '-w', 'start')
+           f'-h 127.0.0.1 -p {port}{sockets} -c max_parallel_maintenance_workers=0', '-w', 'start')
         from peewee import PostgresqlDatabase
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port,
                                 user='cards_test', connect_timeout=5)
         try:
+            if args.unified_dump:
+                from unified_cards_postgres import verify_restored
+                return 0 if verify_restored(db, binaries, args.unified_dump.resolve(),
+                                           args.admin_root.resolve(), scratch, browser=not args.unified_smoke_only) else 1
+            if args.unified_storage:
+                from unified_cards_postgres import verify as verify_unified
+                return 0 if verify_unified(db) else 1
             if args.legacy_drain_browser:
                 from structured_cards_legacy_drain import verify as verify_drain
                 return 0 if verify_drain(db, baseline=args.legacy_drain_baseline) else 1

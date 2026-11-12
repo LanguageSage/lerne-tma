@@ -1,7 +1,7 @@
 import datetime
 import logging
 import json
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMASetting, Deck, Card, tma_db, TMAMedia, TMA_Folder, TMAUser
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMASetting, tma_db, TMAMedia, TMA_Folder, TMAUser
 from peewee import fn, JOIN
 
 logger = logging.getLogger(__name__)
@@ -329,7 +329,7 @@ def _get_cached_library_info(*, strict=False):
     if now - _lib_cache['time'] < 300 and _lib_cache['by_name']:
         return _lib_cache['by_name'], _lib_cache['counts']
     try:
-        ext_decks = list(Deck.select().where(Deck.is_deleted == False))
+        ext_decks = list(TMA_Deck.select().where(TMA_Deck.scope == 'library', TMA_Deck.is_deleted == False))
         by_name = {d.name: d for d in ext_decks}
         ext_ids = [d.id for d in ext_decks]
         counts = {}
@@ -337,10 +337,10 @@ def _get_cached_library_info(*, strict=False):
             counts = {
                 deck_id: count
                 for deck_id, count in (
-                    Card
-                    .select(Card.deck, fn.COUNT(Card.id))
-                    .where(Card.deck << ext_ids)
-                    .group_by(Card.deck)
+                    TMA_Card
+                    .select(TMA_Card.deck, fn.COUNT(TMA_Card.id))
+                    .where(TMA_Card.deck << ext_ids, TMA_Card.is_deleted == False)
+                    .group_by(TMA_Card.deck)
                     .tuples()
                 )
             }
@@ -524,16 +524,19 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
 def get_external_decks(target_language: str = None):
     """Возвращает список всех колод из общей библиотеки с учетом изучаемого языка."""
     try:
-        counts = {c.deck_id: c.count for c in Card.select(Card.deck_id, fn.COUNT(Card.id).alias('count')).group_by(Card.deck_id)}
+        counts = {c.deck_id: c.count for c in TMA_Card.select(
+            TMA_Card.deck_id, fn.COUNT(TMA_Card.id).alias('count')).join(TMA_Deck).where(
+                TMA_Deck.scope == 'library', TMA_Deck.is_deleted == False,
+                TMA_Card.is_deleted == False).group_by(TMA_Card.deck_id)}
 
-        query = Deck.select()
+        query = TMA_Deck.select().where(TMA_Deck.scope == 'library', TMA_Deck.is_deleted == False)
         if target_language:
             if target_language == 'de':
-                query = query.where((Deck.target_language == 'de') | (Deck.target_language.is_null()))
+                query = query.where((TMA_Deck.target_language == 'de') | (TMA_Deck.target_language.is_null()))
             else:
-                query = query.where(Deck.target_language == target_language)
+                query = query.where(TMA_Deck.target_language == target_language)
 
-        decks = list(query.order_by(Deck.name))
+        decks = list(query.order_by(TMA_Deck.name))
         return [{
             "id": d.id,
             "name": d.name,
@@ -552,7 +555,7 @@ def get_external_decks(target_language: str = None):
 def toggle_default_deck(deck_id: int) -> bool:
     """Переключает статус 'is_default' для колоды в библиотеке."""
     try:
-        deck = Deck.get_by_id(deck_id)
+        deck = TMA_Deck.get(TMA_Deck.id == deck_id, TMA_Deck.scope == 'library', TMA_Deck.is_deleted == False)
         deck.is_default = not deck.is_default
         deck.updated_at = datetime.datetime.now()
         deck.save()
@@ -679,9 +682,9 @@ def rename_deck(deck_id: int, new_name: str, user_id: int):
 def get_community_content(user_id: int):
     """Возвращает колоды пользователей, которые можно 'влить' в библиотеку (для админа)."""
     try:
-        # Для простоты возвращаем все колоды, которых нет в Deck
-        lib_names = {d.name for d in Deck.select(Deck.name)}
-        user_decks = TMA_Deck.select().where(~(TMA_Deck.name << list(lib_names)) & (TMA_Deck.is_deleted == False))
+        # Колоды пользователей, ещё не опубликованные в библиотеке.
+        lib_names = {d.name for d in TMA_Deck.select(TMA_Deck.name).where(TMA_Deck.scope == 'library')}
+        user_decks = TMA_Deck.select().where(TMA_Deck.scope == 'personal', ~(TMA_Deck.name << list(lib_names)) & (TMA_Deck.is_deleted == False))
         return [{
             "id": d.id,
             "name": d.name,

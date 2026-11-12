@@ -460,3 +460,14 @@ permissions/идемпотентность остаётся. Исходные с
 коллаборативный UI обновляется по `pull_success`. Watermark снимается до чтения
 и использует те же naive часы, что и `updated_at`, чтобы polling успокаивался
 после завершённой записи.
+
+
+## Unified Native V2 storage — migration 96
+
+`scope` belongs to `tma_deck`; cards inherit their deck's scope. Pull/ACL expose
+only personal decks through the existing ownership/collaboration flow. The library
+catalog uses scope=library and imports into independent personal rows. Personal
+IDs, note card_id, Knowledge links, SRS, receipts, negative-ID aliases and pending
+Dexie operations are retained. No new Dexie version, sync protocol or restore
+marker is introduced by 96. Library IDs are newly allocated above personal IDs;
+source_library_id in deck metadata is remapped as informational provenance.

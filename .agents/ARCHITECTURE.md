@@ -76,7 +76,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 | Knowledge | Dexie KI-таблицы и outbox | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
 | AI-промпты / конфигурация | Настройки и формы генерации | `TMASetting`, `TMAUserPrompt`, `TMACustomPrompt` |
 | Совместный доступ | `app/src/store/useCollaborativeStore.js` | `TMA_Collaborator` |
-| Библиотека | `app/src/store/slices/createLibrarySlice.js` | `LibraryCategory`, `Deck`, `Card` |
+| Библиотека | `app/src/store/slices/createLibrarySlice.js` | `LibraryCategory`, `TMA_Deck(scope=library)`, `TMA_Card` |
 
 ## Смежные области
 

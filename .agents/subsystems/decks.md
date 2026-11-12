@@ -27,7 +27,7 @@ its active cards in one transaction.
 1. DeckGrid / DeckModals → действия slices, собранных в `useDeckStore.js`.
 2. Действия используют `app/src/services/api.js`: online routes либо `offlineApi.js` и Dexie.
 3. Колоды/папки сохраняются в `TMA_Deck` / `TMA_Folder`; порядок и learning status возвращаются в store.
-4. Библиотечные данные `Deck` / `Card` импортируются через отдельные library/share действия.
+4. Библиотечные данные живут в `TMA_Deck(scope=library)` / `TMA_Card`; добавление создаёт независимые личные копии через library/share действия.
 5. Soft delete и восстановление проходят через trash; совместный доступ — через collaborator permissions.
    Четыре маршрута корзины владеют `tma_db` через `db_worker`. Сервис завершает SQL,
    существующие транзакции и формирование ответа до возврата соединения. Пул из двух
@@ -47,7 +47,7 @@ its active cards in one transaction.
 ## Source of truth
 
 - `useDeckStore.js` объединяет доменные slices; состояние папок/колод не принадлежит отдельной модалке.
-- `api/models.py`: `TMA_Deck`, `TMA_Folder`, `TMA_Card`, `TMA_Collaborator`; библиотека — `LibraryCategory`, `Deck`, `Card`.
+- `api/models.py`: `TMA_Deck`, `TMA_Folder`, `TMA_Card`, `TMA_Collaborator`; библиотека — `LibraryCategory`, `TMA_Deck(scope=library)`, `TMA_Card`.
 - `folder_id`, `parent_id`, `position`, `is_deleted` и learning status проверяйте на записи и при фильтрации.
 - Язык обучения принадлежит `app/src/store/useLanguageStore.js`; язык интерфейса — `app/src/i18n/i18nContext.jsx`.
 - Study completion использует общий порядок/видимость колод через `app/src/utils/studyFlow.js`.

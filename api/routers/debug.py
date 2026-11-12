@@ -30,16 +30,16 @@ def debug_import(deck_id: int, user_id: int = Depends(get_user_id)):
     try:
         log(f"DB Connection: {models.tma_db.is_closed()}")
         
-        ext_deck = models.Deck.get_or_none(models.Deck.id == deck_id)
+        ext_deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == deck_id, models.TMA_Deck.scope == 'library')
         if not ext_deck:
             log(f"ERROR: Deck {deck_id} not found in library")
             return {"logs": logs}
         log(f"Found library deck: {ext_deck.name}")
         
-        cards_list = list(models.Card.select().where(models.Card.deck == deck_id))
+        cards_list = list(models.TMA_Card.select().where(models.TMA_Card.deck == deck_id))
         log(f"Peewee found {len(cards_list)} cards")
         
-        cursor = models.tma_db.execute_sql(f"SELECT count(*) FROM card WHERE deck_id = {deck_id}")
+        cursor = models.tma_db.execute_sql("SELECT count(*) FROM tma_card WHERE deck_id = %s", (deck_id,))
         raw_count = cursor.fetchone()[0]
         log(f"Raw SQL found {raw_count} cards")
         

@@ -1,18 +1,18 @@
 {
   "schema": {
-    "version": 5,
-    "source_sha256": "12642228a574d397ab221db55d63f3278821faf26dad5a1ea523d18fc80d0e2f"
+    "version": 6,
+    "source_sha256": "9c3470ca25a9a316ff80c7fd31a107d99e2bd28a5c8445a6350d8b8fbc898ef6"
   },
   "permissions": {
-    "version": 1,
-    "source_sha256": "3553025b39adda8e9b3c640f6f5d4501e44ca9d9a5ec1c807be11a1ab26f8975"
+    "version": 2,
+    "source_sha256": "fe6b275c59a10ac6d7a5bddd88c599d918df42649de92bcdae1697f6db596a1a"
   },
   "cards": {
     "version": 3,
     "source_sha256": "99e8a14f59fa71b646ad840a1d27349a58309757ef474de726996b40ce09d46e"
   },
   "import": {
-    "version": 5,
-    "source_sha256": "d47b3a5fce48c3a91b42471c1a0d25d27c0c87be4cc54e425e6dc6b6bd467b08"
+    "version": 6,
+    "source_sha256": "2a1d6609656dc262a9c8b76324e14107ded0e042a05fd7200fdac1f5ec4975d3"
   }
 }

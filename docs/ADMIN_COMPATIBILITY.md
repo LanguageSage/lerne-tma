@@ -81,3 +81,14 @@ copying TMA's full contract into it would mislabel its implementation and invali
 existing jobs. The explicit pair review does not replace the runtime schema guard.
 Missing/unknown DB schema stays read-only. No migration or metadata registration
 is performed by this release. Shared parsing still belongs only to card-core in TMA.
+
+
+## Unified Native V2 storage 96 — 2026-11-12
+
+TMA schema v6 / permissions v2 / import v6 introduce a single scoped store.
+Admin retains its independent contract (schema v3 / permissions v2); exact
+profiles cover the restored Supabase deck catalog and empty LOCAL bootstrap.
+The reviewed release pair is in Admin reviews/native-unified-storage96.
+Runtime uses no legacy library model or table. Source tables stay available to
+the explicit migration and physical backups until a later reviewed cleanup.
+Personal IDs and Dexie queues remain valid. No shared card-core change is needed.

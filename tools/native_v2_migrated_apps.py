@@ -19,7 +19,7 @@ import httpx
 import uvicorn
 
 
-def verify(db, output, admin_root, *, browser=True):
+def verify(db, output, admin_root, *, browser=True, smoke=False):
     from tools.migrate_native_v2_local import verify_target
     verify_target(db)
     from peewee import PostgresqlDatabase
@@ -127,8 +127,10 @@ def verify(db, output, admin_root, *, browser=True):
                                           'content_v2': original['content_v2'], 'study': study})
                 except Exception as exc:
                     result['failures'].append({'card_id': cid, 'stage': 'tma', 'error': str(exc)[:600]})
-            for cid, did, kind in db.execute_sql('''SELECT DISTINCT ON (content_v2->'card'->>'type') id,deck_id,content_v2->'card'->>'type'
-                    FROM card WHERE NOT is_deleted ORDER BY content_v2->'card'->>'type',id''').fetchall():
+            for cid, did, kind in db.execute_sql('''SELECT DISTINCT ON (c.content_v2->'card'->>'type') c.id,c.deck_id,c.content_v2->'card'->>'type'
+                    FROM tma_card c JOIN tma_deck d ON d.id=c.deck_id
+                    WHERE d.scope='library' AND NOT c.is_deleted AND NOT d.is_deleted
+                    ORDER BY c.content_v2->'card'->>'type',c.id''').fetchall():
                 response = console.get(f'/api/admin/cards/{cid}', params={'deck_id': 'lib_' + str(did)})
                 # Admin's public library identifier is verified in deck_target.
                 if response.status_code != 200:
@@ -161,6 +163,36 @@ def verify(db, output, admin_root, *, browser=True):
                 result['browser'] = {'exit_code': completed.returncode}
             else:
                 result['browser'] = {'not_run': 'Explicit HTTP-only follow-up; separate Chromium evidence required'}
+            if smoke:
+                # Bound this new account's fixture after the full data/ACL and
+                # nine-type checks. Published roots otherwise pull unrelated
+                # tens of megabytes into a one-deck create/offline scenario.
+                models.TMA_Folder.update(access_scope='private').where(
+                    models.TMA_Folder.access_scope == 'global_readonly').execute()
+                user = 777000111
+                models.TMAUser.get_or_create(user_id=user, defaults={'is_guest': False, 'default_decks_initialized': True})
+                deck = models.TMA_Deck.create(user_id=user, name='Unified storage smoke')
+                sample = next(c for c in browser_cards if c['type'] == 'standard')
+                from api.services.structured_card_storage import create_v2_card
+                create_v2_card(sample['content_v2']['card'], deck_id=deck.id, creator_id=user, position=1)
+                results_path = output / 'smoke-results.json'
+                smoke_fixture = output / 'smoke-fixture.json'
+                smoke_fixture.write_text(json.dumps({'tma_origin': origins[0], 'admin_origin': origins[1],
+                    'user_id': user, 'token': token(user), 'deck_id': deck.id,
+                    'sample_image': image[0] if image else None, 'output_results': str(results_path)}), encoding='utf-8')
+                completed = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
+                    'native-smoke-acceptance.spec.cjs', '--project=extended', '--workers=1'],
+                    env={**os.environ, 'LERNE_SMOKE_FIXTURE': str(smoke_fixture)},
+                    cwd=Path(__file__).resolve().parents[1], timeout=240)
+                result['smoke'] = {'exit_code': completed.returncode}
+                if completed.returncode == 0:
+                    saved = json.loads(results_path.read_text(encoding='utf-8'))
+                    created = models.TMA_Card.get_by_id(saved['createdId'])
+                    offline = models.TMA_Card.get_by_id(saved['resolvedRealId'])
+                    assert created.deck_id == offline.deck_id == deck.id
+                    assert created.content_v2['card']['data']['prompt'] == 'Smoke Test Front (Admin UI Saved)'
+                    assert offline.content_v2['card']['type'] == 'quiz'
+                    assert models.TMAReviewHistory.select().where(models.TMAReviewHistory.card_id == created.id).exists()
         return result
     finally:
         for server in servers:

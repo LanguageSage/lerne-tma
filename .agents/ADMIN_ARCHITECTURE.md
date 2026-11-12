@@ -55,3 +55,16 @@ read and reply. Its writes use the migration 90 message-table compatibility
 profile and the existing loopback perimeter. TMA exposes owner-only
 `/api/messages`; TMA now has a "Мои сообщения" view and opens suggestions from
 the card action menu. Admin never runs TMA migrations.
+
+
+## Unified Native V2 storage — 96
+
+Admin-owned models and exact profiles now use tma_deck/tma_card for personal and
+library material. Scope lives on the deck; library_category remains the catalog
+hierarchy. Existing lib_<id> route keys are presentation keys for scoped reads,
+not a second ID space or storage adapter. Unknown scope/catalog still fails closed.
+Admin does not apply 96. Copied material is independent; linked regeneration is
+removed from the controls and rejected by request schemas. Existing jobs carrying
+the previous base contract need a new preview. Shared card-core is unchanged.
+Selected independently reviewed core candidates live in Admin's
+reviews/native-unified-storage96; its release-pair manifest describes both contracts.

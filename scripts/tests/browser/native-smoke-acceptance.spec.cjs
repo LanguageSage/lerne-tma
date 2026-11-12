@@ -304,6 +304,10 @@ test('real Chromium smoke test: creation, editing, study, SRS progress, media, a
     expect(adminOfflineCard.content_v2.card.type).toBe('quiz');
 
     await adminPage.screenshot({ path: info.outputPath('smoke-admin-ui-complete.png'), fullPage: true });
+    await expect(adminPage.locator('#bulk-sync-copies, #regen-sync-copies')).toHaveCount(0);
+    const listedUsers = await adminPage.evaluate(async () => (await fetch('/api/admin/users?limit=200')).json());
+    expect(listedUsers.users.every(user => user.id !== null)).toBe(true);
+    await expect(adminPage.getByText('User None', { exact: true })).toHaveCount(0);
 
     // Save outputs to file for python harness to assert in PostgreSQL
     fs.writeFileSync(fixture.output_results, JSON.stringify({

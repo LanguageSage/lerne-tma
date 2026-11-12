@@ -187,6 +187,8 @@ def main():
                 application_db = new_database('rehearsal_applications', out / 'native-v2.dump')
                 if application_db is None:
                     raise AssertionError('Application clone failed to restore')
+                from api.migrations import run_unified_cards_migration
+                report['checks']['unified_storage'] = run_unified_cards_migration(application_db)
                 from native_v2_migrated_apps import verify as verify_apps
                 report['checks']['applications'] = verify_apps(application_db, out, args.admin_root)
                 application_db.close()

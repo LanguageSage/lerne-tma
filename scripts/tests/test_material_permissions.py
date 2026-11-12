@@ -316,8 +316,8 @@ class MaterialPermissionTests(unittest.TestCase):
         self.publish()
         self.deck.user_id = 202
         self.deck.save()
-        library = models.Deck.create(name='Deck')
-        models.Card.create(deck=library, front_text='Library', back_text='Content')
+        library = models.TMA_Deck.create(scope='library', name='Deck')
+        models.TMA_Card.create(deck=library, front_text='Library', back_text='Content')
         for mode in ('merge', 'replace'):
             response = self.call('POST', f'/decks/external/import/{library.id}?mode={mode}', 202)
             self.assertEqual(response.status_code, 403, response.text)

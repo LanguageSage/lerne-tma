@@ -27,7 +27,134 @@ LIBRARY_CARDS_V2_MIGRATION_ID = 94
 LIBRARY_CARDS_V2_LOCK_ID = 76120994
 CARD_SOURCE_MIGRATION_ID = 95
 CARD_SOURCE_LOCK_ID = 76120995
+UNIFIED_CARDS_MIGRATION_ID = 96
 _LEGACY_CONTENT_FIELDS = ('front_text', 'back_text', 'card_type', 'context', 'topics', 'tags', 'metadata')
+
+
+def run_unified_cards_migration(database):
+    """Move the library into TMA storage. Explicit maintenance only; retain sources.
+
+    Run after the existing Native V2 conversion with all application writers
+    stopped. Personal IDs, notes, receipts, SRS and client queues stay untouched.
+    Recovery is the pre-migration dump; sequence gaps on rollback are harmless.
+    """
+    import json
+
+    database = getattr(database, 'obj', database)
+    if not isinstance(database, PostgresqlDatabase) or database.in_transaction():
+        raise MigrationError('Unified storage requires PostgreSQL and its own transaction')
+    with database.atomic():
+        database.execute_sql("SET LOCAL lock_timeout = '5s'")
+        database.execute_sql("SET LOCAL statement_timeout = '120s'")
+        database.execute_sql('SELECT pg_advisory_xact_lock(76120996)')
+        database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
+            migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        applied = database.execute_sql('SELECT 1 FROM tma_migration_history WHERE migration_id=96').fetchone()
+        columns = {column.name: column for column in database.get_columns('tma_deck')}
+        if applied:
+            constraints = {row[0] for row in database.execute_sql("""SELECT conname FROM pg_constraint
+                WHERE conrelid='tma_deck'::regclass AND convalidated""")}
+            if (not {'scope', 'category_id', 'is_default'} <= columns.keys()
+                    or not {'tma_deck_scope_check', 'tma_deck_scope_owner_check',
+                            'tma_deck_category_id_fkey'} <= constraints):
+                raise MigrationError('Migration 96 history/schema mismatch')
+            return {'applied': False, 'migration_id': 96}
+
+        database.execute_sql('LOCK TABLE tma_deck,tma_card,deck,card IN ACCESS EXCLUSIVE MODE')
+        # The content migration has its own validation and recovery workflow.
+        for table in ('tma_card', 'card'):
+            if not any(c.name == 'content_v2' and c.data_type == 'jsonb' for c in database.get_columns(table)):
+                raise MigrationError('Prepare migrations 93/94 and convert active content before 96')
+            if database.execute_sql(f'SELECT 1 FROM {table} WHERE NOT is_deleted AND content_v2 IS NULL LIMIT 1').fetchone():
+                raise MigrationError('Convert active Native V2 content before migration 96')
+        library_columns = {c.name for c in database.get_columns('card')}
+        for name in ('reserve', 'reserve_topic'):
+            if name in library_columns and database.execute_sql(
+                    f'SELECT 1 FROM card WHERE {name} IS NOT NULL AND {name} <> %s LIMIT 1', ('',)).fetchone():
+                raise MigrationError(f'Library {name} contains unreviewed data; preserve it before migration')
+        if database.execute_sql('SELECT 1 FROM tma_deck WHERE user_id IS NULL LIMIT 1').fetchone():
+            raise MigrationError('Existing personal deck has no owner')
+        if 'scope' in columns:
+            # Fresh LOCAL bootstrap creates these empty ORM columns first.
+            if database.execute_sql('SELECT 1 FROM tma_deck LIMIT 1').fetchone():
+                raise MigrationError('Untracked unified storage schema; review before migration')
+        else:
+            database.execute_sql("ALTER TABLE tma_deck ADD COLUMN scope VARCHAR(255) NOT NULL DEFAULT 'personal'")
+        if 'category_id' not in columns:
+            database.execute_sql('''ALTER TABLE tma_deck ADD COLUMN category_id INTEGER
+                REFERENCES library_category(id) ON DELETE SET NULL''')
+        if 'is_default' not in columns:
+            database.execute_sql('ALTER TABLE tma_deck ADD COLUMN is_default BOOLEAN NOT NULL DEFAULT FALSE')
+        database.execute_sql('''ALTER TABLE tma_deck ALTER COLUMN user_id DROP NOT NULL,
+            ALTER COLUMN scope SET DEFAULT 'personal', ALTER COLUMN scope SET NOT NULL,
+            ALTER COLUMN is_default SET DEFAULT FALSE, ALTER COLUMN is_default SET NOT NULL''')
+        existing = {r[0] for r in database.execute_sql("SELECT conname FROM pg_constraint WHERE conrelid='tma_deck'::regclass")}
+        if 'tma_deck_category_id_fkey' not in existing:
+            database.execute_sql('ALTER TABLE tma_deck ADD CONSTRAINT tma_deck_category_id_fkey '
+                                 'FOREIGN KEY(category_id) REFERENCES library_category(id) ON DELETE SET NULL')
+        if 'tma_deck_scope_check' not in existing:
+            database.execute_sql("ALTER TABLE tma_deck ADD CONSTRAINT tma_deck_scope_check CHECK (scope IN ('personal','library'))")
+        database.execute_sql('''ALTER TABLE tma_deck ADD CONSTRAINT tma_deck_scope_owner_check CHECK (
+            (scope='personal' AND user_id IS NOT NULL AND category_id IS NULL AND NOT is_default)
+            OR (scope='library' AND user_id IS NULL AND folder_id IS NULL AND is_inbox IS FALSE AND share_id IS NULL))''')
+        database.execute_sql('CREATE INDEX tma_deck_scope_category_idx ON tma_deck(scope,category_id)')
+
+        # Allocate new library IDs beyond the personal space, even after a
+        # data-only restore whose sequences lag behind the rows.
+        for table in ('tma_deck', 'tma_card'):
+            database.execute_sql(f"""SELECT setval(pg_get_serial_sequence('{table}','id'),
+                GREATEST(COALESCE((SELECT MAX(id) FROM {table}),0),
+                         nextval(pg_get_serial_sequence('{table}','id'))),true)""")
+        database.execute_sql('''CREATE TEMP TABLE native_library_deck_map (
+            old_id INTEGER PRIMARY KEY,new_id INTEGER UNIQUE NOT NULL) ON COMMIT DROP''')
+        database.execute_sql("""INSERT INTO native_library_deck_map
+            SELECT id,nextval(pg_get_serial_sequence('tma_deck','id')) FROM deck ORDER BY id""")
+        deck_fields = ('name','level','topic','target_language','is_deleted','category_id','is_default',
+                       'is_pinned','position','created_at','updated_at','metadata')
+        fields = ','.join(deck_fields)
+        values = ','.join('d.' + field for field in deck_fields)
+        database.execute_sql(f"""INSERT INTO tma_deck(id,user_id,scope,is_inbox,{fields})
+            SELECT m.new_id,NULL,'library',FALSE,{values} FROM deck d
+            JOIN native_library_deck_map m ON m.old_id=d.id ORDER BY d.id""")
+        if any(c.name == 'author_name' for c in database.get_columns('deck')):
+            for identifier, raw, author in database.execute_sql('''SELECT m.new_id,d.metadata,d.author_name
+                    FROM deck d JOIN native_library_deck_map m ON m.old_id=d.id WHERE d.author_name IS NOT NULL''').fetchall():
+                metadata = json.loads(raw or '{}')
+                if not isinstance(metadata, dict) or metadata.get('author_name', author) != author:
+                    raise MigrationError('Library author attribution conflicts with deck metadata')
+                metadata['author_name'] = author
+                database.execute_sql('UPDATE tma_deck SET metadata=%s WHERE id=%s',
+                                     (json.dumps(metadata, ensure_ascii=False), identifier))
+        card_fields = ('front_text','back_text','content_v2','context','image_path','audio_path','audio_back_path',
+                       'video_front_path','video_back_path','tags','topics','source','card_type','difficulty',
+                       'metadata','is_deleted','created_at','updated_at','history','position','flag')
+        card_fields += tuple(name for name in ('image_data', 'creator_id') if name in library_columns)
+        fields = ','.join(card_fields)
+        values = ','.join('c.' + field for field in card_fields)
+        database.execute_sql(f'''INSERT INTO tma_card(deck_id,want_to_learn,{fields})
+            SELECT m.new_id,FALSE,{values} FROM card c JOIN native_library_deck_map m ON m.old_id=c.deck_id
+            ORDER BY c.id''')
+
+        mapping = dict(database.execute_sql('SELECT old_id,new_id FROM native_library_deck_map'))
+        # Provenance is informational. Copies never share content/progress rows.
+        for identifier, raw in database.execute_sql("SELECT id,metadata FROM tma_deck WHERE scope='personal'").fetchall():
+            try:
+                metadata = json.loads(raw or '{}')
+            except (TypeError, ValueError):
+                continue
+            if isinstance(metadata, dict) and 'source_library_id' in metadata:
+                old = metadata['source_library_id']
+                if isinstance(old, int) and old in mapping:
+                    metadata['source_library_id'] = mapping[old]
+                    database.execute_sql('UPDATE tma_deck SET metadata=%s WHERE id=%s',
+                                         (json.dumps(metadata, ensure_ascii=False), identifier))
+        counts = database.execute_sql("""SELECT
+            (SELECT count(*) FROM deck), (SELECT count(*) FROM tma_deck WHERE scope='library'),
+            (SELECT count(*) FROM card), (SELECT count(*) FROM tma_card c JOIN tma_deck d ON d.id=c.deck_id WHERE d.scope='library')""").fetchone()
+        if counts[0] != counts[1] or counts[2] != counts[3]:
+            raise MigrationError('Unified library count mismatch')
+        database.execute_sql('INSERT INTO tma_migration_history(migration_id) VALUES (96)')
+        return {'applied': True, 'migration_id': 96, 'library_decks': counts[0], 'library_cards': counts[2]}
 
 
 def run_card_source_migration(database):

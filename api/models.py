@@ -40,7 +40,7 @@ def create_all_tables():
     from api.migrations import (run_migrations, run_local_bootstrap_migrations,
                                 run_knowledge_mastery_migration, run_card_notes_migration,
                                 run_card_rating_migration, run_structured_cards_v2_migration,
-                                run_library_cards_v2_migration, run_card_source_migration)
+                                run_library_cards_v2_migration, run_card_source_migration, run_unified_cards_migration)
     models_to_create = [
         TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
         TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
@@ -69,6 +69,8 @@ def create_all_tables():
             run_structured_cards_v2_migration(tma_db)
             run_library_cards_v2_migration(lerne_db)
             run_card_source_migration(tma_db)
+            if local_bootstrap:
+                run_unified_cards_migration(tma_db)
     tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
     _tables_created = True
     logger.info("DATABASE: All tables created/verified.")
@@ -100,7 +102,10 @@ class TMA_Folder(BaseModel):
 
 class TMA_Deck(BaseModel):
     id = AutoField()
-    user_id = BigIntegerField(index=True)
+    user_id = BigIntegerField(index=True, null=True)
+    scope = CharField(default='personal', constraints=[Check("scope IN ('personal', 'library')")])
+    category_id = IntegerField(null=True)
+    is_default = BooleanField(default=False)
     name = CharField()
     level = CharField(null=True)
     topic = CharField(null=True)
@@ -559,6 +564,7 @@ class LibraryCategory(Model):
         database = lerne_db
         table_name = 'library_category'
 
+# Retired tables remain as migration/bootstrap sources pending reviewed cleanup.
 class Deck(Model):
     id = AutoField()
     name = CharField()

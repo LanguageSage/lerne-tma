@@ -39,7 +39,7 @@ class LibraryImportTests(unittest.TestCase):
         self.db.create_tables(TABLES)
         for uid in (1, 2, 3):
             models.TMAUser.create(user_id=uid, is_guest=False, default_decks_initialized=True)
-        self.library = models.Deck.create(name='Synthetic library', target_language='uk',
+        self.library = models.TMA_Deck.create(scope='library', name='Synthetic library', target_language='uk',
                                           level='A2', topic='Synthetic', updated_at=NEW)
 
     def cleanup(self):
@@ -48,7 +48,7 @@ class LibraryImportTests(unittest.TestCase):
 
     def remote_card(self, front='Remote', **values):
         val = content(front, 'Remote back', metadata={'tags': ['remote'], 'synthetic': True})
-        return models.Card.create(deck=self.library, content_v2=val, card_type=None,
+        return models.TMA_Card.create(deck=self.library, content_v2=val, card_type=None,
             image_path='synthetic.webp', audio_path='synthetic.mp3', updated_at=NEW, **values)
 
     def local_deck(self, **values):
@@ -178,8 +178,8 @@ class LibraryImportTests(unittest.TestCase):
             self.assertEqual(self.snapshot(*TABLES), before)
         result = decks.import_deck(self.library.id, 1, force_trash=True)
         self.assertFalse(result.is_deleted)
-        self.assertEqual(models.TMA_Deck.select().count(), 1)
-        self.assertEqual([c.content_v2['card']['data']['prompt'] for c in models.TMA_Card.select().where(models.TMA_Card.is_deleted == False)], ['Remote'])
+        self.assertEqual(models.TMA_Deck.select().where(models.TMA_Deck.scope == 'personal').count(), 1)
+        self.assertEqual([c.content_v2['card']['data']['prompt'] for c in models.TMA_Card.select().where(models.TMA_Card.deck == local.id, models.TMA_Card.is_deleted == False)], ['Remote'])
 
     def test_explicit_destination_authorization_precedes_card_writes(self):
         self.remote_card()
@@ -218,14 +218,14 @@ class LibraryImportTests(unittest.TestCase):
         with patch.object(models.TMA_Card, 'create', side_effect=fail_second):
             with self.assertRaisesRegex(RuntimeError, 'Synthetic late insert failure'):
                 with self.db.atomic():
-                    _copy_content(models.Card, self.library.id, models.TMA_Card, local.id)
-        self.assertEqual(models.TMA_Card.select().count(), 0)
-        _copy_content(models.Card, self.library.id, models.TMA_Card, local.id)
-        self.assertEqual(models.TMA_Card.select().count(), 2)
+                    _copy_content(self.library.id, local.id)
+        self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck != self.library.id).count(), 0)
+        _copy_content(self.library.id, local.id)
+        self.assertEqual(models.TMA_Card.select().where(models.TMA_Card.deck != self.library.id).count(), 2)
 
     def test_batch_skips_trash_and_failures_and_continues(self):
         self.local_deck(is_deleted=True)
-        other = models.Deck.create(name='Other synthetic')
+        other = models.TMA_Deck.create(scope='library', name='Other synthetic')
         with self.assertLogs('api.services.decks', level='ERROR') as logs:
             result = services.import_decks_batch([self.library.id, 99999, other.id], 1)
         self.assertIn('Error importing batch deck 99999', '\n'.join(logs.output))

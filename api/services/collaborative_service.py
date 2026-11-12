@@ -361,9 +361,9 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
     """
     if target_type == 'deck':
         deck = models.TMA_Deck.select(
-            models.TMA_Deck.user_id, models.TMA_Deck.folder_id, models.TMA_Deck.is_deleted
+            models.TMA_Deck.user_id, models.TMA_Deck.folder_id, models.TMA_Deck.is_deleted, models.TMA_Deck.scope
         ).where(models.TMA_Deck.id == target_id).first()
-        if not deck or deck.is_deleted:
+        if not deck or deck.is_deleted or deck.scope != 'personal':
             return None
         root_owner = _published_root_owner(deck.folder_id)
         if root_owner is not None:
@@ -873,7 +873,7 @@ def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None
     collab_target_ids = [c.target_id for c in collab_decks]
     if collab_target_ids:
         valid_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
-            (models.TMA_Deck.id << collab_target_ids) & (models.TMA_Deck.is_deleted == False)
+            (models.TMA_Deck.scope == 'personal') & (models.TMA_Deck.id << collab_target_ids) & (models.TMA_Deck.is_deleted == False)
         )
         for d in valid_decks:
             deck_ids.add(d.id)
