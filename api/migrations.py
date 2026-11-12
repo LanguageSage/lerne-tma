@@ -25,7 +25,46 @@ STRUCTURED_CARDS_V2_MIGRATION_ID = 93
 STRUCTURED_CARDS_V2_LOCK_ID = 76120993
 LIBRARY_CARDS_V2_MIGRATION_ID = 94
 LIBRARY_CARDS_V2_LOCK_ID = 76120994
+CARD_SOURCE_MIGRATION_ID = 95
+CARD_SOURCE_LOCK_ID = 76120995
 _LEGACY_CONTENT_FIELDS = ('front_text', 'back_text', 'card_type', 'context', 'topics', 'tags', 'metadata')
+
+
+def run_card_source_migration(database):
+    """Allow Native V2 cards to omit the legacy source field on tma_card and card."""
+    database = getattr(database, 'obj', database)
+    if not isinstance(database, PostgresqlDatabase):
+        raise MigrationError('Card source migration requires PostgreSQL')
+    if database.in_transaction():
+        raise MigrationError('Card source migration requires its own transaction')
+
+    with database.atomic():
+        database.execute_sql("SET LOCAL lock_timeout = '5s'")
+        database.execute_sql("SET LOCAL statement_timeout = '60s'")
+        database.execute_sql('SELECT pg_advisory_xact_lock(%s)', (CARD_SOURCE_LOCK_ID,))
+        database.execute_sql('''CREATE TABLE IF NOT EXISTS tma_migration_history (
+            migration_id INT PRIMARY KEY, applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)''')
+        applied = bool(database.execute_sql(
+            'SELECT 1 FROM tma_migration_history WHERE migration_id = %s', (CARD_SOURCE_MIGRATION_ID,)
+        ).fetchone())
+
+        tables = [t for t in ('tma_card', 'card') if database.table_exists(t)]
+        if applied:
+            for table in tables:
+                columns = {c.name: c for c in database.get_columns(table)}
+                source_col = columns.get('source')
+                if source_col and not source_col.null:
+                    raise MigrationError(f'Migration {CARD_SOURCE_MIGRATION_ID} history/schema mismatch on {table}')
+            return {'applied': False, 'migration_id': CARD_SOURCE_MIGRATION_ID}
+
+        for table in tables:
+            columns = {c.name: c for c in database.get_columns(table)}
+            source_col = columns.get('source')
+            if source_col and not source_col.null:
+                database.execute_sql(f'ALTER TABLE {table} ALTER COLUMN source DROP NOT NULL')
+
+        database.execute_sql('INSERT INTO tma_migration_history (migration_id) VALUES (%s)', (CARD_SOURCE_MIGRATION_ID,))
+        return {'applied': True, 'migration_id': CARD_SOURCE_MIGRATION_ID}
 
 
 def run_structured_cards_v2_migration(database):

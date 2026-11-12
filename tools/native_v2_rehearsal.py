@@ -72,7 +72,9 @@ def main():
 
     def verify(control):
         from peewee import PostgresqlDatabase
-        from api.migrations import run_structured_cards_v2_migration, run_library_cards_v2_migration
+        from api.migrations import (
+            run_structured_cards_v2_migration, run_library_cards_v2_migration, run_card_source_migration
+        )
         from lerne_admin.services import full_database_backup as backup
 
         # Independent server identity, filesystem ownership and application-mode checks.
@@ -137,12 +139,12 @@ def main():
         # Use a second independently restored copy; the Before database stays untouched.
         upgraded = new_database('rehearsal_schema', source / 'public.dump')
         assert upgraded is not None
-        first = [run_structured_cards_v2_migration(upgraded), run_library_cards_v2_migration(upgraded)]
+        first = [run_structured_cards_v2_migration(upgraded), run_library_cards_v2_migration(upgraded), run_card_source_migration(upgraded)]
         after = fingerprints(upgraded, original_columns)
-        # The two new history records are the only expected row difference.
+        # The new history records are the only expected row difference.
         differences = [k for k in expected if after.get(k) != expected[k]]
         assert differences == ['public.tma_migration_history'], differences
-        second = [run_structured_cards_v2_migration(upgraded), run_library_cards_v2_migration(upgraded)]
+        second = [run_structured_cards_v2_migration(upgraded), run_library_cards_v2_migration(upgraded), run_card_source_migration(upgraded)]
         assert all(r['applied'] for r in first) and not any(r['applied'] for r in second)
         native_counts = {t: upgraded.execute_sql(f'SELECT count(*) FILTER (WHERE content_v2 IS NOT NULL),count(*) FROM {t}').fetchone() for t in ('tma_card', 'card')}
         assert all(r[0] == 0 for r in native_counts.values())
