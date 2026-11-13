@@ -203,3 +203,55 @@ def verify(db, output, admin_root, *, browser=True, smoke=False):
             listener.close()
         admin_db.close()
         db.close()
+
+
+def verify_copy_roundtrip(db):
+    """Real library import, scoped pull and JSON roundtrip on the supplied test DB."""
+    from fastapi.testclient import TestClient
+    from api import models
+    from api.auth.service import _create_session, utcnow
+    from api.main import app
+    from lerne_admin.core.api import models as admin_models
+    from lerne_admin.services import native_cards
+
+    models.tma_db.initialize(db)
+    models.lerne_db.initialize(db)
+    admin_models.tma_db.initialize(db)
+    admin_models.lerne_db.initialize(db)
+    user = 777000112
+    models.TMAUser.get_or_create(user_id=user, defaults={'is_guest': False, 'default_decks_initialized': True})
+    account, _ = models.TMAAuthAccount.get_or_create(user=user)
+    token = _create_session(account, utcnow()).access_token
+    client = TestClient(app, headers={'Authorization': 'Bearer ' + token})
+    source_id = db.execute_sql("""SELECT d.id FROM tma_deck d JOIN tma_card c ON c.deck_id=d.id
+        WHERE d.scope='library' AND NOT d.is_deleted AND NOT c.is_deleted
+        GROUP BY d.id ORDER BY count(*),d.id LIMIT 1""").fetchone()[0]
+    response = client.post(f'/api/decks/external/import/{source_id}?mode=copy')
+    assert response.status_code == 200, response.text
+    target_id = response.json()['deck_id']
+    target = models.TMA_Deck.get_by_id(target_id)
+    assert target.id != source_id and target.scope == 'personal' and target.category_id is None
+    source = list(models.TMA_Card.select().where(models.TMA_Card.deck == source_id,
+        models.TMA_Card.is_deleted == False).order_by(models.TMA_Card.position, models.TMA_Card.id))
+    copied = list(models.TMA_Card.select().where(models.TMA_Card.deck == target_id,
+        models.TMA_Card.is_deleted == False).order_by(models.TMA_Card.position, models.TMA_Card.id))
+    assert source and len(copied) == len(source)
+    media = ('image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path', 'image_data')
+    for original, card in zip(source, copied, strict=True):
+        assert original.id != card.id and original.content_v2 == card.content_v2
+        assert all(getattr(original, field) == getattr(card, field) for field in media)
+    exported = json.loads(native_cards.export_document(f'lib_{source_id}')['text'])
+    request = {'import_id': str(uuid4()), 'document': exported}
+    imported = client.post('/api/decks/import-json', json=request)
+    assert imported.status_code == 200, imported.text
+    assert client.post('/api/decks/import-json', json=request).json() == imported.json()
+    restored_id = imported.json()['deck_id']
+    restored = list(models.TMA_Card.select().where(models.TMA_Card.deck == restored_id).order_by(models.TMA_Card.position))
+    assert [c.content_v2 for c in restored] == [c.content_v2 for c in source]
+    pull = client.get('/api/sync/v2/pull')
+    assert pull.status_code == 200, pull.text
+    deck_ids = {d['id'] for d in pull.json()['decks']}
+    assert target_id in deck_ids and restored_id in deck_ids and source_id not in deck_ids
+    assert not models.TMAProgress.select().where(models.TMAProgress.card_id.in_([c.id for c in copied])).exists()
+    assert not models.TMACardNote.select().where(models.TMACardNote.card.in_([c.id for c in copied])).exists()
+    print('PASS: restored-copy library HTTP import, all media attachments, Admin JSON export/TMA import/replay, scoped offline pull', flush=True)

@@ -142,3 +142,22 @@ personal card hashes, library content/media/placement, categories/notes and othe
 tables, then runs actual TMA/Admin HTTP and Chromium/offline tests. Use Admin's
 normal venv so its pinned card-core wheel passes the unchanged release guard.
 External Storage bytes and production cutover are outside this rehearsal.
+
+## Library cleanup 97
+
+Explicit `run_library_cleanup_migration` runs after 93–96 with all writers stopped
+and a retained local pre-cutover dump. One transaction locks the sources/targets,
+compares full library deck placement and card content/media multisets, preserves
+the historical generation token, drops retired tables with RESTRICT and records
+97. Unknown FKs, changed media/content, nonempty reviewhistory/uservoice and
+unpreserved reserve/sharing data fail without removal. Only proven library
+progress may be discarded. Reruns reject reappeared sources. Fresh LOCAL creates
+only Native tables and records historical empty 94 before 96/97. 94 permits an
+absent source only with cleanup history. Apply 97 before reopening the new API.
+
+V1 content columns on tma_card still support tombstones and the 93 content CHECK.
+image_data/source/media paths/creator_id remain used by copy/media/TTS. Retired
+ORM definitions and db_v1_reader are maintenance/test tooling, never startup.
+Verification: existing unified-storage and explicit unified-dump runners now
+cover cleanup refusal/retry, repeated startup, real Dexie pending preservation
+and restore/native relation replacement protection after removal.

@@ -2,7 +2,7 @@ import os
 import datetime
 import logging
 import json
-from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, Deck, Card, tma_db, TMAMedia
+from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, tma_db, TMAMedia
 from .. import srs
 from peewee import fn, JOIN
 from functools import lru_cache

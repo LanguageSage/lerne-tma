@@ -40,11 +40,12 @@ def create_all_tables():
     from api.migrations import (run_migrations, run_local_bootstrap_migrations,
                                 run_knowledge_mastery_migration, run_card_notes_migration,
                                 run_card_rating_migration, run_structured_cards_v2_migration,
-                                run_library_cards_v2_migration, run_card_source_migration, run_unified_cards_migration)
+                                run_card_source_migration, run_unified_cards_migration,
+                                run_library_cleanup_migration)
     models_to_create = [
         TMAProgress, TMAReviewHistory, TMASetting, TMAUserPrompt,
         TMAMedia, TMAFeedback, TMAUser, TMALinkedSession, TMAAuthCode,
-        LibraryCategory, Deck, Card, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
+        LibraryCategory, TMA_Folder, TMA_Deck, TMA_Card, TMACustomPrompt,
         TMA_Collaborator, TMAOfflineBatch,
         TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState
     ]
@@ -67,10 +68,12 @@ def create_all_tables():
         run_card_rating_migration(tma_db)
         if isinstance(getattr(tma_db, 'obj', tma_db), PostgresqlDatabase):
             run_structured_cards_v2_migration(tma_db)
-            run_library_cards_v2_migration(lerne_db)
+            if local_bootstrap:
+                tma_db.execute_sql('INSERT INTO tma_migration_history(migration_id) VALUES (94)')
             run_card_source_migration(tma_db)
             if local_bootstrap:
                 run_unified_cards_migration(tma_db)
+                run_library_cleanup_migration(tma_db)
     tma_db.execute_sql("CREATE UNIQUE INDEX IF NOT EXISTS idx_tma_card_ki_primary ON tma_card_knowledge_item(card_id) WHERE role = 'primary'")
     _tables_created = True
     logger.info("DATABASE: All tables created/verified.")

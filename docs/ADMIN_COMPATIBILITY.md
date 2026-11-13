@@ -92,3 +92,10 @@ The reviewed release pair is in Admin reviews/native-unified-storage96.
 Runtime uses no legacy library model or table. Source tables stay available to
 the explicit migration and physical backups until a later reviewed cleanup.
 Personal IDs and Dexie queues remain valid. No shared card-core change is needed.
+
+## Library cleanup 97
+
+TMA schema v7 changes startup/generation without changing Native row layouts.
+Admin bfba5ec models/profiles remain compatible; retired tables already are
+optional. Peer review: reviews/library-cleanup97/release-pair.json in Admin.
+Admin base contract, saved-job contracts and card-core are unchanged.

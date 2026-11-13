@@ -31,6 +31,123 @@ UNIFIED_CARDS_MIGRATION_ID = 96
 _LEGACY_CONTENT_FIELDS = ('front_text', 'back_text', 'card_type', 'context', 'topics', 'tags', 'metadata')
 
 
+def run_library_cleanup_migration(database):
+    """Explicit maintenance after 96. Compare complete rows before restricted DROP.
+
+    All writers must be stopped. Keep the pre-cutover dump outside the live DB.
+    No source data is inferred from names alone and no unknown FK is removed.
+    """
+    import hashlib
+    import json
+    from collections import Counter
+    from api.services.sync_generation import ANCHOR_KEY, RESTORE_KEY
+
+    database = getattr(database, 'obj', database)
+    if not isinstance(database, PostgresqlDatabase) or database.in_transaction():
+        raise MigrationError('Cleanup requires PostgreSQL and its own transaction')
+    with database.atomic():
+        database.execute_sql("SET LOCAL lock_timeout = '5s'")
+        database.execute_sql("SET LOCAL statement_timeout = '120s'")
+        database.execute_sql('SELECT pg_advisory_xact_lock(76120996)')
+        history = {r[0] for r in database.execute_sql('SELECT migration_id FROM tma_migration_history')}
+        tables = set(database.get_tables())
+        retired = {'card', 'deck', 'progress', 'reviewhistory', 'uservoice'} & tables
+        if 97 in history:
+            if retired:
+                raise MigrationError('Cleanup history/schema mismatch')
+            return {'applied': False, 'migration_id': 97}
+        if not {93, 94, 95, 96} <= history:
+            raise MigrationError('Cleanup requires migrations 93 through 96')
+        required = {'tma_deck_scope_check', 'tma_deck_scope_owner_check',
+                    'tma_deck_category_id_fkey', 'tma_card_single_content_source'}
+        validated = {r[0] for r in database.execute_sql("""SELECT conname FROM pg_constraint
+            WHERE conrelid IN ('tma_deck'::regclass,'tma_card'::regclass) AND convalidated""")}
+        if not required <= validated:
+            raise MigrationError('Unified schema constraints missing')
+        database.execute_sql('LOCK TABLE tma_card,tma_deck,tmasetting' +
+                             ''.join(',' + t for t in sorted(retired)) + ' IN ACCESS EXCLUSIVE MODE')
+        if bool('card' in tables) != bool('deck' in tables):
+            raise MigrationError('Incomplete cleanup sources')
+        if 'card' in tables:
+            def rows(table):
+                return [r[0] for r in database.execute_sql(f'SELECT to_jsonb(t) FROM {table} t')]
+
+            old_decks = rows('deck')
+            new_decks = [d for d in rows('tma_deck') if d['scope'] == 'library']
+            if len(old_decks) != len(new_decks):
+                raise MigrationError('Cleanup deck count mismatch')
+            mapping = {}
+            for old in old_decks:
+                if old.get('folder_id') is not None or old.get('share_id') or old.get('is_inbox'):
+                    raise MigrationError('Unpreserved legacy deck placement/sharing')
+                fields = set(old) - {'id', 'cloud_id', 'author_name', 'folder_id', 'share_id', 'is_inbox'}
+                expected = {k: old[k] for k in fields}
+                if old.get('author_name') is not None:
+                    meta = json.loads(old['metadata'] or '{}')
+                    meta['author_name'] = old['author_name']
+                    expected['metadata'] = json.dumps(meta, ensure_ascii=False)
+                def matches(new):
+                    for key, value in expected.items():
+                        if key == 'metadata':
+                            if json.loads(value or '{}') != json.loads(new[key] or '{}'):
+                                return False
+                        elif new.get(key) != value:
+                            return False
+                    return True
+                candidates = [d for d in new_decks if d['id'] not in mapping.values() and matches(d)]
+                if len(candidates) != 1:
+                    raise MigrationError('Cleanup deck content/placement mismatch or ambiguous mapping')
+                mapping[old['id']] = candidates[0]['id']
+            excluded = {'id', 'deck_id', 'cloud_id', 'reserve', 'reserve_topic', 'collected_at', 'want_to_learn', 'share_id'}
+            fields = {c.name for c in database.get_columns('card')} - excluded
+            if not fields <= {c.name for c in database.get_columns('tma_card')}:
+                raise MigrationError('Unpreserved source columns')
+            def fingerprint(row, deck_id):
+                return json.dumps([deck_id, {k: row[k] for k in sorted(fields)}], sort_keys=True)
+            original = rows('card')
+            if any(c.get(k) not in (None, '') for c in original for k in ('reserve', 'reserve_topic')):
+                raise MigrationError('Unpreserved reserve content')
+            if any(c.get('share_id') for c in original):
+                raise MigrationError('Unpreserved legacy card sharing')
+            if any(c['deck_id'] not in mapping for c in original):
+                raise MigrationError('Orphan library card')
+            before = Counter(fingerprint(c, mapping[c['deck_id']]) for c in original)
+            after = Counter(fingerprint(c, c['deck_id']) for c in rows('tma_card') if c['deck_id'] in mapping.values())
+            if before != after:
+                raise MigrationError('Cleanup card content/media/placement mismatch')
+        elif database.execute_sql("SELECT 1 FROM tma_deck LIMIT 1").fetchone():
+            raise MigrationError('Absent sources without cleanup history on populated database')
+        # Only the explicitly retired library progress may contain data.
+        for table in ('reviewhistory', 'uservoice'):
+            if table in tables and database.execute_sql(f'SELECT 1 FROM {table} LIMIT 1').fetchone():
+                raise MigrationError(f'Preserve nonempty {table} before cleanup')
+        incoming = database.execute_sql("""SELECT src.relname,dst.relname
+            FROM pg_constraint c JOIN pg_class src ON src.oid=c.conrelid
+            JOIN pg_class dst ON dst.oid=c.confrelid JOIN pg_namespace n ON n.oid=dst.relnamespace
+            WHERE c.contype='f' AND n.nspname='public' AND dst.relname=ANY(%s)""", (sorted(retired),)).fetchall()
+        if any(src not in retired for src, _ in incoming):
+            raise MigrationError('Unknown incoming FK; cleanup refused')
+        if 'progress' in tables and ('progress', 'card') not in incoming:
+            raise MigrationError('Progress is not proven to belong to retired library cards')
+        marker_row = database.execute_sql('SELECT value FROM tmasetting WHERE key=%s', (RESTORE_KEY,)).fetchone()
+        marker = marker_row[0] if marker_row else 'initial'
+        relations = database.execute_sql("""SELECT c.relname,c.oid::bigint FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
+            AND c.relname IN ('tma_card','card','tmasetting') ORDER BY c.relname""").fetchall()
+        token = hashlib.sha256(json.dumps([marker, relations], sort_keys=True).encode()).hexdigest()
+        native_relations = database.execute_sql("""SELECT c.relname,c.oid::bigint FROM pg_class c
+            JOIN pg_namespace n ON n.oid=c.relnamespace WHERE n.nspname='public'
+            AND c.relname IN ('tma_card','tma_deck','tmasetting') ORDER BY c.relname""").fetchall()
+        identity = [marker, native_relations]
+        database.execute_sql('INSERT INTO tmasetting(key,value,updated_at) VALUES (%s,%s,CURRENT_TIMESTAMP)',
+                             (ANCHOR_KEY, json.dumps({'identity': identity, 'token': token})))
+        # One restricted DROP resolves internal FKs, but never cascades to anything else.
+        if retired:
+            database.execute_sql('DROP TABLE ' + ','.join(sorted(retired)) + ' RESTRICT')
+        database.execute_sql('INSERT INTO tma_migration_history(migration_id) VALUES (97)')
+        return {'applied': True, 'migration_id': 97}
+
+
 def run_unified_cards_migration(database):
     """Move the library into TMA storage. Explicit maintenance only; retain sources.
 
@@ -60,9 +177,16 @@ def run_unified_cards_migration(database):
                 raise MigrationError('Migration 96 history/schema mismatch')
             return {'applied': False, 'migration_id': 96}
 
-        database.execute_sql('LOCK TABLE tma_deck,tma_card,deck,card IN ACCESS EXCLUSIVE MODE')
+        sources = {'card', 'deck'} & set(database.get_tables())
+        fresh = not sources
+        if fresh and any(database.execute_sql(f'SELECT 1 FROM {t} LIMIT 1').fetchone()
+                         for t in ('tma_card', 'tma_deck')):
+            raise MigrationError('Missing migration sources on populated database')
+        if sources and sources != {'card', 'deck'}:
+            raise MigrationError('Incomplete migration sources')
+        database.execute_sql('LOCK TABLE tma_deck,tma_card' + (',deck,card' if sources else '') + ' IN ACCESS EXCLUSIVE MODE')
         # The content migration has its own validation and recovery workflow.
-        for table in ('tma_card', 'card'):
+        for table in (('tma_card', 'card') if sources else ('tma_card',)):
             if not any(c.name == 'content_v2' and c.data_type == 'jsonb' for c in database.get_columns(table)):
                 raise MigrationError('Prepare migrations 93/94 and convert active content before 96')
             if database.execute_sql(f'SELECT 1 FROM {table} WHERE NOT is_deleted AND content_v2 IS NULL LIMIT 1').fetchone():
@@ -98,6 +222,9 @@ def run_unified_cards_migration(database):
             (scope='personal' AND user_id IS NOT NULL AND category_id IS NULL AND NOT is_default)
             OR (scope='library' AND user_id IS NULL AND folder_id IS NULL AND is_inbox IS FALSE AND share_id IS NULL))''')
         database.execute_sql('CREATE INDEX tma_deck_scope_category_idx ON tma_deck(scope,category_id)')
+        if fresh:
+            database.execute_sql('INSERT INTO tma_migration_history(migration_id) VALUES (96)')
+            return {'applied': True, 'migration_id': 96, 'library_decks': 0, 'library_cards': 0}
 
         # Allocate new library IDs beyond the personal space, even after a
         # data-only restore whose sequences lag behind the rows.
@@ -201,6 +328,11 @@ def run_structured_cards_v2_migration(database):
 
 def run_library_cards_v2_migration(database):
     """Apply the same content invariant to the library card table."""
+    database = getattr(database, 'obj', database)
+    if not database.table_exists('card'):
+        if database.execute_sql('SELECT 1 FROM tma_migration_history WHERE migration_id=97').fetchone():
+            return {'applied': False, 'migration_id': 94}
+        raise MigrationError('Library source absent without cleanup history')
     return _prepare_native_card_table(database, 'card', LIBRARY_CARDS_V2_MIGRATION_ID, LIBRARY_CARDS_V2_LOCK_ID)
 
 
@@ -626,6 +758,9 @@ def run_local_bootstrap_migrations(tma_database, lerne_database):
         )
         for migration_id, query, _database_key in MIGRATIONS:
             already_in_model = False
+            if re.search(r'\b(?:ALTER TABLE|UPDATE) (?:card|deck)\b', query, re.IGNORECASE):
+                tma.execute_sql(f'INSERT INTO tma_migration_history (migration_id) VALUES ({marker})', (migration_id,))
+                continue
             match = add_column.match(query)
             if match:
                 table, name = match.groups()

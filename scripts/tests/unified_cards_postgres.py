@@ -117,6 +117,9 @@ def verify(control):
         assert not models.LibraryCategory.select().exists()
         assert models.TMA_Deck.get_by_id(migrated.id).category_id is None
         assert models.TMA_Card.select().where(models.TMA_Card.deck == migrated.id).count() == 9
+        models.TMA_Card.update(content_v2=original).where(models.TMA_Card.deck == migrated.id,
+            models.TMA_Card.position == 1).execute()
+        verify_cleanup(db)
         raw('ALTER TABLE tma_deck DROP CONSTRAINT tma_deck_scope_owner_check')
         try:
             run_unified_cards_migration(db)
@@ -125,6 +128,22 @@ def verify(control):
         else:
             raise AssertionError('Migration accepted drift')
         print('PASS: migration96 rollback/retry/counts/9 types/categories/notes/media/ACL/independent copies/constraints')
+        fresh = PostgresqlDatabase(name + '_fresh', **control.connect_params)
+        control.execute_sql(f'CREATE DATABASE {name}_fresh')
+        try:
+            models.tma_db.initialize(fresh)
+            models.lerne_db.initialize(fresh)
+            with patch('api.models.is_local', return_value=True):
+                models._tables_created = False
+                models.create_all_tables()
+                models._tables_created = False
+                models.create_all_tables()
+            assert not {'card','deck'} & set(fresh.get_tables())
+            assert {93,94,95,96,97} <= {r[0] for r in fresh.execute_sql('SELECT migration_id FROM tma_migration_history')}
+            print('PASS: empty LOCAL bootstrap and repeated startup without legacy tables')
+        finally:
+            fresh.close()
+            control.execute_sql(f'DROP DATABASE {name}_fresh')
         return True
     finally:
         db.close()
@@ -206,6 +225,8 @@ def verify_restored(control, binaries, dump, admin_root, output, *, browser=True
         print('PASS: restored Supabase migration96', result, 'personal_cards', len(personal_cards), 'nine_types', types, flush=True)
         print('PASS: exact personal card hashes; all library content/media fields; categories, notes and remaining tables unchanged', flush=True)
         sys.path.insert(0, str(admin_root / 'src'))
+        verify_cleanup(db)
+        from tools.native_v2_migrated_apps import verify_copy_roundtrip
         verify_copy_roundtrip(db)
         from tools.native_v2_migrated_apps import verify as verify_applications
         applications = verify_applications(db, output, admin_root, browser=browser, smoke=True)
@@ -220,53 +241,120 @@ def verify_restored(control, binaries, dump, admin_root, output, *, browser=True
         db.close()
 
 
-def verify_copy_roundtrip(db):
-    """Real library import, scoped pull and JSON roundtrip on the supplied test DB."""
-    from fastapi.testclient import TestClient
+def verify_cleanup(db):
+    import hashlib
+    from fastapi import HTTPException
     from api import models
-    from api.auth.service import _create_session, utcnow
-    from api.main import app
-    from lerne_admin.core.api import models as admin_models
-    from lerne_admin.services import native_cards
-
+    from api.migrations import MigrationError, run_library_cleanup_migration, run_library_cards_v2_migration, run_unified_cards_migration
+    from api.services.sync_generation import generation_state, require_generation, mark_database_restored
+    from tools.native_v2_rehearsal import fingerprints
     models.tma_db.initialize(db)
     models.lerne_db.initialize(db)
-    admin_models.tma_db.initialize(db)
-    admin_models.lerne_db.initialize(db)
-    user = 777000112
-    models.TMAUser.get_or_create(user_id=user, defaults={'is_guest': False, 'default_decks_initialized': True})
-    account, _ = models.TMAAuthAccount.get_or_create(user=user)
-    token = _create_session(account, utcnow()).access_token
-    client = TestClient(app, headers={'Authorization': 'Bearer ' + token})
-    source_id = db.execute_sql("""SELECT d.id FROM tma_deck d JOIN tma_card c ON c.deck_id=d.id
-        WHERE d.scope='library' AND NOT d.is_deleted AND NOT c.is_deleted
-        GROUP BY d.id ORDER BY count(*),d.id LIMIT 1""").fetchone()[0]
-    response = client.post(f'/api/decks/external/import/{source_id}?mode=copy')
-    assert response.status_code == 200, response.text
-    target_id = response.json()['deck_id']
-    target = models.TMA_Deck.get_by_id(target_id)
-    assert target.id != source_id and target.scope == 'personal' and target.category_id is None
-    source = list(models.TMA_Card.select().where(models.TMA_Card.deck == source_id,
-        models.TMA_Card.is_deleted == False).order_by(models.TMA_Card.position, models.TMA_Card.id))
-    copied = list(models.TMA_Card.select().where(models.TMA_Card.deck == target_id,
-        models.TMA_Card.is_deleted == False).order_by(models.TMA_Card.position, models.TMA_Card.id))
-    assert source and len(copied) == len(source)
-    media = ('image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path', 'image_data')
-    for original, card in zip(source, copied, strict=True):
-        assert original.id != card.id and original.content_v2 == card.content_v2
-        assert all(getattr(original, field) == getattr(card, field) for field in media)
-    exported = json.loads(native_cards.export_document(f'lib_{source_id}')['text'])
-    request = {'import_id': str(uuid4()), 'document': exported}
-    imported = client.post('/api/decks/import-json', json=request)
-    assert imported.status_code == 200, imported.text
-    assert client.post('/api/decks/import-json', json=request).json() == imported.json()
-    restored_id = imported.json()['deck_id']
-    restored = list(models.TMA_Card.select().where(models.TMA_Card.deck == restored_id).order_by(models.TMA_Card.position))
-    assert [c.content_v2 for c in restored] == [c.content_v2 for c in source]
-    pull = client.get('/api/sync/v2/pull')
-    assert pull.status_code == 200, pull.text
-    deck_ids = {d['id'] for d in pull.json()['decks']}
-    assert target_id in deck_ids and restored_id in deck_ids and source_id not in deck_ids
-    assert not models.TMAProgress.select().where(models.TMAProgress.card_id.in_([c.id for c in copied])).exists()
-    assert not models.TMACardNote.select().where(models.TMACardNote.card.in_([c.id for c in copied])).exists()
-    print('PASS: restored-copy library HTTP import, all media attachments, Admin JSON export/TMA import/replay, scoped offline pull', flush=True)
+    protected = fingerprints(db)
+    marker = db.execute_sql("SELECT value FROM tmasetting WHERE key='SYNC_DATABASE_RESTORE'").fetchone() if db.table_exists('tmasetting') else None
+    db.create_tables([models.TMASetting], safe=True)
+    relations = db.execute_sql("""SELECT c.relname,c.oid::bigint FROM pg_class c JOIN pg_namespace n ON n.oid=c.relnamespace
+        WHERE n.nspname='public' AND c.relname IN ('tma_card','card','tmasetting') ORDER BY c.relname""").fetchall()
+    old = hashlib.sha256(json.dumps([marker[0] if marker else 'initial', relations], sort_keys=True).encode()).hexdigest()
+    # Reject a single changed media link, even when all counts still agree.
+    source_id = db.execute_sql("SELECT c.id FROM tma_card c JOIN tma_deck d ON d.id=c.deck_id WHERE d.scope='library' LIMIT 1").fetchone()
+    if source_id:
+        identifier = source_id[0]
+        image = db.execute_sql('SELECT image_path FROM tma_card WHERE id=%s', (identifier,)).fetchone()[0]
+        db.execute_sql("UPDATE tma_card SET image_path='images/synthetic-mismatch.webp' WHERE id=%s", (identifier,))
+        try:
+            try:
+                run_library_cleanup_migration(db)
+            except MigrationError:
+                pass
+            else:
+                raise AssertionError('Changed media accepted')
+            assert db.table_exists('card')
+        finally:
+            db.execute_sql('UPDATE tma_card SET image_path=%s WHERE id=%s', (image, identifier))
+    db.execute_sql('CREATE TABLE cleanup_unknown_fk (id INT REFERENCES card(id))')
+    try:
+        run_library_cleanup_migration(db)
+    except MigrationError:
+        pass
+    else:
+        raise AssertionError('Unknown FK accepted')
+    assert db.table_exists('card') and not db.execute_sql('SELECT 1 FROM tma_migration_history WHERE migration_id=97').fetchone()
+    db.execute_sql('DROP TABLE cleanup_unknown_fk')
+    raw = db.execute_sql
+    def fail_history(sql, *args, **kwargs):
+        if sql == 'INSERT INTO tma_migration_history(migration_id) VALUES (97)':
+            raise RuntimeError('Synthetic failure after DROP')
+        return raw(sql, *args, **kwargs)
+    with patch.object(db, 'execute_sql', side_effect=fail_history):
+        try:
+            run_library_cleanup_migration(db)
+        except RuntimeError as error:
+            assert str(error) == 'Synthetic failure after DROP'
+        else:
+            raise AssertionError('Late failure swallowed')
+    assert db.table_exists('card') and db.table_exists('deck')
+    assert not db.execute_sql("SELECT 1 FROM tmasetting WHERE key='SYNC_GENERATION_ANCHOR'").fetchone()
+    assert run_library_cleanup_migration(db)['applied']
+    assert not run_library_cleanup_migration(db)['applied']
+    assert not {'card','deck','progress','reviewhistory','uservoice'} & set(db.get_tables())
+    excluded = {'public.' + t for t in ('card','deck','progress','reviewhistory','uservoice','tmasetting','tma_migration_history')}
+    assert {k:v for k,v in protected.items() if k not in excluded} == {
+        k:v for k,v in fingerprints(db).items() if k not in excluded}, 'Cleanup changed protected user data'
+    assert generation_state()['server_generation'] == old
+    import subprocess
+    from pathlib import Path
+    script = """
+import 'fake-indexeddb/auto';
+import Dexie from 'dexie';
+import assert from 'node:assert/strict';
+import {observeServerGeneration} from './src/services/serverGeneration.js';
+const [before, after] = JSON.parse(process.argv[1]);
+const db = new Dexie('cleanup-' + crypto.randomUUID());
+db.version(1).stores({syncState:'key',cards:'id',card_notes:'id'});
+try {
+ await db.syncState.put({key:'serverGeneration',generation:before});
+ await db.syncState.put({key:'card-create-v2:-1',payload:{request_id:'retained'}});
+ await db.cards.put({id:-1,isDirty:true});
+ await db.card_notes.put({id:'pending-note',isDirty:true});
+ db.close(); await db.open();
+ await observeServerGeneration(db,{server_generation:after,restored:false},()=>true);
+ assert.equal(await db.syncState.get('serverGenerationConflict'),undefined);
+ assert.equal((await db.syncState.get('card-create-v2:-1')).payload.request_id,'retained');
+ assert.equal((await db.cards.get(-1)).isDirty,true);
+ assert.equal(await db.card_notes.count(),1);
+ await assert.rejects(observeServerGeneration(db,{server_generation:'f'.repeat(64),restored:true},()=>true));
+ assert.equal((await db.cards.get(-1)).isDirty,true);
+} finally {await db.delete();}
+"""
+    subprocess.run(['node','--input-type=module','-e',script,json.dumps([old,generation_state()['server_generation']])],
+                   cwd=Path(__file__).resolve().parents[2] / 'app', check=True, timeout=30)
+    with db.atomic() as transaction:
+        db.execute_sql('ALTER TABLE tma_deck RENAME TO synthetic_replaced_deck')
+        db.execute_sql('CREATE TABLE tma_deck(id INT)')
+        assert generation_state()['server_generation'] != old
+        transaction.rollback()
+    require_generation(old)
+    assert not run_unified_cards_migration(db)['applied']
+    assert not run_library_cards_v2_migration(db)['applied']
+    # Real startup, with only historical SQL already baselined on this synthetic fixture.
+    from api.migrations import MIGRATIONS
+    for entry in MIGRATIONS:
+        db.execute_sql('INSERT INTO tma_migration_history(migration_id) VALUES (%s) ON CONFLICT DO NOTHING', (entry[0],))
+    models._tables_created = False
+    with patch('api.models.is_local', return_value=False):
+        models.create_all_tables()
+        models._tables_created = False
+        models.create_all_tables()
+    assert not {'card','deck'} & set(db.get_tables())
+    with db.atomic() as transaction:
+        mark_database_restored(db)
+        try:
+            require_generation(old)
+        except HTTPException as error:
+            assert error.status_code == 409
+        else:
+            raise AssertionError('Restore protection lost')
+        transaction.rollback()
+    assert generation_state()['server_generation'] == old
+    print('PASS: cleanup97 strict FK refusal/rollback/retry, legacy generation retained, real restore rejected, repeated startup without retired tables', flush=True)

@@ -14,6 +14,7 @@ from api import models
 
 RESTORE_KEY = 'SYNC_DATABASE_RESTORE'
 HEADER = 'X-Lerne-Generation'
+ANCHOR_KEY = 'SYNC_GENERATION_ANCHOR'
 
 
 def generation_state():
@@ -26,8 +27,13 @@ def generation_state():
         if isinstance(database, PostgresqlDatabase):
             relations = database.execute_sql("""SELECT c.relname, c.oid::bigint
                 FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
-                WHERE n.nspname = 'public' AND c.relname IN ('tma_card', 'card', 'tmasetting')
+                WHERE n.nspname = 'public' AND c.relname IN ('tma_card', 'tma_deck', 'tmasetting')
                 ORDER BY c.relname""").fetchall()
+        anchor = models.TMASetting.get_or_none(models.TMASetting.key == ANCHOR_KEY)
+        if anchor:
+            saved = json.loads(anchor.value)
+            if saved['identity'] == json.loads(json.dumps([marker, relations])):
+                return {'server_generation': saved['token'], 'restored': marker != 'initial'}
     finally:
         if owns_connection and not database.is_closed():
             database.close()

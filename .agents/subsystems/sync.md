@@ -471,3 +471,12 @@ IDs, note card_id, Knowledge links, SRS, receipts, negative-ID aliases and pendi
 Dexie operations are retained. No new Dexie version, sync protocol or restore
 marker is introduced by 96. Library IDs are newly allocated above personal IDs;
 source_library_id in deck metadata is remapped as informational provenance.
+
+## Cleanup 97 generation continuity
+
+97 saves the historical token with the restore marker and native relation OIDs
+in SYNC_GENERATION_ANCHOR. Runtime queries only tma_card/tma_deck/tmasetting.
+Matching identity preserves the old token and account Dexie queues. A changed
+marker/native relation derives a new token and retains existing 409 quarantine.
+No cache reset or automatic conflict adoption is introduced. Manual data-only
+restores must still rotate SYNC_DATABASE_RESTORE.
