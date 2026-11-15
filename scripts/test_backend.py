@@ -26,6 +26,7 @@ SUITES = (
     'scripts/tests/test_structured_cards_import.py',
     'scripts/tests/test_admin_interop_boundary.py',
     'scripts/tests/test_local_dev.py',
+    'scripts/tests/test_v2_preview.py',
     'scripts/tests/test_test_isolation.py',
     'scripts/tests/test_media_storage_migration.py',
     'scripts/tests/test_audio_force_regeneration.py',

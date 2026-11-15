@@ -162,6 +162,13 @@ def verify_database(models, *, allow_empty=False):
 def prepare(config):
     models = database(config)
     db = models.tma_db
+    if config.get('purpose') == 'native-v2-preview':
+        try:
+            from local.preview import require_preview
+            require_preview()
+        finally:
+            db.close()
+        return
     try:
         # LOCAL is unpooled. Closing this session releases the lock even on error.
         # The migration runners still own their separate transactions.

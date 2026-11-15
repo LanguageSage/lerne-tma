@@ -325,7 +325,7 @@ export const useAppInitialization = (checkStartParam) => {
       }
 
       // Global published Design V2 — apply to app root immediately
-      if (res.data.global_design_v2?.config) {
+      if (Object.hasOwn(res.data, 'global_design_v2')) {
         setPublishedDesignV2(res.data.global_design_v2);
       }
     } catch (err) {

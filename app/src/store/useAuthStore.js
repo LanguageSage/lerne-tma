@@ -169,6 +169,10 @@ export const useAuthStore = create((set, get) => ({
             if (generation === authGeneration) set(state => ({ sessionRevision: state.sessionRevision + 1 }));
           }
         } else if (IS_LOCAL) {
+          if (import.meta.env.VITE_LERNE_V2_PREVIEW === '1') {
+            window.location.replace('/v2-preview');
+            return;
+          }
           const response = await api.post('/auth/local/login');
           if (generation !== authGeneration) return;
           await get().finishLogin(response.data);

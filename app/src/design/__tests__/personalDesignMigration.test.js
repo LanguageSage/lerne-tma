@@ -58,6 +58,19 @@ test('published V2 wins and empty backgrounds inherit personal V2', () => {
   assert.equal(published.front.card.background, '');
 });
 
+test('an explicitly empty publication clears the stale cache and restores personal design', () => {
+  const store = useSettingsStore.getState();
+  const personal = normalizeDesignConfig({ global: { accentColor: '#123456' } });
+  useSettingsStore.setState({ personalDesignV2: { config: personal } });
+  store.setPublishedDesignV2(remoteDoc(3, normalizeDesignConfig({ global: { accentColor: '#abcdef' } })));
+  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#abcdef');
+  assert.ok(memory.has('lerne:published-design:v2'));
+  store.setPublishedDesignV2({});
+  assert.equal(useSettingsStore.getState().publishedDesignV2, null);
+  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#123456');
+  assert.equal(memory.has('lerne:published-design:v2'), false);
+});
+
 test('offline edit rebases against another device and preserves unrelated fields', () => {
   let record = reconcilePersonalDesign(openPersonalDesignRecord(1), { designV2: remoteDoc() });
   record = editPersonalDesign(record, { front: { mainText: { font: 'Georgia' } } });
