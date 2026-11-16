@@ -12,6 +12,17 @@ import hashlib
 
 logger = logging.getLogger(__name__)
 
+def progress_response(progress, review_context='scheduled'):
+    return {'id': progress.card_id,
+            **{field: getattr(progress, field) for field in
+               ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'flag')},
+            'is_leech': srs.is_leech(progress.lapses or 0),
+            'next_review': progress.next_review.isoformat() if progress.next_review else None,
+            'last_reviewed': progress.last_reviewed.isoformat() if progress.last_reviewed else None,
+            'intervals': {str(key): value for key, value in srs.get_next_intervals(
+                progress, review_context=review_context).items()}}
+
+
 def update_card_progress(card_id: int, user_id: int, grade: int, is_extended: bool = False, review_context='scheduled', action_id=None, review_time=None):
     try:
         with tma_db.atomic():
@@ -34,10 +45,12 @@ def update_card_progress(card_id: int, user_id: int, grade: int, is_extended: bo
             srs.review_card(progress, grade, is_extended=is_extended, review_context=review_context, **({'now': review_time} if review_time else {}))
             TMAReviewHistory.create(card_id=card_id, user_id=user_id, rating=grade, scheduled_interval=progress.interval,
                                    **({'review_time': review_time} if review_time else {}))
+            result = {'status': 'success', 'next_review': progress.next_review.isoformat(),
+                      'graded_progress': progress_response(progress, review_context)}
             if receipt:
-                receipt.response = json.dumps({'status': 'success', 'next_review': progress.next_review.isoformat()})
+                receipt.response = json.dumps(result)
                 receipt.save()
-        return {"status": "success", "next_review": progress.next_review}
+        return result
     except Exception as e:
         logger.error(f"Error updating progress: {e}")
         raise e

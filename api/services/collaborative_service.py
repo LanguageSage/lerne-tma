@@ -350,7 +350,7 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
 # Effective role (single-item lookup, used by mutation guards)
 # ---------------------------------------------------------------------------
 
-def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> Optional[str]:
+def get_effective_user_role(user_id: int, target_type: str, target_id: int, *, deck_obj=None) -> Optional[str]:
     """
     Determines effective permission role ('owner', 'editor', 'viewer', or None)
     for a given user on a deck or folder, honoring:
@@ -360,7 +360,7 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int) -> O
       4. global_readonly access_scope (any authenticated user → 'viewer')
     """
     if target_type == 'deck':
-        deck = models.TMA_Deck.select(
+        deck = deck_obj if deck_obj is not None and deck_obj.id == target_id else models.TMA_Deck.select(
             models.TMA_Deck.user_id, models.TMA_Deck.folder_id, models.TMA_Deck.is_deleted, models.TMA_Deck.scope
         ).where(models.TMA_Deck.id == target_id).first()
         if not deck or deck.is_deleted or deck.scope != 'personal':

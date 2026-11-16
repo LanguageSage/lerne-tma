@@ -14,6 +14,8 @@ import { playGradeSound } from '../utils/gradeSounds';
 const reviewKey = session => `${session.sessionRevision}:${session.historyIndex}:${session.card?.id}`;
 // Opening a card and studying it use separate hook instances.
 const refreshRequests = new Map();
+const freshCard = (card, context = 'scheduled') => ({ ...card, _studyFetchedAt: Date.now(),
+  _studyIdentity: getSessionIdentity(), _studyContext: context });
 
 // Remember invalidation even when the user leaves and returns to the same deck/card.
 const watchRequest = (trackNavigation = false, onInvalidate = () => {}) => {
@@ -48,13 +50,17 @@ export const useStudySession = () => {
     img.src = url;
   }, []);
 
-  const refreshCard = useCallback((card) => {
+  const refreshCard = useCallback((card, { ifStale = false } = {}) => {
+    if (ifStale && card?.intervals && card._studyContext === 'scheduled' && card._studyIdentity === getSessionIdentity()
+      && Date.now() - card._studyFetchedAt < 60_000) return;
     const session = useSessionStore.getState();
     const gradeRevision = session.gradeRevision;
     const requestKey = `${getUserId()}:${card.id}`;
     if (session.pendingGrades[requestKey]) return;
+    const pending = refreshRequests.get(requestKey);
+    if (ifStale && pending?.isCurrent() && pending.gradeRevision === gradeRevision) return;
     const scope = watchRequest();
-    const requestToken = {};
+    const requestToken = { isCurrent: scope.isCurrent, gradeRevision };
     refreshRequests.set(requestKey, requestToken);
     api.get(`/study/card/${card.id}`).then(({ data }) => {
       const latest = useSessionStore.getState();
@@ -64,7 +70,7 @@ export const useStudySession = () => {
         || refreshRequests.get(requestKey) !== requestToken) return;
       const current = latest.studyHistory.find(item => String(item.id) === String(card.id));
       if (!current) return;
-      const patch = { ...data };
+      const patch = freshCard(data);
       // Client TTS can finish while the GET is in flight; preserve its newer result.
       for (const field of ['audio_path', 'audio_url', 'audio_back_path', 'audio_back_url', 'audio_is_generating']) {
         if (current[field] !== card[field]) delete patch[field];
@@ -95,7 +101,7 @@ export const useStudySession = () => {
       session.addToHistory(card);
     }
     prefetchMedia(card.image_url);
-    refreshCard(card);
+    refreshCard(card, { ifStale: true });
   }, [prefetchMedia, refreshCard]);
 
   const fetchNextCard = useCallback(async (deckId, isFirst = false, excludeIds = []) => {
@@ -144,13 +150,14 @@ export const useStudySession = () => {
 
         if (nextCardInfo) {
           showLocalCard(nextCardInfo);
-        } else if (!isFirst && !session.isLearningMore && currentCard) {
+        } else if (!isFirst && !session.isLearningMore && currentCard && deckCards.length > 0) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
           session.setIsSessionFinished(true);
           session.setCard(null);
         } else {
           // Fetch from SRS when starting session (isFirst), or in learn_more mode (early review by next_review asc)
-          const effectiveExclude = session.isLearningMore ? session.forcedSeenIds : excludeIds;
+          const effectiveExclude = session.isLearningMore ? session.forcedSeenIds
+            : isFirst ? excludeIds : [...new Set([...excludeIds, currentCard?.id].filter(Boolean))];
           const excludeParam = effectiveExclude.length > 0 ? `exclude_ids=${effectiveExclude.join(',')}` : '';
           const learnMoreParam = session.isLearningMore ? 'review_context=forced' : '';
           const params = [excludeParam, learnMoreParam].filter(Boolean).join('&');
@@ -185,7 +192,7 @@ export const useStudySession = () => {
             session.setApiError(tr('Карточка недоступна в формате Structured Cards V2.'));
             session.setCard(null);
           } else {
-            const newCard = res.data;
+            const newCard = freshCard(res.data, session.isLearningMore ? 'forced' : 'scheduled');
             if (session.isLearningMore) session.markForcedSeen(newCard.id);
             session.addToHistory(newCard);
             prefetchMedia(newCard.image_url);
@@ -230,14 +237,15 @@ export const useStudySession = () => {
       card_id: card.id, deck_id: currentDeck.id, grade, is_extended: Boolean(isExtended),
       review_context: session.isLearningMore ? 'forced' : 'scheduled',
       exclude_ids: session.isLearningMore ? [...session.forcedSeenIds] : [],
-      return_next: !localNext
+      return_next: !localNext,
+      include_progress: true
     };
     // Background success may patch progress, but must never navigate after a local transition.
     const scope = watchRequest(!localNext);
     if (localNext) {
       if (nextHistoryIndex < session.studyHistory.length) {
         session.moveToHistory(nextHistoryIndex);
-        if (!session.isLearningMore) refreshCard(localNext);
+        if (!session.isLearningMore) refreshCard(localNext, { ifStale: true });
       } else {
         showLocalCard(localNext);
       }
@@ -255,6 +263,11 @@ export const useStudySession = () => {
         throw new Error(tr('Сохранение оценки не подтверждено'));
       }
       if (getUserId() === userId) captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
+      if (scope.isCurrent() && res.data.graded_progress?.id === card.id) {
+        const patch = { ...freshCard(res.data.graded_progress, payload.review_context), _studyProgressAt: Date.now() };
+        useSessionStore.getState().updateCardInSession(card.id, patch);
+        useDeckStore.getState().updateCardLocal(card.id, patch);
+      }
 
       if (!localNext && scope.isCurrent()) {
         if (res.data.finished) {
@@ -263,7 +276,7 @@ export const useStudySession = () => {
         } else {
           if (!isNativeStudyCard(res.data) || !res.data.id) throw new Error(tr('Не удалось загрузить данные с сервера'));
           if (session.isLearningMore) session.markForcedSeen(res.data.id);
-          session.addToHistory(res.data);
+          session.addToHistory(freshCard(res.data, payload.review_context));
           prefetchMedia(res.data.image_url);
         }
       }
@@ -276,8 +289,6 @@ export const useStudySession = () => {
     } finally {
       session.finishGrade(key, request, failure);
       complete();
-      // Refresh the graded card after the commit; never copy the grade response over currentCard.
-      if (scope.isCurrent() && !session.isLearningMore) refreshCard(card);
       scope.dispose();
     }
   }, [renderedReviewKey, showToast, prefetchMedia, refreshCard, showLocalCard]);
@@ -290,7 +301,7 @@ export const useStudySession = () => {
 
     if (session.historyIndex > 0) {
       session.goBack();
-      if (!session.isLearningMore) refreshCard(useSessionStore.getState().card);
+      if (!session.isLearningMore) refreshCard(useSessionStore.getState().card, { ifStale: true });
     } else if (session.isLearningMore) {
       // A forced pass only navigates its own history; do not wrap to unseen cards.
       return;
@@ -326,7 +337,7 @@ export const useStudySession = () => {
     const { currentDeck } = useDeckStore.getState();
     if (session.historyIndex < session.studyHistory.length - 1) {
       session.moveToHistory(session.historyIndex + 1);
-      if (!session.isLearningMore) refreshCard(useSessionStore.getState().card);
+      if (!session.isLearningMore) refreshCard(useSessionStore.getState().card, { ifStale: true });
     } else if (currentDeck) {
       const historyIds = session.studyHistory.map(c => c.id);
       await fetchNextCard(currentDeck.id, false, historyIds);

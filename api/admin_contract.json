@@ -5,7 +5,7 @@
   },
   "permissions": {
     "version": 2,
-    "source_sha256": "fe6b275c59a10ac6d7a5bddd88c599d918df42649de92bcdae1697f6db596a1a"
+    "source_sha256": "dc759bea4e4b1eb7076f7dd7d48b985b951c8751e2fed70f4fa4bab0f1bbaa13"
   },
   "cards": {
     "version": 3,
@@ -13,6 +13,6 @@
   },
   "import": {
     "version": 6,
-    "source_sha256": "2a1d6609656dc262a9c8b76324e14107ded0e042a05fd7200fdac1f5ec4975d3"
+    "source_sha256": "7108b7c27ca21da135bda2ba0adbbb6ba1966c65caa5633615ee8fc2965a7599"
   }
 }

@@ -257,3 +257,39 @@ CI fixtures: `tests/fixtures/`, только вымышленные данные
 Регрессии конкурентности, thread-local соединений, rollback, permissions,
 forced selection, TTS и retry: `scripts/tests/test_db_workers.py`. Прежние
 тесты с in-memory SQLite проверяют синхронные тела через `__wrapped__`.
+
+
+## Study performance (Native V2)
+
+Ordinary start requests the authoritative SRS `/decks/{id}/next` independently
+of Knowledge loading. The complete list is loaded in the background after the
+first card; an account/session-owned list younger than 60 seconds is reused.
+Assessment still validates the complete freshly fetched list before resume.
+Opening an uncached individual card uses `/study/card/{id}` directly.
+
+Fresh list DTOs include server-calculated scheduled intervals. Navigation reuses
+validated snapshots for up to 60 seconds, coalesces implicit pending refreshes,
+and refreshes older snapshots. Identity changes invalidate freshness. Explicit
+refresh remains available. Forced interval snapshots never qualify as scheduled.
+Sync UI still refreshes the selected deck through the existing loader. Dexie
+remains the offline owner; online first-card SRS selection stays authoritative
+on the server rather than treating a partial/local card cache as a due queue.
+
+`include_progress: true` opts into `graded_progress` in normal/duplicate grade
+responses (including next/finished). The existing UUID receipt stores the exact
+snapshot atomically with SRS/history; replay does not recalculate it. Older
+clients retain their response shape. Offline grade receipts use the same optional
+snapshot. Matching history/cache are patched without an extra study/card GET;
+a delayed full-list response preserves newer confirmed progress.
+
+Reproducible performance harness (synthetic 1000-card context-heavy deck, real
+HTTP/auth/PostgreSQL/Chromium, no existing DB/config, no migrations):
+`python scripts/tests/structured_cards_postgres.py --bin-dir <pgsql/bin> --study-performance --study-performance-browser`.
+Add `--study-performance-baseline` to load the reviewed HEAD Study sources in
+memory, without modifying the checkout. Before/after runs must use the same HEAD
+and run sequentially without other test workloads. Metrics include SQL statements
+(including transaction statements), response bytes and first visible card after
+two animation frames; module/server startup and initial login are outside the
+Study timer. Artifacts remain in ignored `local/test-data/`.
+
+`vercel.json` prepares the Python API region as `arn1`; no deployment is implied.

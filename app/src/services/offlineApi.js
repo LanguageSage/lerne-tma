@@ -467,11 +467,13 @@ export const offlineApi = {
       if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
       const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
       const actionId = body.action_id || crypto.randomUUID();
+      let gradedProgress;
       await db.transaction('rw', db.progress, db.syncState, async () => {
         const fingerprint = JSON.stringify([id, body.grade, Boolean(body.is_extended), context]);
         const receipt = await db.syncState.get(`grade:${actionId}`);
         if (receipt) {
           if (receipt.fingerprint !== fingerprint) throw new Error('Grade action already used with different data');
+          gradedProgress = receipt.graded_progress;
           return;
         }
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
@@ -479,16 +481,21 @@ export const offlineApi = {
         const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context),
           ...(card.content_v2 && { flag_only: true }), ...dirtyFields(progress) };
         await db.progress.put(updated);
+        gradedProgress = { id, ...Object.fromEntries(['queue', 'interval', 'ease_factor', 'repetitions',
+          'lapses', 'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
+          intervals: getNextIntervals(updated, context), is_leech: isLeech(updated.lapses || 0) };
         // Same transaction as progress; every grade survives reload and batch retry.
-        await db.syncState.put({ key: `grade:${actionId}`, fingerprint });
+        await db.syncState.put({ key: `grade:${actionId}`, fingerprint, graded_progress: gradedProgress });
         await db.syncState.put({ key: `review:${actionId}`, action_id: actionId, card_id: id,
           rating: body.grade, review_context: context, is_extended: Boolean(body.is_extended),
           review_time: updated.last_reviewed, scheduled_interval: updated.interval });
       });
-      if (body.return_next === false) return result({ status: 'success' });
+      const extra = body.include_progress && gradedProgress ? { graded_progress: gradedProgress } : {};
+      if (body.return_next === false) return result({ status: 'success', ...extra });
       const exclude = [...new Set([...(body.exclude_ids || []), id])];
       const nextParams = new URLSearchParams({ exclude_ids: exclude.join(','), review_context: context });
-      return nextCard(db, card.deck_id, userId, nextParams);
+      const next = await nextCard(db, card.deck_id, userId, nextParams);
+      return { ...next, data: { ...next.data, ...extra } };
     }
     if (m === 'post' && url === '/cards/save') return saveNativeCard(db, body, config, userId);
     if (m === 'post' && url === '/cards/batch-move') return queueCardMove(db, body, isCurrent);

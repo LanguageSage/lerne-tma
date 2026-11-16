@@ -2,6 +2,8 @@ const { test, expect } = require('@playwright/test');
 
 const deck = { id: 1, name: 'Latency', target_language: 'de', stats: { total: 3, new: 3, due: 0, learning: 0 } };
 const cards = [1, 2, 3].map(id => ({ id, deck_id: 1, position: id, front: `Instant word ${id}`, back: `Answer ${id}`,
+  revision: `synthetic-${id}`, content_v2: { schema_version: 2, card: { type: 'standard',
+    data: { prompt: `Instant word ${id}`, answer: `Answer ${id}` }, info: [] } },
   queue: 'new', interval: 0, intervals: { 0: '1 min', 1: '6 min', 2: '10 min', 3: '4 days' } }));
 
 async function setup(page, context, duplicate = false, language = 'en') {
@@ -18,6 +20,8 @@ async function setup(page, context, duplicate = false, language = 'en') {
   }, language);
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
+    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {},
       user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname.endsWith('/cards')) return route.fulfill({ json: cards });
@@ -63,6 +67,117 @@ function holdRefresh(page) {
   const pending = [];
   return page.route('**/api/study/card/*', route => { pending.push(route); }).then(() => pending);
 }
+
+test('cold Study paints the SRS card while the full list and KI are held; early grade retains its attempt', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  let list, knowledge;
+  await page.route('**/api/decks/1/cards*', route => { list = route; });
+  await page.route('**/api/knowledge/decks/1*', route => { knowledge = route; });
+  let cardReads = 0;
+  await page.route('**/api/study/card/*', route => { cardReads++; return route.fulfill({ json: cards[0] }); });
+  await page.route('**/api/study/grade', route => route.fulfill({ json: { ...cards[1],
+    graded_progress: { id: 1, queue: 'review', interval: 7, intervals: { 2: '7 days' } } } }));
+  await page.evaluate(deck => {
+    deckStore.setState({ deckCards: [], cardsByDeck: {} });
+    window.opening = studyNavigation.startStudy(deck);
+  }, deck);
+  await expect(page.getByText(cards[0].front, { exact: true }).first()).toBeVisible();
+  await expect.poll(() => Boolean(list && knowledge)).toBe(true);
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await expect(page.getByText(cards[1].front, { exact: true }).first()).toBeVisible();
+  const count = () => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count());
+  expect(await count()).toBe(1);
+  expect(await page.evaluate(async () => (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray())[0].sync_status)).toBe('awaiting_content');
+  await knowledge.fulfill({ json: { revision: 'synthetic-knowledge', card_ids: [1, 2, 3],
+    knowledge_items: [{ id: 10, name: 'Synthetic skill' }], card_knowledge_items: [{ card_id: 1, knowledge_item_id: 10, role: 'primary' }] } });
+  await expect.poll(() => page.evaluate(async () => (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray())[0]?.knowledge_item_id)).toBe(10);
+  await list.fulfill({ json: cards });
+  await expect.poll(() => page.evaluate(() => deckStore.getState().deckCards.length)).toBe(3);
+  await page.evaluate(() => studyActions.goBack());
+  expect(await page.evaluate(() => sessionStore.getState().card.interval)).toBe(7);
+  expect(await page.evaluate(() => deckStore.getState().deckCards[0].interval)).toBe(7);
+  expect(cardReads).toBe(0);
+});
+
+test('fresh navigation and grade progress reuse their snapshots without study/card reads', async ({ page, context }) => {
+  await setup(page, context);
+  let reads = 0;
+  await page.route('**/api/study/card/*', route => { reads++; return route.fulfill({ json: cards[0] }); });
+  await page.evaluate(cards => {
+    const identity = JSON.parse(localStorage.getItem('lerne_auth_v2_session'));
+    const marker = identity.client_session_id || identity.session_id || identity.refresh_token || identity.access_token;
+    const fresh = cards.map(card => ({ ...card, _studyFetchedAt: Date.now(), _studyIdentity: marker, _studyContext: 'scheduled' }));
+    deckStore.getState().setDeckCards(fresh);
+    sessionStore.getState().updateCardInSession(1, fresh[0]);
+  }, cards);
+  await page.route('**/api/study/grade', route => route.fulfill({ json: { status: 'success',
+    graded_progress: { id: 1, queue: 'review', interval: 12, intervals: { 2: '12 days' } } } }));
+  await page.evaluate(() => studyActions.goNext());
+  await page.evaluate(() => studyActions.goBack());
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await page.evaluate(() => studyActions.goBack());
+  expect(await page.evaluate(() => sessionStore.getState().card.interval)).toBe(12);
+  expect(reads).toBe(0);
+});
+
+test('assessment waits for its full fresh list and keeps objective attempts separate from SRS', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  const exam = { ...deck, metadata: { pedagogy: { lesson_type: 'assessment', competencies: [{ id: 'synthetic' }],
+    assessment: { schema_version: 1, required_count: 1, bonus_count: 1,
+      bands: [{ id: 'all', title: 'Synthetic band', min: 0, max: 1 }], review_routes: [] } } } };
+  const tasks = cards.slice(0, 2).map((card, i) => ({ ...card, content_v2: { schema_version: 2,
+    card: { type: i ? 'free_text' : 'trainer', metadata: { assessment: { competency_ids: ['synthetic'] } },
+      data: i ? { prompt: 'Write a sentence.', sample_answer: 'Ich lerne.' }
+        : { parts: [{ type: 'text', text: 'Ich ' }, { type: 'input', answers: ['lerne'] }] } } } }));
+  let list, grades = 0;
+  await page.route('**/api/decks/1/cards*', route => { list = route; });
+  await page.route('**/api/study/grade', route => { grades++; return route.fulfill({ json: {} }); });
+  await page.route('**/api/knowledge/decks/1*', route => route.fulfill({ json: { card_ids: [1, 2],
+    knowledge_items: [{ id: 10, name: 'Synthetic skill' }],
+    card_knowledge_items: tasks.map(card => ({ card_id: card.id, knowledge_item_id: 10, role: 'primary' })) } }));
+  await page.evaluate(exam => { window.opening = studyNavigation.startStudy(exam); }, exam);
+  await expect.poll(() => Boolean(list)).toBe(true);
+  expect(await page.evaluate(() => sessionStore.getState().assessment)).toBeNull();
+  await list.fulfill({ json: tasks });
+  await page.evaluate(() => opening);
+  await expect(page.locator('.assessment-view')).toBeVisible();
+  await page.locator('.assessment-actions button').last().click();
+  await expect.poll(() => page.evaluate(() => Object.keys(sessionStore.getState().assessment.results).length)).toBe(1);
+  await page.locator('.assessment-actions button').last().click();
+  await expect.poll(() => page.evaluate(() => sessionStore.getState().assessment.index)).toBe(1);
+  await page.locator('.assessment-actions button').last().click();
+  await expect.poll(() => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(2);
+  expect(grades).toBe(0);
+});
+
+test('closing the page during KI loading retains a confirmed grade and syncs its evidence after reopen', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  let knowledge, grades = 0;
+  await page.route('**/api/knowledge/decks/1*', route => { knowledge = route; });
+  await page.route('**/api/study/grade', route => { grades++; return route.fulfill({ json: { status: 'success' } }); });
+  await page.evaluate(() => studyNavigation.startStudy(deckStore.getState().currentDeck));
+  await expect.poll(() => Boolean(knowledge)).toBe(true);
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await expect.poll(() => page.evaluate(async () => {
+    const row = (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray())[0];
+    return row?.sync_status;
+  })).toBe('awaiting_content');
+  const eventId = await page.evaluate(async () => (await (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.toArray())[0].client_event_id);
+  await page.close();
+  const reopened = await context.newPage();
+  await knowledgeSetup(reopened, context);
+  let sent;
+  await reopened.route('**/api/knowledge/attempts/sync', route => {
+    sent = route.request().postDataJSON().attempts;
+    return route.fulfill({ json: { results: sent.map(row => ({ client_event_id: row.client_event_id, status: 'created' })) } });
+  });
+  await reopened.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(1));
+  expect(sent).toHaveLength(1);
+  expect(sent[0]).toMatchObject({ client_event_id: eventId, knowledge_item_id: 10 });
+  expect(await reopened.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(0);
+  expect(grades).toBe(1);
+  await reopened.close();
+});
 
 async function knowledgeSetup(page, context, { mapped = true, unavailable = false } = {}) {
   await setup(page, context);

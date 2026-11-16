@@ -16,6 +16,7 @@ function fixture(cache = data) {
   let userId = 101;
   const f = { request: async path => ({ data: path === '/decks' ? data.decks : data.folders }) };
   const context = { createStore, getUserId: () => userId, getSessionIdentity: () => `session-${userId}`,
+    useSessionStore: { getState: () => ({ studyHistory: [] }) },
     storage: { get: key => values.get(key), set: (key, value) => values.set(key, value) },
     localStorage: { getItem: key => values.get(key) },
     api: { get: (...args) => f.request(...args) }, console, setTimeout };
@@ -161,9 +162,10 @@ for (const outcome of ['success', 'failure']) {
     assert.equal(calls.length, 2);
     const cards = [{ id: 202 }];
     next.resolve({ data: cards });
-    assert.equal(await second, cards);
-    assert.equal(await duplicate, cards);
-    assert.equal(f.store.getState().deckCards, cards);
+    const loaded = await second;
+    assert.deepEqual(Array.from(loaded, card => card.id), [202]);
+    assert.equal(await duplicate, loaded);
+    assert.equal(f.store.getState().deckCards, loaded);
     assert.equal(f.store.getState().cardsLoading, false);
     f.request = async () => ({ data: [] });
     await f.store.getState().fetchDeckCards(1);
@@ -196,9 +198,10 @@ test('current card requests deduplicate, retry and allow a fresh load after comp
   assert.deepEqual(calls, ['/decks/1/cards']);
   const cards = [{ id: 11 }];
   gate.resolve({ data: cards });
-  assert.equal(await first, cards);
-  assert.equal(await second, cards);
-  assert.equal(f.store.getState().deckCards, cards);
+  const loaded = await first;
+  assert.deepEqual(Array.from(loaded, card => card.id), [11]);
+  assert.equal(await second, loaded);
+  assert.equal(f.store.getState().deckCards, loaded);
   f.context.setTimeout = callback => callback();
   let retries = 0;
   const fresh = [{ id: 12 }];
@@ -206,10 +209,11 @@ test('current card requests deduplicate, retry and allow a fresh load after comp
     if (++retries === 1) throw new Error('Retryable');
     return { data: fresh };
   };
-  assert.equal(await f.store.getState().fetchDeckCards(1), fresh);
+  const reloaded = await f.store.getState().fetchDeckCards(1);
+  assert.deepEqual(Array.from(reloaded, card => card.id), [12]);
   assert.equal(retries, 2);
-  assert.equal(f.store.getState().deckCards, fresh);
-  assert.equal(f.store.getState().cardsByDeck[1], fresh);
+  assert.equal(f.store.getState().deckCards, reloaded);
+  assert.equal(f.store.getState().cardsByDeck[1], reloaded);
 });
 
 test('current card failure preserves cached cards, clears loading and permits retry', async () => {

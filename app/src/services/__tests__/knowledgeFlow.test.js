@@ -30,7 +30,7 @@ const attempt = (id = 'same-id') => ({ client_event_id: id, user_id: userId, kno
   card_id: 1, event_time: '2026-10-30T10:00:00Z', evaluation_data: { schema_version: 1,
     evaluation_type: 'self_rating', rating: 'good' } });
 const capture = () => captureStudyKnowledgeAttempt({ userId, card: nativeCard("standard", { id: 1, deck_id: 5 }, {"data": {"prompt": "Synthetic", "answer": "Synthetic answer"}}), grade: 2 });
-const deferred = () => { let resolve; const promise = new Promise(done => { resolve = done; }); return { promise, resolve }; };
+const deferred = () => { let resolve, reject; const promise = new Promise((done, fail) => { resolve = done; reject = fail; }); return { promise, resolve, reject }; };
 
 const assessment = relevance => recordAssessmentResult({ id: 'synthetic-exam', userId: 1, deckId: 5, index: 0,
   config: { required_count: 1 }, results: {},
@@ -71,6 +71,60 @@ test('online cold cache loads KI, captures grade and drains the durable outbox',
   assert.equal(result.succeededCount, 1);
   assert.equal(api.post.mock.calls[0].arguments[2]._expectedUserId, 1);
   assert.equal(await database.knowledge_attempt_outbox.count(), 0);
+});
+
+test('a confirmed early grade waits for the shared background KI load', async () => {
+  const response = deferred();
+  api.get.mock.mockImplementation(() => response.promise);
+  const load = prepareDeckKnowledge(5);
+  const joined = prepareDeckKnowledge(5);
+  const event = capture();
+  const database = localDb.getLocalDb();
+  assert.equal(await database.knowledge_attempt_outbox.count(), 1);
+  assert.equal((await database.knowledge_attempt_outbox.toArray())[0].sync_status, 'awaiting_content');
+  response.resolve({ data: { ...content(), revision: 'first' } });
+  await Promise.all([load, joined, event]);
+  assert.equal(api.get.mock.callCount(), 1);
+  assert.equal(await database.knowledge_attempt_outbox.count(), 1);
+});
+
+test('early confirmed evidence survives interrupted content load and database reopen, then syncs once', async () => {
+  const response = deferred();
+  api.get.mock.mockImplementation(() => response.promise);
+  const load = prepareDeckKnowledge(5);
+  const event = capture();
+  const original = localDb.getLocalDb();
+  const [frozen] = await original.knowledge_attempt_outbox.toArray();
+  assert.equal(frozen.sync_status, 'awaiting_content');
+  response.reject(new Error('Interrupted content request'));
+  await assert.rejects(load, /Interrupted/);
+  await event;
+  localDb.closeLocalDb();
+  api.get.mock.mockImplementation(async () => ({ data: { ...content(), revision: 'current' } }));
+  assert.equal((await syncKnowledgeAttempts('1')).succeededCount, 1);
+  const sent = api.post.mock.calls[0].arguments[1].attempts;
+  assert.equal(sent.length, 1);
+  assert.equal(sent[0].client_event_id, frozen.client_event_id);
+  assert.equal(sent[0].knowledge_item_id, 10);
+  assert.deepEqual(sent[0].evaluation_data, frozen.evaluation_data);
+  assert.equal(await localDb.getLocalDb().knowledge_attempt_outbox.count(), 0);
+});
+
+test('unchanged revision preserves mappings and outbox without rewriting content', async () => {
+  api.get.mock.mockImplementation(async () => ({ data: { ...content(), revision: 'first' } }));
+  await prepareDeckKnowledge(5);
+  await capture();
+  const database = localDb.getLocalDb();
+  const put = mock.method(database.knowledge_items, 'bulkPut');
+  api.get.mock.mockImplementation(async (_url, options) => {
+    assert.equal(options.params.revision, 'first');
+    return { data: { revision: 'first', unchanged: true } };
+  });
+  await prepareDeckKnowledge(5);
+  assert.equal(put.mock.callCount(), 0);
+  assert.equal(await database.knowledge_attempt_outbox.count(), 1);
+  assert.equal((await database.card_knowledge_items.toArray())[0].knowledge_item_id, 10);
+  put.mock.restore();
 });
 
 test('offline capture survives network failure and duplicate acknowledgement on reconnect', async () => {

@@ -165,6 +165,23 @@ export async function getPendingKnowledgeAttempts(userId, limit = 50, database =
     .toArray();
 }
 
+// Confirmed grades can arrive before authored mappings. Keep their frozen
+// evidence in the existing outbox, but never send an event with an unknown KI.
+// Only a successful/unchanged authoritative content read may resolve these rows.
+export async function resolveAwaitingKnowledgeAttempts(database, deckId, userId) {
+  await database.transaction('rw', database.knowledge_attempt_outbox, database.card_knowledge_items,
+    database.knowledge_items, async () => {
+      const waiting = await database.knowledge_attempt_outbox.where('user_id').equals(String(userId))
+        .filter(event => event.sync_status === 'awaiting_content' && String(event._knowledge_deck_id) === String(deckId)).toArray();
+      for (const event of waiting) {
+        const primary = await getPrimaryKnowledgeItemForCard(event.card_id, database);
+        if (primary) await database.knowledge_attempt_outbox.update(event.client_event_id,
+          { knowledge_item_id: primary.id, sync_status: 'pending' });
+        else await database.knowledge_attempt_outbox.delete(event.client_event_id);
+      }
+    });
+}
+
 export async function markKnowledgeAttemptSyncing(clientEventId, database = getLocalDb()) {
   return database.knowledge_attempt_outbox.update(clientEventId, { sync_status: 'syncing' });
 }

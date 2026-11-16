@@ -107,7 +107,9 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   ]);
 
   const queueStats = React.useMemo(() => {
-    if (card?.deck_stats && typeof card.deck_stats === 'object') {
+    // Confirmed grade patches keep the complete local list current. A card's
+    // aggregate snapshot can predate a later grade elsewhere in this history.
+    if (!deckCards?.length && card?.deck_stats && typeof card.deck_stats === 'object') {
       return {
         new: card.deck_stats.new ?? 0,
         due: card.deck_stats.due ?? 0,

@@ -12,6 +12,8 @@ except ImportError:
     import services, srs, models
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_worker
+from api.services.media import _build_media_exists_map
+from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
 
@@ -19,19 +21,19 @@ router = APIRouter(
     tags=["study"],
 )
 
-def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
+def _card_to_response(card, progress, user_id: int, review_context='scheduled', deck=None, native=None):
     """Формирует ответ с данными карты. Вынесено для переиспользования."""
     creator_name = None
     creator_avatar = None
     if getattr(card, 'creator_id', None):
-        creator = models.TMAUser.get_or_none(models.TMAUser.user_id == card.creator_id)
+        creator = models.TMAUser.select(models.TMAUser.username, models.TMAUser.first_name, models.TMAUser.photo_url).where(
+            models.TMAUser.user_id == card.creator_id).first()
         if creator:
             creator_name = creator.username or creator.first_name
             creator_avatar = creator.photo_url
 
     # Fetch deck explicitly to bypass any Peewee relationship caching issues
-    deck = None
-    if card.deck_id:
+    if deck is None and card.deck_id:
         try:
             deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == card.deck_id)
         except Exception:
@@ -44,6 +46,11 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
             deck_metadata = json.loads(deck.metadata)
         except Exception: pass
 
+    media_exists = set() if is_local() else _build_media_exists_map([{field: getattr(card, field) for field in
+        ('image_path', 'video_front_path', 'video_back_path')}, *[
+        {('image_path' if res.get('type') == 'image' else 'video_front_path'): res.get('path')}
+        for res in deck_metadata.get('resources', []) if res.get('type') in ('image', 'video')
+    ]])
     resolved_resources = []
     for res in deck_metadata.get('resources', []):
         res_type = res.get('type')
@@ -51,11 +58,11 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
         url = res.get('url')
         if path:
             if res_type == 'image':
-                url = services.resolve_media_url(path, 'images')
+                url = services.resolve_media_url(path, 'images', exists_map=media_exists)
             elif res_type == 'audio':
                 url = services.resolve_media_url(path, 'audio')
             elif res_type == 'video':
-                url = services.resolve_media_url(path, 'videos')
+                url = services.resolve_media_url(path, 'videos', exists_map=media_exists)
         item = {**res}
         if url:
             item['url'] = url
@@ -71,12 +78,12 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled'):
 
     return {
         "id": card.id,
-        **content_response(card),
+        **content_response(card, native=native),
         "audio_url": services.resolve_media_url(card.audio_path, "audio"),
         "audio_back_url": services.resolve_media_url(card.audio_back_path, "audio"),
-        "image_url": services.resolve_media_url(card.image_path, "images"),
-        "video_front_url": services.resolve_media_url(card.video_front_path, "videos"),
-        "video_back_url": services.resolve_media_url(card.video_back_path, "videos"),
+        "image_url": services.resolve_media_url(card.image_path, "images", exists_map=media_exists),
+        "video_front_url": services.resolve_media_url(card.video_front_path, "videos", exists_map=media_exists),
+        "video_back_url": services.resolve_media_url(card.video_back_path, "videos", exists_map=media_exists),
         "intervals": srs.get_next_intervals(progress, review_context=review_context),
         "next_review": progress.next_review.isoformat() if progress.next_review else None,
         "last_reviewed": progress.last_reviewed.isoformat() if progress.last_reviewed else None,
@@ -225,15 +232,15 @@ def get_study_card(card_id: int, user_id: int = Depends(get_user_id)):
     card = models.TMA_Card.get_or_none((models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
     if not card:
         raise HTTPException(status_code=404, detail="Card not found")
-    _require_study_access(user_id, card.deck_id)
-    require_native(card)
+    deck = _require_study_access(user_id, card.deck_id)
+    native = require_native(card)
 
     progress, _ = models.TMAProgress.get_or_create(
         card_id=card.id,
         user_id=user_id,
         defaults={"queue": "new", "next_review": models.datetime.datetime.now()}
     )
-    return _card_to_response(card, progress, user_id)
+    return _card_to_response(card, progress, user_id, deck=deck, native=native)
 
 @router.get("/decks/{deck_id}/next")
 @db_worker(retry_reads=True)
@@ -246,7 +253,7 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
         except ValueError:
             pass
 
-    _require_study_access(user_id, deck_id)
+    deck = _require_study_access(user_id, deck_id)
     context = 'forced' if learn_more else review_context
     card, progress = services.get_next_card(user_id, deck_id, exclude_ids=parsed_exclude, review_context=context)
 
@@ -262,16 +269,16 @@ def get_next_card(deck_id: int, exclude_ids: str = None, learn_more: bool = Fals
         return {"finished": True}
 
     logger.info(f"NEXT CARD: user={user_id}, deck={deck_id}, card={card.id}")
-    return _card_to_response(card, progress, user_id, context)
+    return _card_to_response(card, progress, user_id, context, deck=deck)
 
 
 def _require_study_access(user_id, deck_id, card_id=None):
     deck = models.TMA_Deck.get_or_none((models.TMA_Deck.id == deck_id) & (models.TMA_Deck.is_deleted == False))
-    if not deck or not get_effective_user_role(user_id, 'deck', deck_id):
+    if not deck or not get_effective_user_role(user_id, 'deck', deck_id, deck_obj=deck):
         raise HTTPException(403, 'Нет доступа к колоде')
-    if card_id is not None and not models.TMA_Card.get_or_none(
+    if card_id is not None and not models.TMA_Card.select(models.TMA_Card.id).where(
         (models.TMA_Card.id == card_id) & (models.TMA_Card.deck_id == deck_id) & (models.TMA_Card.is_deleted == False)
-    ):
+    ).exists():
         raise HTTPException(404, 'Card not found in deck')
     return deck
 
@@ -286,6 +293,7 @@ class StudyGradeRequest(BaseModel):
     review_context: Literal['scheduled', 'forced'] = 'scheduled'
     exclude_ids: list[int] = Field(default_factory=list)
     return_next: bool = True
+    include_progress: bool = False
 
     @model_validator(mode='after')
     def standard_scale(self):
@@ -296,11 +304,11 @@ class StudyGradeRequest(BaseModel):
 @router.post("/study/grade")
 @db_worker
 def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
-    _require_study_access(user_id, data.deck_id, data.card_id)
+    deck = _require_study_access(user_id, data.deck_id, data.card_id)
     context = 'forced' if data.learn_more else data.review_context
     def run_grade():
         logger.info(f"submit_grade: User {user_id}, Data: {data}")
-        services.update_card_progress(
+        saved = services.update_card_progress(
             data.card_id,
             user_id,
             data.grade,
@@ -309,8 +317,9 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
             **({'action_id': str(data.action_id)} if data.action_id else {})
         )
         logger.info("submit_grade: Progress updated successfully")
+        extra = {'graded_progress': saved['graded_progress']} if data.include_progress and saved.get('graded_progress') else {}
         if not data.return_next:
-            return {"status": "success"}
+            return {"status": "success", **extra}
 
         # Сразу получаем следующую карту (без повторного HTTP-вызова)
         exclude = list(set([*data.exclude_ids, data.card_id])) if context == 'forced' else data.exclude_ids
@@ -318,8 +327,8 @@ def submit_grade(data: StudyGradeRequest, user_id: int = Depends(get_user_id)):
         if isinstance(card, dict) and "error" in card:
             return card
         if not card:
-            return {"finished": True}
-        return _card_to_response(card, progress, user_id, context)
+            return {"finished": True, **extra}
+        return {**_card_to_response(card, progress, user_id, context, deck=deck), **extra}
 
     try:
         return run_grade()
@@ -362,16 +371,17 @@ def submit_duplicate_grade(data: dict, user_id: int = Depends(get_user_id)):
             action_id = str(UUID(data['action_id']))
         except (ValueError, TypeError, AttributeError):
             raise HTTPException(422, 'Invalid action_id')
-    services.update_card_progress(
+    saved = services.update_card_progress(
         data['card_id'],
         user_id,
         data['grade'],
         is_extended=bool(data.get('is_extended', False)),
         **({'action_id': action_id} if action_id else {})
     )
+    extra = {'graded_progress': saved['graded_progress']} if data.get('include_progress') and saved.get('graded_progress') else {}
     if data.get('return_next') is False:
-        return {"status": "success"}
+        return {"status": "success", **extra}
     card, progress = services.get_next_duplicate_card(user_id)
     if not card:
-        return {"finished": True}
-    return _card_to_response(card, progress, user_id)
+        return {"finished": True, **extra}
+    return {**_card_to_response(card, progress, user_id), **extra}

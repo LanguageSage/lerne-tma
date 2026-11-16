@@ -82,8 +82,8 @@ def _build_media_exists_map(cards_dicts: list) -> set:
             ('video_back_path', 'videos')
         ]:
             path_str = c.get(path_field)
-            if path_str and not path_str.startswith('http'):
-                filenames.add(os.path.basename(path_str))
+            if path_str and not path_str.startswith(('http://', 'https://')):
+                filenames.add(os.path.basename(path_str.split('?')[0]))
 
     if not filenames:
         return set()

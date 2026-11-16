@@ -11,6 +11,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { getUserId, getSessionIdentity } from '../utils/auth.js';
 import { isNativeStudyCard, isStudyMigrationError, studyErrorDetail } from '../utils/structuredStudyCard.js';
 import { prepareDeckKnowledge } from '../services/knowledgeContentService.js';
+import { parseDeckMetadata } from '../utils/deckUtils.js';
 
 /**
  * Hook for initiating study sessions from deck grids, card lists, and search results.
@@ -37,9 +38,10 @@ export function useStudyNavigation() {
       useSessionStore.getState().setIsLearningMore(reviewContext === 'forced');
       const state = useDeckStore.getState();
       const hasCards = state.currentDeck?.id === deck.id && state.deckCards?.some(isNativeStudyCard);
+      const needsWholeDeck = deck.id === 'duplicates' || Boolean(parseDeckMetadata(deck).pedagogy?.assessment);
       if (deck.id === 'duplicates') {
         await state.fetchDuplicates();
-      } else if (!hasCards) {
+      } else if (needsWholeDeck) {
         await state.fetchDeckCards(deck.id);
       }
 
@@ -56,9 +58,17 @@ export function useStudyNavigation() {
         useSessionStore.getState().setAssessment(active);
         return;
       }
-      await prepareDeckKnowledge(deck.id).catch(err => console.warn('[Knowledge] Content unavailable:', err));
+      prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       await fetchNextCard(deck.id, true);
+      // SRS chooses the first card independently of the full list. Refresh the
+      // list afterwards, so serialization/IndexedDB work cannot delay its paint.
+      const freshList = hasCards && state.deckCards.every(card => card._studyIdentity === identity
+        && Date.now() - card._studyFetchedAt < 60_000);
+      if (!needsWholeDeck && !freshList && identity === getSessionIdentity() && getUserId() === userId
+        && useSessionStore.getState().sessionRevision === revision && isNativeStudyCard(useSessionStore.getState().card)) {
+        state.fetchDeckCards(deck.id).catch(err => console.warn('Background deck load:', err));
+      }
     } catch (err) {
       if (err.code === 'ERR_CANCELED') return;
       if (err.response?.status === 401) {
@@ -83,7 +93,7 @@ export function useStudyNavigation() {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       const revision = useSessionStore.getState().sessionRevision;
-      await prepareDeckKnowledge(deck.id).catch(err => console.warn('[Knowledge] Content unavailable:', err));
+      prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       
       const deckState = useDeckStore.getState();
@@ -102,7 +112,7 @@ export function useStudyNavigation() {
         setIsOpeningDeck(false);
 
         // Fetch fresh card details/intervals in background without blocking UI
-        refreshCard(localCard);
+        refreshCard(localCard, { ifStale: true });
         return;
       }
 
@@ -111,9 +121,6 @@ export function useStudyNavigation() {
       if (deck.id === 'duplicates') {
         await useDeckStore.getState().fetchDuplicates();
         cards = useDeckStore.getState().duplicateCards || [];
-      } else {
-        await useDeckStore.getState().fetchDeckCards(deck.id);
-        cards = useDeckStore.getState().deckCards || [];
       }
 
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
@@ -130,7 +137,7 @@ export function useStudyNavigation() {
       setView('study');
 
       if (localCard) {
-        refreshCard(localCard);
+        refreshCard(localCard, { ifStale: true });
         return;
       }
 
@@ -142,7 +149,11 @@ export function useStudyNavigation() {
         const res = await api.get(`/study/card/${cardId}`);
         if (!isCurrent()) return;
         if (isNativeStudyCard(res?.data)) {
-          useSessionStore.getState().addToHistory(res.data);
+          useSessionStore.getState().addToHistory({ ...res.data, _studyFetchedAt: Date.now(),
+            _studyIdentity: identity, _studyContext: 'scheduled' });
+          if (deck.id !== 'duplicates') {
+            useDeckStore.getState().fetchDeckCards(deck.id).catch(error => console.warn('Background deck load:', error));
+          }
         } else {
           useSessionStore.getState().setApiError(tr('Карточка недоступна в формате Structured Cards V2.'));
         }

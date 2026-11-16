@@ -59,7 +59,8 @@ class ForcedStudyTests(unittest.TestCase):
                              (json.dumps({'schema_version': 2, 'card': {
                                  'type': 'standard', 'data': {'prompt': 'p', 'answer': 'a'}}}), self.deck.id))
 
-        def response(card, progress, user_id, review_context='scheduled'):
+        def response(card, progress, user_id, review_context='scheduled', *, deck=None):
+            self.assertEqual(deck.id, self.deck.id)
             return {'id': card.id, 'context': review_context}
         seen = [self.cards[0].id, self.cards[1].id]
         with patch.object(router, '_card_to_response', response):

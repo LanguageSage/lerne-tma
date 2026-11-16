@@ -1,6 +1,7 @@
 import api from './api.js';
 import { getLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
+import { prepareDeckKnowledge } from './knowledgeContentService.js';
 import { 
   getPendingKnowledgeAttempts,
   markKnowledgeAttemptSyncing,
@@ -25,6 +26,13 @@ export async function syncKnowledgeAttempts(userId) {
 
   // 1. Get pending attempts
   const database = getLocalDb();
+  const awaiting = await database.knowledge_attempt_outbox.where('user_id').equals(String(userId))
+    .filter(event => event.sync_status === 'awaiting_content').toArray();
+  for (const deckId of new Set(awaiting.map(event => event._knowledge_deck_id))) {
+    if (getUserId() !== activeUserId) break;
+    try { await prepareDeckKnowledge(deckId); } catch { /* Keep frozen evidence for a later successful read. */ }
+  }
+  if (getUserId() !== activeUserId) return { selectedCount: 0, succeededCount: 0, failedCount: 0, transportFailed: false };
   const pendingAttempts = await getPendingKnowledgeAttempts(userId, BATCH_SIZE, database);
   if (!pendingAttempts || pendingAttempts.length === 0) {
     return { selectedCount: 0, succeededCount: 0, failedCount: 0, transportFailed: false };

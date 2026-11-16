@@ -6,6 +6,7 @@ import json
 from peewee import IntegrityError
 
 from api.db_workers import db_worker
+from fastapi.encoders import jsonable_encoder
 from api.dependencies.auth import get_user_id
 from api import models
 from api.services import knowledge_diagnostics
@@ -22,19 +23,23 @@ router = APIRouter(
 
 @router.get('/decks/{deck_id}')
 @db_worker
-def deck_knowledge_content(deck_id: int, user_id: int = Depends(get_user_id)):
+def deck_knowledge_content(deck_id: int, user_id: int = Depends(get_user_id), revision: str | None = None):
     from api.services.collaborative_service import get_effective_user_role
     if not get_effective_user_role(user_id, 'deck', deck_id):
         raise HTTPException(403, 'Нет доступа к колоде')
+    from api.services.structured_card_api import _digest
     cards = [c.id for c in models.TMA_Card.select(models.TMA_Card.id).where(
-        models.TMA_Card.deck_id == deck_id, models.TMA_Card.is_deleted == False)]
+        models.TMA_Card.deck_id == deck_id, models.TMA_Card.is_deleted == False).order_by(models.TMA_Card.id)]
     mappings = list(models.TMACardKnowledgeItem.select().where(
-        models.TMACardKnowledgeItem.card_id.in_(cards)).dicts())
+        models.TMACardKnowledgeItem.card_id.in_(cards)).order_by(models.TMACardKnowledgeItem.id).dicts())
     ids = {m['knowledge_item'] for m in mappings}
     for mapping in mappings:
         mapping['knowledge_item_id'] = mapping.pop('knowledge_item')
-    items = list(models.TMAKnowledgeItem.select().where(models.TMAKnowledgeItem.id.in_(ids)).dicts())
-    return {'card_ids': cards, 'knowledge_items': items, 'card_knowledge_items': mappings}
+    items = list(models.TMAKnowledgeItem.select().where(models.TMAKnowledgeItem.id.in_(ids)).order_by(models.TMAKnowledgeItem.id).dicts())
+    current = _digest(jsonable_encoder([cards, mappings, items]))
+    if revision == current:
+        return {'revision': current, 'unchanged': True}
+    return {'revision': current, 'card_ids': cards, 'knowledge_items': items, 'card_knowledge_items': mappings}
 
 
 class AttemptInsertIntegrityError(Exception):

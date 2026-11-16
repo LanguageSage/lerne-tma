@@ -1,7 +1,8 @@
-import { getPrimaryKnowledgeItemForCard, enqueueKnowledgeAttempt, createKnowledgeAttempt } from './knowledgeDbService.js';
+import { getPrimaryKnowledgeItemForCard, enqueueKnowledgeAttempt, createKnowledgeAttempt, resolveAwaitingKnowledgeAttempts } from './knowledgeDbService.js';
 import { studyContent } from '../utils/structuredStudyCard.js';
 import { getLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
+import { waitForDeckKnowledge } from './knowledgeContentService.js';
 
 const STANDARD_GRADE_RATINGS = ['again', 'hard', 'good', 'easy'];
 
@@ -21,13 +22,6 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
       support_evidence: structuredClone(exerciseEvidence.supportEvidence),
       ...(exerciseEvidence.taskSupport ? { task_support: structuredClone(exerciseEvidence.taskSupport) } : {}),
     } : {};
-    const primaryKi = await getPrimaryKnowledgeItemForCard(card.id, database);
-    if (!primaryKi) {
-      console.log(`[KnowledgeCapture] no_primary_knowledge_item for card ${card.id}`);
-      return;
-    }
-    const primaryKiId = primaryKi.id;
-
     const ratingStr = knowledgeRatingForGrade(grade, isExtended);
 
     const cardType = studyContent(card)?.type;
@@ -70,14 +64,30 @@ export const captureStudyKnowledgeAttempt = async ({ userId, card, grade, isExte
       };
     }
 
-    const attempt = createKnowledgeAttempt({
+    const payload = {
       user_id: userId,
-      knowledge_item_id: primaryKiId,
       card_id: card.id,
       review_id: null, // Offline local DB doesn't produce TMAReviewHistory ids synchronously
       event_time: eventTime || new Date().toISOString(),
-      evaluation_data: evaluationData
-    });
+      evaluation_data: structuredClone(evaluationData)
+    };
+
+    const preparing = waitForDeckKnowledge(database, card.deck_id);
+    if (preparing) {
+      // Persist before waiting: a reload/network failure must not discard a
+      // confirmed grade's evidence. The sync service resumes it after reload.
+      await enqueueKnowledgeAttempt({ ...payload, client_event_id: crypto.randomUUID(),
+        knowledge_item_id: null, _knowledge_deck_id: card.deck_id, sync_status: 'awaiting_content' }, database);
+      try { await preparing; } catch { return; }
+      if (String(getUserId()) === String(userId)) await resolveAwaitingKnowledgeAttempts(database, card.deck_id, userId);
+      return;
+    }
+    const primaryKi = await getPrimaryKnowledgeItemForCard(card.id, database);
+    if (!primaryKi) {
+      console.log(`[KnowledgeCapture] no_primary_knowledge_item for card ${card.id}`);
+      return;
+    }
+    const attempt = createKnowledgeAttempt({ ...payload, knowledge_item_id: primaryKi.id });
 
     if (String(getUserId()) !== String(userId)) return;
     await enqueueKnowledgeAttempt(attempt, database);

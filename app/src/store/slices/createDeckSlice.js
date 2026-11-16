@@ -4,6 +4,7 @@ import { getInitialCachedData, saveToInitCache, sortFolders, sortDecks } from '.
 import { useUiStore } from '../useUiStore';
 import { tr } from '../../i18n/locale';
 import { useLanguageStore } from '../useLanguageStore';
+import { useSessionStore } from '../useSessionStore';
 
 let reorderTimeout = null;
 
@@ -194,9 +195,23 @@ export const createDeckSlice = (set, get) => {
           if (!isCurrent()) return;
           try {
             const endpoint = `/decks/${deckId}/cards`;
+            const startedAt = Date.now();
             const res = await api.get(endpoint);
             if (!isCurrent()) return;
-            const newCards = res.data || [];
+            const previous = new Map((get().cardsByDeck[deckId] || []).map(card => [String(card.id), card]));
+            for (const card of useSessionStore.getState().studyHistory) {
+              if (card.deck_id === deckId && card._studyProgressAt >= startedAt) previous.set(String(card.id), card);
+            }
+            const newCards = (res.data || []).map(card => {
+              const cached = previous.get(String(card.id));
+              const fresh = { ...card, _studyFetchedAt: Date.now(), _studyIdentity: identity, _studyContext: 'scheduled' };
+              // A background list may have read progress before a grade committed.
+              if (cached?._studyProgressAt >= startedAt) {
+                for (const field of ['queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'flag',
+                  'is_leech', 'next_review', 'last_reviewed', 'intervals', '_studyProgressAt', '_studyContext']) fresh[field] = cached[field];
+              }
+              return fresh;
+            });
             set((prev) => ({
               deckCards: prev.currentDeck?.id === deckId ? newCards : prev.deckCards,
               cardsByDeck: {

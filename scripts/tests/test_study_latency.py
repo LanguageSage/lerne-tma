@@ -3,6 +3,7 @@ import asyncio
 import datetime
 import importlib
 import unittest
+from uuid import uuid4
 from unittest.mock import AsyncMock, patch
 
 from test_offline_sync import database, models, TABLES, services
@@ -81,6 +82,29 @@ class StudyLatencyTests(unittest.TestCase):
         progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
         self.assertIsNotNone(progress.last_reviewed)
 
+    def test_opt_in_progress_receipt_replays_snapshot_without_reapplying_srs(self):
+        request = router.StudyGradeRequest(card_id=self.cards[0].id, deck_id=self.deck.id, grade=2,
+                                          action_id=uuid4(), return_next=False, include_progress=True)
+        first = router.submit_grade.__wrapped__(request, user_id=1)
+        self.assertEqual(first['graded_progress']['id'], self.cards[0].id)
+        self.assertIn('intervals', first['graded_progress'])
+        # A later distinct grade cannot change the immutable receipt's response.
+        study.update_card_progress(self.cards[0].id, 1, 0, action_id=str(uuid4()))
+        replay = router.submit_grade.__wrapped__(request, user_id=1)
+        self.assertEqual(first, replay)
+        self.assertEqual(models.TMAReviewHistory.select().count(), 2)
+        with self.assertRaises(Exception) as conflict:
+            router.submit_grade.__wrapped__(request.model_copy(update={'grade': 3}), user_id=1)
+        self.assertEqual(conflict.exception.status_code, 409)
+
+    def test_invalid_native_card_is_rejected_before_creating_progress(self):
+        models.TMAProgress.delete().execute()
+        database.execute_sql('UPDATE tma_card SET content_v2 = ? WHERE id = ?',
+                             ('{"schema_version": 2, "card": {"type": "invalid"}}', self.cards[0].id))
+        with self.assertRaises(Exception):
+            router.get_study_card.__wrapped__(self.cards[0].id, user_id=1)
+        self.assertEqual(models.TMAProgress.select().count(), 0)
+
     def test_grade_does_not_repeat_a_committed_write_after_connection_failure(self):
         from fastapi import HTTPException
         from peewee import OperationalError
@@ -126,6 +150,16 @@ class StudyLatencyTests(unittest.TestCase):
         result = cards.get_cards_for_study(self.deck.id, 1)
         self.assertEqual([card['id'] for card in result], [card.id for card in self.cards])
         self.assertEqual([card['content_v2']['card']['topics'] for card in result], [['Adjektive'], ['Konjunktionen'], None])
+
+    def test_study_media_batch_preserves_local_http_prefix_and_query_string_paths(self):
+        card = self.cards[0]
+        card.image_path = 'http-local.png?version=1'
+        card.save()
+        models.TMAMedia.create(filename='http-local.png', folder='images', content=b'image')
+        with patch.object(services, 'resolve_media_url', media.resolve_media_url, create=True), patch.object(
+                services, 'get_deck_stats_counts', return_value={}, create=True):
+            result = router.get_study_card.__wrapped__(card.id, user_id=1)
+        self.assertEqual(result['image_url'], '/api/media/images/http-local.png')
 
 
 if __name__ == '__main__':

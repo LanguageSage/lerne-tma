@@ -102,3 +102,37 @@ GET /knowledge/decks/{deck_id} отдаёт разрешённые KI/mappings �
 матрица покрытия и ограничения: [TESTING](../../docs/TESTING.md).
 Отдельный backend suite запускайте через `scripts/test_backend.py`, чтобы
 сохранить блокировку production-сервисов и загрузки `.env`.
+
+
+## Conditional Study content cache
+
+`GET /knowledge/decks/{deck_id}?revision=...` checks current permissions first,
+then fingerprints sorted active card IDs, mappings and linked KI values. Any
+mapping/item edit, deletion, reassignment or active-card membership change
+invalidates the fingerprint. Equal revisions return only `revision` and
+`unchanged: true`; SQL reads remain necessary because no new schema/counters
+are introduced. This is content validation, not an HTTP permission cache.
+
+The existing account-scoped Dexie `syncState` stores `knowledge-content:{deckId}`
+in the same transaction as content replacement. An unchanged response performs
+no content writes. Pending loads coalesce by database instance/deck; a confirmed
+Study capture waits for the original database's pending load before looking up
+primary KI. It does not block card presentation or grade navigation. Account
+changes still prevent capture in another account. Outbox contents are never
+replaced with the content cache. Missing KI or unavailable content retains the
+existing non-blocking/no-fabricated-evidence policy.
+
+Regression coverage: `knowledgeFlow.test.js`, `test_knowledge_sync.py`,
+`study-latency.spec.cjs`, and the disposable Study performance harness.
+
+
+A confirmed grade accepted while content is loading first persists its frozen
+Knowledge evidence in the existing outbox with `sync_status: awaiting_content`,
+a stable event ID and the owning deck ID. Such rows never enter HTTP sync with
+an unknown KI. A successful (including unchanged) content read atomically
+promotes them to pending using the primary mapping, or removes them when the
+authoritative content has no primary KI. Failed/interrupted loads retain them.
+Knowledge sync revalidates the referenced decks on its existing startup/online/
+periodic triggers, so closing/reopening the database does not lose early evidence.
+No new Dexie store or schema migration is introduced. Regression:
+`early confirmed evidence survives interrupted content load and database reopen, then syncs once`.

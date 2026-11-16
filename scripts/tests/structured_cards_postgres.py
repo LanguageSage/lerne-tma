@@ -301,6 +301,9 @@ def verify(db):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, required=True)
+    parser.add_argument('--study-performance', action='store_true', help='Measure synthetic Study HTTP/SQL on disposable PostgreSQL, without migrations')
+    parser.add_argument('--study-performance-browser', action='store_true')
+    parser.add_argument('--study-performance-baseline', action='store_true', help='Read Study implementation from HEAD for before/after measurements')
     parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
     parser.add_argument('--unified-storage', action='store_true', help='Test migration 96 and independent library copies')
     parser.add_argument('--unified-dump', type=Path, help='Explicit private Native V2 Supabase dump for a restored migration 96 rehearsal')
@@ -365,6 +368,10 @@ def main():
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port,
                                 user='cards_test', connect_timeout=5)
         try:
+            if args.study_performance:
+                from study_performance_postgres import verify as verify_performance
+                return 0 if verify_performance(db, scratch, browser=args.study_performance_browser,
+                                              baseline=args.study_performance_baseline) else 1
             if args.unified_dump:
                 from unified_cards_postgres import verify_restored
                 return 0 if verify_restored(db, binaries, args.unified_dump.resolve(),

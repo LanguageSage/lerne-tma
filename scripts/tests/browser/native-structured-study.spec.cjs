@@ -45,6 +45,7 @@ async function open(page, context, { legacy = null, locale = 'ru' } = {}) {
   }, locale);
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {},
       prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
@@ -87,7 +88,7 @@ async function open(page, context, { legacy = null, locale = 'ru' } = {}) {
   await page.getByRole('heading', { name: deck.name }).click();
   if (legacy === 'card') {
     await page.getByRole('button', { name: /Показать список|Show list/ }).click();
-    await page.getByText('Legacy pending', { exact: true }).click();
+    await page.getByText('V1', { exact: true }).click();
   } else {
     await page.getByRole('button', { name: /Начать занятие|Start study/ }).click();
   }

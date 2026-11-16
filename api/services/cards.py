@@ -2,6 +2,7 @@ import datetime
 import logging
 import json
 import hashlib
+from types import SimpleNamespace
 from fastapi import HTTPException
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db, TMAOfflineBatch
 from .. import srs
@@ -102,10 +103,9 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
     result.update(content_response(c))
 
     if include_intervals:
-        result["intervals"] = srs.get_next_intervals(p)
-    else:
-        nr = get_p('next_review')
-        result["next_review"] = nr.isoformat() if hasattr(nr, 'isoformat') else (str(nr) if nr else None)
+        result["intervals"] = srs.get_next_intervals(SimpleNamespace(**p) if isinstance(p, dict) else p)
+    nr = get_p('next_review')
+    result["next_review"] = nr.isoformat() if hasattr(nr, 'isoformat') else (str(nr) if nr else None)
 
     return result
 
@@ -154,7 +154,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
                                   TMAProgress.lapses,
                                   TMAProgress.next_review,
                                   TMAProgress.flag,
-                                  TMAProgress.want_to_learn
+                                  TMAProgress.want_to_learn,
+                                  TMAProgress.step_index,
+                                  TMAProgress.ease_factor
                               )
                               .where((TMAProgress.user_id == user_id) & (TMAProgress.card_id << chunk))
                               .dicts())
@@ -177,7 +179,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
         for c in cards:
             p = progress_map.get(c['id'])
             creator = creators.get(c.get('creator_id'))
-            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator))
+            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator, include_intervals=True))
         return result
     except HTTPException:
         raise

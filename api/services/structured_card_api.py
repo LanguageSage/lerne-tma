@@ -205,7 +205,7 @@ def authored_side_text(content, side):
     return data.prompt
 
 
-def content_response(card):
+def content_response(card, *, native=None):
     if isinstance(card, dict):
         raw = card['content_v2']
         identity = card['id']
@@ -220,7 +220,7 @@ def content_response(card):
         media = [getattr(card, field) for field in MEDIA_PATHS]
     if raw is None:
         raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': identity})
-    value = decode_v2_content(raw).model_dump(mode='json')
+    value = (native if native is not None else decode_v2_content(raw)).model_dump(mode='json')
     return {
         'content_v2': {'schema_version': 2, 'card': value},
         'revision': _digest([identity, deck_id, position, str(updated), raw, *media]),

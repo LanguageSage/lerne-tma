@@ -22,6 +22,29 @@ from api.routers.knowledge import sync_knowledge_attempts, KnowledgeAttemptSyncR
 sync_knowledge_attempts = sync_knowledge_attempts.__wrapped__
 
 class TestKnowledgeSyncAPI(unittest.TestCase):
+    def test_content_revision_invalidates_on_mapping_item_and_card_changes(self):
+        from api.routers.knowledge import deck_knowledge_content
+        read = deck_knowledge_content.__wrapped__
+        TMACardKnowledgeItem.delete().execute()
+        first = read(self.deck.id, user_id=1)
+        self.assertEqual(read(self.deck.id, user_id=1, revision=first['revision']),
+                         {'revision': first['revision'], 'unchanged': True})
+        TMACardKnowledgeItem.create(card_id=self.card.id, knowledge_item=self.ki1.id, role='primary')
+        mapped = read(self.deck.id, user_id=1, revision=first['revision'])
+        self.assertNotEqual(mapped['revision'], first['revision'])
+        TMAKnowledgeItem.update(name='Changed synthetic knowledge').where(TMAKnowledgeItem.id == self.ki1.id).execute()
+        changed = read(self.deck.id, user_id=1, revision=mapped['revision'])
+        self.assertNotEqual(changed['revision'], mapped['revision'])
+        self.assertEqual(changed['knowledge_items'][0]['name'], 'Changed synthetic knowledge')
+        TMA_Card.update(is_deleted=True).where(TMA_Card.id == self.card.id).execute()
+        removed = read(self.deck.id, user_id=1, revision=changed['revision'])
+        self.assertNotEqual(removed['revision'], changed['revision'])
+        self.assertEqual(removed['card_ids'], [])
+        self.assertEqual(removed['card_knowledge_items'], [])
+        with self.assertRaises(Exception) as denied:
+            read(self.deck.id, user_id=999, revision=removed['revision'])
+        self.assertEqual(denied.exception.status_code, 403)
+
     @classmethod
     def setUpClass(cls):
         models = [TMAUser, TMA_Deck, TMA_Card, TMAKnowledgeItem, TMACardKnowledgeItem, TMAKnowledgeAttempt, TMAUserKnowledgeState, TMAReviewHistory, TMA_Collaborator, TMAProgress]
