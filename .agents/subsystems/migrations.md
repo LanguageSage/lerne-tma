@@ -72,6 +72,20 @@ SQL-каталог, схема истории и локальный механи
 
 ## Native V2: независимая репетиция
 
+- `tools/native_v2_cutover.py` — отдельный guarded production maintenance CLI,
+  inspect по умолчанию. Только explicit `NATIVE_V2_DATABASE_URL`, expected
+  host/port/database/role и remote TLS; LOCAL/Vercel process и рабочая LOCAL
+  отвергаются. Apply требует остановленных writers, inspect-файл и его явно
+  подтверждённый SHA-256. Полные public hashes/catalog/history сверяются под
+  locks, исходные строки повторно проверяются перед content UPDATE. Существующие
+  runners 92–95 → общее `_migrate_active` → 96/97, без outer transaction/retry.
+  `migrate_active` сохраняет прежний disposable guard. Import/non-LOCAL startup
+  не применяют этот cutover. После неизвестного COMMIT — STOP, новый READ ONLY
+  inspect, сверка durable state и V1 recovery перед повторной конвертацией.
+  Runbook: `docs/audits/native-v2-production-runbook.md`. Целевая синтетическая
+  проверка: `scripts/tests/native_v2_cutover_postgres.py --bin-dir <pgsql/bin>`;
+  `--private-dump` — только явно выбранный локальный архив, никогда вход CI.
+
 - `tools/native_v2_snapshot.py`: только READ ONLY PostgreSQL, единый exported
   MVCC snapshot для row SHA256, входов конвертера и дампов. Private outputs —
   только новый каталог в ignored `local/test-data/`. Storage probes не являются

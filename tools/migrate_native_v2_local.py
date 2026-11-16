@@ -32,6 +32,13 @@ def verify_target(database):
 
 def migrate_active(database):
     verify_target(database)
+    return _migrate_active(database)
+
+
+def _migrate_active(database, verify_source=None):
+    """Shared transaction body; callers must authorize their target first."""
+    if database.in_transaction():
+        raise RuntimeError('Migration requires its own transaction')
     prepared = {}
     report = {'transaction': 'single', 'deleted_policy': 'retain unchanged V1; no restore/conversion', 'tables': {}}
     with database.atomic():
@@ -39,6 +46,9 @@ def migrate_active(database):
         # Ordinary transaction locks keep the validated source stable. No jobs,
         # progress journal, cross-process coordinator or retry protocol exists.
         database.execute_sql('LOCK TABLE tma_card,card,tma_deck,deck IN SHARE ROW EXCLUSIVE MODE')
+        if verify_source is not None:
+            verify_source()
+        immutable_before = immutable_cards(database)
         for table, deck in (('tma_card', 'tma_deck'), ('card', 'deck')):
             rows = [r[0] for r in database.execute_sql(
                 f'SELECT row_to_json(t) FROM {table} t WHERE NOT is_deleted ORDER BY deck_id,position,id')]
@@ -67,6 +77,9 @@ def migrate_active(database):
             actual = dict(database.execute_sql(f'SELECT id,content_v2 FROM {table} WHERE NOT is_deleted'))
             if actual != dict(values):
                 raise ValueError(f'{table}: persisted JSON differs from validated plan')
+        if immutable_cards(database) != immutable_before:
+            raise ValueError('Non-content fields or deleted rows changed; rolling back both tables')
+        report['immutable_rows_equal'] = True
     return report
 
 

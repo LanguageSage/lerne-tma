@@ -6,7 +6,7 @@ import subprocess
 from uuid import uuid4
 
 
-def verify_learning(client, port, models, headers):
+def verify_learning(client, port, models, headers, *, ratings_only=False):
     models.TMAUser.update(native_language='ru', has_selected_language=True, first_name='Synthetic learner').execute()
 
     def request(method, path, body=None, user=1, status=200):
@@ -55,6 +55,9 @@ def verify_learning(client, port, models, headers):
     models.TMAProgress.create(card_id=probe['id'], user_id=1, queue='review', interval=10, repetitions=5)
     config['probe'] = probe['id']
     root = Path(__file__).resolve().parents[2]
+    if ratings_only:
+        from structured_cards_ratings import verify_ratings
+        return verify_ratings(client, models, headers, cards, config, root)
     result = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
         'native-learning.spec.cjs', '--project=extended', '--workers=1'], cwd=root,
         env={**os.environ, 'LERNE_NATIVE_LEARNING_FIXTURE': json.dumps(config)}, timeout=360)

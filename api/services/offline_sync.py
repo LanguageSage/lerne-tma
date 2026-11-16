@@ -71,8 +71,8 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
     table_map = {'folders': models.TMA_Folder, 'decks': models.TMA_Deck, 'cards': models.TMA_Card}
 
-    def guard_existing(kind, identifier, current, values):
-        if not drain_legacy or not current:
+    def guard_existing(kind, identifier, current, values, *, required=False):
+        if not (drain_legacy or required) or not current:
             return
         key = f'{kind}:{identifier}'
         if key in request.drain_bases:
@@ -207,9 +207,15 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                 if field in values:
                     values[field] = timestamp(values[field])
             progress, created_progress = models.TMAProgress.get_or_create(card_id=card_id, user_id=user_id)
-            if drain_legacy and not created_progress and item.card_id > 0 and not item.flag_only:
+            # A snapshot is not a review action. Lock/check its observed base
+            # even on native push, otherwise a delayed offline reset can erase
+            # grades committed by another device after that snapshot was taken.
+            if not created_progress and item.card_id > 0 and not item.flag_only:
                 progress = models.TMAProgress.select().where(models.TMAProgress.id == progress.id).for_update().get()
-                guard_existing('progress', item.card_id, progress, values)
+                checked = values if drain_legacy else {
+                    field: value for field, value in values.items() if field not in ('flag', 'want_to_learn')}
+                guard_existing('progress', item.card_id, progress, checked,
+                               required=card_id not in action_cards)
             values['updated_at'] = now
             for field, value in values.items():
                 setattr(progress, field, value)
@@ -229,7 +235,7 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                 scheduled_interval=event.scheduled_interval, review_time=timestamp(event.review_time))
 
         response = {'status': 'success', 'mappings': maps, 'review_count': len(request.reviews)}
-        if drain_legacy:
+        if drain_legacy or request.progress:
             # Receipt-owned commit versions let a newer local edit rebase only
             # across this acknowledged write, never across an unseen peer edit.
             versions = {}

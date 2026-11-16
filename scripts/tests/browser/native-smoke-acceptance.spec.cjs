@@ -173,6 +173,10 @@ test('real Chromium smoke test: creation, editing, study, SRS progress, media, a
     expect(mediaCheck.status).toBe(200);
 
     // --- STEP E: One Offline Cycle (Один офлайн-цикл) ---
+    await expect.poll(() => page.evaluate(async () => {
+      const { syncService } = await import('/src/services/syncService.js');
+      return (await syncService.sync({ pullOnly: true })).success;
+    })).toBe(true);
     // 1. Go offline
     isOffline = true;
     await context.setOffline(true);
@@ -180,6 +184,15 @@ test('real Chromium smoke test: creation, editing, study, SRS progress, media, a
       sessionStorage.setItem('offline-fixture', 'true');
       Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
     });
+
+    // An intentional offline reset must carry the observed server progress base.
+    await page.evaluate(async ({ deck, card, user }) => {
+      const api = (await import('/src/services/api.js')).default;
+      await api.post(`/decks/${deck}/reset`);
+      const { getLocalDb } = await import('/src/services/localDb.js');
+      const progress = await getLocalDb().progress.get([card, user]);
+      if (!progress?.sync_base?.updated_at || !progress.is_dirty) throw Error('Offline reset lost its server base');
+    }, { deck: fixture.deck_id, card: createdId, user: fixture.user_id });
 
     // 2. Save card offline using api proxy
     const offlineSaved = await page.evaluate(async ({ deck_id }) => {
@@ -264,6 +277,17 @@ test('real Chromium smoke test: creation, editing, study, SRS progress, media, a
 
     expect(resolvedRealId).toBeTruthy();
     expect(resolvedRealId).toBeGreaterThan(0);
+
+    await expect.poll(() => page.evaluate(async () =>
+      (await (await import('/src/services/syncService.js')).syncService.sync()).success)).toBe(true);
+    const resetResult = await page.evaluate(async ({ card, deck }) => {
+      const { networkApi } = await import('/src/services/networkApi.js');
+      const reset = (await networkApi.get(`/study/card/${card}`)).data;
+      await networkApi.post('/study/grade', { action_id: crypto.randomUUID(), card_id: card,
+        deck_id: deck, grade: 3, return_next: false });
+      return reset.repetitions;
+    }, { card: createdId, deck: fixture.deck_id });
+    expect(resetResult).toBe(0);
 
     // Take screenshot of TMA success
     await page.screenshot({ path: info.outputPath('smoke-tma-complete.png'), fullPage: true });

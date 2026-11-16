@@ -17,10 +17,10 @@ import uvicorn
 
 def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
-           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, media_browser=False, layout_browser=False, recovery_browser=None):
+           offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, ratings_browser=False, media_browser=False, layout_browser=False, recovery_browser=None):
     from api import models
     from api.auth.service import _create_session, utcnow
-    from api.migrations import run_library_cards_v2_migration, run_structured_cards_v2_migration
+    from api.migrations import run_card_rating_migration, run_library_cards_v2_migration, run_structured_cards_v2_migration
     from api.main import app
     from api.services.answer_evaluation import load_answer_context
 
@@ -30,10 +30,11 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMA_Collaborator,
         models.TMAUser, models.TMAProgress, models.TMAReviewHistory, models.TMAOfflineBatch,
         models.TMASetting, models.TMAMedia, models.TMACardNote, models.TMAKnowledgeItem,
-        models.TMACardKnowledgeItem, models.TMAKnowledgeAttempt, models.TMACardRating, models.TMAUserKnowledgeState,
+        models.TMACardKnowledgeItem, models.TMAKnowledgeAttempt, models.TMAUserKnowledgeState,
         models.LibraryCategory, models.Deck, models.Card,
         *models.AUTH_FOUNDATION_MODELS,
     ])
+    run_card_rating_migration(db)
     run_structured_cards_v2_migration(db)
     db.execute_sql('ALTER TABLE card DROP COLUMN content_v2, ALTER COLUMN front_text SET NOT NULL, '
                    'ALTER COLUMN back_text SET NOT NULL, ALTER COLUMN card_type SET NOT NULL')
@@ -73,9 +74,9 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
             if media_browser:
                 from structured_cards_media import verify_media
                 return verify_media(client, port, models, headers, app)
-            if learning_browser:
+            if learning_browser or ratings_browser:
                 from structured_cards_learning import verify_learning
-                return verify_learning(client, port, models, headers)
+                return verify_learning(client, port, models, headers, ratings_only=ratings_browser)
             if offline_create_browser:
                 if not _run_offline_create_browser(port, models, headers[1]):
                     return False

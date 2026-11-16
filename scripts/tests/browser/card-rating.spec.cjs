@@ -1,4 +1,4 @@
-const { test, expect } = require('playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 const { writeFileSync, rmSync } = require('node:fs');
 const { resolve, basename } = require('node:path');
 
@@ -21,6 +21,9 @@ test('card rating: like/dislike before and after flip, feedback submission, righ
   });
 
   await page.routeWebSocket('**/*', () => {});
+  await page.route('**/api/sync/v2/status*', route => route.fulfill({
+    json: { server_generation: 'a'.repeat(64), restored: false },
+  }));
   await page.route('**/api/card-notes/**', route => route.fulfill({ json: [] }));
   await page.route('**/api/study/**', route => route.fulfill({ json: {} }));
   await page.route('**/api/card-ratings/**', async route => {
@@ -32,7 +35,8 @@ test('card rating: like/dislike before and after flip, feedback submission, righ
     const cardId = Number(url.pathname.split('/').pop());
     if (method === 'PUT') {
       const data = route.request().postDataJSON();
-      const row = { card_id: cardId, rating: data.rating, reason: data.reason };
+      const row = { card_id: cardId, rating: data.rating, reason: data.reason,
+        likes: data.rating === 1 ? 1 : 0, dislikes: data.rating === -1 ? 1 : 0 };
       ratings.set(cardId, row);
       return route.fulfill({ json: row });
     }
@@ -55,7 +59,9 @@ test('card rating: like/dislike before and after flip, feedback submission, righ
     import { StudyCard } from '/src/components/study/StudyCard.jsx';
     import '/src/index.css'; import '/src/App.css';
 
-    const card = { id: 7001, deck_id: 70, front: 'Wie geht es dir?', back: 'Как твои дела?', target_language: 'de', level: 'A1' };
+    const card = { id: 7001, deck_id: 70, content_v2: { schema_version: 2, card: {
+      type: 'standard', data: { prompt: 'Wie geht es dir?', answer: 'Как твои дела?' }, level: 'A1'
+    } }, target_language: 'de' };
     const deck = { id: 70, name: 'Deutsch', role: 'viewer', target_language: 'de' };
     useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
     useUiStore.setState({ userProfile: { user_id: 1, is_guest: false } });
@@ -120,6 +126,7 @@ test('card rating: like/dislike before and after flip, feedback submission, righ
 
   // 5. Select reason chip and write improvement text
   await page.getByRole('button', { name: 'Непонятное задание' }).click();
+  await expect(page.getByRole('button', { name: 'Непонятное задание' })).toHaveAttribute('aria-pressed', 'true');
   expect(ratings.get(7001)?.reason).toBe('unclear');
   await page.screenshot({ path: resolve(__dirname, '../../../local/test-data/ux-feedback/real-dislike.png') });
 
