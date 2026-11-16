@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ru"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Lerne — приёмка Native V2</title>
+<style>
+body{font:17px system-ui;margin:0;background:#f4f6fa;color:#202b3d}main{max-width:680px;margin:8vh auto;padding:24px}select,button,a{font:inherit}select,button{width:100%;min-height:48px;margin:12px 0;padding:10px;border:1px solid #8b97ac;border-radius:10px}button{background:#3156c7;color:white;cursor:pointer}a{color:#3156c7}#error{color:#a32626;white-space:pre-wrap}small{line-height:1.6}
+</style>
+<main><h1>Приёмка Native V2</h1><p>Выберите существующий аккаунт из сконвертированной копии.</p>
+<p><small>Изолированный PostgreSQL · 55433. Изменения сохраняются только в этой копии.</small></p>
+<form><label for="account">Аккаунт</label><select id="account" required disabled><option>Загрузка…</option></select><button disabled>Открыть TMA</button></form>
+<p id="error" role="alert"></p><p><button id="admin" type="button">Открыть Admin — библиотечные колоды ↗</button></p>
+<p><small>Для смены аккаунта вернитесь на эту страницу. Production и обычная LOCAL не используются.</small></p></main>
+<script type="module" nonce="__NONCE__">
+import { saveAuthSession, saveUserProfile, clearAuthSession } from '/src/utils/auth.js';
+const select=document.querySelector('select'), button=document.querySelector('form button'), error=document.querySelector('#error');
+async function post(path,body){const response=await fetch('/api/auth/local/'+path,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(body||{})});if(!response.ok)throw new Error('Ошибка '+response.status+': '+await response.text());return response.json()}
+try{const users=await post('preview-users');select.replaceChildren(...users.map(u=>{const o=document.createElement('option');o.value=u.user_id;o.textContent=`${u.first_name||u.username||'Аккаунт'} · ${u.user_id} · ${u.decks} колод · ${u.cards} карточек`;return o}));select.disabled=false;button.disabled=!users.length}catch(e){error.textContent=e.message}
+document.querySelector('form').addEventListener('submit',async event=>{event.preventDefault();button.disabled=true;error.textContent='';try{const tokens=await post('preview-login',{user_id:Number(select.value)});const response=await fetch('/api/auth/v2/me',{headers:{Authorization:'Bearer '+tokens.access_token}});if(!response.ok)throw new Error('Не удалось получить профиль');const profile=await response.json();clearAuthSession();saveAuthSession(tokens);saveUserProfile(profile);location.assign('/')}catch(e){error.textContent=e.message;button.disabled=false}});
+document.querySelector('#admin').addEventListener('click',async()=>{error.textContent='';try{const result=await post('preview-admin');if(!result.opened)throw new Error('Введите http://127.0.0.1:8051/ в адресную строку браузера.')}catch(e){error.textContent=e.message}});
+</script></html>

@@ -6,8 +6,41 @@ from api.db_workers import db_phases, db_worker
 from api.local_runtime import is_local, LOOPBACK
 from api.routers.auth_v2 import _tokens_response
 from api.dependencies.auth import get_user_id
+from pydantic import BaseModel, Field
 
 router = APIRouter()
+
+
+@router.post('/auth/local/preview-users')
+@db_worker
+def preview_users(request: Request, x_lerne_local_secret: str = Header(default='')):
+    from local.preview import authorize_preview, preview_users as users
+    authorize_preview(request, x_lerne_local_secret)
+    from fastapi.responses import JSONResponse
+    return JSONResponse(users(), headers={'Cache-Control': 'no-store'})
+
+
+class PreviewLogin(BaseModel):
+    user_id: int = Field(gt=0)
+
+
+@router.post('/auth/local/preview-login')
+@db_worker
+def preview_login(body: PreviewLogin, request: Request, x_lerne_local_secret: str = Header(default='')):
+    from local.preview import authorize_preview, preview_login as create_session
+    authorize_preview(request, x_lerne_local_secret)
+    from fastapi.responses import JSONResponse
+    return JSONResponse(_tokens_response(create_session(body.user_id)), headers={'Cache-Control': 'no-store'})
+
+
+@router.post('/auth/local/preview-admin')
+@db_worker
+def preview_admin(request: Request, x_lerne_local_secret: str = Header(default='')):
+    from local.preview import authorize_preview
+    authorize_preview(request, x_lerne_local_secret)
+    # Open from the local desktop, preserving Admin's same-origin perimeter.
+    import webbrowser
+    return {'opened': webbrowser.open('http://127.0.0.1:8051/')}
 
 
 @router.get('/local/transfer-card/{card_id}')

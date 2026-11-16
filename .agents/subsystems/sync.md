@@ -27,6 +27,18 @@ Knowledge Attempts отправляются отдельным механизм�
    Новое значение `audio_path`/`audio_back_path` в облаке принимается только при наличии объекта в `storage.objects`; неизменённые ссылки и явное удаление поля сохраняют прежнюю семантику.
 5. Клиент подтверждает пакет, переводит временные ID, синхронизирует learning preferences и получает `/sync/v2/pull`.
 6. Snapshot применяется с сохранением локальных dirty changes; события remap/synced обновляют клиентские представления.
+
+Progress snapshots without a same-card UUID review event now use the existing
+`sync_base.updated_at` → `drain_bases['progress:<id>']` contract on ordinary
+`/sync/v2/push` as well as guarded legacy drain. Existing progress is locked before
+comparison; missing base with different SRS or stale base returns 409 atomically,
+retaining the pending Dexie batch. UUID review events remain authoritative and
+`flag_only` never replaces SRS. Intentional offline reset is a snapshot with its
+observed base; an intervening peer grade requires explicit reconciliation.
+Progress acknowledgements include receipt-owned `versions` so ack rebases a
+newer local edit and later offline changes use the actual committed server base.
+Online explicit deck reset remains unchanged. Regression: `test_offline_sync.py`
+and restored-copy `native-smoke-acceptance.spec.cjs` offline reset/delivery.
 7. Старые `/sync/push` и `/sync/pull` удалены. `collab-pull` возвращает только invalidation/watermark/access_version; данные загружает единый native pull.
    Все пять Sync handlers используют `db_worker`. Auth и handler освобождают
    свои соединения отдельно, транзакции push принадлежат сервисам, а ответы

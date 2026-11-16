@@ -32,6 +32,8 @@
 .card-rating-btn.is-like.is-on { color: #2dd4bf; background: rgba(45, 212, 191, 0.14); border-color: rgba(45, 212, 191, 0.4); }
 .card-rating-btn.is-dislike.is-on { color: #fb923c; background: rgba(251, 146, 60, 0.14); border-color: rgba(251, 146, 60, 0.4); }
 .card-rating-btn.is-on svg { fill: currentColor; }
+.card-rating-btn { width: auto; min-width: 60px; padding: 0 10px; gap: 6px; border-radius: 999px; }
+.card-rating-count { font-size: 0.8rem; font-variant-numeric: tabular-nums; }
 .card-rating-btn:disabled { opacity: 0.6; cursor: default; }
 
 .card-rating-notice,

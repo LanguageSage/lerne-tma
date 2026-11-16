@@ -124,6 +124,33 @@ class OfflineSyncTests(unittest.TestCase):
         state = models.TMAProgress.get()
         self.assertEqual((state.flag, state.repetitions, state.interval, state.want_to_learn), (4, 9, 99, True))
 
+    def test_new_native_grades_survive_repeated_stale_snapshots_and_allow_explicit_reset(self):
+        from api.services.study import update_card_progress
+        stale = self.progress(queue='new', repetitions=0, interval=0)
+        for _ in range(2):
+            update_card_progress(self.card.id, 1, 3, action_id=str(uuid4()))
+            before = models.TMAProgress.get().repetitions
+            self.assertGreater(before, 0)
+            request = self.request(progress=[stale])
+            for attempt in (request, request, self.request(progress=[stale])):
+                with self.assertRaises(HTTPException) as caught:
+                    sync.push_offline(attempt, 1)
+                self.assertEqual(caught.exception.status_code, 409)
+                self.assertEqual(models.TMAProgress.get().repetitions, before)
+        base = models.TMAProgress.get().updated_at.isoformat()
+        reset = self.request(progress=[stale], drain_bases={f'progress:{self.card.id}': base})
+        response = sync.push_offline(reset, 1)
+        self.assertEqual(models.TMAProgress.get().repetitions, 0)
+        self.assertIn(f'progress:{self.card.id}', response['versions'])
+        update_card_progress(self.card.id, 1, 3, action_id=str(uuid4()))
+        before = models.TMAProgress.get().repetitions
+        self.assertEqual(sync.push_offline(reset, 1), response)
+        self.assertEqual(models.TMAProgress.get().repetitions, before)
+        with self.assertRaises(HTTPException):
+            sync.push_offline(self.request(progress=[stale],
+                drain_bases={f'progress:{self.card.id}': base}), 1)
+        self.assertEqual(models.TMAProgress.get().repetitions, before)
+
     def test_unauthorized_progress_rolls_back_entities_and_receipt(self):
         request = self.request(decks=[{'id': -1, 'name': 'No partial create'}], progress=[self.progress()])
         with self.assertRaises(HTTPException):

@@ -178,7 +178,7 @@ test('all nine V2 types integrate study, private data, retries and lifecycle', a
     const intervals = await page.evaluate(async ids => Promise.all(ids.map(async id =>
       (await api.get(`/study/card/${id}`)).data.intervals)), ids);
     // Offline grades, notes and flags use the existing Dexie queues. Ratings keep
-    // their established online-only contract and roll back on a network failure.
+    // their online-only contract and show unknown state without a server read.
     control.offline = true;
     await context.setOffline(true);
     expect(await page.evaluate(async ids => Promise.all(ids.map(async id =>
@@ -208,7 +208,7 @@ test('all nine V2 types integrate study, private data, retries and lifecycle', a
         await api.post(`/cards/${card.id}/flag`, { flag: 0 });
         const { saveRating, getRating } = await import('/src/services/cardRatings.js');
         try { await saveRating(1, card.id, -1, 'error'); throw new Error('Offline rating unexpectedly saved'); }
-        catch (error) { if (getRating(1, card.id)?.rating !== 1) throw error; }
+        catch (error) { if (getRating(1, card.id) !== undefined) throw error; }
       }, card);
     }
     const pending = await page.evaluate(async () => ({ reviews: await db.syncState.filter(row => row.key.startsWith('review:')).toArray(),

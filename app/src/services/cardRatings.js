@@ -1,57 +1,88 @@
 import api from './api.js';
 
-// Private likes/dislikes are owned by the server. This small in-memory cache keeps the
-// study footer instant between cards; it is account-scoped and never persisted.
+// Only server-confirmed snapshots, account-scoped and never persisted offline.
 const votes = new Map();
-const touched = new Set();
+const pending = new Map();
+const versions = new Map();
 const deckLoads = new Map();
 const listeners = new Set();
-const RETRY_AFTER_MS = 60000;
+const REFRESH_MS = 60000;
+let revision = 0;
 const voteKey = (userId, cardId) => `${userId}:${cardId}`;
+const notify = () => listeners.forEach(listener => listener());
 
-function store(userId, cardId, row) {
-  const key = voteKey(userId, cardId);
+function store(key, row) {
   if (row) votes.set(key, row); else votes.delete(key);
-  listeners.forEach(listener => listener());
+  notify();
+}
+
+function confirmed(row, cardId) {
+  if (!Number.isSafeInteger(cardId) || cardId <= 0
+      || row?.card_id !== cardId || ![null, -1, 1].includes(row.rating)
+      || !Number.isSafeInteger(row.likes) || row.likes < 0
+      || !Number.isSafeInteger(row.dislikes) || row.dislikes < 0) {
+    throw new Error('Invalid card rating response');
+  }
+  return row;
 }
 
 export const subscribeRatings = listener => {
   listeners.add(listener);
   return () => listeners.delete(listener);
 };
-
 export const getRating = (userId, cardId) => votes.get(voteKey(userId, cardId));
+export const isRatingBusy = (userId, cardId) => pending.has(voteKey(userId, cardId));
 
-// One request per deck; failures (offline, migration missing) retry at most once a minute.
-export async function loadDeckRatings(userId, deckId) {
-  const key = `${userId}:${deckId}`;
-  if ((deckLoads.get(key) ?? 0) > Date.now()) return;
-  deckLoads.set(key, Date.now() + RETRY_AFTER_MS);
-  try {
-    const { data } = await api.get(`/card-ratings/deck/${deckId}`);
+// A single batch per deck, with bounded freshness and in-flight deduplication.
+export function loadDeckRatings(userId, deckId, force = false) {
+  const deckKey = `${userId}:${deckId}`;
+  const cached = deckLoads.get(deckKey);
+  if (cached?.promise) return cached.promise;
+  if (!force && cached?.until > Date.now()) return Promise.resolve();
+  const started = revision;
+  const promise = (async () => {
+    const { data } = await api.get(`/card-ratings/deck/${deckId}?include_counts=true`, { _expectedUserId: userId });
+    if (!Array.isArray(data)) throw new Error('Invalid card ratings response');
+    data.forEach(row => confirmed(row, row.card_id));
     for (const row of data) {
-      // A vote made while this request was in flight is newer than the response.
-      if (!touched.has(voteKey(userId, row.card_id))) store(userId, row.card_id, row);
+      const key = voteKey(userId, row.card_id);
+      // Reads started before a write must never resurrect its previous vote.
+      if (!pending.has(key) && (versions.get(key) ?? 0) <= started) store(key, row);
     }
-    deckLoads.set(key, Infinity);
-  } catch { /* The footer stays usable; saving reports its own errors. */ }
+  })();
+  deckLoads.set(deckKey, { promise });
+  return promise.then(() => {
+    deckLoads.set(deckKey, { until: Date.now() + REFRESH_MS });
+  }, error => {
+    deckLoads.delete(deckKey);
+    throw error;
+  });
 }
 
-// Optimistic: the server upserts, so retries converge. Failure restores the previous vote.
 export async function saveRating(userId, cardId, rating, reason = null) {
-  const previous = getRating(userId, cardId);
-  const reasonValue = rating === -1 ? reason : null;
-  touched.add(voteKey(userId, cardId));
-  store(userId, cardId, rating == null ? null : { card_id: cardId, rating, reason: reasonValue });
+  const key = voteKey(userId, cardId);
+  // Covers two handlers invoked before React rerenders, and multiple subscribers.
+  if (pending.has(key)) throw new Error('Card rating request already pending');
+  pending.set(key, true);
+  versions.set(key, ++revision);
+  notify();
   try {
-    await api.put(`/card-ratings/${cardId}`, { rating, reason: reasonValue });
+    const { data } = await api.put(`/card-ratings/${cardId}`, {
+      rating, reason: rating === -1 ? reason : null,
+    }, { _expectedUserId: userId });
+    store(key, confirmed(data, cardId));
   } catch (error) {
-    // If the server does not have migration 92 deployed yet (503 or 404),
-    // keep the local vote active so testing against remote environments works smoothly.
-    if (error.response?.status === 404 || error.response?.status === 503) {
-      return;
-    }
-    store(userId, cardId, previous);
+    // A write may commit before its response is lost. Invalidate, then reconcile
+    // through a read; a failed write must never produce a success notice.
+    store(key, null);
+    try {
+      const { data } = await api.get(`/card-ratings/${cardId}`, { _expectedUserId: userId });
+      store(key, confirmed(data, cardId));
+    } catch { /* Unknown state remains unselected, with unknown totals. */ }
     throw error;
+  } finally {
+    versions.set(key, ++revision);
+    pending.delete(key);
+    notify();
   }
 }

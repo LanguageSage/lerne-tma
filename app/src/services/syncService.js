@@ -620,6 +620,14 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
             }
           }
         }
+        // Native snapshots (not UUID review events) also require their server
+        // base. In particular an offline reset must not erase a peer's grade.
+        payload.drain_bases ??= {};
+        for (const item of batch.progress || []) {
+          if (item.sync_base && Object.hasOwn(item.sync_base, 'updated_at')) {
+            payload.drain_bases[`progress:${item.card_id}`] = item.sync_base.updated_at;
+          }
+        }
         const response = await networkApi.post(guarded ? '/sync/v2/push-legacy' : '/sync/v2/push', payload, options);
         if (response.data?.status !== 'success' || !response.data.mappings) throw new Error(tr("Сервер не подтвердил сохранение изменений"));
         if (batch.reviews?.length && response.data.review_count !== batch.reviews.length) {

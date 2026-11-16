@@ -305,10 +305,30 @@ Checks: `test_card_notes.py`, `test_critical_http.py` and disposable PostgreSQL
 `TMACardRating` / `tma_card_rating` stores private like/dislike ratings (rating = 1 or -1)
 and optional dislike reasons (`unclear`, `error`, `too_hard`, `boring`) per user and card.
 Ratings are accessed via `/api/card-ratings/deck/{deck_id}` and PUT `/api/card-ratings/{card_id}`.
+The deck GET with `include_counts=true` returns every live card, its anonymous
+`likes`/`dislikes` and only the caller's `rating`/`reason`/`updated_at`. A single
+LEFT JOIN + grouped conditional aggregate reads actual votes; no counter columns
+or per-card queries are used. The default GET retains the private-votes contract.
+GET `/api/card-ratings/{card_id}` reads the same snapshot for error reconciliation.
+All reads/writes require authenticated card/deck read access. User IDs and other
+users' reasons never appear in summaries. PUT null deletes the caller's vote;
+upsert/delete and response aggregation share a transaction and PostgreSQL card
+row lock, including concurrent writes when no vote exists yet.
+`cardRatings.js` / `useCardRating` keep confirmed account/card snapshots in memory.
+Writes are online-only, guarded per user/card, without optimistic success or
+offline outbox. Every error, including 404/503, rejects; a follow-up GET reconciles
+uncertain commits. If that read also fails, selection/totals are unknown (`—`),
+never a fabricated zero or successful save. Deck batches deduplicate, refresh on
+focus/reconnect, and cannot overwrite newer writes. Footer feedback/drafts are
+scoped to account/card; late replies cannot open another card's success panel.
 Writing a text comment from the dislike/like panel reuses `/api/messages/{id}` with `card_id`.
 Migration 92 creates `tma_card_rating` transactionally with unique `(user_id, card_id)` index,
 card FK cascade, RLS, and revoked public Data API grants. Production uses `scripts/migrate_card_ratings.py --apply` with `CARD_RATINGS_MIGRATION_DATABASE_URL`.
-Checks: `scripts/tests/test_card_ratings.py`, `scripts/tests/browser/card-rating.spec.cjs`.
+Checks: `scripts/tests/test_card_ratings.py`, `app/src/services/__tests__/cardRatings.test.js`,
+`scripts/tests/browser/card-rating.spec.cjs`; `structured_cards_postgres.py --bin-dir <PG bin> --ratings-browser`
+runs migration 92, concurrent socket writes, ACLs and `native-card-rating.spec.cjs`
+for all nine types on a new disposable PostgreSQL with synthetic data and Chromium.
+Admin counter editing and a shared React viewer are deferred beyond V2.
 
 Card-core 0.1.3 keeps 0.1.2 parsing rules and releases LF bytes reproducibly.
 Build/provenance procedure: `api/card_core/README.md`, `scripts/build_card_core.py`.

@@ -3,9 +3,11 @@ import contextlib
 import hashlib
 import io
 import json
+import os
 from pathlib import Path
 import shutil
 import sys
+import subprocess
 import unittest
 from unittest.mock import Mock, patch
 from uuid import uuid4
@@ -95,6 +97,171 @@ class RehearsalToolGuards(unittest.TestCase):
                 with self.assertRaisesRegex(RuntimeError, 'disposable runner cluster'):
                     migrate_active(db)
                 db.atomic.assert_not_called()
+
+    def test_maintenance_imports_never_load_models_dotenv_or_connect(self):
+        program = '''
+import sys
+from unittest.mock import patch
+with patch('dotenv.load_dotenv', side_effect=AssertionError('dotenv')), \\
+     patch('psycopg2.connect', side_effect=AssertionError('connect')), \\
+     patch('peewee.PostgresqlDatabase.connect', side_effect=AssertionError('connect')):
+    import tools.native_v2_cutover
+    import tools.migrate_native_v2_local
+    import tools.backup_supabase_storage
+    assert 'api.models' not in sys.modules
+'''
+        subprocess.run([sys.executable, '-c', program], cwd=ROOT, check=True,
+                       capture_output=True, timeout=30)
+
+    def test_nonlocal_server_schema_init_does_not_apply_92_through_97(self):
+        from api import models, migrations
+        with contextlib.ExitStack() as stack:
+            database = Mock()
+            stack.enter_context(patch.object(models, 'tma_db', database))
+            stack.enter_context(patch.object(models, '_tables_created', False))
+            stack.enter_context(patch.object(models, 'is_local', return_value=False))
+            stack.enter_context(patch.object(migrations, 'run_migrations'))
+            stack.enter_context(patch.object(migrations, 'run_knowledge_mastery_migration'))
+            runners = [stack.enter_context(patch.object(migrations, name)) for name in (
+                'run_card_rating_migration', 'run_structured_cards_v2_migration',
+                'run_library_cards_v2_migration', 'run_card_source_migration',
+                'run_unified_cards_migration', 'run_library_cleanup_migration')]
+            models.create_all_tables()
+            for runner in runners:
+                runner.assert_not_called()
+
+    def test_cutover_remote_without_tls_never_connects(self):
+        from tools import native_v2_cutover as cli
+        argv = ['--expected-host', 'selected.example', '--expected-port', '5432',
+                '--expected-database', 'synthetic', '--expected-role', 'operator',
+                '--expected-dsn-user', 'operator.projref',
+                '--output', str(self.root / 'no-tls.json')]
+        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': 'postgresql://operator.projref:secret@selected.example/synthetic'}, clear=True), \
+                patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(argv), 1)
+        connect.assert_not_called()
+        report = (self.root / 'no-tls.json').read_text(encoding='utf-8')
+        self.assertIn('TLS', report)
+        self.assertNotIn('secret', report)
+
+    def test_cutover_pooler_dsn_user_and_role_guards(self):
+        from tools import native_v2_cutover as cli
+        base_argv = [
+            '--expected-host', 'pooler.example', '--expected-port', '5432',
+            '--expected-database', 'postgres', '--expected-role', 'postgres',
+            '--expected-dsn-user', 'postgres.wdopyuulhiykrextyvnt',
+        ]
+        valid_dsn = 'postgresql://postgres.wdopyuulhiykrextyvnt:secret@pooler.example:5432/postgres?sslmode=require'
+
+        class FakeCursor:
+            def __init__(self, row):
+                self._row = row
+
+            def fetchone(self):
+                return self._row
+
+            def __iter__(self):
+                return iter([])
+
+        class FakeDb:
+            def __init__(self, role='postgres'):
+                self.role = role
+                self.sql_log = []
+
+            def connect(self):
+                pass
+
+            def execute_sql(self, sql, *args):
+                self.sql_log.append(sql)
+                if 'current_database(),current_user' in sql:
+                    return FakeCursor(('postgres', self.role))
+                if 'pg_try_advisory_lock' in sql:
+                    return FakeCursor((True,))
+                return FakeCursor((1,))
+
+            def atomic(self):
+                return contextlib.nullcontext()
+
+            def is_closed(self):
+                return False
+
+            def close(self):
+                pass
+
+            def get_binary_type(self):
+                return bytes
+
+            def get_tables(self):
+                return []
+
+            def get_columns(self, table):
+                return []
+
+        # 1. Valid pooler DSN user + DB role -> inspect PASS, and apply accepts matching target
+        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': valid_dsn}, clear=True), \
+                patch.object(cli, 'connect', return_value=FakeDb('postgres')), \
+                patch.object(cli, 'observe', return_value={'history': [], 'cards_total_active_native': {'tma_card': [1, 1, 0], 'card': [1, 1, 0]}}), \
+                contextlib.redirect_stdout(io.StringIO()):
+            inspect_out = self.root / 'pooler-inspect.json'
+            self.assertEqual(cli.main(base_argv + ['--output', str(inspect_out)]), 0)
+            saved = json.loads(inspect_out.read_text(encoding='utf-8'))
+            self.assertEqual(saved['target'], ['pooler.example', 5432, 'postgres', 'postgres', 'postgres.wdopyuulhiykrextyvnt'])
+            import hashlib
+            sha = hashlib.sha256(inspect_out.read_bytes()).hexdigest()
+            with patch.object(cli, 'apply', return_value=[]) as apply_mock:
+                apply_out = self.root / 'pooler-apply.json'
+                rc = cli.main(base_argv + [
+                    '--output', str(apply_out), '--apply', '--writers-stopped',
+                    '--source-inspect', str(inspect_out), '--confirm-source-sha256', sha,
+                ])
+                self.assertEqual(rc, 0, apply_out.read_text(encoding='utf-8'))
+                apply_mock.assert_called_once()
+
+        # 2. Wrong project ref in DSN username -> FAIL before connect
+        wrong_ref_dsn = 'postgresql://postgres.wrongref:secret@pooler.example:5432/postgres?sslmode=require'
+        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': wrong_ref_dsn}, clear=True), \
+                patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
+                contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(base_argv + ['--output', str(self.root / 'wrong-ref.json')]), 1)
+            connect.assert_not_called()
+
+        # 3. Wrong PostgreSQL role -> FAIL after connect
+        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': valid_dsn}, clear=True), \
+                patch.object(cli, 'connect', return_value=FakeDb('wrong_role')), \
+                contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
+            self.assertEqual(cli.main(base_argv + ['--output', str(self.root / 'wrong-role.json')]), 1)
+
+        # 4. Wrong host / database / port -> FAIL before connect
+        for idx, bad_dsn in enumerate([
+            'postgresql://postgres.wdopyuulhiykrextyvnt:secret@other.example:5432/postgres?sslmode=require',
+            'postgresql://postgres.wdopyuulhiykrextyvnt:secret@pooler.example:5432/otherdb?sslmode=require',
+            'postgresql://postgres.wdopyuulhiykrextyvnt:secret@pooler.example:6543/postgres?sslmode=require',
+        ]):
+            with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': bad_dsn}, clear=True), \
+                    patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(base_argv + ['--output', str(self.root / f'bad-target-{idx}.json')]), 1)
+                connect.assert_not_called()
+
+        # 5. LOCAL/disposable guards preserved (lerne_tma_local / port 55432) -> FAIL before connect
+        for idx, (local_argv, local_dsn) in enumerate([
+            (['--expected-host', '127.0.0.1', '--expected-port', '55432', '--expected-database', 'postgres', '--expected-role', 'postgres'],
+             'postgresql://postgres:secret@127.0.0.1:55432/postgres'),
+            (['--expected-host', '127.0.0.1', '--expected-port', '5432', '--expected-database', 'lerne_tma_local', '--expected-role', 'postgres'],
+             'postgresql://postgres:secret@127.0.0.1:5432/lerne_tma_local'),
+        ]):
+            with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': local_dsn}, clear=True), \
+                    patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
+                    contextlib.redirect_stdout(io.StringIO()):
+                self.assertEqual(cli.main(local_argv + ['--output', str(self.root / f'local-guard-{idx}.json')]), 1)
+                connect.assert_not_called()
+
+        # 6. observe() sets extra_float_digits = 3 for fingerprint parity with snapshot
+        obs_db = FakeDb('postgres')
+        with patch('tools.native_v2_rehearsal.fingerprints', return_value={}):
+            cli.observe(obs_db)
+        self.assertIn('SET extra_float_digits = 3', obs_db.sql_log)
 
 
 if __name__ == '__main__':

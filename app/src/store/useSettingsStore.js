@@ -27,6 +27,8 @@ function saveCachedPublishedDesign(doc) {
   try {
     if (doc && doc.config) {
       storage.set(DESIGN_V2_CACHE_KEY, JSON.stringify(doc));
+    } else {
+      storage.remove(DESIGN_V2_CACHE_KEY);
     }
   } catch { /* quota exceeded — silently ignore */ }
 }
@@ -448,9 +450,10 @@ export const useSettingsStore = create((set, get) => {
     /** Применяет опубликованный global design (из /init или /design/global).
      *  Сохраняет в localStorage-кеш и применяет CSS tokens к app root (если не включён локальный черновик). */
     setPublishedDesignV2: (serverDoc) => {
-      if (!serverDoc?.config) return;
-      const normalized = normalizeDesignConfig(serverDoc.config);
-      const doc = { ...serverDoc, config: normalized };
+      // An explicit empty server document means no published design. Keep the
+      // cache only on network failure, not after a confirmed empty response.
+      const doc = serverDoc?.config
+        ? { ...serverDoc, config: normalizeDesignConfig(serverDoc.config) } : null;
       saveCachedPublishedDesign(doc);
       set({ publishedDesignV2: doc });
     },

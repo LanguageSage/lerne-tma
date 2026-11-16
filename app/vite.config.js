@@ -9,6 +9,9 @@ import { randomBytes } from 'node:crypto'
 const mode = (process.env.LERNE_MODE || '').toUpperCase();
 if (mode && mode !== 'LOCAL') throw new Error('Unknown LERNE_MODE; use LOCAL or leave it unset');
 const local = mode === 'LOCAL' || process.env.VITE_LERNE_LOCAL === '1';
+const preview = local && process.env.LERNE_V2_PREVIEW === '1';
+const localPort = preview ? 5174 : 5173;
+const localApiPort = preview ? 8002 : 8001;
 const localNonce = local ? randomBytes(16).toString('base64') : undefined;
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const localRoot = process.env.LERNE_DATA_ROOT || path.resolve(projectRoot, '../data');
@@ -25,6 +28,15 @@ if (local) {
 }
 const localPlugin = {
   name: 'lerne-local-isolation',
+  configureServer(server) {
+    if (!preview) return;
+    server.middlewares.use('/v2-preview', (_req, res) => {
+      res.setHeader('Content-Type', 'text/html; charset=utf-8');
+      res.setHeader('Cache-Control', 'no-store');
+      res.end(fs.readFileSync(path.join(projectRoot, 'local/v2_preview.html'), 'utf8')
+        .replaceAll('__NONCE__', localNonce));
+    });
+  },
   transformIndexHtml: html => html.replace(/<link[^>]+https:\/\/fonts\.[^>]+>/g, '')
     .replace(/<script src="https:\/\/telegram\.org[^>]+><\/script>/g, ''),
   transform(code, id) {
@@ -39,21 +51,22 @@ export default defineConfig(({ command }) => {
   // The regression server must not load developer credentials or proxy to a
   // configured backend. Missing API mocks fail against a closed local port.
   envDir: local || process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
-  define: { 'import.meta.env.VITE_LERNE_LOCAL': JSON.stringify(local ? '1' : '0') },
+  define: { 'import.meta.env.VITE_LERNE_LOCAL': JSON.stringify(local ? '1' : '0'),
+    'import.meta.env.VITE_LERNE_V2_PREVIEW': JSON.stringify(preview ? '1' : '0') },
   html: { cspNonce: localNonce },
   plugins: [react(), ...(local ? [localPlugin] : [])],
   server: {
     hmr: process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
     host: local ? '127.0.0.1' : true,
-    port: 5173,
+    port: local ? localPort : 5173,
     strictPort: local,
     allowedHosts: local ? ['localhost', '127.0.0.1'] : true,
     headers: local ? {
-      'Content-Security-Policy': `default-src 'self' blob: data:; script-src 'self' 'nonce-${localNonce}'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:5173 ws://localhost:5173; object-src 'none'; frame-src 'none'; form-action 'self'; base-uri 'self'`,
+      'Content-Security-Policy': `default-src 'self' blob: data:; script-src 'self' 'nonce-${localNonce}'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:${localPort} ws://localhost:${localPort}; object-src 'none'; frame-src 'none'; form-action 'self'; base-uri 'self'`,
     } : {},
     proxy: {
       '/api': {
-        target: local ? 'http://127.0.0.1:8001' : process.env.LERNE_ISOLATED_CHECKS === '1'
+        target: local ? `http://127.0.0.1:${localApiPort}` : process.env.LERNE_ISOLATED_CHECKS === '1'
           ? 'http://127.0.0.1:1'
           : process.env.VITE_DEV_API_TARGET || 'http://127.0.0.1:8001',
         changeOrigin: true,
@@ -61,8 +74,9 @@ export default defineConfig(({ command }) => {
           if (!local) return;
           proxy.on('proxyReq', (proxyReq, req) => {
             proxyReq.removeHeader('x-lerne-local-secret');
-            if (req.url?.split('?')[0] === '/api/auth/local/login'
-                && ['http://127.0.0.1:5173', 'http://localhost:5173'].includes(req.headers.origin)) {
+            const loginPaths = preview ? ['/api/auth/local/preview-users', '/api/auth/local/preview-login', '/api/auth/local/preview-admin'] : ['/api/auth/local/login'];
+            if (loginPaths.includes(req.url?.split('?')[0])
+                && [`http://127.0.0.1:${localPort}`, `http://localhost:${localPort}`].includes(req.headers.origin)) {
               const config = JSON.parse(fs.readFileSync(configPath, 'utf8'));
               if (config.login_secret) proxyReq.setHeader('x-lerne-local-secret', config.login_secret);
             }

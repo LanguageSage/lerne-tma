@@ -21,6 +21,11 @@ const UNDO_MS = 5000;
  * "suggest an improvement" message flow (`/messages`).
  */
 export function CardRating({ card, deckId }) {
+  const account = useUiStore(s => s.userProfile?.user_id);
+  return <CardRatingControls key={`${account}:${card?.id}`} card={card} deckId={deckId} />;
+}
+
+function CardRatingControls({ card, deckId }) {
   useInterfaceLocale();
   const isGuest = useUiStore(s => s.userProfile?.is_guest);
   const { userId, value, busy, save } = useCardRating(card?.id, deckId);
@@ -30,6 +35,13 @@ export function CardRating({ card, deckId }) {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState('');
   const draft = useRef({ id: null, text: '' });
+  const mounted = useRef(true);
+  const actionPending = useRef(false);
+
+  useEffect(() => {
+    mounted.current = true;
+    return () => { mounted.current = false; };
+  }, []);
 
   useEffect(() => {
     if (!notice) return undefined;
@@ -42,13 +54,17 @@ export function CardRating({ card, deckId }) {
 
   const rating = value?.rating ?? null;
   const run = async action => {
+    if (actionPending.current) return;
+    actionPending.current = true;
     setError('');
     try { await action(); }
     catch {
+      if (!mounted.current) return;
       setError(tr('Не удалось сохранить оценку. Повторите попытку.'));
       setPanel(null);
       setNotice(null);
     }
+    finally { actionPending.current = false; }
   };
   const vote = next => {
     if (userId == null || isGuest) {
@@ -62,9 +78,10 @@ export function CardRating({ card, deckId }) {
         await save(null);
         return;
       }
+      await save(next);
+      if (!mounted.current) return;
       setPanel(next === -1 ? 'dislike' : null);
       setNotice(next === 1 ? { previous: value } : null);
-      await save(next);
     });
   };
   const undo = () => run(async () => {
@@ -81,27 +98,31 @@ export function CardRating({ card, deckId }) {
     setSending(true); setError('');
     try {
       await api.put(`/messages/${draft.current.id}`, { text: body, card_id: card.id });
+      if (!mounted.current) return;
       draft.current = { id: null, text: '' };
       setText(''); setPanel(null);
       useUiStore.getState().showToast(tr('Предложение отправлено'), 'success');
-    } catch { setError(tr('Не удалось отправить предложение. Повторите попытку.')); }
-    finally { setSending(false); }
+    } catch { if (mounted.current) setError(tr('Не удалось отправить предложение. Повторите попытку.')); }
+    finally { if (mounted.current) setSending(false); }
   };
 
   return (
     <div className="study-card-rating" role="group" aria-label={tr('Оценка карточки')}>
-      <div className="card-rating-pill">
+      <div className="card-rating-pill" aria-busy={busy}>
         <button type="button" className={`card-rating-btn is-like ${rating === 1 ? 'is-on' : ''}`}
-          aria-pressed={rating === 1} aria-label={tr('Нравится')} title={tr('Нравится')}
+          aria-pressed={value ? rating === 1 : undefined} aria-label={tr('Нравится')} title={tr('Нравится')}
           disabled={busy} onClick={() => vote(1)}>
           <ThumbsUp size={18} aria-hidden="true" />
+          <span className="card-rating-count">{value?.likes ?? '—'}</span>
         </button>
         <button type="button" className={`card-rating-btn is-dislike ${rating === -1 ? 'is-on' : ''}`}
-          aria-pressed={rating === -1} aria-label={tr('Не нравится')} title={tr('Не нравится')}
+          aria-pressed={value ? rating === -1 : undefined} aria-label={tr('Не нравится')} title={tr('Не нравится')}
           disabled={busy} onClick={() => vote(-1)}>
           <ThumbsDown size={18} aria-hidden="true" />
+          <span className="card-rating-count">{value?.dislikes ?? '—'}</span>
         </button>
       </div>
+      {!value && !error && <p className="card-rating-note" role="status">{tr('Оценка пока не подтверждена сервером')}</p>}
       {error && <p className="card-rating-error" role="alert">{error}</p>}
       {notice && !panel && (
         <div className="card-rating-notice" role="status">

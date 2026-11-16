@@ -57,12 +57,47 @@ class CardRatingTests(unittest.TestCase):
         with self.assertRaises(IntegrityError):
             models.TMACardRating.insert(card=self.card.id, user_id=1, rating=0).execute()
 
+    def test_anonymous_totals_personal_vote_and_empty_card_in_one_batch(self):
+        empty = models.TMA_Card.create(deck=self.deck, front_text='Empty', back_text='Answer')
+        self.rate(user=1, rating=1)
+        saved = self.rate(user=2, rating=-1, reason='unclear')
+        self.assertEqual((saved['likes'], saved['dislikes'], saved['rating']), (1, 1, -1))
+        rows = router.list_deck_ratings.__wrapped__(self.deck.id, 1, include_counts=True)
+        self.assertEqual([(r['card_id'], r['likes'], r['dislikes'], r['rating'], r['reason']) for r in rows],
+                         [(self.card.id, 1, 1, 1, None), (empty.id, 0, 0, None, None)])
+        self.assertTrue(all(set(r) == {'card_id', 'likes', 'dislikes', 'rating', 'reason', 'updated_at'} for r in rows))
+        self.assertEqual(router.get_card_rating.__wrapped__(self.card.id, 2), saved)
+        self.assertEqual(self.rate(user=2, rating=None)['dislikes'], 0)
+
+    def test_batch_query_count_does_not_grow_with_card_count(self):
+        def query_count():
+            with patch.object(database, 'execute_sql', wraps=database.execute_sql) as execute:
+                router.list_deck_ratings.__wrapped__(self.deck.id, 1, include_counts=True)
+            queries = [call.args[0] for call in execute.call_args_list]
+            self.assertEqual(sum('GROUP BY' in sql for sql in queries), 1)
+            return len(queries)
+        small = query_count()
+        for i in range(30):
+            models.TMA_Card.create(deck=self.deck, front_text=f'Synthetic {i}', back_text='Answer')
+        self.assertEqual(query_count(), small)
+
+    def test_failed_response_query_rolls_back_mutation(self):
+        with patch.object(router, 'rating_summaries', side_effect=RuntimeError('synthetic failure')):
+            with self.assertRaises(RuntimeError):
+                self.rate(rating=1)
+        self.assertEqual(models.TMACardRating.select().count(), 0)
+
     def test_requires_read_access_and_live_card(self):
         with self.assertRaises(HTTPException):
             self.rate(user=3, rating=1)
         with self.assertRaises(HTTPException) as caught:
             router.list_deck_ratings.__wrapped__(self.deck.id, 3)
         self.assertEqual(caught.exception.status_code, 403)
+        with self.assertRaises(HTTPException) as caught:
+            router.get_card_rating.__wrapped__(self.card.id, 3)
+        self.assertEqual(caught.exception.status_code, 403)
+        with self.assertRaises(HTTPException):
+            router.list_deck_ratings.__wrapped__(self.deck.id, 3, include_counts=True)
         self.card.is_deleted = True
         self.card.save()
         with self.assertRaises(HTTPException) as caught:
