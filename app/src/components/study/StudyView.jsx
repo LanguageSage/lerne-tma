@@ -831,7 +831,12 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
             </div>
           </div>
         ) : (apiError || card) ? (
-          <StudyError deck={currentDeck} error={apiError || tr('Карточка недоступна в формате Structured Cards V2.')} onRetry={() => fetchNextCard(currentDeck.id, !card)} onGoToDecks={handleGoToTheme} />
+          <StudyError
+            deck={currentDeck}
+            error={apiError || tr('Карточка недоступна в формате Structured Cards V2.')}
+            onRetry={() => fetchNextCard(currentDeck.id, !card, !card && studyHistory.length ? studyHistory.map(c => c.id) : [])}
+            onGoToDecks={handleGoToTheme}
+          />
         ) : isSessionFinished ? (
           showLessonCompletion && !isCompletionDismissed && studyHistory.length > 0 ? (
             <LessonCompletion

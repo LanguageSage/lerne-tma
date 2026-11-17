@@ -8,6 +8,7 @@ import { Layers, Inbox, Pin, GripHorizontal, MoreHorizontal, ChevronRight, Users
 import { useUiStore } from '../../store/useUiStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { useDeckStore } from '../../store/useDeckStore';
+import { hasFreshDeckCards } from '../../store/slices/createDeckSlice.js';
 import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
 import { getSortedFolderTree } from '../../utils/deckUtils';
@@ -89,9 +90,11 @@ export const DeckCardItem = React.memo(({
     useUiStore.getState().setCardsScrollTop(0);
     useUiStore.getState().setLastSelectedCardId(null);
     useUiStore.getState().setView('deck_intro');
-    fetchDeckCards(deck.id).catch(error => {
-      if (error.response?.status === 401) useAuthStore.getState().deferNavigation({ deckId: deck.id, view: 'deck_intro' });
-    });
+    if (!hasFreshDeckCards(useDeckStore.getState(), deck.id)) {
+      fetchDeckCards(deck.id).catch(error => {
+        if (error.response?.status === 401) useAuthStore.getState().deferNavigation({ deckId: deck.id, view: 'deck_intro' });
+      });
+    }
   };
 
   const handleShare = async (e) => {

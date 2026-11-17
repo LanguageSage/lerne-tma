@@ -188,6 +188,22 @@ class StudyLatencyTests(unittest.TestCase):
             card_dto = router.get_study_card.__wrapped__(self.cards[0].id, user_id=1)
         self.assertEqual(card_dto['step_index'], 1)
 
+    def test_srs_selects_due_middle_card_regardless_of_position(self):
+        now = datetime.datetime.now()
+        for card in (self.cards[0], self.cards[2]):
+            progress = models.TMAProgress.get(models.TMAProgress.card_id == card.id)
+            progress.queue = 'review'
+            progress.next_review = now + datetime.timedelta(days=5)
+            progress.save()
+        middle = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[1].id)
+        middle.queue = 'review'
+        middle.next_review = now - datetime.timedelta(hours=1)
+        middle.save()
+        with patch.object(services, 'resolve_media_url', media.resolve_media_url, create=True), patch.object(
+                services, 'get_deck_stats_counts', return_value={}, create=True):
+            picked = router.get_next_card.__wrapped__(self.deck.id, user_id=1)
+        self.assertEqual(picked['id'], self.cards[1].id)
+
 
 if __name__ == '__main__':
     unittest.main()

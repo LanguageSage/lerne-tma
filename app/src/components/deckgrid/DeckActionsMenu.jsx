@@ -7,8 +7,13 @@ import { getSortedFolderTree } from '../../utils/deckUtils';
 import { reclassifyDeck } from '../../services/reclassificationService.js';
 
 export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMedia }) => {
-  const { setView, setIsRenameModalOpen, setDeckToRename, showToast } = useUiStore();
-  const { handleDeleteDeck, handleResetProgress, handleSyncDeck } = useDeckStore();
+  const setView = useUiStore(s => s.setView);
+  const setIsRenameModalOpen = useUiStore(s => s.setIsRenameModalOpen);
+  const setDeckToRename = useUiStore(s => s.setDeckToRename);
+  const showToast = useUiStore(s => s.showToast);
+  const handleDeleteDeck = useDeckStore(s => s.handleDeleteDeck);
+  const handleResetProgress = useDeckStore(s => s.handleResetProgress);
+  const handleSyncDeck = useDeckStore(s => s.handleSyncDeck);
 
   const [isDeckMenuOpen, setIsDeckMenuOpen] = React.useState(false);
   const [isMoveMenuOpen, setIsMoveMenuOpen] = React.useState(false);

@@ -24,6 +24,7 @@ const readOnly = () => { throw new Error(tr("У вас доступ только
 const pendingCreate = () => { throw new Error(tr('Сначала синхронизируйте новую карточку.')); };
 const pendingMove = () => { throw new Error(tr('Сначала завершите синхронизацию переноса.')); };
 const pendingLifecycle = () => { throw new Error(tr('Сначала завершите синхронизацию удаления или восстановления.')); };
+const incompleteCache = () => { throw new Error(tr('Полный список карточек колоды ещё не загружен на устройство. Подключитесь к сети и повторите попытку.')); };
 const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
 async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
@@ -337,6 +338,27 @@ async function deckStats(db, deckId, userId) {
   return stats;
 }
 
+async function isDeckCacheComplete(db, deckId, activeCount) {
+  if (deckId < 0) return true;
+  const [deck, deckCache, lastSync, totalCached] = await Promise.all([
+    db.decks.get(deckId),
+    db.syncState.get(`deck-cards:${deckId}`),
+    db.syncState.get('lastSync'),
+    db.cards.where('deck_id').equals(deckId).count(),
+  ]);
+  if (deckCache?.complete === false) {
+    if (!lastSync || (lastSync.readStartedAt || 0) < (deckCache.fetched_at || 0)) {
+      const expectedTotal = Number(deck?.stats?.total);
+      if (!(lastSync && expectedTotal > 0 && Math.max(activeCount, totalCached) >= expectedTotal)) {
+        return false;
+      }
+    }
+  }
+  if (deckCache?.complete || lastSync) return true;
+  if (Number(deck?.stats?.total) > Math.max(activeCount, totalCached)) return false;
+  return true;
+}
+
 async function nextCard(db, deckId, userId, params) {
   const cards = await deckCards(db, deckId);
   const exclude = new Set((params.get('exclude_ids') || '').split(',').map(Number));
@@ -351,7 +373,10 @@ async function nextCard(db, deckId, userId, params) {
   if (context !== 'forced') pool.sort((a, b) => rank(a.p) - rank(b.p)
     || new Date(a.p?.next_review || 0) - new Date(b.p?.next_review || 0)
     || (a.card.position || 0) - (b.card.position || 0));
-  if (!pool.length) return result({ finished: true });
+  if (!pool.length) {
+    if (!(await isDeckCacheComplete(db, deckId, cards.length))) incompleteCache();
+    return result({ finished: true });
+  }
   return result({ ...await cardView(db, pool[0].card, userId, context), deck_stats: await deckStats(db, deckId, userId) });
 }
 

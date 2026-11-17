@@ -20,7 +20,7 @@ function fixture(cache = data) {
     storage: { get: key => values.get(key), set: (key, value) => values.set(key, value) },
     localStorage: { getItem: key => values.get(key) },
     api: { get: (...args) => f.request(...args) }, console, setTimeout };
-  vm.runInNewContext(`${source}\nglobalThis.subject = createStore((set, get) => ({
+  vm.runInNewContext(`${source}\nglobalThis.hasFreshDeckCards = hasFreshDeckCards; globalThis.subject = createStore((set, get) => ({
     ...createDeckSlice(set, get), ...createFolderSlice(set, get), resetDeckStore: ${resetSource}
   }));`, context);
   return { context, store: context.subject, values, set userId(value) { userId = value; },
@@ -246,6 +246,26 @@ test('background card responses populate their deck cache without replacing the 
   await second;
   assert.equal(f.store.getState().deckCards[0].id, 22);
   assert.equal(f.store.getState().cardsLoading, false);
+});
+
+test('concurrent library load preserves fetchDeckCards deduplication and hasFreshDeckCards tracks identity and card id', async () => {
+  const f = fixture(), cardsResponse = deferred();
+  let deckCardsGets = 0;
+  f.request = path => {
+    if (path === '/decks/1/cards') { deckCardsGets++; return cardsResponse.promise; }
+    return Promise.resolve({ data: path === '/decks' ? data.decks : data.folders });
+  };
+  const first = f.store.getState().fetchDeckCards(1);
+  // Concurrent fetchDecks bumps libraryRequestId, which must not bust card fetch deduplication.
+  await f.store.getState().fetchDecks(true);
+  const second = f.store.getState().fetchDeckCards(1);
+  const [r1, r2] = (cardsResponse.resolve({ data: [{ id: 10 }, { id: 20 }] }), await Promise.all([first, second]));
+  assert.equal(deckCardsGets, 1);
+  assert.deepEqual(r1, r2);
+  assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 20), true);
+  assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 999), false);
+  f.userId = 202;
+  assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 20), false);
 });
 
 test('partial cache hydrates missing folders while preserving existing decks and persisted cache', () => {

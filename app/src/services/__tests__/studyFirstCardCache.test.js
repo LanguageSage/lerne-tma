@@ -141,3 +141,25 @@ test('cold mature card cached without db.progress preserves its SRS state offlin
   assert.equal(grade.data.graded_progress.repetitions, 6);
   assert.ok(grade.data.graded_progress.interval > 30);
 });
+
+test('incomplete offline deck cache never returns finished after grading cold card; complete cache can finish', async () => {
+  await api.get('/decks/5/next?review_context=scheduled');
+  navigator.onLine = false;
+  const grade = await api.post('/study/grade', {
+    card_id: 7, deck_id: 5, grade: 2, action_id: crypto.randomUUID(),
+    return_next: true, include_progress: true,
+  });
+  assert.equal(grade.data.status, 'success');
+  assert.notEqual(grade.data.finished, true);
+  assert.ok(grade.data.next_error);
+  assert.equal((await getLocalDb().progress.get([7, 1])).is_dirty, 1);
+  assert.equal((await getLocalDb().syncState.filter(r => r.key.startsWith('review:')).toArray()).length, 1);
+  await assert.rejects(api.get('/decks/5/next?review_context=scheduled'), /список карточек|загружен|синхрониз/i);
+
+  navigator.onLine = true;
+  respond = async () => ({ data: [card()] });
+  await api.get('/decks/5/cards');
+  navigator.onLine = false;
+  const completed = await api.get('/decks/5/next?review_context=scheduled');
+  assert.equal(completed.data.finished, true);
+});

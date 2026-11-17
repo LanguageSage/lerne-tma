@@ -551,22 +551,22 @@ export const CardActionModal = ({
   );
 };
 
-export const CardActionButton = ({ card, size = 16, className = "", stopDrag = false, refreshNotes = false }) => {
+export const CardActionButton = React.memo(({ card, size = 16, className = "", stopDrag = false, refreshNotes = false, hasNotes = undefined }) => {
   useInterfaceLocale();
-  const { setActionCard, setIsCardActionModalOpen, setLastSelectedCardId, setCardsScrollTop } = useUiStore();
-  const notes = useCardNotes(card?.id, card?.deck_id, refreshNotes);
+  const notes = useCardNotes(hasNotes === undefined ? card?.id : null, card?.deck_id, refreshNotes);
 
   const handleClick = (e) => {
     e.stopPropagation();
+    const ui = useUiStore.getState();
     const container = document.getElementById('app-container');
     if (container) {
-      setCardsScrollTop(container.scrollTop);
+      ui.setCardsScrollTop(container.scrollTop);
     }
     if (card?.id) {
-      setLastSelectedCardId(card.id);
+      ui.setLastSelectedCardId(card.id);
     }
-    setActionCard(card);
-    setIsCardActionModalOpen(true);
+    ui.setActionCard(card);
+    ui.setIsCardActionModalOpen(true);
   };
 
   return (
@@ -580,7 +580,7 @@ export const CardActionButton = ({ card, size = 16, className = "", stopDrag = f
       aria-haspopup="dialog"
     >
       <Settings2 size={size} />
-      <NoteIndicator {...notes} />
+      <NoteIndicator active={hasNotes !== undefined ? hasNotes : notes.active} />
     </button>
   );
-};
+});

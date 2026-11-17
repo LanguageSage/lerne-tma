@@ -1,3 +1,4 @@
+import { useCallback } from 'react';
 import { tr } from '../i18n/locale';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
@@ -7,17 +8,18 @@ import api from '../services/api';
 import { getSessionIdentity } from '../utils/auth';
 
 export const useCardNavigation = () => {
-  const { setView, setEditorSourceView, userProfile, setIsAuthModalOpen, setLastSelectedCardId, setCardsScrollTop, showToast } = useUiStore();
-  const { setEditingCard } = useSessionStore();
+  const userProfile = useUiStore(s => s.userProfile);
 
   const captureScroll = () => {
     const container = document.getElementById('app-container');
     if (container) {
-      setCardsScrollTop(container.scrollTop);
+      useUiStore.getState().setCardsScrollTop(container.scrollTop);
     }
   };
 
-  const openEditor = async (deckId, cardToEdit = null, source = 'cards') => {
+  const openEditor = useCallback(async (deckId, cardToEdit = null, source = 'cards') => {
+    const { setView, setEditorSourceView, setIsAuthModalOpen, setLastSelectedCardId, showToast } = useUiStore.getState();
+    const { setEditingCard } = useSessionStore.getState();
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr("Для редактирования карточек войдите через Telegram"));
       return;
@@ -54,9 +56,11 @@ export const useCardNavigation = () => {
     }
     setEditorSourceView(source);
     setView('editor');
-  };
+  }, [userProfile?.is_guest]);
 
-  const openCreator = (deckId, source = 'cards', afterCardId = null) => {
+  const openCreator = useCallback((deckId, source = 'cards', afterCardId = null) => {
+    const { setView, setEditorSourceView, setIsAuthModalOpen } = useUiStore.getState();
+    const { setEditingCard } = useSessionStore.getState();
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr("Для создания карточек войдите через Telegram"));
       return;
@@ -71,7 +75,7 @@ export const useCardNavigation = () => {
       after_card_id: afterCardId
     });
     setView('creator');
-  };
+  }, [userProfile?.is_guest]);
 
   return { openEditor, openCreator };
 };

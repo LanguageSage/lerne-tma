@@ -309,3 +309,17 @@ background `fetchDeckCards` for `nextReview`; and study/card list DTOs include
 `ease_factor`, `repetitions`, `step_index` and `last_reviewed` for cold `initialProgress`
 fallback. Regression coverage: `studyFirstCardCache.test.js`, `test_study_latency.py`,
 `card-cutover-preflight.spec.cjs`, and `study-latency.spec.cjs`.
+
+List/offline follow-up: `api.js` records `syncState` completeness markers
+(`deck-cards:<deckId>` `complete: false` on partial single-card `/next` or `/cards/{id}`
+writes without `lastSync` or uncached local rows, `complete: true` on `/decks/{id}/cards`,
+cleared on full snapshot pull and tolerated by `cardCutoverPreflight.js`). `offlineApi.nextCard`
+checks cache completeness instead of returning `{ finished: true }` when grading the only
+partially cached card offline, returning recoverable `next_error` while keeping the grade
+and Knowledge evidence; `StudyError` retry excludes already-presented `studyHistory` cards
+when `!card`. `DraggableCardItem` and `DeckGrid` global search open cards from the whole
+card surface (excluding interactive child controls/selection), `startStudyCard` falls back
+to `cardsByDeck`, `createDeckSlice.fetchDeckCards` keys cancellation to `storeGeneration`
+so concurrent `fetchDecks` never breaks in-flight deduplication, `hasFreshDeckCards` skips
+redundant `/cards` prefetches, and `CardList`/`CardActionButton` use targeted Zustand
+selectors, memoized styles/IDs and a single deck-level `useDeckNoteCardIds` `liveQuery`.

@@ -90,7 +90,8 @@ test('empty queues never authorize global cutover; unknown schema and unavailabl
     await db.syncState.bulkPut([
       { key: 'lastSync', time: 'today' },
       { key: 'grade:ok', fingerprint: '{}' },
-      { key: 'knowledge-content:5', revision: 'rev-1', updated_at: 123456 }
+      { key: 'knowledge-content:5', revision: 'rev-1', updated_at: 123456 },
+      { key: 'deck-cards:5', complete: false, fetched_at: 123456 }
     ]);
     db.close();
     return window.cutover.inspectCardCutover();

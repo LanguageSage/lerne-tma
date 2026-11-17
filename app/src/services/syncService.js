@@ -532,6 +532,7 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
         if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
       }
     }
+    await db.syncState.where('key').startsWith('deck-cards:').delete();
     await db.syncState.put({ key: 'lastSync', time: data.server_time, readStartedAt: pullStartedAt });
     if (!isCurrent()) throw new Error('Session changed');
     return true;

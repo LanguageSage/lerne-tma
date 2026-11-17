@@ -745,3 +745,155 @@ test('cold finished deck still fetches cards and renders next review date', asyn
   await expect(page.locator('.finished-view')).toBeVisible();
   await expect(page.locator('.finished-view')).toContainText('Следующее повторение:');
 });
+
+test('incomplete offline deck cache preserves grade and Knowledge without false completion and retries cleanly', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  const largeDeck = { ...deck, stats: { total: 10, new: 10, due: 0, learning: 0 } };
+  let releaseCards;
+  await page.route('**/api/decks/1/cards*', route => { releaseCards = route; });
+  const nextUrls = [];
+  await page.route('**/api/decks/1/next*', route => {
+    nextUrls.push(route.request().url());
+    return route.fulfill({ json: cards[nextUrls.length === 1 ? 0 : 1] });
+  });
+  await page.evaluate(async largeDeck => {
+    const db = (await import('/src/services/localDb.js')).getLocalDb();
+    await db.cards.clear();
+    await db.decks.put({ ...largeDeck, user_id: 1, role: 'owner' });
+    await db.syncState.clear();
+    deckStore.setState({ currentDeck: largeDeck, deckCards: [], cardsByDeck: {} });
+    await studyNavigation.startStudy(largeDeck);
+  }, largeDeck);
+  await expect(page.getByText(cards[0].front, { exact: true }).first()).toBeVisible();
+  await expect.poll(() => Boolean(releaseCards)).toBe(true);
+
+  await releaseCards.abort('internetdisconnected');
+  await context.setOffline(true);
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await expect.poll(() => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(1);
+  expect(await page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().syncState.filter(r => r.key.startsWith('review:')).count())).toBe(1);
+  expect(await page.evaluate(() => sessionStore.getState().isSessionFinished)).toBe(false);
+  expect(await page.evaluate(() => Object.keys(sessionStore.getState().gradeErrors).length)).toBe(0);
+  await expect(page.locator('.study-error-message')).toBeVisible();
+  await expect(page.locator('#tut-study-card')).toHaveCount(0);
+
+  // Retry while still offline keeps retry state and does not show completion or re-grade card 1.
+  await page.getByRole('button', { name: /Повторить запрос|Retry/i }).click();
+  await expect(page.locator('.study-error-message')).toBeVisible();
+  expect(await page.evaluate(() => sessionStore.getState().isSessionFinished)).toBe(false);
+
+  // Reconnect and retry loads card 2 cleanly without duplicate grade/attempt or re-presenting card 1.
+  await context.setOffline(false);
+  await page.getByRole('button', { name: /Повторить запрос|Retry/i }).click();
+  await expect(page.getByText(cards[1].front, { exact: true }).first()).toBeVisible();
+  expect(nextUrls[1]).toContain('exclude_ids=1');
+  expect(await page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(1);
+});
+
+test('ordinary study always starts with server SRS middle card on cold and warm cache', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  const tenCards = Array.from({ length: 10 }, (_, i) => ({
+    ...cards[0], id: i + 1, position: i, front: `SRS Word ${i + 1}`, back: `SRS Answer ${i + 1}`,
+    content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: `SRS Word ${i + 1}`, answer: `SRS Answer ${i + 1}` }, info: [] } },
+  }));
+  await page.route('**/api/decks/1/next*', route => route.fulfill({ json: tenCards[5] }));
+  await page.route('**/api/decks/1/cards*', route => route.fulfill({ json: tenCards }));
+
+  // Cold start
+  await page.evaluate(async deck => {
+    deckStore.setState({ deckCards: [], cardsByDeck: {} });
+    await studyNavigation.startStudy(deck);
+  }, deck);
+  await expect(page.getByText('SRS Word 6', { exact: true }).first()).toBeVisible();
+  expect(await page.evaluate(() => sessionStore.getState().card.id)).toBe(6);
+
+  // Warm start with full deckCards in memory (must NOT fall back to tenCards[0])
+  await expect.poll(() => page.evaluate(() => deckStore.getState().deckCards.length)).toBe(10);
+  await page.evaluate(deck => studyNavigation.startStudy(deck), deck);
+  await expect(page.getByText('SRS Word 6', { exact: true }).first()).toBeVisible();
+  expect(await page.evaluate(() => sessionStore.getState().card.id)).toBe(6);
+});
+
+test('CardList opens card from main card surface and search with 0 extra HTTP while preserving controls and scroll', async ({ page, context }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await setup(page, context, false, 'ru');
+  const fortyFiveCards = Array.from({ length: 45 }, (_, i) => ({
+    ...cards[0], id: i + 1, position: i,
+    front: `List Word ${i + 1}${i === 0 ? ' '.repeat(1) + 'long '.repeat(35) : ''}`,
+    back: `List Answer ${i + 1}`,
+    content_v2: { schema_version: 2, card: { type: 'standard',
+      data: { prompt: `List Word ${i + 1}${i === 0 ? ' long'.repeat(35) : ''}`, answer: `List Answer ${i + 1}` }, info: [] } },
+  }));
+  let listCalls = 0, studyCardCalls = 0, editorCardCalls = 0;
+  await page.route('**/api/decks', route => route.fulfill({ json: [{ ...deck, folder_id: null, role: 'owner', is_learning: true }] }));
+  await page.route('**/api/folders', route => route.fulfill({ json: [] }));
+  await page.route('**/api/decks/1/cards*', route => { listCalls++; return route.fulfill({ json: fortyFiveCards }); });
+  await page.route('**/api/study/card/*', route => { studyCardCalls++; return route.fulfill({ json: fortyFiveCards[0] }); });
+  await page.route('**/api/cards/*', route => {
+    if (route.request().url().includes('/api/cards/search')) return route.fallback();
+    editorCardCalls++;
+    return route.fulfill({ json: fortyFiveCards[0] });
+  });
+  await page.route('**/api/cards/search*', route => route.fulfill({ json: { cards: [fortyFiveCards[1]] } }));
+
+  await page.evaluate(async ({ deck, fortyFiveCards }) => {
+    const fresh = fortyFiveCards.map(c => ({ ...c, _studyFetchedAt: Date.now(), _studyIdentity: JSON.parse(localStorage.getItem('lerne_auth_v2_session')).refresh_token, _studyContext: 'scheduled' }));
+    deckStore.setState({ decks: [{ ...deck, folder_id: null, role: 'owner', is_learning: true }], currentDeck: { ...deck, role: 'owner' }, deckCards: fresh, cardsByDeck: { 1: fresh }, cardsLoading: false });
+    uiStore.getState().setView('cards');
+  }, { deck, fortyFiveCards });
+  await page.locator('#card-item-1').waitFor();
+
+  // Expand button expands text without opening study
+  await page.locator('#card-item-1 .card-expand-btn').click();
+  expect(await page.evaluate(() => uiStore.getState().view)).toBe('cards');
+
+  // Action button opens action modal without opening study
+  await page.locator('#card-item-1 .card-item-actions-trigger').click();
+  await expect(page.locator('.modal-content, .card-action-modal')).toBeVisible();
+  expect(await page.evaluate(() => uiStore.getState().view)).toBe('cards');
+  await page.keyboard.press('Escape');
+
+  // Select mode toggles selection without navigating to study
+  await page.getByTitle('Выбрать несколько карточек').click();
+  await page.locator('#card-item-2').click();
+  expect(await page.evaluate(() => uiStore.getState().view)).toBe('cards');
+  await expect(page.locator('#card-item-2')).toHaveClass(/is-selected/);
+  await page.getByTitle('Выйти из режима выбора').click();
+
+  // Scroll down, click outer card surface/padding (inside 18px radius, outside .card-item-text) -> opens card in Study with 0 study/card HTTP!
+  await page.evaluate(() => { document.getElementById('app-container').scrollTop = 300; });
+  studyCardCalls = 0;
+  const cardItem2 = page.locator('#card-item-2');
+  const box = await cardItem2.boundingBox();
+  await page.mouse.click(box.x + box.width - 20, box.y + 8);
+  await expect.poll(() => page.evaluate(() => [uiStore.getState().view, sessionStore.getState().card?.id])).toEqual(['study', 2]);
+  expect(studyCardCalls).toBe(0);
+
+  // Back returns to CardList preserving lastSelectedCardId & scroll position
+  await page.locator('.view-study .back-btn').click({ force: true });
+  await page.locator('#card-item-2').waitFor();
+  expect(await page.evaluate(() => uiStore.getState().lastSelectedCardId)).toBe(2);
+
+  // CardList search -> click card opens Study immediately with 0 HTTP!
+  await page.locator('.view-cards [title*="Поиск"]').click();
+  await page.locator('.view-cards .card-search-input').fill('List Word 30');
+  const cornerBox = await page.locator('#card-item-30 .card-item-corner-number').boundingBox();
+  await page.mouse.click(cornerBox.x + cornerBox.width / 2, cornerBox.y + cornerBox.height / 2);
+  await expect.poll(() => page.evaluate(() => [uiStore.getState().view, sessionStore.getState().card?.id])).toEqual(['study', 30]);
+  expect(studyCardCalls).toBe(0);
+
+  // DeckGrid search -> click card surface when deck already in memory opens CardList with 0 redundant /cards HTTP!
+  await page.locator('.view-study .back-btn').click({ force: true });
+  await page.locator('.view-cards .back-btn').click({ force: true });
+  await page.getByRole('button', { name: 'Назад' }).click();
+  await page.locator('#deck-item-1').waitFor();
+  listCalls = 0;
+  await page.locator('[title*="Поиск"]').first().click();
+  await page.locator('.card-search-input').first().fill('List Word 2');
+  await page.locator('.search-card-item-styled').first().waitFor();
+  const sBox = await page.locator('.search-card-item-styled').first().boundingBox();
+  await page.mouse.click(sBox.x + sBox.width - 20, sBox.y + 8);
+  await expect.poll(() => page.evaluate(() => [uiStore.getState().view, uiStore.getState().lastSelectedCardId])).toEqual(['cards', 2]);
+  expect(listCalls).toBe(0);
+  void editorCardCalls;
+});

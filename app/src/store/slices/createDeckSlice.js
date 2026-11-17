@@ -9,6 +9,19 @@ import { mergeStudyCardPatch, mergeStudyProgress } from '../../utils/structuredS
 
 let reorderTimeout = null;
 
+export const hasFreshDeckCards = (state, deckId, requiredCardId = null, maxAgeMs = 60_000) => {
+  const cards = state.currentDeck?.id === deckId && state.deckCards?.length
+    ? state.deckCards
+    : state.cardsByDeck?.[deckId];
+  if (!cards?.length) return false;
+  if (requiredCardId != null && !cards.some(card => String(card.id) === String(requiredCardId))) {
+    return false;
+  }
+  const identity = getSessionIdentity();
+  const now = Date.now();
+  return cards.every(card => card._studyIdentity === identity && now - (card._studyFetchedAt || 0) < maxAgeMs);
+};
+
 export const createDeckSlice = (set, get) => {
   const pendingLoads = new Map();
   const pendingLearning = new Map();
@@ -196,9 +209,9 @@ export const createDeckSlice = (set, get) => {
     const state = get();
     const account = getUserId();
     const identity = getSessionIdentity();
-    const requestId = state.libraryRequestId;
+    const generation = state.storeGeneration;
     const isCurrent = () => account === getUserId() && identity === getSessionIdentity()
-      && requestId === get().libraryRequestId;
+      && generation === get().storeGeneration;
     const entry = { deckId, isCurrent };
     const isSameDeck = state.currentDeck?.id === deckId;
     const cached = state.cardsByDeck[deckId];

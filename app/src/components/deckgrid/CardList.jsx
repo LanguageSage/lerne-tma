@@ -41,21 +41,36 @@ import { FloatingBatchDock } from './FloatingBatchDock';
 import { useCardSelectMode } from '../../hooks/useCardSelectMode';
 import { useCardDnd } from '../../hooks/useCardDnd';
 import { useDeckImageResize } from '../../hooks/useDeckImageResize';
+import { useDeckNoteCardIds } from '../../hooks/useCardNotes';
 
 
 export const CardList = ({ startStudy, startStudyCard }) => {
   useInterfaceLocale();
   const { t } = useTranslation();
-  const { view, setIsSettingsOpen, setCardsScrollTop, setIsBatchModalOpen } = useUiStore();
-  const { currentDeck, deckCards, cardsLoading, folders, decks } = useDeckStore();
+  const view = useUiStore(s => s.view);
+  const setIsSettingsOpen = useUiStore(s => s.setIsSettingsOpen);
+  const setCardsScrollTop = useUiStore(s => s.setCardsScrollTop);
+  const setIsBatchModalOpen = useUiStore(s => s.setIsBatchModalOpen);
+  const currentDeck = useDeckStore(s => s.currentDeck);
+  const deckCards = useDeckStore(s => s.deckCards);
+  const cardsLoading = useDeckStore(s => s.cardsLoading);
+  const folders = useDeckStore(s => s.folders);
+  const decks = useDeckStore(s => s.decks);
   const { handleBatchMoveCards, handleBatchCopyCards, handleBatchDeleteCards } = useCardActions();
 
 
   const effectiveCardListConfig = useSettingsStore(s => s.activeDesignConfig?.cardList) || DEFAULT_DESIGN_CONFIG_V2.cardList;
   const effectiveCardBg = effectiveCardListConfig.card.bg;
   const cardListBg = React.useMemo(() => getCardListBgStyle(effectiveCardBg), [effectiveCardBg]);
-  const frontTypographyStyle = getDesignTextStyle(effectiveCardListConfig.frontText);
-  const backTypographyStyle = getDesignTextStyle(effectiveCardListConfig.backText);
+  const frontTypographyStyle = React.useMemo(
+    () => getDesignTextStyle(effectiveCardListConfig.frontText),
+    [effectiveCardListConfig.frontText]
+  );
+  const backTypographyStyle = React.useMemo(
+    () => getDesignTextStyle(effectiveCardListConfig.backText),
+    [effectiveCardListConfig.backText]
+  );
+  const noteCardIds = useDeckNoteCardIds(view === 'cards');
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -153,6 +168,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     if (searchQuery.trim()) return filteredCards;
     return filteredCards.slice(0, visibleCount);
   }, [filteredCards, searchQuery, visibleCount]);
+  const sortableItems = React.useMemo(() => renderedCards.map(c => c.id), [renderedCards]);
 
 
   const { uploadDeckResource } = useMediaUpload();
@@ -528,7 +544,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
               onDragEnd={canEditContent ? handleDragEnd : undefined}
             >
               <SortableContext
-                items={renderedCards.map(c => c.id)}
+                items={sortableItems}
                 strategy={verticalListSortingStrategy}
               >
                 <div className="card-list">
@@ -548,6 +564,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       isSelectMode={isSelectMode}
                       isSelected={selectedCardIds.has(c.id)}
                       onToggleSelect={handleToggleSelectCard}
+                      hasNotes={noteCardIds.has(c.id)}
                     />
                   ))}
                   {visibleCount < filteredCards.length && !searchQuery.trim() && (

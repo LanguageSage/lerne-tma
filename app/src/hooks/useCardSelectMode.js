@@ -12,7 +12,7 @@ import { useUiStore } from '../store/useUiStore';
  * @param {string} view           - App view name — resets selection on change
  */
 export function useCardSelectMode(filteredCards, currentDeckId, view) {
-  const { showToast } = useUiStore();
+  const showToast = useUiStore(s => s.showToast);
 
   const [isSelectMode, setIsSelectMode] = useState(false);
   const [selectedCardIds, setSelectedCardIds] = useState(new Set());

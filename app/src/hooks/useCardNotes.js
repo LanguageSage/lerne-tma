@@ -42,3 +42,38 @@ export function useCardNotes(cardId, deckId, refresh = false) {
   return { rows, error: current ? state.error : null, loading: current && state.loading,
     reload, active: rows.length > 0 };
 }
+
+const EMPTY_NOTE_IDS = new Set();
+
+export function useDeckNoteCardIds(enabled = true) {
+  const userId = useUiStore(s => s.userProfile?.user_id) ?? getUserId();
+  const [state, setState] = useState({ userId: null, cardIds: EMPTY_NOTE_IDS });
+
+  useEffect(() => {
+    if (!enabled || userId == null) return;
+    let cancelled = false;
+    const db = getLocalDb();
+    const subscription = liveQuery(() => db.card_notes.toArray()).subscribe({
+      next: rows => {
+        if (cancelled) return;
+        const next = new Set();
+        for (const row of rows) {
+          if (!row.is_deleted && row.kind !== 'suggestion' && String(row.user_id) === String(userId)) {
+            next.add(row.card_id);
+          }
+        }
+        setState(prev => {
+          const sameUser = prev.userId === userId;
+          const prevIds = prev.cardIds;
+          if (sameUser && prevIds.size === next.size && [...prevIds].every(id => next.has(id))) return prev;
+          return { userId, cardIds: next.size ? next : EMPTY_NOTE_IDS };
+        });
+      },
+      error: () => { if (!cancelled) setState({ userId, cardIds: EMPTY_NOTE_IDS }); },
+    });
+    return () => { cancelled = true; subscription.unsubscribe(); };
+  }, [enabled, userId]);
+
+  return enabled && state.userId === userId && String(userId) === String(getUserId())
+    ? state.cardIds : EMPTY_NOTE_IDS;
+}

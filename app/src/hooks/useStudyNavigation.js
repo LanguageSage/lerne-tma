@@ -3,6 +3,7 @@ import { useCallback, useEffect } from 'react';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useDeckStore } from '../store/useDeckStore';
+import { hasFreshDeckCards } from '../store/slices/createDeckSlice.js';
 import { useSessionStore } from '../store/useSessionStore';
 import { useCardActions } from './useCardActions';
 import { createAssessment, canResumeAssessment } from '../utils/assessment.js';
@@ -63,8 +64,7 @@ export function useStudyNavigation() {
       await fetchNextCard(deck.id, true);
       // SRS chooses the first card independently of the full list. Refresh the
       // list afterwards, so serialization/IndexedDB work cannot delay its paint.
-      const freshList = hasCards && state.deckCards.every(card => card._studyIdentity === identity
-        && Date.now() - card._studyFetchedAt < 60_000);
+      const freshList = hasCards && hasFreshDeckCards(state, deck.id);
       const sessionState = useSessionStore.getState();
       if (!needsWholeDeck && !freshList && identity === getSessionIdentity() && getUserId() === userId
         && sessionState.sessionRevision === revision
@@ -99,7 +99,9 @@ export function useStudyNavigation() {
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       
       const deckState = useDeckStore.getState();
-      let cards = deck.id === 'duplicates' ? (deckState.duplicateCards || []) : (deckState.deckCards || []);
+      let cards = deck.id === 'duplicates'
+        ? (deckState.duplicateCards || [])
+        : (deckState.deckCards?.length ? deckState.deckCards : (deckState.cardsByDeck?.[deck.id] || []));
       let localCard = cards.find(c => String(c.id) === String(cardId) && isNativeStudyCard(c));
 
       // Fast path: card is already in memory -> instant transition (0ms delay)

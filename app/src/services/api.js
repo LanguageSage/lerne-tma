@@ -199,20 +199,32 @@ const api = new Proxy(axiosInstance, {
                       if (keepLocalCard(cached, requestStartedAt)) return cached;
                       return card;
                     }));
-                    await db.cards.bulkPut(cards.filter((card, index) => visible[index] === card
+                    const written = cards.filter((card, index) => visible[index] === card
                       && card.content_v2?.schema_version === 2 && card.revision
                       && (local[index] ? local[index].content_v2 && !local[index].is_dirty
                         : !(lastSync?.readStartedAt > requestStartedAt)))
-                      .map(card => ({ ...card, offline_read_started_at: requestStartedAt, is_dirty: 0 })));
+                      .map(card => ({ ...card, offline_read_started_at: requestStartedAt, is_dirty: 0 }));
+                    if (written.length) await db.cards.bulkPut(written);
                     if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
                     if (deckMatch) {
                       const deckId = Number(deckMatch[1]);
+                      await db.syncState.put({ key: `deck-cards:${deckId}`, complete: true, fetched_at: requestStartedAt });
                       const ids = new Set(cards.map(card => card.id));
                       const pending = await db.cards.where('deck_id').equals(deckId)
                         .filter(card => !ids.has(card.id) && !card.is_deleted && (card.offline_create_status
                           || keepLocalCard(card, requestStartedAt))).toArray();
                       return [...visible.filter((card, index) => !card.is_deleted
                         && (card === cards[index] || card.deck_id === deckId)), ...pending];
+                    }
+                    const partialDeckIds = [...new Set(written
+                      .filter(card => card.deck_id > 0 && (!lastSync || !local[cards.findIndex(c => c.id === card.id)]))
+                      .map(card => card.deck_id))];
+                    for (const deckId of partialDeckIds) {
+                      const existing = await db.syncState.get(`deck-cards:${deckId}`);
+                      const uncached = !local[cards.findIndex(c => c.deck_id === deckId)];
+                      if (!existing?.complete || uncached) {
+                        await db.syncState.put({ key: `deck-cards:${deckId}`, complete: false, fetched_at: requestStartedAt });
+                      }
                     }
                     return visible[0];
                   });

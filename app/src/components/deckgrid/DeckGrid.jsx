@@ -25,6 +25,7 @@ import {
 import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, ChevronDown, Search, Loader2 } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
+import { hasFreshDeckCards } from '../../store/slices/createDeckSlice.js';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { useTranslation } from '../../i18n/i18nContext';
 import { ImportModal } from '../modals/ImportModal';
@@ -56,18 +57,33 @@ export const DeckGrid = ({
   const [searchedCards, setSearchedCards] = useState([]);
   const [isSearchingCards, setIsSearchingCards] = useState(false);
 
-  const { 
-    view, loading, hasInitialized, setIsNewDeckModalOpen, setIsSettingsOpen, 
-    showToast, setIsRenameModalOpen, setDeckToRename, userProfile, setIsAuthModalOpen,
-    activeFolderId, setActiveFolderId 
-  } = useUiStore();
+  const view = useUiStore(s => s.view);
+  const loading = useUiStore(s => s.loading);
+  const hasInitialized = useUiStore(s => s.hasInitialized);
+  const setIsNewDeckModalOpen = useUiStore(s => s.setIsNewDeckModalOpen);
+  const setIsSettingsOpen = useUiStore(s => s.setIsSettingsOpen);
+  const showToast = useUiStore(s => s.showToast);
+  const setIsRenameModalOpen = useUiStore(s => s.setIsRenameModalOpen);
+  const setDeckToRename = useUiStore(s => s.setDeckToRename);
+  const userProfile = useUiStore(s => s.userProfile);
+  const setIsAuthModalOpen = useUiStore(s => s.setIsAuthModalOpen);
+  const activeFolderId = useUiStore(s => s.activeFolderId);
+  const setActiveFolderId = useUiStore(s => s.setActiveFolderId);
 
-  const { 
-    decks, folders, setCurrentDeck, fetchDeckCards, 
-    handleSyncDeck, handleResetProgress, handleDeleteDeck, 
-    setDeckCards, togglePinDeck,
-    duplicateCards, isFetchingDecks, libraryStatus, libraryError, fetchDecks
-  } = useDeckStore();
+  const decks = useDeckStore(s => s.decks);
+  const folders = useDeckStore(s => s.folders);
+  const setCurrentDeck = useDeckStore(s => s.setCurrentDeck);
+  const fetchDeckCards = useDeckStore(s => s.fetchDeckCards);
+  const handleSyncDeck = useDeckStore(s => s.handleSyncDeck);
+  const handleResetProgress = useDeckStore(s => s.handleResetProgress);
+  const handleDeleteDeck = useDeckStore(s => s.handleDeleteDeck);
+  const setDeckCards = useDeckStore(s => s.setDeckCards);
+  const togglePinDeck = useDeckStore(s => s.togglePinDeck);
+  const duplicateCards = useDeckStore(s => s.duplicateCards);
+  const isFetchingDecks = useDeckStore(s => s.isFetchingDecks);
+  const libraryStatus = useDeckStore(s => s.libraryStatus);
+  const libraryError = useDeckStore(s => s.libraryError);
+  const fetchDecks = useDeckStore(s => s.fetchDecks);
 
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const langInfo = useLanguageStore(state => state.getLanguageInfo());
@@ -123,7 +139,9 @@ export const DeckGrid = ({
       useUiStore.getState().setCardsScrollTop(0);
       useUiStore.getState().setLastSelectedCardId(card.id);
       useUiStore.getState().setView('cards');
-      fetchDeckCards(targetDeck.id);
+      if (!hasFreshDeckCards(useDeckStore.getState(), targetDeck.id, card.id)) {
+        fetchDeckCards(targetDeck.id);
+      }
     }
   };
 
@@ -466,13 +484,13 @@ export const DeckGrid = ({
                         <div
                           key={`searched-card-${c.id}`}
                           className="card-item card-front glass search-card-item-styled"
-                          style={flagStyle}
+                          style={{ ...flagStyle, cursor: 'pointer' }}
+                          onClick={(e) => {
+                            if (e.defaultPrevented || e.target?.closest?.('a, button, input, textarea, select') || window.getSelection?.()?.toString()) return;
+                            handleSelectSearchedCard(c);
+                          }}
                         >
-                          <div 
-                            className="card-item-text"
-                            onClick={() => handleSelectSearchedCard(c)}
-                            style={{ cursor: 'pointer' }}
-                          >
+                          <div className="card-item-text">
                             <div className="front-min">
                               {prompt}
                             </div>
@@ -485,9 +503,12 @@ export const DeckGrid = ({
 
                           <div className="card-item-footer">
                             <div className="card-item-footer-left">
-                              <span 
-                                className="search-card-deck-tag" 
-                                onClick={() => handleSelectSearchedCard(c)}
+                              <span
+                                className="search-card-deck-tag"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectSearchedCard(c);
+                                }}
                                 style={{ cursor: 'pointer' }}
                                 title={t('decks.open_deck', 'Открыть колоду')}
                               >

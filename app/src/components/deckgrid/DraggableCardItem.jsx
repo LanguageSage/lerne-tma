@@ -27,7 +27,8 @@ export const DraggableCardItem = React.memo(({
   previewCardLines,
   isSelectMode = false,
   isSelected = false,
-  onToggleSelect
+  onToggleSelect,
+  hasNotes
 }) => {
   useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
@@ -81,12 +82,14 @@ export const DraggableCardItem = React.memo(({
   };
 
   const handleItemClick = (event) => {
-    if (createStatus) return;
+    if (createStatus || isDragging || event.defaultPrevented) return;
     if (isSelectMode) {
       event.stopPropagation();
       onToggleSelect?.(c.id);
       return;
     }
+    if (event.target?.closest?.('a, button, input, textarea, select')) return;
+    if (window.getSelection?.()?.toString()) return;
     const container = document.getElementById('app-container');
     if (container) useUiStore.getState().setCardsScrollTop(container.scrollTop);
     useUiStore.getState().setLastSelectedCardId(c.id);
@@ -96,10 +99,10 @@ export const DraggableCardItem = React.memo(({
   return (
     <div
       ref={setNodeRef}
-      style={{ ...style, ...cardListBg?.style }}
+      style={{ ...style, ...cardListBg?.style, cursor: createStatus ? 'default' : 'pointer' }}
       id={`card-item-${c.id}`}
       className={`card-item card-front glass ${cardListBg?.className || ''} card-item-draggable ${isDragging ? 'is-dragging' : ''} ${isSelectMode ? 'is-select-mode' : ''} ${isSelected ? 'is-selected' : ''}`}
-      onClick={isSelectMode && !createStatus ? () => onToggleSelect?.(c.id) : undefined}
+      onClick={handleItemClick}
     >
       {isSelectMode && !createStatus && (
         <div className="card-select-checkbox">
@@ -108,8 +111,7 @@ export const DraggableCardItem = React.memo(({
       )}
       <div
         className="card-item-text"
-        onClick={handleItemClick}
-        style={{ cursor: createStatus ? 'default' : 'pointer', position: 'relative' }}
+        style={{ position: 'relative' }}
       >
         <div
           className={`front-min ${isExpanded ? 'expanded' : ''}`}
@@ -153,7 +155,14 @@ export const DraggableCardItem = React.memo(({
         <div className="card-edit-status">
           <small role="status">{offlineEditLabel(c.offline_edit)}</small>
           {!isSelectMode && (
-            <button type="button" className="btn btn-secondary" onClick={() => openEditor(c.deck_id, c)}>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={(e) => {
+                e.stopPropagation();
+                openEditor(c.deck_id, c);
+              }}
+            >
               {tr('Открыть локальную правку')}
             </button>
           )}
@@ -190,6 +199,7 @@ export const DraggableCardItem = React.memo(({
               size={16}
               className="card-item-actions-trigger"
               stopDrag={true}
+              hasNotes={hasNotes}
             />
           )}
         </div>
