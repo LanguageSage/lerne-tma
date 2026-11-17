@@ -61,6 +61,20 @@ class PreviewBoundaryTests(unittest.TestCase):
         authorize.assert_called_once_with(request, 'synthetic')
         opener.assert_called_once_with('http://127.0.0.1:8051/')
 
+    def test_admin_environment_prepends_checkout_src(self):
+        import os
+        import tempfile
+        from local import v2_preview
+
+        with tempfile.TemporaryDirectory() as tmp:
+            admin_dir = Path(tmp) / 'lerne-admin'
+            src_dir = admin_dir / 'src'
+            src_dir.mkdir(parents=True)
+            base_env = {'LERNE_V2_PREVIEW': '1', 'PYTHONPATH': f'C:/other{os.pathsep}{src_dir}'}
+            result = v2_preview.admin_environment(base_env, admin_dir)
+            self.assertEqual(result['PYTHONPATH'], f'{src_dir}{os.pathsep}C:/other')
+            self.assertEqual(base_env['PYTHONPATH'], f'C:/other{os.pathsep}{src_dir}')
+
 
 if __name__ == '__main__':
     unittest.main()

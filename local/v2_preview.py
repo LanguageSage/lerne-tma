@@ -169,6 +169,26 @@ def resume_media():
         models.tma_db.close()
 
 
+def admin_environment(env, admin):
+    """Ensure preview runs checked-out admin sources instead of an older site-packages wheel."""
+    admin_env = dict(env)
+    src = admin / 'src'
+    if src.is_dir():
+        parts = [str(src), *(p for p in admin_env.get('PYTHONPATH', '').split(os.pathsep) if p and p != str(src))]
+        admin_env['PYTHONPATH'] = os.pathsep.join(parts)
+    return admin_env
+
+
+def repo_revision(repo):
+    """Return compact branch@commit label for preview startup logs."""
+    try:
+        branch = subprocess.check_output(['git', 'rev-parse', '--abbrev-ref', 'HEAD'], cwd=repo, text=True, stderr=subprocess.DEVNULL).strip()
+        commit = subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], cwd=repo, text=True, stderr=subprocess.DEVNULL).strip()
+        return f'{branch}@{commit}'
+    except (OSError, subprocess.SubprocessError):
+        return 'unknown'
+
+
 def start():
     from local import dev
     config = dev.local_config()
@@ -186,18 +206,19 @@ def start():
     env = dev.environment(config)
     env['LERNE_V2_PREVIEW'] = '1'
     admin = ROOT.parent / 'lerne-admin'
+    admin_env = admin_environment(env, admin)
     commands = [
-        ([sys.executable, '-m', 'uvicorn', 'api.main:app', '--host', '127.0.0.1', '--port', '8002'], ROOT),
-        (['node', str(ROOT / 'app/node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--strictPort'], ROOT / 'app'),
+        ([sys.executable, '-m', 'uvicorn', 'api.main:app', '--host', '127.0.0.1', '--port', '8002'], ROOT, env),
+        (['node', str(ROOT / 'app/node_modules/vite/bin/vite.js'), '--host', '127.0.0.1', '--strictPort'], ROOT / 'app', env),
         ([str(admin / '.venv/Scripts/python.exe'), '-m', 'lerne_admin.cli', '--mode', 'local',
-          '--data-root', str(DATA), '--state-dir', str(DATA / 'admin'), '--port', '8051', '--no-browser'], admin),
+          '--data-root', str(DATA), '--state-dir', str(DATA / 'admin'), '--port', '8051', '--no-browser'], admin, admin_env),
     ]
     processes, logs = [], []
     try:
-        for index, (command, cwd) in enumerate(commands):
+        for index, (command, cwd, proc_env) in enumerate(commands):
             log = (DATA / f'server-{index}.log').open('ab')
             logs.append(log)
-            processes.append(subprocess.Popen(command, cwd=cwd, env=env, stdout=log, stderr=log,
+            processes.append(subprocess.Popen(command, cwd=cwd, env=proc_env, stdout=log, stderr=log,
                                               creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)))
         for _ in range(120):
             if any(p.poll() is not None for p in processes):
@@ -212,6 +233,7 @@ def start():
         else:
             raise RuntimeError('Preview startup timed out; inspect server logs')
         webbrowser.open('http://127.0.0.1:5174/v2-preview')
+        print(f'Revisions: TMA {repo_revision(ROOT)} | Admin {repo_revision(admin)}')
         print('TMA: http://127.0.0.1:5174/v2-preview | Admin: http://127.0.0.1:8051')
         print('Ctrl+C stops preview servers. Converted database remains on disk.')
         while all(p.poll() is None for p in processes):
