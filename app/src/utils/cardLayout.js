@@ -8,11 +8,15 @@ export function readableLayout(card) {
           && Array.isArray(card.info[item.index].items))))));
 }
 
+export function defaultLayout(card) {
+  return [
+    ...(card?.info || []).map((_, index) => ({ id: `info-${index}`, type: 'info', index, visibility: 'before_answer' })),
+    { id: 'exercise', type: 'exercise' },
+  ];
+}
+
 export function enableLayout(card) {
-  return card.layout ? card : { ...card, layout: [
-    ...(card.info || []).map((_, index) => ({ id: crypto.randomUUID(), type: 'info', index, visibility: 'before_answer' })),
-    { id: crypto.randomUUID(), type: 'exercise' },
-  ] };
+  return card.layout ? card : { ...card, layout: defaultLayout(card) };
 }
 
 export function moveLayout(card, id, offset) {
@@ -20,7 +24,8 @@ export function moveLayout(card, id, offset) {
   const index = layout.findIndex(item => item.id === id);
   const target = index + offset;
   if (index < 0 || target < 0 || target >= layout.length) return card;
-  [layout[index], layout[target]] = [layout[target], layout[index]];
+  const [item] = layout.splice(index, 1);
+  layout.splice(target, 0, item);
   return { ...card, layout };
 }
 
@@ -32,10 +37,22 @@ export function removeLayout(card, id) {
   return { ...card, layout, ...(item.type === 'info' ? { info: card.info.filter((_, index) => index !== item.index) } : {}) };
 }
 
-export function addLayoutInfo(card, type = 'text') {
+export function patchInfoBlock(card, index, patch) {
+  return { ...card, info: card.info.map((block, i) => i === index ? { ...block, ...patch } : block) };
+}
+
+export function patchLayoutItem(card, id, patch) {
   const current = enableLayout(card);
-  return { ...current, info: [...(current.info || []), { type, text: '' }],
-    layout: [...current.layout, { id: crypto.randomUUID(), type: 'info', index: current.info?.length || 0, visibility: 'before_answer' }] };
+  return { ...current, layout: current.layout.map(item => item.id === id ? { ...item, ...patch } : item) };
+}
+
+export function addLayoutInfo(card, position) {
+  const current = enableLayout(card);
+  const info = current.info || [];
+  const layout = [...current.layout];
+  layout.splice(position ?? layout.length, 0,
+    { id: crypto.randomUUID(), type: 'info', index: info.length, visibility: 'before_answer' });
+  return { ...current, info: [...info, { type: 'text', text: '' }], layout };
 }
 
 export function addLayoutImage(card, path) {

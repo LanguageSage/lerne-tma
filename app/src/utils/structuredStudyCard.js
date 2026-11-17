@@ -1,5 +1,5 @@
 /** Study views over the canonical API envelope. No authoring syntax is interpreted here. */
-import { readableLayout } from './cardLayout.js';
+import { defaultLayout, readableLayout } from './cardLayout.js';
 import { autoGenerateChoices } from './trainerChoices.js';
 const exerciseTypes = new Set(['trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text', 'editable_text']);
 const supportedTypes = new Set(['standard', 'theory', ...exerciseTypes]);
@@ -33,10 +33,7 @@ export function studyInfoBlocks(content) {
 
 // Presentation order only. Never resolve arbitrary paths into answer-bearing data.
 export function studyLayout(content, { afterAnswer = false } = {}) {
-  const layout = content?.layout ?? [
-    ...(content?.info || []).map((_, index) => ({ id: `info-${index}`, type: 'info', index })),
-    { id: 'exercise', type: 'exercise' },
-  ];
+  const layout = content?.layout ?? defaultLayout(content);
   return layout.filter(item => item.visibility !== 'after_answer' || afterAnswer);
 }
 

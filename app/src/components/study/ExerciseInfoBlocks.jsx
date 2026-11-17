@@ -2,14 +2,14 @@ import React from 'react';
 import { tr } from '../../i18n/locale';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
-export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks, markdown = false }) => {
+export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks, markdown = false, renderText }) => {
   const blocks = propBlocks || content?.blocks || [];
   if (blocks.length === 0) return null;
 
   return (
     <section className="exercise-info-blocks" aria-label={tr('Информация к заданию')}>
       {blocks.map((block, index) => {
-        if (block.type !== 'options' && !block.content) return null;
+        if (block.type !== 'options' && !block.content && !renderText) return null;
 
         if (block.type === 'options') {
           return (
@@ -57,63 +57,28 @@ export const ExerciseInfoBlocks = React.memo(({ content, blocks: propBlocks, mar
           );
         }
 
-        const blockStyle = block.type === 'task'
-          ? {
-              fontFamily: 'var(--design-task-font)',
-              fontSize: 'var(--design-task-font-size)',
-              fontWeight: 'var(--design-task-weight)',
-              fontStyle: 'var(--design-task-style)',
-              color: 'var(--design-task-color)',
-              background: 'var(--design-task-bg)',
-              borderColor: 'var(--design-task-border)',
-              borderRadius: 'var(--design-task-radius)',
-              padding: 'var(--design-task-padding)'
-            }
-          : (block.type === 'source' || block.type === 'context')
-          ? {
-              fontFamily: 'var(--design-source-font)',
-              fontSize: 'var(--design-source-font-size)',
-              fontWeight: 'var(--design-source-weight)',
-              fontStyle: 'var(--design-source-style)',
-              color: 'var(--design-source-color)',
-              background: 'var(--design-source-bg)',
-              borderColor: 'var(--design-source-border)',
-              borderRadius: 'var(--design-source-radius)',
-              padding: 'var(--design-source-padding)'
-            }
-          : block.type === 'example'
-          ? {
-              fontFamily: 'var(--design-example-font)',
-              fontSize: 'var(--design-example-font-size)',
-              fontWeight: 'var(--design-example-weight)',
-              fontStyle: 'var(--design-example-style)',
-              color: 'var(--design-example-color)',
-              background: 'var(--design-example-bg)',
-              borderColor: 'var(--design-example-border)',
-              borderRadius: 'var(--design-example-radius)',
-              padding: 'var(--design-example-padding)'
-            }
-          : block.type === 'hint'
-          ? {
-              fontFamily: 'var(--design-hint-font)',
-              fontSize: 'var(--design-hint-font-size)',
-              fontWeight: 'var(--design-hint-weight)',
-              fontStyle: 'var(--design-hint-style)',
-              color: 'var(--design-hint-color)',
-              background: 'var(--design-hint-bg)',
-              borderColor: 'var(--design-hint-border)',
-              borderRadius: 'var(--design-hint-radius)',
-              padding: 'var(--design-hint-padding)'
-            }
-          : {};
+        const role = block.type === 'context' ? 'source' : block.type;
+        const prefix = `--design-${role}`;
+        const blockStyle = ['task', 'source', 'example', 'hint'].includes(role) ? {
+          fontFamily: `var(${prefix}-font)`,
+          fontSize: `var(${prefix}-font-size)`,
+          fontWeight: `var(${prefix}-weight)`,
+          fontStyle: `var(${prefix}-style)`,
+          color: `var(${prefix}-color)`,
+          background: `var(${prefix}-bg)`,
+          borderColor: `var(${prefix}-border)`,
+          borderRadius: `var(${prefix}-radius)`,
+          padding: `var(${prefix}-padding)`,
+        } : undefined;
 
+        const display = markdown ? <MarkdownRenderer>{block.content}</MarkdownRenderer> : block.content;
         return (
           <div
             key={`${block.type}-${index}`}
             className={`exercise-info-block exercise-info-${block.type}`}
             style={blockStyle}
           >
-            <div className="exercise-info-text">{markdown ? <MarkdownRenderer>{block.content}</MarkdownRenderer> : block.content}</div>
+            <div className="exercise-info-text">{renderText ? renderText(block.content, display) : display}</div>
           </div>
         );
       })}

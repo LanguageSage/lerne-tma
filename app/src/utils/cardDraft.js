@@ -51,6 +51,11 @@ export function parseCardSource(source) {
     if (content.schema_version !== 2 || !cardTypes.includes(card?.type)
       || !card.data || Array.isArray(card.data) || typeof card.data !== 'object'
       || (card.info != null && !Array.isArray(card.info))
+      || (card.type === 'quiz' && (!Array.isArray(card.data.options)
+        || card.data.options.some(option => typeof option?.text !== 'string')
+        || card.info?.some(block => block?.type === 'options'
+          ? !Array.isArray(block.items) || block.items.some(item => typeof item !== 'string')
+          : typeof block?.text !== 'string')))
       || !readableLayout(card)
       || (card.topics != null && !Array.isArray(card.topics))
       || (card.explanation != null && typeof card.explanation !== 'string')

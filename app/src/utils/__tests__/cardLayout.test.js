@@ -36,6 +36,21 @@ test('after-answer content is absent before completion and does not become a qui
   assert.equal(layoutAnswerRevealed({ evaluationState: { completed: true } }), true);
 });
 
+test('materializing and editing a Quiz layout keeps identities and moves the entire exercise', () => {
+  const original = { type: 'quiz', data: { prompt: 'Q' }, info: [
+    { type: 'task', text: 'Question' }, { type: 'source', text: 'Hint' }, { type: 'example', text: 'Example' },
+  ] };
+  const [task, hint, example, exercise] = studyLayout(original);
+  const withBlock = addLayoutInfo(original, 1);
+  const inserted = withBlock.layout[1];
+  assert.equal(inserted.index, 3);
+  assert.deepEqual(withBlock.layout, [task, inserted, hint, example, exercise]);
+  const reordered = moveLayout(withBlock, exercise.id, -3);
+  assert.deepEqual(reordered.layout, [task, exercise, inserted, hint, example]);
+  assert.equal(reordered.data, original.data);
+  assert.deepEqual(removeLayout(reordered, inserted.id).info, original.info);
+});
+
 test('malformed layout JSON cannot crash the visual form or pending study draft', () => {
   assert.equal(readableLayout({ layout: [null] }), false);
   assert.equal(readableLayout({ layout: [{ id: 'i', type: 'info', index: 9 }], info: [] }), false);

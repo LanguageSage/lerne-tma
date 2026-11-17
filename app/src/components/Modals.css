@@ -1041,7 +1041,8 @@ input[type=range]:active::-webkit-slider-thumb {
   box-shadow: 0 5px 15px rgba(0, 136, 204, 0.3);
 }
 .creator-form {
-  padding: 8px 10px !important;
+  --creator-inline-padding: 10px;
+  padding: 8px var(--creator-inline-padding) !important;
 }
 
 .creator-form .form-group {

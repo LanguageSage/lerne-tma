@@ -4,11 +4,13 @@ import React, { useRef, useState, useEffect } from 'react';
 import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
-import { StructuredCardFields } from './StructuredCardFields';
+import { CardTypeField, PromptDictation, StructuredCardExtras, StructuredCardFields } from './StructuredCardFields';
+import { QuizCardFields } from './QuizCardFields';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import './CardForm.css';
 import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
 import { studySideText } from '../../utils/structuredStudyCard';
+import { getFlagStyle } from '../../constants/cardFlags';
 import { getResolvedStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -40,6 +42,8 @@ export const CardForm = ({
   useInterfaceLocale();
   const { t } = useTranslation();
   const content = cardData?.content_v2?.card;
+  const isQuiz = content?.type === 'quiz';
+  const quizFlagStyle = isQuiz ? getFlagStyle(cardData.flag) : undefined;
   const frontText = studySideText(content);
   const backKey = answerField[content?.type];
   const manualLevel = content?.metadata?.cefr?.source === 'manual';
@@ -165,6 +169,9 @@ export const CardForm = ({
   if (!cardData) return null;
   if (!content) return <p role="alert">{tr('Карточки ещё не перенесены в Structured Cards V2.')}</p>;
 
+  const typeField = <CardTypeField card={content} update={update} />;
+  const dictation = isCreator && <PromptDictation type={content.type} update={update} />;
+
   return (
     <div className="creator-form glass" style={{ marginTop: '4px' }}>
       <button type="button" className="btn-secondary" style={{ minHeight: '44px' }}
@@ -255,11 +262,12 @@ export const CardForm = ({
         onBusyChange={setAudioBusy} />
       </details>
 
-      <div className="form-group">
+      {isQuiz && typeField}
+      <div className={isQuiz ? 'form-group card-container study-flashcard quiz-editor-surface' : 'form-group'} style={quizFlagStyle}>
         <div
           id="tut-creator-front"
-          className="card-preview-container glass card-front"
-          style={{
+          className={isQuiz ? 'card-inner glass card-front' : 'card-preview-container glass card-front'}
+          style={isQuiz ? quizFlagStyle : {
             position: 'relative',
             borderRadius: '12px',
             display: 'flex',
@@ -269,8 +277,11 @@ export const CardForm = ({
         >
           <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={cardData.id} />
 
-          <div className="card-preview-body" style={{ padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            <StructuredCardFields card={content} update={update} isCreator={isCreator} textStyle={v2Styles.frontText} />
+          <div className={isQuiz ? 'card-face' : 'card-preview-body'}
+            style={isQuiz ? undefined : { padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+            {isQuiz
+              ? <QuizCardFields key={cardData.id} cardData={cardData} update={update} dictation={dictation} designConfig={effectiveConfig} />
+              : <>{typeField}<StructuredCardFields card={content} update={update} dictation={dictation} textStyle={v2Styles.frontText} /></>}
           </div>
 
           {(cardData.image_url || cardData.image_path) && (() => {
@@ -511,8 +522,10 @@ export const CardForm = ({
       </div>
 
 
+      {isQuiz && <StructuredCardExtras card={content} update={update} />}
+
       {(() => {
-        const isExistingQuiz = !isCreator && content.type === 'quiz';
+        const isExistingQuiz = !isCreator && isQuiz;
         const dynamicAction = isExistingQuiz
           ? { id: 'quiz_analysis', label: tr("📝 Разбор теста"), icon: BookOpen }
           : { id: 'explain_rule', label: tr("📖 Правило"), icon: BookOpen };

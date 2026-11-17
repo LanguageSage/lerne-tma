@@ -4,7 +4,6 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { CheckCircle2, XCircle, Check } from 'lucide-react';
 import { triggerHaptic } from '../../utils/platform';
 import { getDesignStylesFromV2, getHarmonizedOptionStyles } from '../../utils/cardStyles';
-import { stripMarkdown } from '../../utils/text';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { shuffleFY } from '../../utils/shuffle.js';
 import { evaluateQuizOption, quizPartId } from '../../utils/quizEvaluation.js';
@@ -12,7 +11,6 @@ import { evaluateQuizOption, quizPartId } from '../../utils/quizEvaluation.js';
 export const StudyCardQuiz = ({
   card,
   quizData,
-  backNote,
   onTrainerAnswer,
   renderAudioPlayer,
   designConfig,
@@ -23,25 +21,12 @@ export const StudyCardQuiz = ({
   const [selectedOptionId, setSelectedOptionId] = useState(savedState?.selectedOptionId ?? null);
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const isChecked = evaluation.state.completed;
-  const [optionOrder] = useState(() => {
-    const ids = quizData.options.map(option => option.id);
-    return savedState?.optionOrder || (backNote === undefined ? ids : shuffleFY(ids));
-  });
+  const [optionOrder] = useState(() => savedState?.optionOrder || shuffleFY(quizData.options.map(option => option.id)));
   const options = useMemo(() => optionOrder.map(id => quizData.options.find(option => option.id === id)).filter(Boolean), [optionOrder, quizData.options]);
-
-  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
-  const cardStyle = v2Text;
-  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(designConfig?.exercises?.baseColor), [designConfig?.exercises?.baseColor]);
 
   useEffect(() => {
     onSaveState?.({ selectedOptionId, optionOrder, evaluationState: evaluation.state });
   }, [selectedOptionId, optionOrder, evaluation.state, onSaveState]);
-
-  if (!card || !quizData) return null;
-
-  const { question } = quizData;
-  const backText = stripMarkdown(backNote ?? card?.back ?? '').trim().toLowerCase();
-  const displayQuestion = (question && question.trim().toLowerCase() === backText) ? null : question;
 
   const handleSelectOption = (optionId, e) => {
     e.stopPropagation();
@@ -66,36 +51,47 @@ export const StudyCardQuiz = ({
     }
   };
 
-  const getOptionLetter = (index) => {
-    return String.fromCharCode(65 + index); // A, B, C, D...
-  };
+  return <QuizContent
+    question={quizData.question}
+    options={options}
+    designConfig={designConfig}
+    renderAudioPlayer={renderAudioPlayer}
+    selection={{
+      selectedOptionId, isChecked,
+      isWrong: id => evaluation.state.incorrectParts.includes(quizPartId(id)),
+      isConfirmed: id => evaluation.part(quizPartId(id))?.status === 'correct',
+      onSelect: handleSelectOption,
+      onVerify: handleVerifyAnswer,
+    }}
+  />;
+};
 
-  const formatPunctuation = (str) => {
-    if (!str) return '';
-    return str.replace(/\s+([?!.,;:])/g, '$1').trim();
-  };
+function formatPunctuation(text) {
+  return (text || '').replace(/\s+([?!.,;:])/g, '$1').trim();
+}
 
-  const cleanDisplayQuestion = backNote !== undefined ? question : displayQuestion ? formatPunctuation(displayQuestion) : null;
+export function QuizContent({
+  question, options, designConfig, renderAudioPlayer, selection,
+  renderOptionText, renderOptionActions, footer,
+}) {
+  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
+  const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(designConfig?.exercises?.baseColor), [designConfig?.exercises?.baseColor]);
+  const { selectedOptionId = null, isChecked = false } = selection || {};
+  const OptionRow = selection ? 'button' : 'div';
 
   return (
     <div className="quiz-container" style={{ width: '100%', padding: '4px 0' }}>
       {/* Question Header */}
-      {cleanDisplayQuestion && (
+      {question && (
         <div className="quiz-question-wrapper" style={{ width: '100%', marginBottom: renderAudioPlayer ? '14px' : '20px' }}>
           <div className="quiz-question" style={{
-            ...cardStyle,
-            color: cardStyle.color || '#ffffff',
-            fontSize: cardStyle.fontSize ? `${Math.max(parseFloat(cardStyle.fontSize), 1.4)}rem` : '1.45rem',
-            fontWeight: cardStyle.fontWeight || 700,
-            lineHeight: 1.35,
+            ...v2Text,
             letterSpacing: '-0.01em',
-            textAlign: cardStyle.textAlign,
             marginBottom: renderAudioPlayer ? '12px' : '0',
             width: '100%',
-            whiteSpace: 'pre-wrap',
-            ...v2Text
+            whiteSpace: 'pre-wrap'
           }}>
-            {cleanDisplayQuestion}
+            {question}
           </div>
           {renderAudioPlayer && (
             <div style={{ width: '100%', marginTop: '12px' }}>
@@ -105,7 +101,7 @@ export const StudyCardQuiz = ({
         </div>
       )}
 
-      {!cleanDisplayQuestion && renderAudioPlayer && (
+      {!question && renderAudioPlayer && (
         <div style={{ width: '100%', marginBottom: '16px' }}>
           {renderAudioPlayer()}
         </div>
@@ -117,23 +113,20 @@ export const StudyCardQuiz = ({
         flexDirection: 'column',
         gap: '12px',
         width: '100%',
-        marginBottom: '22px'
+        marginBottom: footer ? '4px' : '22px'
       }}>
         {options.map((option, index) => {
           const isSelected = selectedOptionId === option.id;
-          const isWrong = evaluation.state.incorrectParts.includes(quizPartId(option.id));
-          const isConfirmed = evaluation.part(quizPartId(option.id))?.status === 'correct';
+          const isWrong = selection?.isWrong(option.id);
+          const isConfirmed = selection?.isConfirmed(option.id);
           const disabled = isChecked || isWrong;
-          let optionClass = 'quiz-option-item';
-
-          if (isConfirmed) optionClass += ' correct';
-          else if (isWrong) optionClass += ' wrong';
-          else if (isSelected) optionClass += ' selected';
+          const highlighted = isSelected || isConfirmed || isWrong;
+          const state = isConfirmed ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : disabled ? 'disabled' : 'normal';
+          const label = formatPunctuation(option.text);
 
           // Option background & border calculation
           let bg = `var(--design-choice-normal-bg, ${harmonizedOptions.buttonBg})`;
           let borderColor = `var(--design-choice-normal-border, ${harmonizedOptions.buttonBorder})`;
-          const boxShadow = 'none';
           let textColor = `var(--design-choice-normal-color, ${harmonizedOptions.textColor})`;
 
           if (isConfirmed) {
@@ -156,15 +149,17 @@ export const StudyCardQuiz = ({
 
           return (
             <div key={option.id} className="quiz-option-feedback">
-              <button
-                type="button"
-                className={optionClass}
-                onClick={(e) => handleSelectOption(option.id, e)}
-                disabled={disabled}
-                aria-pressed={isSelected}
-                aria-invalid={isWrong}
-                aria-describedby={isWrong ? `quiz-hint-${option.id}` : undefined}
-                data-design-state={isConfirmed ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : disabled ? 'disabled' : 'normal'}
+              <OptionRow
+                className={highlighted ? `quiz-option-item ${state}` : 'quiz-option-item'}
+                {...(selection && {
+                  type: 'button',
+                  onClick: event => selection.onSelect(option.id, event),
+                  disabled,
+                  'aria-pressed': isSelected,
+                  'aria-invalid': isWrong,
+                  'aria-describedby': isWrong ? `quiz-hint-${option.id}` : undefined,
+                })}
+                data-design-state={state}
                 data-part-id={quizPartId(option.id)}
                 style={{
                   display: 'flex',
@@ -176,15 +171,15 @@ export const StudyCardQuiz = ({
                   background: bg,
                   color: textColor,
                   textAlign: 'left',
-                  cursor: disabled ? 'default' : 'pointer',
+                  cursor: !selection || disabled ? 'default' : 'pointer',
                   transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
                   width: '100%',
-                  boxShadow,
+                  boxShadow: 'none',
                   backdropFilter: 'blur(8px)',
                 }}
               >
                 {/* Option Letter Badge (A, B, C, D) */}
-                <div style={{
+                <span style={{
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
@@ -193,10 +188,8 @@ export const StudyCardQuiz = ({
                     : (isWrong
                         ? 'var(--design-choice-wrong-border, var(--design-wrong-border, #ef4444))'
                         : (isSelected ? 'var(--design-choice-selected-border, var(--design-selected-border, #6366f1))' : harmonizedOptions.badgeBg)),
-                  border: isSelected || isConfirmed || isWrong
-                    ? 'none'
-                    : `1px solid ${harmonizedOptions.badgeBorder}`,
-                  color: isSelected || isConfirmed || isWrong ? '#ffffff' : harmonizedOptions.badgeColor,
+                  border: highlighted ? 'none' : `1px solid ${harmonizedOptions.badgeBorder}`,
+                  color: highlighted ? '#ffffff' : harmonizedOptions.badgeColor,
                   display: 'flex',
                   alignItems: 'center',
                   justifyContent: 'center',
@@ -210,9 +203,9 @@ export const StudyCardQuiz = ({
                   ) : (isWrong ? (
                     <XCircle size={20} />
                   ) : (
-                    getOptionLetter(index)
+                    String.fromCharCode(65 + index)
                   ))}
-                </div>
+                </span>
 
                 {/* Option Text */}
                 <span style={{
@@ -226,9 +219,10 @@ export const StudyCardQuiz = ({
                   color: textColor,
                   letterSpacing: '0.01em',
                 }}>
-                  {formatPunctuation(option.text)}
+                  {renderOptionText ? renderOptionText(option, label) : label}
                 </span>
-              </button>
+                {renderOptionActions?.(option)}
+              </OptionRow>
               {isWrong && <span id={`quiz-hint-${option.id}`} className="exercise-part-hint" role="status">{tr('Попробуй другой вариант.')}</span>}
             </div>
           );
@@ -236,11 +230,11 @@ export const StudyCardQuiz = ({
       </div>
 
       {/* Verify / Check Button */}
-      {!isChecked && (
+      {selection && !isChecked && (
         <button
           type="button"
           className="btn-check-quiz"
-          onClick={handleVerifyAnswer}
+          onClick={selection.onVerify}
           disabled={selectedOptionId === null}
           style={{
             width: '100%',
@@ -287,6 +281,7 @@ export const StudyCardQuiz = ({
           {tr("✅ Правильно!")}
         </div>
       )}
+      {footer}
     </div>
   );
-};
+}

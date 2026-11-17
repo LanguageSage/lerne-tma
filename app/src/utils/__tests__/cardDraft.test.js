@@ -28,7 +28,8 @@ test('source JSON preserves all nine typed drafts and arbitrary nested metadata 
 test('source JSON rejects incomplete syntax and envelopes unsafe to open in the typed form', () => {
   for (const source of ['{"card":', 'null', '[]', '{}', '{"schema_version":1}',
     JSON.stringify({ schema_version: 2, card: { type: 'standard', data: [] } }),
-    JSON.stringify({ schema_version: 2, card: { type: 'trainer', data: { parts: null } } })]) {
+    JSON.stringify({ schema_version: 2, card: { type: 'trainer', data: { parts: null } } }),
+    JSON.stringify({ schema_version: 2, card: { type: 'quiz', data: { prompt: 'Q', options: [null] } } })]) {
     assert.throws(() => parseCardSource(source));
   }
 });
@@ -37,4 +38,8 @@ test('source parsing leaves domain validation to the existing save pipeline', ()
   const content = newCardContent('quiz');
   content.card.data.options = [];
   assert.deepEqual(parseCardSource(JSON.stringify(content)), content);
+  content.card.data.options = [{ text: 'Default incorrect option' }];
+  assert.deepEqual(parseCardSource(JSON.stringify(content)), content);
+  content.card.info = [{ type: 'options', items: [{ text: 'Unreadable as a chip' }] }];
+  assert.throws(() => parseCardSource(JSON.stringify(content)));
 });

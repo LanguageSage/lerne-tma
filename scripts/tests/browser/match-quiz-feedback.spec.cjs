@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 const deck = { id: 1, name: 'Feedback', target_language: 'de', is_learning: true, stats: { total: 1, new: 1, due: 0, learning: 0 } };
 const envelope = (type, data) => ({ schema_version: 2, card: { type, data } });
 const match = { id: 11, deck_id: 1, queue: 'new', content_v2: envelope('match', {
@@ -12,8 +12,6 @@ const quiz = { id: 12, deck_id: 1, queue: 'new', content_v2: envelope('quiz', {
 
 async function openStudy(page, context, card, locale = 'ru') {
   card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
-  await page.routeWebSocket('**/*', () => {});
-  await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
     localStorage.setItem('native_language', locale);
     localStorage.setItem('native_language_selected', 'true');
@@ -25,10 +23,17 @@ async function openStudy(page, context, card, locale = 'ru') {
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, first_name: 'Test', is_guest: false } });
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/init') return route.fulfill({ json: {
       decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {},
       user_info: { user_id: 1, first_name: 'Test', is_guest: false },
     } });
+    if (pathname === '/api/sync/v2/pull') return route.fulfill({ json: {
+      status: 'success', card_schema: 2, server_time: new Date().toISOString(),
+      folders: [], decks: [deck], cards: [card], progress: [],
+    } });
+    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
+    if (pathname === '/api/folders') return route.fulfill({ json: [] });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname === `/api/study/card/${card.id}` || pathname === '/api/decks/1/next') return route.fulfill({ json: card });
@@ -235,7 +240,9 @@ test('Match real renderer counts only completed interactions, sends cumulative s
 
 test('Quiz real renderer emits one cumulative success, restores retries, accepts starred alternatives and starts new reviews clean', async ({ page, context }) => {
   await openStudy(page, context, quiz, 'en');
-  await rendererHarness(page, { ...quiz, front: 'Choose\n\n- Wrong\n* Right\n* Alternative' });
+  const alternative = structuredClone(quiz);
+  alternative.content_v2.card.data.options[2] = { text: 'Alternative', correct: true };
+  await rendererHarness(page, alternative);
   const option = id => page.locator(`[data-part-id="option-${id}"]:visible`);
   const check = page.getByRole('button', { name: 'Check', exact: true });
   await option(0).click();
