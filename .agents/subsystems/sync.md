@@ -243,8 +243,10 @@ refresh flights и Dexie refresh lease. `api.js` оборачивает его o
 `syncService.js` и `cardNotes.js` импортируют транспорт напрямую.
 
 ```text
-api -> networkApi, offlineApi, syncService, localDb, auth, axios
-syncService -> networkApi, cardNotes, localDb, auth, locale, cardDraft, cardCutoverPreflight
+api -> networkApi, apiCacheSync, offlineApi, syncService, localDb, auth, axios
+apiCacheSync -> mediaCache, syncService, localDb, auth, structuredStudyCard, locale, axios
+syncService -> networkApi, entityBatchSync, cardNotes, localDb, auth, locale, cardDraft, cardCutoverPreflight, serverGeneration
+entityBatchSync -> networkApi, auth, locale, cardCutoverPreflight
 cardCutoverPreflight -> dexie
 offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale, cardDraft
 cardNotes -> networkApi, localDb, auth

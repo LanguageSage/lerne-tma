@@ -39,6 +39,9 @@ function fixture() {
     clearAuthSession: () => { f.clears++; session = null; }, getUserId: () => userId,
     isOfflineMode: () => false, navigator: { onLine: true, locks: { request: async (_name, callback) => callback() } }, console,
     offlineApi: { handle: (...args) => f.offlineRead(...args) },
+    handleLocalFirstRequest: async () => null,
+    tryLocalFirstNativeCreate: async () => null,
+    reconcileOnlineResponse: async ({ response }) => response,
   };
   vm.runInNewContext(`${source}\nglobalThis.subject = axiosInstance; globalThis.proxySubject = api;`, context);
   f.api = context.subject;
