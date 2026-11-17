@@ -12,7 +12,7 @@ export const GlobalLoader = ({ isVisible, message = tr("Загрузка дан�
         <motion.div 
           initial={{ opacity: 0 }} 
           animate={{ opacity: 1 }} 
-          exit={{ opacity: 0 }} 
+          exit={{ opacity: 0, pointerEvents: 'none', transition: { duration: 0.12 } }} 
           className="loading-overlay-global"
         >
           <div className="loading-content">
