@@ -11,8 +11,8 @@ Knowledge Attempts отправляются отдельным механизм�
 | --- | --- |
 | Выбор online/offline transport | `app/src/services/api.js`, `app/src/services/networkApi.js`, `app/src/services/apiConfig.js` |
 | БД аккаунта, схема, aliases | `app/src/services/localDb.js` |
-| Offline endpoints и локальные изменения | `app/src/services/offlineApi.js` |
-| Пакеты / ack / pull snapshot | `app/src/services/syncService.js` |
+| Offline endpoints и локальные изменения | `app/src/services/offlineApi.js`, `app/src/services/cardOfflineQueue.js` |
+| Пакеты / ack / pull snapshot | `app/src/services/syncService.js`, `app/src/services/cardOutboxSync.js` |
 | UI состояния offline | `app/src/services/offlineUi.js`, `app/src/components/modals/SyncModal.jsx`, `app/src/hooks/useAppInitialization.js` |
 | Sync server | `api/routers/sync.py`, `api/services/offline_sync.py`, `api/services/sync_service.py` |
 | Настройки между устройствами | `app/src/store/useSettingsStore.js`, `api/routers/settings.py` |
@@ -245,10 +245,12 @@ refresh flights и Dexie refresh lease. `api.js` оборачивает его o
 ```text
 api -> networkApi, apiCacheSync, offlineApi, syncService, localDb, auth, axios
 apiCacheSync -> mediaCache, syncService, localDb, auth, structuredStudyCard, locale, axios
-syncService -> networkApi, entityBatchSync, cardNotes, localDb, auth, locale, cardDraft, cardCutoverPreflight, serverGeneration
+syncService -> networkApi, cardOutboxSync, entityBatchSync, cardNotes, localDb, auth, locale, cardCutoverPreflight, serverGeneration
+cardOutboxSync -> networkApi, auth, locale, cardDraft, serverGeneration
 entityBatchSync -> networkApi, auth, locale, cardCutoverPreflight
 cardCutoverPreflight -> dexie
-offlineApi -> cardNotes, localDb, auth, mediaCache, srsEngine, search, locale, cardDraft
+offlineApi -> cardOfflineQueue, cardNotes, localDb, auth, mediaCache, srsEngine, search, locale
+cardOfflineQueue -> localDb, auth, locale, cardDraft
 cardNotes -> networkApi, localDb, auth
 networkApi -> localDb, auth, apiConfig, localMode, axios
 localDb -> auth, localMode, dexie, @capacitor/core

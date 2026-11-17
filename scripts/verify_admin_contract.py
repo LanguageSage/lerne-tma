@@ -13,7 +13,7 @@ COMPONENTS = {
     'cards': ['api/services/input_parser.py', 'api/services/structured_cards_v2.py',
               'api/services/structured_cards_legacy.py', 'api/services/deck_passport.py'],
     'import': ['api/services/author_service.py', 'api/services/card_text_update.py',
-               'api/services/cards.py',
+               'api/services/cards.py', 'api/services/receipts.py',
                'api/services/decks.py', 'api/services/library_import.py', 'api/services/folders.py',
                'api/services/structured_card_api.py', 'api/services/structured_card_storage.py',
                'api/services/media.py',

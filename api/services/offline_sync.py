@@ -1,11 +1,10 @@
 """Durable offline batches. A committed request can be retried without duplication."""
 import datetime
-import hashlib
-import json
 
 from fastapi import HTTPException
 
 from api import models
+from api.services.receipts import _claim_receipt, batch_digest, finish_receipt
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
@@ -65,7 +64,7 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
     for progress in payload.get('progress', []):
         if not progress.get('flag_only'):
             progress.pop('flag_only', None)  # Preserve receipts from before 6B.6.
-    fingerprint = hashlib.sha256(json.dumps(payload, sort_keys=True).encode()).hexdigest()
+    fingerprint = batch_digest(payload)
     key = f'{user_id}:{request.request_id}'
     maps = {'folders': {}, 'decks': {}, 'cards': {}}
     now = datetime.datetime.now(datetime.timezone.utc).replace(tzinfo=None)
@@ -99,12 +98,10 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
 
     with models.tma_db.atomic():
         # The unique key serializes duplicate requests, including across server workers.
-        receipt, created = models.TMAOfflineBatch.get_or_create(
-            key=key, defaults={'payload_hash': fingerprint, 'response': ''})
-        if not created:
-            if receipt.payload_hash != fingerprint:
-                raise HTTPException(409, 'Идентификатор пакета уже использован с другими данными')
-            return json.loads(receipt.response)
+        receipt, replay = _claim_receipt(
+            key, fingerprint, 'Идентификатор пакета уже использован с другими данными')
+        if replay is not None:
+            return replay
 
         if request.cards:
             raise HTTPException(409, {'code': 'legacy_queue_requires_recovery',
@@ -267,9 +264,7 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                     value = current[identifier]
                     versions[f'{name}:{original}'] = value.isoformat() + 'Z' if value else None
             response['versions'] = versions
-        receipt.response = json.dumps(response)
-        receipt.save()
-        return response
+        return finish_receipt(receipt, response)
 
 
 def pull_offline(user_id: int) -> dict:

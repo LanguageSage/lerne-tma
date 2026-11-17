@@ -4,24 +4,18 @@ This service accepts complete V2 envelopes, validates identifiers and structure,
 and compares live revisions before writing in the same transaction as its receipt.
 """
 import datetime
-import hashlib
-import json
 from collections import Counter
 
 from fastapi import HTTPException
 from peewee import fn
 
-from api.models import TMA_Card, TMA_Deck, TMA_Folder, TMAUser, TMAOfflineBatch, tma_db
+from api.models import TMA_Card, TMA_Deck, TMA_Folder, TMAUser, tma_db
+from .receipts import _claim_receipt, _digest, finish_receipt
 from .structured_card_storage import decode_v2_content, create_v2_card, replace_v2_card, _encode_card
 
 from .collaborative_service import _require_can_mutate, touch_deck_and_parent_folders
 
 CONTENT_FIELDS = ('content_v2',)
-
-
-def _digest(value):
-    return hashlib.sha256(json.dumps(value, sort_keys=True, ensure_ascii=False,
-                                    separators=(',', ':')).encode('utf-8')).hexdigest()
 
 
 def _content(card):
@@ -117,19 +111,18 @@ def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
         (TMA_Card.deck_id == deck_id) & (TMA_Card.is_deleted == False)).scalar() or 0
     updated = created = 0
     from .media import audio_write_scope
+    from .structured_card_api import validate_layout_images
     changes = [(row['after'], row['before'] or {}) for row in preview['cards'] if row['status'] == 'update' or (row['status'] == 'new' and include_new)]
     with audio_write_scope(changes):
         for item, row in zip(items, preview['cards']):
             if row['status'] == 'update':
                 card = existing[row['card_id']]
-                from .structured_card_api import validate_layout_images
                 content = decode_v2_content(row['after']['content_v2'])
                 validate_layout_images(content, decode_v2_content(card.content_v2))
                 replace_v2_card(card.id, content, previous=card.content_v2)
                 updated += 1
             elif row['status'] == 'new' and include_new:
                 created += 1
-                from .structured_card_api import validate_layout_images
                 content = decode_v2_content(row['after']['content_v2'])
                 validate_layout_images(content)
                 create_v2_card(content, deck_id=deck_id, position=max_position + created,
@@ -138,17 +131,6 @@ def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
         touch_deck_and_parent_folders(deck_id, deck_obj=deck)
     return {'status': 'success', 'updated': updated, 'created': created,
             'unchanged': preview['unchanged'], 'skipped_new': preview['new'] - created}
-
-
-def _claim_receipt(key, payload_hash):
-    inserted = list(TMAOfflineBatch.insert(key=key, payload_hash=payload_hash, response='')
-                    .on_conflict_ignore().returning(TMAOfflineBatch.key).execute())
-    receipt = TMAOfflineBatch.get_by_id(key)
-    if not inserted:
-        if receipt.payload_hash != payload_hash:
-            raise HTTPException(409, {'code': 'request_changed'})
-        return receipt, json.loads(receipt.response)
-    return receipt, None
 
 
 def apply_text_update(deck_id, user_id, items, preview_token, request_id, include_new=False):
@@ -167,9 +149,7 @@ def apply_text_update(deck_id, user_id, items, preview_token, request_id, includ
         if preview['preview_token'] != preview_token:
             raise HTTPException(409, {'code': 'preview_changed'})
         result = _apply_rows(deck, items, preview, user_id, include_new)
-        receipt.response = json.dumps(result, ensure_ascii=False)
-        receipt.save()
-        return result
+        return finish_receipt(receipt, result)
 
 
 def _require_folder(folder_id, user_id):
@@ -299,6 +279,4 @@ def apply_folder_text_update(folder_id, user_id, items, preview_token, request_i
             results.append({'deck_id': identifier, **result})
         result = {'status': 'success', 'decks': results,
                   **{key: sum(row[key] for row in results) for key in ('updated', 'created', 'unchanged', 'skipped_new')}}
-        receipt.response = json.dumps(result, ensure_ascii=False)
-        receipt.save()
-        return result
+        return finish_receipt(receipt, result)

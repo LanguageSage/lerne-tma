@@ -1,7 +1,6 @@
 import datetime
 import logging
 import json
-import hashlib
 from types import SimpleNamespace
 from fastapi import HTTPException
 from ..models import TMA_Deck, TMA_Card, TMAProgress, tma_db, TMAOfflineBatch
@@ -11,6 +10,7 @@ from peewee import fn, JOIN, Case
 logger = logging.getLogger(__name__)
 
 from .media import resolve_media_url, _build_media_exists_map
+from .receipts import _claim_receipt, _digest
 from .utils import resolve_deck_metadata
 
 
@@ -441,9 +441,7 @@ def prepare_ai_batch(request_data: dict, user_id: int, import_id: str = None) ->
         return {'target_language': target_language, 'response': response}
 
 
-def _ai_batch_hash(request_data):
-    return hashlib.sha256(json.dumps(request_data, sort_keys=True, ensure_ascii=False,
-                                     separators=(',', ':')).encode('utf-8')).hexdigest()
+_ai_batch_hash = _digest
 
 
 def _replay_ai_batch(receipt, request_data):
@@ -457,13 +455,13 @@ def save_ai_batch_result(result: dict, request_data: dict, user_id: int, import_
     with tma_db.connection_context(), tma_db.atomic():
         receipt = None
         if import_id:
-            key = f'ai:{user_id}:{import_id}'
-            inserted = list(TMAOfflineBatch.insert(
-                key=key, payload_hash=_ai_batch_hash(request_data), response='')
-                .on_conflict_ignore().returning(TMAOfflineBatch.key).execute())
-            receipt = TMAOfflineBatch.get_by_id(key)
-            if not inserted:
-                return _replay_ai_batch(receipt, request_data)
+            receipt, replay = _claim_receipt(
+                f'ai:{user_id}:{import_id}',
+                _ai_batch_hash(request_data),
+                'Идентификатор импорта уже использован с другими данными',
+            )
+            if replay is not None:
+                return replay
 
         from uuid import uuid4
         from .structured_card_api import BulkSave, bulk_save

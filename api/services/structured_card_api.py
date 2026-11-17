@@ -9,7 +9,7 @@ from peewee import fn, Value
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from api.models import TMA_Card, TMA_Deck, TMAUser, TMACardKnowledgeItem, tma_db
-from .card_text_update import _claim_receipt, _digest
+from .receipts import _claim_receipt, _digest, finish_receipt as _finish
 from .collaborative_service import _require_can_mutate, get_effective_user_role, touch_deck_and_parent_folders
 from .structured_card_storage import create_v2_card, decode_v2_content, replace_v2_card
 from .structured_cards_v2 import Card, Document, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_CARDS
@@ -268,12 +268,6 @@ def _lock_cards(ids, user_id, *, targets=(), write=True, allow_deleted=False, tr
 
 def _receipt(operation, user_id, request_id, data):
     return _claim_receipt(f'cards-v2:{operation}:{user_id}:{request_id}', _digest(data))
-
-
-def _finish(receipt, result):
-    receipt.response = json.dumps(result, ensure_ascii=False)
-    receipt.save(only=[type(receipt).response])
-    return result
 
 
 def _touch(decks):

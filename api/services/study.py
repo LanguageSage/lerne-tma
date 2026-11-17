@@ -1,14 +1,13 @@
 import os
 import datetime
 import logging
-import json
 from ..models import TMA_Deck, TMA_Card, TMAProgress, TMAReviewHistory, tma_db, TMAMedia
 from .. import srs
 from .. import models
 from peewee import fn, JOIN
 from functools import lru_cache
 from fastapi import HTTPException
-import hashlib
+from .receipts import _claim_receipt, batch_digest, finish_receipt
 
 logger = logging.getLogger(__name__)
 
@@ -29,13 +28,13 @@ def update_card_progress(card_id: int, user_id: int, grade: int, is_extended: bo
         with tma_db.atomic():
             receipt = None
             if action_id:
-                fingerprint = hashlib.sha256(json.dumps([card_id, grade, bool(is_extended), review_context]).encode()).hexdigest()
-                receipt, created = models.TMAOfflineBatch.get_or_create(
-                    key=f'grade:{user_id}:{action_id}', defaults={'payload_hash': fingerprint, 'response': ''})
-                if not created:
-                    if receipt.payload_hash != fingerprint:
-                        raise HTTPException(409, 'Grade action already used with different data')
-                    return json.loads(receipt.response)
+                receipt, replay = _claim_receipt(
+                    f'grade:{user_id}:{action_id}',
+                    batch_digest([card_id, grade, bool(is_extended), review_context]),
+                    'Grade action already used with different data',
+                )
+                if replay is not None:
+                    return replay
             progress = TMAProgress.get_or_none(TMAProgress.card_id == card_id, TMAProgress.user_id == user_id)
             if not progress:
                 progress, _ = TMAProgress.get_or_create(card_id=card_id, user_id=user_id,
@@ -49,8 +48,7 @@ def update_card_progress(card_id: int, user_id: int, grade: int, is_extended: bo
             result = {'status': 'success', 'next_review': progress.next_review.isoformat(),
                       'graded_progress': progress_response(progress, review_context)}
             if receipt:
-                receipt.response = json.dumps(result)
-                receipt.save()
+                finish_receipt(receipt, result)
         return result
     except Exception as e:
         logger.error(f"Error updating progress: {e}")

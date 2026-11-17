@@ -26,6 +26,7 @@ from typing import List, Dict, Any, Optional, Tuple
 from api.models import tma_db, TMA_Folder, TMA_Deck, TMA_Card, TMAMedia
 from api import services
 from api.services.card_text_update import preview_text_update, apply_text_update, preview_folder_text_update, apply_folder_text_update, _content, _digest, _claim_receipt, _require_deck, _require_folder, _folder_paths
+from api.services.receipts import finish_receipt
 from api.services.deck_passport import validate_passport, merge_passport, passport_from_metadata, read_metadata
 
 CARD_SEPARATOR = "<<<LERNE_CARD>>>"
@@ -443,9 +444,7 @@ def apply_update_content(
                 deck = _require_deck(entry['deck_id'], effective, lock=True)
                 _save_passport(deck, entry['passport'])
             result['updated_passports'] = len(plan)
-            receipt.response = json.dumps(result, ensure_ascii=False)
-            receipt.save()
-            return result
+            return finish_receipt(receipt, result)
 
     deck_ids = {c['deck_id'] for c in cards if c.get('deck_id')}
     is_multi_deck = len(deck_ids) > 1 or bool(folder_id)
