@@ -42,6 +42,16 @@ audio path, не перезаписывая более свежие текст/�
 
 ## Source of truth
 
+TD-005 independent branch: audio uploads now use immutable `audio_<SHA256>.mp3`
+keys and `x-upsert=false`. A bounded public GET must match the entire SHA-256
+and size before returning a usable URL. Duplicate replies are verified too.
+TTS writes a unique partial staging file before atomic cache publication.
+Existing URLs are not rewritten. Validation: `python -m unittest
+scripts.tests.test_audio_storage_integrity -v` uses real loopback HTTP and
+synthetic bytes; force/failure and permission regression suites remain separate.
+No claim is made that production has these un-deployed changes or that lack of
+recent missing audio proves correctness when recent lessons have no audio.
+
 - `tools/backup_supabase_storage.py` — read-only export только `audio/images`,
   explicit env-файл/origin/expected DB identity и новые private export/restore
   каталоги. Inventory до/после, authenticated GET без redirect/retry, size/SHA-256

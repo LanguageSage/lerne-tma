@@ -3,6 +3,7 @@ import re
 import hashlib
 import edge_tts
 import logging
+from uuid import uuid4
 
 # Настройка логирования
 logger = logging.getLogger(__name__)
@@ -67,6 +68,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
         # Fast path: file is cached, boundaries not requested
         pass
     else:
+        temporary = abs_filepath + '.' + uuid4().hex + '.partial'
         logger.info(f"Generating audio for text: {clean_text[:50]}...")
         try:
             communicate = edge_tts.Communicate(clean_text, voice, rate=rate)
@@ -87,14 +89,18 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
                     logger.error("Edge TTS streamed empty audio")
                     return None, None
 
-                with open(abs_filepath, "wb") as f:
+                with open(temporary, "wb") as f:
                     f.write(audio_bytes)
 
                 word_boundaries = _parse_boundaries(boundaries_raw)
             else:
                 # Simple save — no boundary tracking needed
                 if not already_cached:
-                    await communicate.save(abs_filepath)
+                    await communicate.save(temporary)
+
+            if not os.path.isfile(temporary) or not os.path.getsize(temporary):
+                return None, None
+            os.replace(temporary, abs_filepath)
 
             if not os.path.exists(abs_filepath) or os.path.getsize(abs_filepath) == 0:
                 logger.error("Edge TTS generated an empty file or file not found")
@@ -103,6 +109,9 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
         except Exception as e:
             logger.error(f"Edge TTS Generation Error: {e}", exc_info=True)
             raise e
+        finally:
+            if os.path.exists(temporary):
+                os.unlink(temporary)
 
     # --- Облачная часть (Supabase Storage) ---
     supabase_url = os.environ.get("SUPABASE_URL")
@@ -165,11 +174,10 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
     """Загрузка файла или байтов в Supabase Storage через REST API (async)."""
     bucket = "audio"
     project_url = project_url.rstrip("/")
-    upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
 
     headers = {
         "Authorization": f"Bearer {api_key}",
-        "x-upsert": "true",
+        "x-upsert": "false",
         "Content-Type": "audio/mpeg"
     }
 
@@ -180,16 +188,39 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
             with open(file_path_or_bytes, "rb") as f:
                 data = f.read()
 
+        if not data or len(data) > 20 * 1024 * 1024:
+            return None
+        # Different synthesis bytes must never overwrite an already attached
+        # object, even for force regeneration of the same text/voice cache key.
+        digest = hashlib.sha256(data).hexdigest()
+        filename = 'audio_' + digest + '.mp3'
+        upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
+        public_url = f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
+
         session = await _get_supabase_session()
-        async with session.post(upload_url, headers=headers, data=data) as resp:
-            if resp.status in [200, 201]:
-                return f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
-            else:
-                error_text = await resp.text()
-                logger.error(f"Supabase Upload Error ({resp.status}): {error_text}")
+        async with session.post(upload_url, headers=headers, data=data, allow_redirects=False) as resp:
+            if resp.status not in (200, 201, 400, 409):
+                logger.error('Audio Storage upload failed: HTTP %s', resp.status)
                 return None
-    except Exception as e:
-        logger.error(f"Supabase Storage Exception: {e}")
+        # Duplicate replies and successful POST alike require byte evidence.
+        # One bounded GET per upload; no HEAD + GET and no retry loop.
+        async with session.get(public_url, allow_redirects=False) as resp:
+            if resp.status != 200:
+                logger.error('Audio Storage verification failed: HTTP %s', resp.status)
+                return None
+            observed = hashlib.sha256()
+            size = 0
+            async for block in resp.content.iter_chunked(65536):
+                size += len(block)
+                if size > len(data):
+                    return None
+                observed.update(block)
+            if size != len(data) or observed.hexdigest() != digest:
+                logger.error('Audio Storage SHA-256 verification failed')
+                return None
+        return public_url
+    except Exception:
+        logger.error('Audio Storage request failed; upload is not confirmed')
         return None
 
 
