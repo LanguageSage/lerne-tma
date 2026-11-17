@@ -468,7 +468,9 @@ export const offlineApi = {
     if (m === 'get' && match) {
       const id = Number(match[1]);
       if (match[2] === 'next') return nextCard(db, id, userId, params);
-      return result(await Promise.all((await deckCards(db, id)).map(c => cardView(db, c, userId))));
+      const cards = await deckCards(db, id);
+      const complete = await isDeckCacheComplete(db, id, cards.length);
+      return { ...result(await Promise.all(cards.map(c => cardView(db, c, userId)))), complete };
     }
     match = url.match(/^\/cards\/(-?\d+)$/);
     if (m === 'get' && match) {

@@ -3,6 +3,7 @@ import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createStore } from '../../app/node_modules/zustand/esm/vanilla.mjs';
+import { mergeStudyCardPatch } from '../../app/src/utils/structuredStudyCard.js';
 
 const source = ['initCacheHelper', 'createDeckSlice', 'createFolderSlice'].map(name => readFileSync(
   new URL(`../../app/src/store/slices/${name}.js`, import.meta.url), 'utf8')
@@ -16,6 +17,7 @@ function fixture(cache = data) {
   let userId = 101;
   const f = { request: async path => ({ data: path === '/decks' ? data.decks : data.folders }) };
   const context = { createStore, getUserId: () => userId, getSessionIdentity: () => `session-${userId}`,
+    mergeStudyCardPatch,
     useSessionStore: { getState: () => ({ studyHistory: [] }) },
     storage: { get: key => values.get(key), set: (key, value) => values.set(key, value) },
     localStorage: { getItem: key => values.get(key) },
@@ -266,6 +268,18 @@ test('concurrent library load preserves fetchDeckCards deduplication and hasFres
   assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 999), false);
   f.userId = 202;
   assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 20), false);
+});
+
+test('offline or incomplete fetchDeckCards never counts as fresh in hasFreshDeckCards', async () => {
+  const f = fixture();
+  f.request = async () => ({ data: [{ id: 10 }], dataSource: 'cache', complete: false });
+  await f.store.getState().fetchDeckCards(1);
+  assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 10), false);
+  f.store.getState().updateCardLocal(10, { _studyFetchedAt: Date.now() }, 1);
+  assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 10), false);
+  f.request = async () => ({ data: [{ id: 10 }, { id: 20 }] });
+  await f.store.getState().fetchDeckCards(1);
+  assert.equal(f.context.hasFreshDeckCards(f.store.getState(), 1, 10), true);
 });
 
 test('partial cache hydrates missing folders while preserving existing decks and persisted cache', () => {

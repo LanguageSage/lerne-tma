@@ -897,3 +897,90 @@ test('CardList opens card from main card surface and search with 0 extra HTTP wh
   expect(listCalls).toBe(0);
   void editorCardCalls;
 });
+
+test('offline incomplete deck cache is never treated as fresh across deck open, CardList, global search, and Study after reconnect', async ({ page, context }) => {
+  await page.setViewportSize({ width: 375, height: 812 });
+  await setup(page, context, false, 'ru');
+  const tenCards = Array.from({ length: 10 }, (_, i) => ({
+    ...cards[0], id: i + 1, position: i,
+    front: `Offline Word ${i + 1}`, back: `Offline Answer ${i + 1}`,
+    content_v2: { schema_version: 2, card: { type: 'standard',
+      data: { prompt: `Offline Word ${i + 1}`, answer: `Offline Answer ${i + 1}` }, info: [] } },
+  }));
+  const largeDeck = { ...deck, folder_id: null, role: 'owner', is_learning: true, stats: { total: 10, new: 10, due: 0, learning: 0 } };
+  let listCalls = 0;
+  await page.route('**/api/decks', route => route.fulfill({ json: [largeDeck] }));
+  await page.route('**/api/folders', route => route.fulfill({ json: [] }));
+  await page.route('**/api/decks/1/next*', route => route.fulfill({ json: tenCards[0] }));
+  await page.route('**/api/decks/1/cards*', route => { listCalls++; return route.fulfill({ json: tenCards }); });
+  await page.route('**/api/knowledge/decks/1*', route => route.fulfill({ json: { card_ids: [], knowledge_items: [], card_knowledge_items: [] } }));
+  await page.route('**/api/cards/search*', route => route.fulfill({ json: { cards: [tenCards[0]] } }));
+
+  const seedPartialOffline = async () => {
+    await context.setOffline(false);
+    await page.evaluate(async ({ largeDeck, firstCard }) => {
+      const db = (await import('/src/services/localDb.js')).getLocalDb();
+      await db.cards.clear();
+      await db.cards.put(firstCard);
+      await db.decks.put({ ...largeDeck, user_id: 1, role: 'owner' });
+      await db.syncState.clear();
+      await db.syncState.put({ key: 'deck-cards:1', complete: false, fetched_at: Date.now() });
+      deckStore.setState({ decks: [largeDeck], currentDeck: null, deckCards: [], cardsByDeck: {}, cardsCompleteByDeck: {}, cardsLoading: false });
+      uiStore.getState().setView('decks');
+    }, { largeDeck, firstCard: tenCards[0] });
+    await page.locator('#deck-item-1').waitFor();
+    await context.setOffline(true);
+    await page.locator('#deck-item-1').click();
+    await page.locator('.deck-intro-btn-list').click();
+    await expect(page.locator('.card-item-draggable')).toHaveCount(1);
+    listCalls = 0;
+  };
+
+  // 1. Re-opening deck from DeckGrid within 60s after reconnect must fetch all 10 cards.
+  await seedPartialOffline();
+  await page.locator('.view-cards .back-btn').click({ force: true });
+  await page.getByRole('button', { name: 'Назад' }).click();
+  await context.setOffline(false);
+  listCalls = 0;
+  await page.locator('#deck-item-1').click();
+  await page.locator('.deck-intro-btn-list').click();
+  await expect(page.locator('.card-item-draggable')).toHaveCount(10);
+  expect(listCalls).toBeGreaterThanOrEqual(1);
+
+  // 2. Re-entering CardList directly from DeckIntro after reconnect must fetch all 10 cards.
+  await seedPartialOffline();
+  await page.locator('.view-cards .back-btn').click({ force: true });
+  await context.setOffline(false);
+  listCalls = 0;
+  await page.locator('.deck-intro-btn-list').click();
+  await expect(page.locator('.card-item-draggable')).toHaveCount(10);
+  expect(listCalls).toBeGreaterThanOrEqual(1);
+
+  // 3. Selecting card #1 (already in partial cache) from global search after reconnect must fetch all 10 cards.
+  await seedPartialOffline();
+  await page.locator('.view-cards .back-btn').click({ force: true });
+  await page.getByRole('button', { name: 'Назад' }).click();
+  await page.locator('#deck-item-1').waitFor();
+  await context.setOffline(false);
+  listCalls = 0;
+  await page.locator('[title*="Поиск"]').first().click();
+  await page.locator('.card-search-input').first().fill('Offline Word 1');
+  await page.locator('.search-card-item-styled').first().click();
+  await expect(page.locator('.card-item-draggable')).toHaveCount(10);
+  expect(listCalls).toBeGreaterThanOrEqual(1);
+
+  // 4. Starting ordinary Study after reconnect within 60s must not skip background full list fetch.
+  await seedPartialOffline();
+  await page.locator('.view-cards .back-btn').click({ force: true });
+  await context.setOffline(false);
+  listCalls = 0;
+  await page.getByRole('button', { name: /Начать занятие|Учить/i }).first().click();
+  await expect.poll(() => page.evaluate(() => deckStore.getState().deckCards.length)).toBe(10);
+  expect(listCalls).toBeGreaterThanOrEqual(1);
+
+  // 5. Staying on CardList during offline -> online transition refreshes the incomplete list automatically.
+  await seedPartialOffline();
+  await context.setOffline(false);
+  await expect(page.locator('.card-item-draggable')).toHaveCount(10);
+  expect(listCalls).toBeGreaterThanOrEqual(1);
+});

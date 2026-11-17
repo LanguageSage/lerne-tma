@@ -118,6 +118,7 @@ const api = new Proxy(axiosInstance, {
         const forceOffline = (!nativeCreate && !(cardMatch && args[0]?.freshCard) && isOfflineMode())
           || !navigator.onLine || /^\/cards\/-\d+$/.test(url);
         const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
+        const isDeckCardsRead = propKey === 'get' && /^\/decks\/-?\d+\/cards(?:\?|$)/.test(url);
 
         if (forceOffline && isOfflineEndpoint) {
           try {
@@ -128,7 +129,9 @@ const api = new Proxy(axiosInstance, {
               const items = url.startsWith('/init') ? [...(response.data?.decks || []), ...(response.data?.folders || [])] : response.data;
               if (!items?.length) throw new Error('Library unavailable offline');
             }
-            return isLibraryRead ? { ...response, dataSource: isOfflineMode() ? 'local' : 'cache' } : response;
+            return (isLibraryRead || isDeckCardsRead)
+              ? { ...response, dataSource: isOfflineMode() ? 'local' : 'cache' }
+              : response;
           } catch (err) {
             if (err.code !== 'OFFLINE_UNSUPPORTED' || !navigator.onLine) throw err;
           }
@@ -336,7 +339,7 @@ const api = new Proxy(axiosInstance, {
               const response = await localRequest(...args);
               const items = url.startsWith('/init') ? [...(response.data?.decks || []), ...(response.data?.folders || [])] : response.data;
               if (isLibraryRead && !items?.length) throw networkErr;
-              return isLibraryRead ? { ...response, dataSource: 'cache' } : response;
+              return (isLibraryRead || isDeckCardsRead) ? { ...response, dataSource: 'cache' } : response;
             } catch (localError) {
               if (nativeCreate) throw localError;
               console.warn('Offline fallback unavailable', { method: propKey.toUpperCase() });

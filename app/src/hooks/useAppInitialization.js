@@ -117,6 +117,10 @@ export const useAppInitialization = (checkStartParam) => {
       runBackgroundSync();
       if (!isOfflineMode()) {
         useDeckStore.getState().fetchDecks(true).catch(() => {});
+        const { currentDeck, cardsCompleteByDeck, fetchDeckCards } = useDeckStore.getState();
+        if (useUiStore.getState().view === 'cards' && currentDeck?.id && cardsCompleteByDeck?.[currentDeck.id] === false) {
+          fetchDeckCards(currentDeck.id).catch(() => {});
+        }
       }
       useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
     };

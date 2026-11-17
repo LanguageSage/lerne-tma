@@ -10,6 +10,7 @@ import { mergeStudyCardPatch, mergeStudyProgress } from '../../utils/structuredS
 let reorderTimeout = null;
 
 export const hasFreshDeckCards = (state, deckId, requiredCardId = null, maxAgeMs = 60_000) => {
+  if (state.cardsCompleteByDeck?.[deckId] === false) return false;
   const cards = state.currentDeck?.id === deckId && state.deckCards?.length
     ? state.deckCards
     : state.cardsByDeck?.[deckId];
@@ -19,7 +20,8 @@ export const hasFreshDeckCards = (state, deckId, requiredCardId = null, maxAgeMs
   }
   const identity = getSessionIdentity();
   const now = Date.now();
-  return cards.every(card => card._studyIdentity === identity && now - (card._studyFetchedAt || 0) < maxAgeMs);
+  return cards.every(card => card._studyComplete !== false
+    && card._studyIdentity === identity && now - (card._studyFetchedAt || 0) < maxAgeMs);
 };
 
 export const createDeckSlice = (set, get) => {
@@ -55,6 +57,7 @@ export const createDeckSlice = (set, get) => {
   currentDeck: null,
   deckCards: [],
   cardsByDeck: {},
+  cardsCompleteByDeck: {},
   duplicateCards: [],
   lastDuplicateCardId: null,
   syncModalOpen: false,
@@ -245,9 +248,12 @@ export const createDeckSlice = (set, get) => {
                 previous.set(String(card.id), mergeStudyCardPatch(previous.get(String(card.id)), card));
               }
             }
+            const isComplete = res.complete !== false && res.dataSource !== 'cache' && res.dataSource !== 'local';
             const newCards = (res.data || []).map(card => {
               const cached = previous.get(String(card.id));
-              const fresh = { ...card, _studyFetchedAt: Date.now(), _studyIdentity: identity, _studyContext: 'scheduled' };
+              const fresh = isComplete
+                ? { ...card, _studyFetchedAt: Date.now(), _studyIdentity: identity, _studyContext: 'scheduled' }
+                : { ...card, _studyIdentity: identity, _studyContext: 'scheduled', _studyComplete: false };
               // A background list may have read progress before a grade committed.
               return cached?._studyProgressAt >= startedAt ? mergeStudyProgress(fresh, cached) : fresh;
             });
@@ -256,6 +262,10 @@ export const createDeckSlice = (set, get) => {
               cardsByDeck: {
                 ...prev.cardsByDeck,
                 [deckId]: newCards
+              },
+              cardsCompleteByDeck: {
+                ...prev.cardsCompleteByDeck,
+                [deckId]: isComplete
               }
             }));
             return newCards;

@@ -28,6 +28,7 @@ export const useDeckStore = create((set, get, store) => ({
       currentDeck: null,
       deckCards: [],
       cardsByDeck: {},
+      cardsCompleteByDeck: {},
       duplicateCards: [],
       lastDuplicateCardId: null,
       syncModalOpen: false,

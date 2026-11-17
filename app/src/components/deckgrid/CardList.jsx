@@ -182,7 +182,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     if (view === 'cards' && currentDeck?.id) {
       const state = useDeckStore.getState();
       const hasCards = (state.deckCards && state.deckCards.length > 0) || (state.cardsByDeck[currentDeck.id]?.length > 0);
-      if (!hasCards) {
+      if (!hasCards || state.cardsCompleteByDeck?.[currentDeck.id] === false) {
         state.fetchDeckCards(currentDeck.id);
       }
     }
