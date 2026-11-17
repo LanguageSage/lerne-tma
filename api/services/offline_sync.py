@@ -253,6 +253,8 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
             # across this acknowledged write, never across an unseen peer edit.
             versions = {}
             for name, items in (('folders', request.folders), ('decks', request.decks), ('cards', request.cards), ('progress', request.progress)):
+                if not items:
+                    continue
                 model = models.TMAProgress if name == 'progress' else table_map[name]
                 originals = [item.card_id if name == 'progress' else item.id for item in items]
                 resolved = {original: maps['cards' if name == 'progress' else name].get(str(original), original) for original in originals}

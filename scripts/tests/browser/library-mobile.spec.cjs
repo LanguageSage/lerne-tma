@@ -75,6 +75,7 @@ async function setup(page, context, options = {}) {
     }
     if (!state.authenticated || !request.headers().authorization || request.headers().authorization === 'Bearer expired') return reply(401, { detail: 'invalid_session' });
     if (path === '/api/auth/v2/me') return reply(200, profile);
+    if (path === '/api/sync/v2/status') return reply(200, { server_generation: 'a'.repeat(64), restored: false });
     if (path === '/api/auth/v2/identities') return reply(200, { providers: ['email_password'] });
     if (path === '/api/auth/v2/password-settings') return reply(200, {});
     if (path === '/api/messages') return reply(200, []);

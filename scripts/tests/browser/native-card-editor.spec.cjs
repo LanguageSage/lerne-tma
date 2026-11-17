@@ -42,6 +42,7 @@ test('native editor keeps every card type and retains the draft after a conflict
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {},
       prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: current ? [current] : [] });
     if (pathname === '/api/messages' || pathname === '/api/folders') return route.fulfill({ json: [] });

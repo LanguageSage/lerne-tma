@@ -43,6 +43,7 @@ async function setup(page, context, mode = 'missing') {
     if (state.mode === 'forbidden') return reply(403, { detail: 'permission_denied' });
     if (!state.authorized || request.headers().authorization !== 'Bearer valid') return reply(401, { detail: 'authentication_required' });
     if (path === '/api/auth/v2/me') return reply(200, profile);
+    if (path === '/api/sync/v2/status') return reply(200, { server_generation: 'a'.repeat(64), restored: false });
     if (path === '/api/auth/v2/identities') return reply(200, { providers: ['email_password'] });
     if (path === '/api/auth/v2/password-settings') return reply(200, { email: 'synthetic@example.test' });
     if (path === '/api/init') return reply(200, { decks: [deck], folders: [], user_info: profile, settings: {}, prompts: {}, user_settings: {} });

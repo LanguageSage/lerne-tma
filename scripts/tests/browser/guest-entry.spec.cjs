@@ -32,6 +32,7 @@ async function setup(page, context, identified = false) {
     const decks = didLogin ? [{ id: 1, name: 'Existing German deck', target_language: 'de', stats: { total: 2, new: 2 } }] : [];
     if (pathname === '/api/init') return route.fulfill({ json: { decks, folders: [], settings: {}, prompts: {}, user_settings: {}, user_info: profile } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: profile });
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/auth/v2/identities') return route.fulfill({ json: { providers: ['email_password'] } });
     if (pathname === '/api/decks') return route.fulfill({ json: decks });
     if (pathname === '/api/folders') return route.fulfill({ json: [] });

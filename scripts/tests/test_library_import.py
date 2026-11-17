@@ -10,6 +10,7 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from peewee import SqliteDatabase
 
+from audio_fixture import mp3_bytes
 from native_fixture import content, sqlite_native
 from api import models, services
 from api.dependencies.auth import get_user_id
@@ -21,7 +22,8 @@ OLD = dt.datetime(2020, 1, 1)
 NEW = dt.datetime(2021, 1, 1)
 TABLES = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
           models.TMAProgress, models.TMAReviewHistory, models.TMASetting,
-          models.TMA_Collaborator, models.LibraryCategory, models.Deck, models.Card]
+          models.TMA_Collaborator, models.LibraryCategory, models.Deck, models.Card,
+          models.TMAMedia]
 
 
 class LibraryImportTests(unittest.TestCase):
@@ -37,6 +39,7 @@ class LibraryImportTests(unittest.TestCase):
         self.addCleanup(self.cleanup)
         sqlite_native(self, self.db, writes=True)
         self.db.create_tables(TABLES)
+        models.TMAMedia.create(folder='audio', filename='synthetic.mp3', content=mp3_bytes())
         for uid in (1, 2, 3):
             models.TMAUser.create(user_id=uid, is_guest=False, default_decks_initialized=True)
         self.library = models.TMA_Deck.create(scope='library', name='Synthetic library', target_language='uk',

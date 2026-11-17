@@ -19,7 +19,7 @@ from uuid import uuid4
 
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
-from peewee import PostgresqlDatabase, SqliteDatabase
+from peewee import ModelSelect, PostgresqlDatabase, SqliteDatabase
 
 from api import models
 from api.routers.sync import OfflinePushRequest
@@ -277,17 +277,19 @@ class SyncReadTests(SyncFixture):
             progress=[{'card_id': c.id, 'queue': 'review', 'interval': 10, 'ease_factor': 2.5,
                        'repetitions': 2, 'lapses': 0} for c in cards],
             reviews=[{'card_id': c.id, 'rating': 3, 'review_time': NOW.isoformat(), 'scheduled_interval': 10}
-                     for c in cards for _ in range(3)])
-        with capture_reads(self.db) as reads:
-            result = offline_sync.push_offline(request, 3)  # viewer may study
-        self.assert_light_reads(reads)
-        self.assertEqual(result['review_count'], 6)
-        self.assertEqual(sum('FROM "tma_card"' in r['sql'] for r in reads), 1)
-        self.assertEqual(offline_sync.push_offline(request, 3), result)
-        with self.assertRaises(HTTPException) as error:
-            offline_sync.push_offline(OfflinePushRequest(request_id=uuid4(), cards=[{
-                'id': cards[0].id, 'deck_id': self.shared_deck.id, 'front_text': 'Forbidden', 'back_text': 'x'}]), 3)
-        self.assertEqual(error.exception.status_code, 409)
+                     for c in cards for _ in range(3)],
+            drain_bases={f'progress:{c.id}': NOW.isoformat() for c in cards})
+        with patch.object(ModelSelect, 'for_update', lambda query, *_args, **_kwargs: query):
+            with capture_reads(self.db) as reads:
+                result = offline_sync.push_offline(request, 3)  # viewer may study
+            self.assert_light_reads(reads)
+            self.assertEqual(result['review_count'], 6)
+            self.assertEqual(sum('FROM "tma_card"' in r['sql'] for r in reads), 1)
+            self.assertEqual(offline_sync.push_offline(request, 3), result)
+            with self.assertRaises(HTTPException) as error:
+                offline_sync.push_offline(OfflinePushRequest(request_id=uuid4(), cards=[{
+                    'id': cards[0].id, 'deck_id': self.shared_deck.id, 'front_text': 'Forbidden', 'back_text': 'x'}]), 3)
+            self.assertEqual(error.exception.status_code, 409)
 
     def test_collaboration_only_invalidates_and_old_route_is_absent(self):
         app = FastAPI()

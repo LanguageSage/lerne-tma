@@ -495,6 +495,9 @@ export function reconcileCardEditLifecycle(local, server, readStartedAt) {
 function sameValue(left, right) {
   if (Object.is(left, right)) return true;
   if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (left instanceof Date || right instanceof Date) {
+    return left instanceof Date && right instanceof Date && Object.is(left.getTime(), right.getTime());
+  }
   if (Array.isArray(left) !== Array.isArray(right)) return false;
   if (Array.isArray(left)) {
     return left.length === right.length && left.every((item, index) => sameValue(item, right[index]));
@@ -534,12 +537,14 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
       ...data.cards].map(card => card.id));
     for (const [index, name] of entities.entries()) {
       const localRows = localTables[index];
-      const localMap = new Map(localRows.map(row => [name === 'progress' ? `${row.card_id}:${row.user_id}` : row.id, row]));
+      const localMap = name === 'progress'
+        ? new Map(localRows.filter(row => Object.is(row.user_id, userId)).map(row => [row.card_id, row]))
+        : new Map(localRows.map(row => [row.id, row]));
       const incoming = new Set(data[name].map(item => name === 'progress' ? item.card_id : item.id));
       const toPut = [];
       const toDelete = [];
       for (const item of data[name]) {
-        const local = localMap.get(name === 'progress' ? `${item.card_id}:${userId}` : item.id);
+        const local = localMap.get(name === 'progress' ? item.card_id : item.id);
         if (name === 'cards' && local?.offline_edit) {
           const reconciled = reconcileCardEditLifecycle(local, item, pullStartedAt);
           if (reconciled) toPut.push(reconciled);

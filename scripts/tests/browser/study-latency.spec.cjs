@@ -287,7 +287,9 @@ for (const unavailable of [false, true]) {
     await knowledgeSetup(page, context, { mapped: false, unavailable });
     let grades = 0;
     await page.route('**/api/study/grade', route => { grades++; return route.fulfill({ json: { status: 'success' } }); });
+    const kiDone = page.waitForResponse('**/api/knowledge/decks/1*');
     await page.evaluate(() => studyNavigation.startStudy(deckStore.getState().currentDeck));
+    await kiDone;
     await page.evaluate(() => studyActions.submitGrade(2));
     expect(grades).toBe(1);
     expect(await page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(0);

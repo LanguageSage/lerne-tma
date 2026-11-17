@@ -25,6 +25,7 @@ async function setup(page, context, locale = 'ru') {
       settings: {}, prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (url.pathname === '/api/decks') return route.fulfill({ json: decks });
     if (url.pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+    if (url.pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (url.pathname.endsWith('/cards')) return route.fulfill({ json: cards });
     if (url.pathname.endsWith('/next')) {
       const forced = url.searchParams.get('review_context') === 'forced';

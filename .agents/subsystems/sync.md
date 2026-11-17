@@ -471,7 +471,14 @@ permissions/идемпотентность остаётся. Исходные с
 Успех pull/native-content не равен полной доставке всех настроек устройства;
 коллаборативный UI обновляется по `pull_success`. Watermark снимается до чтения
 и использует те же naive часы, что и `updated_at`, чтобы polling успокаивался
-после завершённой записи.
+после завершённой записи. `applySnapshot` сравнивает снэпшот в одной
+rw-транзакции с помощью `toArray()` + `sameSnapshotRecord` (`sameValue`
+учитывает `Date`, для `progress` ключ сопоставляется по `Object.is` над `user_id`)
+и применяет только отличия через `bulkPut`/`bulkDelete`; `inspectCardCutover`
+в конце `runSync` переиспользует уже посчитанный снимок активной БД через
+`precomputed`, а немедленное повторное открытие редактора после сохранения
+использует `skipPull: true` при `pendingNativeOnly: true`. В `offline_sync.py`
+сбор `versions` пропускает пустые списки сущностей без лишних `WHERE 0 = 1`.
 
 
 ## Unified Native V2 storage — migration 96

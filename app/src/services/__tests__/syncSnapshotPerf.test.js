@@ -163,3 +163,83 @@ test('applySnapshot diffs unchanged cards cleanly and avoids duplicate UI refres
     { complete: true, alreadyRefreshed: true },
   ]);
 });
+
+test('applySnapshot preserves unsynced creates, conflicts, Date diffs, and isolates switched accounts', async () => {
+  const db1 = getLocalDb();
+  const unsyncedCreate = snapshotCard(-1, 'local-rev', 'Local draft');
+  const conflictEdit = {
+    ...snapshotCard(10, 'rev-1', 'Offline conflicted'),
+    offline_edit: { status: 'conflict', requestId: 'req-10' },
+  };
+  const cleanServerCard = snapshotCard(11, 'rev-1', 'Before');
+  await db1.decks.put({ id: 5, user_id: 1, name: 'Local deck', is_dirty: 1 });
+  await db1.cards.bulkPut([unsyncedCreate, conflictEdit, cleanServerCard]);
+  await db1.progress.bulkPut([
+    { card_id: 11, user_id: 1, interval: 1, sync_marker: new Date('2026-11-17T00:00:00Z') },
+    { card_id: 11, user_id: '1', interval: 99 },
+  ]);
+
+  pullResponse = () => ({
+    status: 'success',
+    card_schema: 2,
+    server_time: '2026-11-17T12:05:00Z',
+    folders: [],
+    decks: [{ id: 5, user_id: 1, name: 'Server deck', is_dirty: 0 }],
+    cards: [
+      snapshotCard(10, 'rev-2', 'Remote update'),
+      { ...snapshotCard(11, 'rev-1', 'Before'), server_marker: new Date('2026-11-17T00:00:00Z') },
+    ],
+    progress: [{ card_id: 11, user_id: 1, interval: 4, sync_marker: new Date('2026-11-18T00:00:00Z') }],
+  });
+
+  const res1 = await syncService.sync({ pullOnly: true });
+  assert.equal(res1.pull_success, true, res1.reason);
+  assert.equal(res1.success, false);
+  assert.equal((await db1.cards.get(-1)).content_v2.card.data.prompt, 'Local draft');
+  assert.equal((await db1.cards.get(10)).content_v2.card.data.prompt, 'Offline conflicted');
+  assert.equal((await db1.cards.get(10)).offline_edit.status, 'conflict');
+  assert.equal((await db1.decks.get(5)).name, 'Local deck');
+  assert.equal((await db1.progress.get([11, 1])).interval, 4);
+  assert.equal((await db1.progress.get([11, 1])).sync_marker.getTime(), new Date('2026-11-18T00:00:00Z').getTime());
+
+  // Updating Date value with identical keys still triggers snapshot update rather than false equality.
+  pullResponse = () => ({
+    status: 'success',
+    card_schema: 2,
+    server_time: '2026-11-17T12:06:00Z',
+    folders: [],
+    decks: [],
+    cards: [
+      snapshotCard(10, 'rev-2', 'Remote update'),
+      { ...snapshotCard(11, 'rev-1', 'Before'), server_marker: new Date('2026-11-19T00:00:00Z') },
+    ],
+    progress: [{ card_id: 11, user_id: 1, interval: 4, sync_marker: new Date('2026-11-18T00:00:00Z') }],
+  });
+  const resDate = await syncService.sync({ pullOnly: true });
+  assert.equal(resDate.pull_success, true, resDate.reason);
+  assert.equal(resDate.success, false);
+  assert.equal((await db1.cards.get(11)).server_marker.getTime(), new Date('2026-11-19T00:00:00Z').getTime());
+
+  // Switch active account to user 2 and verify account 1 data remains isolated.
+  user = 2;
+  saveUserProfile({ user_id: user });
+  saveAuthSession({ access_token: 'tok-2', refresh_token: 'ref-2', account_id: user });
+  const db2 = getLocalDb();
+  assert.notEqual(db2.name, db1.name);
+  pullResponse = () => ({
+    status: 'success',
+    card_schema: 2,
+    server_time: '2026-11-17T12:07:00Z',
+    folders: [],
+    decks: [{ id: 20, user_id: 2, name: 'Account 2 deck', is_dirty: 0 }],
+    cards: [snapshotCard(200, 'rev-200', 'Account 2 card')],
+    progress: [{ card_id: 200, user_id: 2, interval: 2 }],
+  });
+  const res2 = await syncService.sync({ pullOnly: true });
+  assert.equal(res2.pull_success, true, res2.reason);
+  assert.equal(res2.pending.pending_free, true);
+  assert.equal(res2.device_pending, true);
+  assert.equal((await db2.cards.get(200)).content_v2.card.data.prompt, 'Account 2 card');
+  assert.equal(await db2.cards.get(-1), undefined);
+  assert.equal((await db1.cards.get(-1)).content_v2.card.data.prompt, 'Local draft');
+});

@@ -25,6 +25,7 @@ async function setup(page, context) {
       prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/decks/601/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     return route.fulfill({ json: [] });
   });
   await page.goto('/?user_id=1');
