@@ -286,8 +286,9 @@ export async function resolveCardEdit(id, expected, keepLocal) {
   });
 }
 const initialProgress = (card, userId) => ({
-  card_id: card.id, user_id: userId, queue: 'new', interval: 0, ease_factor: 2.5,
-  repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null,
+  card_id: card.id, user_id: userId, queue: card.queue || 'new', interval: card.interval ?? 0,
+  ease_factor: card.ease_factor || 2.5, repetitions: card.repetitions ?? 0, lapses: card.lapses ?? 0,
+  step_index: card.step_index ?? 0, next_review: card.next_review ?? null, last_reviewed: card.last_reviewed ?? null,
   // Older caches stored personal fields on the card; retain them on first review.
   flag: card.flag ?? 0, want_to_learn: card.want_to_learn ?? false,
 });
@@ -302,16 +303,18 @@ async function requireContentWrite(db, entity, item) {
 }
 
 async function cardView(db, card, userId, reviewContext = 'scheduled') {
-  const progress = await db.progress.get([card.id, userId]);
+  const progress = await db.progress.get([card.id, userId]) || initialProgress(card, userId);
   const content = card.content_v2?.card;
   if (!content) notFound();
   return {
     ...await cardMediaView(db, card), level: content.level,
-    intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress?.lapses || 0),
-    next_review: progress?.next_review, last_reviewed: progress?.last_reviewed,
-    queue: progress?.queue || 'new', interval: progress?.interval || 0, lapses: progress?.lapses || 0,
-    flag: progress?.flag ?? card.flag ?? 0,
-    want_to_learn: progress?.want_to_learn ?? card.want_to_learn ?? false,
+    intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress.lapses || 0),
+    next_review: progress.next_review, last_reviewed: progress.last_reviewed,
+    queue: progress.queue || 'new', interval: progress.interval || 0,
+    ease_factor: progress.ease_factor || 2.5, repetitions: progress.repetitions ?? 0,
+    step_index: progress.step_index ?? 0, lapses: progress.lapses || 0,
+    flag: progress.flag ?? card.flag ?? 0,
+    want_to_learn: progress.want_to_learn ?? card.want_to_learn ?? false,
   };
 }
 
@@ -326,7 +329,7 @@ async function deckStats(db, deckId, userId) {
   const progress = new Map((await db.progress.where('user_id').equals(userId).toArray()).map(p => [p.card_id, p]));
   const stats = { total: cards.length, new: 0, learning: 0, due: 0 };
   for (const card of cards) {
-    const p = progress.get(card.id);
+    const p = progress.get(card.id) || initialProgress(card, userId);
     if (!p || p.queue === 'new') stats.new++;
     else if (['learning', 'relearning'].includes(p.queue)) stats.learning++;
     else if (!p.next_review || new Date(p.next_review) <= new Date()) stats.due++;
@@ -340,7 +343,7 @@ async function nextCard(db, deckId, userId, params) {
   const progress = new Map((await db.progress.where('user_id').equals(userId).toArray()).map(p => [p.card_id, p]));
   const now = Date.now();
   const candidates = cards.filter(c => !c.offline_create_status && !exclude.has(c.id))
-    .map(card => ({ card, p: progress.get(card.id) }));
+    .map(card => ({ card, p: progress.get(card.id) || initialProgress(card, userId) }));
   const due = candidates.filter(({ p }) => !p || p.queue === 'new' || !p.next_review || new Date(p.next_review).getTime() <= now);
   const context = params.get('review_context') === 'forced' || params.get('learn_more') === 'true' ? 'forced' : 'scheduled';
   const pool = context === 'forced' ? candidates : due;
@@ -482,7 +485,7 @@ export const offlineApi = {
           ...(card.content_v2 && { flag_only: true }), ...dirtyFields(progress) };
         await db.progress.put(updated);
         gradedProgress = { id, ...Object.fromEntries(['queue', 'interval', 'ease_factor', 'repetitions',
-          'lapses', 'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
+          'step_index', 'lapses', 'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
           intervals: getNextIntervals(updated, context), is_leech: isLeech(updated.lapses || 0) };
         // Same transaction as progress; every grade survives reload and batch retry.
         await db.syncState.put({ key: `grade:${actionId}`, fingerprint, graded_progress: gradedProgress });
@@ -494,8 +497,12 @@ export const offlineApi = {
       if (body.return_next === false) return result({ status: 'success', ...extra });
       const exclude = [...new Set([...(body.exclude_ids || []), id])];
       const nextParams = new URLSearchParams({ exclude_ids: exclude.join(','), review_context: context });
-      const next = await nextCard(db, card.deck_id, userId, nextParams);
-      return { ...next, data: { ...next.data, ...extra } };
+      try {
+        const next = await nextCard(db, card.deck_id, userId, nextParams);
+        return { ...next, data: { ...next.data, ...extra } };
+      } catch (err) {
+        return result({ status: 'success', next_error: err.response?.data?.detail || err.message, ...extra });
+      }
     }
     if (m === 'post' && url === '/cards/save') return saveNativeCard(db, body, config, userId);
     if (m === 'post' && url === '/cards/batch-move') return queueCardMove(db, body, isCurrent);

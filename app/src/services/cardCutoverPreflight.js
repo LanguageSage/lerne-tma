@@ -34,7 +34,7 @@ export async function inspectCutoverDatabase(database) {
         if (table.name === 'knowledge_attempt_outbox') add('knowledge_attempt_outbox:retained');
         if (table.name === 'syncState') {
           const key = String(row.key);
-          if (inertKeys.has(key) || key.startsWith('grade:')) return;
+          if (inertKeys.has(key) || key.startsWith('grade:') || (key.startsWith('knowledge-content:') && !row.rejected)) return;
           if (row.rejected) add('syncState:rejected_operation');
           // Even an expired refresh lease is not evidence that other tabs stopped.
           add(key === 'serverGenerationConflict' ? 'syncState:server_generation_conflict'

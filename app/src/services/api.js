@@ -153,6 +153,7 @@ const api = new Proxy(axiosInstance, {
         }
 
         // Try online server request first
+        let skipOfflineFallback = false;
         try {
           const needsRefresh = !nativeCreate && isOfflineMode() && isOfflineEndpoint && propKey !== 'get';
           if (needsRefresh) {
@@ -165,8 +166,10 @@ const api = new Proxy(axiosInstance, {
           }
           const response = await Reflect.get(target, propKey, receiver).call(target, url, ...args);
           assertCurrent();
-          const studyNext = propKey === 'get' && /^\/decks\/\d+\/next(?:\?|$)/.test(url)
-            && response.data?.content_v2 && response.data?.id;
+          const studyNextMatch = propKey === 'get' && response.data?.content_v2 && response.data?.id
+            ? url.match(/^\/decks\/(\d+)\/next(?:\?|$)/) : null;
+          const studyNext = Boolean(studyNextMatch);
+          const studyNextDeckId = studyNextMatch ? Number(studyNextMatch[1]) : null;
           if (needsRefresh) {
             await syncService.sync();
             assertCurrent();
@@ -214,7 +217,9 @@ const api = new Proxy(axiosInstance, {
                     return visible[0];
                   });
                   if (isCurrent()) {
-                    if (studyNext && merged?.is_deleted) return localRequest(...args);
+                    if (studyNext && (merged?.is_deleted || (merged !== response.data && Number(merged?.deck_id) !== studyNextDeckId))) {
+                      return localRequest(...args);
+                    }
                     const data = deckMatch ? merged : await cardMediaView(db, merged);
                     assertCurrent();
                     return { ...response, data };
@@ -267,7 +272,10 @@ const api = new Proxy(axiosInstance, {
               }
             } catch (error) {
               if (!isCurrent()) throw new axios.CanceledError('Session changed during offline cache update');
-              if (studyNext) throw error;
+              if (studyNext) {
+                skipOfflineFallback = true;
+                throw error;
+              }
               console.warn('Offline library unavailable', error.name);
             }
           }
@@ -310,7 +318,7 @@ const api = new Proxy(axiosInstance, {
             throw new axios.CanceledError('Session changed before offline fallback');
           }
 
-          if (isOfflineEndpoint && isNetworkFailure && !axios.isCancel(networkErr)) {
+          if (!skipOfflineFallback && isOfflineEndpoint && isNetworkFailure && !axios.isCancel(networkErr)) {
             console.log(`[Network Unavailable] Falling back to local offline DB for ${propKey.toUpperCase()} ${url}`);
             try {
               const response = await localRequest(...args);

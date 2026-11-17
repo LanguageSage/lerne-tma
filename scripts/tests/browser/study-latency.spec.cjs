@@ -111,7 +111,18 @@ test('cold first card survives immediate offline grading and review delivery aft
   });
   await page.route('**/api/sync/v2/pull*', route => route.fulfill({ json: { status: 'success', card_schema: 2,
     folders: [], decks: [{ ...deck, user_id: 1 }], cards, progress: [] } }));
-  await page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
+  await page.route('**/api/knowledge/attempts/sync', route => route.fulfill({ json: {
+    results: route.request().postDataJSON().attempts.map(a => ({ client_event_id: a.client_event_id, status: 'created' })) } }));
+  await page.evaluate(async () => (await import('/src/services/knowledgeSyncService.js')).syncKnowledgeAttempts(1));
+  const syncResult = await page.evaluate(async () => {
+    localStorage.removeItem('lerne:personal-design:v2:1');
+    return {
+      sync: await (await import('/src/services/syncService.js')).syncService.sync(),
+      cutover: await (await import('/src/services/cardCutoverPreflight.js')).inspectCardCutover(),
+    };
+  });
+  expect(syncResult.cutover.databases[0]).toMatchObject({ pending_free: true, blockers: {} });
+  expect(syncResult.sync).toMatchObject({ device_pending: false, success: true });
   expect(delivered).toHaveLength(1);
   expect(delivered[0].action_id).toBe(saved.action_id);
   expect(await reviews()).toHaveLength(0);
@@ -653,3 +664,84 @@ for (const width of [320, 375, 430, 768, 1280]) {
     if (width === 320 || width === 1280) await page.screenshot({ path: testInfo.outputPath(`grade-error-${width}.png`), fullPage: true });
   });
 }
+
+test('confirmed grade updates deck card cache after leaving study view and rejects stale overwrite', async ({ page, context }) => {
+  await setup(page, context);
+  const pendingGrades = [];
+  await page.route('**/api/study/grade', route => { pendingGrades.push(route); });
+  await page.evaluate(cards => {
+    const fresh = cards.map(card => ({ ...card, queue: 'new', interval: 0, repetitions: 0, _studyFetchedAt: Date.now(), _studyContext: 'scheduled' }));
+    deckStore.getState().setDeckCards(fresh);
+    sessionStore.getState().updateCardInSession(1, fresh[0]);
+  }, cards);
+
+  // Start grade 1 while `!localNext`? Actually when fresh card 2 exists in deck, localNext is card 2 and submitGrade navigates to card 2,
+  // OR switching view to 'decks' makes scope.isCurrent() false before the server responds!
+  await page.evaluate(() => { window.grade1 = studyActions.submitGrade(2); });
+  await expect.poll(() => pendingGrades.length).toBe(1);
+  await page.evaluate(() => uiStore.getState().setView('decks'));
+  await pendingGrades[0].fulfill({ json: {
+    status: 'success',
+    graded_progress: { id: 1, queue: 'review', interval: 15, repetitions: 2, last_reviewed: '2026-11-17T10:00:00Z', intervals: { 2: '15 days' } },
+  } });
+  await page.evaluate(() => window.grade1);
+  expect(await page.evaluate(() => deckStore.getState().cardsByDeck[1].find(c => c.id === 1).interval)).toBe(15);
+
+  // Overlapping stale overwrite check: re-study card 1, start an older grade that resolves AFTER a newer progress arrives.
+  pendingGrades.length = 0;
+  await page.route('**/api/decks/1/next*', route => route.fulfill({ json: { ...cards[0], queue: 'review', interval: 15, repetitions: 2 } }));
+  await page.evaluate(() => studyNavigation.startStudyCard(deckStore.getState().currentDeck, 1));
+  await page.evaluate(() => { window.staleGrade = studyActions.submitGrade(2); });
+  await expect.poll(() => pendingGrades.length).toBe(1);
+  await page.evaluate(() => {
+    deckStore.getState().updateCardLocal(1, {
+      queue: 'review', interval: 30, repetitions: 3, last_reviewed: '2026-11-17T11:00:00Z',
+      _studyProgressAt: Date.now() + 5000, _studyProgressStartedAt: Date.now() + 5000,
+    }, 1);
+  });
+  await pendingGrades[0].fulfill({ json: {
+    status: 'success',
+    graded_progress: { id: 1, queue: 'review', interval: 18, repetitions: 2, last_reviewed: '2026-11-17T10:30:00Z', intervals: { 2: '18 days' } },
+  } });
+  await page.evaluate(() => window.staleGrade);
+  expect(await page.evaluate(() => deckStore.getState().cardsByDeck[1].find(c => c.id === 1).interval)).toBe(30);
+});
+
+test('cold offline grade without local deck row retains Knowledge evidence and graded progress', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  await page.route('**/api/decks/1/cards*', () => {});
+  await page.evaluate(async deck => {
+    const db = (await import('/src/services/localDb.js')).getLocalDb();
+    await db.cards.clear();
+    await db.decks.clear();
+    deckStore.setState({ deckCards: [], cardsByDeck: {} });
+    await studyNavigation.startStudy(deck);
+  }, deck);
+  await expect(page.getByText(cards[0].front, { exact: true }).first()).toBeVisible();
+  await context.setOffline(true);
+  await page.evaluate(() => studyActions.submitGrade(2));
+  await expect.poll(() => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().knowledge_attempt_outbox.count())).toBe(1);
+  expect(await page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().syncState.filter(r => r.key.startsWith('review:')).count())).toBe(1);
+  expect(await page.evaluate(async () => Boolean(await (await import('/src/services/localDb.js')).getLocalDb().progress.get([1, 1])))).toBe(true);
+  expect(await page.evaluate(() => Object.keys(sessionStore.getState().gradeErrors).length)).toBe(0);
+  expect(Boolean(await page.evaluate(() => sessionStore.getState().apiError))).toBe(true);
+  await expect(page.locator('.study-error-message')).toBeVisible();
+  await expect(page.locator('#tut-study-card')).toHaveCount(0);
+});
+
+test('cold finished deck still fetches cards and renders next review date', async ({ page, context }) => {
+  await setup(page, context, false, 'ru');
+  const futureCards = cards.map((card, i) => ({ ...card, queue: 'review', interval: 10 + i, next_review: '2026-12-01T10:00:00Z' }));
+  let cardsFetched = 0;
+  await page.route('**/api/decks/1/next*', route => route.fulfill({ json: { finished: true } }));
+  await page.route('**/api/decks/1/cards*', route => { cardsFetched++; return route.fulfill({ json: futureCards }); });
+  await page.evaluate(async deck => {
+    deckStore.setState({ deckCards: [], cardsByDeck: {}, cardsLoading: false });
+    await studyNavigation.startStudy(deck);
+  }, deck);
+  await expect.poll(() => cardsFetched).toBe(1);
+  await expect.poll(() => page.evaluate(() => deckStore.getState().cardsLoading)).toBe(false);
+  expect(await page.evaluate(() => deckStore.getState().deckCards.length)).toBe(3);
+  await expect(page.locator('.finished-view')).toBeVisible();
+  await expect(page.locator('.finished-view')).toContainText('Следующее повторение:');
+});

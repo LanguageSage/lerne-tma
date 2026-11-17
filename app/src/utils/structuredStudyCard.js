@@ -161,3 +161,62 @@ export function studyErrorDetail(error) {
   if (error.response?.status === 409 && isStudyMigrationError(detail)) return detail;
   return typeof detail === 'string' ? detail : error.message;
 }
+
+const studyProgressFields = [
+  'queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'flag', 'step_index',
+  'is_leech', 'next_review', 'last_reviewed', 'intervals',
+  '_studyProgressAt', '_studyProgressStartedAt', '_studyProgressSeq', '_studyContext',
+];
+
+function isStaleStudyProgressPatch(existing, patch) {
+  if (!existing || !patch) return false;
+  const hasProgress = patch._studyProgressAt != null || patch._studyProgressStartedAt != null
+    || patch._studyProgressSeq != null || 'queue' in patch || 'interval' in patch || 'last_reviewed' in patch;
+  if (!hasProgress) return false;
+  if (patch._studyProgressSeq != null && existing._studyProgressSeq != null
+    && patch._studyProgressSeq < existing._studyProgressSeq) return true;
+  const existingReviewed = existing.last_reviewed ? Date.parse(existing.last_reviewed) : NaN;
+  const patchReviewed = patch.last_reviewed ? Date.parse(patch.last_reviewed) : NaN;
+  const hasNewerReviewTime = Number.isFinite(patchReviewed)
+    && (!Number.isFinite(existingReviewed) || patchReviewed > existingReviewed);
+  if (Number.isFinite(existingReviewed) && Number.isFinite(patchReviewed) && patchReviewed < existingReviewed) return true;
+  if (patch._studyProgressStartedAt != null) {
+    if (existing._studyProgressStartedAt != null && patch._studyProgressStartedAt < existing._studyProgressStartedAt) return true;
+    if (existing._studyProgressAt != null && patch._studyProgressStartedAt < existing._studyProgressAt && !hasNewerReviewTime) return true;
+  }
+  // Background card refreshes / list reads must not overwrite newer confirmed progress.
+  if (patch._studyProgressAt == null && existing._studyProgressAt != null) {
+    const patchTime = patch._studyRequestStartedAt ?? patch._studyFetchedAt ?? 0;
+    if (existing._studyProgressAt >= patchTime && !hasNewerReviewTime) return true;
+  }
+  return false;
+}
+
+export function mergeStudyCardPatch(existing, patch) {
+  if (!existing) {
+    if (!patch || !('_studyRequestStartedAt' in patch)) return patch;
+    const clean = { ...patch };
+    delete clean._studyRequestStartedAt;
+    return clean;
+  }
+  if (!patch) return existing;
+  const stale = isStaleStudyProgressPatch(existing, patch);
+  const merged = { ...existing, ...patch };
+  delete merged._studyRequestStartedAt;
+  if (stale) {
+    for (const field of studyProgressFields) {
+      if (field in existing) merged[field] = existing[field];
+      else delete merged[field];
+    }
+  }
+  return merged;
+}
+
+export function mergeStudyProgress(target, source) {
+  if (!source || isStaleStudyProgressPatch(target, source)) return target;
+  const merged = { ...target };
+  for (const field of studyProgressFields) {
+    if (field in source) merged[field] = source[field];
+  }
+  return merged;
+}

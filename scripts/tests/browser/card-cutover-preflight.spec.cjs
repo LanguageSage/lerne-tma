@@ -87,7 +87,11 @@ test('empty queues never authorize global cutover; unknown schema and unavailabl
     const db = new window.Dexie('LerneTestDB_3');
     db.version(1).stores({ cards: 'id', syncState: 'key' });
     await db.cards.put({ id: 1, front_text: 'Cached V1', is_dirty: 0 });
-    await db.syncState.bulkPut([{ key: 'lastSync', time: 'today' }, { key: 'grade:ok', fingerprint: '{}' }]);
+    await db.syncState.bulkPut([
+      { key: 'lastSync', time: 'today' },
+      { key: 'grade:ok', fingerprint: '{}' },
+      { key: 'knowledge-content:5', revision: 'rev-1', updated_at: 123456 }
+    ]);
     db.close();
     return window.cutover.inspectCardCutover();
   });

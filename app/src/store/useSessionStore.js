@@ -1,4 +1,5 @@
 import { create } from 'zustand';
+import { mergeStudyCardPatch } from '../utils/structuredStudyCard.js';
 
 export const useSessionStore = create((set, get) => ({
   sessionRevision: 0,
@@ -89,15 +90,10 @@ export const useSessionStore = create((set, get) => ({
     card: typeof updater === 'function' ? updater(state.card) : (updater ? { ...updater } : null) 
   })),
   updateCardInSession: (cardId, patch) => set((state) => {
-    const updatedCard = state.card && String(state.card.id) === String(cardId)
-      ? { ...state.card, ...patch }
-      : state.card;
-    const updatedHistory = state.studyHistory.map((item) => (
-      item && String(item.id) === String(cardId) ? { ...item, ...patch } : item
-    ));
+    const apply = (item) => (item && String(item.id) === String(cardId) ? mergeStudyCardPatch(item, patch) : item);
     return {
-      card: updatedCard,
-      studyHistory: updatedHistory
+      card: apply(state.card),
+      studyHistory: state.studyHistory.map(apply)
     };
   }),
   setStudyHistory: (history) => set({ studyHistory: history }),

@@ -114,7 +114,8 @@ invalidates the fingerprint. Equal revisions return only `revision` and
 are introduced. This is content validation, not an HTTP permission cache.
 
 The existing account-scoped Dexie `syncState` stores `knowledge-content:{deckId}`
-in the same transaction as content replacement. An unchanged response performs
+in the same transaction as content replacement; non-rejected cache keys are
+ignored by `cardCutoverPreflight` so cached content never blocks `syncService.sync()`. An unchanged response performs
 no content writes. Pending loads coalesce by database instance/deck; a confirmed
 Study capture waits for the original database's pending load before looking up
 primary KI. It does not block card presentation or grade navigation. Account

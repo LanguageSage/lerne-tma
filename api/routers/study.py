@@ -75,6 +75,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled', 
     interval = getattr(progress, 'interval', 0) or 0
     ease_factor = getattr(progress, 'ease_factor', 2.5) or 2.5
     repetitions = getattr(progress, 'repetitions', 0) or 0
+    step_index = getattr(progress, 'step_index', 0) or 0
 
     return {
         "id": card.id,
@@ -93,6 +94,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled', 
         "interval": interval,
         "ease_factor": ease_factor,
         "repetitions": repetitions,
+        "step_index": step_index,
         "audio_path": card.audio_path,
         "audio_back_path": card.audio_back_path,
         "creator_name": creator_name,

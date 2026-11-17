@@ -298,6 +298,14 @@ Study timer. Artifacts remain in ignored `local/test-data/`.
 Audit follow-up: StudyView uses matching current-deck metadata when a list card
 omits deck_metadata, resolving authored audio paths through getAudioUrl. Native
 /decks/{id}/next responses commit through the existing card-read reconciliation
-transaction before presentation. Local edits, moves, tombstones, newer reads and
-account identity checks retain their existing protections. Regression coverage:
-studyFirstCardCache.test.js and the deck-audio / cold-offline Study browser cases.
+transaction before presentation, reject IDB write failures rather than falling
+back offline, and skip cards moved locally to another deck. Local edits, moves,
+tombstones, newer reads and account identity checks retain their existing protections.
+Confirmed `graded_progress` patches `cardsByDeck` and recent progress caches even
+after navigation or view changes while rejecting stale overwrites; offline grades
+preserve SRS receipts and Knowledge attempts even when `db.decks` lacks the deck row
+(rendering recoverable `next_error` retry UI); finished cold decks still trigger
+background `fetchDeckCards` for `nextReview`; and study/card list DTOs include
+`ease_factor`, `repetitions`, `step_index` and `last_reviewed` for cold `initialProgress`
+fallback. Regression coverage: `studyFirstCardCache.test.js`, `test_study_latency.py`,
+`card-cutover-preflight.spec.cjs`, and `study-latency.spec.cjs`.

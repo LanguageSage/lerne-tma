@@ -161,6 +161,33 @@ class StudyLatencyTests(unittest.TestCase):
             result = router.get_study_card.__wrapped__(card.id, user_id=1)
         self.assertEqual(result['image_url'], '/api/media/images/http-local.png')
 
+    def test_study_card_dtos_include_full_srs_state_for_offline_fallback(self):
+        progress = models.TMAProgress.get(models.TMAProgress.card_id == self.cards[0].id)
+        progress.queue = 'review'
+        progress.interval = 21
+        progress.ease_factor = 2.65
+        progress.repetitions = 4
+        progress.step_index = 1
+        progress.lapses = 0
+        progress.last_reviewed = datetime.datetime(2026, 10, 15, 12, 0, 0)
+        progress.next_review = datetime.datetime(2026, 10, 20, 12, 0, 0)
+        progress.save()
+
+        with patch.object(database, 'execute_sql', wraps=database.execute_sql) as query:
+            list_cards = cards.get_cards_for_study(self.deck.id, 1)
+        progress_queries = [c for c in query.call_args_list if 'FROM "tmaprogress"' in c.args[0]]
+        self.assertEqual(len(progress_queries), 1)
+        self.assertEqual(list_cards[0]['ease_factor'], 2.65)
+        self.assertEqual(list_cards[0]['repetitions'], 4)
+        self.assertEqual(list_cards[0]['step_index'], 1)
+        self.assertEqual(list_cards[0]['last_reviewed'], '2026-10-15T12:00:00')
+
+        self.assertEqual(study.progress_response(progress)['step_index'], 1)
+        with patch.object(services, 'resolve_media_url', media.resolve_media_url, create=True), patch.object(
+                services, 'get_deck_stats_counts', return_value={}, create=True):
+            card_dto = router.get_study_card.__wrapped__(self.cards[0].id, user_id=1)
+        self.assertEqual(card_dto['step_index'], 1)
+
 
 if __name__ == '__main__':
     unittest.main()

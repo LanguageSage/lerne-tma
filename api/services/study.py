@@ -16,6 +16,7 @@ def progress_response(progress, review_context='scheduled'):
     return {'id': progress.card_id,
             **{field: getattr(progress, field) for field in
                ('queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'flag')},
+            'step_index': getattr(progress, 'step_index', 0) or 0,
             'is_leech': srs.is_leech(progress.lapses or 0),
             'next_review': progress.next_review.isoformat() if progress.next_review else None,
             'last_reviewed': progress.last_reviewed.isoformat() if progress.last_reviewed else None,

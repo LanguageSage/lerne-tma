@@ -14,6 +14,7 @@ import { playGradeSound } from '../utils/gradeSounds';
 const reviewKey = session => `${session.sessionRevision}:${session.historyIndex}:${session.card?.id}`;
 // Opening a card and studying it use separate hook instances.
 const refreshRequests = new Map();
+let progressSeq = 0;
 const freshCard = (card, context = 'scheduled') => ({ ...card, _studyFetchedAt: Date.now(),
   _studyIdentity: getSessionIdentity(), _studyContext: context });
 
@@ -55,6 +56,7 @@ export const useStudySession = () => {
       && Date.now() - card._studyFetchedAt < 60_000) return;
     const session = useSessionStore.getState();
     const gradeRevision = session.gradeRevision;
+    const refreshStartedAt = Date.now();
     const requestKey = `${getUserId()}:${card.id}`;
     if (session.pendingGrades[requestKey]) return;
     const pending = refreshRequests.get(requestKey);
@@ -70,13 +72,13 @@ export const useStudySession = () => {
         || refreshRequests.get(requestKey) !== requestToken) return;
       const current = latest.studyHistory.find(item => String(item.id) === String(card.id));
       if (!current) return;
-      const patch = freshCard(data);
+      const patch = { ...freshCard(data), _studyRequestStartedAt: refreshStartedAt };
       // Client TTS can finish while the GET is in flight; preserve its newer result.
       for (const field of ['audio_path', 'audio_url', 'audio_back_path', 'audio_back_url', 'audio_is_generating']) {
         if (current[field] !== card[field]) delete patch[field];
       }
       latest.updateCardInSession(card.id, patch);
-      useDeckStore.getState().updateCardLocal(card.id, patch);
+      useDeckStore.getState().updateCardLocal(card.id, patch, data.deck_id ?? card.deck_id ?? null);
     }).catch(err => {
       const detail = studyErrorDetail(err);
       if (scope.isCurrent() && refreshRequests.get(requestKey) === requestToken
@@ -214,7 +216,12 @@ export const useStudySession = () => {
     if (!isNativeStudyCard(session.card) || !currentDeck || reviewKey(session) !== renderedReviewKey) return;
 
     const userId = getUserId();
+    const identity = getSessionIdentity();
+    const sessionRevision = session.sessionRevision;
+    const gradeStartedAt = Date.now();
+    const gradeSeq = ++progressSeq;
     const card = { ...session.card };
+    const cardDeckId = card.deck_id ?? (currentDeck.id !== 'duplicates' ? currentDeck.id : null);
     const key = `${userId}:${card.id}`;
     let complete;
     const request = { card, userId, deckId: currentDeck.id, done: new Promise(resolve => { complete = resolve; }) };
@@ -259,22 +266,32 @@ export const useStudySession = () => {
       const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
       const res = await api.post(endpoint, payload);
       if (res.data?.error) throw new Error(res.data.error);
-      if (!(res.data?.finished === true || res.data?.id || (!payload.return_next && res.data?.status === 'success'))) {
+      if (!(res.data?.finished === true || res.data?.id || res.data?.status === 'success')) {
         throw new Error(tr('Сохранение оценки не подтверждено'));
       }
-      if (getUserId() === userId) captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
-      if (scope.isCurrent() && res.data.graded_progress?.id === card.id) {
-        const patch = { ...freshCard(res.data.graded_progress, payload.review_context), _studyProgressAt: Date.now() };
-        useSessionStore.getState().updateCardInSession(card.id, patch);
-        useDeckStore.getState().updateCardLocal(card.id, patch);
+      if (getUserId() !== userId || getSessionIdentity() !== identity) return;
+      captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
+      if (res.data.graded_progress?.id === card.id) {
+        const patch = {
+          ...freshCard(res.data.graded_progress, payload.review_context),
+          _studyProgressAt: Date.now(),
+          _studyProgressStartedAt: gradeStartedAt,
+          _studyProgressSeq: gradeSeq,
+        };
+        useDeckStore.getState().updateCardLocal(card.id, patch, cardDeckId);
+        if (useSessionStore.getState().sessionRevision === sessionRevision) {
+          useSessionStore.getState().updateCardInSession(card.id, patch);
+        }
       }
 
       if (!localNext && scope.isCurrent()) {
         if (res.data.finished) {
           session.setIsSessionFinished(true);
           session.setCard(null);
+        } else if (res.data.next_error || !isNativeStudyCard(res.data) || !res.data.id) {
+          session.setApiError(res.data.next_error || tr('Не удалось загрузить данные с сервера'));
+          session.setCard(null);
         } else {
-          if (!isNativeStudyCard(res.data) || !res.data.id) throw new Error(tr('Не удалось загрузить данные с сервера'));
           if (session.isLearningMore) session.markForcedSeen(res.data.id);
           session.addToHistory(freshCard(res.data, payload.review_context));
           prefetchMedia(res.data.image_url);

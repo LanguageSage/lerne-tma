@@ -65,8 +65,10 @@ export function useStudyNavigation() {
       // list afterwards, so serialization/IndexedDB work cannot delay its paint.
       const freshList = hasCards && state.deckCards.every(card => card._studyIdentity === identity
         && Date.now() - card._studyFetchedAt < 60_000);
+      const sessionState = useSessionStore.getState();
       if (!needsWholeDeck && !freshList && identity === getSessionIdentity() && getUserId() === userId
-        && useSessionStore.getState().sessionRevision === revision && isNativeStudyCard(useSessionStore.getState().card)) {
+        && sessionState.sessionRevision === revision
+        && (isNativeStudyCard(sessionState.card) || sessionState.isSessionFinished)) {
         state.fetchDeckCards(deck.id).catch(err => console.warn('Background deck load:', err));
       }
     } catch (err) {

@@ -5,14 +5,17 @@ import { useUiStore } from '../useUiStore';
 import { tr } from '../../i18n/locale';
 import { useLanguageStore } from '../useLanguageStore';
 import { useSessionStore } from '../useSessionStore';
+import { mergeStudyCardPatch, mergeStudyProgress } from '../../utils/structuredStudyCard.js';
 
 let reorderTimeout = null;
 
 export const createDeckSlice = (set, get) => {
   const pendingLoads = new Map();
   const pendingLearning = new Map();
+  const recentProgress = new Map();
   let pendingFetchCards = null;
   return ({
+  storeGeneration: 0,
   libraryRequestId: 0,
   getPendingLibraryLoad: (kind) => {
     const pending = pendingLoads.get(kind);
@@ -105,15 +108,32 @@ export const createDeckSlice = (set, get) => {
       cardsByDeck: currentId ? { ...prev.cardsByDeck, [currentId]: cards } : prev.cardsByDeck
     }));
   },
-  updateCardLocal: (cardId, fields) => {
-    const { deckCards, duplicateCards, currentDeck, cardsByDeck } = get();
-    const updated = (deckCards || []).map(c => String(c.id) === String(cardId) ? { ...c, ...fields } : c);
-    const updatedDuplicates = (duplicateCards || []).map(c => String(c.id) === String(cardId) ? { ...c, ...fields } : c);
-    const currentId = currentDeck?.id;
-    set({
-      deckCards: updated,
-      duplicateCards: updatedDuplicates,
-      cardsByDeck: currentId ? { ...cardsByDeck, [currentId]: updated } : cardsByDeck
+  updateCardLocal: (cardId, fields, targetDeckId = null) => {
+    set(prev => {
+      const currentId = prev.currentDeck?.id;
+      const effectiveDeckId = targetDeckId ?? (currentId !== 'duplicates' ? currentId : null);
+      const matches = c => String(c.id) === String(cardId);
+      const apply = c => (matches(c) ? mergeStudyCardPatch(c, fields) : c);
+      const nextDeckCards = (effectiveDeckId == null || currentId === 'duplicates' || String(currentId) === String(effectiveDeckId))
+        ? (prev.deckCards || []).map(apply)
+        : prev.deckCards;
+      const nextDuplicates = (prev.duplicateCards || []).map(apply);
+      const nextCardsByDeck = { ...prev.cardsByDeck };
+      if (effectiveDeckId != null && prev.cardsByDeck[effectiveDeckId]) {
+        nextCardsByDeck[effectiveDeckId] = prev.cardsByDeck[effectiveDeckId].map(apply);
+      }
+      if (effectiveDeckId != null && fields?._studyProgressAt != null) {
+        const key = `${prev.storeGeneration}:${getUserId()}:${getSessionIdentity()}:${effectiveDeckId}`;
+        const patches = recentProgress.get(key) || new Map();
+        const cardKey = String(cardId);
+        patches.set(cardKey, mergeStudyCardPatch(patches.get(cardKey), fields));
+        recentProgress.set(key, patches);
+      }
+      return {
+        deckCards: nextDeckCards,
+        duplicateCards: nextDuplicates,
+        cardsByDeck: nextCardsByDeck,
+      };
     });
   },
   setDuplicateCards: (cards) => set({ duplicateCards: cards }),
@@ -199,18 +219,24 @@ export const createDeckSlice = (set, get) => {
             const res = await api.get(endpoint);
             if (!isCurrent()) return;
             const previous = new Map((get().cardsByDeck[deckId] || []).map(card => [String(card.id), card]));
+            const recentPatches = recentProgress.get(`${get().storeGeneration}:${account}:${identity}:${deckId}`);
+            if (recentPatches) {
+              for (const [id, patch] of recentPatches) {
+                if (patch._studyProgressAt >= startedAt) {
+                  previous.set(id, mergeStudyCardPatch(previous.get(id), patch));
+                }
+              }
+            }
             for (const card of useSessionStore.getState().studyHistory) {
-              if (card.deck_id === deckId && card._studyProgressAt >= startedAt) previous.set(String(card.id), card);
+              if (card.deck_id === deckId && card._studyProgressAt >= startedAt) {
+                previous.set(String(card.id), mergeStudyCardPatch(previous.get(String(card.id)), card));
+              }
             }
             const newCards = (res.data || []).map(card => {
               const cached = previous.get(String(card.id));
               const fresh = { ...card, _studyFetchedAt: Date.now(), _studyIdentity: identity, _studyContext: 'scheduled' };
               // A background list may have read progress before a grade committed.
-              if (cached?._studyProgressAt >= startedAt) {
-                for (const field of ['queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'flag',
-                  'is_leech', 'next_review', 'last_reviewed', 'intervals', '_studyProgressAt', '_studyContext']) fresh[field] = cached[field];
-              }
-              return fresh;
+              return cached?._studyProgressAt >= startedAt ? mergeStudyProgress(fresh, cached) : fresh;
             });
             set((prev) => ({
               deckCards: prev.currentDeck?.id === deckId ? newCards : prev.deckCards,

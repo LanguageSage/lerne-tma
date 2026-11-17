@@ -78,3 +78,66 @@ test('late next response cannot cache a card after account switching', async () 
   assert.equal(await original.cards.count(), 0);
   assert.equal(await getLocalDb().cards.count(), 0);
 });
+
+test('cold offline grade saves durable progress even when db.decks lacks the deck row', async () => {
+  await getLocalDb().decks.delete(5);
+  await api.get('/decks/5/next?review_context=scheduled');
+  navigator.onLine = false;
+  const grade = await api.post('/study/grade', {
+    card_id: 7, deck_id: 5, grade: 2, action_id: crypto.randomUUID(),
+    return_next: true, include_progress: true,
+  });
+  assert.equal(grade.data.status, 'success');
+  assert.ok(grade.data.next_error);
+  assert.equal(grade.data.graded_progress?.id, 7);
+  assert.equal((await getLocalDb().progress.get([7, 1])).is_dirty, 1);
+  assert.equal((await getLocalDb().syncState.filter(row => row.key.startsWith('review:')).toArray()).length, 1);
+});
+
+test('IDB write error on next rejects instead of falling back to offline cache', async () => {
+  const db = getLocalDb();
+  await db.cards.put({ ...card(), revision: 'stale-local' });
+  const originalTransaction = db.transaction.bind(db);
+  db.transaction = (mode, ...args) => {
+    if (mode === 'rw') throw Object.assign(new Error('QuotaExceededError'), { name: 'QuotaExceededError' });
+    return originalTransaction(mode, ...args);
+  };
+  try {
+    await assert.rejects(api.get('/decks/5/next?review_context=scheduled'), /QuotaExceededError/);
+  } finally {
+    db.transaction = originalTransaction;
+  }
+});
+
+test('next does not return a card locally moved to another deck', async () => {
+  const db = getLocalDb();
+  await db.decks.put({ id: 6, user_id: 1, role: 'owner', name: 'Target' });
+  await db.cards.put({ ...card(), deck_id: 6, offline_move: { status: 'pending' } });
+  const result = await api.get('/decks/5/next');
+  assert.equal(result.data.finished, true);
+  assert.equal((await db.cards.get(7)).deck_id, 6);
+});
+
+test('cold mature card cached without db.progress preserves its SRS state offline', async () => {
+  respond = async () => ({
+    data: nativeCard('standard', {
+      id: 7, deck_id: 5, revision: 'rev-mature', position: 1,
+      queue: 'review', interval: 30, ease_factor: 2.6, repetitions: 5, lapses: 0, step_index: 0,
+      last_reviewed: '2026-10-01T10:00:00', next_review: '2026-10-31T10:00:00',
+      intervals: { 2: '78 days' },
+    }),
+  });
+  await api.get('/decks/5/next?review_context=scheduled');
+  assert.equal(await getLocalDb().progress.get([7, 1]), undefined);
+  navigator.onLine = false;
+  const view = await api.get('/decks/5/next?review_context=scheduled');
+  assert.equal(view.data.queue, 'review');
+  assert.equal(view.data.interval, 30);
+  const grade = await api.post('/study/grade', {
+    card_id: 7, deck_id: 5, grade: 2, action_id: crypto.randomUUID(),
+    return_next: false, include_progress: true,
+  });
+  assert.equal(grade.data.graded_progress.queue, 'review');
+  assert.equal(grade.data.graded_progress.repetitions, 6);
+  assert.ok(grade.data.graded_progress.interval > 30);
+});

@@ -68,9 +68,14 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
             creator_avatar = creator.photo_url
 
     get_p = lambda k: p.get(k) if isinstance(p, dict) else getattr(p, k, None) if p else None
+    fmt_dt = lambda v: v.isoformat() if hasattr(v, 'isoformat') else (str(v) if v else None)
     lapses = get_p('lapses') or 0
     queue = get_p('queue') or "new"
     interval = get_p('interval') or 0
+    ease_factor = get_p('ease_factor')
+    ease_factor = 2.5 if ease_factor is None else ease_factor
+    repetitions = get_p('repetitions') or 0
+    step_index = get_p('step_index') or 0
     flag = get_p('flag')
     if flag is None:
         flag = get_val('flag', 'flag')
@@ -96,7 +101,11 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "is_leech": srs.is_leech(lapses),
         "lapses": lapses,
         "queue": queue,
-        "interval": interval
+        "interval": interval,
+        "ease_factor": ease_factor,
+        "repetitions": repetitions,
+        "step_index": step_index,
+        "last_reviewed": fmt_dt(get_p('last_reviewed')),
     }
 
     from .structured_card_api import content_response
@@ -104,8 +113,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
 
     if include_intervals:
         result["intervals"] = srs.get_next_intervals(SimpleNamespace(**p) if isinstance(p, dict) else p)
-    nr = get_p('next_review')
-    result["next_review"] = nr.isoformat() if hasattr(nr, 'isoformat') else (str(nr) if nr else None)
+    result["next_review"] = fmt_dt(get_p('next_review'))
 
     return result
 
@@ -156,7 +164,9 @@ def get_cards_for_study(deck_id: int, user_id: int):
                                   TMAProgress.flag,
                                   TMAProgress.want_to_learn,
                                   TMAProgress.step_index,
-                                  TMAProgress.ease_factor
+                                  TMAProgress.ease_factor,
+                                  TMAProgress.repetitions,
+                                  TMAProgress.last_reviewed
                               )
                               .where((TMAProgress.user_id == user_id) & (TMAProgress.card_id << chunk))
                               .dicts())
