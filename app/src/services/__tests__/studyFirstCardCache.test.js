@@ -20,7 +20,7 @@ let user = '1', respond;
 globalThis.window = { location: { search: '' } };
 globalThis.localStorage = { getItem: key => key === 'lerne_user_id' ? user : null };
 Object.defineProperty(globalThis, 'navigator', { value: { onLine: true }, configurable: true });
-mock.module('../networkApi.js', { namedExports: { networkApi: { get: (...args) => respond(...args) } } });
+mock.module('../networkApi.js', { namedExports: { networkApi: { get: (...args) => respond(...args), post: (...args) => respond(...args) } } });
 const { default: api } = await import('../api.js');
 const card = () => nativeCard('standard', { id: 7, deck_id: 5, revision: 'server-revision', position: 1,
   queue: 'new', intervals: { 2: '10 min' } });
@@ -162,4 +162,42 @@ test('incomplete offline deck cache never returns finished after grading cold ca
   navigator.onLine = false;
   const completed = await api.get('/decks/5/next?review_context=scheduled');
   assert.equal(completed.data.finished, true);
+});
+
+test('direct study card read persists an uncached card so immediate offline grade is durable', async () => {
+  const result = await api.get('/study/card/7');
+  assert.equal(result.data.id, 7);
+  assert.equal((await getLocalDb().cards.get(7)).revision, 'server-revision');
+  assert.equal((await getLocalDb().syncState.get('deck-cards:5')).complete, false);
+  navigator.onLine = false;
+  const grade = await api.post('/study/grade', {
+    card_id: 7, deck_id: 5, grade: 2, action_id: crypto.randomUUID(), return_next: false,
+  });
+  assert.equal(grade.data.status, 'success');
+  assert.equal((await getLocalDb().progress.get([7, 1])).is_dirty, 1);
+  assert.equal((await getLocalDb().syncState.filter(r => r.key.startsWith('review:')).toArray()).length, 1);
+});
+
+test('confirmed online grade updates offline card progress and resists stale list overwrites', async () => {
+  await api.get('/decks/5/next');
+  const reviewedAt = new Date(Date.now() + 1000).toISOString();
+  const nextReview = new Date(Date.now() + 30 * 86400000).toISOString();
+  respond = async () => ({
+    data: {
+      status: 'success',
+      graded_progress: {
+        id: 7, queue: 'review', interval: 30, repetitions: 5, ease_factor: 2.5,
+        lapses: 0, step_index: 0, flag: 2, last_reviewed: reviewedAt, next_review: nextReview,
+      },
+    },
+  });
+  await api.post('/study/grade', {
+    card_id: 7, deck_id: 5, grade: 3, return_next: false, include_progress: true,
+  });
+  navigator.onLine = false;
+  const reopened = await api.get('/study/card/7');
+  assert.equal(reopened.data.queue, 'review');
+  assert.equal(reopened.data.interval, 30);
+  assert.equal(reopened.data.repetitions, 5);
+  assert.equal(reopened.data.flag, 2);
 });

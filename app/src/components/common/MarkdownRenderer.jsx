@@ -15,9 +15,17 @@ function MarkdownTable({ children }) {
 
 const components = { table: MarkdownTable };
 const remarkPlugins = [remarkGfm];
+const PLAIN_TEXT_MARKDOWN_RE = /[*_`~#[\]!|>\\+-]|\n|^\s*\d+\./;
 
 /** Presentation only: pass the original back/context, never front exercise syntax. */
 export function MarkdownRenderer({ children, className = '', style }) {
+  if (typeof children === 'string' && !PLAIN_TEXT_MARKDOWN_RE.test(children) && !children.includes('http') && !children.includes('&')) {
+    return (
+      <div className={`card-markdown ${className}`} style={style}>
+        {children ? <p>{children}</p> : null}
+      </div>
+    );
+  }
   return (
     <div className={`card-markdown ${className}`} style={style}>
       <ReactMarkdown remarkPlugins={remarkPlugins} components={components} skipHtml>

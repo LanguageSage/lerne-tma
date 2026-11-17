@@ -1,7 +1,9 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { tr } from '../i18n/locale';
 import { parseRangeSelection } from '../utils/deckUtils';
 import { useUiStore } from '../store/useUiStore';
+
+const EMPTY_SELECTED_SET = new Set();
 
 /**
  * Manages multi-select mode state, card selection, and range-based selection
@@ -15,7 +17,7 @@ export function useCardSelectMode(filteredCards, currentDeckId, view) {
   const showToast = useUiStore(s => s.showToast);
 
   const [isSelectMode, setIsSelectMode] = useState(false);
-  const [selectedCardIds, setSelectedCardIds] = useState(new Set());
+  const [selectedCardIds, setSelectedCardIds] = useState(EMPTY_SELECTED_SET);
   const [isBatchMoveModalOpen, setIsBatchMoveModalOpen] = useState(false);
   const [batchModalMode, setBatchModalMode] = useState('move');
   const [rangeInput, setRangeInput] = useState('');
@@ -24,14 +26,14 @@ export function useCardSelectMode(filteredCards, currentDeckId, view) {
     useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsSelectMode(false);
-    setSelectedCardIds(new Set());
+    setSelectedCardIds(prev => (prev.size === 0 ? prev : EMPTY_SELECTED_SET));
     setRangeInput('');
   }, [currentDeckId, view]);
 
   const toggleSelectMode = useCallback(() => {
     setIsSelectMode(prev => {
       if (prev) {
-        setSelectedCardIds(new Set());
+        setSelectedCardIds(EMPTY_SELECTED_SET);
         setRangeInput('');
       }
       return !prev;
@@ -50,7 +52,10 @@ export function useCardSelectMode(filteredCards, currentDeckId, view) {
     });
   }, []);
 
-  const selectableCount = filteredCards.filter(card => !card.offline_create_status).length;
+  const selectableCount = useMemo(
+    () => filteredCards.filter(card => !card.offline_create_status).length,
+    [filteredCards]
+  );
   const handleSelectAll = useCallback(() => {
     if (selectedCardIds.size === selectableCount && selectableCount > 0) {
       setSelectedCardIds(new Set());

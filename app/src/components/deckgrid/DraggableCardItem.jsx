@@ -1,5 +1,4 @@
 import { tr } from '../../i18n/locale';
-import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
@@ -30,7 +29,6 @@ export const DraggableCardItem = React.memo(({
   onToggleSelect,
   hasNotes
 }) => {
-  useInterfaceLocale();
   const [isExpanded, setIsExpanded] = React.useState(false);
   const createStatus = c.offline_create_status;
   const canDrag = canEditContent && !createStatus && !c.offline_move && !c.offline_lifecycle;

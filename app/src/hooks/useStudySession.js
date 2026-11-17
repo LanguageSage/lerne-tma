@@ -52,7 +52,8 @@ export const useStudySession = () => {
   }, []);
 
   const refreshCard = useCallback((card, { ifStale = false } = {}) => {
-    if (ifStale && card?.intervals && card._studyContext === 'scheduled' && card._studyIdentity === getSessionIdentity()
+    if (ifStale && (card?.intervals || typeof card?.queue === 'string') && card._studyComplete !== false
+      && card._studyContext === 'scheduled' && card._studyIdentity === getSessionIdentity()
       && Date.now() - card._studyFetchedAt < 60_000) return;
     const session = useSessionStore.getState();
     const gradeRevision = session.gradeRevision;
@@ -133,12 +134,14 @@ export const useStudySession = () => {
           showLocalCard(nextDuplicateCard);
         }
       } else {
-        const deckCards = useDeckStore.getState().deckCards.filter(isNativeStudyCard);
+        const deckState = useDeckStore.getState();
+        const deckCards = deckState.deckCards.filter(isNativeStudyCard);
+        const isDeckComplete = deckState.cardsCompleteByDeck?.[deckId] !== false;
         const currentCard = session.card;
         let nextCardInfo = null;
 
         // If not the first load, try to navigate sequentially in deckCards list if currentCard is set
-        if (!isFirst && !session.isLearningMore && currentCard && deckCards && deckCards.length > 0) {
+        if (!isFirst && !session.isLearningMore && isDeckComplete && currentCard && deckCards && deckCards.length > 0) {
           const currentIndex = deckCards.findIndex(c => String(c.id) === String(currentCard.id));
           if (currentIndex >= 0) {
             if (currentIndex < deckCards.length - 1) {
@@ -152,7 +155,7 @@ export const useStudySession = () => {
 
         if (nextCardInfo) {
           showLocalCard(nextCardInfo);
-        } else if (!isFirst && !session.isLearningMore && currentCard && deckCards.length > 0) {
+        } else if (!isFirst && !session.isLearningMore && isDeckComplete && currentCard && deckCards.length > 0) {
           // Reached end of sequential deckCards traversal! End session cleanly to show summary screen
           session.setIsSessionFinished(true);
           session.setCard(null);
@@ -212,7 +215,7 @@ export const useStudySession = () => {
 
   const submitGrade = useCallback(async (grade, isExtended = false, exerciseEvidence = null) => {
     const session = useSessionStore.getState();
-    const { currentDeck, deckCards, duplicateCards } = useDeckStore.getState();
+    const { currentDeck, deckCards, duplicateCards, cardsCompleteByDeck } = useDeckStore.getState();
     if (!isNativeStudyCard(session.card) || !currentDeck || reviewKey(session) !== renderedReviewKey) return;
 
     const userId = getUserId();
@@ -232,7 +235,7 @@ export const useStudySession = () => {
       .filter(item => item.userId === userId && item.deckId === currentDeck.id).map(item => item.done);
     const nextHistoryIndex = session.historyIndex + 1;
     let localNext = session.studyHistory[nextHistoryIndex];
-    if (!localNext && !session.isLearningMore) {
+    if (!localNext && !session.isLearningMore && (currentDeck.id === 'duplicates' || cardsCompleteByDeck?.[currentDeck.id] !== false)) {
       const cards = (currentDeck.id === 'duplicates' ? duplicateCards : deckCards).filter(isNativeStudyCard);
       const index = cards.findIndex(item => String(item.id) === String(card.id));
       if (index >= 0) localNext = cards[index + 1];
@@ -312,7 +315,7 @@ export const useStudySession = () => {
 
   const goBack = useCallback(async () => {
     const session = useSessionStore.getState();
-    const { currentDeck, duplicateCards: duplicates, deckCards: cards } = useDeckStore.getState();
+    const { currentDeck, duplicateCards: duplicates, deckCards: cards, cardsCompleteByDeck } = useDeckStore.getState();
     const duplicateCards = duplicates.filter(isNativeStudyCard);
     const deckCards = cards.filter(isNativeStudyCard);
 
@@ -334,7 +337,7 @@ export const useStudySession = () => {
       if (prevDuplicateCard) {
         showLocalCard(prevDuplicateCard, true);
       }
-    } else if (currentDeck && session.card && deckCards && deckCards.length > 0) {
+    } else if (currentDeck && session.card && deckCards && deckCards.length > 0 && cardsCompleteByDeck?.[currentDeck.id] !== false) {
       const currentIndex = deckCards.findIndex(c => c.id === session.card.id);
       let prevCardInfo = null;
       if (currentIndex > 0) {

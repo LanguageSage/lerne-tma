@@ -47,15 +47,31 @@ def set_card_flag(card_id: int, user_id: int, flag: int):
 
 
 
-def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
-    is_dict = isinstance(c, dict)
-    get_val = lambda k_dict, k_obj: c.get(k_dict) if is_dict else getattr(c, k_obj, None)
+def _fmt_dt(v):
+    return v.isoformat() if hasattr(v, 'isoformat') else (str(v) if v else None)
 
-    audio_path = get_val('audio_path', 'audio_path')
-    audio_back_path = get_val('audio_back_path', 'audio_back_path')
-    image_path = get_val('image_path', 'image_path')
-    video_front = get_val('video_front_path', 'video_front_path')
-    video_back = get_val('video_back_path', 'video_back_path')
+
+def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, creator=None):
+    if isinstance(c, dict):
+        card_id = c.get('id')
+        deck_id = c.get('deck_id')
+        audio_path = c.get('audio_path')
+        audio_back_path = c.get('audio_back_path')
+        image_path = c.get('image_path')
+        video_front = c.get('video_front_path')
+        video_back = c.get('video_back_path')
+        card_flag = c.get('flag')
+        card_want_to_learn = c.get('want_to_learn')
+    else:
+        card_id = getattr(c, 'id', None)
+        deck_id = getattr(c, 'deck_id', None)
+        audio_path = getattr(c, 'audio_path', None)
+        audio_back_path = getattr(c, 'audio_back_path', None)
+        image_path = getattr(c, 'image_path', None)
+        video_front = getattr(c, 'video_front_path', None)
+        video_back = getattr(c, 'video_back_path', None)
+        card_flag = getattr(c, 'flag', None)
+        card_want_to_learn = getattr(c, 'want_to_learn', None)
 
     creator_name = None
     creator_avatar = None
@@ -67,27 +83,54 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
             creator_name = creator.username or creator.first_name
             creator_avatar = creator.photo_url
 
-    get_p = lambda k: p.get(k) if isinstance(p, dict) else getattr(p, k, None) if p else None
-    fmt_dt = lambda v: v.isoformat() if hasattr(v, 'isoformat') else (str(v) if v else None)
-    lapses = get_p('lapses') or 0
-    queue = get_p('queue') or "new"
-    interval = get_p('interval') or 0
-    ease_factor = get_p('ease_factor')
-    ease_factor = 2.5 if ease_factor is None else ease_factor
-    repetitions = get_p('repetitions') or 0
-    step_index = get_p('step_index') or 0
-    flag = get_p('flag')
-    if flag is None:
-        flag = get_val('flag', 'flag')
+    if p is None:
+        lapses = 0
+        queue = "new"
+        interval = 0
+        ease_factor = 2.5
+        repetitions = 0
+        step_index = 0
+        flag = card_flag
+        want_to_learn = bool(card_want_to_learn or False)
+        last_reviewed = None
+        next_review = None
+    elif isinstance(p, dict):
+        lapses = p.get('lapses') or 0
+        queue = p.get('queue') or "new"
+        interval = p.get('interval') or 0
+        ef = p.get('ease_factor')
+        ease_factor = 2.5 if ef is None else ef
+        repetitions = p.get('repetitions') or 0
+        step_index = p.get('step_index') or 0
+        flag = p.get('flag')
+        if flag is None:
+            flag = card_flag
+        want_to_learn = bool(p.get('want_to_learn') or card_want_to_learn or False)
+        last_reviewed = _fmt_dt(p.get('last_reviewed'))
+        next_review = _fmt_dt(p.get('next_review'))
+    else:
+        lapses = getattr(p, 'lapses', None) or 0
+        queue = getattr(p, 'queue', None) or "new"
+        interval = getattr(p, 'interval', None) or 0
+        ef = getattr(p, 'ease_factor', None)
+        ease_factor = 2.5 if ef is None else ef
+        repetitions = getattr(p, 'repetitions', None) or 0
+        step_index = getattr(p, 'step_index', None) or 0
+        flag = getattr(p, 'flag', None)
+        if flag is None:
+            flag = card_flag
+        want_to_learn = bool(getattr(p, 'want_to_learn', None) or card_want_to_learn or False)
+        last_reviewed = _fmt_dt(getattr(p, 'last_reviewed', None))
+        next_review = _fmt_dt(getattr(p, 'next_review', None))
 
     result = {
-        "id": get_val('id', 'id'),
-        "deck_id": get_val('deck_id', 'deck_id'),
-        "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists),
-        "audio_back_url": resolve_media_url(audio_back_path, "audio", exists_map=media_exists),
-        "image_url": resolve_media_url(image_path, "images", exists_map=media_exists),
-        "video_front_url": resolve_media_url(video_front, "videos", exists_map=media_exists),
-        "video_back_url": resolve_media_url(video_back, "videos", exists_map=media_exists),
+        "id": card_id,
+        "deck_id": deck_id,
+        "audio_url": resolve_media_url(audio_path, "audio", exists_map=media_exists) if audio_path else None,
+        "audio_back_url": resolve_media_url(audio_back_path, "audio", exists_map=media_exists) if audio_back_path else None,
+        "image_url": resolve_media_url(image_path, "images", exists_map=media_exists) if image_path else None,
+        "video_front_url": resolve_media_url(video_front, "videos", exists_map=media_exists) if video_front else None,
+        "video_back_url": resolve_media_url(video_back, "videos", exists_map=media_exists) if video_back else None,
         "image_path": image_path,
         "audio_path": audio_path,
         "audio_back_path": audio_back_path,
@@ -95,7 +138,7 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "video_back_path": video_back,
         # flag and want_to_learn are per-user: read from TMAProgress (p) first
         "flag": int(flag or 0),
-        "want_to_learn": bool(get_p('want_to_learn') or get_val('want_to_learn', 'want_to_learn') or False),
+        "want_to_learn": want_to_learn,
         "creator_name": creator_name,
         "creator_avatar": creator_avatar,
         "is_leech": srs.is_leech(lapses),
@@ -105,15 +148,15 @@ def _build_card_dict(c, p=None, media_exists=None, include_intervals=False, crea
         "ease_factor": ease_factor,
         "repetitions": repetitions,
         "step_index": step_index,
-        "last_reviewed": fmt_dt(get_p('last_reviewed')),
+        "last_reviewed": last_reviewed,
     }
 
-    from .structured_card_api import content_response
-    result.update(content_response(c))
+    from . import structured_card_api
+    result.update(structured_card_api.content_response(c))
 
     if include_intervals:
         result["intervals"] = srs.get_next_intervals(SimpleNamespace(**p) if isinstance(p, dict) else p)
-    result["next_review"] = fmt_dt(get_p('next_review'))
+    result["next_review"] = next_review
 
     return result
 
@@ -189,7 +232,7 @@ def get_cards_for_study(deck_id: int, user_id: int):
         for c in cards:
             p = progress_map.get(c['id'])
             creator = creators.get(c.get('creator_id'))
-            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator, include_intervals=True))
+            result.append(_build_card_dict(c, p=p, media_exists=media_exists, creator=creator))
         return result
     except HTTPException:
         raise

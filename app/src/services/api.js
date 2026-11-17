@@ -5,6 +5,7 @@ import { isOfflineMode, resolveLocalRequest, prepareLocalDb } from './localDb.js
 import { offlineApi } from './offlineApi.js';
 import { networkApi as axiosInstance } from './networkApi.js';
 import { keepLocalCard, reconcileCardEditLifecycle, syncService } from './syncService.js';
+import { mergeStudyProgress } from '../utils/structuredStudyCard.js';
 import { tr } from '../i18n/locale.js';
 
 // Проксируем методы Axios для поддержки офлайн-режима и автоматического фоллбека
@@ -173,66 +174,113 @@ const api = new Proxy(axiosInstance, {
             ? url.match(/^\/decks\/(\d+)\/next(?:\?|$)/) : null;
           const studyNext = Boolean(studyNextMatch);
           const studyNextDeckId = studyNextMatch ? Number(studyNextMatch[1]) : null;
+          const studyCardRead = Boolean(studyCardMatch && response.data?.content_v2 && response.data?.id);
+          const studyGrade = propKey === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)
+            && Number(response.data?.graded_progress?.id) > 0;
           if (needsRefresh) {
             await syncService.sync();
             assertCurrent();
           }
           const deckMatch = propKey === 'get' && url.match(/^\/decks\/(\d+)\/cards$/);
           const trashRead = propKey === 'get' && url === '/trash';
-          if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || trashRead)
+          if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || studyCardRead || studyGrade || trashRead)
               && requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
             try {
               const db = await prepareLocalDb();
               if (requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
-                if (deckMatch || cardMatch || studyNext) {
+                if (studyGrade) {
+                  const graded = response.data.graded_progress;
+                  const gradedId = Number(graded.id);
+                  const patch = {
+                    ...graded,
+                    _studyProgressAt: Date.now(),
+                    _studyProgressStartedAt: requestStartedAt,
+                  };
+                  await db.transaction('rw', db.cards, db.progress, async () => {
+                    const [existingCard, progressRows] = await Promise.all([
+                      db.cards.get(gradedId),
+                      db.progress.where('card_id').equals(gradedId).toArray(),
+                    ]);
+                    if (!isCurrent()) throw new axios.CanceledError('Session changed during grade progress update');
+                    if (existingCard) {
+                      await db.cards.put(mergeStudyProgress(existingCard, patch));
+                    }
+                    for (const row of progressRows) {
+                      if (String(row.user_id) === String(requestAccount) && !row.is_dirty) {
+                        const mergedProgress = mergeStudyProgress(row, patch);
+                        if (mergedProgress !== row) {
+                          await db.progress.put({
+                            ...row,
+                            queue: mergedProgress.queue,
+                            interval: mergedProgress.interval,
+                            ease_factor: mergedProgress.ease_factor,
+                            repetitions: mergedProgress.repetitions,
+                            lapses: mergedProgress.lapses,
+                            step_index: mergedProgress.step_index,
+                            flag: mergedProgress.flag ?? row.flag ?? 0,
+                            next_review: mergedProgress.next_review,
+                            last_reviewed: mergedProgress.last_reviewed,
+                            is_dirty: 0,
+                          });
+                        }
+                      }
+                    }
+                  });
+                }
+                if (deckMatch || cardMatch || studyNext || studyCardRead) {
                   const cards = deckMatch ? response.data : [response.data];
                   if (!Array.isArray(cards)) return response;
+                  const deckId = deckMatch ? Number(deckMatch[1]) : null;
                   const merged = await db.transaction('rw', db.cards, db.syncState, async () => {
-                    const [local, lastSync] = await Promise.all([
-                      db.cards.bulkGet(cards.map(card => card.id)), db.syncState.get('lastSync'),
+                    const [local, lastSync, existingDeckCards] = await Promise.all([
+                      db.cards.bulkGet(cards.map(card => card.id)),
+                      db.syncState.get('lastSync'),
+                      deckMatch ? db.cards.where('deck_id').equals(deckId).toArray() : [],
                     ]);
                     if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
-                    const visible = await Promise.all(cards.map(async (card, index) => {
+                    const reconciledCards = [];
+                    const reconciledSet = new Set();
+                    const visible = cards.map((card, index) => {
                       const cached = local[index];
                       const reconciled = card.content_v2 && reconcileCardEditLifecycle(cached, card, requestStartedAt);
                       if (reconciled) {
-                        await db.cards.put(reconciled);
+                        reconciledCards.push(reconciled);
+                        reconciledSet.add(reconciled);
                         return reconciled;
                       }
                       if (keepLocalCard(cached, requestStartedAt)) return cached;
-                      return card;
-                    }));
-                    const written = cards.filter((card, index) => visible[index] === card
-                      && card.content_v2?.schema_version === 2 && card.revision
+                      return cached ? mergeStudyProgress({ ...card, _studyRequestStartedAt: requestStartedAt }, cached) : card;
+                    });
+                    if (reconciledCards.length) await db.cards.bulkPut(reconciledCards);
+                    const written = visible.filter((card, index) => card !== local[index] && !reconciledSet.has(card)
+                      && cards[index].content_v2?.schema_version === 2 && cards[index].revision
                       && (local[index] ? local[index].content_v2 && !local[index].is_dirty
                         : !(lastSync?.readStartedAt > requestStartedAt)))
                       .map(card => ({ ...card, offline_read_started_at: requestStartedAt, is_dirty: 0 }));
                     if (written.length) await db.cards.bulkPut(written);
                     if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
                     if (deckMatch) {
-                      const deckId = Number(deckMatch[1]);
                       await db.syncState.put({ key: `deck-cards:${deckId}`, complete: true, fetched_at: requestStartedAt });
                       const ids = new Set(cards.map(card => card.id));
-                      const pending = await db.cards.where('deck_id').equals(deckId)
-                        .filter(card => !ids.has(card.id) && !card.is_deleted && (card.offline_create_status
-                          || keepLocalCard(card, requestStartedAt))).toArray();
+                      const pending = existingDeckCards.filter(card => !ids.has(card.id) && !card.is_deleted
+                        && (card.offline_create_status || keepLocalCard(card, requestStartedAt)));
                       return [...visible.filter((card, index) => !card.is_deleted
                         && (card === cards[index] || card.deck_id === deckId)), ...pending];
                     }
                     const partialDeckIds = [...new Set(written
                       .filter(card => card.deck_id > 0 && (!lastSync || !local[cards.findIndex(c => c.id === card.id)]))
                       .map(card => card.deck_id))];
-                    for (const deckId of partialDeckIds) {
-                      const existing = await db.syncState.get(`deck-cards:${deckId}`);
-                      const uncached = !local[cards.findIndex(c => c.deck_id === deckId)];
+                    for (const partialDeckId of partialDeckIds) {
+                      const existing = await db.syncState.get(`deck-cards:${partialDeckId}`);
+                      const uncached = !local[cards.findIndex(c => c.deck_id === partialDeckId)];
                       if (!existing?.complete || uncached) {
-                        await db.syncState.put({ key: `deck-cards:${deckId}`, complete: false, fetched_at: requestStartedAt });
+                        await db.syncState.put({ key: `deck-cards:${partialDeckId}`, complete: false, fetched_at: requestStartedAt });
                       }
                     }
                     return visible[0];
                   });
                   if (isCurrent()) {
-                    if (studyNext && (merged?.is_deleted || (merged !== response.data && Number(merged?.deck_id) !== studyNextDeckId))) {
+                    if ((studyNext || studyCardRead) && (merged?.is_deleted || (studyNext && merged !== response.data && Number(merged?.deck_id) !== studyNextDeckId))) {
                       return localRequest(...args);
                     }
                     const data = deckMatch ? merged : await cardMediaView(db, merged);
@@ -270,7 +318,7 @@ const api = new Proxy(axiosInstance, {
                   });
                   assertCurrent();
                   return { ...response, data: { ...response.data, cards } };
-                } else {
+                } else if (isLibraryRead) {
                   const library = url.startsWith('/init') ? response.data
                     : { [url.startsWith('/decks') ? 'decks' : 'folders']: response.data };
                   await db.transaction('rw', db.decks, db.folders, async () => {

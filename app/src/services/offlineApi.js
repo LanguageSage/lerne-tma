@@ -322,7 +322,7 @@ async function cardView(db, card, userId, reviewContext = 'scheduled') {
 async function deckCards(db, deckId) {
   const deck = await db.decks.get(deckId);
   if (!deck || deck.is_deleted) notFound();
-  return ordered(await db.cards.where('deck_id').equals(deckId).filter(c => c.content_v2 && !c.is_deleted).toArray());
+  return ordered((await db.cards.where('deck_id').equals(deckId).toArray()).filter(c => c.content_v2 && !c.is_deleted));
 }
 
 async function deckStats(db, deckId, userId) {

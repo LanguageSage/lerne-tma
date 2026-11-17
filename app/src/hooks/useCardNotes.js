@@ -47,7 +47,7 @@ const EMPTY_NOTE_IDS = new Set();
 
 export function useDeckNoteCardIds(enabled = true) {
   const userId = useUiStore(s => s.userProfile?.user_id) ?? getUserId();
-  const [state, setState] = useState({ userId: null, cardIds: EMPTY_NOTE_IDS });
+  const [state, setState] = useState(() => ({ userId, cardIds: EMPTY_NOTE_IDS }));
 
   useEffect(() => {
     if (!enabled || userId == null) return;

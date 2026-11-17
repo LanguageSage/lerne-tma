@@ -984,3 +984,26 @@ test('offline incomplete deck cache is never treated as fresh across deck open, 
   await expect(page.locator('.card-item-draggable')).toHaveCount(10);
   expect(listCalls).toBeGreaterThanOrEqual(1);
 });
+
+test('Next on an incomplete offline deck cache never falsely finishes the session', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  const largeDeck = { ...deck, stats: { total: 100, new: 100, due: 0, learning: 0 } };
+  let heldCards;
+  await page.route('**/api/decks/1/cards*', route => { heldCards = route; });
+  await page.evaluate(async largeDeck => {
+    const db = (await import('/src/services/localDb.js')).getLocalDb();
+    await db.cards.clear();
+    await db.syncState.clear();
+    await db.decks.put({ ...largeDeck, user_id: 1, role: 'owner' });
+    deckStore.setState({ currentDeck: largeDeck, deckCards: [], cardsByDeck: {}, cardsCompleteByDeck: {} });
+    await studyNavigation.startStudy(largeDeck);
+  }, largeDeck);
+  await expect.poll(() => Boolean(heldCards)).toBe(true);
+  await context.setOffline(true);
+  await heldCards.abort('internetdisconnected');
+  await expect.poll(() => page.evaluate(() => deckStore.getState().deckCards.length)).toBe(1);
+  expect(await page.evaluate(() => deckStore.getState().cardsCompleteByDeck[1])).toBe(false);
+  await page.evaluate(() => studyActions.goNext());
+  expect(await page.evaluate(() => sessionStore.getState().isSessionFinished)).toBe(false);
+  expect(await page.evaluate(() => sessionStore.getState().card?.id)).toBe(1);
+});

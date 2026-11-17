@@ -59,15 +59,15 @@ export function useStudyNavigation() {
         useSessionStore.getState().setAssessment(active);
         return;
       }
-      prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       await fetchNextCard(deck.id, true);
+      if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
+      prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
       // SRS chooses the first card independently of the full list. Refresh the
       // list afterwards, so serialization/IndexedDB work cannot delay its paint.
       const freshList = hasCards && hasFreshDeckCards(state, deck.id);
       const sessionState = useSessionStore.getState();
-      if (!needsWholeDeck && !freshList && identity === getSessionIdentity() && getUserId() === userId
-        && sessionState.sessionRevision === revision
+      if (!needsWholeDeck && !freshList
         && (isNativeStudyCard(sessionState.card) || sessionState.isSessionFinished)) {
         state.fetchDeckCards(deck.id).catch(err => console.warn('Background deck load:', err));
       }
@@ -95,7 +95,6 @@ export function useStudyNavigation() {
       setCurrentDeck(deck);
       useSessionStore.getState().resetSession();
       const revision = useSessionStore.getState().sessionRevision;
-      prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
       if (identity !== getSessionIdentity() || getUserId() !== userId || useSessionStore.getState().sessionRevision !== revision) return;
       
       const deckState = useDeckStore.getState();
@@ -114,6 +113,7 @@ export function useStudyNavigation() {
         useSessionStore.getState().addToHistory(localCard);
         setView('study');
         setIsOpeningDeck(false);
+        prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
 
         // Fetch fresh card details/intervals in background without blocking UI
         refreshCard(localCard, { ifStale: true });
@@ -141,6 +141,7 @@ export function useStudyNavigation() {
       setView('study');
 
       if (localCard) {
+        prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
         refreshCard(localCard, { ifStale: true });
         return;
       }
@@ -155,6 +156,7 @@ export function useStudyNavigation() {
         if (isNativeStudyCard(res?.data)) {
           useSessionStore.getState().addToHistory({ ...res.data, _studyFetchedAt: Date.now(),
             _studyIdentity: identity, _studyContext: 'scheduled' });
+          prepareDeckKnowledge(deck.id)?.catch(err => console.warn('[Knowledge] Content unavailable:', err));
           if (deck.id !== 'duplicates') {
             useDeckStore.getState().fetchDeckCards(deck.id).catch(error => console.warn('Background deck load:', error));
           }

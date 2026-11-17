@@ -44,6 +44,11 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
     };
   }, [hasCard]);
 
+  const computedIntervals = React.useMemo(
+    () => card?.intervals || (card ? getNextIntervals(card, card._studyContext || 'scheduled') : null),
+    [card]
+  );
+
   if (!card) return null;
 
   const isNewCard = !card.queue || card.queue === 'new';
@@ -61,7 +66,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
   );
 
   if (srsExtendedGrades) {
-    const dynIntervals = card.intervals?.extended || getNextIntervals(card).extended;
+    const dynIntervals = computedIntervals?.extended;
     const extGrades = [
       { grade: 0, num: 1, fallback: tr("5м") },
       { grade: 1, num: 2, fallback: isNewCard ? tr("8м") : tr("1д") },
@@ -104,7 +109,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
   return wrapControls(
     <div className="grade-buttons grade-buttons-floating">
       {grades.map(({ grade, label, className, intervalIdx, fallback }) => {
-        const val = card.intervals?.[intervalIdx] || card.intervals?.[String(intervalIdx)] || fallback;
+        const val = computedIntervals?.[intervalIdx] || computedIntervals?.[String(intervalIdx)] || fallback;
         return (
           <button
             key={grade}
