@@ -9,3 +9,10 @@
 .card-editor-field input.form-input, .card-editor-field textarea { width: 100%; min-width: 0; box-sizing: border-box; }
 .card-editor-field textarea { resize: vertical; overflow-y: auto; min-height: 64px; }
 .card-editor-raw { font-family: monospace; text-align: left; min-height: 72px; padding: 6px 8px; font-size: 0.82rem; line-height: 1.35; }
+.card-audio-attachments { margin-top: 12px; }
+.card-audio-attachments fieldset { min-width: 0; margin: 8px 0; padding: 8px; border: 1px solid var(--design-glass-border, rgba(148, 163, 184, .3)); border-radius: 8px; }
+.card-audio-attachments audio { display: block; width: 100%; max-width: 100%; margin: 8px 0; }
+.card-audio-attachments p { overflow-wrap: anywhere; }
+.card-audio-file { display: block; }
+.card-audio-file input { display: block; max-width: 100%; min-height: 44px; padding-top: 8px; }
+.card-audio-candidate .btn-secondary { min-height: 44px; margin: 4px; }

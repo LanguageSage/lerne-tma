@@ -1,26 +1,26 @@
-const { test, expect } = require('./isolated-fixture.cjs');
+const { test, expect } = require('@playwright/test');
 const { chromium } = require('@playwright/test');
 const fixture = JSON.parse(process.env.LERNE_NATIVE_MEDIA_FIXTURE || 'null');
 test.skip(!fixture, 'Use structured_cards_postgres.py --media-browser');
-if (fixture && !/^http:\/\/127\.0\.0\.1:\d+$/.test(fixture.origin)) throw new Error('Loopback only');
+if (fixture && ![fixture.origin, fixture.browser_origin].every(value => /^http:\/\/127\.0\.0\.1:\d+$/.test(value))) throw new Error('Loopback only');
 
 test.afterEach(async ({ context }) => {
   await context.unrouteAll({ behavior: 'ignoreErrors' });
 });
 
 async function setup(context, control = {}) {
-  await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
+  await context.route('**/*', route => new URL(route.request().url()).origin === fixture.browser_origin
     ? route.continue() : route.abort('blockedbyclient'));
   await context.routeWebSocket('**/*', () => {});
-  await context.addInitScript(token => {
+  await context.addInitScript(({ token, blockOnline }) => {
     localStorage.setItem('native_language', 'ru');
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
     localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
     localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: 1, access_token: token }));
-    window.addEventListener('online', event => event.stopImmediatePropagation(), true);
-  }, fixture.token);
+    if (blockOnline) window.addEventListener('online', event => event.stopImmediatePropagation(), true);
+  }, { token: fixture.token, blockOnline: !control.allowOnline });
   const forward = async route => {
     const { pathname, search } = new URL(route.request().url());
     if (control.offline) return route.abort('internetdisconnected');
@@ -30,6 +30,9 @@ async function setup(context, control = {}) {
       folders: [], settings: {}, prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/messages') return route.fulfill({ json: [] });
     const response = await route.fetch({ url: fixture.origin + pathname + search, maxRetries: 0 });
+    if (control.tamper === pathname) {
+      return route.fulfill({ json: { ...(await response.json()), sha256: '0'.repeat(64) } });
+    }
     if (control.lose === pathname && route.request().method() !== 'GET') {
       expect(response.status(), await response.text()).toBe(200);
       control.committed = (control.committed || 0) + 1;
@@ -93,7 +96,7 @@ async function playable(page) {
 test('nine native types retain playable media through cache, restart, retries and lifecycle', async ({ browser }, info) => {
   test.setTimeout(300000);
   const profile = info.outputPath('profile');
-  const options = { headless: true, serviceWorkers: 'block', baseURL: 'http://127.0.0.1:5199',
+  const options = { headless: true, serviceWorkers: 'block', baseURL: fixture.browser_origin,
     viewport: { width: 375, height: 900 } };
   let context = await chromium.launchPersistentContext(profile, options);
   const control = {};
@@ -144,8 +147,8 @@ test('nine native types retain playable media through cache, restart, retries an
         const repeated = (await api.post('/media/generate-card-audio', body)).data;
         if (first.path !== repeated.path || first.revision !== repeated.revision) throw new Error('TTS retry changed object/revision');
       }, { id: card.id, media: fixture.cards.indexOf(card) % 2 ? { ...media,
-        image_path: `http://127.0.0.1:5199/api/media/${media.image_path}`,
-        video_front_path: `http://127.0.0.1:5199/api/media/${media.video_front_path}` } : media });
+        image_path: `${fixture.browser_origin}/api/media/${media.image_path}`,
+        video_front_path: `${fixture.browser_origin}/api/media/${media.video_front_path}` } : media });
       await show(page, card.id);
       await playable(page);
       await show(page, card.id, true);
@@ -218,11 +221,16 @@ test('nine native types retain playable media through cache, restart, retries an
         const body = { card_ids: [id], target_deck_id: target, revisions: { [id]: current.revision },
           on_duplicate: 'keep', request_id: crypto.randomUUID() };
         await api.post('/cards/batch-copy', body);
+        if (!(await waitSync({ pendingNativeOnly: true, skipPull: true })).success) throw new Error('Copy delivery failed');
         await api.post('/cards/batch-move', { ...body, request_id: crypto.randomUUID() });
+        if (!(await waitSync({ pendingNativeOnly: true, skipPull: true })).success) throw new Error('Move delivery failed');
         const moved = (await api.get(`/cards/${id}`)).data;
-        const deleted = (await api.post('/cards/batch-delete', { card_ids: [id],
-          revisions: { [id]: moved.revision }, request_id: crypto.randomUUID() })).data;
+        await api.post('/cards/batch-delete', { card_ids: [id],
+          revisions: { [id]: moved.revision }, request_id: crypto.randomUUID() });
+        if (!(await waitSync({ pendingNativeOnly: true, skipPull: true })).success) throw new Error('Delete delivery failed');
+        const deleted = await db.cards.get(id);
         await api.post(`/trash/card/${id}/restore`, { revision: deleted.revision, request_id: crypto.randomUUID() });
+        if (!(await waitSync({ pendingNativeOnly: true, skipPull: true })).success) throw new Error('Restore delivery failed');
       }, { id: card.id, target: fixture.target.id });
       await show(page, card.id); await playable(page);
     }
@@ -236,22 +244,22 @@ test('nine native types retain playable media through cache, restart, retries an
     control.delay = control.fail = null;
     // Slow/missing network media exercises loading and online failure UI.
     control.delay = '/api/media/videos/missing.mp4';
-    await page.evaluate(async () => {
+    await page.evaluate(async origin => {
       (await import('/src/store/useSessionStore.js')).useSessionStore.getState().updateCardInSession(
         (await import('/src/store/useSessionStore.js')).useSessionStore.getState().card.id,
         { image_url: '/api/media/images/missing.webp', video_front_url: '/api/media/videos/missing.mp4',
-          audio_url: 'http://127.0.0.1:5199/storage/v1/object/public/audio/missing.mp3' });
-    });
+          audio_url: origin + '/storage/v1/object/public/audio/missing.mp3' });
+    }, fixture.browser_origin);
     await expect(page.getByText('Загрузка видео...', { exact: true })).toBeVisible();
     await expect(page.getByText('Не удалось загрузить видео', { exact: true })).toBeVisible();
     await expect(page.getByText('Не удалось загрузить изображение', { exact: true })).toBeVisible();
     await page.screenshot({ path: info.outputPath('online-media-error.png'), fullPage: true });
     control.delay = null;
     // Uncached media and server errors have visible feedback, without silent regeneration.
-    await page.evaluate(async id => {
+    await page.evaluate(async ({ id, origin }) => {
       await db.cards.update(id, { image_path: 'images/missing.webp',
-        video_front_path: 'videos/missing.mp4', audio_path: 'http://127.0.0.1:5199/storage/v1/object/public/audio/missing.mp3' });
-    }, fixture.cards[0].id);
+        video_front_path: 'videos/missing.mp4', audio_path: origin + '/storage/v1/object/public/audio/missing.mp3' });
+    }, { id: fixture.cards[0].id, origin: fixture.browser_origin });
     await context.setOffline(true); control.offline = true;
     await show(page, fixture.cards[0].id);
     await expect(page.getByText('Изображение недоступно без сети', { exact: true })).toBeVisible();
@@ -276,4 +284,107 @@ test('nine native types retain playable media through cache, restart, retries an
     await peer.close();
     await context.unrouteAll({ behavior: 'ignoreErrors' }); await context.close();
   }
+});
+
+test('ready audio uploads through the editor, preserves sides and survives failures', async ({ context }, info) => {
+  test.setTimeout(120000);
+  const control = { allowOnline: true };
+  await setup(context, control);
+  const page = await open(context);
+  const tts = [];
+  page.on('request', request => { if (request.url().includes('/media/generate-')) tts.push(request.url()); });
+  const card = await page.evaluate(async deck => {
+    const { networkApi } = await import('/src/services/networkApi.js');
+    const created = (await networkApi.post('/cards/save', {
+      deck_id: deck, request_id: crypto.randomUUID(), content_v2: { schema_version: 2, card: {
+        type: 'standard', data: { prompt: 'Fertige Aufnahme mit einer langen Beschreibung', answer: 'Готовая запись' } } },
+    })).data;
+    return (await api.get(`/cards/${created.id}`)).data;
+  }, fixture.deck.id);
+  expect(card.id).toBeGreaterThan(0);
+  const openEditor = async value => {
+    await page.evaluate(async ({ value, deck }) => {
+      (await import('/src/store/useDeckStore.js')).useDeckStore.setState({ currentDeck: deck });
+      (await import('/src/store/useSessionStore.js')).useSessionStore.getState().setEditingCard(value);
+      (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('editor');
+    }, { value, deck: fixture.deck });
+    const media = page.locator('details.card-form-secondary').first();
+    if ((await media.getAttribute('open')) === null) await media.locator('summary').click();
+  };
+  await openEditor(card);
+  const draft = () => page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
+  const field = side => page.getByRole('group', { name: side === 'front' ? 'Аудио лицевой стороны' : 'Аудио обратной стороны' });
+  // A real, playable PCM WAV generated in the test; it never leaves loopback.
+  const recording = Buffer.alloc(44 + 16000);
+  recording.write('RIFF'); recording.writeUInt32LE(recording.length - 8, 4); recording.write('WAVEfmt ', 8);
+  recording.writeUInt32LE(16, 16); recording.writeUInt16LE(1, 20); recording.writeUInt16LE(1, 22);
+  recording.writeUInt32LE(8000, 24); recording.writeUInt32LE(16000, 28); recording.writeUInt16LE(2, 32);
+  recording.writeUInt16LE(16, 34); recording.write('data', 36); recording.writeUInt32LE(16000, 40);
+  for (let i = 0; i < 8000; i++) recording.writeInt16LE(Math.round(1200 * Math.sin(i * .17)), 44 + i * 2);
+  const select = async (side, bytes = recording) => field(side).locator('input[type=file]').setInputFiles({
+    name: 'Готовая запись с длинным названием.wav', mimeType: 'audio/wav', buffer: bytes,
+  });
+  const attach = side => field(side).getByRole('button', { name: 'Прикрепить аудио', exact: true });
+  await select('front');
+  const preview = page.getByLabel('Предпрослушивание файла');
+  await expect.poll(() => preview.evaluate(el => el.readyState)).toBeGreaterThan(1);
+  await preview.evaluate(el => el.play());
+  await expect.poll(() => preview.evaluate(el => el.currentTime)).toBeGreaterThan(0);
+  await preview.evaluate(el => el.pause());
+  expect((await draft()).audio_path).toBeFalsy();
+  control.lose = '/api/media/upload-audio';
+  await attach('front').click();
+  await expect(page.locator('.card-audio-attachments [role=alert]')).toBeVisible();
+  expect((await draft()).audio_path).toBeFalsy();
+  control.lose = null;
+  await attach('front').click();
+  await expect(page.getByText('Аудио прикреплено к черновику. Сохраните карточку.', { exact: true })).toBeVisible();
+  const firstPath = (await draft()).audio_path;
+  expect(firstPath).toMatch(/audio_[a-f0-9]{64}\.wav$/);
+  expect(await page.evaluate(async id => (await api.get(`/cards/${id}`)).data.audio_path, card.id)).toBeFalsy();
+  // Both sides can reuse the same immutable object; no TTS request is made.
+  await select('back'); await attach('back').click();
+  await expect.poll(async () => (await draft()).audio_back_path).toBe(firstPath);
+  await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+  await expect.poll(draft).toBeNull();
+  await expect.poll(() => page.evaluate(() => waitSync())).toMatchObject({ success: true });
+  const saved = await page.evaluate(async id => (await api.get(`/cards/${id}`)).data, card.id);
+  expect(saved.audio_path).toBe(firstPath); expect(saved.audio_back_path).toBe(firstPath);
+  await openEditor(saved);
+  // Bad bytes, outage and a wrong integrity receipt leave both attachments intact.
+  for (const failure of ['invalid', 'outage', 'digest']) {
+    await select('front', failure === 'invalid' ? Buffer.from('<html>not audio</html>') : recording);
+    control.fail = failure === 'outage' ? '/api/media/upload-audio' : null;
+    control.tamper = failure === 'digest' ? '/api/media/upload-audio' : null;
+    await attach('front').click();
+    await expect(page.locator('.card-audio-attachments [role=alert]')).toBeVisible();
+    expect((await draft()).audio_path).toBe(firstPath);
+    expect((await draft()).audio_back_path).toBe(firstPath);
+  }
+  control.fail = null; control.tamper = null;
+  // A different edit arriving during the request must win over a late upload.
+  await select('front'); control.delay = '/api/media/upload-audio';
+  await attach('front').click();
+  await expect(page.getByRole('button', { name: 'Сохранить карточку', exact: true })).toBeDisabled();
+  await page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState()
+    .setEditingCard(current => ({ ...current, revision: 'newer-draft' })));
+  await expect(page.getByText('Карточка или аудио изменились. Выберите файл ещё раз.', { exact: true })).toBeVisible();
+  expect((await draft()).audio_path).toBe(firstPath); control.delay = null;
+  // Cancel discards the selected candidate, preserving the current attachment.
+  await page.getByRole('button', { name: 'Отмена выбора', exact: true }).click();
+  await select('back');
+  await context.setOffline(true);
+  await expect(attach('back')).toBeDisabled();
+  await context.setOffline(false);
+  await expect(attach('back')).toBeEnabled();
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 1000 });
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await page.screenshot({ path: info.outputPath(`ready-audio-${width}.png`), fullPage: true });
+  }
+  await page.evaluate(() => waitSync());
+  await context.setOffline(true); control.offline = true;
+  await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
+  await expect(page.getByRole('group', { name: 'Back audio' })).toBeVisible();
+  expect(tts).toEqual([]);
 });

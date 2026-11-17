@@ -105,7 +105,7 @@ export const useCardEditor = () => {
       }
 
       const savedLocally = Boolean(res.data.offline_create_status || res.data.offline_edit);
-      if (!savedLocally && !data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path) {
+      if (!savedLocally && !data.id && useSettingsStore.getState().autoGenerateCardAudio && !res.data.audio_path && !res.data.audio_back_path) {
         try {
           const audio = await api.post('/media/generate-card-audio', { card_id: res.data.id, side: 'front' });
           Object.assign(res.data, { audio_path: audio.data.path, audio_url: audio.data.url, revision: audio.data.revision });

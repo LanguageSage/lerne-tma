@@ -23,6 +23,20 @@ export const useMediaUpload = () => {
     return res.data;
   };
 
+  const uploadAudioFile = async (file) => {
+    if (!file?.size || file.size > 20 * 1024 * 1024) throw new Error(tr('Выберите MP3 или PCM WAV до 20 МБ.'));
+    const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
+    const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
+    const body = new FormData();
+    body.append('file', file);
+    body.append('sha256', sha256);
+    const { data } = await api.post('/media/upload-audio', body);
+    if (!data.path || !data.url || data.sha256 !== sha256 || data.size !== file.size) {
+      throw new Error(tr('Сервер не подтвердил целостность аудио. Повторите загрузку.'));
+    }
+    return data;
+  };
+
   const uploadImage = async (file) => {
     if (!file) return;
     setLoading(true);
@@ -192,7 +206,7 @@ export const useMediaUpload = () => {
       if (type === 'image') {
         res = await api.post('/media/upload-image', formData);
       } else if (type === 'audio') {
-        res = await api.post('/media/upload-audio', formData);
+        res = { data: await uploadAudioFile(file) };
       } else if (type === 'video') {
         res = await api.post('/media/upload-video', formData);
       }
@@ -252,6 +266,7 @@ export const useMediaUpload = () => {
   };
 
   return {
+    uploadAudioFile,
     uploadImage,
     uploadStudyImage,
     uploadCreatorImage,

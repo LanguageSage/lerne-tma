@@ -80,6 +80,36 @@ synthetic bytes; force/failure and permission regression suites remain separate.
 No claim is made that production has these un-deployed changes or that lack of
 recent missing audio proves correctness when recent lessons have no audio.
 
+TD-005 ready audio: `CardAudioAttachments` in the shared `CardForm` previews a
+selected local file before explicit upload to `/media/upload-audio`. Front/back
+attachments change only in the draft; normal Native V2 save/offline reconciliation,
+revision checks and receipts own persistence. Upload failure, stale editor or
+account switch never replaces the current attachment. Saves/TTS are disabled
+during upload; an unsubmitted candidate can be cancelled. Existing audio stays
+until upload and card save succeed. No URL input or binary offline queue is added.
+
+The endpoint reads at most 20 MiB + 1 and validates complete MPEG Layer III frame
+boundaries (optional ID3v2/ID3v1) or PCM WAV parameters, RIFF length and sample
+bytes. It ignores supplied MIME/filename; other containers, free-format MP3,
+APE trailers and compressed WAV are rejected. This is structural validation,
+not a full decoder or malware scanner. Browser playback provides a preview.
+`useMediaUpload.uploadAudioFile` sends SHA-256 and verifies the response digest/size.
+Storage verifies an entire bounded GET before returning path/url/sha256/size/MIME;
+WAV keeps `.wav` and `audio/wav`, TTS retains `.mp3`. LOCAL publishes via a unique
+staging file plus exclusive hard link and verifies bytes before catalog insertion.
+A catalog failure leaves an immutable orphan that the same retry can register.
+No automatic retry or deletion of prior objects is performed.
+
+Checks: isolated `test_audio_upload`, `test_media_db_workers`, `test_local_dev`,
+`test_audio_force_regeneration`, `test_material_permissions`; loopback
+`test_audio_storage_integrity`; disposable PostgreSQL/Chromium runner
+`structured_cards_postgres.py --media-browser` includes actual editor uploads,
+side persistence, playback, lost reply/retry, invalid bytes, failed/wrong digest
+receipts, stale draft, cancellation, offline controls and 320/375/430/768/1280px.
+Storage/TTS are synthetic; working LOCAL and production are never inputs.
+The media browser runner owns a random loopback Vite port via
+`browser/native-media.config.cjs`; it must not share another checkout's dev server.
+
 - `tools/backup_supabase_storage.py` — read-only export только `audio/images`,
   explicit env-файл/origin/expected DB identity и новые private export/restore
   каталоги. Inventory до/после, authenticated GET без redirect/retry, size/SHA-256

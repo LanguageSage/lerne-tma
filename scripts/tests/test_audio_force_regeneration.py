@@ -10,6 +10,7 @@ from io import BytesIO
 from api.utils.audio import generate_audio, DEFAULT_VOICE
 from api.services.media import validate_new_audio_path
 from api.routers.media import upload_audio_file
+from scripts.tests.audio_fixture import wav_bytes
 
 TEST_DIR = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), 'local', 'test-data', 'audio-storage-regression')
 os.makedirs(TEST_DIR, exist_ok=True)
@@ -71,7 +72,7 @@ class AudioForceRegenerationTest(unittest.IsolatedAsyncioTestCase):
             'api.utils.audio._upload_to_supabase', new=AsyncMock(return_value=None),
         ), patch.dict(os.environ, {'SUPABASE_URL': 'https://example.supabase.co', 'SUPABASE_KEY': 'fixture', 'VERCEL': '1'}):
             with self.assertRaises(HTTPException) as failure:
-                await upload_audio_file(UploadFile(file=BytesIO(b'ID3' + b'x' * 128), filename='test.mp3'), user_id=1)
+                await upload_audio_file(UploadFile(file=BytesIO(wav_bytes()), filename='test.wav'), user_id=1)
         self.assertEqual(failure.exception.status_code, 503)
 
 

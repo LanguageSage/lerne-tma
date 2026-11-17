@@ -24,6 +24,7 @@ from api.db_workers import run_db
 from api.dependencies.auth import get_user_id
 from api.routers import media
 from scripts.tests import test_db_workers as fixtures
+from scripts.tests.audio_fixture import wav_bytes
 
 
 class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
@@ -247,6 +248,7 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
                 self.assertEqual(read.call_count, 2)
             self.app.dependency_overrides.clear()
             self.assertEqual((await client.post('/api/media/upload-video', files={'file': ('f', b'x')})).status_code, 401)
+            self.assertEqual((await client.post('/api/media/upload-audio', files={'file': ('f', wav_bytes())})).status_code, 401)
         self.run_asgi(exercise)
 
     def test_local_upload_read_and_failed_metadata_removes_file(self):
@@ -258,14 +260,15 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
         async def exercise(client):
             with patch.object(media, 'is_local', return_value=True), patch.object(media, 'media_file', side_effect=media_file):
                 for kind in ('audio', 'video', 'background'):
-                    response = await client.post(f'/api/media/upload-{kind}', files={'file': ('f', b'local synthetic')})
+                    content = wav_bytes() if kind == 'audio' else b'local synthetic'
+                    response = await client.post(f'/api/media/upload-{kind}', files={'file': ('f', content)})
                     self.assertEqual(response.status_code, 200, response.text)
-                    self.assertEqual((await client.get(response.json()['url'])).content, b'local synthetic')
+                    self.assertEqual((await client.get(response.json()['url'])).content, content)
                 with patch.object(models.TMAMedia, 'create', side_effect=RuntimeError('metadata failed')):
-                    before = set(self.root.rglob('*.mp3'))
-                    response = await client.post('/api/media/upload-audio', files={'file': ('f', b'synthetic')})
+                    before = set(self.root.rglob('*.mp4'))
+                    response = await client.post('/api/media/upload-video', files={'file': ('f', b'synthetic')})
                     self.assertEqual(response.status_code, 500)
-                    self.assertEqual(set(self.root.rglob('*.mp3')), before)
+                    self.assertEqual(set(self.root.rglob('*.mp4')), before)
                 self.assertEqual((await client.get('/api/media/audio/missing.mp3')).status_code, 404)
         self.run_asgi(exercise)
 

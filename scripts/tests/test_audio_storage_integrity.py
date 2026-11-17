@@ -21,9 +21,12 @@ class AudioIntegrityTests(unittest.IsolatedAsyncioTestCase):
         self.post_bytes = 0
         self.get_bytes = 0
         self.failure = None
+        self.content_types = []
+        self.upload_stored = asyncio.Event()
         async def post(request):
             self.assertEqual(request.headers['x-upsert'], 'false')
             self.posts += 1
+            self.content_types.append(request.headers['Content-Type'])
             data = await request.read()
             self.post_bytes += len(data)
             if isinstance(self.failure, int):
@@ -32,8 +35,9 @@ class AudioIntegrityTests(unittest.IsolatedAsyncioTestCase):
             if key in self.objects:
                 return web.json_response({'error': 'Duplicate'}, status=409)
             self.objects[key] = data
+            self.upload_stored.set()
             if self.failure == 'timeout':
-                await asyncio.sleep(.15)
+                await asyncio.sleep(1)
             if self.failure == 'lost_reply':
                 request.transport.abort()
                 return web.Response(status=201)
@@ -64,6 +68,14 @@ class AudioIntegrityTests(unittest.IsolatedAsyncioTestCase):
 
     async def upload(self, value):
         return await audio._upload_to_supabase(value, 'same-cache-name.mp3', self.base, 'test-only')
+
+    async def test_wav_bytes_keep_their_format_and_confirmed_digest(self):
+        from scripts.tests.audio_fixture import wav_bytes
+        payload = wav_bytes()
+        url = await audio._upload_to_supabase(payload, 'ignored.mp3', self.base, 'test-only', media_type='audio/wav')
+        self.assertTrue(url.endswith('audio_' + hashlib.sha256(payload).hexdigest() + '.wav'))
+        self.assertEqual(self.content_types, ['audio/wav'])
+        self.assertEqual(list(self.objects.values()), [payload])
 
     async def test_parallel_retry_and_different_bytes_never_overwrite(self):
         a, b = b'ID3'+b'a'*128, b'ID3'+b'b'*128
@@ -109,9 +121,10 @@ asyncio.run(main())
     async def test_timeout_after_upload_requires_explicit_safe_retry(self):
         payload=b'ID3'+b'timeout'*30
         self.failure='timeout'
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=.04)) as short:
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=.5)) as short:
             with patch.object(audio,'_get_supabase_session',return_value=short):
                 self.assertIsNone(await self.upload(payload))
+        await asyncio.wait_for(self.upload_stored.wait(), 2)
         self.assertEqual(list(self.objects.values()),[payload])
         self.failure=None
         self.assertTrue(await self.upload(payload))

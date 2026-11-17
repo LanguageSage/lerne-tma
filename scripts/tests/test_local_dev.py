@@ -22,6 +22,7 @@ from api.auth.errors import AuthError
 from local import router as local
 from api.routers import auth_v2, media, cards, study, folders, decks
 from scripts import local_dev
+from scripts.tests.audio_fixture import wav_bytes
 from native_fixture import content, sqlite_native
 from api.services.structured_card_api import content_response
 
@@ -215,12 +216,12 @@ class LocalHttpTests(unittest.TestCase):
 
     def test_media_upload_and_read_are_external_files_and_missing_media_never_redirects(self):
         response = self.client.post('/api/media/upload-audio', headers=self.headers(),
-            files={'file': ('synthetic.mp3', b'ID3' + b'\x01' * 130, 'audio/mpeg')})
+            files={'file': ('synthetic.wav', wav_bytes(), 'audio/wav')})
         self.assertEqual(response.status_code, 200, response.text)
         path = response.json()['path']
         self.assertTrue((self.config['media'] / path).is_file())
         self.assertIsNone(models.TMAMedia.get().content)
-        self.assertEqual(self.client.get(response.json()['url']).content, b'ID3' + b'\x01' * 130)
+        self.assertEqual(self.client.get(response.json()['url']).content, wav_bytes())
         for folder in ('audio', 'images', 'videos', 'backgrounds'):
             missing = self.client.get(f'/api/media/{folder}/missing.mp3', follow_redirects=False)
             self.assertEqual(missing.status_code, 404)

@@ -2,11 +2,13 @@
 from collections import Counter
 from functools import partial
 import io
+import hashlib
 import json
 import math
 import os
 from pathlib import Path
 import struct
+import socket
 import subprocess
 import wave
 from unittest.mock import patch
@@ -22,6 +24,9 @@ def verify_media(client, port, models, headers, app):
     root = Path(__file__).resolve().parents[2]
     scratch = root / 'local/test-data' / ('native-media-' + uuid4().hex)
     scratch.mkdir(parents=True)
+    with socket.socket() as probe:
+        probe.bind(('127.0.0.1', 0))
+        browser_origin = f'http://127.0.0.1:{probe.getsockname()[1]}'
     models.TMAUser.update(native_language='ru', has_selected_language=True, first_name='Synthetic media').execute()
     # Existing provider contract, emulated entirely inside the disposable database.
     models.tma_db.execute_sql('CREATE SCHEMA storage')
@@ -39,10 +44,14 @@ def verify_media(client, port, models, headers, app):
 
         async def save(self, path):
             synthesized[self.key] += 1
-            Path(path).write_bytes(audio_bytes)
+            # Each phrase has distinct deterministic PCM bytes, like real TTS.
+            sample = bytearray(audio_bytes)
+            sample[44:46] = hashlib.sha256(repr(self.key).encode()).digest()[:2]
+            Path(path).write_bytes(sample)
 
-    async def upload(source, filename, *_args):
+    async def upload(source, filename, *_args, media_type='audio/mpeg'):
         content = bytes(source) if isinstance(source, bytes) else Path(source).read_bytes()
+        filename = 'audio_' + hashlib.sha256(content).hexdigest() + ('.wav' if media_type == 'audio/wav' else '.mp3')
 
         def store():
             models.TMAMedia.insert(filename=filename, folder='audio', content=content).on_conflict(
@@ -50,7 +59,7 @@ def verify_media(client, port, models, headers, app):
                 update={models.TMAMedia.content: content}).execute()
             models.tma_db.execute_sql('INSERT INTO storage.objects VALUES (%s,%s) ON CONFLICT DO NOTHING', ('audio', filename))
         await run_db(store)
-        return f'http://127.0.0.1:5199/storage/v1/object/public/audio/{filename}'
+        return f'{browser_origin}/storage/v1/object/public/audio/{filename}'
 
     @app.get('/storage/v1/object/public/audio/{filename}')
     async def provider_fixture(filename: str):
@@ -66,11 +75,11 @@ def verify_media(client, port, models, headers, app):
             'request_id': str(uuid4()), 'content_v2': content})
         assert response.status_code == 200, response.text
         cards.append(response.json())
-    config = {'origin': f'http://127.0.0.1:{port}', 'cards': cards,
+    config = {'origin': f'http://127.0.0.1:{port}', 'browser_origin': browser_origin, 'cards': cards,
         'deck': {'id': deck.id, 'name': deck.name, 'user_id': 1, 'role': 'owner', 'target_language': 'de', 'stats': {'total': 9, 'new': 9, 'due': 0, 'learning': 0}},
         'target': {'id': target.id, 'name': target.name, 'user_id': 1, 'role': 'owner', 'target_language': 'de', 'stats': {'total': 0, 'new': 0, 'due': 0, 'learning': 0}},
         'token': headers[1]['Authorization'].split(' ', 1)[1]}
-    with patch.dict(os.environ, {'SUPABASE_URL': 'http://127.0.0.1:5199', 'SUPABASE_KEY': 'synthetic'}), patch(
+    with patch.dict(os.environ, {'SUPABASE_URL': browser_origin, 'SUPABASE_KEY': 'synthetic'}), patch(
         'api.utils.audio.edge_tts.Communicate', Communicate), patch(
         'api.utils.audio._upload_to_supabase', side_effect=upload), patch(
         'api.utils.audio.generate_audio', side_effect=partial(generate_audio, output_dir=str(scratch))), patch(
@@ -92,14 +101,18 @@ def verify_media(client, port, models, headers, app):
             assert failure.status_code == 500
             assert models.TMA_Card.get_by_id(cards[0]['id']).audio_path == previous
         result = subprocess.run(['node', 'node_modules/@playwright/test/cli.js', 'test',
-            'native-media.spec.cjs', '--project=extended', '--workers=1',
+            'native-media.spec.cjs', '--config=scripts/tests/browser/native-media.config.cjs', '--project=extended', '--workers=1',
             '--output', str(root / 'local/test-data/native-media-browser')], cwd=root,
-            env={**os.environ, 'LERNE_NATIVE_MEDIA_FIXTURE': json.dumps(config)}, timeout=360)
+            env={**os.environ, 'LERNE_NATIVE_MEDIA_FIXTURE': json.dumps(config),
+                 'LERNE_NATIVE_MEDIA_ORIGIN': browser_origin}, timeout=360)
     if result.returncode:
         return False
     assert len(synthesized) >= 9, synthesized
     assert all(count == 1 for count in synthesized.values()), synthesized
-    assert models.TMAMedia.select().where(models.TMAMedia.folder == 'audio').count() == len(synthesized)
+    assert models.TMAMedia.select().where(models.TMAMedia.folder == 'audio',
+        models.TMAMedia.filename.endswith('.mp3')).count() == len(synthesized)
+    assert models.TMAMedia.select().where(models.TMAMedia.folder == 'audio',
+        models.TMAMedia.filename.endswith('.wav')).count() == 1
     for card in cards:
         original = models.TMA_Card.get_by_id(card['id'])
         assert original.deck_id == target.id and not original.is_deleted

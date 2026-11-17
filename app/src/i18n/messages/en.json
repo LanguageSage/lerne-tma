@@ -2138,5 +2138,20 @@
   "Тип карточки": "Card type",
   "Информационные блоки и темы": "Information blocks and topics",
   "База данных восстановлена. Локальные данные сохранены; перед синхронизацией нужна сверка.": "The database was restored. Your local data is preserved; reconcile it before syncing.",
-  "Не удалось проверить состояние синхронизации. Повторите попытку.": "Unable to check sync status. Please try again."
+  "Не удалось проверить состояние синхронизации. Повторите попытку.": "Unable to check sync status. Please try again.",
+  "Готовое аудио: MP3 или PCM WAV, до 20 МБ. Загрузка доступна при подключении к сети.": "Audio file: MP3 or PCM WAV, up to 20 MiB. Upload requires an internet connection.",
+  "Аудио лицевой стороны": "Front audio",
+  "Аудио обратной стороны": "Back audio",
+  "Выбрать замену": "Choose replacement",
+  "Выбрать файл": "Choose file",
+  "Предпрослушивание файла": "Preview audio file",
+  "Прикрепить аудио": "Attach audio",
+  "Загрузка аудио…": "Uploading audio…",
+  "Отмена выбора": "Cancel selection",
+  "Выберите MP3 или PCM WAV до 20 МБ.": "Choose MP3 or PCM WAV up to 20 MiB.",
+  "Сервер не подтвердил целостность аудио. Повторите загрузку.": "The server did not confirm audio integrity. Retry the upload.",
+  "Карточка или аудио изменились. Выберите файл ещё раз.": "The card or audio changed. Select the file again.",
+  "Аудио прикреплено к черновику. Сохраните карточку.": "Audio attached to the draft. Save the card.",
+  "Не удалось воспроизвести аудио. Проверьте файл и подключение.": "Unable to play audio. Check the file and connection.",
+  "Файл не воспроизводится. Поддерживаются MP3 и PCM WAV.": "The file cannot be played. MP3 and PCM WAV are supported."
 }

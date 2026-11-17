@@ -5,6 +5,7 @@ import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, 
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { StructuredCardFields } from './StructuredCardFields';
+import { CardAudioAttachments } from './CardAudioAttachments';
 import './CardForm.css';
 import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
 import { studySideText } from '../../utils/structuredStudyCard';
@@ -54,6 +55,7 @@ export const CardForm = ({
   const { decks = [], currentDeck, updateDeckMetadata } = useDeckStore();
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
+  const [audioBusy, setAudioBusy] = useState(false);
   const [isEditingExistingImage, setIsEditingExistingImage] = useState(false);
   const [isClassifyingLevel, setIsClassifyingLevel] = useState(false);
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
@@ -166,7 +168,7 @@ export const CardForm = ({
   return (
     <div className="creator-form glass" style={{ marginTop: '4px' }}>
       <button type="button" className="btn-secondary" style={{ minHeight: '44px' }}
-        disabled={loading || Boolean(sourceError)}
+        disabled={loading || audioBusy || Boolean(sourceError)}
         onClick={() => setSource(source === null ? JSON.stringify(cardData.content_v2, null, 2) : null)}>
         {source === null ? tr('Исходный JSON') : tr('Типизированная форма')}
       </button>
@@ -177,7 +179,7 @@ export const CardForm = ({
           aria-invalid={Boolean(sourceError)} aria-describedby={sourceError ? 'card-editor-json-error' : undefined}
           style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', minHeight: '280px' }} />
         {sourceError && <p id="card-editor-json-error" role="alert">{sourceError}</p>}
-        <button type="button" className="btn btn-primary btn-save-action" disabled={loading || Boolean(sourceError)}
+        <button type="button" className="btn btn-primary btn-save-action" disabled={loading || audioBusy || Boolean(sourceError)}
           style={{ minHeight: '44px' }}
           aria-label={t('creator.save', 'Сохранить')}
           onClick={() => onSave()}>
@@ -234,8 +236,13 @@ export const CardForm = ({
         <button
           type="button"
           className="form-toolbar-btn btn-audio"
-          onClick={() => onGenerateAudio(cardData, setCardData, playAudio)}
-          disabled={loading}
+          onClick={async () => {
+            if (audioBusy) return;
+            setAudioBusy(true);
+            try { await onGenerateAudio(cardData, setCardData, playAudio); }
+            finally { setAudioBusy(false); }
+          }}
+          disabled={loading || audioBusy}
           title={tr("Озвучить")}
         >
           {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
@@ -244,6 +251,8 @@ export const CardForm = ({
 
       </div>
 
+      <CardAudioAttachments cardData={cardData} setCardData={setCardData} disabled={loading || audioBusy}
+        onBusyChange={setAudioBusy} />
       </details>
 
       <div className="form-group">
@@ -559,7 +568,7 @@ export const CardForm = ({
               className="btn btn-primary btn-save-action"
               aria-label={t('creator.save', 'Сохранить')}
               onClick={() => onSave()}
-              disabled={loading}
+              disabled={loading || audioBusy}
               style={{ padding: '8px 16px', minHeight: '44px' }}
             >
               {loading ? <RefreshCw className="spin" size={18} /> : t('creator.save', 'Сохранить')}

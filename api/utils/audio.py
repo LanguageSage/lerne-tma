@@ -24,6 +24,55 @@ SUPPORTED_VOICES = {
 # Edge TTS возвращает audio_offset в единицах 100 нс.
 _OFFSET_TO_SECONDS = 10_000_000
 
+MAX_AUDIO_BYTES = 20 * 1024 * 1024
+
+
+def validate_audio_upload(data):
+    """Validate complete PCM WAV or MPEG Layer III frames, independent of MIME/name."""
+    import io
+    import wave
+    if not data or len(data) > MAX_AUDIO_BYTES:
+        raise ValueError('Audio file is empty or exceeds 20 MiB')
+    if data.startswith(b'RIFF'):
+        try:
+            if data[8:12] != b'WAVE' or int.from_bytes(data[4:8], 'little') + 8 != len(data):
+                raise ValueError('Invalid WAV container size')
+            with wave.open(io.BytesIO(data)) as audio:
+                frames, channels, width = audio.getnframes(), audio.getnchannels(), audio.getsampwidth()
+                if not frames or channels not in (1, 2) or width not in (1, 2, 3, 4) or not 8000 <= audio.getframerate() <= 192000:
+                    raise ValueError('Unsupported PCM WAV parameters')
+                if len(audio.readframes(frames)) != frames * channels * width:
+                    raise ValueError('Truncated WAV audio')
+            return 'audio/wav'
+        except (wave.Error, EOFError) as exc:
+            raise ValueError('Invalid PCM WAV audio') from exc
+    offset, end, count, stream = 0, len(data), 0, None
+    if data.startswith(b'ID3'):
+        if len(data) < 10 or data[3] not in (2, 3, 4) or any(b & 0x80 for b in data[6:10]):
+            raise ValueError('Invalid MP3 ID3 tag')
+        offset = 10 + sum(b << shift for b, shift in zip(data[6:10], (21, 14, 7, 0)))
+        if data[3] == 4 and data[5] & 0x10:
+            offset += 10
+    if data[-128:-125] == b'TAG':
+        end -= 128
+    while offset + 4 <= end:
+        a, b, c, _ = data[offset:offset + 4]
+        version, layer, rate, sample = (b >> 3) & 3, (b >> 1) & 3, c >> 4, (c >> 2) & 3
+        if a != 255 or b & 0xe0 != 0xe0 or version == 1 or layer != 1 or rate in (0, 15) or sample == 3:
+            raise ValueError('Invalid MP3 frame')
+        signature = (version, sample)
+        if stream is not None and stream != signature:
+            raise ValueError('Inconsistent MP3 stream')
+        stream = signature
+        rates = (0, 32, 40, 48, 56, 64, 80, 96, 112, 128, 160, 192, 224, 256, 320) if version == 3 else (0, 8, 16, 24, 32, 40, 48, 56, 64, 80, 96, 112, 128, 144, 160)
+        frequency = (44100, 48000, 32000)[sample] // (1 if version == 3 else 2 if version == 2 else 4)
+        length = (144000 if version == 3 else 72000) * rates[rate] // frequency + ((c >> 1) & 1)
+        offset += length
+        count += 1
+    if offset != end or count < 2:
+        raise ValueError('Unsupported or truncated audio. Use MP3 or PCM WAV')
+    return 'audio/mpeg'
+
 
 async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_boundaries=False, force=False):
     """
@@ -175,7 +224,7 @@ async def _get_supabase_session():
     return _supabase_http_session
 
 
-async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key):
+async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key, media_type='audio/mpeg'):
     """Загрузка файла или байтов в Supabase Storage через REST API (async)."""
     bucket = "audio"
     project_url = project_url.rstrip("/")
@@ -183,7 +232,7 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
     headers = {
         "Authorization": f"Bearer {api_key}",
         "x-upsert": "false",
-        "Content-Type": "audio/mpeg"
+        "Content-Type": media_type
     }
 
     try:
@@ -193,12 +242,12 @@ async def _upload_to_supabase(file_path_or_bytes, filename, project_url, api_key
             with open(file_path_or_bytes, "rb") as f:
                 data = f.read()
 
-        if not data or len(data) > 20 * 1024 * 1024:
+        if not data or len(data) > MAX_AUDIO_BYTES:
             return None
         # Different synthesis bytes must never overwrite an already attached
         # object, even for force regeneration of the same text/voice cache key.
         digest = hashlib.sha256(data).hexdigest()
-        filename = 'audio_' + digest + '.mp3'
+        filename = 'audio_' + digest + ('.wav' if media_type == 'audio/wav' else '.mp3')
         upload_url = f"{project_url}/storage/v1/object/{bucket}/{filename}"
         public_url = f"{project_url}/storage/v1/object/public/{bucket}/{filename}"
 

@@ -4,7 +4,8 @@ import os
 import re
 import uuid
 import hashlib
-from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File, Request
+from typing import Annotated
+from fastapi import APIRouter, HTTPException, Depends, Body, Query, Response, UploadFile, File, Form, Request
 from fastapi.responses import RedirectResponse
 import logging
 from PIL import Image, UnidentifiedImageError
@@ -380,33 +381,63 @@ async def generate_card_audio_endpoint(
 @db_phases
 async def upload_audio_file(
     file: UploadFile = File(...),
+    sha256: Annotated[str | None, Form()] = None,
     user_id: int = Depends(get_user_id)
 ):
     """Upload an audio file for a deck or card."""
-    content = await file.read()
+    from api.utils.audio import MAX_AUDIO_BYTES, validate_audio_upload, _upload_to_supabase
+    content = await file.read(MAX_AUDIO_BYTES + 1)
     if not content:
         raise HTTPException(status_code=400, detail="Audio file is empty")
 
     # 20MB max
-    if len(content) > 20 * 1024 * 1024:
+    if len(content) > MAX_AUDIO_BYTES:
         raise HTTPException(status_code=413, detail="Audio is too large. Maximum size is 20 MB")
-
-    filename = f"aud_{user_id}_{uuid.uuid4().hex[:12]}.mp3"
+    try:
+        media_type = await run_in_threadpool(validate_audio_upload, content)
+    except ValueError as exc:
+        raise HTTPException(422, detail=str(exc)) from None
+    digest = hashlib.sha256(content).hexdigest()
+    if sha256 is not None and sha256 != digest:
+        raise HTTPException(422, detail="Audio SHA-256 mismatch")
+    filename = f"audio_{digest}" + ('.wav' if media_type == 'audio/wav' else '.mp3')
+    receipt = {'sha256': digest, 'size': len(content), 'media_type': media_type}
     if is_local():
-        return await run_db(_save_local_media, 'audio', filename, content)
+        result = await run_db(_save_local_audio, filename, content, digest)
+        return {**result, **receipt}
 
     supabase_url = os.environ.get("SUPABASE_URL")
     supabase_key = os.environ.get("SUPABASE_KEY")
     if supabase_url and supabase_key:
-        from api.utils.audio import _upload_to_supabase
-        cloud_url = await _upload_to_supabase(content, filename, supabase_url, supabase_key)
+        cloud_url = await _upload_to_supabase(content, filename, supabase_url, supabase_key, media_type=media_type)
         if cloud_url:
             return {
                 "path": cloud_url,
-                "url": cloud_url
+                "url": cloud_url, **receipt
             }
 
     raise HTTPException(status_code=503, detail="Audio upload to permanent Storage failed")
+
+
+def _save_local_audio(filename, content, digest):
+    """Exclusive publication; retries verify bytes and repair only catalog metadata."""
+    path = media_file('audio', filename)
+    temporary = path.with_name(path.name + '.' + uuid.uuid4().hex + '.partial')
+    try:
+        with temporary.open('xb') as output:
+            output.write(content)
+            output.flush()
+            os.fsync(output.fileno())
+        try:
+            os.link(temporary, path)
+        except FileExistsError:
+            pass
+        if path.stat().st_size != len(content) or hashlib.sha256(path.read_bytes()).hexdigest() != digest:
+            raise HTTPException(409, detail='Existing audio conflicts with SHA-256; file unchanged')
+        models.TMAMedia.insert(filename=filename, folder='audio', content=None).on_conflict_ignore().execute()
+    finally:
+        temporary.unlink(missing_ok=True)
+    return {'path': f'audio/{filename}', 'url': f'/api/media/audio/{filename}'}
 
 from collections import OrderedDict
 
