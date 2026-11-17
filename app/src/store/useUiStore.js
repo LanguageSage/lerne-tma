@@ -71,6 +71,8 @@ export const useUiStore = create((set, get) => ({
   
   isOpeningDeck: false,
   setIsOpeningDeck: (isOpening) => set({ isOpeningDeck: isOpening }),
+  isOpeningEditor: false,
+  setIsOpeningEditor: (isOpening) => set({ isOpeningEditor: isOpening }),
 
   isCardActionModalOpen: false,
   setIsCardActionModalOpen: (isOpen) => set({ isCardActionModalOpen: isOpen }),

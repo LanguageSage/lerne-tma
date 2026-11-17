@@ -13,30 +13,30 @@ export async function inspectCutoverDatabase(database) {
   const tables = {};
   // Dynamic Dexie schema, read transaction only; old versions are never upgraded.
   await database.transaction('r', database.tables, async () => {
-    for (const table of database.tables) {
-      tables[table.name] = 0;
-      if (!knownTables.has(table.name)) add(`unknown_table:${table.name}`);
-      await table.each(row => {
-        tables[table.name]++;
-        if (dirty(row.is_dirty)) add(`${table.name}:dirty`);
-        if (table.name === 'cards' && row.content_v2 && dirty(row.is_dirty)) add('cards:native_dirty');
-        if (dirty(row.learning_dirty)) add(`${table.name}:learning_dirty`);
-        if (['folders', 'decks', 'cards', 'progress'].includes(table.name)
+    const entries = await Promise.all(database.tables.map(async table => [table.name, await table.toArray()]));
+    for (const [tableName, rows] of entries) {
+      tables[tableName] = rows.length;
+      if (!knownTables.has(tableName)) add(`unknown_table:${tableName}`);
+      for (const row of rows) {
+        if (dirty(row.is_dirty)) add(`${tableName}:dirty`);
+        if (tableName === 'cards' && row.content_v2 && dirty(row.is_dirty)) add('cards:native_dirty');
+        if (dirty(row.learning_dirty)) add(`${tableName}:learning_dirty`);
+        if (['folders', 'decks', 'cards', 'progress'].includes(tableName)
             && [row.id, row.card_id, row.deck_id, row.folder_id, row.parent_id].some(id => Number(id) < 0)) {
-          add(`${table.name}:temporary_reference`);
+          add(`${tableName}:temporary_reference`);
         }
         if (row.offline_edit || row.offline_lifecycle || row.offline_move || row.offline_create_status) {
-          add(`${table.name}:unacknowledged_native_state`);
+          add(`${tableName}:unacknowledged_native_state`);
         }
         if (row.offline_edit?.status === 'conflict') add('cards:offline_conflict');
         // Successful attempts are removed by the existing sender. Anything left,
         // including failed/syncing/unknown states, still requires reconciliation.
-        if (table.name === 'knowledge_attempt_outbox') add('knowledge_attempt_outbox:retained');
-        if (table.name === 'syncState') {
+        if (tableName === 'knowledge_attempt_outbox') add('knowledge_attempt_outbox:retained');
+        if (tableName === 'syncState') {
           const key = String(row.key);
           if (inertKeys.has(key) || key.startsWith('grade:')
             || (key.startsWith('knowledge-content:') && !row.rejected)
-            || (key.startsWith('deck-cards:') && !row.rejected)) return;
+            || (key.startsWith('deck-cards:') && !row.rejected)) continue;
           if (row.rejected) add('syncState:rejected_operation');
           // Even an expired refresh lease is not evidence that other tabs stopped.
           add(key === 'serverGenerationConflict' ? 'syncState:server_generation_conflict'
@@ -44,7 +44,7 @@ export async function inspectCutoverDatabase(database) {
             : key.startsWith('review:') ? 'syncState:review'
               : key.startsWith('card-') ? 'syncState:native_operation' : 'syncState:unknown_or_active');
         }
-      });
+      }
     }
   });
   if (!database.tables.some(table => table.name === 'cards')) add('missing_cards_table');
@@ -84,7 +84,12 @@ export async function inspectCardCutover(options = {}) {
     names = (await indexedDB.databases()).map(item => item.name)
       .filter(name => /^Lerne(?:Local|Test)DB(?:_|$)/.test(name)).sort();
   } catch { errors.push('database_enumeration_failed'); }
+  const precomputed = options.precomputed instanceof Map ? options.precomputed : null;
   for (const name of names) {
+    if (precomputed?.has(name)) {
+      databases.push(precomputed.get(name));
+      continue;
+    }
     const database = new Dexie(name);
     try {
       await database.open();

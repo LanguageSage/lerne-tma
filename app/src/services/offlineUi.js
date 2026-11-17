@@ -113,7 +113,7 @@ export function offlineMoveLabel(move) {
 
 export async function refreshOfflineUi({ detail }) {
   const identity = getSessionIdentity();
-  if (detail.userId !== getUserId()) return;
+  if (detail.userId !== getUserId() || detail.alreadyRefreshed) return;
   try {
     const state = useDeckStore.getState();
     if (detail.cardLifecycleRejection) {

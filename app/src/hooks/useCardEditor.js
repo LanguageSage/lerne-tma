@@ -87,7 +87,7 @@ export const useCardEditor = () => {
       if (deliverEdit && awaitDelivery) {
         const db = await prepareLocalDb();
         if (!isCurrent()) return;
-        await syncService.sync({ pendingNativeOnly: true });
+        await syncService.sync({ pendingNativeOnly: true, skipPull: true });
         const cached = await db.cards.get(data.id);
         if (!isCurrent()) return;
         const visible = useSessionStore.getState().editingCard;
@@ -236,7 +236,7 @@ export const useCardEditor = () => {
           ui.setView(sourceView);
         }
       }
-      if (deliverEdit && !awaitDelivery) void syncService.sync({ pendingNativeOnly: true });
+      if (deliverEdit && !awaitDelivery) void syncService.sync({ pendingNativeOnly: true, skipPull: true });
       return savedCard;
     } catch (err) {
       if (!isCurrent()) return;

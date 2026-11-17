@@ -55,6 +55,7 @@ function AppContent() {
   const view = useUiStore(state => state.view);
   const setView = useUiStore(state => state.setView);
   const isOpeningDeck = useUiStore(state => state.isOpeningDeck);
+  const isOpeningEditor = useUiStore(state => state.isOpeningEditor);
   const activeTutorial = useUiStore(state => state.activeTutorial);
   const setActiveTutorial = useUiStore(state => state.setActiveTutorial);
   const toast = useUiStore(state => state.toast);
@@ -387,7 +388,7 @@ function AppContent() {
 
       <Toast toast={toast} />
       <LocalDesignBadge />
-      <GlobalLoader isVisible={isOpeningDeck} />
+      <GlobalLoader isVisible={isOpeningDeck || isOpeningEditor} />
     </div>
   );
 }

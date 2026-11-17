@@ -15,7 +15,10 @@ export const StudyHeader = ({
   onOpenEditor,
   onOpenSettings,
   isTrainerDeck = false,
-}) => { useInterfaceLocale(); return (<div className="header-compact">
+}) => {
+  useInterfaceLocale();
+  const isOpeningEditor = useUiStore(state => state.isOpeningEditor);
+  return (<div className="header-compact">
     <button className="back-btn" onClick={onBack} title={tr("Назад")} aria-label={tr("Назад")}>
       <ChevronLeft size={24} />
     </button>
@@ -47,7 +50,7 @@ export const StudyHeader = ({
         id="tut-study-edit-card"
         className="header-action-btn"
         onClick={onOpenEditor}
-        disabled={!card}
+        disabled={!card || isOpeningEditor}
         title={tr("Редактировать")}
       >
         <Edit2 size={22} />

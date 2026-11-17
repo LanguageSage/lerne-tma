@@ -492,6 +492,28 @@ export function reconcileCardEditLifecycle(local, server, readStartedAt) {
     offline_edit: { ...edit, server: edit.status === 'conflict' || deleted ? server : undefined } };
 }
 
+function sameValue(left, right) {
+  if (Object.is(left, right)) return true;
+  if (!left || !right || typeof left !== 'object' || typeof right !== 'object') return false;
+  if (Array.isArray(left) !== Array.isArray(right)) return false;
+  if (Array.isArray(left)) {
+    return left.length === right.length && left.every((item, index) => sameValue(item, right[index]));
+  }
+  const keys = Object.keys(left);
+  return keys.length === Object.keys(right).length
+    && keys.every(key => Object.prototype.hasOwnProperty.call(right, key) && sameValue(left[key], right[key]));
+}
+
+function sameSnapshotRecord(name, local, next) {
+  if (!local || (name === 'cards' && !(typeof local.offline_read_started_at === 'number' && Number.isFinite(local.offline_read_started_at)))) {
+    return false;
+  }
+  const nextKeys = Object.keys(next);
+  if (Object.keys(local).length !== nextKeys.length) return false;
+  return nextKeys.every(key => Object.prototype.hasOwnProperty.call(local, key)
+    && ((name === 'cards' && key === 'offline_read_started_at') || sameValue(local[key], next[key])));
+}
+
 async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
   if (data.server_generation) await observeServerGeneration(db, data, isCurrent);
   if (await db.syncState.get('serverGenerationConflict')) throw generationError();
@@ -501,36 +523,47 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
   }
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
     if (!isCurrent()) throw new Error('Session changed');
-    const lastSync = await db.syncState.get('lastSync');
+    const [lastSync, ...localTables] = await Promise.all([
+      db.syncState.get('lastSync'),
+      ...entities.map(name => db[name].toArray()),
+    ]);
     if (Date.parse(lastSync?.time) > Date.parse(data.server_time)) return false;
-    const localCards = await db.cards.toArray();
+    const localCards = localTables[entities.indexOf('cards')];
     const otherIds = new Set(localCards.filter(card => !card.content_v2).map(card => card.id));
     const scopeIds = new Set([...localCards.filter(card => !!card.content_v2),
       ...data.cards].map(card => card.id));
-    for (const name of entities) {
+    for (const [index, name] of entities.entries()) {
+      const localRows = localTables[index];
+      const localMap = new Map(localRows.map(row => [name === 'progress' ? `${row.card_id}:${row.user_id}` : row.id, row]));
       const incoming = new Set(data[name].map(item => name === 'progress' ? item.card_id : item.id));
+      const toPut = [];
+      const toDelete = [];
       for (const item of data[name]) {
-        const key = keyFor(name, item, userId);
-        const local = await db[name].get(key);
+        const local = localMap.get(name === 'progress' ? `${item.card_id}:${userId}` : item.id);
         if (name === 'cards' && local?.offline_edit) {
           const reconciled = reconcileCardEditLifecycle(local, item, pullStartedAt);
-          if (reconciled) await db.cards.put(reconciled);
+          if (reconciled) toPut.push(reconciled);
           continue;
         }
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)
             || (name === 'cards' && (otherIds.has(item.id) || keepLocalCard(local, pullStartedAt)))
             || (name === 'progress' && otherIds.has(item.card_id))) continue;
-        await db[name].put({ ...item,
+        const next = { ...item,
           ...(name === 'cards' && { offline_read_started_at: pullStartedAt }),
-          ...(name === 'progress' && { user_id: userId }), is_dirty: 0 });
+          ...(name === 'progress' && { user_id: userId }), is_dirty: 0 };
+        if (!sameSnapshotRecord(name, local, next)) toPut.push(next);
       }
       // A full snapshot also carries hard deletions and revoked access.
-      for (const item of name === 'cards' ? localCards : await db[name].toArray()) {
+      for (const item of localRows) {
         const id = name === 'progress' ? item.card_id : item.id;
         if ((name === 'cards' && (otherIds.has(id) || keepLocalCard(item, pullStartedAt)))
             || (name === 'progress' && (otherIds.has(id) || !scopeIds.has(id)))) continue;
-        if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) await db[name].delete(keyFor(name, item, userId));
+        if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) {
+          toDelete.push(keyFor(name, item, userId));
+        }
       }
+      if (toPut.length) await db[name].bulkPut(toPut);
+      if (toDelete.length) await db[name].bulkDelete(toDelete);
     }
     await db.syncState.where('key').startsWith('deck-cards:').delete();
     await db.syncState.put({ key: 'lastSync', time: data.server_time, readStartedAt: pullStartedAt });
@@ -566,6 +599,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
   let db, nativeError, entityError, firstError, serverTime;
   let pullSuccess = false;
   let pullFailed = false;
+  let notifiedSnapshot = false;
   const remember = error => { firstError ||= error; };
   try {
     db = await prepareLocalDb();
@@ -669,7 +703,10 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
           if (response.data?.card_schema !== cardSchema) throw new Error(tr('Сервер не подтвердил формат синхронизации. Очередь сохранена.'));
           if (!isCurrent()) throw new Error('Session changed');
           const applied = await applySnapshot(db, response.data, userId, pullStartedAt, isCurrent);
-          if (applied && isCurrent()) notifySyncUi('lerne:synced', { userId, complete: false }, {});
+          if (applied && isCurrent()) {
+            notifiedSnapshot = true;
+            notifySyncUi('lerne:synced', { userId, complete: false }, {});
+          }
           serverTime = response.data.server_time;
           pullSuccess = true;
         } catch (error) { pullFailed = true; entityError ||= error; remember(error); }
@@ -685,7 +722,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     // Reuse the readonly cutover checks: no second definition of "empty queue".
     const pending = await inspectCutoverDatabase(db);
     const storagePending = inspectCutoverStorage(localStorage, userId);
-    const devicePending = !(await inspectCardCutover()).pending_free;
+    const devicePending = !(await inspectCardCutover({ precomputed: new Map([[db.name, pending]]) })).pending_free;
     if (!isCurrent()) return { success: false, native_success: false, reason: 'Session changed' };
     const nativePending = pending.blockers['syncState:native_operation'] || pending.blockers['cards:unacknowledged_native_state']
       || pending.blockers['cards:native_dirty'];
@@ -711,7 +748,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     if (success && !pendingNativeOnly && !pullOnly) {
       localStorage.setItem('lerne_last_sync_time', serverTime || new Date().toISOString());
       localStorage.setItem('lerne_last_sync_user_id', String(userId));
-      notifySyncUi('lerne:synced', { userId, complete: true }, {});
+      notifySyncUi('lerne:synced', { userId, complete: true, alreadyRefreshed: notifiedSnapshot }, {});
     }
     return { success, native_success: !isGenerationConflict(firstError) && !nativeError && !nativePending, pull_success: pullSuccess && !pullFailed,
       entities_success: !entityError && !entityPending,
