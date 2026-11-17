@@ -594,6 +594,36 @@ def _run_cases(client, models, headers, load_answer_context):
                 self.call('POST','sync/v2/push',body=packet)
                 self.assertEqual(json.loads(models.TMA_Deck.get_by_id(self.target.id).metadata),missing)
 
+        def test_td005_metadata_delta_cannot_restore_concurrently_removed_link(self):
+            from api.services import media, offline_sync
+            db=models.tma_db.obj
+            old={'resources':[{'type':'audio','url':'audio/historic-missing.mp3'}]}
+            def remove_in_another_connection():
+                def remove():
+                    with db.connection_context():
+                        models.TMA_Deck.update(metadata='{}').where(models.TMA_Deck.id==self.target.id).execute()
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    pool.submit(remove).result(timeout=5)
+            validate=media.validate_new_audio_paths
+            def after_read(paths, previous=()):
+                remove_in_another_connection()
+                return validate(paths, previous)
+            models.TMA_Deck.update(metadata=json.dumps(old)).where(models.TMA_Deck.id==self.target.id).execute()
+            with patch.object(media,'validate_new_audio_paths',side_effect=after_read):
+                self.call('POST',f'decks/{self.target.id}/metadata',409,body=old)
+            self.assertEqual(models.TMA_Deck.get_by_id(self.target.id).metadata,'{}')
+            models.TMA_Deck.update(metadata=json.dumps(old)).where(models.TMA_Deck.id==self.target.id).execute()
+            access=offline_sync.require_access
+            def access_after_read(*args, **kwargs):
+                access(*args, **kwargs)
+                remove_in_another_connection()
+            packet={'request_id':str(uuid4()),'decks':[{'id':self.target.id,'name':self.target.name,'metadata':json.dumps(old)}]}
+            with patch.object(offline_sync,'require_access',side_effect=access_after_read):
+                self.call('POST','sync/v2/push',409,body=packet)
+            self.assertEqual(models.TMA_Deck.get_by_id(self.target.id).metadata,'{}')
+            self.assertFalse(models.TMAOfflineBatch.select().where(
+                models.TMAOfflineBatch.key==f'1:{packet["request_id"]}').exists())
+
         def setUp(self):
             self.source = models.TMA_Deck.create(user_id=1, name='Synthetic source')
             self.target = models.TMA_Deck.create(user_id=1, name='Synthetic target')

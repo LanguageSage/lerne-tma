@@ -171,9 +171,11 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                 # actual server base, never the client's edit timestamp.
                 values['updated_at'] = now
                 if existing:
-                    for field, value in values.items():
-                        setattr(existing, field, value)
-                    existing.save(only=[getattr(model, field) for field in values])
+                    query = model.update(**values).where(model.id == existing.id)
+                    if name == 'decks' and 'metadata' in values:
+                        query = query.where(model.metadata == existing.metadata)
+                    if not query.execute():
+                        raise HTTPException(409, 'Запись изменена на сервере. Повторите синхронизацию.')
                 else:
                     values['created_at'] = now
                     values['user_id'] = user_id

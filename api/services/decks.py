@@ -708,9 +708,14 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
 
         from .media import audio_references, validate_new_audio_paths
         validate_new_audio_paths(audio_references(metadata_dict), audio_references(deck.metadata))
+        previous = deck.metadata
         deck.metadata = json.dumps({k: v for k, v in metadata_dict.items() if k != 'is_learning'})
         deck.updated_at = datetime.datetime.now()
-        deck.save()
+        updated = TMA_Deck.update(metadata=deck.metadata, updated_at=deck.updated_at).where(
+            TMA_Deck.id == deck_id, TMA_Deck.metadata == previous).execute()
+        if not updated:
+            from fastapi import HTTPException
+            raise HTTPException(409, 'Deck metadata changed; reload before retrying.')
         return deck
     except Exception as e:
         logger.error(f"Error updating deck metadata {deck_id}: {e}")

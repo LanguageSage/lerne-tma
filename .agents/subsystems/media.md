@@ -51,6 +51,9 @@ copy, library import, author batch updates, sharing and deck metadata/offline
 deck writes. Moves and unchanged historic links do not require revalidation.
 Offline metadata validation runs after authorization and before transaction
 commit, rolling the whole packet and receipt back on failure.
+Deck editor/offline UPDATEs compare the metadata snapshot they validated;
+a concurrent change returns 409 instead of resurrecting an old missing link.
+This adds a predicate to the existing UPDATE, with no additional SQL query.
 
 Per card batch, new cloud links add one PostgreSQL name lookup; mixed relative
 links can add one prefix/size query to TMAMedia. No HEAD/GET is added to ordinary
