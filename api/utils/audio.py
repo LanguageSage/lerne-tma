@@ -61,6 +61,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
     abs_filepath = os.path.join(output_dir, filename)
 
     word_boundaries = None
+    audio_snapshot = None
 
     already_cached = not force and os.path.exists(abs_filepath) and os.path.getsize(abs_filepath) > 0
 
@@ -100,6 +101,10 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
 
             if not os.path.isfile(temporary) or not os.path.getsize(temporary):
                 return None, None
+            # Upload this synthesis, even if another process publishes the same
+            # cache filename between our replace and the upload coroutine.
+            with open(temporary, 'rb') as generated:
+                audio_snapshot = generated.read()
             os.replace(temporary, abs_filepath)
 
             if not os.path.exists(abs_filepath) or os.path.getsize(abs_filepath) == 0:
@@ -119,7 +124,7 @@ async def generate_audio(text, voice=None, rate="+0%", output_dir=None, with_bou
 
     if not supabase_url or not supabase_key or "your_project_url_here" in supabase_url:
         raise RuntimeError("Supabase Storage is not configured for audio")
-    cloud_url = await _upload_to_supabase(abs_filepath, filename, supabase_url, supabase_key)
+    cloud_url = await _upload_to_supabase(audio_snapshot if audio_snapshot is not None else abs_filepath, filename, supabase_url, supabase_key)
     if not cloud_url:
         raise RuntimeError("Audio upload to Supabase Storage failed")
     logger.info("Audio uploaded to cloud: %s", cloud_url)

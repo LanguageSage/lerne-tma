@@ -510,6 +510,90 @@ def _run_cases(client, models, headers, load_answer_context):
             'prompt': text, 'options': [{'text': 'Ja', 'correct': True}, {'text': 'Doch', 'correct': True}]}}}
 
     class CardHTTP(unittest.TestCase):
+        def test_td005_unified_library_import_retains_native_progress(self):
+            library=models.TMA_Deck.create(scope='library',user_id=None,name='Unified native library')
+            value=envelope('Native library question')
+            value['card']['metadata']={'resources':[{'type':'audio','url':'audio/library.mp3'}]}
+            blob=models.TMAMedia.create(folder='audio',filename='library.mp3',content=b'ID3'+b'x'*128)
+            source=models.TMA_Card.create(deck=library,content_v2=value,card_type=None,creator_id=None,position=1)
+            uri=f'decks/external/import/{library.id}'
+            created=self.call('POST',uri)['deck_id']
+            [first]=self.call('GET',f'decks/{created}/cards')
+            models.TMAProgress.create(card_id=first['id'],user_id=1,repetitions=5)
+            blob.delete_instance()  # Historical loss must not block unchanged target content.
+            self.assertEqual(self.call('POST',uri+'?mode=replace')['deck_id'],created)
+            [second]=self.call('GET',f'decks/{created}/cards')
+            self.assertEqual(second['id'],first['id'])
+            self.assertEqual(second['content_v2'],first['content_v2'])
+            self.assertEqual(models.TMAProgress.get(models.TMAProgress.card_id==second['id']).repetitions,5)
+            self.assertEqual(models.TMA_Deck.get_by_id(library.id).scope,'library')
+            self.assertIsNone(models.TMA_Deck.get_by_id(library.id).user_id)
+            self.assertIsNone(models.TMA_Card.get_by_id(source.id).creator_id)
+            self.call('POST',uri+'?mode=copy',422)
+
+        def test_td005_native_audio_resources_and_bulk_queries(self):
+            db = models.tma_db.obj
+            db.execute_sql('CREATE SCHEMA storage')
+            db.execute_sql('CREATE TABLE storage.objects (bucket_id text,name text)')
+            self.addCleanup(db.execute_sql, 'DROP SCHEMA storage CASCADE')
+            db.execute_sql("INSERT INTO storage.objects VALUES ('audio','present.mp3')")
+            url = 'https://audio.test/storage/v1/object/public/audio/'
+            with patch.dict(os.environ, {'SUPABASE_URL':'https://audio.test'}):
+                bad = envelope('Missing resource')
+                bad['card']['metadata']={'resources':[{'type':'audio','url':url+'missing.mp3'}]}
+                self.create(value=bad,status=422)
+                document={'schema_version':2,'deck':{'name':'Missing import audio','metadata':bad['card']['metadata']},'cards':[envelope('Imported')['card']]}
+                self.call('POST','decks/import-json',422,body={'import_id':str(uuid4()),'document':document})
+                self.assertFalse(models.TMA_Deck.select().where(models.TMA_Deck.name=='Missing import audio').exists())
+                good = envelope('Verified resource')
+                good['card']['metadata']={'resources':[{'type':'audio','url':url+'present.mp3'}]}
+                from peewee import OperationalError
+                execute=db.execute_sql
+                def unavailable(statement,*args,**kwargs):
+                    if 'FROM storage.objects' in statement: raise OperationalError('private connection data')
+                    return execute(statement,*args,**kwargs)
+                with patch.object(db,'execute_sql',side_effect=unavailable):
+                    error=self.create(value=good,status=503)
+                    self.assertNotIn('private',str(error))
+                db.execute_sql("INSERT INTO storage.objects SELECT 'audio','present-'||n||'.mp3' FROM generate_series(0,29) AS n")
+                def item(index):
+                    value=json.loads(json.dumps(good))
+                    path=url+f'present-{index}.mp3'
+                    value['card']['metadata']['resources'][0]['url']=path
+                    return {'deck_id':self.target.id,'content_v2':value,'audio_path':path}
+                queries=[]; execute=db.execute_sql
+                def count(statement, *args, **kwargs):
+                    if 'FROM storage.objects' in statement: queries.append(statement)
+                    return execute(statement,*args,**kwargs)
+                with patch.object(db,'execute_sql',side_effect=count):
+                    result=self.call('POST','cards/bulk-save',body={'import_id':str(uuid4()),'cards':[item(index) for index in range(30)]})
+                self.assertEqual(result['created'],30)
+                self.assertEqual(len(queries),1)
+                identifier=result['cards'][0]['id']
+                db.execute_sql('DELETE FROM storage.objects')
+                current=self.call('GET',f'cards/{identifier}')
+                changed=current['content_v2']; changed['card']['explanation']='Text edit with historic missing audio'
+                self.call('PATCH',f'cards/{identifier}',body={'request_id':str(uuid4()),'revision':current['revision'],'content_v2':changed})
+                self.call('POST','cards/batch-copy',422,body={'request_id':str(uuid4()),'card_ids':[identifier],'target_deck_id':self.source.id,'on_duplicate':'keep'})
+
+        def test_td005_deck_metadata_and_offline_audio(self):
+            db=models.tma_db.obj
+            db.execute_sql('CREATE SCHEMA storage')
+            db.execute_sql('CREATE TABLE storage.objects (bucket_id text,name text)')
+            self.addCleanup(db.execute_sql,'DROP SCHEMA storage CASCADE')
+            prefix='https://audio.test/storage/v1/object/public/audio/'
+            old={'resources':[{'type':'audio','url':prefix+'old.mp3'}]}
+            models.TMA_Deck.update(metadata=json.dumps(old)).where(models.TMA_Deck.id==self.target.id).execute()
+            with patch.dict(os.environ,{'SUPABASE_URL':'https://audio.test'}):
+                self.call('POST',f'decks/{self.target.id}/metadata',body={**old,'description':'edit'})
+                missing={'resources':[{'type':'audio','url':prefix+'new.mp3'}]}
+                self.call('POST',f'decks/{self.target.id}/metadata',422,body=missing)
+                packet={'request_id':str(uuid4()),'decks':[{'id':self.target.id,'name':self.target.name,'metadata':json.dumps(missing)}]}
+                self.call('POST','sync/v2/push',422,body=packet)
+                db.execute_sql("INSERT INTO storage.objects VALUES ('audio','new.mp3')")
+                self.call('POST','sync/v2/push',body=packet)
+                self.assertEqual(json.loads(models.TMA_Deck.get_by_id(self.target.id).metadata),missing)
+
         def setUp(self):
             self.source = models.TMA_Deck.create(user_id=1, name='Synthetic source')
             self.target = models.TMA_Deck.create(user_id=1, name='Synthetic target')

@@ -260,5 +260,7 @@ def update_deck_metadata(deck_id: int, data: dict, user_id: int = Depends(get_us
             parsed_meta['resources'] = resolved_resources
             return {"status": "success", "metadata": parsed_meta}
         raise HTTPException(status_code=404, detail="Deck not found or access denied")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail='Deck metadata operation failed') from None

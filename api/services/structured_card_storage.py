@@ -52,6 +52,8 @@ def create_v2_card(value, *, deck_id: int, creator_id: int | None, position: int
                    image_path: str | None = None) -> TMA_Card:
     """Insert validated V2 into an authorized deck at a caller-assigned position."""
     envelope = _encode_card(validate_card(value))
+    from .media import audio_references, validate_new_audio_paths
+    validate_new_audio_paths(audio_references(envelope))
     with _postgres().atomic():
         return TMA_Card.create(
             content_v2=envelope, card_type=None,
@@ -76,10 +78,14 @@ def decode_v2_content(envelope) -> Card:
     return validate_card(envelope['card'])
 
 
-def replace_v2_card(card_id: int, value) -> Card:
+def replace_v2_card(card_id: int, value, *, previous=None) -> Card:
     """Replace the complete content of an active native card with one guarded UPDATE."""
     card = validate_card(value)
     envelope = _encode_card(card)
+    from .media import audio_references, validate_new_audio_paths
+    if previous is None:
+        previous = TMA_Card.select(TMA_Card.content_v2).where(_native_row(card_id)).scalar()
+    validate_new_audio_paths(audio_references(envelope), audio_references(previous))
     with _postgres().atomic():
         updated = TMA_Card.update(content_v2=envelope, updated_at=datetime.datetime.now()).where(
             _native_row(card_id)

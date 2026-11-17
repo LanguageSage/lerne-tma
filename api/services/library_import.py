@@ -43,6 +43,19 @@ def _copy_content(source_id, target_id, *, replace=False, creator=None):
     for card in target:
         available[key(card)].append(card)
 
+    from .media import audio_references, card_audio_payload, validate_new_audio_paths
+    remaining = {fingerprint: deque(rows) for fingerprint, rows in available.items()}
+    required = set()
+    for card, fingerprint in zip(source, source_keys):
+        matches = remaining.get(fingerprint)
+        previous = matches.popleft() if matches else None
+        after = card_audio_payload(card)
+        if previous and not replace:
+            after = {**after, **{field: getattr(previous, field) or getattr(card, field)
+                               for field in ('audio_path', 'audio_back_path')}}
+        required.update(audio_references(after) - audio_references(card_audio_payload(previous) if previous else {}))
+    validate_new_audio_paths(required)
+
     position = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
         TMA_Card.deck == target_id, TMA_Card.is_deleted == False).scalar() or 0
     now = datetime.datetime.now()
@@ -96,6 +109,8 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             return {'status': 'in_trash', 'name': source.name, 'deck_name': source.name,
                     'deck_id': external_deck_id, 'trash_deck_id': target.id}
         if target is None:
+            from .media import audio_references, validate_new_audio_paths
+            validate_new_audio_paths(audio_references(source.metadata))
             target = TMA_Deck.create(user_id=user_id, name=name, level=source.level, topic=source.topic,
                                      target_language=source.target_language or 'de', metadata=source.metadata)
         _require_can_mutate(user_id, 'deck', target.id, allow_deleted=True)
@@ -119,6 +134,8 @@ def promote_to_library(deck_id):
             raise HTTPException(404, 'Study deck not found')
         target = TMA_Deck.select().where(TMA_Deck.scope == 'library', TMA_Deck.name == original.name, TMA_Deck.is_deleted == False).for_update().first()
         if not target:
+            from .media import audio_references, validate_new_audio_paths
+            validate_new_audio_paths(audio_references(original.metadata))
             target = TMA_Deck.create(scope='library', name=original.name, level=original.level, topic=original.topic,
                                  target_language=original.target_language, metadata=original.metadata)
         source = TMA_Deck.select().where(TMA_Deck.scope == 'personal', TMA_Deck.id == deck_id, TMA_Deck.is_deleted == False).for_update().first()

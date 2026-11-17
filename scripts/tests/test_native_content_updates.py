@@ -122,11 +122,11 @@ class NativeContentUpdates(unittest.TestCase):
         before = self.snapshot()
         original = service.replace_v2_card
         calls = []
-        def fail(card_id, value):
+        def fail(card_id, value, **kwargs):
             calls.append(card_id)
             if len(calls) == 2:
                 raise RuntimeError('synthetic write failure')
-            return original(card_id, value)
+            return original(card_id, value, **kwargs)
         with patch.object(service, 'replace_v2_card', side_effect=fail):
             with self.assertRaisesRegex(RuntimeError, 'synthetic write failure'):
                 self.apply([self.item(), self.item(1)])

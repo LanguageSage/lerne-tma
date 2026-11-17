@@ -7,47 +7,114 @@ from fastapi import HTTPException
 from ..models import tma_db, TMAMedia
 from peewee import fn
 from functools import lru_cache
+from contextlib import contextmanager
+from contextvars import ContextVar
+from peewee import DatabaseError
 from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
 
+# Prevalidated only within one synchronous write operation, never across requests
+# or Vercel instances. It removes repeated lookups inside bulk persistence loops.
+_verified_audio = ContextVar('verified_audio_write', default=frozenset())
+
+
+def audio_references(value):
+    """Declared Native V2 resources and physical audio attachments only."""
+    if isinstance(value, str):
+        try:
+            value = json.loads(value)
+        except (ValueError, TypeError):
+            return set()
+    result = set()
+    if isinstance(value, dict):
+        for key in ('audio_path', 'audio_back_path'):
+            if isinstance(value.get(key), str) and value[key]: result.add(value[key])
+        if value.get('type') == 'audio':
+            for key in ('url', 'path'):
+                if isinstance(value.get(key), str) and value[key]: result.add(value[key])
+        else:
+            for key in ('url', 'path'):
+                path = value.get(key)
+                if isinstance(path, str) and (path.startswith(('audio/', '/api/media/audio/')) or '/storage/v1/object/public/audio/' in path):
+                    result.add(path)
+        for child in value.values():
+            if isinstance(child, (dict, list)): result.update(audio_references(child))
+    elif isinstance(value, list):
+        for child in value: result.update(audio_references(child))
+    return result
+
+
+def card_audio_payload(card):
+    return {'content_v2': card.content_v2, 'audio_path': card.audio_path, 'audio_back_path': card.audio_back_path}
+
+
+def validate_new_audio_paths(paths, previous=()):
+    paths = set(paths) - set(previous) - _verified_audio.get()
+    if not paths: return
+    local = is_local()
+    if local:
+        from api.local_runtime import media_file
+        files = set()
+        for path in paths:
+            name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
+            if not name or '/' in name or '\\' in name or '?' in name or '#' in name or name in ('.', '..'):
+                raise HTTPException(422, 'Аудиофайл отсутствует в LOCAL media.')
+            if media_file('audio', name).is_file(): files.add(path)
+        paths -= files
+        if not paths: return
+    cloud, relative = {}, {}
+    origin = urlsplit('' if local else os.environ.get('SUPABASE_URL', '').rstrip('/'))
+    prefix = '/storage/v1/object/public/audio/'
+    for path in paths:
+        parsed = urlsplit(path)
+        if parsed.scheme or parsed.netloc:
+            if not origin.netloc:
+                raise HTTPException(503, 'Storage не настроен; аудиоссылки не сохранены.')
+            name = unquote(parsed.path[len(prefix):]) if parsed.path.startswith(prefix) else ''
+            if parsed.scheme != origin.scheme or parsed.netloc != origin.netloc:
+                name = ''
+            collection = cloud
+        else:
+            name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
+            collection = relative
+        if parsed.query or parsed.fragment or not name or '\\' in name or any(p in ('', '.', '..') for p in name.split('/')) or (collection is relative and '/' in name):
+            raise HTTPException(422, 'Аудио должно ссылаться на постоянный объект хранилища.')
+        collection[name] = path
+    try:
+        found = set()
+        if relative:
+            rows = TMAMedia.select(TMAMedia.filename, fn.LENGTH(TMAMedia.content), fn.SUBSTR(TMAMedia.content, 1, 4096)).where(
+                TMAMedia.folder == 'audio', TMAMedia.filename.in_(list(relative)), TMAMedia.content.is_null(False)).tuples()
+            found = {name for name, size, header in rows if _is_valid_audio_content(header, size)}
+        names = set(cloud) | (set(relative) - found if origin.netloc else set())
+        stored = set()
+        if names:
+            rows = tma_db.execute_sql('SELECT name FROM storage.objects WHERE bucket_id=%s AND name = ANY(%s)', ('audio', list(names))).fetchall()
+            stored = {row[0] for row in rows}
+        if set(cloud) - stored or set(relative) - found - stored:
+            raise HTTPException(422, 'Новый аудиофайл отсутствует в постоянном хранилище; пакет не сохранён.')
+    except DatabaseError:
+        raise HTTPException(503, 'Проверка аудио недоступна; пакет не сохранён. Повторите операцию.') from None
+
+
+@contextmanager
+def audio_write_scope(changes):
+    required = set()
+    for after, before in changes:
+        required.update(audio_references(after) - audio_references(before))
+    validate_new_audio_paths(required)
+    token = _verified_audio.set(_verified_audio.get() | required)
+    try:
+        yield
+    finally:
+        _verified_audio.reset(token)
+
 
 def validate_new_audio_path(path: str | None, previous: str | None = None) -> None:
-    """Reject new cloud card links unless their permanent Storage object exists."""
-    if not path or path == previous:
-        return
-    if is_local():
-        from api.local_runtime import media_file
-        name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
-        if (not path.startswith(('http:', 'https:', '/tmp/')) and name and
-                '/' not in name and '\\' not in name and name not in ('.', '..') and
-                media_file('audio', name).is_file()):
-            return
-        raise HTTPException(422, 'Аудиофайл отсутствует в LOCAL media.')
-    parsed = urlsplit(path)
-    if not parsed.scheme and not parsed.netloc:
-        name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
-        if not parsed.query and not parsed.fragment and name and '/' not in name and '\\' not in name and name not in ('.', '..'):
-            row = TMAMedia.select(fn.LENGTH(TMAMedia.content), fn.SUBSTR(TMAMedia.content, 1, 4096)).where(
-                TMAMedia.folder == 'audio', TMAMedia.filename == name, TMAMedia.content.is_null(False)).tuples().first()
-            if row and _is_valid_audio_content(row[1], row[0]):
-                return
-        raise HTTPException(422, 'Аудиофайл отсутствует в постоянном хранилище.')
-    base = os.environ.get('SUPABASE_URL', '').rstrip('/')
-    if not base:
-        raise HTTPException(503, 'Supabase Storage не настроен; новая аудиоссылка не сохранена.')
-    parsed, origin = urlsplit(path), urlsplit(base)
-    prefix = '/storage/v1/object/public/audio/'
-    name = unquote(parsed.path[len(prefix):]) if parsed.path.startswith(prefix) else ''
-    if (parsed.scheme != origin.scheme or parsed.netloc != origin.netloc or
-            parsed.query or parsed.fragment or not name or '\\' in name or
-            any(part in ('', '.', '..') for part in name.split('/'))):
-        raise HTTPException(422, 'Аудио должно ссылаться на постоянный объект Supabase Storage.')
-    found = tma_db.execute_sql(
-        'SELECT 1 FROM storage.objects WHERE bucket_id = %s AND name = %s LIMIT 1',
-        ('audio', name)).fetchone()
-    if not found:
-        raise HTTPException(422, 'Аудиофайл отсутствует в Supabase Storage; ссылка не сохранена.')
+    """Compatibility entry point; the batch validator owns the storage contract."""
+    validate_new_audio_paths([path] if path else [], [previous] if previous else [])
+
 
 _tma_settings_cache = {}
 _tma_settings_cache_time = 0

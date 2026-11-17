@@ -1,4 +1,5 @@
 import os
+import hashlib
 import unittest
 from unittest.mock import AsyncMock, patch
 from uuid import uuid4
@@ -6,7 +7,7 @@ from uuid import uuid4
 from fastapi import HTTPException, UploadFile
 from io import BytesIO
 
-from api.utils.audio import generate_audio
+from api.utils.audio import generate_audio, DEFAULT_VOICE
 from api.services.media import validate_new_audio_path
 from api.routers.media import upload_audio_file
 
@@ -47,8 +48,10 @@ class AudioForceRegenerationTest(unittest.IsolatedAsyncioTestCase):
             self.assertEqual(first_path, forced_path)
             self.assertEqual(_FakeCommunicate.save_calls, 2)
             self.assertEqual(upload.await_count, 3)
-            self.addCleanup(lambda: os.remove(upload.call_args.args[0]))
-            with open(upload.call_args.args[0], "rb") as audio_file:
+            cached_file = upload.await_args_list[1].args[0]
+            self.addCleanup(lambda: os.remove(cached_file))
+            self.assertEqual(upload.call_args.args[0][:4], b'ID3\x02')
+            with open(cached_file, "rb") as audio_file:
                 self.assertEqual(audio_file.read(4), b"ID3\x02")
 
     async def test_storage_failure_never_returns_pending_file(self):
@@ -57,9 +60,11 @@ class AudioForceRegenerationTest(unittest.IsolatedAsyncioTestCase):
         ), patch('api.utils.audio._upload_to_supabase', new=AsyncMock(return_value=None)) as upload, patch.dict(
             os.environ, {'SUPABASE_URL': 'https://example.supabase.co', 'SUPABASE_KEY': 'fixture', 'VERCEL': '1'},
         ):
+            phrase = 'Storage failure ' + uuid4().hex
             with self.assertRaisesRegex(RuntimeError, 'upload'):
-                await generate_audio('Storage failure ' + uuid4().hex, output_dir=TEST_DIR)
-            self.addCleanup(lambda: os.remove(upload.call_args.args[0]))
+                await generate_audio(phrase, output_dir=TEST_DIR)
+            cached_file = os.path.join(TEST_DIR, 'edge_audio_' + hashlib.md5(f'{phrase}_{DEFAULT_VOICE}_+0%'.encode()).hexdigest() + '.mp3')
+            self.addCleanup(lambda: os.remove(cached_file))
 
     async def test_upload_failure_has_no_success_path(self):
         with patch('api.routers.media.is_local', return_value=False), patch(
@@ -86,13 +91,13 @@ class AudioReferenceTest(unittest.TestCase):
             'api.services.media.tma_db',
         ) as database:
             query = database.execute_sql
-            query.return_value.fetchone.return_value = None
+            query.return_value.fetchall.return_value = []
             with self.assertRaises(HTTPException) as missing:
                 validate_new_audio_path(link, 'https://example.supabase.co/storage/v1/object/public/audio/old.mp3')
             self.assertEqual(missing.exception.status_code, 422)
             validate_new_audio_path(link, link)
             self.assertEqual(query.call_count, 1)
-            query.return_value.fetchone.return_value = (1,)
+            query.return_value.fetchall.return_value = [('new.mp3',)]
             validate_new_audio_path(link)
 
 

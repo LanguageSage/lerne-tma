@@ -706,6 +706,8 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
         if not role or role not in ('owner', 'editor', 'admin'):
             return None
 
+        from .media import audio_references, validate_new_audio_paths
+        validate_new_audio_paths(audio_references(metadata_dict), audio_references(deck.metadata))
         deck.metadata = json.dumps({k: v for k, v in metadata_dict.items() if k != 'is_learning'})
         deck.updated_at = datetime.datetime.now()
         deck.save()

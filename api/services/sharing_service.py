@@ -133,13 +133,14 @@ class SharingService:
         position = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
             TMA_Card.deck == target_deck.id, TMA_Card.is_deleted == False).scalar() or 0
         count = 0
-        for card in source_cards:
-            if existing_pairs and _digest(card.content_v2) in existing_pairs:
-                continue
-            position += 1
-            copied = _clone(card, target_deck.id, position)
-            TMA_Card.update(source=source_tag, creator_id=card.creator_id or creator_id).where(TMA_Card.id == copied.id).execute()
-            count += 1
+        from .media import audio_write_scope, card_audio_payload
+        source_cards = [card for card in source_cards if not existing_pairs or _digest(card.content_v2) not in existing_pairs]
+        with audio_write_scope([(card_audio_payload(card), {}) for card in source_cards]):
+            for card in source_cards:
+                position += 1
+                copied = _clone(card, target_deck.id, position)
+                TMA_Card.update(source=source_tag, creator_id=card.creator_id or creator_id).where(TMA_Card.id == copied.id).execute()
+                count += 1
         if count:
             from api.services.utils import touch_deck_and_parent_folders
             touch_deck_and_parent_folders(target_deck.id)
@@ -254,6 +255,8 @@ class SharingService:
                     # Delete existing cards in the target deck
                     TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == existing_deck.id).execute()
                     # Copy metadata & ensure language matches
+                    from .media import audio_references, validate_new_audio_paths
+                    validate_new_audio_paths(audio_references(source_deck.metadata), audio_references(existing_deck.metadata))
                     existing_deck.metadata = source_deck.metadata
                     existing_deck.target_language = deck_lang
                     existing_deck.save()
@@ -264,6 +267,8 @@ class SharingService:
                     # Create new deck inside language-specific Inbox folder
                     inbox_folder = ensure_inbox_folder(user_id, target_language=deck_lang)
                     _require_can_mutate(user_id, 'folder', inbox_folder.id)
+                    from .media import audio_references, validate_new_audio_paths
+                    validate_new_audio_paths(audio_references(source_deck.metadata))
                     target_deck = TMA_Deck.create(
                         user_id=user_id,
                         name=source_deck.name,
@@ -379,6 +384,8 @@ class SharingService:
                             (TMA_Deck.is_deleted == False)
                         )
                         if not dest_deck:
+                            from .media import audio_references, validate_new_audio_paths
+                            validate_new_audio_paths(audio_references(s_deck.metadata))
                             dest_deck = TMA_Deck.create(
                                 user_id=user_id,
                                 name=s_deck.name,

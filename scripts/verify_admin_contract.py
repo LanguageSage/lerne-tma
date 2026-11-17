@@ -16,6 +16,7 @@ COMPONENTS = {
                'api/services/cards.py',
                'api/services/decks.py', 'api/services/library_import.py', 'api/services/folders.py',
                'api/services/structured_card_api.py', 'api/services/structured_card_storage.py',
+               'api/services/media.py',
                'api/card_core/lerne_card_core/structured_cards_import.py'],
 }
 

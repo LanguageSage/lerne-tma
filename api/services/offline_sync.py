@@ -110,6 +110,9 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
             raise HTTPException(409, {'code': 'legacy_queue_requires_recovery',
                 'message': 'Legacy card queue retained; use the explicit recovery tools.'})
 
+        from .media import audio_references, validate_new_audio_paths
+        new_audio = set()
+
         folders = list(request.folders)
         sorted_folders = []
         while folders:
@@ -128,6 +131,8 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                 raw = item.model_dump(exclude_unset=True)
                 values = {field: raw[field] for field in FIELDS[name] if field in raw}
                 lookup_fields = (model.id,)
+                if name == 'decks':
+                    lookup_fields = (model.id, model.metadata)
                 if drain_legacy:
                     lookup_fields = (model.id, *(getattr(model, field) for field in FIELDS[name]), model.updated_at)
                 lookup = model.select(*lookup_fields)
@@ -159,6 +164,8 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                     values['folder_id'] = folder_id
                     if values.get('metadata') is None:
                         values.pop('metadata', None)
+                    elif 'metadata' in values:
+                        new_audio.update(audio_references(values['metadata']) - audio_references(existing.metadata if existing else None))
                 guard_existing(name, item.id, existing, values)
                 # Original push retains its contract; guarded drain checks the
                 # actual server base, never the client's edit timestamp.
@@ -172,6 +179,10 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                     values['user_id'] = user_id
                     new_item = model.create(**values)
                     maps[name][str(item.id)] = new_item.id
+
+        # Every deck has passed authorization. Validation stays before COMMIT;
+        # a missing object rolls back all rows and the receipt together.
+        validate_new_audio_paths(new_audio)
 
         study_card_ids = {maps['cards'].get(str(item.card_id), item.card_id)
                           for item in (*request.progress, *request.reviews)}

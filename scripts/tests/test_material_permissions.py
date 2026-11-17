@@ -347,7 +347,7 @@ class MaterialPermissionTests(unittest.TestCase):
         missing = 'https://example.supabase.co/storage/v1/object/public/audio/missing.mp3'
         models.TMA_Card.update(audio_path=missing).where(models.TMA_Card.id == self.card.id).execute()
         target_id = self.targets[303].id
-        with patch('api.services.media.validate_new_audio_path', side_effect=HTTPException(422, 'missing Storage object')):
+        with patch('api.services.media.validate_new_audio_paths', side_effect=HTTPException(422, 'missing Storage object')):
             response = self.call('POST', '/cards/batch-copy', 303, json={
                 'request_id': str(uuid4()), 'revisions': {self.card.id: self.revision()},
             'card_ids': [self.card.id], 'target_deck_id': target_id})

@@ -116,21 +116,24 @@ def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
     max_position = TMA_Card.select(fn.Max(TMA_Card.position)).where(
         (TMA_Card.deck_id == deck_id) & (TMA_Card.is_deleted == False)).scalar() or 0
     updated = created = 0
-    for item, row in zip(items, preview['cards']):
-        if row['status'] == 'update':
-            card = existing[row['card_id']]
-            from .structured_card_api import validate_layout_images
-            content = decode_v2_content(row['after']['content_v2'])
-            validate_layout_images(content, decode_v2_content(card.content_v2))
-            replace_v2_card(card.id, content)
-            updated += 1
-        elif row['status'] == 'new' and include_new:
-            created += 1
-            from .structured_card_api import validate_layout_images
-            content = decode_v2_content(row['after']['content_v2'])
-            validate_layout_images(content)
-            create_v2_card(content, deck_id=deck_id, position=max_position + created,
-                           creator_id=user_id)
+    from .media import audio_write_scope
+    changes = [(row['after'], row['before'] or {}) for row in preview['cards'] if row['status'] == 'update' or (row['status'] == 'new' and include_new)]
+    with audio_write_scope(changes):
+        for item, row in zip(items, preview['cards']):
+            if row['status'] == 'update':
+                card = existing[row['card_id']]
+                from .structured_card_api import validate_layout_images
+                content = decode_v2_content(row['after']['content_v2'])
+                validate_layout_images(content, decode_v2_content(card.content_v2))
+                replace_v2_card(card.id, content, previous=card.content_v2)
+                updated += 1
+            elif row['status'] == 'new' and include_new:
+                created += 1
+                from .structured_card_api import validate_layout_images
+                content = decode_v2_content(row['after']['content_v2'])
+                validate_layout_images(content)
+                create_v2_card(content, deck_id=deck_id, position=max_position + created,
+                               creator_id=user_id)
     if touch and (updated or created):
         touch_deck_and_parent_folders(deck_id, deck_obj=deck)
     return {'status': 'success', 'updated': updated, 'created': created,

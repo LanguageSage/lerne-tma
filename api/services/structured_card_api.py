@@ -13,6 +13,7 @@ from .card_text_update import _claim_receipt, _digest
 from .collaborative_service import _require_can_mutate, get_effective_user_role, touch_deck_and_parent_folders
 from .structured_card_storage import create_v2_card, decode_v2_content, replace_v2_card
 from .structured_cards_v2 import Card, Document, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_CARDS
+from .media import audio_write_scope, card_audio_payload
 
 ID = Annotated[int, Field(strict=True, gt=0, le=2147483647)]
 Revision = Annotated[str, Field(pattern=r'^[0-9a-f]{64}$')]
@@ -312,13 +313,14 @@ def _set_media(card, media):
 
 
 def _create(item, user_id, position):
-    validate_layout_images(item.content_v2.card)
-    try:
-        card = create_v2_card(item.content_v2.card, deck_id=item.deck_id, creator_id=user_id, position=position)
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    _set_media(card, item.model_dump(include=set(MEDIA_PATHS), exclude_unset=True))
-    return card
+    with audio_write_scope([(item.model_dump(mode='json', exclude_unset=True), {})]):
+        validate_layout_images(item.content_v2.card)
+        try:
+            card = create_v2_card(item.content_v2.card, deck_id=item.deck_id, creator_id=user_id, position=position)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        _set_media(card, item.model_dump(include=set(MEDIA_PATHS), exclude_unset=True))
+        return card
 
 
 def _response(card, user_id, deck):
@@ -374,13 +376,16 @@ def bulk_save(data, user_id):
         positions = {deck_id: _position(deck_id, start=data.placement == 'start', count=len(data.cards))
                      for deck_id in destinations}
         saved = []
-        for item in data.cards:
-            if isinstance(item, NewCard):
-                card = _create(item, user_id, positions[item.deck_id])
-                positions[item.deck_id] += 1
-            else:
-                card = _replace(by_id[item.card_id], item)
-            saved.append(_response(card, user_id, decks[card.deck_id]))
+        changes = [(raw, card_audio_payload(by_id[item.card_id]) if isinstance(item, BulkUpdate) else {})
+                   for item, raw in zip(data.cards, payload['cards'], strict=True)]
+        with audio_write_scope(changes):
+            for item in data.cards:
+                if isinstance(item, NewCard):
+                    card = _create(item, user_id, positions[item.deck_id])
+                    positions[item.deck_id] += 1
+                else:
+                    card = _replace(by_id[item.card_id], item)
+                saved.append(_response(card, user_id, decks[card.deck_id]))
         _touch(decks)
         count = len(saved)
         created = count - len(updates)
@@ -394,14 +399,15 @@ def _replace(card, data):
 
     if content_response(card)['revision'] != data.revision:
         raise HTTPException(409, {'code': 'card_revision_conflict', 'card_id': card.id})
-    validate_layout_images(data.content_v2.card, require_native(card))
-    try:
-        replace_v2_card(card.id, data.content_v2.card)
-    except ValueError as exc:
-        raise HTTPException(422, str(exc)) from exc
-    _set_media(card, data.model_dump(include=set(MEDIA_PATHS), exclude_unset=True))
-    TMA_Card.update(history=add_to_history(card.history, 'Edited manually')).where(TMA_Card.id == card.id).execute()
-    return TMA_Card.get_by_id(card.id)
+    with audio_write_scope([(data.model_dump(mode='json', exclude_unset=True), card_audio_payload(card))]):
+        validate_layout_images(data.content_v2.card, require_native(card))
+        try:
+            replace_v2_card(card.id, data.content_v2.card, previous=card.content_v2)
+        except ValueError as exc:
+            raise HTTPException(422, str(exc)) from exc
+        _set_media(card, data.model_dump(include=set(MEDIA_PATHS), exclude_unset=True))
+        TMA_Card.update(history=add_to_history(card.history, 'Edited manually')).where(TMA_Card.id == card.id).execute()
+        return TMA_Card.get_by_id(card.id)
 
 
 def validate_layout_images(content, previous=None):
@@ -468,43 +474,51 @@ def transfer_cards(data, user_id, *, move):
         touched = {}
         copies = []
         now = datetime.datetime.now()
-        for card in cards:
-            if move and card.deck_id == target:
-                continue
-            key = _digest(card.content_v2)
-            match = existing.get(key)
-            if match and data.on_duplicate == 'skip':
-                skipped += 1
-                if not move:
-                    copies.append({'source_id': card.id, 'card': None})
-                continue
-            media = {field: getattr(card, field) for field in (*MEDIA_PATHS, 'image_data')}
-            if match and data.on_duplicate == 'overwrite':
-                if move or any(value is not None and getattr(match, field) not in (None, value)
-                               for field, value in media.items()):
-                    raise HTTPException(409, {'code': 'unsafe_duplicate_overwrite', 'card_id': match.id})
-                media = {field: value for field, value in media.items() if getattr(match, field) is None}
-                _set_media(match, {**media, 'updated_at': now})
-                for field, value in media.items():
-                    setattr(match, field, value)
-                updated += 1
-                match.updated_at = now
-                copies.append({'source_id': card.id, 'card': {
-                    **lifecycle_state(match), 'creator_id': match.creator_id}})
-            elif move:
-                touched[card.deck_id] = decks[card.deck_id]
-                TMA_Card.update(deck=target, position=position, updated_at=now).where(TMA_Card.id == card.id).execute()
-                card.deck_id, card.position, card.updated_at = target, position, now
-                position += 1
-                moved += 1
-                existing.setdefault(key, card)
-            else:
-                copied = _clone(card, target, position, media=media)
-                position += 1
-                created += 1
-                existing.setdefault(key, copied)
-                copies.append({'source_id': card.id, 'card': {
-                    **lifecycle_state(copied), 'creator_id': copied.creator_id}})
+        changes = []
+        if not move:
+            for card in cards:
+                match = existing.get(_digest(card.content_v2))
+                if match and data.on_duplicate == 'skip':
+                    continue
+                changes.append((card_audio_payload(card), card_audio_payload(match) if match else {}))
+        with audio_write_scope(changes):
+            for card in cards:
+                if move and card.deck_id == target:
+                    continue
+                key = _digest(card.content_v2)
+                match = existing.get(key)
+                if match and data.on_duplicate == 'skip':
+                    skipped += 1
+                    if not move:
+                        copies.append({'source_id': card.id, 'card': None})
+                    continue
+                media = {field: getattr(card, field) for field in (*MEDIA_PATHS, 'image_data')}
+                if match and data.on_duplicate == 'overwrite':
+                    if move or any(value is not None and getattr(match, field) not in (None, value)
+                                   for field, value in media.items()):
+                        raise HTTPException(409, {'code': 'unsafe_duplicate_overwrite', 'card_id': match.id})
+                    media = {field: value for field, value in media.items() if getattr(match, field) is None}
+                    _set_media(match, {**media, 'updated_at': now})
+                    for field, value in media.items():
+                        setattr(match, field, value)
+                    updated += 1
+                    match.updated_at = now
+                    copies.append({'source_id': card.id, 'card': {
+                        **lifecycle_state(match), 'creator_id': match.creator_id}})
+                elif move:
+                    touched[card.deck_id] = decks[card.deck_id]
+                    TMA_Card.update(deck=target, position=position, updated_at=now).where(TMA_Card.id == card.id).execute()
+                    card.deck_id, card.position, card.updated_at = target, position, now
+                    position += 1
+                    moved += 1
+                    existing.setdefault(key, card)
+                else:
+                    copied = _clone(card, target, position, media=media)
+                    position += 1
+                    created += 1
+                    existing.setdefault(key, copied)
+                    copies.append({'source_id': card.id, 'card': {
+                        **lifecycle_state(copied), 'creator_id': copied.creator_id}})
         if moved or updated or created:
             touched[target] = decks[target]
             _touch(touched)
@@ -630,8 +644,9 @@ def copy_deck(deck_id, data, user_id):
         deck = create_deck(f'{source.name} (Копия)', user_id, data.folder_id, source.target_language or 'de')
         TMA_Deck.update(metadata=source.metadata, level=source.level, topic=source.topic).where(
             TMA_Deck.id == deck.id).execute()
-        for card in cards:
-            _clone(card, deck.id, card.position)
+        with audio_write_scope([(source.metadata, {}), *[(card_audio_payload(card), {}) for card in cards]]):
+            for card in cards:
+                _clone(card, deck.id, card.position)
         touch_deck_and_parent_folders(deck.id, deck_obj=deck)
         return _finish(receipt, {'status': 'success', 'id': deck.id})
 
@@ -654,16 +669,18 @@ def import_deck(data, user_id):
         if replay is not None:
             return replay
         deck_ids = []
-        for document in documents:
-            deck = create_deck(document.deck.name, user_id)
-            metadata = document.deck.metadata
-            if document.deck.passport:
-                metadata = merge_passport(metadata, document.deck.passport)
-            TMA_Deck.update(metadata=json.dumps(metadata, ensure_ascii=False)).where(TMA_Deck.id == deck.id).execute()
-            for position, card in enumerate(document.cards, 1):
-                try:
-                    create_v2_card(card, deck_id=deck.id, creator_id=user_id, position=position)
-                except ValueError as exc:
-                    raise HTTPException(422, str(exc)) from exc
-            deck_ids.append(deck.id)
+        changes = [(doc.deck.metadata, {}) for doc in documents] + [(card.model_dump(mode='json'), {}) for doc in documents for card in doc.cards]
+        with audio_write_scope(changes):
+            for document in documents:
+                deck = create_deck(document.deck.name, user_id)
+                metadata = document.deck.metadata
+                if document.deck.passport:
+                    metadata = merge_passport(metadata, document.deck.passport)
+                TMA_Deck.update(metadata=json.dumps(metadata, ensure_ascii=False)).where(TMA_Deck.id == deck.id).execute()
+                for position, card in enumerate(document.cards, 1):
+                    try:
+                        create_v2_card(card, deck_id=deck.id, creator_id=user_id, position=position)
+                    except ValueError as exc:
+                        raise HTTPException(422, str(exc)) from exc
+                deck_ids.append(deck.id)
         return _finish(receipt, {'status': 'success', 'deck_id': deck_ids[0], 'deck_ids': deck_ids})
