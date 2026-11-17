@@ -139,7 +139,7 @@ test('terminal 401 preserves dirty cards, notes, reviews and outbox; offline dat
     await db.progress.put({ card_id: 31, user_id: 101, is_dirty: 1, review_count: 2 });
     await db.card_notes.put({ id: 41, card_id: 31, text: 'Unsent note', is_dirty: 1 });
     await db.knowledge_attempt_outbox.put({ client_event_id: 'synthetic-event', user_id: 101, sync_status: 'pending' });
-    await db.syncState.put({ key: 'review:synthetic-grade', card_id: 31, grade: 2, user_id: 101 });
+    await db.syncState.put({ key: 'review:synthetic-grade', action_id: 'synthetic-grade', card_id: 31, grade: 2, user_id: 101 });
     const rows = await Promise.all(['decks', 'cards', 'progress', 'card_notes', 'knowledge_attempt_outbox'].map(name => db[name].toArray()));
     rows.push(await db.syncState.filter(item => item.key.startsWith('review:')).toArray());
     return rows;

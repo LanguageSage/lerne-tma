@@ -8,7 +8,9 @@ import { IS_LOCAL, localStorageKey } from '../../app/src/utils/localMode.js';
 import { createStore } from '../../app/node_modules/zustand/esm/vanilla.mjs';
 
 const source = readFileSync(new URL('../../app/src/store/useAuthStore.js', import.meta.url), 'utf8')
-  .replace(/^import .*;\r?\n/gm, '').replace('export const useAuthStore', 'const useAuthStore');
+  .replace(/^import .*;\r?\n/gm, '')
+  .replace('export const useAuthStore', 'const useAuthStore')
+  .replaceAll('import.meta.env', '(globalThis.__importMetaEnv || {})');
 function fixture({ methods = ['email_password'], email = 'fixture@example.test', local = false } = {}) {
   const pending = new Map(), tabStorage = new Map(), timers = new Map(), calls = [];
   let nextTimer = 0;

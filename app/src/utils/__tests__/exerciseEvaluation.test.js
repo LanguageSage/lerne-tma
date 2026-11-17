@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createExerciseEvaluation, createExerciseEvaluationSession } from '../exerciseEvaluation.js';
 import { evaluateTrainerGaps } from '../trainerEvaluation.js';
-import { parseClozeData } from '../clozeParser.js';
+import { studyTrainer } from '../structuredStudyCard.js';
 import { checkWordBankAssignments, assignWordBankOption, removeWordBankOption } from '../wordBankState.js';
 
 const gaps = Array.from({ length: 5 }, (_, index) => ({ id: `gap-${index + 1}`, correctAnswer: `word${index + 1}` }));
@@ -69,7 +69,13 @@ test('each failed check adds one mistake even with several wrong gaps and repeat
 });
 
 test('Trainer: one input remains editable, no answer is revealed, second check completes', () => {
-  const { gaps } = parseClozeData({ front: 'Ich [[hatte]] meine Freunde [[angerufen]].' }, 'trainer');
+  const { gaps } = studyTrainer({ parts: [
+    { type: 'text', text: 'Ich ' },
+    { type: 'input', answers: ['hatte'] },
+    { type: 'text', text: ' meine Freunde ' },
+    { type: 'input', answers: ['angerufen'] },
+    { type: 'text', text: '.' },
+  ] });
   const session = createExerciseEvaluationSession();
   const values = { 0: 'hatte', 1: 'telefoniert' };
   const result = evaluateTrainerGaps(gaps, values);
@@ -90,7 +96,14 @@ test('Trainer: one input remains editable, no answer is revealed, second check c
 });
 
 test('Trainer: affix, choice and typed mismatches use only reliable deterministic metadata', () => {
-  const { gaps } = parseClozeData({ front: 'klein[[en]] {*Der|Den} [[Hund]]' }, 'trainer');
+  const { gaps } = studyTrainer({ parts: [
+    { type: 'text', text: 'klein' },
+    { type: 'input', answers: ['en'] },
+    { type: 'text', text: ' ' },
+    { type: 'choice', options: [{ text: 'Der', correct: true }, { text: 'Den', correct: false }] },
+    { type: 'text', text: ' ' },
+    { type: 'input', answers: ['Hund'] },
+  ] });
   const result = evaluateTrainerGaps(gaps, { 0: 'er', 1: 'Den', 2: 'Katze' });
   assert.deepEqual(result.parts.map(part => [part.errorType, part.errorCode, part.hint]), [
     ['other', 'exercise.affix_mismatch', 'Проверь окончание.'],

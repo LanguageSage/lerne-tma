@@ -1,4 +1,4 @@
-import { stripMarkdown } from './text.js';
+import { stripMarkdown } from '../../app/src/utils/text.js';
 import { getInteractiveExerciseContent } from './exerciseContentParser.js';
 
 /**

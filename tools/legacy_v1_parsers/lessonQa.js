@@ -6,7 +6,7 @@ import { parseMatchData } from './matchParser.js';
 import { parseFreeTextData } from './freeTextParser.js';
 import { parseEditableTextData } from './editableTextParser.js';
 import { parseWordBankData } from './wordBankParser.js';
-import { evaluateTrainerGaps } from './trainerEvaluation.js';
+import { evaluateTrainerGaps } from '../../app/src/utils/trainerEvaluation.js';
 
 const jsonObject = value => {
   const result = typeof value === 'string' ? JSON.parse(value || '{}') : value ?? {};

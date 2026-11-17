@@ -9,9 +9,9 @@ module.exports = defineConfig({
   outputDir: './local/test-data/playwright',
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'local/test-data/playwright-report' }]],
   projects: [
-    { name: 'critical', testMatch: /(?:auth-recovery|guest-entry|library-mobile|card-editor|cardlist-menu|cardlist-media|study-finished)\.spec\.cjs$/ },
+    { name: 'critical', testMatch: /(?:auth-recovery|guest-entry|library-mobile|native-card-editor|cardlist-menu|cardlist-media|study-finished)\.spec\.cjs$/ },
     { name: 'extended', testMatch: /.*\.spec\.cjs$/,
-      testIgnore: /(?:auth-recovery|guest-entry|library-mobile|card-editor|cardlist-menu|cardlist-media|study-finished)\.spec\.cjs$/ },
+      testIgnore: /(?:auth-recovery|guest-entry|library-mobile|native-card-editor|cardlist-menu|cardlist-media|study-finished)\.spec\.cjs$/ },
     { name: 'auth-chrome', testMatch: /auth-lifecycle\.spec\.cjs$/,
       use: { channel: 'chrome' } },
   ],

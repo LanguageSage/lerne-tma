@@ -1,5 +1,5 @@
-import { tr } from '../i18n/locale.js';
-import { stripMarkdown } from './text.js';
+import { tr } from '../../app/src/i18n/locale.js';
+import { stripMarkdown } from '../../app/src/utils/text.js';
 import { parseExerciseContent } from './exerciseContentParser.js';
 
 const cleanPunctuation = (str) => {

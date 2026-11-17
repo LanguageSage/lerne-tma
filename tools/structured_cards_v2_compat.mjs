@@ -1,19 +1,19 @@
 // Behavioral bridge for the Python contract tests. No application/server startup.
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { detectCardType } from '../app/src/utils/exerciseDetector.js';
-import { parseExerciseContent, getInteractiveExerciseContent } from '../app/src/utils/exerciseContentParser.js';
-import { parseClozeData } from '../app/src/utils/clozeParser.js';
+import { detectCardType } from './legacy_v1_parsers/exerciseDetector.js';
+import { parseExerciseContent, getInteractiveExerciseContent } from './legacy_v1_parsers/exerciseContentParser.js';
+import { parseClozeData } from './legacy_v1_parsers/clozeParser.js';
 import { evaluateTrainerGaps } from '../app/src/utils/trainerEvaluation.js';
-import { parseMatchData, normalizeMatchValue } from '../app/src/utils/matchParser.js';
+import { parseMatchData, normalizeMatchValue } from './legacy_v1_parsers/matchParser.js';
 import { evaluateMatchPair, matchPartId } from '../app/src/utils/matchEvaluation.js';
 import { stripMarkdown } from '../app/src/utils/text.js';
 import { evaluatePuzzleOrder } from '../app/src/utils/puzzleEvaluation.js';
-import { parseQuizData } from '../app/src/utils/quizParser.js';
+import { parseQuizData } from './legacy_v1_parsers/quizParser.js';
 import { evaluateQuizOption } from '../app/src/utils/quizEvaluation.js';
-import { parseWordBankData, normalizeWordBankValue } from '../app/src/utils/wordBankParser.js';
+import { parseWordBankData, normalizeWordBankValue } from './legacy_v1_parsers/wordBankParser.js';
 import { assignWordBankOption, sanitizeWordBankAssignments, checkWordBankAssignments } from '../app/src/utils/wordBankState.js';
-import { parseFreeTextData } from '../app/src/utils/freeTextParser.js';
+import { parseFreeTextData } from './legacy_v1_parsers/freeTextParser.js';
 
 const { legacy, expected } = JSON.parse(readFileSync(0, 'utf8'));
 let gapsChecked = 0;

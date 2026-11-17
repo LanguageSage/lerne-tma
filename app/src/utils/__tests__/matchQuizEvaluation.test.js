@@ -3,11 +3,10 @@ import assert from 'node:assert/strict';
 import { createExerciseEvaluationSession } from '../exerciseEvaluation.js';
 import { evaluateMatchPair, matchPartId } from '../matchEvaluation.js';
 import { evaluateQuizOption } from '../quizEvaluation.js';
-import { parseMatchData } from '../matchParser.js';
-import { parseQuizData } from '../quizParser.js';
+import { studyMatch, studyQuiz } from '../structuredStudyCard.js';
 
-const pairs = parseMatchData({ front: '@match\nA => eins\nB => zwei\nC => drei' }).pairs;
-const quiz = parseQuizData({ front: 'Choose\n\n- Wrong\n* Right\n- Also wrong' }).options;
+const pairs = studyMatch({ pairs: [{ left: 'A', right: 'eins' }, { left: 'B', right: 'zwei' }, { left: 'C', right: 'drei' }] }).pairs;
+const quiz = studyQuiz({ prompt: 'Choose', options: [{ text: 'Wrong', correct: false }, { text: 'Right', correct: true }, { text: 'Also wrong', correct: false }] }).options;
 
 function pair(session, matches, left, right) {
   const attempt = evaluateMatchPair(pairs, matches, left, right);
@@ -72,7 +71,7 @@ test('Match rejects invalid IDs, confirmed left parts and reused physical tiles 
 });
 
 test('Match duplicate right values are interchangeable after whitespace normalization, each tile used once', () => {
-  const duplicates = parseMatchData({ front: '@match\nA => same value\nB => same   value' }).pairs;
+  const duplicates = studyMatch({ pairs: [{ left: 'A', right: 'same value' }, { left: 'B', right: 'same   value' }] }).pairs;
   const first = evaluateMatchPair(duplicates, {}, 0, 1);
   assert.equal(first.interactionCorrect, true);
   assert.equal(first.result.accepted, false);
@@ -141,7 +140,7 @@ test('Quiz shuffled option IDs and restored history stay stable across two diffe
 });
 
 test('Quiz retains multiple starred alternatives as accepted single-choice answers, not a multi-select requirement', () => {
-  const data = parseQuizData({ front: 'Choose\n\n* First accepted\n* Second accepted\n- Wrong' });
+  const data = studyQuiz({ prompt: 'Choose', options: [{ text: 'First accepted', correct: true }, { text: 'Second accepted', correct: true }, { text: 'Wrong', correct: false }] });
   for (const id of [0, 1]) {
     const session = createExerciseEvaluationSession();
     session.check(evaluateQuizOption(data.options, id));

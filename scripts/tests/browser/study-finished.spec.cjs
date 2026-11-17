@@ -7,8 +7,12 @@ const decks = [
   { id: 4, folder_id: null, name: 'Корневая колода', position: 3, target_language: 'de' },
 ].map(deck => ({ ...deck, stats: { total: 3, new: 0, due: 0, learning: 0 } }));
 const future = new Date(Date.now() + 8 * 86400000).toISOString();
-const cards = [1, 2, 3].map(id => ({ id, deck_id: 1, position: id, front: `Wort ${id}`, back: `Слово ${id}`,
-  queue: 'review', interval: 10, next_review: future, intervals: { 0: '5 мин', 1: '6 дн', 2: '13 дн', 3: '15 дн' } }));
+const cards = [1, 2, 3].map(id => ({
+  id, deck_id: 1, position: id, front: `Wort ${id}`, back: `Слово ${id}`,
+  revision: String(id).repeat(64).slice(0, 64),
+  content_v2: { schema_version: 2, card: { id: `card-${id}`, type: 'standard', data: { prompt: `Wort ${id}`, answer: `Слово ${id}` } } },
+  queue: 'review', interval: 10, next_review: future, intervals: { 0: '5 мин', 1: '6 дн', 2: '13 дн', 3: '15 дн' },
+}));
 
 async function setup(page, context, locale = 'ru') {
   await context.addInitScript(locale => {
@@ -43,6 +47,7 @@ async function setup(page, context, locale = 'ru') {
     return route.fulfill({ json: {} });
   });
   await page.goto('/?user_id=1');
+  await expect(page.locator('#deck-item-4')).toBeVisible();
   await expect(page.locator('.view-decks')).toBeVisible();
   await page.evaluate(async () => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
@@ -82,8 +87,12 @@ test('middle deck continues via shared startStudy and returns directly to the th
 test('scheduled study loads uncached deck cards and keeps the cache for reopening', async ({ page, context }) => {
   await setup(page, context);
   await finish(page);
-  const scheduled = { ...cards[0], id: 21, deck_id: 2, front: 'Scheduled synthetic card',
-    next_review: new Date(Date.now() - 86400000).toISOString() };
+  const scheduled = {
+    ...cards[0], id: 21, deck_id: 2, front: 'Scheduled synthetic card',
+    revision: 'b'.repeat(64),
+    content_v2: { schema_version: 2, card: { id: 'card-21', type: 'standard', data: { prompt: 'Scheduled synthetic card', answer: 'Слово 1' } } },
+    next_review: new Date(Date.now() - 86400000).toISOString(),
+  };
   await page.route('**/api/decks/2/cards*', route => route.fulfill({ json: [scheduled] }));
   await page.route('**/api/decks/2/next*', route => route.fulfill({ json: scheduled }));
   const nextRequest = page.waitForRequest(request => new URL(request.url()).pathname === '/api/decks/2/next');
@@ -91,13 +100,21 @@ test('scheduled study loads uncached deck cards and keeps the cache for reopenin
   const request = await nextRequest;
   expect(new URL(request.url()).searchParams.get('review_context')).not.toBe('forced');
   await expect(page.getByText(scheduled.front, { exact: true }).first()).toBeVisible();
-  const state = await page.evaluate(() => ({ selected: deckStore.getState().deckCards,
-    cached: deckStore.getState().cardsByDeck[2], loading: deckStore.getState().cardsLoading,
-    forced: sessionStore.getState().isLearningMore }));
-  expect(state.selected).toEqual([scheduled]);
-  expect(state.cached).toEqual(state.selected);
-  expect(state.loading).toBe(false);
-  expect(state.forced).toBe(false);
+  await expect.poll(() => page.evaluate(() => ({
+    selected: deckStore.getState().deckCards,
+    cached: deckStore.getState().cardsByDeck[2],
+    loading: deckStore.getState().cardsLoading,
+    forced: sessionStore.getState().isLearningMore,
+  }))).toEqual({
+    selected: [expect.objectContaining(scheduled)],
+    cached: [expect.objectContaining(scheduled)],
+    loading: false,
+    forced: false,
+  });
+  const cachedMatchesSelected = await page.evaluate(() =>
+    JSON.stringify(deckStore.getState().cardsByDeck[2]) === JSON.stringify(deckStore.getState().deckCards)
+  );
+  expect(cachedMatchesSelected).toBe(true);
 });
 
 test('last deck and root return have no fabricated next deck', async ({ page, context }) => {

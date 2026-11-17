@@ -489,7 +489,7 @@ async function main() {
           await (await import('/src/services/knowledgeContentService.js')).prepareDeckKnowledge(card.deck_id);
           window.mountHttpTrainer(card, true, `d14-${card.sourceId}`);
         }, card);
-        const gapData = await page.evaluate(async card => (await import('/src/utils/clozeParser.js')).parseClozeData(card, 'classic'), card);
+        const gapData = (await import('../../tools/legacy_v1_parsers/clozeParser.js')).parseClozeData(card, 'classic');
         for (const gap of gapData.gaps) {
           if (gap.mode === 'choice') {
             await page.locator('#trainer-ui .trainer-choice-gap').click();

@@ -1,14 +1,14 @@
-import { stripMarkdown } from './text.js';
+import { stripMarkdown } from '../../app/src/utils/text.js';
 import { parseExerciseContent } from './exerciseContentParser.js';
 
-import { autoGenerateChoices } from './trainerChoices.js';
-export { ARTICLE_GROUPS, ADJECTIVE_ENDINGS, autoGenerateChoices } from './trainerChoices.js';
+import { autoGenerateChoices } from '../../app/src/utils/trainerChoices.js';
+export { ARTICLE_GROUPS, ADJECTIVE_ENDINGS, autoGenerateChoices } from '../../app/src/utils/trainerChoices.js';
 
 // Only adjacent letters make a gap part of a word; punctuation does not.
 export const isWordGap = (text, start, end) =>
   /[\p{L}\p{M}]$/u.test(text.slice(0, start)) || /^[\p{L}\p{M}]/u.test(text.slice(end));
 
-export { normalizeAnswer } from './text.js';
+export { normalizeAnswer } from '../../app/src/utils/text.js';
 
 export const cleanBracketSyntax = (text) => {
   if (!text) return '';

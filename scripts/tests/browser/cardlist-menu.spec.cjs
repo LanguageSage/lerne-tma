@@ -16,15 +16,15 @@ async function setup(page, context) {
   await context.addInitScript(() => {
     for (const [key, value] of Object.entries({ native_language: 'ru', native_language_selected: 'true',
       lerne_has_selected_language: 'true', lerne_target_language: 'de' })) localStorage.setItem(key, value);
-    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Aruna', is_guest: false }));
     localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated', refresh_token: 'isolated' }));
   });
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [{ ...deck, folder_id: null, is_learning: true }], folders, settings: {},
-      prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
+      prompts: {}, user_settings: {}, user_info: { user_id: 1, first_name: 'Aruna', is_guest: false } } });
     if (pathname === '/api/decks/601/cards') return route.fulfill({ json: [card] });
-    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
+    if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, first_name: 'Aruna', is_guest: false } });
     if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     return route.fulfill({ json: [] });
   });
@@ -242,7 +242,7 @@ test.describe('touch and keyboard', () => {
       await page.screenshot({ path: testInfo.outputPath(`long-keyboard-${width}.png`), fullPage: true });
       await page.keyboard.press('Escape');
       await trigger.tap();
-      await page.touchscreen.tap(20, 20);
+      await page.touchscreen.tap(2, 2);
       await expect(menu).toHaveCount(0);
       await page.evaluate(async () => {
         const { useUiStore } = await import('/src/store/useUiStore.js');
@@ -255,6 +255,14 @@ test.describe('touch and keyboard', () => {
       await page.evaluate(async () => {
         const { useUiStore } = await import('/src/store/useUiStore.js');
         useUiStore.setState({ userProfile: { is_guest: true } });
+      });
+      await expect.poll(() => page.evaluate(() => {
+        const app = document.getElementById('app-container');
+        return app.scrollWidth <= app.clientWidth;
+      })).toBe(true);
+      await page.evaluate(async () => {
+        const { useUiStore } = await import('/src/store/useUiStore.js');
+        useUiStore.setState({ userProfile: { user_id: 1, first_name: 'Aruna', is_guest: false } });
       });
     }
   });

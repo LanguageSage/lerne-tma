@@ -1,6 +1,6 @@
 import { getInteractiveExerciseContent } from './exerciseContentParser.js';
 
-import { normalizeWordBankValue } from './text.js';
+import { normalizeWordBankValue } from '../../app/src/utils/text.js';
 
 const getCardField = (card, primary, fallback) => {
   if (typeof card !== 'object' || !card) return '';

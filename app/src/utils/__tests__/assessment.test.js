@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import { createAssessment, canResumeAssessment, recordAssessmentResult, assessmentSummary, assessmentAttempt } from '../assessment.js';
-import { auditLesson } from '../lessonQa.js';
+import { auditLesson } from '../../../../tools/legacy_v1_parsers/lessonQa.js';
 import { studyQuiz } from '../structuredStudyCard.js';
 import { evaluateQuizOption } from '../quizEvaluation.js';
 
