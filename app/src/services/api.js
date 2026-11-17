@@ -165,23 +165,20 @@ const api = new Proxy(axiosInstance, {
           }
           const response = await Reflect.get(target, propKey, receiver).call(target, url, ...args);
           assertCurrent();
-          if (requestAccount && propKey === 'get' && /^\/decks\/\d+\/next(?:\?|$)/.test(url) && response.data?.id) {
-            const local = await prepareLocalDb().then(db => db.cards.get(response.data.id)).catch(() => undefined);
-            assertCurrent();
-            if (local?.is_deleted && local.offline_lifecycle) return localRequest(...args);
-          }
+          const studyNext = propKey === 'get' && /^\/decks\/\d+\/next(?:\?|$)/.test(url)
+            && response.data?.content_v2 && response.data?.id;
           if (needsRefresh) {
             await syncService.sync();
             assertCurrent();
           }
           const deckMatch = propKey === 'get' && url.match(/^\/decks\/(\d+)\/cards$/);
           const trashRead = propKey === 'get' && url === '/trash';
-          if (requestAccount && (isLibraryRead || deckMatch || cardMatch || trashRead)
+          if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || trashRead)
               && requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
             try {
               const db = await prepareLocalDb();
               if (requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
-                if (deckMatch || cardMatch) {
+                if (deckMatch || cardMatch || studyNext) {
                   const cards = deckMatch ? response.data : [response.data];
                   if (!Array.isArray(cards)) return response;
                   const merged = await db.transaction('rw', db.cards, db.syncState, async () => {
@@ -217,6 +214,7 @@ const api = new Proxy(axiosInstance, {
                     return visible[0];
                   });
                   if (isCurrent()) {
+                    if (studyNext && merged?.is_deleted) return localRequest(...args);
                     const data = deckMatch ? merged : await cardMediaView(db, merged);
                     assertCurrent();
                     return { ...response, data };
@@ -269,6 +267,7 @@ const api = new Proxy(axiosInstance, {
               }
             } catch (error) {
               if (!isCurrent()) throw new axios.CanceledError('Session changed during offline cache update');
+              if (studyNext) throw error;
               console.warn('Offline library unavailable', error.name);
             }
           }

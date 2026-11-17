@@ -23,6 +23,7 @@ import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
+import { parseDeckMetadata } from '../../utils/deckUtils';
 import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
 import { isNativeStudyCard, studyContent, studyExplanation, studySideText } from '../../utils/structuredStudyCard.js';
@@ -617,9 +618,11 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
 
           {/* Deck general audio material player */}
           {(() => {
-            const deckAudio = card?.deck_metadata?.resources?.find(r => r.type === 'audio');
+            const metadata = card?.deck_metadata ?? (String(currentDeck?.id) === String(card?.deck_id)
+              ? parseDeckMetadata(currentDeck) : null);
+            const deckAudio = metadata?.resources?.find(r => r.type === 'audio');
             if (deckAudio) {
-              return <DeckAudioPlayer url={deckAudio.url} title={deckAudio.title} variant="compact" />;
+              return <DeckAudioPlayer url={deckAudio.url || getAudioUrl(deckAudio.path)} title={deckAudio.title} variant="compact" />;
             }
             return null;
           })()}

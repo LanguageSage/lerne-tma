@@ -285,11 +285,19 @@ a delayed full-list response preserves newer confirmed progress.
 Reproducible performance harness (synthetic 1000-card context-heavy deck, real
 HTTP/auth/PostgreSQL/Chromium, no existing DB/config, no migrations):
 `python scripts/tests/structured_cards_postgres.py --bin-dir <pgsql/bin> --study-performance --study-performance-browser`.
-Add `--study-performance-baseline` to load the reviewed HEAD Study sources in
-memory, without modifying the checkout. Before/after runs must use the same HEAD
-and run sequentially without other test workloads. Metrics include SQL statements
+Add `--study-performance-baseline` to load the fixed cf9dfe0 Study sources in
+memory, without modifying the checkout. The baseline is pinned to cf9dfe06416ee7ceb1b6f04445afdc5381527581
+for Python and Vite, independently of later commits. Run before/after sequentially
+without other test workloads. Metrics include SQL statements
 (including transaction statements), response bytes and first visible card after
 two animation frames; module/server startup and initial login are outside the
 Study timer. Artifacts remain in ignored `local/test-data/`.
 
 `vercel.json` prepares the Python API region as `arn1`; no deployment is implied.
+
+Audit follow-up: StudyView uses matching current-deck metadata when a list card
+omits deck_metadata, resolving authored audio paths through getAudioUrl. Native
+/decks/{id}/next responses commit through the existing card-read reconciliation
+transaction before presentation. Local edits, moves, tombstones, newer reads and
+account identity checks retain their existing protections. Regression coverage:
+studyFirstCardCache.test.js and the deck-audio / cold-offline Study browser cases.

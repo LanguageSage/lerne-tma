@@ -68,6 +68,55 @@ function holdRefresh(page) {
   return page.route('**/api/study/card/*', route => { pending.push(route); }).then(() => pending);
 }
 
+test('deck audio remains available on fresh list cards without individual GETs', async ({ page, context }) => {
+  await setup(page, context);
+  let reads = 0;
+  await page.route('**/api/study/card/*', route => { reads++; return route.fulfill({ json: cards[0] }); });
+  await page.evaluate(cards => {
+    deckStore.getState().setCurrentDeck({ ...deckStore.getState().currentDeck,
+      metadata: JSON.stringify({ resources: [{ type: 'audio', title: 'Shared lesson recording', path: 'lesson.mp3' }] }) });
+    const session = JSON.parse(localStorage.getItem('lerne_auth_v2_session'));
+    deckStore.getState().setDeckCards(cards.map(card => ({ ...card, _studyFetchedAt: Date.now(),
+      _studyContext: 'scheduled', _studyIdentity: session.client_session_id || session.refresh_token || session.access_token })));
+  }, cards);
+  for (let i = 0; i < 2; i++) {
+    await page.evaluate(() => studyActions.goNext());
+    await expect(page.getByText('Shared lesson recording', { exact: true }).first()).toBeVisible();
+    expect(await page.locator('audio').evaluateAll(elements => elements.some(audio => audio.src.endsWith('/lesson.mp3')))).toBe(true);
+  }
+  expect(reads).toBe(0);
+});
+
+test('cold first card survives immediate offline grading and review delivery after reconnect', async ({ page, context }) => {
+  await knowledgeSetup(page, context);
+  await page.route('**/api/decks/1/cards*', () => {});
+  await page.evaluate(async deck => {
+    const db = (await import('/src/services/localDb.js')).getLocalDb();
+    await db.cards.clear();
+    await db.decks.put({ ...deck, user_id: 1, role: 'owner' });
+    deckStore.setState({ deckCards: [], cardsByDeck: {} });
+    await studyNavigation.startStudy(deck);
+  }, deck);
+  expect(await page.evaluate(async () => Boolean(await (await import('/src/services/localDb.js')).getLocalDb().cards.get(1)))).toBe(true);
+  await context.setOffline(true);
+  await page.evaluate(() => studyActions.submitGrade(2));
+  const reviews = () => page.evaluate(async () => (await import('/src/services/localDb.js')).getLocalDb().syncState.filter(row => row.key.startsWith('review:')).toArray());
+  await expect.poll(async () => (await reviews()).length).toBe(1);
+  const [saved] = await reviews();
+  await context.setOffline(false);
+  let delivered;
+  await page.route('**/api/sync/v2/push*', route => {
+    delivered = route.request().postDataJSON().reviews;
+    return route.fulfill({ json: { status: 'success', mappings: {}, review_count: delivered.length } });
+  });
+  await page.route('**/api/sync/v2/pull*', route => route.fulfill({ json: { status: 'success', card_schema: 2,
+    folders: [], decks: [{ ...deck, user_id: 1 }], cards, progress: [] } }));
+  await page.evaluate(async () => (await import('/src/services/syncService.js')).syncService.sync());
+  expect(delivered).toHaveLength(1);
+  expect(delivered[0].action_id).toBe(saved.action_id);
+  expect(await reviews()).toHaveLength(0);
+});
+
 test('cold Study paints the SRS card while the full list and KI are held; early grade retains its attempt', async ({ page, context }) => {
   await knowledgeSetup(page, context);
   let list, knowledge;

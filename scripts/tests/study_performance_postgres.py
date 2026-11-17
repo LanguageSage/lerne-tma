@@ -23,12 +23,12 @@ from peewee import Model
 
 
 def baseline_sources():
-    """Load reviewed HEAD sources in memory; never overwrite the working tree."""
+    """Load the fixed pre-optimization sources; never overwrite the working tree."""
     import importlib.abc
     import importlib.util
     paths = ['api.routers.study', 'api.routers.knowledge', 'api.services.study',
              'api.services.cards', 'api.services.structured_card_api', 'api.services.collaborative_service']
-    sources = {name: subprocess.check_output(['git', 'show', 'HEAD:' + name.replace('.', '/') + '.py'],
+    sources = {name: subprocess.check_output(['git', 'show', 'cf9dfe06416ee7ceb1b6f04445afdc5381527581:' + name.replace('.', '/') + '.py'],
                 encoding='utf-8', creationflags=getattr(subprocess, 'CREATE_NO_WINDOW', 0)) for name in paths}
 
     class SourceLoader(importlib.abc.MetaPathFinder, importlib.abc.Loader):

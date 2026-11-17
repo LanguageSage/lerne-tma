@@ -303,7 +303,7 @@ def main():
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--study-performance', action='store_true', help='Measure synthetic Study HTTP/SQL on disposable PostgreSQL, without migrations')
     parser.add_argument('--study-performance-browser', action='store_true')
-    parser.add_argument('--study-performance-baseline', action='store_true', help='Read Study implementation from HEAD for before/after measurements')
+    parser.add_argument('--study-performance-baseline', action='store_true', help='Read fixed cf9dfe0 Study sources for before/after measurements')
     parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
     parser.add_argument('--unified-storage', action='store_true', help='Test migration 96 and independent library copies')
     parser.add_argument('--unified-dump', type=Path, help='Explicit private Native V2 Supabase dump for a restored migration 96 rehearsal')
