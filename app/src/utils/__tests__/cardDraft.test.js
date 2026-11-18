@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cardTypes, newCardContent, parseCardSource, changeDraft } from '../cardDraft.js';
+import { cardTypes, newCardContent, parseCardSource, changeDraft, validateStandardDraft } from '../cardDraft.js';
 import { addLayoutImage } from '../cardLayout.js';
 
 test('an upload completing in the JSON view updates the same draft without overwriting invalid source', () => {
@@ -44,4 +44,13 @@ test('source parsing leaves domain validation to the existing save pipeline', ()
   assert.deepEqual(parseCardSource(JSON.stringify(content)), content);
   content.card.info = [{ type: 'options', items: [{ text: 'Unreadable as a chip' }] }];
   assert.throws(() => parseCardSource(JSON.stringify(content)));
+});
+
+test('standard draft validation allows empty back while keeping prompt and type guards', () => {
+  for (const data of [{ prompt: 'Haus', answer: '' }, { prompt: 'Haus', answer: '   ' }, { prompt: 'Haus' }]) {
+    assert.doesNotThrow(() => validateStandardDraft({ type: 'standard', data, info: [] }));
+  }
+  for (const data of [{ prompt: '   ', answer: '' }, { prompt: '   ', answer: 'дом' }, { prompt: 'Haus', answer: null }]) {
+    assert.throws(() => validateStandardDraft({ type: 'standard', data, info: [] }));
+  }
 });

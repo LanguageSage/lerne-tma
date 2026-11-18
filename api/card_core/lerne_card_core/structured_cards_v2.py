@@ -153,7 +153,7 @@ class TheoryData(V2Model):
 
 class StandardData(V2Model):
     prompt: Text
-    answer: Text
+    answer: str = ''
 
 
 class TrainerData(V2Model):

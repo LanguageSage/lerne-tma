@@ -574,3 +574,43 @@ test.describe('Quiz creator on a touch screen', () => {
     })).toEqual({ order: [second, first, exercise], topics: ['Kasus'] });
   });
 });
+
+test('Standard creator allows saving a card with an empty back side online and offline', async ({ page, context }) => {
+  const server = { saves: [] };
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  await setupEditor(page, context, server);
+  const openCreator = () => page.evaluate(async deck => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    useDeckStore.setState({ currentDeck: deck });
+    useUiStore.setState({ editorSourceView: 'decks' });
+    useUiStore.getState().setView('creator');
+  }, deck);
+
+  await openCreator();
+  await page.locator('#card-editor-front').fill('Nur Vorderseite');
+  await expect(page.locator('#card-editor-back')).toHaveValue('');
+  const request = page.waitForRequest(req => req.url().endsWith('/api/cards/save') && req.method() === 'POST');
+  await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+  const payload = (await request).postDataJSON();
+  expect(payload.content_v2.card).toMatchObject({
+    type: 'standard',
+    data: { prompt: 'Nur Vorderseite', answer: '' },
+  });
+  await expect(page.getByText('Карточка сохранена', { exact: true })).toBeVisible();
+
+  await context.setOffline(true);
+  await page.evaluate(() => {
+    Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+  });
+  await openCreator();
+  await page.locator('#card-editor-front').fill('Offline ohne Rückseite');
+  await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+  await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toBeVisible();
+  await expect.poll(() => page.evaluate(async () => {
+    const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+    return (await db.cards.toArray()).find(card => card.id < 0)?.content_v2.card.data;
+  })).toEqual({ prompt: 'Offline ohne Rückseite', answer: '' });
+  expect(errors).toEqual([]);
+});

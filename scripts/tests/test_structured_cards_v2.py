@@ -138,6 +138,14 @@ class V2ValidationTests(unittest.TestCase):
     def test_required_text_and_option_booleans_are_strict(self):
         for prompt in ('', '   ', 12, None):
             self.assertInvalid(document({'type': 'standard', 'data': {'prompt': prompt, 'answer': 'A'}}))
+        for answer in (12, None):
+            self.assertInvalid(document({'type': 'standard', 'data': {'prompt': 'Haus', 'answer': answer}}))
+        for data, expected in (({'prompt': 'Haus', 'answer': ''}, ''),
+                               ({'prompt': 'Haus', 'answer': '   '}, '   '),
+                               ({'prompt': 'Haus'}, '')):
+            card = validate_document(document({'type': 'standard', 'data': data})).cards[0]
+            self.assertEqual(card.data.answer, expected)
+            self.assertEqual(to_legacy_document(document({'type': 'standard', 'data': data}))['cards'][0]['back'], expected)
         for correct in ('true', 1, None):
             part = choice()
             part['options'][0]['correct'] = correct

@@ -74,7 +74,8 @@ export function parseCardSource(source) {
 
 export function validateStandardDraft(card) {
   const nonBlank = value => typeof value === 'string' && /[^\p{White_Space}]/u.test(value);
-  if (!nonBlank(card.data?.prompt) || !nonBlank(card.data?.answer)
+  if (!nonBlank(card.data?.prompt)
+    || (card.data?.answer !== undefined && typeof card.data.answer !== 'string')
     || card.topics?.some(topic => !nonBlank(topic))
     || card.info?.some(block => block.type === 'options'
       ? !block.items?.length || block.items.some(item => !nonBlank(item))

@@ -116,6 +116,18 @@ class CriticalHttpTests(unittest.TestCase):
         self.assertEqual(pulled.json()['cards'][0]['content_v2']['card']['data']['prompt'], 'Haustür')
         self.assertEqual(pulled.json()['progress'][0]['card_id'], card_id)
 
+    def test_create_standard_card_with_empty_back_persists_and_studies(self):
+        response = self.save(front='Nur Vorderseite', back='')
+        self.assertEqual(response.status_code, 200, response.text)
+        card = response.json()
+        self.assertEqual(card['content_v2']['card']['data'], {'prompt': 'Nur Vorderseite', 'answer': ''})
+        fetched = self.client.get(f'/api/cards/{card["id"]}', headers=self.headers())
+        self.assertEqual(fetched.status_code, 200, fetched.text)
+        self.assertEqual(fetched.json()['content_v2']['card']['data']['answer'], '')
+        study = self.client.get(f'/api/study/card/{card["id"]}', headers=self.headers())
+        self.assertEqual(study.status_code, 200, study.text)
+        self.assertEqual(study.json()['content_v2']['card']['data']['answer'], '')
+
     def test_foreign_account_cannot_edit_grade_or_pull_private_card(self):
         response = self.save()
         self.assertEqual(response.status_code, 200, response.text)
