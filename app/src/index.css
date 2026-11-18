@@ -934,6 +934,19 @@ h1, h2, h3 {
   border-color: rgba(168, 85, 247, 0.6);
 }
 
+.is-drag-overlay {
+  height: 100%;
+  box-sizing: border-box;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-item-draggable,
+  .deck-card-draggable,
+  .folder-card-item {
+    transition: none !important;
+  }
+}
+
 /* Large Flag Badge styling (32px flag) */
 .deck-flag-badge-large {
   display: flex;

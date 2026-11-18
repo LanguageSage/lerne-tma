@@ -1,4 +1,5 @@
 const { defineConfig } = require('@playwright/test');
+const criticalSpecs = /(?:auth-recovery|guest-entry|library-mobile|native-card-editor|cardlist-menu|cardlist-media|list-drag|study-finished)\.spec\.cjs$/;
 
 module.exports = defineConfig({
   testDir: './scripts/tests/browser',
@@ -9,9 +10,8 @@ module.exports = defineConfig({
   outputDir: './local/test-data/playwright',
   reporter: [['list'], ['html', { open: 'never', outputFolder: 'local/test-data/playwright-report' }]],
   projects: [
-    { name: 'critical', testMatch: /(?:auth-recovery|guest-entry|library-mobile|native-card-editor|cardlist-menu|cardlist-media|study-finished)\.spec\.cjs$/ },
-    { name: 'extended', testMatch: /.*\.spec\.cjs$/,
-      testIgnore: /(?:auth-recovery|guest-entry|library-mobile|native-card-editor|cardlist-menu|cardlist-media|study-finished)\.spec\.cjs$/ },
+    { name: 'critical', testMatch: criticalSpecs },
+    { name: 'extended', testMatch: /.*\.spec\.cjs$/, testIgnore: criticalSpecs },
     { name: 'auth-chrome', testMatch: /auth-lifecycle\.spec\.cjs$/,
       use: { channel: 'chrome' } },
   ],

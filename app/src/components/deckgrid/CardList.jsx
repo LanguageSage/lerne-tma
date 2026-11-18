@@ -6,7 +6,7 @@ import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DndContext, DragOverlay } from '@dnd-kit/core';
+import { DragOverlay } from '@dnd-kit/core';
 import {
   SortableContext,
   verticalListSortingStrategy
@@ -37,6 +37,7 @@ import { SearchBar } from '../common/SearchBar';
 import { matchCard, matchesSearchQuery } from '../../utils/search';
 import { parseDeckMetadata } from '../../utils/deckUtils';
 import { DraggableCardItem } from './DraggableCardItem';
+import { ListDndContext } from './ListDndContext';
 import { FloatingBatchDock } from './FloatingBatchDock';
 import { useCardSelectMode } from '../../hooks/useCardSelectMode';
 import { useCardDnd } from '../../hooks/useCardDnd';
@@ -99,8 +100,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     isBatchMoveModalOpen, setIsBatchMoveModalOpen, batchModalMode, toggleSelectMode, handleToggleSelectCard, handleSelectAll, selectableCount,
   } = selectMode;
 
-  const { sensors, activeCard, handleDragStart, handleDragEnd,
-    customCollisionDetection, getOriginalIndex } = useCardDnd(filteredCards, deckCards);
+  const { orderedCards, isReorderPending, activeCard, handleDragStart, handleDragEnd,
+    handleDragCancel, getOriginalIndex } = useCardDnd(filteredCards, deckCards, currentDeck?.id);
   const activeContent = studyContent(activeCard);
   const activePrompt = activeContent ? studySideText(activeContent) : activeCard?.front;
   const activeAnswer = activeContent ? studySideText(activeContent, 'back') : activeCard?.back;
@@ -157,17 +158,10 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     setVisibleCount(prev => Math.max(prev, required));
   }, [filteredCards, searchQuery, calculateRequiredVisibleCount]);
 
-  React.useEffect(() => {
-    if (!searchQuery.trim()) {
-      const required = calculateRequiredVisibleCount(filteredCards);
-      setVisibleCount(required);
-    }
-  }, [currentDeck?.id, calculateRequiredVisibleCount, filteredCards, searchQuery]);
-
   const renderedCards = React.useMemo(() => {
-    if (searchQuery.trim()) return filteredCards;
-    return filteredCards.slice(0, visibleCount);
-  }, [filteredCards, searchQuery, visibleCount]);
+    if (searchQuery.trim()) return orderedCards;
+    return orderedCards.slice(0, visibleCount);
+  }, [orderedCards, searchQuery, visibleCount]);
   const sortableItems = React.useMemo(() => renderedCards.map(c => c.id), [renderedCards]);
 
 
@@ -228,9 +222,10 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   }, [view, setCardsScrollTop, filteredCards.length]);
 
   // Robust scroll & anchor restoration with layout-wait (double rAF)
+  const hasRenderedCards = renderedCards.length > 0;
   React.useEffect(() => {
     if (view !== 'cards' || !currentDeck?.id) return;
-    if (!renderedCards || renderedCards.length === 0) return;
+    if (!hasRenderedCards) return;
 
     // Run restoration only once per mount/deck view session
     if (hasRestoredForDeckRef.current === currentDeck.id) return;
@@ -240,11 +235,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
 
     if (savedTop > 0 || lastId) {
       isRestoringScrollRef.current = true;
-      hasRestoredForDeckRef.current = currentDeck.id;
-
       const container = document.getElementById('app-container');
+      let cooldown;
 
       const performRestore = () => {
+        hasRestoredForDeckRef.current = currentDeck.id;
         if (!container) {
           isRestoringScrollRef.current = false;
           return;
@@ -268,7 +263,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
         }
 
         // Cooldown period to ignore any layout-induced scroll events
-        setTimeout(() => {
+        cooldown = setTimeout(() => {
           isRestoringScrollRef.current = false;
           if (container && container.scrollTop > 0) {
             useUiStore.getState().setCardsScrollTop(container.scrollTop);
@@ -277,13 +272,18 @@ export const CardList = ({ startStudy, startStudyCard }) => {
       };
 
       // Double rAF guarantees DOM nodes have been laid out with correct heights
-      requestAnimationFrame(() => {
-        requestAnimationFrame(performRestore);
+      let layoutFrame = requestAnimationFrame(() => {
+        layoutFrame = requestAnimationFrame(performRestore);
       });
+      return () => {
+        cancelAnimationFrame(layoutFrame);
+        clearTimeout(cooldown);
+        isRestoringScrollRef.current = false;
+      };
     } else {
       hasRestoredForDeckRef.current = currentDeck.id;
     }
-  }, [view, currentDeck?.id, renderedCards]);
+  }, [view, currentDeck?.id, hasRenderedCards]);
 
   if (view !== 'cards') return null;
   if (!currentDeck) {
@@ -537,11 +537,11 @@ export const CardList = ({ startStudy, startStudyCard }) => {
               </button>
             </div>
           ) : (
-            <DndContext
-              sensors={sensors}
-              collisionDetection={customCollisionDetection}
+            <ListDndContext
+              key={currentDeck.id}
               onDragStart={canEditContent ? handleDragStart : undefined}
               onDragEnd={canEditContent ? handleDragEnd : undefined}
+              onDragCancel={handleDragCancel}
             >
               <SortableContext
                 items={sortableItems}
@@ -555,6 +555,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
                       currentDeck={currentDeck} 
                       canEditContent={canEditContent}
+                      isReorderPending={isReorderPending}
                       startStudyCard={startStudyCard}
                       openEditor={openEditor}
                       frontTypographyStyle={frontTypographyStyle}
@@ -572,15 +573,13 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                   )}
                 </div>
               </SortableContext>
-              <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+              <DragOverlay dropAnimation={null}>
                 {activeCard ? (
                   <div 
                     className={`card-item card-front glass ${cardListBg?.className || ''} is-drag-overlay`} 
                     style={{ 
                       opacity: 0.95, 
                       cursor: 'grabbing', 
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(56,189,248,0.35)',
-                      transform: 'scale(1.02)',
                       pointerEvents: 'none',
                       ...cardListBg?.style
                     }}
@@ -596,7 +595,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                   </div>
                 ) : null}
               </DragOverlay>
-            </DndContext>
+            </ListDndContext>
           )}
         </div>
         

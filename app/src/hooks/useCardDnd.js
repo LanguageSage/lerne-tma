@@ -1,14 +1,5 @@
-import { useState, useCallback, useMemo } from 'react';
-import {
-  closestCenter,
-  pointerWithin,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-} from '@dnd-kit/core';
-import { arrayMove, sortableKeyboardCoordinates } from '@dnd-kit/sortable';
+import { useState, useCallback } from 'react';
+import { arrayMove } from '@dnd-kit/sortable';
 import { useDeckStore } from '../store/useDeckStore';
 
 /**
@@ -16,50 +7,36 @@ import { useDeckStore } from '../store/useDeckStore';
  *
  * @param {Array} filteredCards - Currently visible cards (used for reorder computation)
  * @param {Array} deckCards     - All cards in the deck (used for getOriginalIndex)
+ * @param {number} deckId       - Deck that owns the current list
  */
-export function useCardDnd(filteredCards, deckCards) {
+export function useCardDnd(filteredCards, deckCards, deckId) {
   const [activeCardId, setActiveCardId] = useState(null);
+  const [pendingOrder, setPendingOrder] = useState(null);
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: { distance: 4 },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: { delay: 120, tolerance: 5 },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
+  const isReorderPending = pendingOrder !== null && pendingOrder.deckId === deckId;
+  const orderedCards = isReorderPending && pendingOrder.source === filteredCards
+    ? pendingOrder.cards : filteredCards;
 
   const handleDragStart = (event) => {
     setActiveCardId(event.active.id);
   };
 
-  const handleDragEnd = (event) => {
-    const { active, over } = event;
+  const handleDragEnd = async ({ active, over }) => {
     setActiveCardId(null);
-    if (over && active.id !== over.id) {
-      const oldIndex = filteredCards.findIndex(item => item.id === active.id);
-      const newIndex = filteredCards.findIndex(item => item.id === over.id);
-      if (oldIndex !== -1 && newIndex !== -1) {
-        const newOrder = arrayMove(filteredCards, oldIndex, newIndex);
-        const orderedIds = newOrder.map(c => c.id);
-        useDeckStore.getState().reorderCards(orderedIds);
-      }
+    if (isReorderPending || !over || active.id === over.id) return;
+    const oldIndex = filteredCards.findIndex(item => item.id === active.id);
+    const newIndex = filteredCards.findIndex(item => item.id === over.id);
+    if (oldIndex < 0 || newIndex < 0) return;
+
+    const newOrder = arrayMove(filteredCards, oldIndex, newIndex);
+    const pending = { deckId, source: filteredCards, cards: newOrder };
+    setPendingOrder(pending);
+    try {
+      await useDeckStore.getState().reorderCards(newOrder.map(card => card.id), deckId);
+    } finally {
+      setPendingOrder(current => current === pending ? null : current);
     }
   };
-
-  const customCollisionDetection = useCallback((args) => {
-    const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) return pointerCollisions;
-    return closestCenter(args);
-  }, []);
-
-  const activeCard = useMemo(() => {
-    if (!activeCardId) return null;
-    return filteredCards.find(c => c.id === activeCardId);
-  }, [activeCardId, filteredCards]);
 
   const getOriginalIndex = useCallback((cardId) => {
     if (!deckCards) return 0;
@@ -68,12 +45,12 @@ export function useCardDnd(filteredCards, deckCards) {
   }, [deckCards]);
 
   return {
-    sensors,
-    activeCardId,
-    activeCard,
+    orderedCards,
+    isReorderPending,
+    activeCard: activeCardId === null ? null : filteredCards.find(c => c.id === activeCardId),
     handleDragStart,
     handleDragEnd,
-    customCollisionDetection,
+    handleDragCancel: () => setActiveCardId(null),
     getOriginalIndex,
   };
 }

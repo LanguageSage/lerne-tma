@@ -5,21 +5,10 @@ import { getThemeDecks } from '../../utils/studyFlow';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import {
-  DndContext,
-  closestCenter,
-  pointerWithin,
-  KeyboardSensor,
-  PointerSensor,
-  TouchSensor,
-  useSensor,
-  useSensors,
-  DragOverlay
-} from '@dnd-kit/core';
+import { DragOverlay } from '@dnd-kit/core';
 import {
   arrayMove,
   SortableContext,
-  sortableKeyboardCoordinates,
   verticalListSortingStrategy
 } from '@dnd-kit/sortable';
 import { Layers, RefreshCw, Copy, Trash2, FolderOpen, ChevronRight, Wrench, ChevronDown, Search, Loader2 } from 'lucide-react';
@@ -31,6 +20,7 @@ import { useTranslation } from '../../i18n/i18nContext';
 import { ImportModal } from '../modals/ImportModal';
 import { DeckGridHeader } from './DeckGridHeader';
 import { DeckCardItem } from './DeckCardItem';
+import { ListDndContext } from './ListDndContext';
 import { FolderCardItem } from './FolderTreeNav';
 import { useCollaborativePresence } from '../../hooks/useCollaborativePresence';
 import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBar';
@@ -184,23 +174,6 @@ export const DeckGrid = ({
 
   const totalSearchResultsCount = filteredFolders.length + filteredDecks.length + searchedCards.length;
 
-  const sensors = useSensors(
-    useSensor(PointerSensor, {
-      activationConstraint: {
-        distance: 4,
-      },
-    }),
-    useSensor(TouchSensor, {
-      activationConstraint: {
-        delay: 120,
-        tolerance: 5,
-      },
-    }),
-    useSensor(KeyboardSensor, {
-      coordinateGetter: sortableKeyboardCoordinates,
-    })
-  );
-
   const [activeFolderDragId, setActiveFolderDragId] = useState(null);
   const [activeDeckDragId, setActiveDeckDragId] = useState(null);
 
@@ -231,14 +204,6 @@ export const DeckGrid = ({
       }
     }
   };
-
-  const customCollisionDetection = React.useCallback((args) => {
-    const pointerCollisions = pointerWithin(args);
-    if (pointerCollisions.length > 0) {
-      return pointerCollisions;
-    }
-    return closestCenter(args);
-  }, []);
 
   const activeDeck = React.useMemo(() => {
     if (!activeDeckDragId) return null;
@@ -595,11 +560,10 @@ export const DeckGrid = ({
             <>
               {/* 1. Folders */}
               {currentFolders.length > 0 && (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={customCollisionDetection}
+                <ListDndContext
                   onDragStart={(e) => setActiveFolderDragId(e.active.id)}
                   onDragEnd={handleFolderDragEnd}
+                  onDragCancel={() => setActiveFolderDragId(null)}
                 >
                   <SortableContext
                     items={currentFolders.map(f => f.id)}
@@ -618,15 +582,13 @@ export const DeckGrid = ({
                       ))}
                     </div>
                   </SortableContext>
-                  <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                  <DragOverlay dropAnimation={null}>
                     {activeFolderItem ? (
                       <div 
                         className="deck-card glass is-drag-overlay"
                         style={{ 
                           opacity: 0.95, 
                           cursor: 'grabbing', 
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(254,208,67,0.5)',
-                          transform: 'scale(1.02)',
                           padding: '16px',
                           pointerEvents: 'none'
                         }}
@@ -637,16 +599,15 @@ export const DeckGrid = ({
                       </div>
                     ) : null}
                   </DragOverlay>
-                </DndContext>
+                </ListDndContext>
               )}
 
               {/* 2. Decks */}
               {(filteredDecks.length > 0 || isLidRootFolder(activeFolder)) && (
-                <DndContext
-                  sensors={sensors}
-                  collisionDetection={customCollisionDetection}
+                <ListDndContext
                   onDragStart={(e) => setActiveDeckDragId(e.active.id)}
                   onDragEnd={handleDeckDragEnd}
+                  onDragCancel={() => setActiveDeckDragId(null)}
                 >
                   <SortableContext
                     items={filteredDecks.map(d => d.id)}
@@ -677,15 +638,13 @@ export const DeckGrid = ({
                       ))}
                     </div>
                   </SortableContext>
-                  <DragOverlay dropAnimation={{ duration: 150, easing: 'ease' }}>
+                  <DragOverlay dropAnimation={null}>
                     {activeDeck ? (
                       <div 
                         className="deck-card glass is-drag-overlay"
                         style={{ 
                           opacity: 0.95, 
                           cursor: 'grabbing', 
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.6), 0 0 25px rgba(168,85,247,0.4)',
-                          transform: 'scale(1.02)',
                           padding: '16px',
                           pointerEvents: 'none'
                         }}
@@ -696,7 +655,7 @@ export const DeckGrid = ({
                       </div>
                     ) : null}
                   </DragOverlay>
-                </DndContext>
+                </ListDndContext>
               )}
             </>
           )}

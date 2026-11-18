@@ -152,6 +152,7 @@ export const FolderCardItem = React.memo(({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging
@@ -162,7 +163,7 @@ export const FolderCardItem = React.memo(({
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition: transition || undefined,
     opacity: isDragging ? 0.35 : 1,
     zIndex: isDragging ? 999 : undefined,
@@ -196,6 +197,7 @@ export const FolderCardItem = React.memo(({
       <div className="deck-footer-actions">
         <div className="deck-footer-actions-left">
           {canEditFolder && <div
+            ref={setActivatorNodeRef}
             className="deck-drag-handle-bottom"
             {...attributes}
             {...listeners}

@@ -25,6 +25,7 @@ export const DraggableCardItem = React.memo(({
   cardListBg,
   previewCardLines,
   isSelectMode = false,
+  isReorderPending = false,
   isSelected = false,
   onToggleSelect,
   hasNotes
@@ -38,17 +39,18 @@ export const DraggableCardItem = React.memo(({
     attributes,
     listeners,
     setNodeRef,
+    setActivatorNodeRef,
     transform,
     transition,
     isDragging
   } = useSortable({
     id: c.id,
-    disabled: isSelectMode || !canDrag,
+    disabled: isSelectMode || isReorderPending || !canDrag,
     animateLayoutChanges: () => false,
   });
 
   const style = {
-    transform: CSS.Transform.toString(transform),
+    transform: CSS.Translate.toString(transform),
     transition: isDragging ? 'none' : (transition || undefined),
     opacity: isDragging ? 0.25 : 1,
     zIndex: isDragging ? 999 : undefined,
@@ -170,6 +172,7 @@ export const DraggableCardItem = React.memo(({
         <div className="card-item-footer-left">
           {!isSelectMode && canDrag && (
             <div
+              ref={setActivatorNodeRef}
               className="deck-drag-handle-bottom"
               {...attributes}
               {...listeners}
