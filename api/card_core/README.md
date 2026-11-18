@@ -1,4 +1,4 @@
-# lerne-card-core 0.1.6
+# lerne-card-core 0.1.8
 
 Canonical source for pure JSON V2 validation, passport validation/merge, the answer
 contract, native Codex/JSON V2 import, legacy syntax parsing and V2-to-legacy conversion. This is the only
@@ -73,3 +73,6 @@ information on either side of the exercise. Legacy preview rejects composition
 it cannot preserve. No V1→V2 converter or answer generation logic changes.
 `provenance.json` identifies the exact source commit; the Admin candidate is
 reviewed independently under `reviews/native-layout-0.1.6/` in its checkout.
+
+0.1.8 allows `StandardData.answer` to be an empty string (`str = ''`) so standard
+cards can be authored without back-side text.
