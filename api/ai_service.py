@@ -1,3 +1,4 @@
+import os
 import re
 import json
 import logging
@@ -9,27 +10,68 @@ logger = logging.getLogger(__name__)
 from api.models import TMASetting, TMACustomPrompt
 from api.db_workers import run_db
 from threading import Lock
-from api.ai_clients import AIService
+from api.ai_clients import AIService, invalidate_key_cache, key_fingerprint, mask_api_key
 # Service imports — no circular dependency since none of these import ai_service
 from api.services.language_service import get_prompt_for_phrase, get_language_config, get_native_config, build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt, get_cefr_rubric
+from api.services.prompt_builders import build_batch_cards_prompt, is_system_preset_name, with_user_request
 from api.services.input_parser import (
     parse_ai_json_response,
     parse_ai_batch_json_response,
 )
 from api.services.cefr_metadata import build_ai_cefr_payload, build_local_cefr_payload
 
+PROVIDER_KEY_MAP = {"google": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
+
 _AI_CONFIG_CACHE = {"data": None, "ts": 0}
 _AI_CONFIG_LOCK = Lock()
 _AI_CONFIG_CACHE_TTL = 60  # 60 seconds cache
 
+
 def invalidate_ai_config_cache():
-    """Invalidates the in-memory AI configuration cache."""
+    """Invalidates the in-memory AI configuration and key rotation caches."""
     global _AI_CONFIG_CACHE
     with _AI_CONFIG_LOCK:
         _AI_CONFIG_CACHE = {"data": None, "ts": 0}
+    invalidate_key_cache()
+
+
+def get_provider_keys_raw(provider: str) -> tuple[list[str], str]:
+    key_name = PROVIDER_KEY_MAP.get((provider or "").lower(), "")
+    if not key_name:
+        return [], "none"
+    key_rec = TMASetting.get_or_none(TMASetting.key == key_name)
+    if key_rec and key_rec.value and key_rec.value.strip():
+        db_keys = AIService._parse_keys(key_rec.value)
+        if db_keys:
+            return db_keys, "db"
+    env_val = os.environ.get(key_name)
+    if env_val and env_val.strip():
+        env_keys = AIService._parse_keys(env_val)
+        if env_keys:
+            return env_keys, "env"
+    return [], "none"
+
+
+def get_provider_keys_info(provider: str) -> dict:
+    keys, source = get_provider_keys_raw(provider)
+    return {
+        "source": source,
+        "keys": [
+            {"id": key_fingerprint(k), "masked": mask_api_key(k), "index": idx + 1}
+            for idx, k in enumerate(keys)
+        ],
+        "total": len(keys),
+    }
+
+
+def _resolve_model_name(provider: str, ai_model: str | None) -> str:
+    model_name = (ai_model or "").strip()
+    if provider == "openrouter" and model_name and "/" not in model_name and model_name.lower().startswith("gemini"):
+        return f"google/{model_name}"
+    return model_name
+
 
 def get_ai_config(force_refresh: bool = False):
-    import os
     now = time.time()
     with _AI_CONFIG_LOCK:
         cache = _AI_CONFIG_CACHE
@@ -37,20 +79,17 @@ def get_ai_config(force_refresh: bool = False):
             return cache["data"]
 
     provider_rec = TMASetting.get_or_none(TMASetting.key == "AI_PROVIDER")
-    provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
+    provider = provider_rec.value.strip() if provider_rec and provider_rec.value and provider_rec.value.strip() != "default" else "google"
 
-    key_map = {"google": "GOOGLE_API_KEY", "groq": "GROQ_API_KEY", "openrouter": "OPENROUTER_API_KEY"}
-    key_name = key_map.get(provider, "")
+    keys, _source = get_provider_keys_raw(provider)
+    ai_key = "\n".join(keys) if keys else None
 
-    ai_key = None
-    if key_name:
-        key_rec = TMASetting.get_or_none(TMASetting.key == key_name)
-        ai_key = key_rec.value if key_rec else os.environ.get(key_name)
-
-    model_rec = TMASetting.get_or_none(TMASetting.key == "DEFAULT_MODEL")
-    if not model_rec:
-        model_rec = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
-    model = model_rec.value if model_rec else None
+    default_rec = TMASetting.get_or_none(TMASetting.key == "DEFAULT_MODEL")
+    ai_model_rec = TMASetting.get_or_none(TMASetting.key == "AI_MODEL")
+    model = (
+        default_rec.value.strip() if default_rec and default_rec.value and default_rec.value.strip()
+        else (ai_model_rec.value.strip() if ai_model_rec and ai_model_rec.value and ai_model_rec.value.strip() else None)
+    )
 
     config = (provider, ai_key, model)
     with _AI_CONFIG_LOCK:
@@ -117,17 +156,6 @@ async def generate_card_fields(
     """Generates Front, Back, and Context for a card using AI."""
     start_time = time.time()
     try:
-        from api.services.language_service import (
-            get_prompt_for_phrase, get_language_config, get_native_config,
-            build_card_prompt, build_custom_directive_prompt, build_rule_explanation_prompt,
-            build_trainer_prompt, build_quiz_prompt, build_match_prompt, build_puzzle_prompt,
-            build_word_bank_prompt, build_free_text_prompt
-        )
-        from api.services.prompt_builders import is_system_preset_name, with_user_request
-        from api.services.input_parser import (
-                            parse_ai_json_response,
-                        )
-
         clean_phrase = str(phrase or "").strip()
         clean_user_request = str(user_request or "").strip()
         exercise_phrase = clean_phrase
@@ -147,9 +175,7 @@ async def generate_card_fields(
             return {"error": "В настройках не выбрана модель ИИ. Пожалуйста, выберите модель в Настройках."}
 
         client = AIService(provider=provider, api_key=ai_key)
-        model_name = ai_model.strip()
-        if provider == 'openrouter' and '/' not in model_name:
-            model_name = f'google/{model_name}'
+        model_name = _resolve_model_name(provider, ai_model)
 
         if action_type == 'edit_structured':
             response, success = await client.chat_completion(
@@ -238,18 +264,6 @@ async def generate_card_fields(
                               f"  \"back\": \"перевод на {native_name}\",\n"
                               "  \"context\": \"слово 1 - перевод\\nслово 2 - перевод\\n\\nПримеры:\\n1. текст - перевод\\n2. текст - перевод\\n3. текст - перевод\"\n}\nEND_JSON")
 
-        client = AIService(provider=provider, api_key=ai_key)
-
-        if provider == "openrouter":
-            default_model = "google/gemini-2.0-flash-lite:free"
-            model_name = f"google/{ai_model}" if ai_model and "/" not in ai_model else (ai_model or default_model)
-        elif provider == "groq":
-            default_model = "llama3-70b-8192"
-            model_name = ai_model or default_model
-        else:
-            default_model = "gemini-2.0-flash"
-            model_name = ai_model or default_model
-
         logger.info(f"AI: Generating card fields using {provider}/{model_name}...")
 
         response, success = await client.chat_completion(
@@ -326,9 +340,6 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
     """
     start_time = time.time()
     try:
-        from api.services.language_service import get_language_config, get_native_config
-        from api.services.prompt_builders import build_batch_cards_prompt, is_system_preset_name
-
         raw_lines = [line.strip() for line in text.splitlines() if line and line.strip()]
         if not raw_lines:
             return {"error": "Введите хотя бы одну непустую строку для генерации."}
@@ -340,11 +351,6 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
         target_lang = (target_language or "de").lower()
         native_lang, (provider, ai_key, ai_model) = await run_db(_generation_settings, native_language, "uk")
 
-        lang_config = get_language_config(target_lang, native_lang)
-        native_config = get_native_config(native_lang)
-        lang_name = lang_config["name"]
-        native_name = native_config["name"]
-
         if not ai_key and provider != "ollama":
             return {"error": f"API ключ для {provider} не настроен. Обратитесь к администратору или введите свой в Настройках."}
 
@@ -352,7 +358,7 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
             return {"error": "В настройках не выбрана модель ИИ. Пожалуйста, выберите модель в Настройках."}
 
         client = AIService(provider=provider, api_key=ai_key)
-        model_name = ai_model.strip()
+        model_name = _resolve_model_name(provider, ai_model)
 
         # Determine batch size dynamically based on average line length
         avg_len = sum(len(line) for line in raw_lines) / len(raw_lines)
@@ -364,8 +370,6 @@ async def generate_batch_card_fields(user_id: int, text: str, target_language: s
         # Check for active custom prompt
         custom_prompt = await run_db(_active_prompt, user_id, target_lang)
         is_system_preset = custom_prompt and is_system_preset_name(custom_prompt["name"])
-
-        from api.services.input_parser import parse_ai_batch_json_response
 
         for index, chunk in enumerate(chunks):
             if index > 0:
@@ -473,7 +477,7 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
         return final_results
 
     client     = AIService(provider=provider, api_key=ai_key)
-    model_name = ai_model.strip()
+    model_name = _resolve_model_name(provider, ai_model)
     if strict:
         client.request_attempts = 1
         client.key_attempts = 1
@@ -481,7 +485,6 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
 
     numbered_phrases = "\n".join([f"{i+1}. {p.strip()}" for i, p in enumerate(phrases_for_ai)])
 
-    from api.services.language_service import get_cefr_rubric
     rubric = get_cefr_rubric(target_language)
 
     prompt = (
@@ -502,7 +505,6 @@ async def classify_phrases_batch(phrases: list[str], target_language: str = "de"
             timeout=35.0
         )
         if success and response:
-            import json, re
             clean = response.strip()
             if strict:
                 clean = re.sub(r'^```(?:json)?\s*|\s*```$', '', clean).strip()

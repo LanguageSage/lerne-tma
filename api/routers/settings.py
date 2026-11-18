@@ -1,5 +1,7 @@
-from typing import Optional, Dict, Any
+import datetime
+from typing import Optional, Dict, Any, Literal
 from fastapi import APIRouter, HTTPException, Depends
+from pydantic import BaseModel, ConfigDict
 import logging
 
 from api import models
@@ -273,6 +275,48 @@ def activate_system_preset(preset_id: str, data: dict = None, user_id: int = Dep
         p.save()
     return {"status": "ok", "id": p.id}
 
+_SENSITIVE_SETTING_TERMS = ("KEY", "SECRET", "TOKEN", "PASSWORD", "PASSWD", "CREDENTIAL")
+_PERSONAL_SETTING_PREFIXES = (
+    "USER_SETTINGS_", "USER_DESIGN_V1_BACKUP_", "DECK_LEARNING_",
+    "REMINDER_SETTINGS_", "LAST_REMINDER_SLOTS_", "LAST_REMINDER_ATTEMPT_",
+)
+_READONLY_ADMIN_KEYS = {"AI_KEYS_STATUS", "EFFECTIVE_AI_CONFIG"}
+
+
+def _is_excluded_admin_setting(key: str) -> bool:
+    key_upper = (key or "").upper()
+    return key_upper.startswith(_PERSONAL_SETTING_PREFIXES) or any(t in key_upper for t in _SENSITIVE_SETTING_TERMS)
+
+
+def _upsert_tma_setting(key: str, value: str, now=None):
+    now = now or datetime.datetime.now()
+    rec, created = models.TMASetting.get_or_create(
+        key=key,
+        defaults={'value': value, 'updated_at': now}
+    )
+    if not created:
+        rec.value = value
+        rec.updated_at = now
+        rec.save()
+
+
+def _build_ai_keys_status() -> dict:
+    return {p: ai_service.get_provider_keys_info(p) for p in ai_service.PROVIDER_KEY_MAP}
+
+
+def _effective_ai_config() -> dict:
+    provider, ai_key, model = ai_service.get_ai_config(force_refresh=True)
+    return {"provider": provider, "model": model, "has_key": bool(ai_key or provider == "ollama")}
+
+
+class KeyManagementRequest(BaseModel):
+    model_config = ConfigDict(extra='forbid')
+    provider: Literal["google", "groq", "openrouter"]
+    action: Literal["add", "replace", "delete", "clear", "promote"]
+    keys_text: Optional[str] = None
+    key_id: Optional[str] = None
+
+
 # Admin Settings
 @router.get("/admin/settings")
 @db_worker
@@ -281,44 +325,105 @@ def get_admin_settings(user_id: int = Depends(get_user_id)):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
     settings = {}
     for s in models.TMASetting.select():
+        if _is_excluded_admin_setting(s.key):
+            continue
         settings[s.key] = s.value
+    if not settings.get("DEFAULT_MODEL") and settings.get("AI_MODEL"):
+        settings["DEFAULT_MODEL"] = settings["AI_MODEL"]
+    settings["AI_KEYS_STATUS"] = _build_ai_keys_status()
+    settings["EFFECTIVE_AI_CONFIG"] = _effective_ai_config()
     return settings
+
 
 @router.post("/admin/settings")
 @db_worker
 def save_admin_settings(data: dict, user_id: int = Depends(get_user_id)):
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
-    import datetime
     try:
         now = datetime.datetime.now()
+        secret_key_fields = set(ai_service.PROVIDER_KEY_MAP.values()) | {"API_KEY"}
+        touched_default_model = False
         for k, v in data.items():
-            key = k.upper()
-            # Убеждаемся, что передаем начальные значения для новых записей
-            s, created = models.TMASetting.get_or_create(
-                key=key, 
-                defaults={'value': str(v), 'updated_at': now}
-            )
-            if not created:
-                s.value = str(v)
-                s.updated_at = now
-                s.save()
-        try:
-            from api import ai_service
-            ai_service.invalidate_ai_config_cache()
-        except Exception:
-            pass
-        return {"status": "ok"}
+            key = str(k).upper().strip()
+            if not key or key in _READONLY_ADMIN_KEYS:
+                continue
+            if key in secret_key_fields:
+                if v is None or not str(v).strip():
+                    continue
+                if key == "API_KEY":
+                    continue
+                provider = next(p for p, setting_name in ai_service.PROVIDER_KEY_MAP.items() if setting_name == key)
+                existing_keys, source = ai_service.get_provider_keys_raw(provider)
+                base_keys = existing_keys if source == "db" else []
+                merged = list(dict.fromkeys([*base_keys, *ai_clients.AIService._parse_keys(str(v))]))
+                _upsert_tma_setting(key, "\n".join(merged), now)
+                continue
+            value = "" if v is None else str(v)
+            _upsert_tma_setting(key, value, now)
+            if key == "DEFAULT_MODEL":
+                touched_default_model = True
+        if touched_default_model:
+            models.TMASetting.delete().where(models.TMASetting.key == "AI_MODEL").execute()
+        ai_service.invalidate_ai_config_cache()
+        return {
+            "status": "ok",
+            "AI_KEYS_STATUS": _build_ai_keys_status(),
+            "EFFECTIVE_AI_CONFIG": _effective_ai_config(),
+        }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Error saving settings: {e}")
         raise HTTPException(status_code=500, detail=str(e))
 
-def _model_list_settings(provider, url):
-    if not provider:
-        provider_rec = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PROVIDER")
-        provider = provider_rec.value if provider_rec and provider_rec.value != "default" else "google"
 
-    if not url:
+@router.post("/admin/settings/keys")
+@db_worker
+def manage_provider_keys(request: KeyManagementRequest, user_id: int = Depends(get_user_id)):
+    if not is_admin(user_id):
+        raise HTTPException(status_code=403, detail="Only admins can access settings")
+    setting_key = ai_service.PROVIDER_KEY_MAP[request.provider]
+    current_keys, _source = ai_service.get_provider_keys_raw(request.provider)
+
+    if request.action == "add":
+        new_keys = ai_clients.AIService._parse_keys(request.keys_text)
+        if not new_keys:
+            raise HTTPException(status_code=400, detail="Укажите хотя бы один ключ API")
+        next_keys = list(dict.fromkeys([*current_keys, *new_keys]))
+    elif request.action == "replace":
+        next_keys = ai_clients.AIService._parse_keys(request.keys_text)
+    elif request.action == "delete":
+        if not request.key_id:
+            raise HTTPException(status_code=400, detail="Не указан идентификатор ключа")
+        next_keys = [k for k in current_keys if ai_clients.key_fingerprint(k) != request.key_id]
+        if len(next_keys) == len(current_keys):
+            raise HTTPException(status_code=404, detail="Ключ не найден")
+    elif request.action == "clear":
+        next_keys = []
+    elif request.action == "promote":
+        if not request.key_id:
+            raise HTTPException(status_code=400, detail="Не указан идентификатор ключа")
+        target = next((k for k in current_keys if ai_clients.key_fingerprint(k) == request.key_id), None)
+        if not target:
+            raise HTTPException(status_code=404, detail="Ключ не найден")
+        next_keys = [target, *(k for k in current_keys if k != target)]
+
+    _upsert_tma_setting(setting_key, "\n".join(next_keys))
+    ai_service.invalidate_ai_config_cache()
+    return {
+        "status": "ok",
+        "AI_KEYS_STATUS": _build_ai_keys_status(),
+        "EFFECTIVE_AI_CONFIG": _effective_ai_config(),
+    }
+
+
+def _model_list_settings(provider, url):
+    if not provider or provider == "default":
+        provider_rec = models.TMASetting.get_or_none(models.TMASetting.key == "AI_PROVIDER")
+        provider = (provider_rec.value.strip() if provider_rec and provider_rec.value and provider_rec.value.strip() != "default" else "google")
+
+    if not url and provider == "ollama":
         url_rec = models.TMASetting.get_or_none(models.TMASetting.key == "OLLAMA_URL")
         url = url_rec.value if url_rec else None
 
@@ -331,26 +436,52 @@ async def list_models(provider: str = None, url: str = None, user_id: int = Depe
     """Unified endpoint for model listing, used by AITab."""
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
-    if not provider or not url:
+    if provider == "default":
+        provider = None
+    if not provider or (not url and provider == "ollama"):
         provider, url = await run_db(_model_list_settings, provider, url)
-    return await ai_service.get_provider_models(provider, url)
+    from api.routers.ai import _provider_url
+    resolved_url, resolver = (
+        await _provider_url(url, required=provider == "ollama")
+        if (provider == "ollama" or url is not None)
+        else (None, None)
+    )
+    return await ai_service.get_provider_models(provider, resolved_url, ollama_resolver=resolver)
+
 
 @router.get("/settings/test-ai")
 @db_phases
 async def test_ai_connection(user_id: int = Depends(get_user_id)):
-    """Unified test endpoint for AITab: tests all configured keys individually."""
+    """Unified test endpoint for AITab: tests all configured keys individually without exposing secrets."""
     if not is_admin(user_id):
         raise HTTPException(status_code=403, detail="Only admins can access settings")
-    provider, ai_key, model = await run_db(ai_service.get_ai_config)
-    
-    if not model:
-        model = "gemini-2.0-flash" if provider == "google" else "llama3-8b-8192"
-        
+    provider, ai_key, model = await run_db(ai_service.get_ai_config, True)
+
+    if not model or not model.strip():
+        return {
+            "status": "error",
+            "provider": provider,
+            "model": None,
+            "keys": [],
+            "total_keys": 0,
+            "error": "В настройках не выбрана модель ИИ",
+        }
+    model = model.strip()
+
     client = ai_clients.AIService(provider=provider, api_key=ai_key)
+    if provider != "ollama" and not client.api_keys:
+        return {
+            "status": "error",
+            "provider": provider,
+            "model": model,
+            "keys": [],
+            "total_keys": 0,
+            "error": "API ключи не настроены",
+        }
+
     keys = client.api_keys if client.api_keys else [""]
-    
     key_results = []
-    
+
     for idx, k in enumerate(keys):
         single_client = ai_clients.AIService(provider=provider, api_key=k)
         response, success = await single_client.chat_completion(
@@ -358,11 +489,10 @@ async def test_ai_connection(user_id: int = Depends(get_user_id)):
             user_message="Test.",
             model=model
         )
-        masked_key = f"...{k[-4:]}" if len(k) > 6 else (k or "Пустой ключ")
         key_results.append({
             "index": idx + 1,
-            "key_raw": k,
-            "key_masked": masked_key,
+            "key_id": ai_clients.key_fingerprint(k) if k else "ollama",
+            "key_masked": ai_clients.mask_api_key(k) if k else "Ollama",
             "status": "ok" if success else "error",
             "message": "OK (Соединение установлено)" if success else str(response)
         })
@@ -374,6 +504,7 @@ async def test_ai_connection(user_id: int = Depends(get_user_id)):
     return {
         "status": overall_status,
         "provider": provider,
+        "model": model,
         "keys": key_results,
         "total_keys": len(keys),
         "error": None if any_ok else (key_results[0]["message"] if key_results else "No keys")

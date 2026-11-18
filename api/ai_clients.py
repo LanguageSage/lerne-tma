@@ -1,5 +1,6 @@
 import aiohttp
 import asyncio
+import hashlib
 import re
 import logging
 import random
@@ -8,6 +9,30 @@ import time
 logger = logging.getLogger(__name__)
 
 _PROVIDER_KEY_CACHE = {}  # provider_name -> list of keys in priority order
+
+
+def key_fingerprint(raw_key: str) -> str:
+    """Stable non-reversible 12-char identifier for a single API key."""
+    return hashlib.sha256(str(raw_key).strip().encode('utf-8')).hexdigest()[:12]
+
+
+def mask_api_key(raw_key: str) -> str:
+    """Safe masked representation of an API key (never exposes the secret)."""
+    k = str(raw_key or '').strip()
+    if not k:
+        return 'Пустой ключ'
+    if len(k) > 10:
+        return f'{k[:4]}...{k[-4:]}'
+    if len(k) > 4:
+        return f'...{k[-4:]}'
+    return '***'
+
+
+def invalidate_key_cache(provider: str | None = None):
+    if provider:
+        _PROVIDER_KEY_CACHE.pop(provider, None)
+    else:
+        _PROVIDER_KEY_CACHE.clear()
 
 
 class AIService:
@@ -123,6 +148,14 @@ class AIService:
         else:
             return await self._openrouter_chat(system_prompt, user_message, model, temperature=temperature, max_output_tokens=max_output_tokens)
 
+    def _sanitize_error(self, message: str) -> str:
+        text = str(message)
+        secrets = {k for k in (*self.api_keys, self.api_key) if k and len(k) >= 6}
+        for key in secrets:
+            if key in text:
+                text = text.replace(key, mask_api_key(key))
+        return text
+
     async def _make_request(self, url, method="POST", headers=None, json_data=None, timeout=30, provider_name="AI"):
         """Unified request handler with exponential backoff for 429 and 5xx errors."""
         max_retries = self.request_attempts
@@ -137,6 +170,7 @@ class AIService:
         if self.ollama_resolver is not None and provider_name in ("Ollama", "Ollama_Models"):
             session_options['connector'] = aiohttp.TCPConnector(resolver=self.ollama_resolver)
             request_options['allow_redirects'] = False
+        model_label = f" [{self.effective_model}]" if getattr(self, "effective_model", None) else ""
         async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=self.request_timeout or timeout), **session_options) as session:
             for attempt in range(max_retries):
                 try:
@@ -146,7 +180,7 @@ class AIService:
 
                         if resp.status == 200:
                             data = await resp.json()
-                            logger.info(f"{provider_name}: Success in {duration:.2f}s")
+                            logger.info(f"{provider_name}{model_label}: Success in {duration:.2f}s")
                             return data, True
 
                         error_data = {}
@@ -172,52 +206,54 @@ class AIService:
                                 if match:
                                     wait_time = float(match.group(1)) + 1
 
-                            logger.warning(f"{provider_name} Error {resp.status} (Attempt {attempt+1}/{max_retries}). Requested wait: {wait_time:.1f}s.")
+                            logger.warning(f"{provider_name}{model_label} Error {resp.status} (Attempt {attempt+1}/{max_retries}). Requested wait: {wait_time:.1f}s.")
 
                             if len(self.api_keys) > 1 and is_quota_issue:
                                 logger.warning(f"{provider_name}: Key quota/rate limit hit. Skipping further retries to switch to next key immediately.")
-                                return f"{provider_name} Error {resp.status}: {error_msg}", False
+                                return self._sanitize_error(f"{provider_name} Error {resp.status}: {error_msg}"), False
 
                             if wait_time > 5:
                                 logger.warning(f"{provider_name}: Wait time {wait_time:.1f}s is too long. Skipping retry to allow immediate model fallback.")
-                                return f"{provider_name} Error {resp.status}: {error_msg}", False
+                                return self._sanitize_error(f"{provider_name} Error {resp.status}: {error_msg}"), False
 
                             if attempt < max_retries - 1:
                                 await asyncio.sleep(wait_time)
                                 continue
-                            return f"{provider_name} Error {resp.status}: {error_msg}", False
+                            return self._sanitize_error(f"{provider_name} Error {resp.status}: {error_msg}"), False
 
-                        logger.error(f"{provider_name} Fatal Error {resp.status}")
-                        return f"{provider_name} Error {resp.status}: {error_msg}", False
+                        logger.error(f"{provider_name}{model_label} Fatal Error {resp.status}")
+                        return self._sanitize_error(f"{provider_name} Error {resp.status}: {error_msg}"), False
 
                 except asyncio.TimeoutError:
                     self.last_failure_code = 'timeout'
-                    logger.warning(f"{provider_name} Timeout (Attempt {attempt+1}/{max_retries})")
+                    logger.warning(f"{provider_name}{model_label} Timeout (Attempt {attempt+1}/{max_retries})")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(base_delay * (attempt + 1))
                         continue
                     return f"{provider_name} Timeout: Request took too long", False
                 except Exception as e:
                     self.last_failure_code = 'network'
-                    logger.error(f"{provider_name} Connection Error (Attempt {attempt+1}): {type(e).__name__}")
+                    logger.error(f"{provider_name}{model_label} Connection Error (Attempt {attempt+1}): {type(e).__name__}")
                     if attempt < max_retries - 1:
                         await asyncio.sleep(base_delay)
                         continue
-                    return f"{provider_name} Connection Error: {str(e)}", False
+                    return self._sanitize_error(f"{provider_name} Connection Error: {str(e)}"), False
 
         return "Unknown error occurred", False
 
     async def _google_chat(self, system_prompt, user_message, model, *, temperature=None, max_output_tokens=None):
         """Direct call to Google Gemini API."""
-        model_name = model if "gemini" in model.lower() else "gemini-2.0-flash"
-        if "/" in model_name:
-            model_name = model_name.split("/")[-1]
-
+        raw_model = (model or "").strip()
+        model_name = raw_model.split("/")[-1] if "/" in raw_model else raw_model
         if ":" in model_name:
             model_name = model_name.split(":")[0]
+        if not model_name or "gemini" not in model_name.lower():
+            self.last_failure_code = 'invalid_model'
+            return f"Google Error: Некорректная модель '{model}' для провайдера Google Gemini", False
         self.effective_model = model_name
 
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={self.api_key}"
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent"
+        headers = {"x-goog-api-key": self.api_key, "Content-Type": "application/json"}
         payload = {
             "contents": [{"role": "user", "parts": [{"text": f"System: {system_prompt}\n\nUser: {user_message}"}]}],
             "generationConfig": {"temperature": 0.7 if temperature is None else temperature, "maxOutputTokens": max_output_tokens or 2048}
@@ -227,7 +263,7 @@ class AIService:
             payload['contents'] = [{'role': 'user', 'parts': [{'text': user_message}]}]
             payload['generationConfig']['responseMimeType'] = 'application/json'
 
-        data, success = await self._make_request(url, json_data=payload, provider_name="Google")
+        data, success = await self._make_request(url, headers=headers, json_data=payload, provider_name="Google")
         if not success:
             return data, False
 
@@ -336,8 +372,11 @@ class AIService:
                 "gemini-1.5-pro",
                 "gemini-flash-latest"
             ]
-            url = f"https://generativelanguage.googleapis.com/v1beta/models?key={self.api_key}"
-            data, success = await self._make_request(url, method="GET", timeout=10, provider_name="Google_Models")
+            if not self.api_key:
+                return standard_models
+            url = "https://generativelanguage.googleapis.com/v1beta/models"
+            headers = {"x-goog-api-key": self.api_key}
+            data, success = await self._make_request(url, method="GET", headers=headers, timeout=10, provider_name="Google_Models")
             if success:
                 fetched = [m["name"].split("/")[-1] for m in data.get("models", []) if "generateContent" in m.get("supportedGenerationMethods", [])]
                 combined = standard_models.copy()

@@ -130,3 +130,34 @@ class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
                 self.assertEqual(changed.status_code, 409)
                 self.assertEqual(provider.await_count, 2)
         self.run_asgi(exercise)
+
+    def test_test_ai_and_admin_settings_omit_raw_keys_over_sql(self):
+        async def exercise(client):
+            get_res = await client.get('/api/admin/settings')
+            self.assertEqual(get_res.status_code, 200, get_res.text)
+            self.assertNotIn('GOOGLE_API_KEY', get_res.json())
+            self.assertNotIn('synthetic-key', get_res.text)
+            self.assertEqual(get_res.json()['EFFECTIVE_AI_CONFIG']['model'], 'fixture-old')
+
+            async def complete(**kwargs):
+                self.assert_released()
+                self.assertEqual(kwargs['model'], 'fixture-old')
+                return 'OK', True
+
+            with patch.object(ai_service.AIService, 'chat_completion', side_effect=complete):
+                test_res = await client.get('/api/settings/test-ai')
+            self.assertEqual(test_res.status_code, 200, test_res.text)
+            data = test_res.json()
+            self.assertEqual(data['model'], 'fixture-old')
+            self.assertNotIn('synthetic-key', test_res.text)
+            self.assertNotIn('key_raw', data['keys'][0])
+
+            del_res = await client.post('/api/admin/settings/keys', json={
+                'provider': 'google', 'action': 'delete', 'key_id': data['keys'][0]['key_id'],
+            })
+            self.assertEqual(del_res.status_code, 200)
+            self.assertEqual(del_res.json()['AI_KEYS_STATUS']['google']['total'], 0)
+            no_key = await client.get('/api/settings/test-ai')
+            self.assertEqual(no_key.json()['status'], 'error')
+            self.assertEqual(no_key.json()['total_keys'], 0)
+        self.run_asgi(exercise)
