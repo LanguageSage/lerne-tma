@@ -73,6 +73,47 @@ class ProviderTransportTests(unittest.IsolatedAsyncioTestCase):
         session.request.assert_called_once_with('GET', 'https://public.example/api/tags',
                                                 headers=None, json=None, allow_redirects=False)
 
+    async def test_google_requests_send_api_key_in_header_and_reject_invalid_model(self):
+        from unittest.mock import MagicMock
+        from api.ai_clients import AIService
+
+        secret_key = 'AIzaSySyntheticTestKey123456'
+        session = MagicMock()
+        session.__aenter__.return_value = session
+        response = session.request.return_value.__aenter__.return_value
+        response.status = 200
+        response.json = AsyncMock(side_effect=[
+            {'candidates': [{'content': {'parts': [{'text': 'OK'}]}}]},
+            {'models': [{'name': 'models/gemini-1.5-flash', 'supportedGenerationMethods': ['generateContent']}]},
+        ])
+
+        with patch('api.ai_clients.aiohttp.ClientSession', return_value=session):
+            service = AIService(provider='google', api_key=secret_key)
+            reply, ok = await service.chat_completion('sys', 'msg', model='gemini-1.5-flash')
+            models_list = await service.get_models()
+
+        self.assertTrue(ok)
+        self.assertEqual(reply, 'OK')
+        self.assertEqual(service.effective_model, 'gemini-1.5-flash')
+        self.assertIn('gemini-1.5-flash', models_list)
+
+        chat_call, models_call = session.request.call_args_list
+        self.assertEqual(chat_call.args, ('POST', 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent'))
+        self.assertEqual(chat_call.kwargs['headers']['x-goog-api-key'], secret_key)
+        self.assertNotIn(secret_key, chat_call.args[1])
+
+        self.assertEqual(models_call.args, ('GET', 'https://generativelanguage.googleapis.com/v1beta/models'))
+        self.assertEqual(models_call.kwargs['headers']['x-goog-api-key'], secret_key)
+        self.assertNotIn(secret_key, models_call.args[1])
+
+        # Invalid/empty model must never silently fall back to another Gemini version.
+        service_invalid = AIService(provider='google', api_key=secret_key)
+        err_msg, ok_invalid = await service_invalid.chat_completion('sys', 'msg', model='llama3-8b-8192')
+        self.assertFalse(ok_invalid)
+        self.assertEqual(service_invalid.last_failure_code, 'invalid_model')
+        self.assertNotIn('gemini-2.0-flash', err_msg)
+        self.assertNotIn(secret_key, service_invalid._sanitize_error(f'Leaked {secret_key} in error'))
+
     def test_invalid_configuration_denies_admin_access(self):
         for value in ('', 'invalid'):
             with self.subTest(value=value), patch.dict(os.environ, ADMIN_USER_ID=value):
@@ -252,6 +293,7 @@ class AdminPermissionsTests(unittest.TestCase):
     def test_regular_user_is_denied_at_every_admin_settings_guard(self):
         routes = [
             ('GET', '/admin/settings', None), ('POST', '/admin/settings', {'TEST_SETTING': 'bad'}),
+            ('POST', '/admin/settings/keys', {'provider': 'google', 'action': 'clear'}),
             ('GET', '/settings/models', None), ('GET', '/settings/test-ai', None),
             ('GET', '/admin/presets', None), ('GET', '/admin/community/decks', None),
             ('POST', '/admin/community/promote/1', None), ('GET', '/admin/prompts/all', None),
@@ -308,3 +350,78 @@ class AdminPermissionsTests(unittest.TestCase):
                 with self.assertRaises(HTTPException) as hidden:
                     debug.ensure_debug_access(user_id)
                 self.assertEqual(hidden.exception.status_code, 404)
+
+    def test_admin_key_lifecycle_masks_secrets_and_syncs_effective_model(self):
+        from api import ai_service
+        from api.ai_clients import AIService
+
+        ai_service.invalidate_ai_config_cache()
+        self.addCleanup(ai_service.invalidate_ai_config_cache)
+        headers = self.headers[101]
+        key1 = 'AIzaSyOldSecretKeyOne1111'
+        key2 = 'AIzaSyNewSecretKeyTwo2222'
+
+        models.TMASetting.create(key='AI_MODEL', value='gemini-2.5-flash')
+        self.assertEqual(self.client.post('/api/admin/settings', headers=headers, json={
+            'AI_PROVIDER': 'google',
+            'DEFAULT_MODEL': 'gemini-1.5-flash',
+        }).status_code, 200)
+        self.assertIsNone(models.TMASetting.get_or_none(models.TMASetting.key == 'AI_MODEL'))
+
+        res_add = self.client.post('/api/admin/settings/keys', headers=headers, json={
+            'provider': 'google',
+            'action': 'add',
+            'keys_text': f'{key1}\n{key2}',
+        })
+        self.assertEqual(res_add.status_code, 200, res_add.text)
+        res_add_json = res_add.json()
+        self.assertNotIn(key1, res_add.text)
+        self.assertNotIn(key2, res_add.text)
+        google_keys = res_add_json['AI_KEYS_STATUS']['google']['keys']
+        self.assertEqual(len(google_keys), 2)
+        self.assertEqual(res_add_json['EFFECTIVE_AI_CONFIG'], {
+            'provider': 'google', 'model': 'gemini-1.5-flash', 'has_key': True,
+        })
+
+        # Saving settings with empty key field must never wipe DB keys.
+        self.assertEqual(self.client.post('/api/admin/settings', headers=headers, json={
+            'AI_PROVIDER': 'google',
+            'GOOGLE_API_KEY': '',
+            'DEFAULT_MODEL': 'gemini-1.5-flash',
+        }).status_code, 200)
+
+        admin_get = self.client.get('/api/admin/settings', headers=headers)
+        self.assertEqual(admin_get.status_code, 200)
+        self.assertNotIn('GOOGLE_API_KEY', admin_get.json())
+        self.assertNotIn(key1, admin_get.text)
+        self.assertNotIn(key2, admin_get.text)
+
+        # Promote key2, verify order, then delete old key1 and verify only key2 remains.
+        self.assertEqual(self.client.post('/api/admin/settings/keys', headers=headers, json={
+            'provider': 'google', 'action': 'promote', 'key_id': google_keys[1]['id'],
+        }).status_code, 200)
+        self.assertEqual(ai_service.get_provider_keys_raw('google'), ([key2, key1], 'db'))
+
+        res_del = self.client.post('/api/admin/settings/keys', headers=headers, json={
+            'provider': 'google', 'action': 'delete', 'key_id': google_keys[0]['id'],
+        })
+        self.assertEqual(res_del.status_code, 200)
+        self.assertEqual(len(res_del.json()['AI_KEYS_STATUS']['google']['keys']), 1)
+        self.assertEqual(ai_service.get_provider_keys_raw('google'), ([key2], 'db'))
+
+        with patch.object(AIService, 'chat_completion', new=AsyncMock(return_value=('OK', True))):
+            test_res = self.client.get('/api/settings/test-ai', headers=headers)
+        self.assertEqual(test_res.status_code, 200, test_res.text)
+        test_payload = test_res.json()
+        self.assertEqual(test_payload['model'], 'gemini-1.5-flash')
+        self.assertNotIn(key2, test_res.text)
+        self.assertNotIn('key_raw', test_payload['keys'][0])
+        self.assertEqual(test_payload['keys'][0]['key_id'], google_keys[1]['id'])
+
+        # Clear all remaining keys
+        res_clear = self.client.post('/api/admin/settings/keys', headers=headers, json={
+            'provider': 'google', 'action': 'clear',
+        })
+        self.assertEqual(res_clear.status_code, 200)
+        self.assertEqual(res_clear.json()['AI_KEYS_STATUS']['google']['total'], 0)
+        self.assertFalse(res_clear.json()['EFFECTIVE_AI_CONFIG']['has_key'])
