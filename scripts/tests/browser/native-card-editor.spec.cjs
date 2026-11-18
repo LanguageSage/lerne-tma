@@ -103,6 +103,8 @@ test('native editor keeps every card type and retains the draft after a conflict
     const originalRevision = server.card.revision;
     await open(server.card, type === 'standard');
     await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(type);
+    await expect(page.getByRole('button', { name: 'Показать предпросмотр', exact: true }))
+      .toHaveCount(['quiz', 'word_bank'].includes(type) ? 0 : 1);
     await contextField.fill('Edited ' + type);
     const request = page.waitForRequest(req => req.url().endsWith('/api/cards/1') && req.method() === 'PATCH');
     await save.click();
@@ -169,8 +171,18 @@ test('native editor keeps every card type and retains the draft after a conflict
   expect(errors).toEqual([]);
 });
 
-const editorOrder = page => page.locator('.quiz-editor-layout [data-layout-id]').evaluateAll(items =>
+const editorOrder = page => page.locator('.visual-card-editor-layout [data-layout-id]').evaluateAll(items =>
   items.map(item => item.dataset.layoutId));
+
+const selectSentenceText = (field, start, length) => field.evaluate((element, { start, length }) => {
+  element.focus();
+  const range = document.createRange();
+  range.setStart(element.firstChild, start);
+  range.setEnd(element.firstChild, start + length);
+  const selection = window.getSelection();
+  selection.removeAllRanges();
+  selection.addRange(range);
+}, { start, length });
 
 test('Quiz edits the study layout in place and saves the same Native V2 draft online and offline', async ({ page, context }, testInfo) => {
   test.setTimeout(60000);
@@ -181,6 +193,7 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
       { text: 'Heute', correct: true }, { text: 'Gestern', correct: false }, { text: 'Nie', correct: false },
     ], back_note: 'Antwort auf der Rückseite' },
     info: [{ type: 'task', text: '**Wähle** eine Antwort.' }, { type: 'source', text: 'Hinweis' }],
+    topics: ['Verben mit Präpositionen — Erweiterung'],
     explanation: 'Контекст для изучения',
     layout: [
       { id: 'task', type: 'info', index: 0, visibility: 'before_answer' },
@@ -195,9 +208,9 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
   const open = await setupEditor(page, context, server);
   await open(server.card, true);
   const question = page.getByRole('textbox', { name: 'Вопрос', exact: true });
-  const task = page.locator('.quiz-layout-block').filter({ has: page.locator('[data-layout-id="task"]') });
-  const source = page.locator('.quiz-layout-block').filter({ has: page.locator('[data-layout-id="source"]') });
-  const exercise = page.locator('.quiz-layout-block').filter({ has: page.locator('[data-layout-id="quiz"]') });
+  const task = page.locator('.visual-card-layout-block').filter({ has: page.locator('[data-layout-id="task"]') });
+  const source = page.locator('.visual-card-layout-block').filter({ has: page.locator('[data-layout-id="source"]') });
+  const exercise = page.locator('.visual-card-layout-block').filter({ has: page.locator('[data-layout-id="quiz"]') });
   await expect(task.locator('.card-markdown strong')).toHaveText('Wähle');
   await task.getByRole('textbox').fill('**Wähle** eine passende Antwort.');
   await question.fill('Welche Antworten sind im folgenden Beispiel grammatisch richtig?');
@@ -205,6 +218,9 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
   await page.getByRole('button', { name: 'Верный ответ 2', exact: true }).click();
   await expect(page.getByRole('button', { name: 'Верный ответ 1', exact: true })).toHaveAttribute('aria-pressed', 'true');
   await expect(page.getByRole('button', { name: 'Верный ответ 2', exact: true })).toHaveAttribute('aria-pressed', 'true');
+  expect(await page.locator('.quiz-option-item').first().evaluate(option =>
+    option.querySelector('[aria-pressed]').getBoundingClientRect().right
+      < option.querySelector('.quiz-option-letter').getBoundingClientRect().left)).toBe(true);
   await page.getByRole('button', { name: 'Удалить вариант ответа 3', exact: true }).click();
   await page.getByRole('button', { name: 'Добавить вариант', exact: true }).click();
   const addedOption = page.getByRole('textbox', { name: 'Вариант ответа 3', exact: true });
@@ -249,21 +265,27 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
   expect(order.slice(0, 2)).toEqual(['source', 'quiz']);
   expect(order[3]).toBe('task');
 
-  const preview = page.getByRole('button', { name: 'Показать предпросмотр', exact: true });
-  await preview.click();
-  await expect(page.locator('.quiz-card-preview [data-layout-id="source"]')).toHaveCount(0);
-  await expect(page.locator('.quiz-card-preview .quiz-option-item').first()).toBeDisabled();
-  await page.getByText('Предпросмотр после ответа', { exact: true }).click();
-  await expect(page.locator('.quiz-card-preview [data-layout-id="source"]')).toContainText('Hinweis');
-  await page.getByRole('button', { name: 'Скрыть предпросмотр', exact: true }).click();
-  await expect.poll(() => editorOrder(page)).toEqual(order);
+  await expect(source.getByRole('textbox')).toHaveValue('Hinweis');
+  const topics = page.locator('.visual-card-topics');
+  const topicSummary = topics.locator('summary');
+  await expect(topicSummary).toHaveText('Тема');
+  await expect(page.getByText('Информационные блоки и темы', { exact: true })).toHaveCount(0);
+  await topicSummary.click();
+  const addTopic = topics.getByRole('button', { name: 'Добавить тему', exact: true });
+  await expect(topics.getByRole('textbox', { name: 'Тема 1', exact: true })).toHaveValue(initial.topics[0]);
+  await addTopic.click();
+  await topics.getByRole('textbox', { name: 'Тема 2', exact: true }).fill('Kasus');
+  await addTopic.click();
+  await topics.getByRole('textbox', { name: 'Тема 3', exact: true }).fill('Temporär');
+  await topics.getByRole('button', { name: 'Удалить тему 3', exact: true }).click();
+  await expect(topics.getByRole('textbox')).toHaveCount(2);
 
   const style = element => {
     const css = getComputedStyle(element);
     const typography = element.matches('.quiz-option-item') ? [] : [css.fontFamily, css.fontSize, css.fontWeight];
     return [...typography, css.color, css.backgroundColor, css.borderTopColor, css.borderRadius, css.padding];
   };
-  const signature = async () => Promise.all(['.quiz-question', '.quiz-option-item', '.quiz-option-item > span:nth-child(2)', '.exercise-info-task']
+  const signature = async () => Promise.all(['.quiz-question', '.quiz-option-item', '.quiz-option-text', '.exercise-info-task']
     .map(selector => page.locator(selector).first().evaluate(style)));
   const editingStyle = await signature();
   const editingWidths = {};
@@ -276,10 +298,14 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
       await source.getByLabel('Настройки блока', { exact: true }).click();
     }
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    expect(await topics.locator('.visual-card-topic-row').first().evaluate(row =>
+      row.querySelector('input').getBoundingClientRect().right
+        < row.querySelector('button').getBoundingClientRect().left)).toBe(true);
     if (width === 375 || width === 1280) {
-      const surface = page.locator('.quiz-editor-surface');
+      const surface = page.locator('.visual-card-editor-surface');
       await page.mouse.move(0, 0);
       await surface.screenshot({ path: testInfo.outputPath(`edit-${width}.png`) });
+      await topics.screenshot({ path: testInfo.outputPath(`topics-${width}.png`) });
       editingWidths[width] = await surface.evaluate(element => element.offsetWidth);
     }
   }
@@ -300,18 +326,18 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
       { id: order[2], type: 'info', index: 2, visibility: 'before_answer' }, initial.layout[0],
     ],
     explanation: initial.explanation,
+    topics: [initial.topics[0], 'Kasus'],
   });
   await expect(question).toHaveCount(0);
   await expect.poll(async () => (await cachedCard(page))?.revision).toBe(server.card.revision);
   await open(server.card);
   await expect(question).toHaveValue(saved.content_v2.card.data.prompt);
   await expect.poll(() => editorOrder(page)).toEqual(order);
+  await topicSummary.click();
+  await expect(topics.getByRole('textbox', { name: 'Тема 2', exact: true })).toHaveValue('Kasus');
 
   await context.setOffline(true);
   await question.fill('Offline-Entwurf');
-  await preview.click();
-  await expect(page.locator('.quiz-card-preview .quiz-question')).toHaveText('Offline-Entwurf');
-  await page.getByRole('button', { name: 'Скрыть предпросмотр', exact: true }).click();
   await save.click();
   await expect(question).toHaveCount(0);
   await expect.poll(async () => (await cachedCard(page))?.content_v2.card.data.prompt).toBe('Offline-Entwurf');
@@ -333,6 +359,7 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
   await expect(study.locator('.quiz-question')).toHaveText(saved.content_v2.card.data.prompt);
   expect(await signature()).toEqual(editingStyle);
   await expect(study.locator('[data-layout-id="source"]')).toHaveCount(0);
+  await expect(study.getByText('Kasus', { exact: true })).toHaveCount(0);
   for (const width of [375, 1280]) {
     await page.setViewportSize({ width, height: width === 375 ? 1400 : 900 });
     await expect.poll(() => study.evaluate(element => element.offsetWidth)).toBe(editingWidths[width]);
@@ -345,10 +372,158 @@ test('Quiz edits the study layout in place and saves the same Native V2 draft on
   expect(errors).toEqual([]);
 });
 
+test('WordBank creates and edits linked gaps, punctuation and repeated words online and offline', async ({ page, context }, testInfo) => {
+  test.setTimeout(60000);
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const server = { saves: [] };
+  const open = await setupEditor(page, context, server);
+  await page.evaluate(async deck => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    useDeckStore.setState({ currentDeck: deck });
+    useUiStore.getState().setView('creator');
+  }, deck);
+  const kind = page.getByRole('combobox', { name: 'Тип карточки', exact: true });
+  await kind.selectOption('word_bank');
+  await expect(kind).toHaveCount(1);
+  const exercise = page.locator('.word-bank-editor');
+  const literals = exercise.getByRole('textbox', { name: 'Текст задания', exact: true });
+  const gaps = exercise.locator('.word-bank-gap.is-correct');
+  const word = index => exercise.getByRole('textbox', { name: `Слово ${index}`, exact: true });
+  const save = page.getByRole('button', { name: 'Сохранить карточку', exact: true });
+  await expect(exercise.getByRole('button', { name: 'Проверить', exact: true })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Показать предпросмотр', exact: true })).toHaveCount(0);
+  await literals.first().fill('Wir bereiten uns vor, vor!');
+
+  const addGap = page.getByRole('button', { name: 'Создать пропуск', exact: true });
+  await literals.first().scrollIntoViewIfNeeded();
+  const bounds = await literals.first().evaluate(element => {
+    const range = document.createRange();
+    range.setStart(element.firstChild, 4);
+    range.setEnd(element.firstChild, 12);
+    const { left, right, top, height } = range.getBoundingClientRect();
+    return { left, right, y: top + height / 2 };
+  });
+  await page.mouse.move(bounds.left + 1, bounds.y);
+  await page.mouse.down();
+  await page.mouse.move(bounds.right - 1, bounds.y, { steps: 8 });
+  await page.mouse.up();
+  await addGap.click();
+  await selectSentenceText(literals.nth(1), 5, 3);
+  await expect(addGap).toBeVisible();
+  await literals.nth(1).press('Alt+Enter');
+  await selectSentenceText(literals.nth(2), 2, 3);
+  await addGap.click();
+  await expect(gaps).toHaveCount(3);
+  await expect(exercise.locator('.word-bank-option.is-correct')).toHaveCount(0);
+  await expect(word(2)).toHaveValue('vor');
+  await expect(word(3)).toHaveValue('vor');
+  await exercise.getByRole('textbox', { name: 'Пропуск 2', exact: true }).fill('voran');
+  await expect(word(2)).toHaveValue('voran');
+  await expect(word(3)).toHaveValue('vor');
+  const removeFirstWord = exercise.getByRole('button', { name: 'Удалить слово из банка 1', exact: true });
+  await expect(removeFirstWord).toBeDisabled();
+  await exercise.getByRole('button', { name: 'Убрать пропуск 1', exact: true }).click();
+  await expect(literals.first()).toHaveText('Wir bereiten uns');
+  await expect(removeFirstWord).toBeEnabled();
+  await removeFirstWord.click();
+  await expect(exercise.getByRole('textbox', { name: 'Пропуск 1', exact: true })).toHaveValue('voran');
+  await expect(exercise.getByRole('textbox', { name: 'Пропуск 2', exact: true })).toHaveValue('vor');
+  await exercise.getByRole('button', { name: 'Добавить вариант', exact: true }).click();
+  await expect(word(3)).toBeFocused();
+  await word(3).fill('lernen');
+  await page.getByRole('button', { name: 'Добавить текстовый блок', exact: true }).first().click();
+  await page.locator('[data-layout-position="0"]').getByRole('textbox').fill('Ergänze die Wörter.');
+  await page.getByRole('combobox', { name: 'Роль блока', exact: true }).selectOption('task');
+  const topics = page.locator('.visual-card-topics');
+  await topics.locator('summary').click();
+  await topics.getByRole('button', { name: 'Добавить тему', exact: true }).click();
+  await topics.getByRole('textbox', { name: 'Тема 1', exact: true }).fill('Verben');
+  const expected = {
+    options: ['voran', 'vor', 'lernen'],
+    parts: [{ type: 'text', text: 'Wir bereiten uns ' }, { type: 'gap', option: 0 }, { type: 'text', text: ', ' },
+      { type: 'gap', option: 1 }, { type: 'text', text: '!' }],
+  };
+  const appearance = element => {
+    const css = getComputedStyle(element);
+    return [css.fontFamily, css.fontSize, css.backgroundColor, css.color, css.borderColor, css.borderRadius];
+  };
+  const editGapStyle = await gaps.first().evaluate(appearance);
+  const editOptionStyle = await exercise.locator('.word-bank-option').first().evaluate(appearance);
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await exercise.locator('.word-bank-options').evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+    if (width === 375 || width === 1280) await exercise.screenshot({ path: testInfo.outputPath(`word-bank-edit-${width}.png`) });
+  }
+  await save.click();
+  await expect.poll(() => server.card?.content_v2.card.data).toEqual(expected);
+  expect(server.card.content_v2.card).toMatchObject({ topics: ['Verben'], info: [{ type: 'task', text: 'Ergänze die Wörter.' }] });
+  await expect(exercise).toHaveCount(0);
+  await open(server.card, true);
+  await expect(gaps).toHaveCount(2);
+  await expect(word(1)).toHaveValue('voran');
+  await word(2).fill('danach');
+  await expect(exercise.getByRole('textbox', { name: 'Пропуск 2', exact: true })).toHaveValue('danach');
+  await context.setOffline(true);
+  await save.click();
+  await expect.poll(async () => (await cachedCard(page))?.content_v2.card.data.options).toEqual(['voran', 'danach', 'lernen']);
+  await expect(exercise).toHaveCount(0);
+  await open(await cachedCard(page));
+  await page.getByRole('button', { name: 'Продолжить редактирование', exact: true }).click();
+  await expect(exercise.getByRole('textbox', { name: 'Пропуск 2', exact: true })).toHaveValue('danach');
+  expect((await cachedCard(page)).content_v2.card.data.parts).toEqual(expected.parts);
+
+  await page.evaluate(async ({ deck, card }) => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
+    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
+    useUiStore.getState().setView('study');
+  }, { deck, card: { ...server.card, requiredActions: ['answer'] } });
+  const study = page.locator('#tut-study-card .word-bank-exercise');
+  const bank = study.locator('.word-bank-option');
+  expect(await bank.first().evaluate(appearance)).toEqual(editOptionStyle);
+  await bank.filter({ hasText: /^voran$/ }).click();
+  await bank.filter({ hasText: /^vor$/ }).click();
+  await page.getByRole('button', { name: 'Проверить', exact: true }).click();
+  await expect(study.locator('.word-bank-gap.is-correct')).toHaveCount(2);
+  await expect.poll(() => study.locator('.word-bank-gap.is-correct').first().evaluate(appearance)).toEqual(editGapStyle);
+  for (const width of [375, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    await study.screenshot({ path: testInfo.outputPath(`word-bank-study-${width}.png`) });
+  }
+  expect(errors).toEqual([]);
+});
+
+test.describe('WordBank on a touch screen', () => {
+  test.use({ viewport: { width: 375, height: 900 }, hasTouch: true, isMobile: true });
+
+  test('creates a gap from selection and saves an offline draft', async ({ page, context }) => {
+    const card = { id: 1, deck_id: 1, revision: 'touch-word-bank', content_v2: { schema_version: 2, card: {
+      type: 'word_bank', info: [], data: { options: ['lerne'], parts: [
+        { type: 'text', text: 'Ich ' }, { type: 'gap', option: 0 }, { type: 'text', text: ' Deutsch.' },
+      ] },
+    } } };
+    const server = { card, saves: [] };
+    const open = await setupEditor(page, context, server);
+    await open(card, true);
+    await context.setOffline(true);
+    const exercise = page.locator('.word-bank-editor');
+    await selectSentenceText(exercise.getByRole('textbox', { name: 'Текст задания', exact: true }).last(), 1, 7);
+    await exercise.getByRole('button', { name: 'Создать пропуск', exact: true }).tap();
+    await expect(exercise.getByRole('textbox', { name: 'Пропуск 2', exact: true })).toHaveValue('Deutsch');
+    await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+    await expect.poll(async () => (await cachedCard(page))?.content_v2.card.data.options).toEqual(['lerne', 'Deutsch']);
+    expect(server.saves).toHaveLength(0);
+  });
+});
+
 test.describe('Quiz creator on a touch screen', () => {
   test.use({ viewport: { width: 375, height: 900 }, hasTouch: true, isMobile: true });
 
-  test('adds blocks and moves them by their handles', async ({ page, context }) => {
+  test('moves blocks by their handles and saves a topic', async ({ page, context }, testInfo) => {
     const server = { saves: [] };
     await setupEditor(page, context, server);
     await page.evaluate(async deck => {
@@ -361,15 +536,22 @@ test.describe('Quiz creator on a touch screen', () => {
     await page.getByRole('textbox', { name: 'Вопрос', exact: true }).fill('Welche Antwort ist richtig?');
     await page.getByRole('textbox', { name: 'Вариант ответа 1', exact: true }).fill('Richtig');
     await page.getByRole('textbox', { name: 'Вариант ответа 2', exact: true }).fill('Falsch');
+    const topics = page.locator('.visual-card-topics');
+    await topics.locator('summary').tap();
+    await topics.getByRole('button', { name: 'Добавить тему', exact: true }).tap();
+    const topic = topics.getByRole('textbox', { name: 'Тема 1', exact: true });
+    await topic.fill('Kasus');
+    await expect(topic).toHaveCSS('min-height', '44px');
+    await topics.screenshot({ path: testInfo.outputPath('topics-touch.png') });
     const add = page.getByRole('button', { name: 'Добавить текстовый блок', exact: true });
     await add.first().tap();
     await page.locator('[data-layout-position="0"] textarea').fill('Erster Block');
     await add.nth(1).tap();
     await page.locator('[data-layout-position="1"] textarea').fill('Zweiter Block');
-    await page.locator('.quiz-editor-type').tap();
+    await page.locator('.visual-card-editor-type').tap();
     const [first, second, exercise] = await editorOrder(page);
-    const start = page.locator('[data-layout-position="0"] .quiz-drag-handle');
-    const end = page.locator('[data-layout-position="1"] .quiz-drag-handle');
+    const start = page.locator('[data-layout-position="0"] .visual-card-drag-handle');
+    const end = page.locator('[data-layout-position="1"] .visual-card-drag-handle');
     await start.scrollIntoViewIfNeeded();
     const a = await start.boundingBox();
     const b = await end.boundingBox();
@@ -385,9 +567,10 @@ test.describe('Quiz creator on a touch screen', () => {
     await expect.poll(() => editorOrder(page)).toEqual([second, first, exercise]);
     expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
     await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
-    await expect.poll(() => page.evaluate(async () =>
-      (await (await import('/src/services/localDb.js')).prepareLocalDb()).cards.toArray()
-        .then(cards => cards.find(card => card.content_v2?.card.type === 'quiz')?.content_v2.card.layout.map(item => item.id))))
-      .toEqual([second, first, exercise]);
+    await expect.poll(() => page.evaluate(async () => {
+      const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+      const draft = (await db.cards.toArray()).find(card => card.content_v2?.card.type === 'quiz')?.content_v2.card;
+      return draft && { order: draft.layout.map(item => item.id), topics: draft.topics };
+    })).toEqual({ order: [second, first, exercise], topics: ['Kasus'] });
   });
 });

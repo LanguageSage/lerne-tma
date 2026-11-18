@@ -6,6 +6,7 @@ import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { CardTypeField, PromptDictation, StructuredCardExtras, StructuredCardFields } from './StructuredCardFields';
 import { QuizCardFields } from './QuizCardFields';
+import { WordBankCardFields } from './WordBankCardFields';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import './CardForm.css';
 import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
@@ -43,7 +44,9 @@ export const CardForm = ({
   const { t } = useTranslation();
   const content = cardData?.content_v2?.card;
   const isQuiz = content?.type === 'quiz';
-  const quizFlagStyle = isQuiz ? getFlagStyle(cardData.flag) : undefined;
+  const VisualFields = isQuiz ? QuizCardFields : content?.type === 'word_bank' ? WordBankCardFields : null;
+  const visual = Boolean(VisualFields);
+  const flagStyle = visual ? getFlagStyle(cardData.flag) : undefined;
   const frontText = studySideText(content);
   const backKey = answerField[content?.type];
   const manualLevel = content?.metadata?.cefr?.source === 'manual';
@@ -169,7 +172,7 @@ export const CardForm = ({
   if (!cardData) return null;
   if (!content) return <p role="alert">{tr('Карточки ещё не перенесены в Structured Cards V2.')}</p>;
 
-  const typeField = <CardTypeField card={content} update={update} />;
+  const typeField = <CardTypeField card={content} update={update} visual={visual} />;
   const dictation = isCreator && <PromptDictation type={content.type} update={update} />;
 
   return (
@@ -262,12 +265,12 @@ export const CardForm = ({
         onBusyChange={setAudioBusy} />
       </details>
 
-      {isQuiz && typeField}
-      <div className={isQuiz ? 'form-group card-container study-flashcard quiz-editor-surface' : 'form-group'} style={quizFlagStyle}>
+      {visual && typeField}
+      <div className={visual ? 'form-group card-container study-flashcard visual-card-editor-surface' : 'form-group'} style={flagStyle}>
         <div
           id="tut-creator-front"
-          className={isQuiz ? 'card-inner glass card-front' : 'card-preview-container glass card-front'}
-          style={isQuiz ? quizFlagStyle : {
+          className={visual ? 'card-inner glass card-front' : 'card-preview-container glass card-front'}
+          style={visual ? flagStyle : {
             position: 'relative',
             borderRadius: '12px',
             display: 'flex',
@@ -277,10 +280,10 @@ export const CardForm = ({
         >
           <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={cardData.id} />
 
-          <div className={isQuiz ? 'card-face' : 'card-preview-body'}
-            style={isQuiz ? undefined : { padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            {isQuiz
-              ? <QuizCardFields key={cardData.id} cardData={cardData} update={update} dictation={dictation} designConfig={effectiveConfig} />
+          <div className={visual ? 'card-face' : 'card-preview-body'}
+            style={visual ? undefined : { padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
+            {VisualFields
+              ? <VisualFields key={cardData.id} cardData={cardData} update={update} dictation={dictation} designConfig={effectiveConfig} />
               : <>{typeField}<StructuredCardFields card={content} update={update} dictation={dictation} textStyle={v2Styles.frontText} /></>}
           </div>
 
@@ -522,7 +525,7 @@ export const CardForm = ({
       </div>
 
 
-      {isQuiz && <StructuredCardExtras card={content} update={update} />}
+      {visual && <StructuredCardExtras card={content} update={update} visual />}
 
       {(() => {
         const isExistingQuiz = !isCreator && isQuiz;

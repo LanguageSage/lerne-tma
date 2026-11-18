@@ -29,6 +29,8 @@ test('source JSON rejects incomplete syntax and envelopes unsafe to open in the 
   for (const source of ['{"card":', 'null', '[]', '{}', '{"schema_version":1}',
     JSON.stringify({ schema_version: 2, card: { type: 'standard', data: [] } }),
     JSON.stringify({ schema_version: 2, card: { type: 'trainer', data: { parts: null } } }),
+    JSON.stringify({ schema_version: 2, card: { type: 'word_bank', data: { options: [], parts: [] }, info: [null] } }),
+    JSON.stringify({ schema_version: 2, card: { type: 'word_bank', data: { options: [], parts: [{ type: 'gap', option: 0 }] } } }),
     JSON.stringify({ schema_version: 2, card: { type: 'quiz', data: { prompt: 'Q', options: [null] } } })]) {
     assert.throws(() => parseCardSource(source));
   }

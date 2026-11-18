@@ -4,3 +4,23 @@
 .card-layout-actions strong { flex: 1 1 120px; }
 .card-layout-editor button, .card-layout-editor select { min-height: 44px; min-width: 44px; }
 .card-layout-editor input, .card-layout-editor textarea { width: 100%; max-width: 100%; box-sizing: border-box; }
+
+.visual-card-topic-row { display: flex; align-items: center; gap: 4px; margin-bottom: 4px; }
+.visual-card-topic-row .form-input {
+  flex: 1;
+  min-width: 0;
+  min-height: 28px;
+  padding: 4px 8px;
+  box-sizing: border-box;
+  border: 1px solid var(--design-glass-border, #64748b);
+  border-radius: 8px;
+  background: var(--design-glass-bg, #1e293b);
+  color: var(--design-text-color, #f1f5f9);
+  font: inherit;
+  font-size: .85rem;
+}
+.visual-card-topic-row .visual-card-icon-control { flex: none; }
+
+@media (pointer: coarse) {
+  .visual-card-topic-row .form-input { min-height: 44px; }
+}

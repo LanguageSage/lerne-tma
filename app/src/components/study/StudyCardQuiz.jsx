@@ -72,7 +72,7 @@ function formatPunctuation(text) {
 
 export function QuizContent({
   question, options, designConfig, renderAudioPlayer, selection,
-  renderOptionText, renderOptionActions, footer,
+  renderOptionMarker, renderOptionText, renderOptionActions, footer,
 }) {
   const v2Text = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
   const harmonizedOptions = useMemo(() => getHarmonizedOptionStyles(designConfig?.exercises?.baseColor), [designConfig?.exercises?.baseColor]);
@@ -164,7 +164,7 @@ export function QuizContent({
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '14px',
+                  gap: renderOptionMarker ? '8px' : '14px',
                   padding: '14px 16px',
                   borderRadius: '14px',
                   border: `1.5px solid ${borderColor}`,
@@ -179,7 +179,8 @@ export function QuizContent({
                 }}
               >
                 {/* Option Letter Badge (A, B, C, D) */}
-                <span style={{
+                {renderOptionMarker?.(option)}
+                <span className="quiz-option-letter" style={{
                   width: '32px',
                   height: '32px',
                   borderRadius: '50%',
@@ -208,7 +209,7 @@ export function QuizContent({
                 </span>
 
                 {/* Option Text */}
-                <span style={{
+                <span className="quiz-option-text" style={{
                   ...v2Text,
                   flex: 1,
                   minWidth: 0,

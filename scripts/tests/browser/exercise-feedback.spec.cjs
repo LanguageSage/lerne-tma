@@ -1,4 +1,4 @@
-const { test, expect } = require('@playwright/test');
+const { test, expect } = require('./isolated-fixture.cjs');
 
 const deck = { id: 1, name: 'Feedback', target_language: 'de', is_learning: true,
   stats: { total: 1, new: 1, due: 0, learning: 0 } };
@@ -20,8 +20,6 @@ const trainer = { id: 2, deck_id: 1, queue: 'new', content_v2: envelope('trainer
 
 async function openStudy(page, context, card, locale = 'ru') {
   card = { ...card, requiredActions: ['answer'] }; // This fixture tests mandatory objective completion.
-  await page.routeWebSocket('**/*', () => {});
-  await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
     localStorage.setItem('native_language', locale);
     localStorage.setItem('native_language_selected', 'true');
@@ -33,10 +31,17 @@ async function openStudy(page, context, card, locale = 'ru') {
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, first_name: 'Test', is_guest: false } });
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/init') return route.fulfill({ json: {
       decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {},
       user_info: { user_id: 1, first_name: 'Test', is_guest: false },
     } });
+    if (pathname === '/api/sync/v2/pull') return route.fulfill({ json: {
+      status: 'success', card_schema: 2, server_time: new Date().toISOString(),
+      folders: [], decks: [deck], cards: [card], progress: [],
+    } });
+    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
+    if (pathname === '/api/folders') return route.fulfill({ json: [] });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
     if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
     if (pathname === '/api/messages') return route.fulfill({ json: [] });
@@ -186,7 +191,7 @@ test('real renderer reports only cumulative success, preserves counters on remou
       }) : null);
     };
     window.feedbackTest.render();
-  }, { ...trainer, front: '[[habe]] [[heute]]' });
+  }, { ...trainer, content_v2: envelope('trainer', { parts: trainer.content_v2.card.data.parts.slice(1, 4) }) });
   const inputs = page.locator('input[type=text]:visible');
   await inputs.nth(0).fill('habe');
   await inputs.nth(1).fill('gestern');

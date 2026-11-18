@@ -28,7 +28,7 @@ export const StudyCardWordBank = React.memo(({
 }) => {
   useInterfaceLocale();
 
-  const { gaps, options, maskedText, parts: nativeParts } = wordBankData;
+  const { gaps, options } = wordBankData;
   const [assignments, setAssignments] = useState(() => (
     sanitizeWordBankAssignments(savedState?.assignments, gaps, options)
   ));
@@ -42,14 +42,6 @@ export const StudyCardWordBank = React.memo(({
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const { completed: isCompleted } = evaluation.state;
 
-  const v2Text = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
-  const cardStyle = v2Text;
-  const optionFontSize = useMemo(() => {
-    if (cardStyle?.fontSize) {
-      return `calc(${cardStyle.fontSize} * 0.9)`;
-    }
-    return '0.9em';
-  }, [cardStyle]);
   const optionById = useMemo(() => new Map(options.map(option => [option.id, option])), [options]);
   const usedOptionIds = useMemo(() => getUsedWordBankOptionIds(assignments), [assignments]);
   const allFilled = gaps.length > 0 && gaps.every(gap => assignments[gap.id]);
@@ -110,62 +102,19 @@ export const StudyCardWordBank = React.memo(({
     triggerHaptic('error');
   };
 
-  const renderGap = (gapId) => {
-    const gap = gaps.find(item => item.id === gapId);
-    if (!gap) return null;
-    const selectedOption = optionById.get(assignments[gapId]);
-    const label = nativeParts ? gap.index + 1 : gapId;
-    const part = evaluation.part(gapId);
-    const result = part?.status;
-    const isActive = activeGapId === gapId && !evaluation.isLocked(gapId);
-    const classNames = [
-      'word-bank-gap',
-      isActive ? 'is-active' : '',
-      result === 'correct' ? 'is-correct' : '',
-      result === 'incorrect' ? 'is-incorrect' : ''
-    ].filter(Boolean).join(' ');
-
+  const renderGap = (gap, style) => {
+    const option = optionById.get(assignments[gap.id]);
+    const part = evaluation.part(gap.id);
+    const isActive = activeGapId === gap.id && !evaluation.isLocked(gap.id);
+    const label = gap.index + 1;
     return (
-      <span key={`gap-${gapId}`} className="exercise-part-feedback">
-        <button
-          type="button"
-          className={classNames}
-          onClick={(event) => handleGapClick(gapId, event)}
-          disabled={evaluation.isLocked(gapId)}
-          aria-invalid={result === 'incorrect'}
-          aria-describedby={part?.hint ? `word-bank-hint-${gapId}` : undefined}
-          style={{ ...v2Text, color: undefined }}
-          aria-label={selectedOption
-            ? `${label}: ${selectedOption.value}`
-            : `${label}: ${tr('Пустой пропуск')}`}
-        >
-          <span className="word-bank-gap-number">{label}</span>
-          <span>{selectedOption?.value || '________'}</span>
-        </button>
-        {part?.hint && <span id={`word-bank-hint-${gapId}`} className="exercise-part-hint" role="status">{tr(part.hint)}</span>}
-      </span>
+      <WordBankGap style={style} status={part?.status} active={isActive} hint={part?.hint} gapId={gap.id}
+        onClick={event => handleGapClick(gap.id, event)} disabled={evaluation.isLocked(gap.id)}
+        aria-label={`${label}: ${option?.value || tr('Пустой пропуск')}`}>
+        <span className="word-bank-gap-number">{label}</span>
+        <span>{option?.value || '________'}</span>
+      </WordBankGap>
     );
-  };
-
-  const renderText = () => {
-    if (nativeParts) return nativeParts.map((part, index) => part.type === 'text'
-      ? <React.Fragment key={`text-${index}`}>{part.text}</React.Fragment> : renderGap(part.id));
-    const parts = [];
-    const marker = /___WORD_BANK_GAP_([a-zA-Z0-9_-]+)___/g;
-    let cursor = 0;
-    let match;
-
-    while ((match = marker.exec(maskedText)) !== null) {
-      if (match.index > cursor) {
-        parts.push(<React.Fragment key={`text-${cursor}`}>{maskedText.slice(cursor, match.index)}</React.Fragment>);
-      }
-      parts.push(renderGap(match[1]));
-      cursor = marker.lastIndex;
-    }
-    if (cursor < maskedText.length) {
-      parts.push(<React.Fragment key={`text-${cursor}`}>{maskedText.slice(cursor)}</React.Fragment>);
-    }
-    return parts;
   };
 
   const checkButton = (
@@ -180,40 +129,72 @@ export const StudyCardWordBank = React.memo(({
   );
 
   return (
-    <div className={`interactive-mode-container word-bank-exercise${footerActionTarget ? ' has-footer-action' : ''}`} onClick={event => event.stopPropagation()}>
-      {renderAudioPlayer?.()}
-      <div className="word-bank-text-area" style={cardStyle}>
-        {renderText()}
-      </div>
-
-      <div className="word-bank-footer">
-        <div className="word-bank-options" aria-label={tr('Банк слов')}>
-          {options.map(option => {
-            const isUsed = usedOptionIds.has(option.id);
-            return (
-              <button
-                key={option.id}
-                type="button"
-                className="word-bank-option"
-                style={{ ...v2Text, color: undefined, fontSize: optionFontSize }}
-                disabled={isUsed || isCompleted}
-                onClick={(event) => handleOptionClick(option.id, event)}
-              >
-                {option.value}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
+    <WordBankContent data={wordBankData} designConfig={designConfig} footerActionTarget={footerActionTarget}
+      renderAudioPlayer={renderAudioPlayer} renderGap={renderGap}
+      renderOption={(option, style) =>
+        <WordBankOption style={style} disabled={usedOptionIds.has(option.id) || isCompleted}
+          onClick={event => handleOptionClick(option.id, event)}>{option.value}</WordBankOption>}>
       {footerActionTarget ? createPortal(checkButton, footerActionTarget) : (
-        <div className="word-bank-inline-actions">
-          {checkButton}
-        </div>
+        <div className="word-bank-inline-actions">{checkButton}</div>
       )}
-    </div>
+    </WordBankContent>
   );
 });
 
+export function WordBankContent({
+  data, designConfig, renderAudioPlayer, footerActionTarget,
+  renderGap, renderOption, renderText, sentenceAction, bankAction, children,
+}) {
+  const textStyle = useMemo(() => getDesignStylesFromV2(designConfig).frontText, [designConfig]);
+  const optionStyle = {
+    ...textStyle, color: undefined,
+    fontSize: textStyle.fontSize ? `calc(${textStyle.fontSize} * 0.9)` : '0.9em',
+  };
 
+  return (
+    <div className={`interactive-mode-container word-bank-exercise${footerActionTarget ? ' has-footer-action' : ''}`}
+      onClick={event => event.stopPropagation()}>
+      {renderAudioPlayer?.()}
+      <div className="word-bank-text-area" style={textStyle}>
+        {data.parts.map((part, index) => <React.Fragment key={part.type === 'text' ? `text-${index}` : part.id}>
+          {part.type === 'text' ? renderText ? renderText(part, index) : part.text : renderGap(part, textStyle, index)}
+        </React.Fragment>)}
+      </div>
+      {sentenceAction}
+      <div className="word-bank-footer">
+        {bankAction && <div className="word-bank-bank-label">{tr('Банк слов')}</div>}
+        <div className="word-bank-options" aria-label={tr('Банк слов')}>
+          {data.options.map((option, index) => <React.Fragment key={option.id}>
+            {renderOption(option, optionStyle, index)}
+          </React.Fragment>)}
+          {bankAction}
+        </div>
+      </div>
+      {children}
+    </div>
+  );
+}
 
+export function WordBankGap({ as: Element = 'button', active, status, style, hint, gapId, children, ...props }) {
+  const className = [
+    'word-bank-gap', active && 'is-active',
+    status === 'correct' && 'is-correct', status === 'incorrect' && 'is-incorrect',
+  ].filter(Boolean).join(' ');
+  const hintId = hint ? `word-bank-hint-${gapId}` : undefined;
+  return (
+    <span className="exercise-part-feedback">
+      <Element className={className} style={{ ...style, color: undefined }}
+        {...(Element === 'button' && { type: 'button', 'aria-invalid': status === 'incorrect', 'aria-describedby': hintId })}
+        {...props}>
+        {children}
+      </Element>
+      {hint && <span id={hintId} className="exercise-part-hint" role="status">{tr(hint)}</span>}
+    </span>
+  );
+}
+
+export function WordBankOption({ as: Element = 'button', style, children, ...props }) {
+  return <Element className="word-bank-option" style={style} {...(Element === 'button' && { type: 'button' })} {...props}>
+    {children}
+  </Element>;
+}

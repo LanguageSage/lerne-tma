@@ -12,7 +12,7 @@ const defaults = {
   quiz: { prompt: '', options: [{ ...option, correct: true }, option], back_note: '' },
   match: { pairs: [pair, pair], back_note: '' },
   puzzle: { tokens: [''], translation: '' },
-  word_bank: { options: [''], parts: [text, { type: 'gap', option: 0 }] },
+  word_bank: { options: [], parts: [text] },
   free_text: { prompt: '', sample_answer: '', accepted_answers: [] },
   editable_text: { source_text: '', correct_text: '', accepted_answers: [] },
 };
@@ -51,11 +51,17 @@ export function parseCardSource(source) {
     if (content.schema_version !== 2 || !cardTypes.includes(card?.type)
       || !card.data || Array.isArray(card.data) || typeof card.data !== 'object'
       || (card.info != null && !Array.isArray(card.info))
+      || (['quiz', 'word_bank'].includes(card.type) && card.info?.some(block => block?.type === 'options'
+        ? !Array.isArray(block.items) || block.items.some(item => typeof item !== 'string')
+        : typeof block?.text !== 'string'))
       || (card.type === 'quiz' && (!Array.isArray(card.data.options)
-        || card.data.options.some(option => typeof option?.text !== 'string')
-        || card.info?.some(block => block?.type === 'options'
-          ? !Array.isArray(block.items) || block.items.some(item => typeof item !== 'string')
-          : typeof block?.text !== 'string')))
+        || card.data.options.some(option => typeof option?.text !== 'string')))
+      || (card.type === 'word_bank' && (!Array.isArray(card.data.options)
+        || card.data.options.some(option => typeof option !== 'string')
+        || !Array.isArray(card.data.parts)
+        || card.data.parts.some(part => part?.type === 'text' ? typeof part.text !== 'string'
+          : part?.type !== 'gap' || !Number.isInteger(part.option) || part.option < 0
+            || typeof card.data.options[part.option] !== 'string')))
       || !readableLayout(card)
       || (card.topics != null && !Array.isArray(card.topics))
       || (card.explanation != null && typeof card.explanation !== 'string')

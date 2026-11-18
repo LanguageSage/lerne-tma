@@ -1,4 +1,5 @@
 import React, { useEffect, useRef, useState } from 'react';
+import { Plus, Trash2 } from 'lucide-react';
 import { getInterfaceLanguage, tr } from '../../i18n/locale';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
 import { cardTypes, newCardContent, promptField, answerField, cardWriteError } from '../../utils/cardDraft';
@@ -20,8 +21,7 @@ const samples = {
   answers: [''], accepted_answers: [''], items: [''], topics: [''], tokens: [''],
 };
 
-function LayoutFields({ card, update }) {
-  const imagesOnly = card.type === 'quiz';
+function LayoutFields({ card, update, imagesOnly = false }) {
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -100,24 +100,22 @@ const labels = {
   prompt: 'Задание', text: 'Текст', source_text: 'Исходный текст', parts: 'Части задания',
   options: 'Варианты', items: 'Варианты', correct: 'Верный ответ', answers: 'Правильные ответы',
   accepted_answers: 'Допустимые ответы', pairs: 'Пары', left: 'Слева', right: 'Справа',
-  tokens: 'Элементы в правильном порядке', option: 'Номер варианта с нуля',
+  tokens: 'Элементы в правильном порядке',
   info: 'Информационные блоки', topics: 'Темы',
-  task: 'Задание', source: 'Подсказка', example: 'Пример', input: 'Ввод', choice: 'Выбор', gap: 'Пропуск',
+  task: 'Задание', source: 'Подсказка', example: 'Пример', input: 'Ввод', choice: 'Выбор',
 };
 
-function Field({ name, value, update, kind, remove }) {
+function Field({ name, value, update }) {
   const label = tr(labels[name] || name);
   if (Array.isArray(value)) {
-    const choices = name === 'parts' && kind === 'word_bank'
-      ? [trainerParts[0], { type: 'gap', option: 0 }]
-      : name === 'options' && kind !== 'word_bank' ? [{ text: '', correct: false }] : samples[name] || [''];
+    const choices = name === 'options' ? [{ text: '', correct: false }] : samples[name] || [''];
     return <fieldset className="card-form-text-field">
       <legend>{label}</legend>
       {value.map((item, index) => <div key={index}>
-        <Field name={item?.type || `${label} ${index + 1}`} value={item} kind={kind}
+        <Field name={item?.type || `${label} ${index + 1}`} value={item}
           update={next => update(value.map((entry, i) => i === index ? next : entry))} />
         <button type="button" className="btn-secondary" aria-label={`${tr('Удалить')} ${label} ${index + 1}`}
-          onClick={() => remove ? remove(index) : update(value.filter((_, i) => i !== index))}>{tr('Удалить')}</button>
+          onClick={() => update(value.filter((_, i) => i !== index))}>{tr('Удалить')}</button>
       </div>)}
       {choices.map((sample, i) => <button key={i} type="button" className="btn-secondary"
         onClick={() => update([...value, structuredClone(sample)])}>
@@ -126,7 +124,7 @@ function Field({ name, value, update, kind, remove }) {
     </fieldset>;
   }
   if (value && typeof value === 'object') return Object.entries(value).filter(([key]) => key !== 'type').map(([key, field]) =>
-    <Field key={key} name={key} value={field} kind={kind} update={next => update({ ...value, [key]: next })} />);
+    <Field key={key} name={key} value={field} update={next => update({ ...value, [key]: next })} />);
   if (typeof value === 'boolean') return <label>
     <input type="checkbox" checked={value} onChange={event => update(event.target.checked)} /> {label}
   </label>;
@@ -137,8 +135,8 @@ function Field({ name, value, update, kind, remove }) {
   </label>;
 }
 
-export function CardTypeField({ card, update }) {
-  return <label className={card.type === 'quiz' ? 'quiz-editor-type' : 'card-form-text-field'}>{tr('Тип карточки')}
+export function CardTypeField({ card, update, visual }) {
+  return <label className={visual ? 'visual-card-editor-type' : 'card-form-text-field'}>{tr('Тип карточки')}
     <select className="form-input" value={card.type} onChange={event => {
       const type = event.target.value;
       if (Object.values(card.data).some(Boolean) && !window.confirm(tr('Заменить поля текущего упражнения?'))) return;
@@ -164,29 +162,55 @@ export function PromptDictation({ type, update }) {
   </>;
 }
 
-export function StructuredCardExtras({ card, update }) {
-  const quiz = card.type === 'quiz';
-  const layoutFields = <LayoutFields card={card} update={update} />;
+function CardTopics({ topics, update }) {
+  const updateTopics = change => update(card => ({ ...card, topics: change(card.topics || []) }));
+  return <details className="card-form-secondary visual-card-topics">
+    <summary>{tr('Тема')}</summary>
+    {topics.map((topic, index) => <div className="visual-card-topic-row" key={index}>
+      <input type="text" className="form-input" aria-label={`${tr('Тема')} ${index + 1}`} value={topic}
+        onChange={event => {
+          const value = event.target.value;
+          updateTopics(items => items.map((item, i) => i === index ? value : item));
+        }} />
+      <button type="button" className="visual-card-icon-control" aria-label={`${tr('Удалить тему')} ${index + 1}`}
+        title={tr('Удалить тему')} onClick={() => updateTopics(items => items.filter((_, i) => i !== index))}>
+        <Trash2 size={15} aria-hidden="true" />
+      </button>
+    </div>)}
+    <button type="button" className="visual-card-icon-control" aria-label={tr('Добавить тему')} title={tr('Добавить тему')}
+      onClick={() => updateTopics(items => [...items, ''])}>
+      <Plus size={16} aria-hidden="true" />
+    </button>
+  </details>;
+}
+
+export function StructuredCardExtras({ card, update, visual }) {
+  if (visual) return <>
+    <CardTopics topics={card.topics || []} update={update} />
+    {card.info?.some(block => block.type === 'options') && <details className="card-form-secondary">
+      <summary>{tr('Подсказки с вариантами')}</summary>
+      {card.info.map((block, index) => block.type === 'options' && <Field
+        key={index} name="items" value={block.items}
+        update={items => update(current => patchInfoBlock(current, index, { items }))} />)}
+    </details>}
+    <details>
+      <summary>{tr('Изображения')}</summary>
+      <LayoutFields card={card} update={update} imagesOnly />
+    </details>
+  </>;
   return <>
     <details>
       <summary>{tr('Информационные блоки и темы')}</summary>
-      {quiz ? (card.info || []).map((block, index) => block.type === 'options' && <Field
-        key={index} name="items" value={block.items} kind={card.type}
-        update={items => update(current => patchInfoBlock(current, index, { items }))} />)
-        : !card.layout && <Field name="info" value={card.info || []} update={info => update(current => ({ ...current, info }))} kind={card.type} />}
-      <Field name="topics" value={card.topics || []} update={topics => update(current => ({ ...current, topics }))} kind={card.type} />
+      {!card.layout && <Field name="info" value={card.info || []} update={info => update(current => ({ ...current, info }))} />}
+      <Field name="topics" value={card.topics || []} update={topics => update(current => ({ ...current, topics }))} />
     </details>
-    {quiz ? <details>
-      <summary>{tr('Изображения')}</summary>
-      {layoutFields}
-    </details> : layoutFields}
+    <LayoutFields card={card} update={update} />
   </>;
 }
 
 export function StructuredCardFields({ card, update, dictation, textStyle }) {
   const { type, data } = card;
   const prompt = promptField[type];
-  const [fieldError, setFieldError] = useState('');
   const [preview, setPreview] = useState(null);
   const [previewAfterAnswer, setPreviewAfterAnswer] = useState(false);
   const activePreview = preview?.source === card ? preview : null;
@@ -214,22 +238,8 @@ export function StructuredCardFields({ card, update, dictation, textStyle }) {
       {dictation}
     </div>}
     {Object.entries(data).filter(([key]) => key !== prompt && key !== answerField[type] && key !== 'grading_policy')
-      .map(([key, value]) => <Field key={key} name={key} value={value} kind={type}
-        remove={type === 'word_bank' && key === 'options' ? index => {
-          if (data.parts.some(part => part.type === 'gap' && part.option === index)) {
-            setFieldError(tr('Сначала измените пропуски, использующие этот вариант.'));
-            return;
-          }
-          setFieldError('');
-          update(current => ({ ...current, data: {
-            ...current.data,
-            options: current.data.options.filter((_, i) => i !== index),
-            parts: current.data.parts.map(part => part.type === 'gap' && part.option > index
-              ? { ...part, option: part.option - 1 } : part),
-          } }));
-        } : undefined}
+      .map(([key, value]) => <Field key={key} name={key} value={value}
         update={next => update(current => ({ ...current, data: { ...current.data, [key]: next } }))} />)}
-    {fieldError && <p role="status">{fieldError}</p>}
     <StructuredCardExtras card={card} update={update} />
     <button type="button" className="btn-secondary" onClick={togglePreview} disabled={activePreview?.loading}>
       {activePreview?.content ? tr('Скрыть предпросмотр') : tr('Показать предпросмотр')}
