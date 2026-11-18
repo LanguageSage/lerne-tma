@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { cardTypes, newCardContent, parseCardSource, changeDraft, validateStandardDraft } from '../cardDraft.js';
+import { cardTypes, newCardContent, parseCardSource, changeDraft, puzzleDraftTokens, validateStandardDraft } from '../cardDraft.js';
 import { addLayoutImage } from '../cardLayout.js';
 
 test('an upload completing in the JSON view updates the same draft without overwriting invalid source', () => {
@@ -31,9 +31,18 @@ test('source JSON rejects incomplete syntax and envelopes unsafe to open in the 
     JSON.stringify({ schema_version: 2, card: { type: 'trainer', data: { parts: null } } }),
     JSON.stringify({ schema_version: 2, card: { type: 'word_bank', data: { options: [], parts: [] }, info: [null] } }),
     JSON.stringify({ schema_version: 2, card: { type: 'word_bank', data: { options: [], parts: [{ type: 'gap', option: 0 }] } } }),
+    JSON.stringify({ schema_version: 2, card: { type: 'puzzle', data: { tokens: 'Nur Text' } } }),
+    JSON.stringify({ schema_version: 2, card: { type: 'puzzle', data: { tokens: ['Hallo!', null] } } }),
     JSON.stringify({ schema_version: 2, card: { type: 'quiz', data: { prompt: 'Q', options: [null] } } })]) {
     assert.throws(() => parseCardSource(source));
   }
+});
+
+test('Puzzle sentence edits keep repeated words, case and punctuation in Native V2', () => {
+  const original = ['Am Montag', 'übe', 'ich.'];
+  assert.equal(puzzleDraftTokens('Am Montag übe ich.', original), original);
+  assert.deepEqual(puzzleDraftTokens('  „Ich“\tübe,\u00a0übe,\nund übe!  ', original), ['„Ich“', 'übe,', 'übe,', 'und', 'übe!']);
+  assert.deepEqual(puzzleDraftTokens(' \n\t ', original), []);
 });
 
 test('source parsing leaves domain validation to the existing save pipeline', () => {

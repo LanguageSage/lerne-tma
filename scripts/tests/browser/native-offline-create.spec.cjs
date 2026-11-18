@@ -327,13 +327,26 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
         (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('creator');
       });
       await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
-      await page.getByRole('textbox', { name: 'Полный content_v2 JSON' }).fill(JSON.stringify(content, null, 2));
+      const source = kind === 'puzzle'
+        ? { ...content, card: { ...content.card, data: { tokens: [], translation: '' } } }
+        : content;
+      await page.getByRole('textbox', { name: 'Полный content_v2 JSON' }).fill(JSON.stringify(source, null, 2));
       await page.getByRole('button', { name: 'Типизированная форма', exact: true }).click();
       await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(kind);
-      await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
-      await expect(page.getByRole('textbox', { name: 'Полный content_v2 JSON' })).toHaveValue(JSON.stringify(content, null, 2));
+      if (kind === 'puzzle') {
+        const { tokens, translation } = content.card.data;
+        await page.getByRole('button', { name: 'Редактировать предложение', exact: true }).click();
+        const sentence = page.getByRole('textbox', { name: 'Правильное предложение', exact: true });
+        await sentence.fill(tokens.join('  '));
+        await sentence.press('Enter');
+        await page.getByRole('textbox', { name: 'Перевод', exact: true }).fill(translation);
+        await expect(page.locator('.puzzle-editor .puzzle-slot-chip')).toHaveText(tokens);
+      } else {
+        await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+        await expect(page.getByRole('textbox', { name: 'Полный content_v2 JSON' })).toHaveValue(JSON.stringify(content, null, 2));
+      }
       await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
-      await expect(page.getByRole('textbox', { name: 'Полный content_v2 JSON' })).toHaveCount(0);
+      await expect(page.locator('.creator-form')).toHaveCount(0);
       const state = await inspectLocal(page);
       const operation = state.operations.find(op => op.payload.content_v2.card.type === kind);
       saved.push({ card: state.cards.find(card => card.id === operation.tempId), payload: operation.payload });

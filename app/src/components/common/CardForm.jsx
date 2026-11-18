@@ -7,6 +7,7 @@ import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { CardTypeField, PromptDictation, StructuredCardExtras, StructuredCardFields } from './StructuredCardFields';
 import { QuizCardFields } from './QuizCardFields';
 import { WordBankCardFields } from './WordBankCardFields';
+import { PuzzleCardFields } from './PuzzleCardFields';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import './CardForm.css';
 import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
@@ -28,7 +29,7 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 
-
+const visualCardFields = { quiz: QuizCardFields, word_bank: WordBankCardFields, puzzle: PuzzleCardFields };
 
 export const CardForm = ({
   cardData,
@@ -44,7 +45,7 @@ export const CardForm = ({
   const { t } = useTranslation();
   const content = cardData?.content_v2?.card;
   const isQuiz = content?.type === 'quiz';
-  const VisualFields = isQuiz ? QuizCardFields : content?.type === 'word_bank' ? WordBankCardFields : null;
+  const VisualFields = visualCardFields[content?.type];
   const visual = Boolean(VisualFields);
   const flagStyle = visual ? getFlagStyle(cardData.flag) : undefined;
   const frontText = studySideText(content);

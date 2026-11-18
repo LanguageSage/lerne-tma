@@ -104,7 +104,13 @@ test('native editor keeps every card type and retains the draft after a conflict
     await open(server.card, type === 'standard');
     await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(type);
     await expect(page.getByRole('button', { name: 'Показать предпросмотр', exact: true }))
-      .toHaveCount(['quiz', 'word_bank'].includes(type) ? 0 : 1);
+      .toHaveCount(['quiz', 'word_bank', 'puzzle'].includes(type) ? 0 : 1);
+    if (type === 'puzzle') {
+      await page.locator('.puzzle-editor .puzzle-slot-chip').first().click();
+      const sentence = page.getByRole('textbox', { name: 'Правильное предложение', exact: true });
+      await expect(sentence).toHaveValue(data.tokens.join(' '));
+      await sentence.press('Tab');
+    }
     await contextField.fill('Edited ' + type);
     const request = page.waitForRequest(req => req.url().endsWith('/api/cards/1') && req.method() === 'PATCH');
     await save.click();
@@ -495,6 +501,183 @@ test('WordBank creates and edits linked gaps, punctuation and repeated words onl
     await study.screenshot({ path: testInfo.outputPath(`word-bank-study-${width}.png`) });
   }
   expect(errors).toEqual([]);
+});
+
+test('Puzzle edits the entire sentence and translation in the card, online and offline', async ({ page, context }, testInfo) => {
+  test.setTimeout(60000);
+  await page.setViewportSize({ width: 1280, height: 1000 });
+  const errors = [];
+  page.on('pageerror', error => errors.push(error.message));
+  const server = { saves: [] };
+  const open = await setupEditor(page, context, server);
+  await page.evaluate(async deck => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const { DEFAULT_DESIGN_CONFIG_V2 } = await import('/src/design/designConfig.js');
+    const design = structuredClone(DEFAULT_DESIGN_CONFIG_V2);
+    Object.assign(design.front.mainText, { font: 'monospace', size: 1.15 });
+    Object.assign(design.back.answerText, { font: 'serif', color: '#ffeebb' });
+    Object.assign(design.exercises.puzzle.correct, { bg: '#12382a', borderColor: '#46d48c' });
+    useSettingsStore.getState().setPersonalDesignV2(design);
+    useDeckStore.setState({ currentDeck: deck });
+    useUiStore.getState().setView('creator');
+  }, deck);
+  const kind = page.getByRole('combobox', { name: 'Тип карточки', exact: true });
+  await kind.selectOption('puzzle');
+  await expect(kind).toHaveCount(1);
+  const editor = page.locator('.puzzle-editor');
+  const tiles = editor.locator('.puzzle-slot-chip');
+  const editSentence = editor.getByRole('button', { name: /^Редактировать предложение/ });
+  const sentence = editor.getByRole('textbox', { name: 'Правильное предложение', exact: true });
+  const translation = editor.getByRole('textbox', { name: 'Перевод', exact: true });
+  const save = page.getByRole('button', { name: 'Сохранить карточку', exact: true });
+  const insert = page.getByRole('button', { name: 'Добавить текстовый блок', exact: true });
+  const blocks = page.locator('.visual-card-layout-block');
+  await expect(editor.locator('.puzzle-pool-chips, .puzzle-check-action, .puzzle-reset-action')).toHaveCount(0);
+  await expect(page.getByRole('button', { name: /^(Показать перевод|Показать предпросмотр)$/ })).toHaveCount(0);
+
+  await editSentence.click();
+  await expect(sentence).toBeFocused();
+  await sentence.fill('  „Wir“\tgehen,\u00a0gehen,\nund kommen zurück!  ');
+  await expect(tiles.first()).toBeHidden();
+  await sentence.press('Enter');
+  const tokens = ['„Wir“', 'gehen,', 'gehen,', 'und', 'kommen', 'zurück!'];
+  await expect(tiles).toHaveText(tokens);
+  await expect(editSentence).toBeFocused();
+  await translation.fill('Мы идём и **возвращаемся**.');
+  await insert.first().click();
+  await blocks.nth(0).getByRole('textbox').fill('Соберите предложение по-немецки.');
+  await blocks.nth(0).getByRole('combobox', { name: 'Роль блока' }).selectOption('task');
+  await expect(editor.locator('.puzzle-editor-instruction')).toHaveCount(0);
+  await insert.nth(1).click();
+  await blocks.nth(1).getByRole('textbox').fill('Wir lernen Deutsch.');
+  await blocks.nth(1).getByRole('combobox', { name: 'Роль блока' }).selectOption('example');
+  await expect(blocks.nth(1).getByRole('combobox')).toHaveCount(1);
+  const [task, example, exercise] = await editorOrder(page);
+  const handles = page.getByRole('button', { name: 'Переместить блок', exact: true });
+  await handles.nth(0).scrollIntoViewIfNeeded();
+  const start = await handles.nth(1).boundingBox();
+  const target = await handles.nth(0).boundingBox();
+  await page.mouse.move(start.x + start.width / 2, start.y + start.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(target.x + target.width / 2, target.y + target.height / 2, { steps: 12 });
+  await page.mouse.up();
+  await expect.poll(() => editorOrder(page)).toEqual([example, task, exercise]);
+  await blocks.nth(0).getByLabel('Настройки блока', { exact: true }).click();
+  await blocks.nth(0).getByRole('combobox', { name: 'Когда показывать' }).selectOption('after_answer');
+  await blocks.nth(0).getByLabel('Настройки блока', { exact: true }).click();
+  await expect(editor.locator('.text-back strong')).toHaveText('возвращаемся');
+  await expect(editor.locator('.text-back')).toHaveCSS('color', 'rgb(255, 238, 187)');
+  await expect(tiles.first()).toHaveCSS('font-family', 'monospace');
+  await expect(tiles.first()).toHaveCSS('background-color', 'rgb(18, 56, 42)');
+  const appearance = element => {
+    const css = getComputedStyle(element);
+    return [css.fontFamily, css.fontSize, css.fontWeight, css.color, css.backgroundColor, css.borderColor, css.borderRadius, css.padding];
+  };
+  const tileAppearance = await tiles.first().evaluate(appearance);
+  for (const width of [320, 375, 430, 768, 1280]) {
+    await page.setViewportSize({ width, height: 900 });
+    expect(await editSentence.evaluate(row => row.scrollWidth <= row.clientWidth)).toBe(true);
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    if (width === 375 || width === 1280) {
+      await page.locator('.visual-card-editor-surface').screenshot({ path: testInfo.outputPath(`puzzle-edit-${width}.png`) });
+    }
+  }
+
+  await save.click();
+  await expect(editor).toHaveCount(0);
+  expect(server.card.content_v2.card.data).toEqual({ tokens, translation: 'Мы идём и **возвращаемся**.' });
+  expect(server.card.content_v2.card.layout[0]).toMatchObject({ id: example, visibility: 'after_answer' });
+  await open(server.card, true);
+  await expect(tiles).toHaveText(tokens);
+  await tiles.nth(3).click();
+  await expect(sentence).toHaveValue(tokens.join(' '));
+  await sentence.fill('');
+  await sentence.press('Tab');
+  await expect(editSentence).toHaveText('Введите предложение');
+  await save.click();
+  await expect(page.getByText('Ошибка сохранения: Введите предложение', { exact: true })).toBeVisible();
+  expect(server.saves).toHaveLength(1);
+  await editSentence.click();
+  await sentence.fill('Jetzt wird online gespeichert.');
+  await save.click();
+  await expect(editor).toHaveCount(0);
+  const onlineData = { tokens: ['Jetzt', 'wird', 'online', 'gespeichert.'], translation: 'Мы идём и **возвращаемся**.' };
+  await expect.poll(() => server.card.content_v2.card.data).toEqual(onlineData);
+  await expect.poll(async () => (await cachedCard(page))?.revision).toBe(server.card.revision);
+  await open(server.card, true);
+  await expect(tiles).toHaveText(onlineData.tokens);
+
+  await context.setOffline(true);
+  await translation.fill('Локальный перевод.');
+  await tiles.last().click();
+  await sentence.fill('Ich übe, übe, übe!');
+  await save.click();
+  await expect(editor).toHaveCount(0);
+  const offlineData = { tokens: ['Ich', 'übe,', 'übe,', 'übe!'], translation: 'Локальный перевод.' };
+  await expect.poll(async () => (await cachedCard(page))?.content_v2.card.data).toEqual(offlineData);
+  expect(server.saves).toHaveLength(2);
+  await open(await cachedCard(page));
+  await page.getByRole('button', { name: 'Продолжить редактирование', exact: true }).click();
+  await expect(tiles).toHaveText(offlineData.tokens);
+  await expect(translation).toHaveValue(offlineData.translation);
+  await expect.poll(() => editorOrder(page)).toEqual([example, task, exercise]);
+
+  await page.evaluate(async ({ deck, card }) => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
+    useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
+    useUiStore.getState().setView('study');
+  }, { deck, card: { ...server.card, requiredActions: ['answer'] } });
+  const study = page.locator('#tut-study-card .puzzle-exercise');
+  const pool = study.locator('.btn-puzzle-chip');
+  await expect(pool).toHaveCount(onlineData.tokens.length);
+  expect(await pool.allTextContents()).not.toEqual(onlineData.tokens);
+  for (const token of onlineData.tokens) await study.getByRole('button', { name: token, exact: true }).click();
+  await study.getByRole('button', { name: 'Проверить ответы', exact: true }).click();
+  await expect(study).toHaveClass(/is-correct/);
+  expect(await study.locator('.puzzle-slot-chip').first().evaluate(appearance)).toEqual(tileAppearance);
+  expect(errors).toEqual([]);
+});
+
+test.describe('Puzzle on a touch screen', () => {
+  test.use({ viewport: { width: 320, height: 850 }, hasTouch: true, isMobile: true });
+
+  test('replaces the whole sentence and creates a Puzzle offline', async ({ page, context }) => {
+    const server = { saves: [] };
+    await setupEditor(page, context, server);
+    await context.setOffline(true);
+    await page.evaluate(async deck => {
+      const { useDeckStore } = await import('/src/store/useDeckStore.js');
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useDeckStore.setState({ currentDeck: deck });
+      useUiStore.getState().setView('creator');
+    }, deck);
+    await page.getByRole('combobox', { name: 'Тип карточки', exact: true }).selectOption('puzzle');
+    const editor = page.locator('.puzzle-editor');
+    const translation = editor.getByRole('textbox', { name: 'Перевод', exact: true });
+    await editor.getByRole('button', { name: 'Редактировать предложение', exact: true }).tap();
+    const sentence = editor.getByRole('textbox', { name: 'Правильное предложение', exact: true });
+    await expect(sentence).toBeFocused();
+    await sentence.fill('Das Wort Kraftfahrzeughaftpflichtversicherung ist lang.');
+    await translation.tap();
+    await expect(sentence).toHaveCount(0);
+    await translation.fill('Очень длинное слово.');
+    expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+    await editor.locator('.puzzle-slot-chip').nth(2).tap();
+    await expect(sentence).toHaveValue('Das Wort Kraftfahrzeughaftpflichtversicherung ist lang.');
+    await sentence.fill('Jetzt übe ich, ich übe!');
+    await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).tap();
+    await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toBeVisible();
+    await expect.poll(() => page.evaluate(async () => {
+      const db = await (await import('/src/services/localDb.js')).prepareLocalDb();
+      return (await db.cards.toArray()).find(card => card.id < 0)?.content_v2.card.data;
+    })).toEqual({ tokens: ['Jetzt', 'übe', 'ich,', 'ich', 'übe!'], translation: 'Очень длинное слово.' });
+    expect(server.saves).toHaveLength(0);
+  });
 });
 
 test.describe('WordBank on a touch screen', () => {

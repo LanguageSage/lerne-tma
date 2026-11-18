@@ -31,47 +31,45 @@ function SortableBlock({ item, block, position, update, insert, onMove, children
     useSortable({ id: item.id, disabled: { draggable: item.type === 'image' } });
   return <div ref={setNodeRef} className="visual-card-layout-block" data-layout-position={position} data-dragging={isDragging || undefined}
     style={{ transform: CSS.Translate.toString(transform), transition }}>
-    <div className="visual-card-block-tools">
-      {item.type !== 'image' && <button ref={setActivatorNodeRef} type="button" className="visual-card-icon-control visual-card-drag-handle"
-        {...listeners} {...attributes} title={`${tr('Переместить блок')} ↑ ↓`} aria-label={tr('Переместить блок')}
-        onKeyDown={event => {
-          if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
-          event.preventDefault();
-          onMove(item.id, position, event.key === 'ArrowUp' ? -1 : 1);
-        }}>
-        <GripVertical size={16} aria-hidden="true" />
-      </button>}
-      {insert}
-      {block && <>
-        {block.type !== 'options' && <select value={block.type} aria-label={tr('Роль блока')} onChange={event => {
-          const type = event.target.value;
-          update(card => patchInfoBlock(card, item.index, { type }));
-        }}>
-          {Object.entries(roles).map(([type, label]) => <option key={type} value={type}>{tr(label)}</option>)}
-        </select>}
-        <details className="visual-card-block-menu">
-          <summary className="visual-card-icon-control" aria-label={tr('Настройки блока')} title={tr('Настройки блока')}>
-            <Ellipsis size={16} aria-hidden="true" />
-            {item.visibility === 'after_answer' && <span className="visual-card-visibility-dot" />}
-          </summary>
-          <div className="visual-card-block-menu-actions">
-            <select aria-label={tr('Когда показывать')} value={item.visibility || 'before_answer'}
-              onChange={event => {
-                const visibility = event.target.value;
-                update(card => patchLayoutItem(card, item.id, { visibility }));
-              }}>
-              <option value="before_answer">{tr('До ответа')}</option>
-              <option value="after_answer">{tr('После ответа')}</option>
-            </select>
-            <button type="button" className="visual-card-icon-control" aria-label={tr('Удалить блок')} title={tr('Удалить блок')}
-              onClick={() => {
-                if (window.confirm(tr('Удалить этот блок?'))) update(card => removeLayout(enableLayout(card), item.id));
-              }}><Trash2 size={15} aria-hidden="true" /></button>
-          </div>
-        </details>
-      </>}
-    </div>
+    {insert}
+    {item.type !== 'image' && <button ref={setActivatorNodeRef} type="button" className="visual-card-icon-control visual-card-drag-handle"
+      {...listeners} {...attributes} title={`${tr('Переместить блок')} ↑ ↓`} aria-label={tr('Переместить блок')}
+      onKeyDown={event => {
+        if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
+        event.preventDefault();
+        onMove(item.id, position, event.key === 'ArrowUp' ? -1 : 1);
+      }}>
+      <GripVertical size={16} aria-hidden="true" />
+    </button>}
     {children}
+    {block && <div className="visual-card-block-tools">
+      {block.type !== 'options' && <select value={block.type} aria-label={tr('Роль блока')} onChange={event => {
+        const type = event.target.value;
+        update(card => patchInfoBlock(card, item.index, { type }));
+      }}>
+        {Object.entries(roles).map(([type, label]) => <option key={type} value={type}>{tr(label)}</option>)}
+      </select>}
+      <details className="visual-card-block-menu">
+        <summary className="visual-card-icon-control" aria-label={tr('Настройки блока')} title={tr('Настройки блока')}>
+          <Ellipsis size={16} aria-hidden="true" />
+          {item.visibility === 'after_answer' && <span className="visual-card-visibility-dot" />}
+        </summary>
+        <div className="visual-card-block-menu-actions">
+          <select aria-label={tr('Когда показывать')} value={item.visibility || 'before_answer'}
+            onChange={event => {
+              const visibility = event.target.value;
+              update(card => patchLayoutItem(card, item.id, { visibility }));
+            }}>
+            <option value="before_answer">{tr('До ответа')}</option>
+            <option value="after_answer">{tr('После ответа')}</option>
+          </select>
+          <button type="button" className="visual-card-icon-control" aria-label={tr('Удалить блок')} title={tr('Удалить блок')}
+            onClick={() => {
+              if (window.confirm(tr('Удалить этот блок?'))) update(card => removeLayout(enableLayout(card), item.id));
+            }}><Trash2 size={15} aria-hidden="true" /></button>
+        </div>
+      </details>
+    </div>}
   </div>;
 }
 

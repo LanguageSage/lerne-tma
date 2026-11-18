@@ -11,7 +11,7 @@ const defaults = {
   trainer: { parts: [text, { type: 'input', answers: [''] }], back_note: '' },
   quiz: { prompt: '', options: [{ ...option, correct: true }, option], back_note: '' },
   match: { pairs: [pair, pair], back_note: '' },
-  puzzle: { tokens: [''], translation: '' },
+  puzzle: { tokens: [], translation: '' },
   word_bank: { options: [], parts: [text] },
   free_text: { prompt: '', sample_answer: '', accepted_answers: [] },
   editable_text: { source_text: '', correct_text: '', accepted_answers: [] },
@@ -24,7 +24,12 @@ export const newCardContent = (type = 'standard') => ({
 
 export const promptField = { standard: 'prompt', theory: 'text', quiz: 'prompt', free_text: 'prompt', editable_text: 'source_text' };
 export const answerField = { standard: 'answer', theory: 'summary', trainer: 'back_note', quiz: 'back_note',
-  match: 'back_note', puzzle: 'translation', free_text: 'sample_answer', editable_text: 'correct_text' };
+  match: 'back_note', free_text: 'sample_answer', editable_text: 'correct_text' };
+
+export function puzzleDraftTokens(sentence, originalTokens) {
+  // Native V2 can contain multi-word tiles. Preserve them if the text was not changed.
+  return sentence === originalTokens.join(' ') ? originalTokens : sentence.match(/[^\p{White_Space}]+/gu) || [];
+}
 
 export function changeDraft(setter, update) {
   setter(current => {
@@ -51,11 +56,13 @@ export function parseCardSource(source) {
     if (content.schema_version !== 2 || !cardTypes.includes(card?.type)
       || !card.data || Array.isArray(card.data) || typeof card.data !== 'object'
       || (card.info != null && !Array.isArray(card.info))
-      || (['quiz', 'word_bank'].includes(card.type) && card.info?.some(block => block?.type === 'options'
+      || (['quiz', 'word_bank', 'puzzle'].includes(card.type) && card.info?.some(block => block?.type === 'options'
         ? !Array.isArray(block.items) || block.items.some(item => typeof item !== 'string')
         : typeof block?.text !== 'string'))
       || (card.type === 'quiz' && (!Array.isArray(card.data.options)
         || card.data.options.some(option => typeof option?.text !== 'string')))
+      || (card.type === 'puzzle' && (!Array.isArray(card.data.tokens)
+        || card.data.tokens.some(token => typeof token !== 'string')))
       || (card.type === 'word_bank' && (!Array.isArray(card.data.options)
         || card.data.options.some(option => typeof option !== 'string')
         || !Array.isArray(card.data.parts)

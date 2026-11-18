@@ -75,6 +75,12 @@ export const useCardEditor = () => {
       const nativeEdit = data.id > 0;
       const conflict = data.offline_edit?.status === 'conflict';
       if (!data.id && content.card.type === 'standard') validateStandardDraft(content.card);
+      if (content.card.type === 'puzzle') {
+        const { tokens } = content.card.data;
+        if (!tokens.length || tokens.some(token => !/[^\p{White_Space}]/u.test(token))) {
+          throw new Error(tr('Введите предложение'));
+        }
+      }
       const res = nativeEdit ? await api.patch(path, reqData, {
         offlineCardEdit: true, offlineEditConflict: conflict ? data.offline_edit.requestId : undefined,
       })

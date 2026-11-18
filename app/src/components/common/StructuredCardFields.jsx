@@ -18,7 +18,7 @@ const infoParts = ['task', 'source', 'example'].map(type => ({ type, text: '' })
   .concat({ type: 'options', items: [''] });
 const samples = {
   parts: trainerParts, info: infoParts, pairs: [{ left: '', right: '' }],
-  answers: [''], accepted_answers: [''], items: [''], topics: [''], tokens: [''],
+  answers: [''], accepted_answers: [''], items: [''], topics: [''],
 };
 
 function LayoutFields({ card, update, imagesOnly = false }) {
@@ -100,7 +100,6 @@ const labels = {
   prompt: 'Задание', text: 'Текст', source_text: 'Исходный текст', parts: 'Части задания',
   options: 'Варианты', items: 'Варианты', correct: 'Верный ответ', answers: 'Правильные ответы',
   accepted_answers: 'Допустимые ответы', pairs: 'Пары', left: 'Слева', right: 'Справа',
-  tokens: 'Элементы в правильном порядке',
   info: 'Информационные блоки', topics: 'Темы',
   task: 'Задание', source: 'Подсказка', example: 'Пример', input: 'Ввод', choice: 'Выбор',
 };
