@@ -12,7 +12,7 @@
 | Задача | Файлы |
 | --- | --- |
 | Форма и редактор содержимого | `app/src/components/common/CardForm.jsx`, `app/src/components/common/StructuredCardFields.jsx`, `app/src/components/common/CardForm.css` |
-| Создание, редактирование и сохранение | `app/src/components/deckgrid/CardCreator.jsx`, `app/src/components/deckgrid/CardEditor.jsx`, `app/src/hooks/useCardEditor.js` |
+| Создание, редактирование и сохранение | `app/src/components/deckgrid/CardCreator.jsx`, `app/src/components/deckgrid/CardEditor.jsx`, `app/src/services/cardSave.js` |
 | Список / действия / возврат | `app/src/components/deckgrid/CardList.jsx`, `app/src/components/deckgrid/DeckActionsMenu.jsx`, `app/src/hooks/useCardActions.js`, `app/src/hooks/useCardNavigation.js`, `app/src/utils/navigation.js` |
 | Batch import | `app/src/components/modals/BatchCardModal.jsx`, `app/src/hooks/usePendingImport.js`, `app/src/utils/batchCardParser.js` |
 | Синтаксис и распознавание | `app/src/utils/exerciseContentParser.js`, `app/src/utils/exerciseDetector.js`, `api/services/input_parser.py` |
@@ -39,7 +39,10 @@
 Удаление info перенумеровывает только ссылки; перестановка сохраняет IDs и data.
 `CardForm` открывает визуальные поля соответствующего типа для всех девяти
 типов карточек.
-`CardForm` владеет черновиком, а общий `VisualCardFields` редактирует блоки
+`CardCreator` хранит черновик создания, `CardEditor` использует черновик
+из `useSessionStore`. Оба используют `CardEditorShell` для навигации и
+заголовка и передают черновик в `CardForm`. Форма компонует визуальные поля,
+медиа, уровень, действия, обратную сторону и контекст. Общий `VisualCardFields` редактирует блоки
 через `StructuredCardLayout` и `ExerciseInfoBlocks`. Лицевая сторона Quiz
 использует общий с обучением `QuizContent`.
 Во всех визуальных редакторах сохраняйте общий порядок секций `CardForm`:
@@ -124,8 +127,9 @@ V2→legacy preview отклоняет непредставимую композ
 `CardForm` переключает типизированную форму и полный исходный JSON envelope.
 Буквальный текст хранится в локальном поле черновика `content_v2_source`;
 при корректной структуре он обновляет тот же `content_v2`. Общий `saveCard`
-разбирает исходник также для внешних callers (включая local publication),
-не передаёт UI-поле по сети и использует существующую очередь Dexie.
+из `services/cardSave.js` разбирает исходник также для локальной публикации,
+отправляет Native V2 без локального поля и использует существующую очередь Dexie.
+`useCardEditor` предоставляет ту же функцию через карточные действия.
 Ошибка синтаксиса или структуры сохраняет исходный текст для исправления и
 блокирует запись. Обложка обновляет только поля изображения в актуальном
 черновике. Если загрузка изображения в композицию завершилась во время ошибки

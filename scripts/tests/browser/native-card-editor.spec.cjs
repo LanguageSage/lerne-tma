@@ -14,6 +14,7 @@ const types = {
 };
 
 async function setupEditor(page, context, server) {
+  const decks = server.decks ?? [deck];
   await context.addInitScript(() => {
     localStorage.setItem('native_language', 'ru');
     localStorage.setItem('native_language_selected', 'true');
@@ -32,11 +33,11 @@ async function setupEditor(page, context, server) {
   });
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
-    if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {},
+    if (pathname === '/api/init') return route.fulfill({ json: { decks, folders: [], settings: {},
       prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
-    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
+    if (pathname === '/api/decks') return route.fulfill({ json: decks });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: server.card ? [server.card] : [] });
     if (pathname === '/api/messages' || pathname === '/api/folders') return route.fulfill({ json: [] });
     if (pathname.endsWith('/images/original.webp')) return route.fulfill({ contentType: 'image/svg+xml',
@@ -62,7 +63,7 @@ async function setupEditor(page, context, server) {
     if (pathname === '/api/cards/1' || pathname === '/api/study/card/1') return route.fulfill({ json: server.card });
     if (pathname === '/api/sync/v2/pull') return route.fulfill({ json: {
       status: 'success', card_schema: 2, server_time: new Date().toISOString(),
-      folders: [], decks: [deck], cards: server.card ? [server.card] : [], progress: [],
+      folders: [], decks, cards: server.card ? [server.card] : [], progress: [],
     } });
     return route.fulfill({ json: {} });
   });
@@ -1552,4 +1553,51 @@ test('Standard creator allows saving a card with an empty back side online and o
     return (await db.cards.toArray()).find(card => card.id < 0)?.content_v2.card.data;
   })).toEqual({ prompt: 'Offline ohne Rückseite', answer: '' });
   expect(errors).toEqual([]);
+});
+
+test('editor shell keeps deck selection and draft through settings, then returns to the list after saving', async ({ page, context }) => {
+  const server = { saves: [], decks: [deck, { ...deck, id: 2, name: 'Second fixture deck' }] };
+  await setupEditor(page, context, server);
+  await page.evaluate(async deck => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    useDeckStore.setState({ currentDeck: deck, deckCards: [], cardsLoading: false });
+    useUiStore.setState({ userProfile: { user_id: 1, is_guest: false }, view: 'cards' });
+  }, deck);
+
+  await page.locator('#tut-fab-add').click();
+  const creator = page.locator('.view-creator');
+  const deckPicker = creator.locator('select.form-input').first();
+  const save = page.getByRole('button', { name: 'Сохранить карточку', exact: true });
+  await expect(creator.getByRole('heading', { name: 'Новая карточка' })).toBeVisible();
+  await expect(creator.getByTitle('Добавить карточку')).toBeDisabled();
+  await expect(deckPicker).toHaveValue('1');
+  await creator.locator('#card-editor-front').fill('Der Entwurf');
+  await deckPicker.selectOption('2');
+  await creator.getByTitle('Настройки', { exact: true }).click();
+  await expect(page.locator('.settings-modal')).toBeVisible();
+  await page.getByRole('button', { name: 'Закрыть настройки' }).click();
+  await expect(deckPicker).toHaveValue('2');
+  await expect(creator.locator('#card-editor-front')).toHaveValue('Der Entwurf');
+  await deckPicker.selectOption('1');
+  await save.click();
+
+  const openSavedCard = async () => {
+    await page.locator('#card-item-1 .card-item-actions-trigger').click();
+    await page.getByText('Редактировать', { exact: true }).click();
+    await expect(page.locator('.view-editor').getByRole('heading', { name: 'Правка карточки' })).toBeVisible();
+  };
+  await openSavedCard();
+  await expect(page.locator('#card-editor-front')).toHaveValue('Der Entwurf');
+  await page.locator('.view-editor .back-btn').press('Enter');
+  await expect(page.locator('#card-item-1')).toBeVisible();
+  await openSavedCard();
+  await page.locator('#card-editor-front').fill('Der geänderte Entwurf');
+  await save.click();
+  await expect(page.locator('#card-item-1')).toBeVisible();
+  await expect.poll(() => server.saves.length).toBe(2);
+  expect(server.saves[0]).toMatchObject({ deck_id: 1, content_v2: { card: { data: { prompt: 'Der Entwurf' } } } });
+  expect(server.saves[1]).toMatchObject({ revision: 'created', content_v2: { card: { data: { prompt: 'Der geänderte Entwurf' } } } });
+  for (const { request_id } of server.saves) expect(request_id).toMatch(/^[a-f0-9]{8}(?:-[a-f0-9]{4}){3}-[a-f0-9]{12}$/);
+  expect(server.saves[1].request_id).not.toBe(server.saves[0].request_id);
 });

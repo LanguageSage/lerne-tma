@@ -1,122 +1,43 @@
-import { tr } from '../../i18n/locale';
-import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
-import { ChevronLeft, Plus, Settings } from 'lucide-react';
-import { HelpButton } from '../TutorialOverlay';
+import { useState } from 'react';
+import { useTranslation } from '../../i18n/i18nContext';
 import { CardForm } from '../common/CardForm';
-import { useUiStore } from '../../store/useUiStore';
+import { CardEditorShell } from './CardEditorShell';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSessionStore } from '../../store/useSessionStore';
-import { useCardActions } from '../../hooks/useCardActions';
-import { useAudio } from '../../hooks/useAudio';
+import { saveCard } from '../../services/cardSave';
 import { newCardContent } from '../../utils/cardDraft';
 
-import { useTranslation } from '../../i18n/i18nContext';
-import { navigateUp } from '../../utils/navigation';
+function createDraft(currentDeckId) {
+  const card = useSessionStore.getState().editingCard;
+  return {
+    content_v2: newCardContent(),
+    flag: 0,
+    deck_id: card?.deck_id !== undefined ? card.deck_id : currentDeckId || '',
+    after_card_id: card?.after_card_id || null,
+  };
+}
 
 export const CardCreator = () => {
-  useInterfaceLocale();
   const { t } = useTranslation();
-  const { view, setIsSettingsOpen } = useUiStore();
-  const { currentDeck } = useDeckStore();
-  const { runAiGenerator, stopAiGeneration, saveCard, generateAudioInternal } = useCardActions();
-  const { playAudio } = useAudio();
+  const currentDeckId = useDeckStore(state => state.currentDeck?.id);
+  const [sourceDeckId, setSourceDeckId] = useState(currentDeckId);
+  const [newCardData, setNewCardData] = useState(() => createDraft(currentDeckId));
 
-  const editingCard = useSessionStore.getState().editingCard;
-  const editingCardDeckId = editingCard?.deck_id;
-  const initialDeckId = editingCardDeckId !== undefined ? editingCardDeckId : (currentDeck?.id || '');
-  const initialAfterCardId = editingCard?.after_card_id || null;
-
-  const [newCardData, setNewCardData] = useState({
-    content_v2: newCardContent(),
-    audio_path: '',
-    audio_url: '',
-    image_path: '',
-    image_url: '',
-    flag: 0,
-    deck_id: initialDeckId,
-    after_card_id: initialAfterCardId
-  });
-
-  const handleBack = () => {
-    navigateUp();
-  };
-
-  const [animDone, setAnimDone] = useState(false);
-
-  useEffect(() => {
-    if (view === 'creator') {
-      const activeEditingCard = useSessionStore.getState().editingCard;
-      const activeEditingDeckId = activeEditingCard?.deck_id;
-      const targetId = activeEditingDeckId !== undefined ? activeEditingDeckId : (currentDeck?.id || '');
-      const activeAfterCardId = activeEditingCard?.after_card_id || null;
-      setNewCardData({
-        content_v2: newCardContent(),
-        flag: 0,
-        deck_id: targetId,
-        after_card_id: activeAfterCardId
-      });
-      setAnimDone(false);
-    }
-  }, [view, currentDeck?.id]);
-
-  if (view !== 'creator') return null;
-
-  const handleAiGenerate = async (actionType = 'full_card', userRequest = '') => {
-    const content = newCardData?.content_v2;
-    if (!content) return;
-    const result = await runAiGenerator(content, true, actionType, userRequest);
-    if (result?.content_v2) {
-      setNewCardData(current => current?.content_v2 === content ? { ...current, content_v2: result.content_v2 } : current);
-    }
-    return result;
-  };
-
-  const handleSave = () => {
-    saveCard(newCardData, 'creator');
-  };
+  // The destination picker changes the draft, while the current deck starts a new one.
+  if (sourceDeckId !== currentDeckId) {
+    setSourceDeckId(currentDeckId);
+    setNewCardData(createDraft(currentDeckId));
+  }
 
   return (
-    <div className="view-creator">
-      <motion.div 
-        initial={{ opacity: 0, y: 20 }} 
-        animate={{ opacity: 1, y: 0 }} 
-        onAnimationComplete={() => setAnimDone(true)}
-        style={animDone ? { transform: 'none' } : {}}
-        className="view"
-      >
-        <div className="header-compact">
-          <button className="back-btn" onClick={handleBack}><ChevronLeft size={24} /></button>
-          <h2>{t('creator.title', 'Новая карточка')}</h2>
-          <div className="header-actions">
-            <button className="header-action-btn" disabled={true} title={tr("Добавить карточку")}>
-              <Plus size={22} />
-            </button>
-            <HelpButton topic="creator" />
-            <button 
-              className="header-action-btn settings-btn" 
-              onClick={() => setIsSettingsOpen(true)}
-              title={t('settings.title', 'Настройки')}
-            >
-              <Settings size={22} />
-            </button>
-          </div>
-        </div>
-
-
-        <CardForm
-          cardData={newCardData}
-          setCardData={setNewCardData}
-          onSave={handleSave}
-          onAiGenerate={handleAiGenerate}
-          onStopGeneration={stopAiGeneration}
-          onGenerateAudio={generateAudioInternal}
-          playAudio={playAudio}
-          isCreator={true}
-        />
-        
-      </motion.div>
-    </div>
+    <CardEditorShell view="creator" title={t('creator.title', 'Новая карточка')}
+      settingsTitle={t('settings.title', 'Настройки')}>
+      <CardForm
+        cardData={newCardData}
+        setCardData={setNewCardData}
+        onSave={() => saveCard(newCardData)}
+        isCreator
+      />
+    </CardEditorShell>
   );
 };
