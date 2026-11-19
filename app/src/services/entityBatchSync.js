@@ -8,6 +8,18 @@ export const keyFor = (name, item, userId) => name === 'progress' ? [item.card_i
 const revision = item => item.local_revision || item.updated_at;
 const remap = (map, id) => map?.[String(id)] ?? id;
 
+export async function hasPendingEntityChanges(db, userId) {
+  const pending = await Promise.all([
+    db.syncState.get('pending'),
+    db.syncState.where('key').startsWith('review:').first(),
+    db.folders.where('is_dirty').equals(1).first(),
+    db.decks.where('is_dirty').equals(1).first(),
+    db.cards.where('is_dirty').equals(1).filter(card => !card.content_v2).first(),
+    db.progress.where('is_dirty').equals(1).filter(item => String(item.user_id) === String(userId)).first(),
+  ]);
+  return pending.some(Boolean);
+}
+
 async function pendingBatch(db, userId) {
   return db.transaction('rw', [...entities.map(name => db[name]), db.syncState], async () => {
     const pending = await db.syncState.get('pending');
@@ -182,4 +194,5 @@ export async function deliverEntityBatch(db, userId, options, isCurrent, notifyS
   if (!isCurrent()) throw new Error('Session changed');
   const acknowledged = await acknowledge(db, batch, mappings, isCurrent, response.data.versions);
   if (acknowledged && isCurrent()) notifySyncUi('lerne:ids-remapped', { mappings, userId }, { mappings });
+  return acknowledged;
 }

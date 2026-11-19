@@ -82,7 +82,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 
 - LiD exam/practice: `app/src/components/lid/LidExamView.jsx`, `app/src/store/useLidStore.js`, `api/routers/lid.py`.
   Их quiz policy отличается от обычных учебных упражнений; вход через [study](subsystems/study.md).
-- Collaboration: `app/src/hooks/useCollaborativeSync.js`, `api/routers/collaborative.py`, `api/services/collaborative_service.py`.
+- Collaboration: `app/src/hooks/useAppInitialization.js` revalidates content through v2 sync. Permissions and presence use `api/routers/collaborative.py` and `api/services/collaborative_service.py`.
   Доступ и доменные действия описаны в [decks](subsystems/decks.md), transport — в [sync](subsystems/sync.md).
 - Поиск: `app/src/hooks/useSearch.js`, `app/src/utils/search.js`, `api/routers/cards.py`.
   Область поиска определяется колодой/папкой; вход через [cards](subsystems/cards.md).

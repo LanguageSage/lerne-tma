@@ -1319,11 +1319,9 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect((await inspect(peer)).cards.find(card => card.id === sharedId).content_v2.card.data.answer)
     .toBe('New answer on the server');
 
-  // The Collaborative invalidation endpoint directs native changes to V2 pull.
-  const collab = peer.waitForResponse(response => response.url().includes('/api/sync/collab-pull'));
+  // Resuming a tab revalidates the shared native snapshot through V2 pull.
   const native = peer.waitForResponse(response => response.url().includes('/api/sync/v2/pull'));
   await peer.evaluate(() => document.dispatchEvent(new Event('visibilitychange')));
-  expect((await collab).status()).toBe(200);
   expect((await native).status()).toBe(200);
   await expect.poll(() => peer.evaluate(async () => (await navigator.locks.query()).held.length)).toBe(0);
 

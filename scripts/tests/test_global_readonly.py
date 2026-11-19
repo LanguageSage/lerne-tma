@@ -123,7 +123,7 @@ class GlobalReadonlyTests(unittest.TestCase):
         value['card'].update(type='trainer', data={'parts': [{'type': 'input', 'answers': ['spricht']}], 'back_note': ''})
         models.TMA_Card.update(content_v2=value).where(models.TMA_Card.id == self.card.id).execute()
         with patch.object(decks, 'ensure_starter_decks'), patch.object(decks, 'deduplicate_lid_folders'), \
-             patch.object(decks, '_get_cached_library_info', return_value=({}, {})):
+             patch.object(decks, 'get_library_update_sources', return_value={}):
             snapshot = next(row for row in decks.get_active_decks(2) if row['id'] == self.deck.id)
         self.assertEqual(snapshot['stats']['trainer_count'], 1)
         self.assertTrue(snapshot['is_trainer'])
@@ -139,7 +139,7 @@ class GlobalReadonlyTests(unittest.TestCase):
         before = models.TMA_Deck.get_by_id(self.deck.id)
         with patch.object(decks, 'ensure_starter_decks'), \
                 patch.object(decks, 'deduplicate_lid_folders'), \
-                patch.object(decks, '_get_cached_library_info', return_value=({}, {})):
+                patch.object(decks, 'get_library_update_sources', return_value={}):
             def learning_state(user_id):
                 return next(d['is_learning'] for d in decks.get_active_decks(user_id)
                             if d['id'] == self.deck.id)

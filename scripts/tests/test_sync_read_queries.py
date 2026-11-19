@@ -150,6 +150,65 @@ class SyncFixture(unittest.TestCase):
 
 
 class SyncReadTests(SyncFixture):
+    def test_catalogue_and_due_counts_invalidate_only_the_deck_summary(self):
+        full = offline_sync.pull_offline(1, '')
+        snapshot = full['snapshot_version']
+        models.TMA_Deck.create(scope='library', name='Unrelated catalogue deck', updated_at=NOW)
+        unchanged = offline_sync.pull_offline(1, snapshot)
+        self.assertEqual(unchanged['deck_summary_version'], full['deck_summary_version'])
+        models.TMA_Deck.create(scope='library', name=self.decks[0].name, updated_at=NOW)
+        summary = offline_sync.pull_offline(1, snapshot)
+        self.assertEqual(summary['status'], 'unchanged')
+        self.assertNotEqual(summary['deck_summary_version'], full['deck_summary_version'])
+
+        deck = self.decks[0]
+        card = models.TMA_Card.get((models.TMA_Card.deck_id == deck.id) & ~models.TMA_Card.is_deleted)
+        models.TMAProgress.update(next_review=NOW).where(models.TMAProgress.user_id == 1,
+                                                        models.TMAProgress.card_id == card.id).execute()
+        before_due = offline_sync._deck_summary_version(1, [deck], NOW - dt.timedelta(seconds=1))
+        after_due = offline_sync._deck_summary_version(1, [deck], NOW)
+        self.assertNotEqual(before_due, after_due)
+
+    def test_conditional_pull_revalidates_permissions_hard_deletes_and_personal_state(self):
+        app = FastAPI()
+        app.include_router(sync_router.router)
+        app.dependency_overrides[get_user_id] = lambda: 1
+        card = models.TMA_Card.get((models.TMA_Card.deck_id == self.shared_deck.id) & ~models.TMA_Card.is_deleted)
+        with TestClient(app) as client:
+            def pull(version):
+                response = client.get('/sync/v2/pull', params={'snapshot_version': version})
+                self.assertEqual(response.status_code, 200, response.text)
+                return response.json()
+
+            self.assertNotIn('snapshot_version', client.get('/sync/v2/pull').json())
+            full = pull('')
+            version = full['snapshot_version']
+            unchanged = pull(version)
+            self.assertEqual(unchanged['status'], 'unchanged')
+            self.assertFalse({'cards', 'progress', 'decks', 'folders'} & unchanged.keys())
+            models.TMA_Card.update(position=29).where(models.TMA_Card.deck_id == self.hidden_deck.id).execute()
+            self.assertEqual(pull(version)['status'], 'unchanged')
+
+            models.TMAProgress.update(interval=42).where(
+                models.TMAProgress.user_id == 1, models.TMAProgress.card_id == card.id).execute()
+            full = pull(version)
+            self.assertEqual(next(row for row in full['progress'] if row['card_id'] == card.id)['interval'], 42)
+            models.TMASetting.update(value='1').where(models.TMASetting.key == f'DECK_LEARNING_1_{self.decks[0].id}').execute()
+            full = pull(full['snapshot_version'])
+            self.assertTrue(next(row for row in full['decks'] if row['id'] == self.decks[0].id)['is_learning'])
+
+            models.TMA_Collaborator.update(role='viewer').where(models.TMA_Collaborator.user_id == 1).execute()
+            full = pull(full['snapshot_version'])
+            self.assertEqual(next(row for row in full['decks'] if row['id'] == self.shared_deck.id)['role'], 'viewer')
+            models.TMAProgress.delete().where(models.TMAProgress.card_id == card.id).execute()
+            card.delete_instance()
+            full = pull(full['snapshot_version'])
+            self.assertNotIn(card.id, [row['id'] for row in full['cards']])
+            models.TMA_Collaborator.delete().where(models.TMA_Collaborator.user_id == 1).execute()
+            full = pull(full['snapshot_version'])
+            self.assertNotIn(self.shared_deck.id, [row['id'] for row in full['decks']])
+            self.assertEqual(pull(full['snapshot_version'])['status'], 'unchanged')
+
     def test_http_pull_routes_keep_their_contracts_and_light_queries(self):
         app = FastAPI()
         app.include_router(sync_router.router)

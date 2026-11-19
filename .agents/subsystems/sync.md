@@ -16,7 +16,7 @@ Knowledge Attempts отправляются отдельным механизм�
 | UI состояния offline | `app/src/services/offlineUi.js`, `app/src/components/modals/SyncModal.jsx`, `app/src/hooks/useAppInitialization.js` |
 | Sync server | `api/routers/sync.py`, `api/services/offline_sync.py`, `api/services/sync_service.py` |
 | Настройки между устройствами | `app/src/store/useSettingsStore.js`, `api/routers/settings.py` |
-| Collaborative transport | `app/src/hooks/useCollaborativeSync.js`, `app/src/hooks/useCollaborativePresence.js`, `api/routers/collaborative.py` |
+| Collaborative transport | `app/src/hooks/useAppInitialization.js`, `app/src/hooks/useCollaborativePresence.js`, `api/routers/collaborative.py` |
 
 ## Data flow
 
@@ -25,7 +25,7 @@ Knowledge Attempts отправляются отдельным механизм�
 3. SyncService формирует устойчивый пакет в `syncState` и отправляет `/sync/v2/push` через `networkApi`.
 4. `offline_sync.py` проверяет права и повтор `request_id`, сохраняет сущности/reviews и возвращает mappings.
    Новое значение `audio_path`/`audio_back_path` в облаке принимается только при наличии объекта в `storage.objects`; неизменённые ссылки и явное удаление поля сохраняют прежнюю семантику.
-5. Клиент подтверждает пакет, переводит временные ID, синхронизирует learning preferences и получает `/sync/v2/pull`.
+5. Клиент подтверждает пакет, переводит временные ID, синхронизирует learning preferences и получает `/sync/v2/pull`. Фоновый запуск сначала проверяет очереди текущего аккаунта. Непустые очереди проходят прежнюю проверку поколения БД перед отправкой.
 6. Snapshot применяется с сохранением локальных dirty changes; события remap/synced обновляют клиентские представления.
 
 Progress snapshots without a same-card UUID review event now use the existing
@@ -39,7 +39,7 @@ Progress acknowledgements include receipt-owned `versions` so ack rebases a
 newer local edit and later offline changes use the actual committed server base.
 Online explicit deck reset remains unchanged. Regression: `test_offline_sync.py`
 and restored-copy `native-smoke-acceptance.spec.cjs` offline reset/delivery.
-7. Старые `/sync/push` и `/sync/pull` удалены. `collab-pull` возвращает только invalidation/watermark/access_version; данные загружает единый native pull.
+7. Фоновый v2 pull передаёт `snapshot_version` из Dexie `lastSync`. Пустая версия запрашивает полный снимок. Совпадение версии возвращает `status: unchanged` без коллекций и записи сущностей. Отдельный `deck_summary_version` позволяет обновить список колод при изменении статуса внешней библиотеки или наступлении срока повторения без загрузки снимка и списка карточек. PostgreSQL сверяет версии строк карточек и прогресса, состав доступной библиотеки, права и личные настройки изучения в одном снимке транзакции. Запрос без параметра поддерживает старых клиентов. Фоновый опрос на старте, по таймеру, при возврате и восстановлении сети использует общий Web Lock и время проверки из Dexie, в том числе в офлайн-режиме при наличии сети. Существующий `collab-pull` доступен старым клиентам.
    Все пять Sync handlers используют `db_worker`. Auth и handler освобождают
    свои соединения отдельно, транзакции push принадлежат сервисам, а ответы
    pull и `access_version` собираются внутри worker scope. PostgreSQL-регрессия
@@ -304,7 +304,7 @@ offline → online доставку заметок, Web Locks/Dexie lease и с�
 | Серверные данные затирают свежую правку | `applySnapshot` и dirty/local version comparison |
 | Смена аккаунта показывает чужие данные | localDb ownership + store reset; см. [auth](auth.md) |
 | Настройки не переносятся между устройствами | useSettingsStore → settings route; отдельно от entity snapshot |
-| Не обновляются изменения соавтора | Collaborative hooks → collab-pull; права — [decks](decks.md) |
+| Не обновляются изменения соавтора | Фоновый условный v2 pull; права — [decks](decks.md) |
 
 ## Search anchors
 
@@ -317,6 +317,7 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 ## Relevant tests
 
 - Offline v2: `scripts/tests/test_offline_sync.py`, `scripts/tests/offline_sandbox.py`.
+- Background sync: `structured_cards_postgres.py --bin-dir <path> --background-sync-browser` compares the previous and current clients in Chromium on synthetic PostgreSQL and exercises reconnect, delivery, and conflicts.
 - SQL read regressions: `scripts/tests/test_sync_read_queries.py` — реальные pull routes,
   проекции без image_data, batch study lookup, permissions и сохранность неизбранных полей.
   Через `scripts/test_backend.py` можно передать `--compare-ref <git-ref>` для сравнения

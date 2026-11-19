@@ -5,7 +5,7 @@ import { getAccessToken, getSessionIdentity, getUserId } from '../utils/auth.js'
 import { syncCardNotes } from './cardNotes.js';
 import { inspectCardCutover, inspectCutoverDatabase, inspectCutoverStorage } from './cardCutoverPreflight.js';
 import { observeServerGeneration, generationError, isGenerationConflict } from './serverGeneration.js';
-import { entities, keyFor, deliverEntityBatch, syncLearningPreferences } from './entityBatchSync.js';
+import { entities, keyFor, deliverEntityBatch, hasPendingEntityChanges, syncLearningPreferences } from './entityBatchSync.js';
 import {
   subscribeSyncUi,
   notifySyncUi,
@@ -16,6 +16,8 @@ import {
 } from './cardOutboxSync.js';
 
 export { subscribeSyncUi, notifyCardEdit, keepLocalCard, reconcileCardEditLifecycle };
+
+const isSnapshotVersion = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
 
 function sameValue(left, right) {
   if (Object.is(left, right)) return true;
@@ -60,6 +62,10 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
     const otherIds = new Set(localCards.filter(card => !card.content_v2).map(card => card.id));
     const scopeIds = new Set([...localCards.filter(card => !!card.content_v2),
       ...data.cards].map(card => card.id));
+    // A concurrent targeted read can take precedence over this snapshot. In
+    // that case a later pull must still be allowed to reconcile the clean row.
+    const concurrentRead = localCards.some(card => card.content_v2
+      && (card.offline_read_started_at > pullStartedAt || card.offline_confirmed_at >= pullStartedAt));
     for (const [index, name] of entities.entries()) {
       const localRows = localTables[index];
       const localMap = name === 'progress'
@@ -96,7 +102,10 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
       if (toDelete.length) await db[name].bulkDelete(toDelete);
     }
     await db.syncState.where('key').startsWith('deck-cards:').delete();
-    await db.syncState.put({ key: 'lastSync', time: data.server_time, readStartedAt: pullStartedAt });
+    await db.syncState.put({ key: 'lastSync', time: data.server_time, readStartedAt: pullStartedAt,
+      checkedAt: Date.now(), snapshotVersion: !concurrentRead && isSnapshotVersion(data.snapshot_version)
+        ? data.snapshot_version : undefined,
+      deckSummaryVersion: data.deck_summary_version });
     if (!isCurrent()) throw new Error('Session changed');
     return true;
   });
@@ -124,18 +133,41 @@ export const syncService = {
   },
 };
 
-async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false, skipPull = false, pullOnly = false } = {}) {
+async function runSync(userId, identity, isCurrent, {
+  pendingNativeOnly = false, skipPull = false, pullOnly = false, background = false, recheckMs = 0,
+} = {}) {
   const options = { _expectedUserId: userId, _expectedSessionIdentity: identity };
   let db, nativeError, entityError, firstError, serverTime;
   let pullSuccess = false;
   let pullFailed = false;
-  let notifiedSnapshot = false;
+  let pullApplied = false;
+  let deckSummaryChanged = false;
+  let refreshFromOutbox = false;
+  let cardLifecycleRejection;
   const remember = error => { firstError ||= error; };
+  const notifyOutbox = (type, detail, hint) => {
+    // Update IDs and editor revisions immediately, but refresh the lists once
+    // the background batch and its snapshot have finished.
+    if (background && type === 'lerne:synced') {
+      refreshFromOutbox = true;
+      if (detail.cardLifecycleRejection && cardLifecycleRejection !== 409) {
+        cardLifecycleRejection = detail.cardLifecycleRejection;
+      }
+      return;
+    }
+    if (background && type === 'lerne:ids-remapped') {
+      refreshFromOutbox = true;
+      hint = { ...hint, refreshAfterSync: true };
+    }
+    notifySyncUi(type, detail, hint);
+  };
   try {
     db = await prepareLocalDb();
     if (!isCurrent()) throw new Error('Session changed');
-    const { data: databaseState } = await networkApi.get('/sync/v2/status', options);
-    await observeServerGeneration(db, databaseState, isCurrent);
+    if (!background) {
+      const { data: databaseState } = await networkApi.get('/sync/v2/status', options);
+      await observeServerGeneration(db, databaseState, isCurrent);
+    }
     const creates = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_CREATE_KEY)
       .filter(create => !create.rejected).toArray();
     const queuedEdits = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_EDIT_KEY).toArray();
@@ -147,39 +179,66 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     const moves = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_MOVE_KEY)
       .filter(move => !move.rejected).toArray();
     const lifecycle = pullOnly ? [] : await db.syncState.where('key').startsWith(CARD_LIFECYCLE_KEY).filter(operation => !operation.rejected).toArray();
-    nativeError = await deliverCardOutbox(db, { creates, edits, moves, lifecycle }, options, isCurrent);
+    const deliverDevice = !pendingNativeOnly && !pullOnly;
+    const entityWork = deliverDevice && (!background || await hasPendingEntityChanges(db, userId));
+    const learningWork = deliverDevice && (!background || await db.decks.filter(deck => deck.learning_dirty).first());
+    const notesWork = deliverDevice && (!background || await db.card_notes.where('is_dirty').equals(1)
+      .filter(note => note.kind !== 'suggestion').first());
+    const hasWork = creates.length || edits.length || moves.length || lifecycle.length || entityWork || learningWork || notesWork;
+    const lastSync = background ? await db.syncState.get('lastSync') : null;
+    if (background && hasWork) {
+      const { data: databaseState } = await networkApi.get('/sync/v2/status', options);
+      await observeServerGeneration(db, databaseState, isCurrent);
+    }
     if (!isCurrent()) throw new Error('Session changed');
+    const elapsed = Date.now() - lastSync?.checkedAt;
+    if (background && !hasWork && isSnapshotVersion(lastSync?.snapshotVersion) && elapsed >= 0 && elapsed < recheckMs) {
+      return { success: true, pull_success: true, pull_applied: false };
+    }
+    nativeError = await deliverCardOutbox(db, { creates, edits, moves, lifecycle }, options, isCurrent, notifyOutbox);
+    if (!isCurrent()) throw new Error('Session changed');
+    let acknowledgedEntities = false;
     try {
-      if (!pendingNativeOnly && !pullOnly) {
-        await deliverEntityBatch(db, userId, options, isCurrent, notifySyncUi);
+      if (entityWork) {
+        acknowledgedEntities = await deliverEntityBatch(db, userId, options, isCurrent, notifySyncUi);
       }
     } catch (error) { entityError = error; remember(error); }
     remember(nativeError);
     entityError ||= nativeError;
     if (!isCurrent()) throw new Error('Session changed');
-    if (!pendingNativeOnly && !pullOnly) {
+    if (learningWork) {
       try { await syncLearningPreferences(db, options, isCurrent); } catch (error) { entityError ||= error; remember(error); }
+    }
+    if (notesWork) {
       try { await syncCardNotes(db, userId); } catch (error) { remember(error); }
     }
     // A committed creation with a lost acknowledgement has two IDs until its UUID receipt is replayed.
     // Do not discover the server copy through pull before that remap commits.
     const unacknowledgedCreates = !pullOnly && await db.syncState.where('key').startsWith(CARD_CREATE_KEY).filter(item => !item.rejected).count();
     if (!unacknowledgedCreates && !(pendingNativeOnly && (skipPull || !creates.length && !edits.length && !moves.length && !lifecycle.length))) {
-      for (const cardSchema of [2]) {
-        try {
-          const pullStartedAt = Date.now();
-          const response = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: cardSchema } });
-          if (response.data?.card_schema !== cardSchema) throw new Error(tr('Сервер не подтвердил формат синхронизации. Очередь сохранена.'));
-          if (!isCurrent()) throw new Error('Session changed');
-          const applied = await applySnapshot(db, response.data, userId, pullStartedAt, isCurrent);
-          if (applied && isCurrent()) {
-            notifiedSnapshot = true;
-            notifySyncUi('lerne:synced', { userId, complete: false }, {});
-          }
-          serverTime = response.data.server_time;
-          pullSuccess = true;
-        } catch (error) { pullFailed = true; entityError ||= error; remember(error); }
-      }
+      try {
+        const snapshotVersion = background && !acknowledgedEntities && isSnapshotVersion(lastSync?.snapshotVersion)
+          ? lastSync.snapshotVersion : '';
+        const pullStartedAt = Date.now();
+        const { data } = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: 2, snapshot_version: snapshotVersion } });
+        if (data?.card_schema !== 2) throw new Error(tr('Сервер не подтвердил формат синхронизации. Очередь сохранена.'));
+        if (!isCurrent()) throw new Error('Session changed');
+        if (data.status === 'unchanged') {
+          if (!snapshotVersion || data.snapshot_version !== snapshotVersion) throw new Error('Unexpected snapshot version');
+          await observeServerGeneration(db, data, isCurrent);
+          await db.transaction('rw', db.syncState, async () => {
+            if (!isCurrent()) throw new Error('Session changed');
+            const { deck_summary_version: deckSummaryVersion } = data;
+            deckSummaryChanged = isSnapshotVersion(deckSummaryVersion) && deckSummaryVersion !== lastSync.deckSummaryVersion;
+            await db.syncState.update('lastSync', { checkedAt: Date.now(), deckSummaryVersion });
+            if (!isCurrent()) throw new Error('Session changed');
+          });
+        } else {
+          pullApplied = await applySnapshot(db, data, userId, pullStartedAt, isCurrent);
+        }
+        serverTime = data.server_time;
+        pullSuccess = true;
+      } catch (error) { pullFailed = true; entityError ||= error; remember(error); }
     }
   } catch (error) {
     entityError ||= error;
@@ -187,6 +246,10 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
   }
   if (!db) return { success: false, native_success: false, reason: tr('Не удалось проверить оставшиеся изменения. Очередь сохранена.') };
   if (!isCurrent()) return { success: false, native_success: false, reason: tr('Сессия изменилась. Очередь сохранена.') };
+  const libraryOnly = deckSummaryChanged && !pullApplied && !refreshFromOutbox;
+  const refreshScheduled = pullApplied || refreshFromOutbox || libraryOnly;
+  if (refreshScheduled) notifySyncUi('lerne:synced', { userId, complete: false, cardLifecycleRejection, libraryOnly }, { libraryOnly });
+  if (background) return { success: !firstError, pull_success: pullSuccess, pull_applied: pullApplied, reason: firstError?.message };
   try {
     // Reuse the readonly cutover checks: no second definition of "empty queue".
     const pending = await inspectCutoverDatabase(db);
@@ -217,7 +280,7 @@ async function runSync(userId, identity, isCurrent, { pendingNativeOnly = false,
     if (success && !pendingNativeOnly && !pullOnly) {
       localStorage.setItem('lerne_last_sync_time', serverTime || new Date().toISOString());
       localStorage.setItem('lerne_last_sync_user_id', String(userId));
-      notifySyncUi('lerne:synced', { userId, complete: true, alreadyRefreshed: notifiedSnapshot }, {});
+      notifySyncUi('lerne:synced', { userId, complete: true, alreadyRefreshed: refreshScheduled }, refreshScheduled ? null : {});
     }
     return { success, native_success: !isGenerationConflict(firstError) && !nativeError && !nativePending, pull_success: pullSuccess && !pullFailed,
       entities_success: !entityError && !entityPending,

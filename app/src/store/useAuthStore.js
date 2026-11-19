@@ -59,6 +59,10 @@ const clearPending = () => {
   try { localStorage.removeItem(PENDING_KEY); } catch { /* unavailable */ }
   try { sessionStorage.removeItem(PENDING_KEY); } catch { /* unavailable */ }
 };
+const readPendingNavigation = () => {
+  try { return JSON.parse(sessionStorage.getItem(NAVIGATION_KEY) || 'null'); }
+  catch { return null; }
+};
 const authMessage = (error, fallback) => {
   const messages = {
     provider_not_configured: tr('Этот способ входа пока не настроен. Используйте email и пароль.'),
@@ -132,8 +136,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   waitForChallenge: (pending) => {
-    let navigation = null;
-    try { navigation = JSON.parse(sessionStorage.getItem(NAVIGATION_KEY) || 'null'); } catch { /* unavailable */ }
+    const navigation = readPendingNavigation();
     savePending({ ...pending, navigation: pending.purpose === 'login' ? navigation : null });
     set({ isPolling: true, authError: null, authUrl: pending.authUrl });
     get().beginPolling();
@@ -147,7 +150,7 @@ export const useAuthStore = create((set, get) => ({
     return true;
   },
 
-  restoreSession: () => {
+  restoreSession: ({ refreshLibrary = true } = {}) => {
     const identity = getSessionIdentity();
     if (restoration?.identity === identity) return restoration.promise;
     const generation = authGeneration;
@@ -165,7 +168,10 @@ export const useAuthStore = create((set, get) => ({
           set({ status: 'authenticated' });
           if (!pendingAuth() && !get().showTelegramPrompt) get().setAuthModalOpen(false);
           if (useUiStore.getState().hasInitialized) {
-            await useDeckStore.getState().fetchDecks(true);
+            const library = useDeckStore.getState();
+            if (refreshLibrary || library.libraryStatus !== 'ready' || readPendingNavigation()) {
+              await library.fetchDecks(true);
+            }
             if (generation === authGeneration) set(state => ({ sessionRevision: state.sessionRevision + 1 }));
           }
         } else if (IS_LOCAL) {

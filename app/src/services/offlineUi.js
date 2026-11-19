@@ -120,10 +120,10 @@ export async function refreshOfflineUi({ detail }) {
       useUiStore.getState().showToast(tr(detail.cardLifecycleRejection === 409
         ? 'Конфликт версий' : 'Ошибка синхронизации. Карточка сохранена на устройстве.'), 'error');
     }
-    if (useUiStore.getState().view === 'trash') await state.fetchTrash();
+    if (!detail.libraryOnly && useUiStore.getState().view === 'trash') await state.fetchTrash();
     if (detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
     await state.fetchDecks(true);
-    if (detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
+    if (detail.libraryOnly || detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
     const current = useDeckStore.getState().currentDeck;
     if (current && useDeckStore.getState().decks.some(d => d.id === current.id)) await state.fetchDeckCards(current.id);
   } catch (error) {
@@ -147,9 +147,9 @@ export async function refreshPeerOfflineUi({ data }) {
       } } });
     } else if (type === 'lerne:ids-remapped') {
       remapOfflineUi({ detail: { userId, mappings, confirmedCard: card, silent: true } });
-      if (id != null) await refreshOfflineUi({ detail: { userId } });
+      if (id != null && !data.refreshAfterSync) await refreshOfflineUi({ detail: { userId } });
     } else if (type === 'lerne:synced') {
-      await refreshOfflineUi({ detail: { userId } });
+      await refreshOfflineUi({ detail: { userId, libraryOnly: data.libraryOnly } });
     }
   } catch (error) {
     if (isCurrent()) console.warn('Offline tab refresh:', error.message);

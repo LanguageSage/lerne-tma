@@ -2,9 +2,10 @@
 import datetime
 
 from fastapi import HTTPException
+from peewee import PostgresqlDatabase, SQL, fn
 
 from api import models
-from api.services.receipts import _claim_receipt, batch_digest, finish_receipt
+from api.services.receipts import _claim_receipt, _digest, batch_digest, finish_receipt
 from api.services.collaborative_service import (
     get_effective_user_role, get_user_accessible_deck_ids,
     get_user_accessible_folder_ids, get_batch_collaborative_info,
@@ -267,12 +268,52 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
         return finish_receipt(receipt, response)
 
 
-def pull_offline(user_id: int) -> dict:
+def pull_offline(user_id: int, snapshot_version: str | None = None) -> dict:
     from api.services.decks import ensure_starter_decks
-    from api.services.decks import _learning_key
     user = models.TMAUser.select(models.TMAUser.default_decks_initialized).where(models.TMAUser.user_id == user_id).first()
     if not user or not user.default_decks_initialized:
         ensure_starter_decks(user_id)
+
+    if snapshot_version is None:
+        return _read_snapshot(user_id, None, postgres=False)
+
+    database = models.tma_db.obj
+    postgres = isinstance(database, PostgresqlDatabase)
+    # Scope, row versions, and any returned payload must see the same commits.
+    with database.atomic(**({'isolation_level': 'REPEATABLE READ'} if postgres else {})):
+        return _read_snapshot(user_id, snapshot_version, postgres=postgres)
+
+
+def _row_versions(query, model):
+    # MVCC versions detect even writes without updated_at, and the ordered
+    # set detects hard deletes/moves without reading large card content.
+    stamp = fn.CONCAT_WS(':', model.id, SQL('xmin::text'), SQL('ctid::text'), model.updated_at)
+    return query.select(fn.MD5(fn.STRING_AGG(stamp, ',').order_by(model.id))).scalar()
+
+
+def _deck_summary_version(user_id, decks, now):
+    from api.services.decks import get_library_update_sources
+
+    card = models.TMA_Card
+    personal = models.TMAProgress
+    active_decks = [deck for deck in decks if not deck.is_deleted]
+    sources = get_library_update_sources({deck.name for deck in active_decks})
+    due_by_deck = (personal.select(card.deck_id, fn.COUNT(personal.id))
+                   .join(card, on=(personal.card_id == card.id))
+                   .where(personal.user_id == user_id, personal.queue == 'review', personal.next_review <= now,
+                          card.deck_id.in_([deck.id for deck in active_decks]),
+                          card.is_deleted == False, card.content_v2.is_null(False))
+                   .group_by(card.deck_id).order_by(card.deck_id).tuples())
+    return _digest([
+        {name: [updated_at.isoformat() if updated_at else None, count]
+         for name, (updated_at, count) in sources.items()},
+        list(due_by_deck),
+    ])
+
+
+def _read_snapshot(user_id: int, snapshot_version: str | None, *, postgres: bool) -> dict:
+    from api.services.decks import _learning_key
+    from api.services.sync_generation import generation_state
 
     folder_map = get_folder_access_map()
     folder_ids = set(get_user_accessible_folder_ids(user_id, folder_map=folder_map))
@@ -285,11 +326,11 @@ def pull_offline(user_id: int) -> dict:
     from api.services.structured_card_api import content_response
     card_fields = ('id', 'deck_id', 'is_deleted', 'position', 'created_at', 'updated_at',
                    'image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path')
-    cards = list(models.TMA_Card.select(models.TMA_Card.content_v2,
-        *(getattr(models.TMA_Card, f) for f in card_fields)).where(
-            models.TMA_Card.deck_id.in_(deck_ids), models.TMA_Card.content_v2.is_null(False)))
-    progress = list(models.TMAProgress.select(*(getattr(models.TMAProgress, f) for f in PULL_FIELDS['progress'])).where(
-        (models.TMAProgress.user_id == user_id) & models.TMAProgress.card_id.in_([c.id for c in cards])))
+    card = models.TMA_Card
+    personal = models.TMAProgress
+    cards = card.select(card.content_v2, *(getattr(card, f) for f in card_fields)).where(
+        card.deck_id.in_(deck_ids), card.content_v2.is_null(False))
+    progress = personal.select(*(getattr(personal, f) for f in PULL_FIELDS['progress'])).where(personal.user_id == user_id)
     roles = get_batch_collaborative_info(user_id, decks=decks, folders=folders, folder_map=folder_map)
     learning_keys = {_learning_key(user_id, deck.id): deck.id for deck in decks}
     learning_states = {learning_keys[row.key]: row.value == '1' for row in models.TMASetting.select(
@@ -313,10 +354,29 @@ def pull_offline(user_id: int) -> dict:
             data['is_learning'] = learning_states.get(item.id, False)
         return data
 
-    from api.services.sync_generation import generation_state
-    return {'status': 'success', 'protocol': 2, **generation_state(), 'card_schema': 2,
-            'folders': [serialize('folders', f) for f in folders],
-            'decks': [serialize('decks', d) for d in decks],
-            'cards': [serialize('cards', c) for c in cards],
-            'progress': [serialize('progress', p) for p in progress],
+    def read_study_rows():
+        card_rows = list(cards.order_by(card.id))
+        progress_rows = progress.where(personal.card_id.in_([c.id for c in card_rows])).order_by(personal.id)
+        return [[serialize('cards', c) for c in card_rows], [serialize('progress', p) for p in progress_rows]]
+
+    library = {'folders': [serialize('folders', f) for f in sorted(folders, key=lambda row: row.id)],
+               'decks': [serialize('decks', d) for d in sorted(decks, key=lambda row: row.id)]}
+    result = {'status': 'success', 'protocol': 2, **generation_state(), 'card_schema': 2}
+    study_rows = None
+    if snapshot_version is not None:
+        result['deck_summary_version'] = _deck_summary_version(user_id, decks, datetime.datetime.now())
+        if postgres:
+            scoped_progress = progress.where(personal.card_id.in_(cards.select(card.id)))
+            rows = [_row_versions(cards, card), _row_versions(scoped_progress, personal)]
+        else:
+            # SQLite test/dev fixtures use the projected data as their revision.
+            study_rows = rows = read_study_rows()
+        # Bump the format number when the card/progress wire projection changes.
+        version = _digest([1, user_id, result['server_generation'], library, rows])
+        result['snapshot_version'] = version
+        if version == snapshot_version:
+            return {**result, 'status': 'unchanged', 'server_time': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+
+    serialized_cards, serialized_progress = study_rows if study_rows is not None else read_study_rows()
+    return {**result, **library, 'cards': serialized_cards, 'progress': serialized_progress,
             'server_time': datetime.datetime.now(datetime.timezone.utc).isoformat()}

@@ -33,7 +33,7 @@ export function notifyCardEdit(card, userId, confirmed = false, deliveredRequest
     { id: card.id, deliveredRequestId });
 }
 
-async function deliverCardCreates(db, operations, options, isCurrent) {
+async function deliverCardCreates(db, operations, options, isCurrent, notify) {
   const userId = options._expectedUserId;
   let firstError;
   for (const operation of operations) {
@@ -67,7 +67,7 @@ async function deliverCardCreates(db, operations, options, isCurrent) {
         return local;
       });
       if (confirmedCard && isCurrent()) {
-        notifySyncUi('lerne:ids-remapped', { mappings, userId, confirmedCard }, { mappings, id: card.id });
+        notify('lerne:ids-remapped', { mappings, userId, confirmedCard }, { mappings, id: card.id });
       }
     } catch (error) {
       if (isGenerationConflict(error)) throw error;
@@ -182,7 +182,7 @@ async function deliverCardEdits(db, operations, options, isCurrent) {
   if (firstError) throw firstError;
 }
 
-async function deliverCardMoves(db, operations, options, isCurrent) {
+async function deliverCardMoves(db, operations, options, isCurrent, notify) {
   let firstError;
   let changed = false;
   const userId = options._expectedUserId;
@@ -254,17 +254,17 @@ async function deliverCardMoves(db, operations, options, isCurrent) {
     if (confirmed && isCurrent()) {
       for (const { tempId, card } of confirmed.remapped) {
         const mappings = { cards: { [tempId]: card.id } };
-        notifySyncUi('lerne:ids-remapped', { mappings, userId, confirmedCard: card, silent: true }, { mappings, id: card.id });
+        notify('lerne:ids-remapped', { mappings, userId, confirmedCard: card, silent: true }, { mappings, id: card.id });
       }
       changed ||= confirmed.applied;
     }
     firstError ||= error;
   }
-  if (changed && isCurrent()) notifySyncUi('lerne:synced', { userId }, {});
+  if (changed && isCurrent()) notify('lerne:synced', { userId }, {});
   if (firstError) throw firstError;
 }
 
-async function deliverCardSelection(db, operation, options, isCurrent) {
+async function deliverCardSelection(db, operation, options, isCurrent, notify) {
   const { key, cardIds, action, payload } = operation;
   let receipt, error;
   try {
@@ -297,17 +297,17 @@ async function deliverCardSelection(db, operation, options, isCurrent) {
     assertCurrent(isCurrent);
     return true;
   });
-  if (applied && isCurrent()) notifySyncUi('lerne:synced', { userId: options._expectedUserId }, {});
+  if (applied && isCurrent()) notify('lerne:synced', { userId: options._expectedUserId }, {});
   if (error) throw error;
 }
 
-async function deliverCardLifecycle(db, operations, options, isCurrent) {
+async function deliverCardLifecycle(db, operations, options, isCurrent, notify) {
   const userId = options._expectedUserId;
   let firstError;
   for (const operation of operations) {
     assertCurrent(isCurrent);
     if (operation.cardIds) {
-      try { await deliverCardSelection(db, operation, options, isCurrent); }
+      try { await deliverCardSelection(db, operation, options, isCurrent, notify); }
       catch (error) { if (isGenerationConflict(error)) throw error; firstError ||= error; }
       continue;
     }
@@ -349,13 +349,13 @@ async function deliverCardLifecycle(db, operations, options, isCurrent) {
       return true;
     });
     if (applied && isCurrent()) {
-      notifySyncUi('lerne:synced', { userId, cardLifecycleRejection: status }, {});
+      notify('lerne:synced', { userId, cardLifecycleRejection: status }, {});
     }
   }
   if (firstError) throw firstError;
 }
 
-export async function deliverCardOutbox(db, { creates, edits, moves, lifecycle }, options, isCurrent) {
+export async function deliverCardOutbox(db, { creates, edits, moves, lifecycle }, options, isCurrent, notify) {
   let nativeError;
   for (const [deliver, operations] of [
     [deliverCardCreates, creates],
@@ -364,7 +364,7 @@ export async function deliverCardOutbox(db, { creates, edits, moves, lifecycle }
     [deliverCardLifecycle, lifecycle],
   ]) {
     try {
-      await deliver(db, operations, options, isCurrent);
+      await deliver(db, operations, options, isCurrent, notify);
     } catch (error) {
       if (isGenerationConflict(error)) throw error;
       nativeError ||= error;

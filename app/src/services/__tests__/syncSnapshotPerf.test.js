@@ -17,6 +17,7 @@ registerHooks({ resolve(specifier, context, next) {
 
 let user = 1;
 const events = [];
+const requests = [];
 const storage = new Map();
 globalThis.window = {
   location: { search: '' },
@@ -42,9 +43,10 @@ mock.module('../apiConfig.js', { namedExports: { API_BASE_URL: '/api', mediaURL:
 mock.module('../networkApi.js', {
   namedExports: {
     networkApi: {
-      get: async url => {
+      get: async (url, options) => {
+        requests.push([url, options?.params?.snapshot_version]);
         if (url === '/sync/v2/status') return { data: { server_generation: 'a'.repeat(64), restored: false } };
-        if (url === '/sync/v2/pull') return { data: pullResponse() };
+        if (url === '/sync/v2/pull') return { data: pullResponse(options?.params?.snapshot_version) };
         if (url.startsWith('/card-notes')) return { data: { notes: [] } };
         throw new Error(`Unexpected GET ${url}`);
       },
@@ -68,6 +70,7 @@ const snapshotCard = (id, revision = 'rev-1', front = 'Prompt') => {
 beforeEach(async () => {
   user = 1;
   events.length = 0;
+  requests.length = 0;
   storage.clear();
   saveUserProfile({ user_id: user });
   saveAuthSession({ access_token: 'tok', refresh_token: 'ref', account_id: user });
@@ -162,6 +165,63 @@ test('applySnapshot diffs unchanged cards cleanly and avoids duplicate UI refres
     { complete: false, alreadyRefreshed: false },
     { complete: true, alreadyRefreshed: true },
   ]);
+});
+
+test('background sync reuses a checked snapshot across tabs without rewriting or refreshing it', async () => {
+  const db = getLocalDb();
+  const version = 'b'.repeat(64);
+  const state = { server_generation: 'a'.repeat(64), restored: false, card_schema: 2,
+    server_time: '2026-11-17T12:00:00Z', snapshot_version: version };
+  pullResponse = previous => previous === version ? { ...state, status: 'unchanged' }
+    : { ...state, status: 'success', folders: [], decks: [], cards: [snapshotCard(1)], progress: [] };
+
+  assert.equal((await syncService.sync({ background: true })).pull_applied, true);
+  assert.equal((await db.syncState.get('lastSync')).snapshotVersion, version);
+  const before = await db.cards.get(1);
+  await db.syncState.put({ key: 'deck-cards:5', complete: true });
+  events.length = 0;
+
+  assert.equal((await syncService.sync({ background: true, recheckMs: 60_000 })).pull_applied, false);
+  assert.equal((await syncService.sync({ background: true })).pull_success, true);
+  assert.deepEqual(requests, [['/sync/v2/pull', ''], ['/sync/v2/pull', version]]);
+  assert.deepEqual(events, []);
+  assert.deepEqual(await db.cards.get(1), before);
+  assert.equal((await db.syncState.get('deck-cards:5')).complete, true);
+});
+
+test('an unchanged response cannot bypass database restore quarantine', async () => {
+  const db = getLocalDb();
+  const version = 'b'.repeat(64);
+  await db.syncState.bulkPut([
+    { key: 'serverGeneration', generation: 'a'.repeat(64) },
+    { key: 'lastSync', snapshotVersion: version },
+  ]);
+  await db.cards.put(snapshotCard(1));
+  pullResponse = () => ({ status: 'unchanged', card_schema: 2, snapshot_version: version,
+    server_generation: 'c'.repeat(64), restored: true });
+  const result = await syncService.sync({ background: true });
+  assert.equal(result.pull_success, false);
+  assert.equal((await db.syncState.get('serverGenerationConflict')).server_generation, 'c'.repeat(64));
+  assert.equal(await db.cards.count(), 1);
+  assert.deepEqual(events, []);
+});
+
+test('a catalogue or due-count change refreshes only the library and keeps the card snapshot intact', async () => {
+  const db = getLocalDb();
+  const snapshotVersion = 'b'.repeat(64);
+  const deckSummaryVersion = 'd'.repeat(64);
+  await db.syncState.put({ key: 'lastSync', snapshotVersion, deckSummaryVersion: 'c'.repeat(64) });
+  await db.syncState.put({ key: 'deck-cards:5', complete: true });
+  pullResponse = () => ({ status: 'unchanged', card_schema: 2, snapshot_version: snapshotVersion,
+    deck_summary_version: deckSummaryVersion, server_generation: 'a'.repeat(64), restored: false });
+
+  assert.equal((await syncService.sync({ background: true })).pull_applied, false);
+  assert.deepEqual(events.map(event => [event.type, event.detail.libraryOnly]), [['lerne:synced', true]]);
+  assert.equal((await db.syncState.get('lastSync')).deckSummaryVersion, deckSummaryVersion);
+  assert.equal((await db.syncState.get('deck-cards:5')).complete, true);
+  events.length = 0;
+  await syncService.sync({ background: true });
+  assert.deepEqual(events, []);
 });
 
 test('applySnapshot preserves unsynced creates, conflicts, Date diffs, and isolates switched accounts', async () => {

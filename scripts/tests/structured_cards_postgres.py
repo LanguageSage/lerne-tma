@@ -304,6 +304,7 @@ def main():
     parser.add_argument('--study-performance', action='store_true', help='Measure synthetic Study HTTP/SQL on disposable PostgreSQL, without migrations')
     parser.add_argument('--study-performance-browser', action='store_true')
     parser.add_argument('--study-performance-baseline', action='store_true', help='Read fixed cf9dfe0 Study sources for before/after measurements')
+    parser.add_argument('--background-sync-browser', action='store_true', help='Compare background sync over real Chromium/HTTP and disposable PostgreSQL')
     parser.add_argument('--http', action='store_true', help='Run authenticated socket HTTP tests')
     parser.add_argument('--unified-storage', action='store_true', help='Test migration 96 and independent library copies')
     parser.add_argument('--unified-dump', type=Path, help='Explicit private Native V2 Supabase dump for a restored migration 96 rehearsal')
@@ -368,6 +369,9 @@ def main():
         db = PostgresqlDatabase('postgres', host='127.0.0.1', port=port,
                                 user='cards_test', connect_timeout=5)
         try:
+            if args.background_sync_browser:
+                from background_sync_postgres import verify as verify_background_sync
+                return 0 if verify_background_sync(db, scratch) else 1
             if args.study_performance:
                 from study_performance_postgres import verify as verify_performance
                 return 0 if verify_performance(db, scratch, browser=args.study_performance_browser,

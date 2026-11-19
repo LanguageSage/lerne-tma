@@ -12,6 +12,10 @@ import { isOfflineMode } from '../services/localDb';
 import { subscribeSyncUi, syncService } from '../services/syncService';
 import { markOfflineCreateError, updateOfflineEditUi, remapOfflineUi, refreshOfflineUi, refreshPeerOfflineUi } from '../services/offlineUi';
 
+const SYNC_INTERVAL_MS = 60_000;
+const SHARED_POLL_WINDOW_MS = SYNC_INTERVAL_MS - 5_000;
+const SHARED_EVENT_WINDOW_MS = 1_500;
+
 export const useAppInitialization = (checkStartParam) => {
   const { setUserProfile, showToast } = useUiStore();
   const { setAdminSettings, setUserPrompts, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
@@ -79,8 +83,31 @@ export const useAppInitialization = (checkStartParam) => {
       try { await initPromise; } finally { useUiStore.setState({ loading: false, hasInitialized: true }); }
     };
 
-    const runBackgroundSync = () => syncService.sync()
+    const runBackgroundSync = (recheckMs = SHARED_EVENT_WINDOW_MS) => syncService.sync({ background: true, recheckMs })
       .catch(error => console.error('Background sync failed', error));
+    const refreshIncompleteOnlineView = async () => {
+      const account = getUserId();
+      const identity = getSessionIdentity();
+      const isCurrent = () => account === getUserId() && identity === getSessionIdentity();
+      if (!navigator.onLine || isOfflineMode()) return;
+      try {
+        // A fallback view can still need its first authoritative read even
+        // when the shared offline snapshot has no changes.
+        const store = useDeckStore.getState();
+        if (['cached', 'error'].includes(store.libraryStatus) && !store.isFetchingDecks) {
+          await store.fetchDecks(true);
+        }
+        if (!isCurrent()) return;
+        const { currentDeck, cardsCompleteByDeck, fetchDeckCards } = useDeckStore.getState();
+        if (useUiStore.getState().view === 'cards' && currentDeck?.id && cardsCompleteByDeck[currentDeck.id] === false) {
+          await fetchDeckCards(currentDeck.id);
+        }
+      } catch { /* The library and card loaders own their retries and errors. */ }
+    };
+    const resumeSync = () => {
+      void runBackgroundSync();
+      void refreshIncompleteOnlineView();
+    };
     init();
     useAuthStore.getState().initListeners();
 
@@ -88,23 +115,13 @@ export const useAppInitialization = (checkStartParam) => {
     checkStartParam();
 
     // Listen for visibility changes
-    let lastVisibilityFetch = 0;
-    const VISIBILITY_FETCH_COOLDOWN_MS = 2 * 60 * 1000; // 2 minutes
     const handleVisibilityChange = () => {
       if (document.visibilityState === 'visible') {
         console.log("App became visible, re-checking parameters and auth...");
         useAuthStore.getState().checkPendingSession();
         setTimeout(checkStartParam, 500);
         if (navigator.onLine && (getAccessToken() || getUserId())) {
-          runBackgroundSync();
-          if (!isOfflineMode()) {
-            const now = Date.now();
-            if (now - lastVisibilityFetch > VISIBILITY_FETCH_COOLDOWN_MS) {
-              lastVisibilityFetch = now;
-              // Fresh reload of decks and folders when returning to Telegram Mini App
-              useDeckStore.getState().fetchDecks(true).catch(() => {});
-            }
-          }
+          resumeSync();
           useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
         }
       }
@@ -113,16 +130,12 @@ export const useAppInitialization = (checkStartParam) => {
     // Listen for online event (reconnection)
     const handleOnline = async () => {
       console.log("[Sync] Network online detected. Triggering auto-sync...");
-      await useAuthStore.getState().restoreSession();
-      runBackgroundSync();
-      if (!isOfflineMode()) {
-        useDeckStore.getState().fetchDecks(true).catch(() => {});
-        const { currentDeck, cardsCompleteByDeck, fetchDeckCards } = useDeckStore.getState();
-        if (useUiStore.getState().view === 'cards' && currentDeck?.id && cardsCompleteByDeck?.[currentDeck.id] === false) {
-          fetchDeckCards(currentDeck.id).catch(() => {});
-        }
+      const { restoreSession, sessionRevision } = useAuthStore.getState();
+      await restoreSession({ refreshLibrary: false });
+      resumeSync();
+      if (useAuthStore.getState().sessionRevision === sessionRevision) {
+        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
       }
-      useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
@@ -134,9 +147,12 @@ export const useAppInitialization = (checkStartParam) => {
     const unsubscribeSyncUi = subscribeSyncUi(refreshPeerOfflineUi);
 
     // Periodic background sync every 60 seconds
-    const syncInterval = setInterval(() => {
-      if (navigator.onLine) runBackgroundSync();
-    }, 60000);
+    const syncInterval = setInterval(async () => {
+      if (!navigator.onLine) return;
+      const result = await runBackgroundSync(SHARED_POLL_WINDOW_MS);
+      // A server outage can recover while navigator.onLine stays true.
+      if (result?.pull_success && !result.pull_applied) void refreshIncompleteOnlineView();
+    }, SYNC_INTERVAL_MS);
 
     return () => {
       unsubscribeSettingsAccount();

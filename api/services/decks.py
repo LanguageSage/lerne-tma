@@ -316,45 +316,16 @@ def ensure_inbox_deck(user_id: int, target_language: str = 'de') -> TMA_Deck:
 
 
 
-_lib_cache = {
-    'time': 0,
-    'by_name': {},
-    'counts': {}
-}
-
-def _get_cached_library_info(*, strict=False):
-    global _lib_cache
-    import time
-    now = time.time()
-    if now - _lib_cache['time'] < 300 and _lib_cache['by_name']:
-        return _lib_cache['by_name'], _lib_cache['counts']
-    try:
-        ext_decks = list(TMA_Deck.select().where(TMA_Deck.scope == 'library', TMA_Deck.is_deleted == False))
-        by_name = {d.name: d for d in ext_decks}
-        ext_ids = [d.id for d in ext_decks]
-        counts = {}
-        if ext_ids:
-            counts = {
-                deck_id: count
-                for deck_id, count in (
-                    TMA_Card
-                    .select(TMA_Card.deck, fn.COUNT(TMA_Card.id))
-                    .where(TMA_Card.deck << ext_ids, TMA_Card.is_deleted == False)
-                    .group_by(TMA_Card.deck)
-                    .tuples()
-                )
-            }
-        _lib_cache = {
-            'time': now,
-            'by_name': by_name,
-            'counts': counts
-        }
-        return by_name, counts
-    except Exception as e:
-        if strict:
-            raise
-        logger.error(f"Error caching library info: {e}")
-        return _lib_cache.get('by_name', {}), _lib_cache.get('counts', {})
+def get_library_update_sources(names):
+    if not names:
+        return {}
+    rows = (TMA_Deck.select(TMA_Deck.name, TMA_Deck.updated_at, fn.COUNT(TMA_Card.id))
+            .join(TMA_Card, JOIN.LEFT_OUTER,
+                  on=(TMA_Card.deck_id == TMA_Deck.id) & (TMA_Card.is_deleted == False))
+            .where(TMA_Deck.scope == 'library', TMA_Deck.is_deleted == False, TMA_Deck.name.in_(names))
+            .group_by(TMA_Deck.id, TMA_Deck.name, TMA_Deck.updated_at)
+            .order_by(TMA_Deck.id).tuples())
+    return {name: (updated_at, total) for name, updated_at, total in rows}
 
 
 def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
@@ -453,8 +424,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
                 'trainer_count': int(row['trainer_count'] or 0)
             }
 
-        # --- Кэшированная проверка обновлений из библиотеки ---
-        ext_by_name, lib_counts = _get_cached_library_info(strict=strict)
+        library_sources = get_library_update_sources({deck.name for deck in decks})
 
         result = []
         for d in decks:
@@ -468,12 +438,11 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
 
             # Check for updates
             has_updates = False
-            ext_deck = ext_by_name.get(d.name)
-            if ext_deck:
-                lib_count = lib_counts.get(ext_deck.id, 0)
+            if d.name in library_sources:
+                library_updated_at, lib_count = library_sources[d.name]
                 if lib_count > total:
                     has_updates = True
-                elif ext_deck.updated_at and d.updated_at and ext_deck.updated_at > d.updated_at:
+                elif library_updated_at and d.updated_at and library_updated_at > d.updated_at:
                     has_updates = True
 
             parsed_metadata = resolve_deck_metadata(d, strict=strict)

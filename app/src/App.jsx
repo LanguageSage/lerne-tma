@@ -39,7 +39,6 @@ import { useCardActions } from './hooks/useCardActions';
 import { useAutoImport } from './hooks/useAutoImport';
 import { useAppInitialization } from './hooks/useAppInitialization';
 import { useCardNavigation } from './hooks/useCardNavigation';
-import { useCollaborativeSync } from './hooks/useCollaborativeSync';
 import { useStudyNavigation } from './hooks/useStudyNavigation';
 import { useKnowledgeSync } from './hooks/useKnowledgeSync';
 
@@ -217,7 +216,6 @@ function AppContent() {
   // Custom hooks for initialization and import logic
   const { clearImportShareId, checkStartParam } = useAutoImport();
   useAppInitialization(checkStartParam);
-  useCollaborativeSync(); // Real-time background sync for collaborative folders
   useKnowledgeSync(currentUserId);
   
   // Scroll to top on view change
