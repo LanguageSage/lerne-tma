@@ -21,6 +21,7 @@ import { AutoplaySettingsTab } from '../settings/AutoplaySettingsTab';
 import { KnowledgeDiagnostics } from '../settings/KnowledgeDiagnostics';
 import { useSessionStore } from '../../store/useSessionStore';
 import { accessibleSettingsTab } from '../../utils/settingsNavigation';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 class TabErrorBoundary extends React.Component {
   state = { hasError: false, error: null };
@@ -65,7 +66,8 @@ export const SettingsModal = ({ userId }) => {
   const isAdmin = useSettingsStore(s => s.isAdmin);
 
   // Redirect non-admin away from admin-only tabs
-  const activeSettingsTab = accessibleSettingsTab(settingsTab, isAdmin);
+  const resolvedTab = accessibleSettingsTab(settingsTab, isAdmin);
+  const activeSettingsTab = IS_STANDALONE && ['reminders', 'prompts'].includes(resolvedTab) ? 'profile' : resolvedTab;
 
   const [customBackgrounds] = useState([]);
   const handleTabChange = setSettingsTab;
@@ -108,13 +110,13 @@ export const SettingsModal = ({ userId }) => {
               >
                 <option value="profile">{tr("👤 Профиль")}</option>
                 <option value="srs">{tr("🧠 SRS (Интервалы и память)")}</option>
-                <option value="reminders">{tr("🔔 Напоминания бота")}</option>
+                {!IS_STANDALONE && <option value="reminders">{tr("🔔 Напоминания бота")}</option>}
                 <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
                 {isAdmin && <option value="design">🎨 {t('settings.tab_design', 'Дизайн (Редактор)')}</option>}
                 <option value="autoplay">▶ {tr("Авто-режим")}</option>
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
                 {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
-                <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>
+                {!IS_STANDALONE && <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>}
                 {isAdmin && <option value="diagnostics">🧪 Knowledge Diagnostics · Debug</option>}
               </select>
             </div>

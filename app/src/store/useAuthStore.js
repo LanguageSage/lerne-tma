@@ -9,6 +9,7 @@ import { useDeckStore } from './useDeckStore';
 import { useSessionStore } from './useSessionStore';
 import { useLanguageStore } from './useLanguageStore';
 import { IS_LOCAL, localStorageKey } from '../utils/localMode.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 const NAVIGATION_KEY = localStorageKey('lerne_auth_pending_navigation');
 const PENDING_KEY = localStorageKey('lerne_auth_v2_pending');
@@ -110,6 +111,7 @@ export const useAuthStore = create((set, get) => ({
   preparedTelegramChallenge: null,
 
   prepareTelegramChallenge: (purpose = 'login') => {
+    if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return Promise.resolve(null);
     // A sibling tab may have completed login before this tab's /me returns.
     if (purpose === 'login' && getAuthSession()
         && (get().isRestoring || get().status === 'restoring')) return Promise.resolve(null);
@@ -151,6 +153,19 @@ export const useAuthStore = create((set, get) => ({
   },
 
   restoreSession: ({ refreshLibrary = true } = {}) => {
+    if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+      const standaloneProfile = getUserProfile();
+      set({
+        userProfile: standaloneProfile,
+        savedProfile: standaloneProfile,
+        status: 'authenticated',
+        isRestoring: false,
+        authModalOpen: false,
+        authError: null,
+      });
+      useUiStore.setState({ userProfile: standaloneProfile, isAuthModalOpen: false });
+      return Promise.resolve();
+    }
     const identity = getSessionIdentity();
     if (restoration?.identity === identity) return restoration.promise;
     const generation = authGeneration;
@@ -216,6 +231,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   refreshAuthMethods: async () => {
+    if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return null;
     const generation = authGeneration;
     const userId = getUserId();
     try {
@@ -233,6 +249,11 @@ export const useAuthStore = create((set, get) => ({
   },
 
   setAuthModalOpen: (isOpen, tab = 'telegram') => {
+    if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+      set({ authModalOpen: false, authError: null });
+      useUiStore.getState().setIsAuthModalOpen(false);
+      return;
+    }
     set({ authModalOpen: isOpen, authModalTab: tab, authError: null });
     useUiStore.getState().setIsAuthModalOpen(isOpen, tr('Вход в аккаунт'));
   },
@@ -284,6 +305,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   startProvider: async (provider, purpose = 'login', recovery = false) => {
+    if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return { success: false, error: 'Auth disabled in standalone offline mode' };
     if (IS_LOCAL) return { success: false, error: 'Social login is unavailable in LOCAL' };
     if (get().isStarting || get().isPolling) return { success: false };
     set({ isStarting: true, authError: null });
@@ -382,6 +404,7 @@ export const useAuthStore = create((set, get) => ({
   },
 
   checkPendingSession: async () => {
+    if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return false;
     if (exchangeInFlight) return false;
     exchangeInFlight = true;
     try {
@@ -470,7 +493,7 @@ export const useAuthStore = create((set, get) => ({
     useUiStore.setState({ userProfile: null });
   },
   initListeners: () => {
-    if (listenersReady || typeof window === 'undefined') return;
+    if ((typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) || listenersReady || typeof window === 'undefined') return;
     listenersReady = true;
     const resume = () => {
       if (!document.hidden && pendingAuth()) {
@@ -509,6 +532,7 @@ export const useAuthStore = create((set, get) => ({
 let observedIdentity = getSessionIdentity();
 let observedOwner = getUserId();
 subscribeAuthSession(({ loginRequired }) => {
+  if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return;
   const identity = getSessionIdentity();
   const owner = getUserId();
   const changed = identity !== observedIdentity;

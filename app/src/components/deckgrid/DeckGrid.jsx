@@ -34,6 +34,7 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { navigateUp } from '../../utils/navigation';
 import api from '../../services/api';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const DeckGrid = ({ 
   startTutorial, 
@@ -339,7 +340,7 @@ export const DeckGrid = ({
           />
         )}
 
-        {libraryStatus === 'cached' && (decks.length > 0 || folders.length > 0) && (
+        {!IS_STANDALONE && libraryStatus === 'cached' && (decks.length > 0 || folders.length > 0) && (
           <div className="glass" role="status" style={{ padding: 16, marginBottom: 12 }}>
             <strong>{tr('Показаны сохранённые данные')}</strong>
             <p>{tr('Библиотека ещё не подтверждена сервером.')}</p>

@@ -5,6 +5,7 @@ import { offlineApi } from './offlineApi.js';
 import { networkApi as axiosInstance } from './networkApi.js';
 import { syncService } from './syncService.js';
 import { handleLocalFirstRequest, tryLocalFirstNativeCreate, reconcileOnlineResponse } from './apiCacheSync.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 // Проксируем методы Axios для поддержки офлайн-режима и автоматического фоллбека
 const api = new Proxy(axiosInstance, {
@@ -69,6 +70,16 @@ const api = new Proxy(axiosInstance, {
           || !navigator.onLine || /^\/cards\/-\d+$/.test(url);
         const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
         const isDeckCardsRead = propKey === 'get' && /^\/decks\/-?\d+\/cards(?:\?|$)/.test(url);
+
+        if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+          if (isOfflineEndpoint) {
+            const response = await localRequest(...args);
+            return (isLibraryRead || isDeckCardsRead) ? { ...response, dataSource: 'local' } : response;
+          }
+          const err = new Error('Offline standalone mode: server endpoint unavailable');
+          err.code = 'ERR_STANDALONE_OFFLINE';
+          throw err;
+        }
 
         if (forceOffline && isOfflineEndpoint) {
           try {

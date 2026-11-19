@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import { startKnowledgeSync, stopKnowledgeSync } from '../services/knowledgeSyncOrchestrator.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 /**
  * React hook to manage Knowledge Sync Orchestrator lifecycle across user logins,
@@ -9,7 +10,7 @@ import { startKnowledgeSync, stopKnowledgeSync } from '../services/knowledgeSync
  */
 export function useKnowledgeSync(userId) {
   useEffect(() => {
-    if (!userId) {
+    if (IS_STANDALONE || !userId) {
       stopKnowledgeSync();
       return;
     }

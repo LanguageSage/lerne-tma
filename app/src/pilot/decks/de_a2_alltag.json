@@ -1,0 +1,221 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "Alltag & Kommunikation (A2)",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "Alltag & Kommunikation",
+        "level": "A2",
+        "topic": "Повседневное общение и модальные глаголы",
+        "goal": "Уверенно строить просьбы, договорённости и бытовые фразы на уровне A2",
+        "learning_outcomes": [
+          "Использовать möchte/kann/muss в диалогах",
+          "Строить вежливые просьбы и вопросы о времени и месте",
+          "Различать близкие по смыслу бытовые выражения"
+        ],
+        "estimated_time": "10–15 мин"
+      },
+      "pedagogy": {
+        "lesson_type": "practice"
+      }
+    },
+    "metadata": {
+      "target_language": "de",
+      "author": "Lerne Offline Pilot"
+    }
+  },
+  "cards": [
+    {
+      "id": "a2-01",
+      "type": "theory",
+      "level": "A2",
+      "topics": ["Modalverben"],
+      "info": [
+        { "type": "task", "text": "Изучите правило порядка слов с модальными глаголами." }
+      ],
+      "data": {
+        "text": "В утвердительном предложении с модальным глаголом (können, müssen, dürfen, wollen, sollen, möchten) спрягаемый глагол стоит на 2-м месте, а инфинитив — в самом конце.\n\nПример:\nIch **muss** heute noch einen Brief **schreiben**.",
+        "summary": "Рамочная конструкция: модальный глагол на 2-м месте, Infinitiv в конце предложения."
+      },
+      "explanation": "В придаточном предложении с weil/dass оба глагола уходят в конец: ..., weil ich heute arbeiten muss."
+    },
+    {
+      "id": "a2-02",
+      "type": "standard",
+      "level": "A2",
+      "topics": ["Termine"],
+      "data": {
+        "prompt": "einen Termin verschieben",
+        "answer": "перенести встречу / запись"
+      },
+      "explanation": "Beispiel: Könnten wir unseren Termin auf Freitag verschieben?"
+    },
+    {
+      "id": "a2-03",
+      "type": "standard",
+      "level": "A2",
+      "topics": ["Einkauf"],
+      "data": {
+        "prompt": "die Quittung / der Kassenbon",
+        "answer": "чек (квитанция об оплате)"
+      },
+      "explanation": "Пример: Brauchen Sie die Quittung? — Ja, bitte."
+    },
+    {
+      "id": "a2-04",
+      "type": "standard",
+      "level": "A2",
+      "topics": ["Alltag"],
+      "data": {
+        "prompt": "Bescheid geben / Bescheid sagen",
+        "answer": "сообщить, дать знать"
+      },
+      "explanation": "Пример: Ich gebe dir morgen früh Bescheid."
+    },
+    {
+      "id": "a2-05",
+      "type": "trainer",
+      "level": "A2",
+      "topics": ["Modalverben"],
+      "info": [
+        { "type": "task", "text": "Вставьте правильную форму глагола können для местоимения wir." }
+      ],
+      "data": {
+        "back_note": "wir können — форма множественного числа совпадает с инфинитивом.",
+        "parts": [
+          { "type": "text", "text": "Wir " },
+          { "type": "input", "answers": ["können"] },
+          { "type": "text", "text": " uns um 18 Uhr vor dem Café treffen." }
+        ]
+      },
+      "explanation": "Глагол können во множественном числе (wir, sie, Sie) имеет форму können."
+    },
+    {
+      "id": "a2-06",
+      "type": "trainer",
+      "level": "A2",
+      "topics": ["Präpositionen"],
+      "info": [
+        { "type": "task", "text": "Выберите подходящий предлог времени." }
+      ],
+      "data": {
+        "back_note": "Для точного времени (часов) используется um; для дней недели — am.",
+        "parts": [
+          { "type": "text", "text": "Der Zug fährt " },
+          {
+            "type": "choice",
+            "options": [
+              { "text": "um", "correct": true },
+              { "text": "am", "correct": false },
+              { "text": "im", "correct": false }
+            ]
+          },
+          { "type": "text", "text": " 14:30 Uhr ab." }
+        ]
+      },
+      "explanation": "um + время суток в часах: um 14:30 Uhr."
+    },
+    {
+      "id": "a2-07",
+      "type": "quiz",
+      "level": "A2",
+      "topics": ["Höflichkeit"],
+      "data": {
+        "prompt": "Какая фраза звучит наиболее вежливо в кафе или магазине?",
+        "back_note": "Ich hätte gern... / Könnte ich bitte... — вежливые стандартные формулы.",
+        "options": [
+          { "text": "Ich hätte gern einen Kaffee ohne Zucker, bitte.", "correct": true },
+          { "text": "Gib mir sofort einen Kaffee!", "correct": false },
+          { "text": "Ich muss Kaffee trinken jetzt.", "correct": false }
+        ]
+      },
+      "explanation": "Konjunktiv II (hätte gern / möchte) делает просьбу вежливой."
+    },
+    {
+      "id": "a2-08",
+      "type": "quiz",
+      "level": "A2",
+      "topics": ["Termine"],
+      "data": {
+        "prompt": "Выберите ВСЕ фразы, которыми можно подтвердить встречу.",
+        "back_note": "Einverstanden и Das passt mir gut выражают согласие.",
+        "options": [
+          { "text": "Das passt mir gut.", "correct": true },
+          { "text": "Einverstanden, bis morgen!", "correct": true },
+          { "text": "Leider habe ich keine Zeit.", "correct": false }
+        ]
+      },
+      "explanation": "Отклонить встречу можно фразой: Leider habe ich keine Zeit."
+    },
+    {
+      "id": "a2-09",
+      "type": "match",
+      "level": "A2",
+      "topics": ["Alltag"],
+      "info": [
+        { "type": "task", "text": "Соотнесите немецкие глаголы с переводом." }
+      ],
+      "data": {
+        "back_note": "Частые глаголы повседневного общения.",
+        "pairs": [
+          { "left": "absagen", "right": "отменить" },
+          { "left": "einladen", "right": "пригласить" },
+          { "left": "mitbringen", "right": "принести с собой" },
+          { "left": "vergleichen", "right": "сравнить" }
+        ]
+      }
+    },
+    {
+      "id": "a2-10",
+      "type": "match",
+      "level": "A2",
+      "topics": ["Fragewörter"],
+      "info": [
+        { "type": "task", "text": "Соотнесите вопросительные слова с их значением." }
+      ],
+      "data": {
+        "back_note": "Wohin — куда, wo — где, woher — откуда.",
+        "pairs": [
+          { "left": "Wohin?", "right": "Куда?" },
+          { "left": "Woher?", "right": "Откуда?" },
+          { "left": "Wie lange?", "right": "Как долго?" }
+        ]
+      }
+    },
+    {
+      "id": "a2-11",
+      "type": "puzzle",
+      "level": "A2",
+      "topics": ["Wortstellung"],
+      "info": [
+        { "type": "task", "text": "Соберите вежливую просьбу в правильном порядке." }
+      ],
+      "data": {
+        "tokens": ["Können", "Sie", "mir", "bitte", "den", "Weg", "zeigen?"],
+        "translation": "Не могли бы вы, пожалуйста, показать мне дорогу?"
+      },
+      "explanation": "В общем вопросе без вопросительного слова на 1-м месте стоит глагол (Können)."
+    },
+    {
+      "id": "a2-12",
+      "type": "word_bank",
+      "level": "A2",
+      "topics": ["Einkauf"],
+      "info": [
+        { "type": "task", "text": "Заполните пропуски подходящими словами из банка." }
+      ],
+      "data": {
+        "options": ["bezahlen", "mitnehmen", "Kasse"],
+        "parts": [
+          { "type": "text", "text": "Ich möchte bar an der " },
+          { "type": "gap", "option": 2 },
+          { "type": "text", "text": " " },
+          { "type": "gap", "option": 0 },
+          { "type": "text", "text": "." }
+        ]
+      },
+      "explanation": "an der Kasse bezahlen — оплатить на кассе."
+    }
+  ]
+}

@@ -36,6 +36,7 @@ import { CardRating } from './CardRating';
 import { useCardNotes } from '../../hooks/useCardNotes';
 import { studyContent, studyExerciseType, studyInfoBlocks, studyQuiz, studySideText } from '../../utils/structuredStudyCard.js';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 // Keep playback/error state with the mounted physical side.
 const CardVideo = ({ src }) => {
@@ -564,7 +565,7 @@ export const StudyCard = React.memo(({
                 })()}
               </div>
 
-              <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />
+              {!IS_STANDALONE && <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />}
               {aiExplanation && <div className="ai-explanation-block card-context-wrapper">
                 <strong>{tr('Ответ ИИ:')}</strong>
                 <div className="text-context" style={{ whiteSpace: 'pre-wrap', ...contextStyle }}>
@@ -695,7 +696,7 @@ export const StudyCard = React.memo(({
             </div>
             <CardActionButton card={card} size={20} className="study-card-actions-button" refreshNotes />
           </div>
-          <CardRating key={card?.id} card={card} deckId={card?.deck_id ?? deckId} />
+          {!IS_STANDALONE && <CardRating key={card?.id} card={card} deckId={card?.deck_id ?? deckId} />}
         </div>
         {loading && (
           <div className="card-loading-overlay">

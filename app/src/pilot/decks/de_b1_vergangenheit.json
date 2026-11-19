@@ -1,0 +1,202 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "Perfekt & Plusquamperfekt (B1)",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "Perfekt & Plusquamperfekt",
+        "level": "B1",
+        "topic": "Прошедшие времена в немецком языке",
+        "goal": "Чётко выбирать haben или sein и передавать предшествование действий в прошлом",
+        "learning_outcomes": [
+          "Правильно выбирать вспомогательный глагол haben или sein",
+          "Строить формы Partizip II сильных и отделяемых глаголов",
+          "Разграничивать Perfekt и Plusquamperfekt в контексте"
+        ],
+        "estimated_time": "10–15 мин"
+      },
+      "pedagogy": {
+        "lesson_type": "practice"
+      }
+    },
+    "metadata": {
+      "target_language": "de",
+      "author": "Lerne Offline Pilot"
+    }
+  },
+  "cards": [
+    {
+      "id": "b1-past-01",
+      "type": "theory",
+      "level": "B1",
+      "topics": ["Plusquamperfekt"],
+      "info": [
+        { "type": "task", "text": "Повторите образование Perfekt и Plusquamperfekt." }
+      ],
+      "data": {
+        "text": "**Perfekt:** haben/sein (Präsens) + Partizip II\n**Plusquamperfekt:** hatte/war (Präteritum) + Partizip II\n\nГлаголы движения и смены состояния (fahren, ankommen, einschlafen, bleiben, sein, werden) образуют формы с **sein**.",
+        "summary": "Plusquamperfekt обозначает действие, завершившееся до другого события в прошлом."
+      },
+      "explanation": "Пример: Nachdem wir eingekauft hatten, kochten wir zusammen."
+    },
+    {
+      "id": "b1-past-02",
+      "type": "standard",
+      "level": "B1",
+      "topics": ["Stammformen"],
+      "data": {
+        "prompt": "entscheiden — entschied — hat entschieden",
+        "answer": "решать, принимать решение"
+      },
+      "explanation": "Неотделяемая приставка ent- никогда не получает приставку ge- в Partizip II."
+    },
+    {
+      "id": "b1-past-03",
+      "type": "standard",
+      "level": "B1",
+      "topics": ["Stammformen"],
+      "data": {
+        "prompt": "umziehen — zog um — ist umgezogen",
+        "answer": "переезжать (на другую квартиру)"
+      },
+      "explanation": "Отделяемая приставка um- пропускает -ge- внутрь: um-ge-zogen."
+    },
+    {
+      "id": "b1-past-04",
+      "type": "trainer",
+      "level": "B1",
+      "topics": ["Plusquamperfekt"],
+      "info": [
+        { "type": "source", "text": "Событие 1: я закрыл окно. Событие 2: пошёл дождь." },
+        { "type": "task", "text": "Выберите союз и вставьте форму hatte." }
+      ],
+      "data": {
+        "back_note": "Nachdem требует предшествования (Plusquamperfekt) в придаточном предложении.",
+        "parts": [
+          {
+            "type": "choice",
+            "options": [
+              { "text": "Nachdem", "correct": true },
+              { "text": "Bevor", "correct": false }
+            ]
+          },
+          { "type": "text", "text": " ich das Fenster geschlossen " },
+          { "type": "input", "answers": ["hatte"] },
+          { "type": "text", "text": ", begann es zu regnen." }
+        ]
+      },
+      "explanation": "Nachdem + Plusquamperfekt → главное предложение в Präteritum или Perfekt."
+    },
+    {
+      "id": "b1-past-05",
+      "type": "trainer",
+      "level": "B1",
+      "topics": ["Perfekt"],
+      "info": [
+        { "type": "task", "text": "Выберите вспомогательный глагол (ist или hat)." }
+      ],
+      "data": {
+        "back_note": "aufstehen (вставать) — глагол смены состояния/положения, используется с sein.",
+        "parts": [
+          { "type": "text", "text": "Meine Schwester " },
+          {
+            "type": "choice",
+            "options": [
+              { "text": "ist", "correct": true },
+              { "text": "hat", "correct": false }
+            ]
+          },
+          { "type": "text", "text": " heute schon um sechs Uhr aufgestanden." }
+        ]
+      },
+      "explanation": "aufstehen → ist aufgestanden."
+    },
+    {
+      "id": "b1-past-06",
+      "type": "trainer",
+      "level": "B1",
+      "topics": ["Partizip II"],
+      "info": [
+        { "type": "task", "text": "Впишите форму Partizip II от глагола vergessen." }
+      ],
+      "data": {
+        "back_note": "Неотделяемая приставка ver- → без ge-: vergessen.",
+        "parts": [
+          { "type": "text", "text": "Tut mir leid, ich habe meinen Schlüssel zu Hause " },
+          { "type": "input", "answers": ["vergessen"] },
+          { "type": "text", "text": "." }
+        ]
+      },
+      "explanation": "vergessen — vergaß — hat vergessen."
+    },
+    {
+      "id": "b1-past-07",
+      "type": "quiz",
+      "level": "B1",
+      "topics": ["Perfekt"],
+      "data": {
+        "prompt": "Какое предложение грамматически правильно в Perfekt?",
+        "back_note": "Глагол bleiben образует Perfekt с sein: ist geblieben.",
+        "options": [
+          { "text": "Er ist das ganze Wochenende zu Hause geblieben.", "correct": true },
+          { "text": "Er hat das ganze Wochenende zu Hause geblieben.", "correct": false },
+          { "text": "Er ist das ganze Wochenende zu Hause gebleibt.", "correct": false }
+        ]
+      },
+      "explanation": "bleiben — blieb — ist geblieben (исключение, требующее sein)."
+    },
+    {
+      "id": "b1-past-08",
+      "type": "match",
+      "level": "B1",
+      "topics": ["Partizip II"],
+      "info": [
+        { "type": "task", "text": "Соедините инфинитив с правильной формой Partizip II." }
+      ],
+      "data": {
+        "back_note": "Сильные глаголы с чередованием корневой гласной.",
+        "pairs": [
+          { "left": "schreiben", "right": "geschrieben" },
+          { "left": "sprechen", "right": "gesprochen" },
+          { "left": "helfen", "right": "geholfen" },
+          { "left": "nehmen", "right": "genommen" }
+        ]
+      }
+    },
+    {
+      "id": "b1-past-09",
+      "type": "puzzle",
+      "level": "B1",
+      "topics": ["Plusquamperfekt"],
+      "info": [
+        { "type": "task", "text": "Составьте предложение в правильном порядке." }
+      ],
+      "data": {
+        "tokens": ["Als", "wir", "ankamen,", "war", "der", "Film", "schon", "beendet."],
+        "translation": "Когда мы приехали, фильм уже закончился."
+      },
+      "explanation": "После придаточного на 1-м месте (Als wir ankamen,) главное начинается сразу со спрягаемого глагола (war)."
+    },
+    {
+      "id": "b1-past-10",
+      "type": "word_bank",
+      "level": "B1",
+      "topics": ["Perfekt"],
+      "info": [
+        { "type": "task", "text": "Подставьте нужные формы из банка слов." }
+      ],
+      "data": {
+        "options": ["hat", "gefahren", "angekommen", "ist"],
+        "parts": [
+          { "type": "text", "text": "Der Bus " },
+          { "type": "gap", "option": 3 },
+          { "type": "text", "text": " pünktlich am Bahnhof " },
+          { "type": "gap", "option": 2 },
+          { "type": "text", "text": "." }
+        ]
+      },
+      "explanation": "ankommen (прибывать) образует Perfekt с sein: ist angekommen."
+    }
+  ]
+}

@@ -1,14 +1,19 @@
 apply plugin: 'com.android.application'
 
+def isOfflinePilot = (project.findProperty('lerneOfflinePilot') ?: 'false').toString().toBoolean()
+def pilotVersionCodeProp = project.findProperty('lernePilotVersionCode')
+def pilotVersionNameProp = project.findProperty('lernePilotVersionName')
+
 android {
     namespace = "com.lerne.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId "com.lerne.app"
+        applicationId isOfflinePilot ? "com.lerne.offlinepilot" : "com.lerne.app"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode 1
-        versionName "1.0"
+        versionCode isOfflinePilot && pilotVersionCodeProp ? pilotVersionCodeProp.toString().toInteger() : 1
+        versionName isOfflinePilot && pilotVersionNameProp ? pilotVersionNameProp.toString() : (isOfflinePilot ? "1.0.0-offline-pilot" : "1.0")
+        manifestPlaceholders = [appName: isOfflinePilot ? "Lerne Offline Pilot" : "Lerne"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.

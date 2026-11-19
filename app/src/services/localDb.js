@@ -2,6 +2,7 @@ import Dexie from 'dexie';
 import { Capacitor } from '@capacitor/core';
 import { getUserId } from '../utils/auth.js';
 import { IS_LOCAL } from '../utils/localMode.js';
+import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js';
 
 const databases = new Map();
 const preparations = new Map();
@@ -9,7 +10,8 @@ const preparations = new Map();
 export const getLocalDb = () => {
   const userId = String(getUserId());
   if (databases.has(userId)) return databases.get(userId);
-  const database = new Dexie(`${IS_LOCAL ? 'LerneTestDB' : 'LerneLocalDB'}_${userId}`);
+  const prefix = IS_STANDALONE ? STANDALONE_DB_PREFIX : (IS_LOCAL ? 'LerneTestDB' : 'LerneLocalDB');
+  const database = new Dexie(`${prefix}_${userId}`);
   configureDatabase(database);
   databases.set(userId, database);
   return database;
@@ -51,7 +53,7 @@ export async function prepareLocalDb() {
 }
 
 async function migrateLegacy(database, userId) {
-  if (IS_LOCAL) return;
+  if (IS_LOCAL || IS_STANDALONE) return;
   if (await database.syncState.get('legacyImported')) return;
   if (await Dexie.exists('LerneLocalDB')) {
     const legacy = new Dexie('LerneLocalDB');
@@ -140,7 +142,7 @@ export const getNextTempId = () => {
 
 // Check if app is in offline-first mode
 export const isOfflineMode = () => {
-  return Capacitor.isNativePlatform() || localStorage.getItem('offline_mode') === 'true'
+  return IS_STANDALONE || Capacitor.isNativePlatform() || localStorage.getItem('offline_mode') === 'true'
     || (import.meta.env.DEV && new URLSearchParams(window.location.search).get('offline') === '1');
 };
 

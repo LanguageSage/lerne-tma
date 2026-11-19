@@ -7,6 +7,7 @@ import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignR
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence.js';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
 const DESIGN_V2_CACHE_KEY = 'lerne:published-design:v2';
@@ -381,6 +382,7 @@ export const useSettingsStore = create((set, get) => {
     },
 
     saveCurrentSettingsToServer: () => {
+      if (IS_STANDALONE) return Promise.resolve(false);
       const account = getUserId(), generation = settingsGeneration;
       if (settingsWrite?.generation === generation) return settingsWrite.promise;
       const operation = { generation };
@@ -416,6 +418,7 @@ export const useSettingsStore = create((set, get) => {
     },
 
     fetchUserSettingsFromServer: async () => {
+      if (IS_STANDALONE) return null;
       const account = getUserId(), generation = settingsGeneration;
       if (!account || saveTimer !== null || settingsWrite?.generation === generation) return null;
       try {

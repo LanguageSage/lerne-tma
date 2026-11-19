@@ -1,4 +1,5 @@
 import { mediaURL } from './apiConfig.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 const objectUrls = new Map();
 const pending = new Set();
@@ -18,7 +19,7 @@ export async function localMediaURL(database, path, kind) {
       // Fallback to network URL if blob is unreadable
     }
   }
-  if (navigator.onLine && !pending.has(key) && pending.size < 4) {
+  if (!IS_STANDALONE && navigator.onLine && !pending.has(key) && pending.size < 4) {
     pending.add(key);
     cacheMedia(database, url).catch(error => console.warn('Media cache:', error.message))
       .finally(() => pending.delete(key));
