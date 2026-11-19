@@ -147,7 +147,9 @@ export async function reconcileOnlineResponse({
             ]);
             if (!isCurrent()) throw new axios.CanceledError('Session changed during grade progress update');
             if (existingCard) {
-              await db.cards.put(mergeStudyProgress(existingCard, patch));
+              const mergedCard = mergeStudyProgress(existingCard, patch);
+              if (mergedCard === existingCard) return;
+              await db.cards.put(mergedCard);
             }
             for (const row of progressRows) {
               if (String(row.user_id) === String(requestAccount) && !row.is_dirty) {

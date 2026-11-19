@@ -194,5 +194,5 @@ export async function deliverEntityBatch(db, userId, options, isCurrent, notifyS
   if (!isCurrent()) throw new Error('Session changed');
   const acknowledged = await acknowledge(db, batch, mappings, isCurrent, response.data.versions);
   if (acknowledged && isCurrent()) notifySyncUi('lerne:ids-remapped', { mappings, userId }, { mappings });
-  return acknowledged;
+  if (acknowledged) return { contentChanged: ['cards', 'decks', 'folders'].some(name => batch[name]?.length) };
 }

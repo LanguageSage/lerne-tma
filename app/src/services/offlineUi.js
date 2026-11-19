@@ -4,6 +4,8 @@ import { useUiStore } from '../store/useUiStore';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { getLocalDb } from './localDb';
 import { tr } from '../i18n/locale';
+import { getNextIntervals, isLeech } from '../utils/srsEngine';
+import { emptyStudyProgress, mergeStudyProgress } from '../utils/structuredStudyCard';
 
 export function remapOfflineUi({ detail }) {
   if (detail.userId !== getUserId()) return;
@@ -111,11 +113,45 @@ export function offlineMoveLabel(move) {
   return tr('Сервер отклонил перенос. Перенос сохранён на устройстве.');
 }
 
+async function refreshProgressUi(userId, progressIds, isCurrent) {
+  const db = getLocalDb();
+  const [checkpoint, rows] = await db.transaction('r', db.syncState, db.progress, () => Promise.all([
+    db.syncState.get('lastSync'), db.progress.bulkGet(progressIds.map(id => [id, userId])),
+  ]));
+  if (!isCurrent() || !checkpoint?.progressCounts) return;
+  const progress = new Map(progressIds.map((id, index) => [id, rows[index] ?? emptyStudyProgress]));
+  const patchCard = card => {
+    const updated = progress.get(card?.id);
+    if (!updated) return card;
+    const merged = mergeStudyProgress(card, { ...updated,
+      intervals: getNextIntervals(updated, card._studyContext), is_leech: isLeech(updated.lapses || 0),
+      _studyProgressAt: checkpoint.progressReadStartedAt, _studyProgressStartedAt: checkpoint.progressReadStartedAt });
+    return merged === card ? card : { ...merged, want_to_learn: updated.want_to_learn };
+  };
+  const patchDeck = deck => {
+    if (!deck?.stats) return deck;
+    const { tracked = 0, learning = 0, due = 0 } = checkpoint.progressCounts[deck.id] ?? {};
+    return { ...deck, stats: { ...deck.stats, new: Math.max(0, deck.stats.total - tracked), learning, due } };
+  };
+  useDeckStore.setState(state => ({
+    decks: state.decks.map(patchDeck), currentDeck: patchDeck(state.currentDeck),
+    deckCards: state.deckCards.map(patchCard), duplicateCards: state.duplicateCards.map(patchCard),
+    cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([id, cards]) => [id, cards.map(patchCard)])),
+  }));
+  useSessionStore.setState(state => ({ card: patchCard(state.card), studyHistory: state.studyHistory.map(patchCard) }));
+}
+
 export async function refreshOfflineUi({ detail }) {
   const identity = getSessionIdentity();
-  if (detail.userId !== getUserId() || detail.alreadyRefreshed) return;
+  const isCurrent = () => detail.userId === getUserId() && identity === getSessionIdentity();
+  if (!isCurrent() || detail.alreadyRefreshed) return;
   try {
     const state = useDeckStore.getState();
+    if (detail.progressOnly) {
+      await refreshProgressUi(detail.userId, detail.progressIds, isCurrent);
+      if (detail.libraryOnly && isCurrent()) await state.fetchDecks(true);
+      return;
+    }
     if (detail.cardLifecycleRejection) {
       useUiStore.getState().showToast(tr(detail.cardLifecycleRejection === 409
         ? 'Конфликт версий' : 'Ошибка синхронизации. Карточка сохранена на устройстве.'), 'error');
@@ -149,7 +185,8 @@ export async function refreshPeerOfflineUi({ data }) {
       remapOfflineUi({ detail: { userId, mappings, confirmedCard: card, silent: true } });
       if (id != null && !data.refreshAfterSync) await refreshOfflineUi({ detail: { userId } });
     } else if (type === 'lerne:synced') {
-      await refreshOfflineUi({ detail: { userId, libraryOnly: data.libraryOnly } });
+      await refreshOfflineUi({ detail: { userId, libraryOnly: data.libraryOnly,
+        progressOnly: data.progressOnly, progressIds: data.progressIds } });
     }
   } catch (error) {
     if (isCurrent()) console.warn('Offline tab refresh:', error.message);

@@ -135,9 +135,10 @@ def drain_legacy_changes(request: LegacyDrainRequest, user_id: int = Depends(get
 @router.get('/v2/pull')
 @db_worker
 def pull_offline_changes(card_schema: Literal['2'] = '2', user_id: int = Depends(get_user_id),
-                         snapshot_version: str | None = Query(None, pattern=r'^(?:[a-f0-9]{64})?$')) -> dict:
+                         snapshot_version: str | None = Query(None, pattern=r'^(?:[a-f0-9]{64})?$'),
+                         content_version: str | None = Query(None, pattern=r'^(?:[a-f0-9]{64})?$')) -> dict:
     from api.services.offline_sync import pull_offline
-    return pull_offline(user_id, snapshot_version)
+    return pull_offline(user_id, snapshot_version, content_version)
 
 
 @router.get('/v2/status')

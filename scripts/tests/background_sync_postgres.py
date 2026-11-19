@@ -17,8 +17,9 @@ from peewee import Model
 ROOT = Path(__file__).resolve().parents[2]
 BASELINE = '30737439fe3ad77f4ab2cdc307941a4934de78ad'
 CLIENT_FILES = ('src/App.jsx', 'src/hooks/useAppInitialization.js', 'src/hooks/useCollaborativeSync.js',
-                'src/services/cardOutboxSync.js', 'src/services/entityBatchSync.js', 'src/services/offlineUi.js',
-                'src/services/syncService.js', 'src/store/useAuthStore.js')
+                'src/services/apiCacheSync.js', 'src/services/cardOutboxSync.js',
+                'src/services/entityBatchSync.js', 'src/services/offlineUi.js',
+                'src/services/syncService.js', 'src/store/useAuthStore.js', 'src/utils/structuredStudyCard.js')
 
 
 def verify(db, scratch):
@@ -106,10 +107,10 @@ def verify(db, scratch):
     exec(compile(before('api/services/decks.py'), 'legacy deck benchmark', 'exec'), baseline_decks)
     current_pull = offline_sync.pull_offline
 
-    def pull(user_id, snapshot_version=None):
+    def pull(user_id, snapshot_version=None, content_version=None):
         if snapshot_version is None:
             return baseline['pull_offline'](user_id)
-        return current_pull(user_id, snapshot_version)
+        return current_pull(user_id, snapshot_version, content_version)
 
     app_dir = scratch / 'browser-app'
     shutil.copytree(ROOT / 'app', app_dir, ignore=shutil.ignore_patterns('node_modules', 'dist', '.env*'))

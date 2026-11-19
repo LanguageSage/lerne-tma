@@ -159,6 +159,11 @@ export function studyErrorDetail(error) {
   return typeof detail === 'string' ? detail : error.message;
 }
 
+export const emptyStudyProgress = {
+  queue: 'new', interval: 0, ease_factor: 2.5, repetitions: 0, lapses: 0,
+  flag: 0, step_index: 0, next_review: null, last_reviewed: null, want_to_learn: false,
+};
+
 const studyProgressFields = [
   'queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'flag', 'step_index',
   'is_leech', 'next_review', 'last_reviewed', 'intervals',

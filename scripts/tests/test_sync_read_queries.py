@@ -150,6 +150,46 @@ class SyncFixture(unittest.TestCase):
 
 
 class SyncReadTests(SyncFixture):
+    def test_progress_only_requires_matching_opt_in_content_and_keeps_scope_changes_full(self):
+        app = FastAPI()
+        app.include_router(sync_router.router)
+        app.dependency_overrides[get_user_id] = lambda: 1
+        card = models.TMA_Card.get(models.TMA_Card.deck_id == self.shared_deck.id)
+        with TestClient(app) as client:
+            def pull(snapshot='', content=None):
+                params = {'snapshot_version': snapshot}
+                if content is not None:
+                    params['content_version'] = content
+                response = client.get('/sync/v2/pull', params=params)
+                self.assertEqual(response.status_code, 200, response.text)
+                return response.json()
+
+            full = pull(content='')
+            content = full['content_version']
+            snapshot = full['snapshot_version']
+            models.TMAProgress.update(interval=29).where(
+                models.TMAProgress.user_id == 1, models.TMAProgress.card_id == card.id).execute()
+            progress = pull(snapshot, content)
+            self.assertEqual(progress['status'], 'progress_only')
+            self.assertEqual(progress['content_version'], content)
+            self.assertNotEqual(progress['snapshot_version'], snapshot)
+            self.assertEqual(next(row for row in progress['progress'] if row['card_id'] == card.id)['interval'], 29)
+            self.assertFalse({'cards', 'decks', 'folders'} & progress.keys())
+            self.assertEqual(pull(progress['snapshot_version'], content)['status'], 'unchanged')
+            self.assertEqual(pull('', content)['status'], 'progress_only')
+            self.assertIn('cards', pull(snapshot))
+            self.assertIn('cards', pull(progress['snapshot_version'], '0' * 64))
+
+            models.TMAProgress.delete().where(models.TMAProgress.user_id == 1).execute()
+            reset = pull(progress['snapshot_version'], content)
+            self.assertEqual(reset['status'], 'progress_only')
+            self.assertEqual(reset['progress'], [])
+            models.TMA_Collaborator.delete().where(models.TMA_Collaborator.user_id == 1).execute()
+            revoked = pull(reset['snapshot_version'], content)
+            self.assertEqual(revoked['status'], 'success')
+            self.assertNotEqual(revoked['content_version'], content)
+            self.assertNotIn(self.shared_deck.id, [deck['id'] for deck in revoked['decks']])
+
     def test_catalogue_and_due_counts_invalidate_only_the_deck_summary(self):
         full = offline_sync.pull_offline(1, '')
         snapshot = full['snapshot_version']
@@ -165,8 +205,8 @@ class SyncReadTests(SyncFixture):
         card = models.TMA_Card.get((models.TMA_Card.deck_id == deck.id) & ~models.TMA_Card.is_deleted)
         models.TMAProgress.update(next_review=NOW).where(models.TMAProgress.user_id == 1,
                                                         models.TMAProgress.card_id == card.id).execute()
-        before_due = offline_sync._deck_summary_version(1, [deck], NOW - dt.timedelta(seconds=1))
-        after_due = offline_sync._deck_summary_version(1, [deck], NOW)
+        before_due = offline_sync._deck_summary_versions(1, [deck], NOW - dt.timedelta(seconds=1))[0]
+        after_due = offline_sync._deck_summary_versions(1, [deck], NOW)[0]
         self.assertNotEqual(before_due, after_due)
 
     def test_conditional_pull_revalidates_permissions_hard_deletes_and_personal_state(self):

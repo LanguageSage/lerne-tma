@@ -268,7 +268,7 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
         return finish_receipt(receipt, response)
 
 
-def pull_offline(user_id: int, snapshot_version: str | None = None) -> dict:
+def pull_offline(user_id: int, snapshot_version: str | None = None, content_version: str | None = None) -> dict:
     from api.services.decks import ensure_starter_decks
     user = models.TMAUser.select(models.TMAUser.default_decks_initialized).where(models.TMAUser.user_id == user_id).first()
     if not user or not user.default_decks_initialized:
@@ -281,7 +281,7 @@ def pull_offline(user_id: int, snapshot_version: str | None = None) -> dict:
     postgres = isinstance(database, PostgresqlDatabase)
     # Scope, row versions, and any returned payload must see the same commits.
     with database.atomic(**({'isolation_level': 'REPEATABLE READ'} if postgres else {})):
-        return _read_snapshot(user_id, snapshot_version, postgres=postgres)
+        return _read_snapshot(user_id, snapshot_version, postgres=postgres, content_version=content_version)
 
 
 def _row_versions(query, model):
@@ -291,7 +291,7 @@ def _row_versions(query, model):
     return query.select(fn.MD5(fn.STRING_AGG(stamp, ',').order_by(model.id))).scalar()
 
 
-def _deck_summary_version(user_id, decks, now):
+def _deck_summary_versions(user_id, decks, now):
     from api.services.decks import get_library_update_sources
 
     card = models.TMA_Card
@@ -304,14 +304,13 @@ def _deck_summary_version(user_id, decks, now):
                           card.deck_id.in_([deck.id for deck in active_decks]),
                           card.is_deleted == False, card.content_v2.is_null(False))
                    .group_by(card.deck_id).order_by(card.deck_id).tuples())
-    return _digest([
-        {name: [updated_at.isoformat() if updated_at else None, count]
-         for name, (updated_at, count) in sources.items()},
-        list(due_by_deck),
-    ])
+    catalogue = {name: [updated_at.isoformat() if updated_at else None, count]
+                 for name, (updated_at, count) in sources.items()}
+    return _digest([catalogue, list(due_by_deck)]), _digest(catalogue)
 
 
-def _read_snapshot(user_id: int, snapshot_version: str | None, *, postgres: bool) -> dict:
+def _read_snapshot(user_id: int, snapshot_version: str | None, *, postgres: bool,
+                   content_version: str | None = None) -> dict:
     from api.services.decks import _learning_key
     from api.services.sync_generation import generation_state
 
@@ -362,21 +361,30 @@ def _read_snapshot(user_id: int, snapshot_version: str | None, *, postgres: bool
     library = {'folders': [serialize('folders', f) for f in sorted(folders, key=lambda row: row.id)],
                'decks': [serialize('decks', d) for d in sorted(decks, key=lambda row: row.id)]}
     result = {'status': 'success', 'protocol': 2, **generation_state(), 'card_schema': 2}
+    result['server_time'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     study_rows = None
     if snapshot_version is not None:
-        result['deck_summary_version'] = _deck_summary_version(user_id, decks, datetime.datetime.now())
+        result['deck_summary_version'], catalogue_version = _deck_summary_versions(user_id, decks, datetime.datetime.now())
+        scoped_progress = progress.where(personal.card_id.in_(cards.select(card.id)))
         if postgres:
-            scoped_progress = progress.where(personal.card_id.in_(cards.select(card.id)))
             rows = [_row_versions(cards, card), _row_versions(scoped_progress, personal)]
         else:
             # SQLite test/dev fixtures use the projected data as their revision.
             study_rows = rows = read_study_rows()
         # Bump the format number when the card/progress wire projection changes.
-        version = _digest([1, user_id, result['server_generation'], library, rows])
+        scope = [1, user_id, result['server_generation'], library]
+        version = _digest([*scope, rows])
         result['snapshot_version'] = version
-        if version == snapshot_version:
-            return {**result, 'status': 'unchanged', 'server_time': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+        if content_version is not None:
+            result['content_version'] = _digest([*scope, rows[0]])
+            result['catalogue_version'] = catalogue_version
+        same_content = content_version and content_version == result['content_version']
+        if version == snapshot_version and (content_version is None or same_content):
+            return {**result, 'status': 'unchanged'}
+        if same_content:
+            progress_rows = study_rows[1] if study_rows is not None else [
+                serialize('progress', row) for row in scoped_progress.order_by(personal.id)]
+            return {**result, 'status': 'progress_only', 'progress': progress_rows}
 
     serialized_cards, serialized_progress = study_rows if study_rows is not None else read_study_rows()
-    return {**result, **library, 'cards': serialized_cards, 'progress': serialized_progress,
-            'server_time': datetime.datetime.now(datetime.timezone.utc).isoformat()}
+    return {**result, **library, 'cards': serialized_cards, 'progress': serialized_progress}

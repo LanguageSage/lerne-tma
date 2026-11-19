@@ -5,6 +5,7 @@ import Dexie from 'dexie';
 import { registerHooks } from 'node:module';
 import { inspectCardCutover, inspectCutoverDatabase } from '../cardCutoverPreflight.js';
 import { nativeCard } from '../../utils/__tests__/nativeFixture.js';
+import { emptyStudyProgress } from '../../utils/structuredStudyCard.js';
 
 registerHooks({ resolve(specifier, context, next) {
   try { return next(specifier, context); } catch (error) {
@@ -39,6 +40,7 @@ Object.defineProperty(globalThis, 'navigator', {
 });
 
 let pullResponse;
+let pushResponse;
 mock.module('../apiConfig.js', { namedExports: { API_BASE_URL: '/api', mediaURL: value => value } });
 mock.module('../networkApi.js', {
   namedExports: {
@@ -46,11 +48,11 @@ mock.module('../networkApi.js', {
       get: async (url, options) => {
         requests.push([url, options?.params?.snapshot_version]);
         if (url === '/sync/v2/status') return { data: { server_generation: 'a'.repeat(64), restored: false } };
-        if (url === '/sync/v2/pull') return { data: pullResponse(options?.params?.snapshot_version) };
+        if (url === '/sync/v2/pull') return { data: await pullResponse(options?.params?.snapshot_version, options?.params?.content_version) };
         if (url.startsWith('/card-notes')) return { data: { notes: [] } };
         throw new Error(`Unexpected GET ${url}`);
       },
-      post: async () => ({ data: { status: 'success', notes: [] } }),
+      post: async (url, payload) => ({ data: pushResponse(url, payload) }),
     },
   },
 });
@@ -71,6 +73,7 @@ beforeEach(async () => {
   user = 1;
   events.length = 0;
   requests.length = 0;
+  pushResponse = () => ({ status: 'success', notes: [] });
   storage.clear();
   saveUserProfile({ user_id: user });
   saveAuthSession({ access_token: 'tok', refresh_token: 'ref', account_id: user });
@@ -222,6 +225,112 @@ test('a catalogue or due-count change refreshes only the library and keeps the c
   events.length = 0;
   await syncService.sync({ background: true });
   assert.deepEqual(events, []);
+});
+
+const contentVersion = 'd'.repeat(64);
+const progressRow = (card_id, overrides) => ({ ...emptyStudyProgress, card_id, user_id: 1,
+  created_at: null, updated_at: null, ...overrides });
+const progressEnvelope = { status: 'progress_only', card_schema: 2, content_version: contentVersion,
+  snapshot_version: 'c'.repeat(64), catalogue_version: 'e'.repeat(64),
+  server_generation: 'a'.repeat(64), restored: false, server_time: '2026-11-18T12:00:00Z' };
+const progressBase = { ...progressEnvelope, snapshot_version: 'b'.repeat(64), status: 'success',
+  decks: [{ id: 5, name: 'Deck' }], folders: [{ id: 9 }], cards: [snapshotCard(1), snapshotCard(2), snapshotCard(3)],
+  progress: [progressRow(1), progressRow(2), progressRow(3)] };
+
+test('partial progress preserves content and completeness, protects drafts, and applies explicit resets', async () => {
+  const db = getLocalDb();
+  pullResponse = () => progressBase;
+  assert.equal((await syncService.sync({ background: true })).pull_success, true);
+  await db.progress.update([2, 1], { is_dirty: 1, interval: 13 });
+  await db.cards.update(1, { interval: 70, queue: 'review' });
+  await db.cards.update(3, { interval: 75, queue: 'review' });
+  await db.syncState.put({ key: 'deck-cards:5', complete: true });
+  events.length = 0;
+  pullResponse = (_snapshot, content) => {
+    assert.equal(content, contentVersion);
+    return { ...progressEnvelope, progress: [progressRow(1, { interval: 4 }), progressRow(2, { interval: 99 })] };
+  };
+  assert.equal((await syncService.sync({ background: true })).pull_success, true);
+  assert.equal(await db.cards.count(), 3);
+  assert.equal(await db.decks.count(), 1);
+  assert.equal(await db.folders.count(), 1);
+  assert.equal((await db.progress.get([1, 1])).interval, 4);
+  assert.equal((await db.cards.get(1)).interval, 4);
+  assert.equal((await db.cards.get(1)).content_v2.card.data.prompt, 'Prompt');
+  assert.equal((await db.progress.get([2, 1])).interval, 13);
+  assert.equal(await db.progress.get([3, 1]), undefined);
+  assert.equal((await db.cards.get(3)).interval, 0);
+  assert.equal((await db.syncState.get('deck-cards:5')).complete, true);
+  const checkpoint = await db.syncState.get('lastSync');
+  assert.equal(checkpoint.snapshotVersion, progressEnvelope.snapshot_version);
+  assert.equal(checkpoint.contentVersion, contentVersion);
+  assert.deepEqual(events.map(event => [event.detail.progressOnly, event.detail.progressIds]), [[true, [1, 3]]]);
+});
+
+test('an incomplete or malformed partial response retries a full snapshot without clearing content', async () => {
+  const db = getLocalDb();
+  pullResponse = () => progressBase;
+  await syncService.sync({ background: true });
+  await db.cards.delete(3); // The checkpoint survived a partial cache loss.
+  pullResponse = async (snapshot, content) => {
+    if (content) {
+      return { ...progressEnvelope, progress: [progressRow(1, { interval: 4 }), progressRow(3)] };
+    }
+    assert.equal(snapshot, '');
+    assert.equal(await db.cards.count(), 2);
+    assert.equal((await db.progress.get([1, 1])).interval, 0);
+    return { ...progressBase, ...progressEnvelope, status: 'success',
+      progress: [progressRow(1, { interval: 4 }), progressRow(3)] };
+  };
+  assert.equal((await syncService.sync({ background: true })).pull_success, true);
+  assert.equal(await db.cards.count(), 3);
+  assert.equal((await db.progress.get([1, 1])).interval, 4);
+  assert.equal((await db.syncState.get('lastSync')).snapshotVersion, progressEnvelope.snapshot_version);
+
+  pullResponse = (_snapshot, content) => content ? { ...progressEnvelope, progress: undefined } : {
+    ...progressEnvelope, status: 'success', progress: [],
+  };
+  assert.equal((await syncService.sync({ background: true })).pull_success, false);
+  assert.equal(await db.cards.count(), 3);
+  assert.equal((await db.progress.get([1, 1])).interval, 4);
+});
+
+test('a grade delivered during the pull preserves local progress and leaves the server version pending', async () => {
+  const db = getLocalDb();
+  pullResponse = () => progressBase;
+  await syncService.sync({ background: true });
+  pullResponse = async () => {
+    await db.transaction('rw', db.cards, db.progress, async () => {
+      await db.cards.update(1, { _studyProgressAt: Date.now() + 1 });
+      await db.progress.update([1, 1], { interval: 50 });
+    });
+    return { ...progressEnvelope, progress: [progressRow(1, { interval: 10 })] };
+  };
+  assert.equal((await syncService.sync({ background: true })).pull_success, true);
+  assert.equal((await db.progress.get([1, 1])).interval, 50);
+  assert.equal((await db.syncState.get('lastSync')).snapshotVersion, progressBase.snapshot_version);
+  assert.equal((await db.syncState.get('lastSync')).contentVersion, contentVersion);
+});
+
+test('acknowledging a progress-only queue revalidates progress with the existing content base', async () => {
+  const db = getLocalDb();
+  pullResponse = () => progressBase;
+  await syncService.sync({ background: true });
+  await db.progress.update([1, 1], { is_dirty: 1, interval: 7, flag_only: true });
+  pushResponse = (url, payload) => {
+    assert.equal(url, '/sync/v2/push');
+    assert.equal(payload.progress[0].card_id, 1);
+    return { status: 'success', mappings: {}, review_count: 0 };
+  };
+  pullResponse = (snapshot, content) => {
+    assert.equal(snapshot, '');
+    assert.equal(content, contentVersion);
+    return { ...progressEnvelope, progress: [progressRow(1, { interval: 7 })] };
+  };
+  assert.equal((await syncService.sync({ background: true })).success, true);
+  assert.equal(await db.syncState.get('pending'), undefined);
+  assert.equal((await db.progress.get([1, 1])).is_dirty, 0);
+  assert.equal(await db.cards.count(), 3);
 });
 
 test('applySnapshot preserves unsynced creates, conflicts, Date diffs, and isolates switched accounts', async () => {

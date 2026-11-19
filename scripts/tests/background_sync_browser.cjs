@@ -97,6 +97,7 @@ async function edit(page, current, prompt, local) {
         bytes: requests.reduce((sum, row) => sum + row.bytes, 0),
         sql: requests.reduce((sum, row) => sum + row.sql, 0),
         full: requests.filter(row => row.snapshot === 'success').length,
+        partial: requests.filter(row => row.snapshot === 'progress_only').length,
         unchanged: requests.filter(row => row.snapshot === 'unchanged').length,
         pullDecodes: requests.filter(row => row.snapshot).reduce((sum, row) => sum + row.decodes, 0),
         paths: requests.map(row => row.method + ' ' + row.path + ' ' + row.status) };
@@ -173,7 +174,8 @@ async function edit(page, current, prompt, local) {
 
     if (variant === 'after') {
       assert.equal(results['idle-3m'].full, 0);
-      assert.equal(results['idle-3m'].unchanged, 3);
+      assert.equal(results['idle-3m'].unchanged + results['idle-3m'].partial, 3);
+      assert.ok(results['idle-3m'].partial <= 1); // /next may have initialized progress on first open.
       assert.equal(results['idle-3m'].pullDecodes, 0);
       assert.equal(results['resume-tab'].full, 0);
       assert.equal(results['two-tabs-idle-1m'].full, 0);
@@ -188,6 +190,25 @@ async function edit(page, current, prompt, local) {
       await peer.goto(web);
       await peer.getByText(deckName, { exact: true }).first().waitFor();
       const fresh = id => request(peer, 'get', path(id), undefined, undefined, true);
+      await phase('remote-progress', async () => {
+        const cardId = ids[4];
+        await request(peer, 'post', '/study/grade',
+          { action_id: crypto.randomUUID(), card_id: cardId, deck_id: deck, grade: 2,
+            return_next: false, include_progress: true }, undefined, true);
+        const result = await page.evaluate(async () => {
+          const { syncService } = await import('/src/services/syncService.js');
+          await navigator.locks.request('lerne-offline-sync', () => {});
+          return syncService.sync({ background: true });
+        });
+        assert.equal(result.pull_success, true, result.reason);
+        await expect.poll(() => page.evaluate(async id => Boolean((await (await import('/src/services/localDb.js'))
+          .getLocalDb().progress.get([id, 1]))?.last_reviewed), cardId)).toBe(true);
+      });
+      assert.equal(results['remote-progress'].partial, 1);
+      assert.equal(results['remote-progress'].full, 0);
+      assert.equal(results['remote-progress'].pullDecodes, 0);
+      assert.equal(results['remote-progress'].paths.some(path => /^GET \/api\/(decks|folders)( |\/)/.test(path)), false);
+
       await phase('remote-edit', async () => {
         await edit(peer, await fresh(ids[0]), 'Changed on another device', false);
         await request(peer, 'post', '/decks/' + target + '/rename', { name: 'Renamed on another device' }, undefined, true);

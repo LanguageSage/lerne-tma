@@ -6,6 +6,7 @@ import { syncCardNotes } from './cardNotes.js';
 import { inspectCardCutover, inspectCutoverDatabase, inspectCutoverStorage } from './cardCutoverPreflight.js';
 import { observeServerGeneration, generationError, isGenerationConflict } from './serverGeneration.js';
 import { entities, keyFor, deliverEntityBatch, hasPendingEntityChanges, syncLearningPreferences } from './entityBatchSync.js';
+import { emptyStudyProgress, mergeStudyProgress } from '../utils/structuredStudyCard.js';
 import {
   subscribeSyncUi,
   notifySyncUi,
@@ -18,6 +19,8 @@ import {
 export { subscribeSyncUi, notifyCardEdit, keepLocalCard, reconcileCardEditLifecycle };
 
 const isSnapshotVersion = value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value);
+const progressFields = Object.keys(emptyStudyProgress);
+const progressSnapshotFields = [...progressFields, 'created_at', 'updated_at'];
 
 function sameValue(left, right) {
   if (Object.is(left, right)) return true;
@@ -57,7 +60,7 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
       db.syncState.get('lastSync'),
       ...entities.map(name => db[name].toArray()),
     ]);
-    if (Date.parse(lastSync?.time) > Date.parse(data.server_time)) return false;
+    if (Date.parse(lastSync?.progressTime ?? lastSync?.time) > Date.parse(data.server_time)) return false;
     const localCards = localTables[entities.indexOf('cards')];
     const otherIds = new Set(localCards.filter(card => !card.content_v2).map(card => card.id));
     const scopeIds = new Set([...localCards.filter(card => !!card.content_v2),
@@ -66,10 +69,12 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
     // that case a later pull must still be allowed to reconcile the clean row.
     const concurrentRead = localCards.some(card => card.content_v2
       && (card.offline_read_started_at > pullStartedAt || card.offline_confirmed_at >= pullStartedAt));
+    const newerGrades = new Set(localCards.filter(card => card._studyProgressAt >= pullStartedAt).map(card => card.id));
     for (const [index, name] of entities.entries()) {
-      const localRows = localTables[index];
+      const localRows = name === 'progress'
+        ? localTables[index].filter(row => Object.is(row.user_id, userId)) : localTables[index];
       const localMap = name === 'progress'
-        ? new Map(localRows.filter(row => Object.is(row.user_id, userId)).map(row => [row.card_id, row]))
+        ? new Map(localRows.map(row => [row.card_id, row]))
         : new Map(localRows.map(row => [row.id, row]));
       const incoming = new Set(data[name].map(item => name === 'progress' ? item.card_id : item.id));
       const toPut = [];
@@ -83,17 +88,18 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
         }
         if (local?.is_dirty || (name === 'decks' && local?.learning_dirty)
             || (name === 'cards' && (otherIds.has(item.id) || keepLocalCard(local, pullStartedAt)))
-            || (name === 'progress' && otherIds.has(item.card_id))) continue;
-        const next = { ...item,
+            || (name === 'progress' && (otherIds.has(item.card_id) || newerGrades.has(item.card_id)))) continue;
+        let next = { ...item,
           ...(name === 'cards' && { offline_read_started_at: pullStartedAt }),
           ...(name === 'progress' && { user_id: userId }), is_dirty: 0 };
+        if (name === 'cards' && newerGrades.has(item.id)) next = mergeStudyProgress(next, local);
         if (!sameSnapshotRecord(name, local, next)) toPut.push(next);
       }
       // A full snapshot also carries hard deletions and revoked access.
       for (const item of localRows) {
         const id = name === 'progress' ? item.card_id : item.id;
         if ((name === 'cards' && (otherIds.has(id) || keepLocalCard(item, pullStartedAt)))
-            || (name === 'progress' && (otherIds.has(id) || !scopeIds.has(id)))) continue;
+            || (name === 'progress' && (otherIds.has(id) || !scopeIds.has(id) || newerGrades.has(id)))) continue;
         if (id > 0 && !item.is_dirty && !(name === 'decks' && item.learning_dirty) && !incoming.has(id)) {
           toDelete.push(keyFor(name, item, userId));
         }
@@ -103,11 +109,94 @@ async function applySnapshot(db, data, userId, pullStartedAt, isCurrent) {
     }
     await db.syncState.where('key').startsWith('deck-cards:').delete();
     await db.syncState.put({ key: 'lastSync', time: data.server_time, readStartedAt: pullStartedAt,
-      checkedAt: Date.now(), snapshotVersion: !concurrentRead && isSnapshotVersion(data.snapshot_version)
-        ? data.snapshot_version : undefined,
-      deckSummaryVersion: data.deck_summary_version });
+      checkedAt: Date.now(), snapshotVersion: !concurrentRead && !newerGrades.size && isSnapshotVersion(data.snapshot_version)
+        ? data.snapshot_version : '',
+      contentVersion: !concurrentRead && isSnapshotVersion(data.content_version) ? data.content_version : undefined,
+      deckSummaryVersion: data.deck_summary_version, catalogueVersion: data.catalogue_version });
     if (!isCurrent()) throw new Error('Session changed');
     return true;
+  });
+}
+
+async function applyProgressSnapshot(db, data, userId, base, pullStartedAt, isCurrent) {
+  const validProgress = Array.isArray(data.progress) && data.progress.every(row =>
+    String(row?.user_id) === String(userId) && Number.isSafeInteger(row.card_id) && row.card_id > 0
+    && progressSnapshotFields.every(field => Object.hasOwn(row, field)));
+  if (data.card_schema !== 2 || !base?.contentVersion || data.content_version !== base.contentVersion
+      || !isSnapshotVersion(data.snapshot_version) || !Number.isFinite(Date.parse(data.server_time))
+      || ['cards', 'decks', 'folders'].some(name => Object.hasOwn(data, name)) || !validProgress) {
+    throw new Error('Invalid progress snapshot');
+  }
+  await observeServerGeneration(db, data, isCurrent);
+  const incoming = new Map(data.progress.map(row => [row.card_id, row]));
+  if (incoming.size !== data.progress.length) throw new Error('Duplicate snapshot progress');
+  return db.transaction('rw', db.cards, db.progress, db.syncState, async () => {
+    const [checkpoint, localRows] = await Promise.all([
+      db.syncState.get('lastSync'), db.progress.where('user_id').equals(userId).toArray(),
+    ]);
+    if (!isCurrent() || checkpoint?.contentVersion !== base.contentVersion
+        || checkpoint.snapshotVersion !== base.snapshotVersion
+        || Date.parse(checkpoint.progressTime ?? checkpoint.time) > Date.parse(data.server_time)) {
+      throw new Error('Progress snapshot base changed');
+    }
+    const local = new Map(localRows.map(row => [row.card_id, row]));
+    const ids = [...new Set([...incoming.keys(), ...local.keys()])];
+    const cards = await db.cards.bulkGet(ids);
+    if (cards.some((card, index) => !card && incoming.has(ids[index]))) {
+      throw new Error('Missing cached content for progress snapshot');
+    }
+    const changed = [], writes = [], removals = [], cardProgress = [], counts = {};
+    let retryProgress = false;
+    const now = Date.parse(data.server_time);
+    for (const [index, id] of ids.entries()) {
+      const card = cards[index];
+      if (!card?.content_v2) continue; // Preserve progress belonging to legacy content.
+      const previous = local.get(id);
+      const server = incoming.get(id);
+      let effective = previous;
+      if (!previous?.is_dirty && id > 0) {
+        if (card._studyProgressAt >= pullStartedAt) {
+          retryProgress = true;
+        } else if (server) {
+          const next = { ...server, user_id: userId, is_dirty: 0 };
+          if (!sameSnapshotRecord('progress', previous, next)) {
+            effective = next;
+            writes.push(next);
+          }
+        } else if (previous) {
+          removals.push([id, userId]);
+          effective = null;
+        }
+      }
+      if (effective !== previous) changed.push(id);
+      // Online reads also cache SRS fields on the card. Reconcile that copy
+      // when present so a reset can't revive an older grade on the next read.
+      if (effective !== previous && (Object.hasOwn(card, 'queue') || card._studyProgressAt != null)) {
+        const patch = effective ?? emptyStudyProgress;
+        cardProgress.push({ key: id, changes: {
+          ...Object.fromEntries(progressFields.map(field => [field, patch[field]])),
+          intervals: undefined, is_leech: undefined, _studyProgressSeq: undefined,
+          _studyProgressAt: pullStartedAt, _studyProgressStartedAt: pullStartedAt,
+        } });
+      }
+      if (effective && !card.is_deleted && effective.queue !== 'new') {
+        const stats = counts[card.deck_id] ??= { tracked: 0, learning: 0, due: 0 };
+        stats.tracked++;
+        if (effective.queue === 'learning' || effective.queue === 'relearning') stats.learning++;
+        if (effective.queue === 'review' && Date.parse(effective.next_review) <= now) stats.due++;
+      }
+    }
+    if (writes.length) await db.progress.bulkPut(writes);
+    if (removals.length) await db.progress.bulkDelete(removals);
+    if (cardProgress.length) await db.cards.bulkUpdate(cardProgress);
+    await db.syncState.put({ ...checkpoint, checkedAt: Date.now(),
+      snapshotVersion: retryProgress
+        ? (checkpoint.snapshotVersion === data.snapshot_version ? '' : checkpoint.snapshotVersion)
+        : data.snapshot_version,
+      deckSummaryVersion: data.deck_summary_version, catalogueVersion: data.catalogue_version,
+      progressTime: data.server_time, progressReadStartedAt: pullStartedAt, progressCounts: counts });
+    if (!isCurrent()) throw new Error('Session changed');
+    return changed;
   });
 }
 
@@ -141,6 +230,7 @@ async function runSync(userId, identity, isCurrent, {
   let pullSuccess = false;
   let pullFailed = false;
   let pullApplied = false;
+  let progressIds;
   let deckSummaryChanged = false;
   let refreshFromOutbox = false;
   let cardLifecycleRejection;
@@ -219,22 +309,48 @@ async function runSync(userId, identity, isCurrent, {
       try {
         const snapshotVersion = background && !acknowledgedEntities && isSnapshotVersion(lastSync?.snapshotVersion)
           ? lastSync.snapshotVersion : '';
-        const pullStartedAt = Date.now();
-        const { data } = await networkApi.get('/sync/v2/pull', { ...options, params: { card_schema: 2, snapshot_version: snapshotVersion } });
+        const contentVersion = background && !acknowledgedEntities?.contentChanged && isSnapshotVersion(lastSync?.contentVersion)
+          ? lastSync.contentVersion : '';
+        const pull = async (snapshot, content) => {
+          const startedAt = Date.now();
+          const { data } = await networkApi.get('/sync/v2/pull', {
+            ...options, params: { card_schema: 2, snapshot_version: snapshot, content_version: content },
+          });
+          if (!isCurrent()) throw new Error('Session changed');
+          return { data, startedAt };
+        };
+        let { data, startedAt } = await pull(snapshotVersion, contentVersion);
+        if (data?.status === 'progress_only') {
+          try {
+            if (!contentVersion) throw new Error('Unrequested progress snapshot');
+            progressIds = await applyProgressSnapshot(db, data, userId, lastSync, startedAt, isCurrent);
+            deckSummaryChanged = isSnapshotVersion(data.catalogue_version)
+              && data.catalogue_version !== lastSync.catalogueVersion;
+          } catch (error) {
+            if (!isCurrent() || isGenerationConflict(error)) throw error;
+            // A missing or invalid base must be repaired by a full snapshot.
+            // Both versions are omitted as validators for this one retry.
+            ({ data, startedAt } = await pull('', ''));
+            if (data?.status !== 'success') throw new Error('Expected full snapshot after progress recovery');
+          }
+        }
         if (data?.card_schema !== 2) throw new Error(tr('Сервер не подтвердил формат синхронизации. Очередь сохранена.'));
-        if (!isCurrent()) throw new Error('Session changed');
         if (data.status === 'unchanged') {
-          if (!snapshotVersion || data.snapshot_version !== snapshotVersion) throw new Error('Unexpected snapshot version');
+          if (!snapshotVersion || data.snapshot_version !== snapshotVersion
+              || (data.content_version != null && data.content_version !== contentVersion)) {
+            throw new Error('Unexpected snapshot version');
+          }
           await observeServerGeneration(db, data, isCurrent);
           await db.transaction('rw', db.syncState, async () => {
             if (!isCurrent()) throw new Error('Session changed');
             const { deck_summary_version: deckSummaryVersion } = data;
             deckSummaryChanged = isSnapshotVersion(deckSummaryVersion) && deckSummaryVersion !== lastSync.deckSummaryVersion;
-            await db.syncState.update('lastSync', { checkedAt: Date.now(), deckSummaryVersion });
+            await db.syncState.update('lastSync', { checkedAt: Date.now(), deckSummaryVersion,
+              catalogueVersion: data.catalogue_version });
             if (!isCurrent()) throw new Error('Session changed');
           });
-        } else {
-          pullApplied = await applySnapshot(db, data, userId, pullStartedAt, isCurrent);
+        } else if (!progressIds) {
+          pullApplied = await applySnapshot(db, data, userId, startedAt, isCurrent);
         }
         serverTime = data.server_time;
         pullSuccess = true;
@@ -247,8 +363,12 @@ async function runSync(userId, identity, isCurrent, {
   if (!db) return { success: false, native_success: false, reason: tr('Не удалось проверить оставшиеся изменения. Очередь сохранена.') };
   if (!isCurrent()) return { success: false, native_success: false, reason: tr('Сессия изменилась. Очередь сохранена.') };
   const libraryOnly = deckSummaryChanged && !pullApplied && !refreshFromOutbox;
-  const refreshScheduled = pullApplied || refreshFromOutbox || libraryOnly;
-  if (refreshScheduled) notifySyncUi('lerne:synced', { userId, complete: false, cardLifecycleRejection, libraryOnly }, { libraryOnly });
+  const refreshScheduled = pullApplied || refreshFromOutbox || libraryOnly || Boolean(progressIds);
+  if (refreshScheduled) {
+    const progressOnly = Boolean(progressIds && !refreshFromOutbox);
+    const hint = { libraryOnly, progressOnly, ...(progressOnly && { progressIds }) };
+    notifySyncUi('lerne:synced', { userId, complete: false, cardLifecycleRejection, ...hint }, hint);
+  }
   if (background) return { success: !firstError, pull_success: pullSuccess, pull_applied: pullApplied, reason: firstError?.message };
   try {
     // Reuse the readonly cutover checks: no second definition of "empty queue".
