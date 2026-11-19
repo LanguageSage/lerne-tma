@@ -1,0 +1,44 @@
+.match-editor {
+  display: grid;
+  min-width: 0;
+  gap: 8px;
+}
+.match-editor > .match-heading { min-height: 28px; }
+.match-editor-pair {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto minmax(0, 1fr) auto;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+.match-editor-pair[data-dragging] { z-index: 1; opacity: .85; }
+.match-editor-pair > :is(.visual-card-icon-control, .match-editor-connector) { align-self: center; }
+.match-editor-pair .match-item { min-height: 36px; padding: 4px 8px; }
+.match-editor-pair .visual-card-inline-field { cursor: text; white-space: pre-wrap; }
+.match-editor-remove:disabled { opacity: .4; cursor: default; }
+.match-editor-add {
+  display: inline-flex;
+  align-items: center;
+  justify-self: start;
+  gap: 4px;
+  min-height: 32px;
+  padding: 4px 8px;
+}
+
+.visual-card-form .visual-card-layout-block:has(.match-editor) > .visual-card-drag-handle { align-self: start; }
+
+@media (max-width: 480px) {
+  .visual-card-form .visual-card-layout-block:has(.match-editor) > [data-layout-id] { grid-area: 1 / 1 / auto / -1; }
+  .visual-card-form .visual-card-layout-block:has(.match-editor) > .visual-card-drag-handle { z-index: 1; }
+  .match-editor > .match-heading { padding-inline-start: 34px; }
+  .match-editor-pair { gap: 4px; }
+  .match-editor-pair .match-item { padding-inline: 6px; }
+  .match-editor-connector { width: 12px; }
+}
+
+@media (pointer: coarse) {
+  .match-editor-add, .match-editor > .match-heading { min-height: 44px; }
+}
+@media (max-width: 480px) and (pointer: coarse) {
+  .match-editor > .match-heading { padding-inline-start: 50px; }
+}

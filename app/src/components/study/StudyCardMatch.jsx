@@ -8,15 +8,22 @@ import { evaluateMatchPair, matchPartId } from '../../utils/matchEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
+import './StudyCardMatch.css';
 
-const PAIR_COLORS = [
-  { border: '#38bdf8', bg: 'rgba(56, 189, 248, 0.18)', text: '#7dd3fc', tag: 'A' },
-  { border: '#a855f7', bg: 'rgba(168, 85, 247, 0.18)', text: '#c084fc', tag: 'B' },
-  { border: '#f59e0b', bg: 'rgba(245, 158, 11, 0.18)', text: '#fcd34d', tag: 'C' },
-  { border: '#ec4899', bg: 'rgba(236, 72, 153, 0.18)', text: '#f472b6', tag: 'D' },
-  { border: '#14b8a6', bg: 'rgba(20, 184, 166, 0.18)', text: '#5eead4', tag: 'E' },
-  { border: '#6366f1', bg: 'rgba(99, 102, 241, 0.18)', text: '#a5b4fc', tag: 'F' }
-];
+const PAIR_COLORS = ['#38bdf8', '#a855f7', '#f59e0b', '#ec4899', '#14b8a6', '#6366f1'];
+
+export function MatchTile({ as: Element = 'div', side, state, textStyle, pairNumber, hint, children, ...props }) {
+  const { color, ...typography } = textStyle;
+  return <Element {...props} className={`match-item match-item-${side}`} data-design-state={state}
+    style={{ ...typography, '--match-item-normal-color': side === 'right' ? color : undefined }}>
+    <span className="match-tile-content">
+      {pairNumber != null && <span className="match-pair-number"
+        style={{ background: PAIR_COLORS[pairNumber % PAIR_COLORS.length] }}>{pairNumber + 1}</span>}
+      <span className="match-tile-text">{children}</span>
+    </span>
+    {hint}
+  </Element>;
+}
 
 export const StudyCardMatch = React.memo(({
   card,
@@ -38,8 +45,7 @@ export const StudyCardMatch = React.memo(({
   const evaluation = useExerciseEvaluation(savedState?.evaluationState);
   const isChecked = evaluation.state.completed;
   const v2Styles = useMemo(() => getDesignStylesFromV2(designConfig), [designConfig]);
-  const v2Text = v2Styles.frontText;
-  const cardStyle = v2Text;
+  const cardStyle = v2Styles.frontText;
   const contextStyle = v2Styles.matchRightText;
   const pairs = useMemo(() => matchData?.pairs || [], [matchData?.pairs]);
   const [shuffledRight] = useState(() => {
@@ -95,11 +101,6 @@ export const StudyCardMatch = React.memo(({
     else setSelectedRight(previous => previous === rightId ? null : rightId);
   };
 
-  // Mapping from leftId -> index for colors
-  const getPairColor = (leftId) => {
-    return PAIR_COLORS[leftId % PAIR_COLORS.length];
-  };
-
   return (
     <div
       className="interactive-mode-container match-container"
@@ -114,15 +115,7 @@ export const StudyCardMatch = React.memo(({
     >
       {/* Exercise Title / Prompt */}
       <div style={{ marginBottom: '14px', textAlign: 'center', width: '100%' }}>
-        <div style={{
-          fontSize: '0.9rem',
-          fontWeight: 700,
-          color: '#c084fc',
-          display: 'inline-flex',
-          alignItems: 'center',
-          gap: '6px',
-          marginBottom: '4px'
-        }}>
+        <div className="match-heading" style={{ marginBottom: '4px' }}>
           <Link2 size={16} />
           <span>{tr("Сопоставьте части предложений:")}</span>
         </div>
@@ -153,41 +146,13 @@ export const StudyCardMatch = React.memo(({
             const isSelected = selectedLeft === p.id;
             const matchedRightId = userMatches[p.id];
             const isMatched = matchedRightId !== undefined;
-            const pairColor = isMatched ? getPairColor(p.id) : null;
-            const isCorrect = isMatched;
             const feedback = evaluation.part(matchPartId(p.id));
             const isWrong = feedback?.status === 'incorrect';
 
-            let border = '1.5px solid var(--design-match-item-border, rgba(255, 255, 255, 0.12))';
-            let bg = 'var(--design-match-item-bg, rgba(255, 255, 255, 0.05))';
-            let textColor = 'var(--design-match-item-color, #f1f5f9)';
-
-            if (isCorrect || isWrong) {
-              if (isCorrect) {
-                border = '2px solid var(--design-match-matched-border, var(--design-correct-border, #22c55e))';
-                bg = 'var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
-                textColor = 'var(--design-match-matched-color, var(--design-correct-color, #4ade80))';
-              } else if (isWrong) {
-                border = '2px solid var(--design-match-wrong-border, var(--design-wrong-border, #ef4444))';
-                bg = 'var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
-                textColor = 'var(--design-match-wrong-color, var(--design-wrong-color, #f87171))';
-              }
-            } else if (isSelected) {
-              border = '2px solid var(--design-match-selected-border, var(--design-selected-border, #a855f7))';
-              bg = 'var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, 0.35)))';
-              textColor = 'var(--design-match-selected-color, var(--design-selected-color, #ffffff))';
-            } else if (isChecked) {
-              border = '1.5px solid var(--design-match-disabled-border, rgba(255,255,255,0.06))';
-              bg = 'var(--design-match-disabled-bg, rgba(255,255,255,0.03))';
-              textColor = 'var(--design-match-disabled-color, #475569)';
-            }
-
             return (
-              <motion.button
-                className="match-item match-item-left"
-                data-design-state={isCorrect ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : isChecked ? 'disabled' : 'normal'}
-                key={`left-${p.id}`}
-                type="button"
+              <MatchTile as={motion.button} side="left" textStyle={cardStyle}
+                state={isMatched ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : isChecked ? 'disabled' : 'normal'}
+                key={`left-${p.id}`} type="button" pairNumber={isMatched ? p.id : undefined}
                 whileTap={!isChecked && !isMatched ? { scale: 0.97 } : undefined}
                 disabled={isChecked || isMatched}
                 onClick={() => handleLeftClick(p.id)}
@@ -195,49 +160,10 @@ export const StudyCardMatch = React.memo(({
                 aria-invalid={isWrong}
                 aria-describedby={feedback?.hint ? `match-hint-${p.id}` : undefined}
                 data-part-id={matchPartId(p.id)}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  justifyContent: 'center',
-                  minHeight: '52px',
-                  padding: '8px 10px',
-                  borderRadius: 'var(--design-match-item-radius, 12px)',
-                  border,
-                  background: bg,
-                  fontSize: '0.86rem',
-                  fontWeight: 600,
-                  textAlign: 'left',
-                  ...cardStyle,
-                  color: textColor,
-                  minWidth: 0,
-                  cursor: isChecked || isMatched ? 'default' : 'pointer',
-                  position: 'relative',
-                  transition: 'all 0.15s ease'
-                }}
+                hint={feedback?.hint && <span id={`match-hint-${p.id}`} className="exercise-part-hint" role="status">{tr(feedback.hint)}</span>}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
-                  {isMatched && (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '18px',
-                      height: '18px',
-                      borderRadius: '50%',
-                      background: pairColor.border,
-                      color: '#000',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      flexShrink: 0
-                    }}>
-                      {p.id + 1}
-                    </span>
-                  )}
-                  <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{p.left}</span>
-                </div>
-                {feedback?.hint && <span id={`match-hint-${p.id}`} className="exercise-part-hint" role="status">{tr(feedback.hint)}</span>}
-              </motion.button>
+                {p.left}
+              </MatchTile>
             );
           })}
         </div>
@@ -250,88 +176,20 @@ export const StudyCardMatch = React.memo(({
             const matchedLeftKey = Object.keys(userMatches).find(k => userMatches[k] === r.originalPairId);
             const isMatched = matchedLeftKey !== undefined;
             const leftIdNum = isMatched ? parseInt(matchedLeftKey, 10) : null;
-            const pairColor = isMatched ? getPairColor(leftIdNum) : null;
-            const isCorrect = isMatched;
             const isWrong = wrongRightId === r.originalPairId;
 
-            let border = '1.5px solid var(--design-match-item-border, rgba(255, 255, 255, 0.12))';
-            let bg = 'var(--design-match-item-bg, rgba(255, 255, 255, 0.05))';
-            let textColor = 'var(--design-match-item-color, #f1f5f9)';
-
-            if (isCorrect || isWrong) {
-              if (isCorrect) {
-                border = '2px solid var(--design-match-matched-border, var(--design-correct-border, #22c55e))';
-                bg = 'var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, 0.22)))';
-                textColor = 'var(--design-match-matched-color, var(--design-correct-color, #4ade80))';
-              } else if (isWrong) {
-                border = '2px solid var(--design-match-wrong-border, var(--design-wrong-border, #ef4444))';
-                bg = 'var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, 0.22)))';
-                textColor = 'var(--design-match-wrong-color, var(--design-wrong-color, #f87171))';
-              }
-            } else if (isSelected) {
-              border = '2px solid var(--design-match-selected-border, var(--design-selected-border, #a855f7))';
-              bg = 'var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, 0.35)))';
-              textColor = 'var(--design-match-selected-color, var(--design-selected-color, #ffffff))';
-            } else if (isChecked) {
-              border = '1.5px solid var(--design-match-disabled-border, rgba(255,255,255,0.06))';
-              bg = 'var(--design-match-disabled-bg, rgba(255,255,255,0.03))';
-              textColor = 'var(--design-match-disabled-color, #475569)';
-            }
-
             return (
-              <motion.button
-                className="match-item match-item-right"
-                data-design-state={isCorrect ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : isChecked ? 'disabled' : 'normal'}
-                key={`right-${r.originalPairId}-${i}`}
-                type="button"
+              <MatchTile as={motion.button} side="right" textStyle={contextStyle}
+                state={isMatched ? 'correct' : isWrong ? 'wrong' : isSelected ? 'selected' : isChecked ? 'disabled' : 'normal'}
+                key={`right-${r.originalPairId}-${i}`} type="button" pairNumber={leftIdNum}
                 whileTap={!isChecked && !isMatched ? { scale: 0.97 } : undefined}
                 disabled={isChecked || isMatched}
                 onClick={() => handleRightClick(r.originalPairId)}
                 aria-pressed={isSelected}
                 aria-invalid={isWrong}
-                style={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'flex-start',
-                  justifyContent: 'center',
-                  minHeight: '52px',
-                  padding: '8px 10px',
-                  borderRadius: 'var(--design-match-item-radius, 12px)',
-                  border,
-                  background: bg,
-                  fontSize: '0.86rem',
-                  fontWeight: 600,
-                  textAlign: 'left',
-                  ...contextStyle,
-                  color: !isCorrect && !isWrong && !isSelected && !isChecked
-                    ? (contextStyle.color || textColor) : textColor,
-                  minWidth: 0,
-                  cursor: isChecked || isMatched ? 'default' : 'pointer',
-                  position: 'relative',
-                  transition: 'all 0.15s ease'
-                }}
               >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '6px', width: '100%' }}>
-                  {isMatched && (
-                    <span style={{
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      width: '18px',
-                      height: '18px',
-                      borderRadius: '50%',
-                      background: pairColor.border,
-                      color: '#000',
-                      fontSize: '0.68rem',
-                      fontWeight: 800,
-                      flexShrink: 0
-                    }}>
-                      {leftIdNum + 1}
-                    </span>
-                  )}
-                  <span style={{ flex: 1, minWidth: 0, overflowWrap: 'anywhere' }}>{r.text}</span>
-                </div>
-              </motion.button>
+                {r.text}
+              </MatchTile>
             );
           })}
         </div>

@@ -2,4 +2,3 @@
 .structured-card-layout > div { min-width: 0; overflow-wrap: anywhere; }
 .structured-card-layout figure { margin: 0; width: 100%; max-width: 480px; min-width: 0; align-self: center; }
 .structured-card-layout figcaption { padding: 8px 4px; white-space: pre-wrap; overflow-wrap: anywhere; text-align: center; }
-.structured-card-layout .card-markdown { white-space: pre-wrap; }

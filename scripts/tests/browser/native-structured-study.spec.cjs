@@ -5,7 +5,8 @@ const deck = { id: 1, name: 'Structured practice', target_language: 'de', role: 
 const info = [{ type: 'task', text: 'Read the authored task.' }, { type: 'source', text: 'Source hint' },
   { type: 'example', text: 'Example block' }, { type: 'options', items: ['Information option'] }];
 const cases = [
-  ['theory', { text: 'Theory shows [[literal]] and @quiz', summary: '**Theory summary**' }, info],
+  ['theory', { text: '## Theory\n\nTheory shows [[literal]] and @quiz\n\n- **First** example\n- Second example',
+    summary: '**Theory summary**' }, info],
   ['standard', { prompt: 'Standard prompt', answer: 'Standard translation' }],
   ['trainer', { parts: [{ type: 'text', text: 'Ich habe einen klein' }, { type: 'input', answers: ['en', 'en|literal'] },
     { type: 'text', text: ' Hund und ich ' }, { type: 'choice', options: [
@@ -109,7 +110,11 @@ test('native content renders and completes all nine types through study navigati
     await expect.poll(() => grades.some(request => request.card_id === id)).toBe(true);
   };
 
-  await expect(page.locator('#tut-study-front')).toHaveText('Theory shows [[literal]] and @quiz');
+  const theory = page.locator('#tut-study-front');
+  await expect(theory.getByRole('heading', { name: 'Theory' })).toBeVisible();
+  await expect(theory.getByText('Theory shows [[literal]] and @quiz', { exact: true })).toBeVisible();
+  await expect(theory.getByRole('listitem')).toHaveCount(2);
+  await expect(theory.locator('strong')).toHaveText('First');
   await expect(page.getByText('Information option')).toBeVisible();
   await expect(page.getByText('Source hint')).toBeVisible();
   await expect(page.locator('img[src*="theory.svg"]')).toBeVisible();

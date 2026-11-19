@@ -17,6 +17,15 @@ function detectBlock(args) {
   return hits.length ? hits : closestCenter(args);
 }
 
+export function SortableCardList({ items, onMove, instructions = tr('Стрелки вверх и вниз перемещают блок.'), children }) {
+  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
+  return <DndContext sensors={sensors} collisionDetection={detectBlock}
+    accessibility={{ screenReaderInstructions: { draggable: instructions } }}
+    onDragEnd={({ active, over }) => { if (over && active.id !== over.id) onMove(active.id, over.id); }}>
+    <SortableContext items={items} strategy={verticalListSortingStrategy}>{children}</SortableContext>
+  </DndContext>;
+}
+
 export function InlineText({ value = '', display = value, label, onChange, id, block = false }) {
   const Element = block ? 'div' : 'span';
   return <Element className="visual-card-inline-field" data-value={value}>
@@ -26,24 +35,30 @@ export function InlineText({ value = '', display = value, label, onChange, id, b
   </Element>;
 }
 
-function SortableBlock({ item, block, position, update, insert, onMove, children }) {
+export function SortableCardItem({ id, label = tr('Переместить блок'), onMoveBy, children, ...props }) {
   const { setNodeRef, setActivatorNodeRef, listeners, attributes, transform, transition, isDragging } =
-    useSortable({ id: item.id, disabled: { draggable: item.type === 'image' } });
-  return <div ref={setNodeRef} className="visual-card-layout-block" data-layout-position={position} data-dragging={isDragging || undefined}
+    useSortable({ id });
+  return <div {...props} ref={setNodeRef} data-dragging={isDragging || undefined}
     style={{ transform: CSS.Translate.toString(transform), transition }}>
-    {insert}
-    {item.type !== 'image' && <button ref={setActivatorNodeRef} type="button" className="visual-card-icon-control visual-card-drag-handle"
-      {...listeners} {...attributes} title={`${tr('Переместить блок')} ↑ ↓`} aria-label={tr('Переместить блок')}
+    <button ref={setActivatorNodeRef} type="button" className="visual-card-icon-control visual-card-drag-handle"
+      {...listeners} {...attributes} title={`${label} ↑ ↓`} aria-label={label}
       onKeyDown={event => {
         if (event.key !== 'ArrowUp' && event.key !== 'ArrowDown') return;
         event.preventDefault();
-        onMove(item.id, position, event.key === 'ArrowUp' ? -1 : 1);
+        onMoveBy(event.key === 'ArrowUp' ? -1 : 1);
       }}>
       <GripVertical size={16} aria-hidden="true" />
-    </button>}
+    </button>
     {children}
-    {block && <div className="visual-card-block-tools">
-      {block.type !== 'options' && <select value={block.type} aria-label={tr('Роль блока')} onChange={event => {
+  </div>;
+}
+
+function SortableBlock({ item, block, position, update, onMove, children }) {
+  return <SortableCardItem id={item.id} className="visual-card-layout-block" data-layout-position={position}
+    onMoveBy={offset => onMove(item.id, position, offset)}>
+    {children}
+    {item.type !== 'exercise' && <div className="visual-card-block-tools">
+      {block && block.type !== 'options' && <select value={block.type} aria-label={tr('Роль блока')} onChange={event => {
         const type = event.target.value;
         update(card => patchInfoBlock(card, item.index, { type }));
       }}>
@@ -70,15 +85,14 @@ function SortableBlock({ item, block, position, update, insert, onMove, children
         </div>
       </details>
     </div>}
-  </div>;
+  </SortableCardItem>;
 }
 
-export function VisualCardFields({ cardData, update, exercise, dictation }) {
+export function VisualCardFields({ cardData, update, exercise, dictation, footer }) {
   const card = cardData.content_v2.card;
   const layout = studyLayout(card, { afterAnswer: true });
   const fields = useRef(null);
   const nextFocus = useRef(null);
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 5 } }));
 
   useLayoutEffect(() => {
     if (nextFocus.current) {
@@ -95,13 +109,12 @@ export function VisualCardFields({ cardData, update, exercise, dictation }) {
     aria-label={tr('Добавить текстовый блок')} title={tr('Добавить текстовый блок')} onClick={() => addBlock(position)}>
     <Plus size={15} aria-hidden="true" />
   </button>;
-  const move = ({ active, over }) => {
-    if (!over || active.id === over.id) return;
+  const move = (id, targetId) => {
     update(current => {
       const ordered = enableLayout(current);
-      const from = ordered.layout.findIndex(item => item.id === active.id);
-      const to = ordered.layout.findIndex(item => item.id === over.id);
-      return from < 0 || to < 0 ? current : moveLayout(ordered, active.id, to - from);
+      const from = ordered.layout.findIndex(item => item.id === id);
+      const to = ordered.layout.findIndex(item => item.id === targetId);
+      return from < 0 || to < 0 ? current : moveLayout(ordered, id, to - from);
     });
   };
   const moveWithKeys = (id, position, offset) => {
@@ -113,21 +126,21 @@ export function VisualCardFields({ cardData, update, exercise, dictation }) {
 
   return <div ref={fields} className="visual-card-editor-layout">
     {dictation && <div className="visual-card-editor-dictation">{dictation}</div>}
-    <DndContext sensors={sensors} collisionDetection={detectBlock} onDragEnd={move}
-      accessibility={{ screenReaderInstructions: { draggable: tr('Стрелки вверх и вниз перемещают блок.') } }}>
-      <SortableContext items={layout.map(item => item.id)} strategy={verticalListSortingStrategy}>
+    <SortableCardList items={layout.map(item => item.id)} onMove={move}>
         <StructuredCardLayout card={cardData} afterAnswer
-          renderItem={(item, element, position) =>
+          renderItem={(item, element, position) => <>
+            {insertControl(position)}
             <SortableBlock item={item} position={position} block={item.type === 'info' ? card.info[item.index] : null}
-              update={update} insert={insertControl(position)} onMove={moveWithKeys}>
+              update={update} onMove={moveWithKeys}>
               {element}
-            </SortableBlock>}
+            </SortableBlock>
+          </>}
           renderInfoText={(item, value, display) => <InlineText value={value} display={display} block label={tr('Текст')}
             onChange={text => update(current => patchInfoBlock(current, item.index, { text }))} />}
           exercise={exercise}
         />
-      </SortableContext>
-    </DndContext>
+    </SortableCardList>
     {insertControl(layout.length)}
+    {footer}
   </div>;
 }

@@ -1,16 +1,23 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React, { useRef, useState, useEffect } from 'react';
-import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, Upload, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Sparkles, RefreshCw, Volume2, Image as ImageIcon, X, RotateCw, BookOpen, SlidersHorizontal, Check } from 'lucide-react';
 import { CardBackground } from './CardBackground';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
-import { CardTypeField, PromptDictation, StructuredCardExtras, StructuredCardFields } from './StructuredCardFields';
+import { CardTypeField, PromptDictation, StructuredCardExtras } from './StructuredCardFields';
+import { TrainerCardFields } from './TrainerCardFields';
 import { QuizCardFields } from './QuizCardFields';
 import { WordBankCardFields } from './WordBankCardFields';
 import { PuzzleCardFields } from './PuzzleCardFields';
+import { TextCardFields } from './TextCardFields';
+import { MatchCardFields } from './MatchCardFields';
+import { AnswerGradingFields, EditableTextCardFields, FreeTextCardFields } from './WrittenCardFields';
+import { InlineText } from './VisualCardFields';
+import { StudyCardText } from '../study/StudyCardText';
+import { MarkdownRenderer } from './MarkdownRenderer';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import './CardForm.css';
-import { answerField, changeDraft, parseCardSource } from '../../utils/cardDraft';
+import { answerField, attachDraftImage, changeDraft, changeDraftSource, draftSourceError } from '../../utils/cardDraft';
 import { studySideText } from '../../utils/structuredStudyCard';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { getResolvedStyle } from '../../utils/style';
@@ -29,7 +36,23 @@ import { triggerHaptic } from '../../utils/platform';
 
 import { useTranslation } from '../../i18n/i18nContext';
 
-const visualCardFields = { quiz: QuizCardFields, word_bank: WordBankCardFields, puzzle: PuzzleCardFields };
+const visualCardFields = {
+  standard: TextCardFields, theory: TextCardFields, match: MatchCardFields,
+  free_text: FreeTextCardFields, editable_text: EditableTextCardFields, quiz: QuizCardFields,
+  word_bank: WordBankCardFields, puzzle: PuzzleCardFields, trainer: TrainerCardFields,
+};
+const backLabels = { theory: 'Краткий вывод', free_text: 'Образец ответа', editable_text: 'Исправленный текст' };
+
+function preserveInlineFieldFocus(event) {
+  const { ownerDocument } = event.currentTarget;
+  if (event.button === 0 && event.target.closest(
+    '.btn-save-action, .visual-card-layout-insert, .match-editor-add, .match-editor-remove, .trainer-editor button',
+  )
+    && ownerDocument.activeElement?.matches('.visual-card-inline-field > textarea')) {
+    // Leaving an inline field can move the button before its click.
+    event.preventDefault();
+  }
+}
 
 export const CardForm = ({
   cardData,
@@ -46,21 +69,23 @@ export const CardForm = ({
   const content = cardData?.content_v2?.card;
   const isQuiz = content?.type === 'quiz';
   const VisualFields = visualCardFields[content?.type];
-  const visual = Boolean(VisualFields);
-  const flagStyle = visual ? getFlagStyle(cardData.flag) : undefined;
+  const writtenAnswer = content?.type === 'free_text' || content?.type === 'editable_text';
+  const composed = writtenAnswer || [TextCardFields, MatchCardFields, TrainerCardFields].includes(VisualFields);
+  const flagStyle = getFlagStyle(cardData?.flag);
   const frontText = studySideText(content);
   const backKey = answerField[content?.type];
   const manualLevel = content?.metadata?.cefr?.source === 'manual';
   const update = patch => changeDraft(setCardData, patch);
-  const settings = useSettingsStore();
-  const personalConfig = settings.personalDesignV2?.config;
+  const personalConfig = useSettingsStore(state => state.personalDesignV2?.config);
+  const effectiveConfig = useSettingsStore(state => state.activeDesignConfig);
+  const v2Styles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
 
-  const effectiveConfig = settings.activeDesignConfig;
-  const v2Styles = getDesignStylesFromV2(effectiveConfig);
-
-  const { loading, showToast } = useUiStore();
-  const { uploadCreatorImage, uploadVideo } = useMediaUpload();
-  const { decks = [], currentDeck, updateDeckMetadata } = useDeckStore();
+  const loading = useUiStore(state => state.loading);
+  const showToast = useUiStore(state => state.showToast);
+  const { uploadCreatorImage } = useMediaUpload();
+  const currentDeck = useDeckStore(state => state.currentDeck);
+  const decks = useDeckStore(state => isCreator ? state.decks : undefined) ?? [];
+  const updateDeckMetadata = useDeckStore(state => state.updateDeckMetadata);
 
   const [isImagePickerOpen, setIsImagePickerOpen] = useState(false);
   const [audioBusy, setAudioBusy] = useState(false);
@@ -68,34 +93,34 @@ export const CardForm = ({
   const [isClassifyingLevel, setIsClassifyingLevel] = useState(false);
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
   const source = cardData?.content_v2_source ?? null;
-  const setSource = text => setCardData(current => {
-    let parsed;
-    if (text !== null) {
-      try { parsed = parseCardSource(text); } catch { /* Keep invalid source for correction. */ }
-    }
-    return { ...current, content_v2_source: text, ...(parsed ? { content_v2: parsed } : {}) };
-  });
-  let sourceError;
-  if (source !== null) {
-    try { parseCardSource(source); }
-    catch (error) { sourceError = error.message; }
-  }
+  const isSourceMode = source !== null;
+  const setSource = text => changeDraftSource(setCardData, text);
+  const sourceError = draftSourceError(cardData);
+  const mediaDraftKey = isCreator ? currentDeck?.id : cardData?.id;
+  const coverUpload = useRef(null);
+  useEffect(() => () => {
+    coverUpload.current?.abort();
+    coverUpload.current = null;
+  }, [isCreator, mediaDraftKey]);
+  const uploadCover = async file => {
+    if (!file || coverUpload.current) return;
+    const request = new AbortController();
+    coverUpload.current = request;
+    try { await uploadCreatorImage(file, cardData.id, setCardData, request.signal); }
+    finally { if (coverUpload.current === request) coverUpload.current = null; }
+  };
 
-  const backRef = useRef(null);
   const contextRef = useRef(null);
-  const videoFrontRef = useRef(null);
-  const videoBackRef = useRef(null);
 
   const autoResize = (ref) => {
-    if (ref.current) {
-      ref.current.style.height = 'auto';
-      ref.current.style.height = `${ref.current.scrollHeight}px`;
-    }
+    const field = ref.current;
+    if (!field?.getClientRects().length) return;
+    field.style.height = 'auto';
+    field.style.height = `${field.scrollHeight + field.offsetHeight - field.clientHeight}px`;
   };
 
   useEffect(() => {
     const handleResize = () => {
-      autoResize(backRef);
       autoResize(contextRef);
     };
     window.addEventListener('resize', handleResize);
@@ -106,9 +131,7 @@ export const CardForm = ({
     };
   }, []);
 
-  useEffect(() => { autoResize(backRef); }, [content?.data?.[backKey],
-    v2Styles?.backText.fontFamily, v2Styles?.backText.fontSize, v2Styles?.backText.fontWeight, v2Styles?.backText.fontStyle, v2Styles?.backText.lineHeight]);
-  useEffect(() => { autoResize(contextRef); }, [content?.explanation,
+  useEffect(() => { autoResize(contextRef); }, [isSourceMode, content?.explanation,
     v2Styles?.contextText.fontFamily, v2Styles?.contextText.fontSize, v2Styles?.contextText.fontWeight, v2Styles?.contextText.fontStyle, v2Styles?.contextText.lineHeight]);
 
   const resolvedBgFront = getResolvedStyle(personalConfig?.front?.card?.background, cardData?.id || 0);
@@ -171,13 +194,26 @@ export const CardForm = ({
   };
 
   if (!cardData) return null;
-  if (!content) return <p role="alert">{tr('Карточки ещё не перенесены в Structured Cards V2.')}</p>;
+  if (!content || !VisualFields) return <p role="alert">{tr('Карточки ещё не перенесены в Structured Cards V2.')}</p>;
 
-  const typeField = <CardTypeField card={content} update={update} visual={visual} />;
+  const typeField = <CardTypeField card={content} update={update} />;
   const dictation = isCreator && <PromptDictation type={content.type} update={update} />;
+  const backBackground = <CardBackground background={effectiveConfig?.back?.card?.background}
+    styleType={resolvedBgBack} cardId={cardData.id} />;
+  const contextField = <textarea id="card-editor-context" ref={contextRef}
+    className="context-textarea textarea-preview textarea-context-preview"
+    value={content.explanation || ''}
+    onChange={event => {
+      const explanation = event.target.value;
+      update(card => ({ ...card, explanation }));
+    }}
+    onInput={() => autoResize(contextRef)}
+    style={{ ...v2Styles.contextText, overflow: 'hidden', minHeight: '52px' }}
+    placeholder={t('creator.context', 'Примеры, грамматика...')} />;
 
   return (
-    <div className="creator-form glass" style={{ marginTop: '4px' }}>
+    <div className={`creator-form glass${composed ? ' visual-card-form' : ''}`} data-card-type={content.type}
+      style={{ marginTop: '4px' }} onPointerDown={composed ? preserveInlineFieldFocus : undefined}>
       <button type="button" className="btn-secondary" style={{ minHeight: '44px' }}
         disabled={loading || audioBusy || Boolean(sourceError)}
         onClick={() => setSource(source === null ? JSON.stringify(cardData.content_v2, null, 2) : null)}>
@@ -189,7 +225,9 @@ export const CardForm = ({
           value={source} onChange={event => setSource(event.target.value)}
           aria-invalid={Boolean(sourceError)} aria-describedby={sourceError ? 'card-editor-json-error' : undefined}
           style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', minHeight: '280px' }} />
-        {sourceError && <p id="card-editor-json-error" role="alert">{sourceError}</p>}
+        {sourceError && <p id="card-editor-json-error" role="alert">{tr(sourceError)}</p>}
+        {Boolean(cardData.pendingLayoutImages?.length) &&
+          <p role="status">{tr('Загруженные изображения будут добавлены после исправления JSON.')}</p>}
         <button type="button" className="btn btn-primary btn-save-action" disabled={loading || audioBusy || Boolean(sourceError)}
           style={{ minHeight: '44px' }}
           aria-label={t('creator.save', 'Сохранить')}
@@ -197,7 +235,7 @@ export const CardForm = ({
           {t('creator.save', 'Сохранить')}
         </button>
       </div>}
-      <div hidden={source !== null}>
+      <div hidden={isSourceMode}>
 
       {isCreator && (
         <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -266,26 +304,18 @@ export const CardForm = ({
         onBusyChange={setAudioBusy} />
       </details>
 
-      {visual && typeField}
-      <div className={visual ? 'form-group card-container study-flashcard visual-card-editor-surface' : 'form-group'} style={flagStyle}>
+      {typeField}
+      <div className="form-group card-container study-flashcard visual-card-editor-surface" style={flagStyle}>
         <div
           id="tut-creator-front"
-          className={visual ? 'card-inner glass card-front' : 'card-preview-container glass card-front'}
-          style={visual ? flagStyle : {
-            position: 'relative',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '80px'
-          }}
+          className="card-inner glass card-front"
+          style={flagStyle}
         >
           <CardBackground background={effectiveConfig?.front?.card?.background} styleType={resolvedBgFront} cardId={cardData.id} />
 
-          <div className={visual ? 'card-face' : 'card-preview-body'}
-            style={visual ? undefined : { padding: '6px 10px 4px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            {VisualFields
-              ? <VisualFields key={cardData.id} cardData={cardData} update={update} dictation={dictation} designConfig={effectiveConfig} />
-              : <>{typeField}<StructuredCardFields card={content} update={update} dictation={dictation} textStyle={v2Styles.frontText} /></>}
+          <div className="card-face">
+            <VisualFields key={cardData.id} cardData={cardData} update={update} dictation={dictation}
+              designConfig={effectiveConfig} textStyles={v2Styles} />
           </div>
 
           {(cardData.image_url || cardData.image_path) && (() => {
@@ -344,7 +374,8 @@ export const CardForm = ({
                     className="image-clear-btn"
                     onClick={(e) => {
                       e.stopPropagation();
-                      setCardData({...cardData, image_path: '', image_url: ''});
+                      coverUpload.current?.abort();
+                      setCardData(current => ({ ...current, image_path: '', image_url: '' }));
                     }}
                     title={tr("Убрать картинку")}
                   >
@@ -378,7 +409,6 @@ export const CardForm = ({
 
           {/* Dedicated Footer: Level Badge + Manual Override Controls + Audio Button */}
           <div
-            className="card-preview-footer"
             style={{
               display: 'flex',
               alignItems: 'center',
@@ -526,7 +556,9 @@ export const CardForm = ({
       </div>
 
 
-      {visual && <StructuredCardExtras card={content} update={update} visual />}
+      {writtenAnswer && <AnswerGradingFields card={content} update={update} />}
+      <StructuredCardExtras key={mediaDraftKey} card={content} update={update}
+        attachImage={path => attachDraftImage(setCardData, cardData.id, path)} />
 
       {(() => {
         const isExistingQuiz = !isCreator && isQuiz;
@@ -594,113 +626,32 @@ export const CardForm = ({
         );
       })()}
 
-      <div className="form-group">
-        <div
-          className="card-preview-container glass card-back"
-          style={{
-            position: 'relative',
-            borderRadius: '12px',
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: '80px'
-          }}
-        >
-          <CardBackground background={effectiveConfig?.back?.card?.background} styleType={resolvedBgBack} cardId={cardData.id} />
-
-          <div className="card-preview-body" style={{ padding: '6px 10px 6px 10px', position: 'relative', zIndex: 2, flex: '1 0 auto' }}>
-            {backKey && <div className="card-form-text-field">
-              <label className="sub-label" htmlFor="card-editor-back">{tr('Обратная сторона')}</label>
-              <textarea id="card-editor-back" ref={backRef} className="textarea-preview textarea-back-preview"
-                style={v2Styles.backText} value={content.data[backKey] || ''} onChange={event => {
-                  const value = event.target.value;
-                  update(card => ({ ...card, data: { ...card.data, [backKey]: value } }));
-                }} />
-            </div>}
-            <div className="card-form-text-field">
-            <label className="sub-label" htmlFor="card-editor-context">{tr('Контекст')}</label>
-            <textarea
-              id="card-editor-context"
-              ref={contextRef}
-              className="context-textarea textarea-preview textarea-context-preview"
-              value={content.explanation || ''}
-              onChange={(e) => {
-                const explanation = e.target.value;
-                update(card => ({ ...card, explanation }));
-              }}
-              onInput={(e) => {
-                e.target.style.height = 'auto';
-                e.target.style.height = `${e.target.scrollHeight}px`;
-              }}
-              style={{
-                ...v2Styles?.contextText,
-                overflow: 'hidden',
-                height: 'auto',
-                minHeight: '52px'
-              }}
-              placeholder={t('creator.context', 'Примеры, грамматика...')}
-            />
+      {backKey && <section className="visual-card-form-section visual-card-form-back">
+        <h3 className="visual-card-form-heading">{tr('Обратная сторона')}</h3>
+        <div className="study-flashcard visual-card-form-answer">
+          <div className="card-inner glass card-back">
+            {backBackground}
+            <div className="card-face">
+              <StudyCardText side="back" style={v2Styles.backText}>
+                <InlineText block id="card-editor-back" value={content.data[backKey] || ''}
+                  label={tr(backLabels[content.type] ?? 'Ответ / обратная сторона')}
+                  display={<MarkdownRenderer>{content.data[backKey]}</MarkdownRenderer>}
+                  onChange={answer => update(card => ({ ...card, data: { ...card.data, [backKey]: answer } }))} />
+              </StudyCardText>
             </div>
           </div>
         </div>
-      </div>
-
-
-      <details className="card-form-secondary">
-        <summary>{tr("Видео")}</summary>
-      <div className="media-edit-group" style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-         <div className="form-group" style={{ flex: 1 }}>
-            <label className="sub-label">{tr("Видео (Лицо)")}</label>
-            {(cardData.video_front_url || cardData.video_front_path) && (
-              <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
-                <video src={cardData.video_front_url || `/api/media/${cardData.video_front_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <button
-                  type="button"
-                  className="image-clear-btn"
-                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCardData({...cardData, video_front_path: '', video_front_url: ''});
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-            <button type="button" className="btn-secondary btn-tiny" onClick={() => videoFrontRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
-              <Upload size={14} />{' '}{tr("Выбрать")}{' '}</button>
-            <input ref={videoFrontRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'front')} />
-         </div>
-         <div className="form-group" style={{ flex: 1 }}>
-            <label className="sub-label">{tr("Видео (Оборот)")}</label>
-            {(cardData.video_back_url || cardData.video_back_path) && (
-              <div className="media-preview-mini" style={{ position: 'relative', height: '60px', borderRadius: '8px', overflow: 'hidden', background: 'rgba(0,0,0,0.2)' }}>
-                <video src={cardData.video_back_url || `/api/media/${cardData.video_back_path}`} muted loop autoPlay style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                <button
-                  type="button"
-                  className="image-clear-btn"
-                  style={{ top: '5px', right: '5px', width: '32px', height: '32px' }}
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setCardData({...cardData, video_back_path: '', video_back_url: ''});
-                  }}
-                >
-                  <X size={16} />
-                </button>
-              </div>
-            )}
-            <button type="button" className="btn-secondary btn-tiny" onClick={() => videoBackRef.current?.click()} style={{ width: '100%', marginTop: '5px' }}>
-              <Upload size={14} />{' '}{tr("Выбрать")}{' '}</button>
-            <input ref={videoBackRef} type="file" accept="video/*" className="hidden-file-input" onChange={e => uploadVideo(e.target.files?.[0], cardData, setCardData, 'back')} />
-         </div>
-      </div>
-
-      </details>
+      </section>}
+      <section className="visual-card-form-section">
+        <label className="visual-card-form-heading" htmlFor="card-editor-context">{tr('Контекст')}</label>
+        <div className="visual-card-form-context">{contextField}</div>
+      </section>
 
       {/* MODALS FOR CAMERA / IMAGE PICKER */}
       <MediaPicker
         isOpen={isImagePickerOpen}
         onClose={() => setIsImagePickerOpen(false)}
-        onImageUpload={(file) => uploadCreatorImage(file, cardData, setCardData)}
+        onImageUpload={uploadCover}
         searchQuery={frontText || ''}
         loading={loading}
       />
@@ -711,7 +662,7 @@ export const CardForm = ({
         imageSrc={cardData.image_url || (cardData.image_path ? `/api/media/${cardData.image_path}` : '')}
         onSave={(editedFile) => {
           setIsEditingExistingImage(false);
-          uploadCreatorImage(editedFile, cardData, setCardData);
+          uploadCover(editedFile);
         }}
         title={tr("Редактировать картинку")}
       />

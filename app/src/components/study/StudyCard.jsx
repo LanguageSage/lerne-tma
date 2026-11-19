@@ -21,6 +21,7 @@ import { CardAudioPlayer } from './CardAudioPlayer.jsx';
 import { StudyCardImage } from './StudyCardImage';
 import { CardQuestionComposer } from './CardQuestionComposer.jsx';
 import { KaraokeText } from './KaraokeText';
+import { StudyCardText } from './StudyCardText';
 import { useVoicePicker } from '../../hooks/useVoicePicker';
 import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 import { getAudioUrl } from '../../utils/media';
@@ -113,6 +114,8 @@ export const StudyCard = React.memo(({
   const promptPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.PROMPT, studyMode);
   const rawFrontText = studySideText(content, promptPhysicalSide);
   const frontText = stripMarkdown(rawFrontText);
+  const isTheory = content?.type === 'theory';
+  const narrating = audioControls?.audioState === 'playing' || audioControls?.audioState === 'paused';
   const topBlocks = useMemo(() => studyInfoBlocks(content), [content]);
 
   // Karaoke: sync word boundaries with audio playback position (with fallback estimation)
@@ -404,10 +407,10 @@ export const StudyCard = React.memo(({
                 <>
                   {!content?.layout && <ExerciseInfoBlocks blocks={topBlocks} />}
                   {(() => {
-                    const prompt = <div id="tut-study-front" className="text-front" style={{ whiteSpace: 'pre-wrap', ...cardStyle }}>
-                    {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
+                    const prompt = <StudyCardText id="tut-study-front" style={cardStyle}>
+                    {promptPhysicalSide === 'back' || (isTheory && !narrating) ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
                       : <KaraokeText text={frontText} activeWordIndex={activeWordIndex} style={cardStyle} />}
-                    </div>;
+                    </StudyCardText>;
                     return content?.layout ? <StructuredCardLayout card={card} exercise={prompt} /> : prompt;
                   })()}
                   {renderFrontAudioPlayer()}
@@ -522,7 +525,7 @@ export const StudyCard = React.memo(({
                       <ExerciseInfoBlocks blocks={topBlocks} />
                     )}
                     <div className="text-front-mini" style={{ marginBottom: 0, opacity: 0.95, whiteSpace: 'pre-wrap', ...referenceStyle }}>
-                      {promptPhysicalSide === 'back' ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : frontText}
+                      {promptPhysicalSide === 'back' || isTheory ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer> : frontText}
                     </div>
                   </div>
                 ); return content?.layout ? <StructuredCardLayout card={card} exercise={reference} afterAnswer /> : reference; })()}
@@ -631,9 +634,9 @@ export const StudyCard = React.memo(({
                           }
                           return null;
                         })()}
-                        <div id="tut-study-answer" className="text-back" style={{ whiteSpace: 'pre-wrap', ...backCardStyle }}>
+                        <StudyCardText side="back" id="tut-study-answer" style={backCardStyle}>
                           {studyMode === 'reverse' ? backClean : <MarkdownRenderer>{rawBackText}</MarkdownRenderer>}
-                        </div>
+                        </StudyCardText>
                       </div>
                     )}
                   </>

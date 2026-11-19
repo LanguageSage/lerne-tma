@@ -504,14 +504,6 @@ input:checked + .slider:before {
 }
 
 /* AI Magic & Modals */
-.ai-magic-btn {
-  background: linear-gradient(135deg, rgba(168, 85, 247, 0.2), rgba(99, 102, 241, 0.2));
-  border: 1px solid rgba(168, 85, 247, 0.3);
-  color: #c084fc;
-  font-weight: 600;
-  margin-bottom: 15px;
-}
-
 .ai-wizard-panel {
   padding: 15px;
   border-radius: 16px;

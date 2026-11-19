@@ -76,18 +76,19 @@ test('ordered layout survives native study, editor JSON, offline save and Postgr
     (await import('/src/store/useSessionStore.js')).useSessionStore.getState().setEditingCard(card);
     (await import('/src/store/useUiStore.js')).useUiStore.setState({ view: 'editor', editorSourceView: 'decks' });
   }, { id: standard.id, deck: fixture.deck });
-  const editor = page.locator('.card-layout-editor');
-  await expect(editor.getByText('Порядок блоков', { exact: true })).toBeVisible();
-  await editor.locator('[data-layout-editor-id="picture"]').getByRole('button', { name: 'Переместить вниз' }).click();
-  await editor.getByRole('button', { name: 'Добавить текстовый блок' }).click();
-  await editor.locator('.card-layout-row').last().getByRole('textbox').fill('**Neuer Text**\nZeile zwei.');
+  const editor = page.locator('.visual-card-editor-layout');
+  const picture = editor.locator('.visual-card-layout-block').filter({ has: page.locator('[data-layout-id="picture"]') });
+  await picture.getByRole('button', { name: 'Переместить блок', exact: true }).press('ArrowDown');
+  await editor.getByRole('button', { name: 'Добавить текстовый блок', exact: true }).last().click();
+  await editor.locator('.visual-card-layout-block').last().getByRole('textbox').fill('**Neuer Text**\nZeile zwei.');
   const png = await page.evaluate(() => {
     const canvas = document.createElement('canvas'); canvas.width = 120; canvas.height = 60;
     const context = canvas.getContext('2d'); context.fillStyle = '#7d7cc9'; context.fillRect(0, 0, 120, 60);
     return canvas.toDataURL('image/png').split(',')[1];
   });
-  await editor.locator('input[type=file]').setInputFiles({ name: 'inline.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
-  await expect(editor.locator('.card-layout-row')).toHaveCount(6);
+  await page.locator('summary').filter({ hasText: /^Изображения$/ }).click();
+  await page.locator('.card-layout-editor input[type=file]').setInputFiles({ name: 'inline.png', mimeType: 'image/png', buffer: Buffer.from(png, 'base64') });
+  await expect(editor.locator('.visual-card-layout-block')).toHaveCount(6);
   await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
   const json = page.getByRole('textbox', { name: 'Полный content_v2 JSON' });
   const draft = JSON.parse(await json.inputValue());
@@ -100,7 +101,7 @@ test('ordered layout survives native study, editor JSON, offline save and Postgr
   await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
   for (const width of [320, 1280]) {
     await page.setViewportSize({ width, height: 900 });
-    await expect(editor.getByRole('button', { name: 'Add text block', exact: true })).toBeVisible();
+    await expect(editor.getByRole('button', { name: 'Add text block', exact: true })).toHaveCount(7);
     expect(await editor.evaluate(node => node.scrollWidth <= node.clientWidth + 1)).toBe(true);
     await page.screenshot({ path: info.outputPath(`layout-editor-en-${width}.png`), fullPage: true });
   }

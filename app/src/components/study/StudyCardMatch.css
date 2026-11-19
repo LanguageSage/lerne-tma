@@ -1,0 +1,74 @@
+.match-heading {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--design-accent, #c084fc);
+  font-size: .9rem;
+  font-weight: 700;
+}
+
+.match-heading svg { flex: none; }
+
+.match-item {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  justify-content: center;
+  box-sizing: border-box;
+  position: relative;
+  min-width: 0;
+  min-height: 52px;
+  padding: 8px 10px;
+  border: 1.5px solid var(--design-match-item-border, rgba(255, 255, 255, .12));
+  border-radius: var(--design-match-item-radius, 12px);
+  background: var(--design-match-item-bg, rgba(255, 255, 255, .05));
+  color: var(--match-item-normal-color, var(--design-match-item-color, #f1f5f9));
+  font-size: .86rem;
+  font-weight: 600;
+  text-align: left;
+  transition: all .15s ease;
+}
+
+button.match-item:not(:disabled) { cursor: pointer; }
+button.match-item:disabled { cursor: default; }
+
+.match-item[data-design-state="correct"] {
+  border: 2px solid var(--design-match-matched-border, var(--design-correct-border, #22c55e));
+  background: var(--design-match-matched-bg, var(--design-correct-bg, rgba(34, 197, 94, .22)));
+  color: var(--design-match-matched-color, var(--design-correct-color, #4ade80));
+}
+.match-item[data-design-state="wrong"] {
+  border: 2px solid var(--design-match-wrong-border, var(--design-wrong-border, #ef4444));
+  background: var(--design-match-wrong-bg, var(--design-wrong-bg, rgba(239, 68, 68, .22)));
+  color: var(--design-match-wrong-color, var(--design-wrong-color, #f87171));
+}
+.match-item[data-design-state="selected"] {
+  border: 2px solid var(--design-match-selected-border, var(--design-selected-border, #a855f7));
+  background: var(--design-match-selected-bg, var(--design-selected-bg, rgba(168, 85, 247, .35)));
+  color: var(--design-match-selected-color, var(--design-selected-color, #ffffff));
+}
+.match-item[data-design-state="disabled"] {
+  border-color: var(--design-match-disabled-border, rgba(255, 255, 255, .06));
+  background: var(--design-match-disabled-bg, rgba(255, 255, 255, .03));
+  color: var(--design-match-disabled-color, #475569);
+}
+
+.match-tile-content {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  width: 100%;
+  min-width: 0;
+}
+.match-tile-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.match-pair-number {
+  display: inline-grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  color: #000;
+  font-size: .68rem;
+  font-weight: 800;
+  flex: none;
+}

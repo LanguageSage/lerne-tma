@@ -1,19 +1,18 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
 import { Puzzle } from 'lucide-react';
 import { tr } from '../../i18n/locale';
-import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { puzzleDraftTokens } from '../../utils/cardDraft';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { InlineText, VisualCardFields } from './VisualCardFields';
 
-export function PuzzleCardFields({ cardData, update, designConfig }) {
+export function PuzzleCardFields({ cardData, update, textStyles }) {
   const { data, info } = cardData.content_v2.card;
   const [edit, setEdit] = useState(null);
   const inputRef = useRef(null);
   const buttonRef = useRef(null);
   const returnFocus = useRef(false);
   const editing = edit !== null;
-  const { frontText, backText } = getDesignStylesFromV2(designConfig);
+  const { frontText, backText } = textStyles;
   const sentenceStyle = { ...frontText, color: undefined };
   const sentence = data.tokens.join(' ');
   const sentenceLabel = tr('Правильное предложение');

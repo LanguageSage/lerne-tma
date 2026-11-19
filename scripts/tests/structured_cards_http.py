@@ -139,8 +139,10 @@ def _native_examples():
             examples[card['type']] = card
     # Author Theory in the real form. The remaining fixtures exercise fields
     # such as nested metadata and ordered answer arrays through the app API.
-    examples['theory'] = {'type': 'theory', 'data': {'text': 'Österreichische Regel', 'summary': 'Сводка'},
-                          'explanation': 'Eine Erklärung'}
+    examples['theory'] = {'type': 'theory', 'data': {
+        'text': '## Österreichische Regel\n\nDas Verb steht am Ende.\n\n- **weil**\n- obwohl',
+        'summary': '**Сводка**',
+    }, 'explanation': 'Eine Erklärung'}
     examples['editable_text'] = {'type': 'editable_text', 'id': 'editable-synthetic',
         'data': {'source_text': 'Ich gehen.', 'correct_text': 'Ich gehe.',
                  'accepted_answers': ['Ich gehe!', 'Ich gehe jetzt.']},
@@ -201,6 +203,8 @@ def _run_all_types_edit_browser(client, port, models, headers):
         }.get(kind, f'Änderung {kind}\nКонтекст [[literal]]')
         if kind == 'quiz':
             expected['card']['data']['prompt'] = 'Korrigierte Quizfrage?'
+        if kind == 'trainer':
+            expected['card']['data']['parts'][0]['options'][1] = {'text': 'Sobald', 'correct': True}
         assert row.content_v2 == expected
         assert (row.id, row.position, row.image_path) == tuple(cards[kind][field]
                                                               for field in ('id', 'position', 'image_path'))

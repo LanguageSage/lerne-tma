@@ -2,7 +2,9 @@
 export function readableLayout(card) {
   if (card.layout == null) return true;
   return Array.isArray(card.layout) && card.layout.every(item => item && typeof item.id === 'string'
-    && (item.type === 'exercise' || (item.type === 'image' && typeof item.path === 'string')
+    && (item.type === 'exercise' || (item.type === 'image' && typeof item.path === 'string'
+      && (item.alt === undefined || typeof item.alt === 'string')
+      && (item.caption === undefined || typeof item.caption === 'string'))
       || (item.type === 'info' && Number.isInteger(item.index) && item.index >= 0 && card.info?.[item.index]
         && (typeof card.info[item.index].text === 'string' || (card.info[item.index].type === 'options'
           && Array.isArray(card.info[item.index].items))))));

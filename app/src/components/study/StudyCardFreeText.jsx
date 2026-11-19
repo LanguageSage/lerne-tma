@@ -14,6 +14,27 @@ import { useSettingsStore } from '../../store/useSettingsStore.js';
 import './StudyCardFreeText.css';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
+export function FreeTextHeading({ editable = false, children }) {
+  return <div className="free-text-heading">
+    <PenLine size={16} aria-hidden="true" />
+    <div>{tr(editable ? 'Редактируемый текст' : 'Свободный ответ / Письмо')}{children}</div>
+  </div>;
+}
+
+export function FreeTextPrompt({ style, children }) {
+  return <div className="text-front free-text-prompt" style={style}>{children}</div>;
+}
+
+export function EditableTextField({ inputId, label, status, modified = false, children }) {
+  return <div className={`editable-text-field${modified ? ' is-modified' : ''}`}>
+    <div className="editable-text-toolbar">
+      <label htmlFor={inputId}><PenLine size={18} aria-hidden="true" />{label}</label>
+      {status && <span role="status">{status}</span>}
+    </div>
+    {children}
+  </div>;
+}
+
 export const StudyCardFreeText = React.memo(({
   card, freeTextData, editableTextData, onTrainerAnswer, onNextCard, renderAudioPlayer,
   isPureTrainerMode = false, savedState, onSaveState, reviewKey,
@@ -136,36 +157,34 @@ export const StudyCardFreeText = React.memo(({
     }
   };
 
+  const inputId = isEditable ? `edit-input-${card.id}` : undefined;
+  const answerInput = <textarea id={inputId}
+    aria-label={tr(isEditable ? 'Исправленный текст' : 'Ваш ответ')}
+    value={userInput}
+    onChange={event => { cancel(); setUserInput(event.target.value); }}
+    placeholder={tr(isEditable ? 'Исправьте текст здесь...' : 'Напишите ваш ответ здесь...')}
+    disabled={isCompleted || isExhausted || loading}
+    maxLength={4000} rows={3} style={inputStyle}
+    aria-invalid={answerStatus === 'is-incorrect'}
+    aria-describedby={`${isEditable ? `edit-help-${card.id}` : `dictation-help-${card.id}`}${result ? ` answer-feedback-${card.id}` : ''}`.trim() || undefined} />;
+
   return (
     <form className={`interactive-mode-container free-text-exercise ${answerStatus}${isEditable ? ' editable-text-exercise' : ''}`}
       onClick={event => event.stopPropagation()} onSubmit={handleSubmit} aria-busy={loading}>
-      <div className="free-text-heading"><PenLine size={16} />{tr(isEditable ? 'Редактируемый текст' : 'Свободный ответ / Письмо')}</div>
+      <FreeTextHeading editable={isEditable} />
       {isEditable
         ? <p id={`edit-help-${card.id}`} className="free-text-dictation-help">{tr('Исправьте текст прямо в поле и проверьте ответ.')}</p>
-        : <div className="text-front free-text-prompt" style={cardStyle}>{freeTextData.prompt}</div>}
+        : <FreeTextPrompt style={cardStyle}>{freeTextData.prompt}</FreeTextPrompt>}
       {renderAudioPlayer && <div className="free-text-audio">{renderAudioPlayer()}</div>}
-      <div className={isEditable ? `editable-text-field${isModified ? ' is-modified' : ''}` : 'free-text-input-wrapper'}>
-        {isEditable && <div className="editable-text-toolbar">
-          <label htmlFor={`edit-input-${card.id}`}><PenLine size={18} aria-hidden="true" />{tr('Исправленный текст')}</label>
-          <span role="status">{tr(isModified ? 'Текст изменён' : 'Исходный текст')}</span>
-        </div>}
-        <textarea
-          id={isEditable ? `edit-input-${card.id}` : undefined}
-          aria-label={tr(isEditable ? 'Исправленный текст' : 'Ваш ответ')}
-          value={userInput}
-          onChange={event => { cancel(); setUserInput(event.target.value); }}
-          placeholder={tr(isEditable ? 'Исправьте текст здесь...' : 'Напишите ваш ответ здесь...')}
-          disabled={isCompleted || isExhausted || loading}
-          maxLength={4000} rows={3} style={inputStyle}
-          aria-invalid={answerStatus === 'is-incorrect'}
-          aria-describedby={`${isEditable ? `edit-help-${card.id}` : `dictation-help-${card.id}`}${result ? ` answer-feedback-${card.id}` : ''}`.trim() || undefined}
-        />
-        {isEditable && <button type="button" className="btn btn-secondary editable-text-reset"
+      {isEditable ? <EditableTextField inputId={inputId} label={tr('Исправленный текст')} modified={isModified}
+        status={tr(isModified ? 'Текст изменён' : 'Исходный текст')}>
+        {answerInput}
+        <button type="button" className="btn btn-secondary editable-text-reset"
           disabled={!isModified || isCompleted || isExhausted || loading}
           onClick={() => { cancel(); setUserInput(editableTextData.sourceText); }}>
           <RotateCcw size={16} aria-hidden="true" />{tr('Сбросить изменения')}
-        </button>}
-      </div>
+        </button>
+      </EditableTextField> : <div className="free-text-input-wrapper">{answerInput}</div>}
       {!isEditable && !isCompleted && !isExhausted && <button type="button"
         className="btn btn-secondary free-text-action free-text-dictate" aria-pressed={isListening}
         disabled={loading || isStopping}

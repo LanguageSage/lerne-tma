@@ -34,7 +34,7 @@ export function studyInfoBlocks(content) {
 // Presentation order only. Never resolve arbitrary paths into answer-bearing data.
 export function studyLayout(content, { afterAnswer = false } = {}) {
   const layout = content?.layout ?? defaultLayout(content);
-  return layout.filter(item => item.visibility !== 'after_answer' || afterAnswer);
+  return afterAnswer ? layout : layout.filter(item => item.visibility !== 'after_answer');
 }
 
 export function layoutAnswerRevealed(state) {

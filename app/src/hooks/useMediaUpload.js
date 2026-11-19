@@ -2,15 +2,15 @@ import { tr } from '../i18n/locale';
 import api from '../services/api';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
+import { getSessionIdentity } from '../utils/auth';
 import { isNativeStudyCard, studyErrorDetail } from '../utils/structuredStudyCard.js';
 import { useDeckStore } from '../store/useDeckStore';
 
 export const useMediaUpload = () => {
-  const { setLoading, showToast } = useUiStore();
-  const { editingCard, setEditingCard } = useSessionStore();
-  const { currentDeck } = useDeckStore();
+  const setLoading = useUiStore(state => state.setLoading);
+  const showToast = useUiStore(state => state.showToast);
 
-  const uploadImageFile = async (file) => {
+  const uploadImageFile = async (file, signal) => {
     if (!file) return null;
     if (!file.type?.startsWith('image/')) {
       showToast(tr("Выберите файл изображения"));
@@ -19,7 +19,7 @@ export const useMediaUpload = () => {
 
     const formData = new FormData();
     formData.append('file', file);
-    const res = await api.post('/media/upload-image', formData);
+    const res = await api.post('/media/upload-image', formData, { signal });
     return res.data;
   };
 
@@ -37,27 +37,6 @@ export const useMediaUpload = () => {
     return data;
   };
 
-  const uploadImage = async (file) => {
-    if (!file) return;
-    setLoading(true);
-    try {
-      const uploaded = await uploadImageFile(file);
-      if (uploaded) {
-        setEditingCard({
-          ...editingCard,
-          image_path: uploaded.path,
-          image_url: uploaded.url
-        });
-        showToast(tr("Картинка добавлена"), "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
-    } finally {
-      setLoading(false);
-    }
-  };
-
   const saveStudyMedia = async (card, patch) => {
     if (!isNativeStudyCard(card)) throw new Error(tr('Карточка недоступна в формате Structured Cards V2.'));
     const { data } = await api.patch(`/cards/${card.id}`, {
@@ -68,7 +47,7 @@ export const useMediaUpload = () => {
   };
 
   const uploadStudyImage = async (file, targetCard) => {
-    if (!file || !targetCard || !currentDeck?.id) return;
+    if (!file || !targetCard || !useDeckStore.getState().currentDeck?.id) return;
     setLoading(true);
     try {
       const uploaded = await uploadImageFile(file);
@@ -89,58 +68,21 @@ export const useMediaUpload = () => {
     }
   };
 
-  const uploadCreatorImage = async (file, currentData, setter) => {
+  const uploadCreatorImage = async (file, cardId, setter, signal) => {
     if (!file) return;
+    const identity = getSessionIdentity();
     setLoading(true);
     try {
-      const uploaded = await uploadImageFile(file);
-      if (uploaded) {
-        setter({
-          ...currentData,
-          image_path: uploaded.path,
-          image_url: uploaded.url
-        });
+      const uploaded = await uploadImageFile(file, signal);
+      if (uploaded && !signal.aborted && identity === getSessionIdentity()) {
+        setter(current => current && current.id === cardId && !signal.aborted && identity === getSessionIdentity()
+          ? { ...current, image_path: uploaded.path, image_url: uploaded.url } : current);
         showToast(tr("Картинка добавлена"), "success");
       }
     } catch (err) {
-      console.error(err);
-      showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const uploadCardVideo = async (file, targetCard, side = 'back', isEditor = false) => {
-    if (!file || !targetCard || !currentDeck?.id) return;
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const uploaded = await api.post('/media/upload-video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      if (uploaded.data) {
-        const fieldName = side === 'front' ? 'video_front_path' : 'video_back_path';
-        const urlName = side === 'front' ? 'video_front_url' : 'video_back_url';
-
-        if (!isEditor) {
-          // Study view: save immediately
-          await saveStudyMedia(targetCard, { [fieldName]: uploaded.data.path });
-        } else {
-          // Editor view: just update state
-          setEditingCard({
-            ...editingCard,
-            [fieldName]: uploaded.data.path,
-            [urlName]: uploaded.data.url
-          });
-        }
-        
-        showToast(tr("Видео ({{p0}}) добавлено", { p0: side === 'front' ? tr("лицо") : tr("оборот") }), "success");
+      if (!signal.aborted && identity === getSessionIdentity()) {
+        showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
       }
-    } catch (err) {
-      console.error(err);
-      showToast(tr("Ошибка загрузки видео: {{p0}}", { p0: studyErrorDetail(err) }));
     } finally {
       setLoading(false);
     }
@@ -161,35 +103,6 @@ export const useMediaUpload = () => {
     } catch (err) {
       console.error(err);
       showToast(tr("Ошибка загрузки фона: {{p0}}", { p0: err.response?.data?.detail || err.message }));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const uploadVideo = async (file, currentData, setter, side = 'back') => {
-    if (!file) return;
-    setLoading(true);
-    try {
-      const formData = new FormData();
-      formData.append('file', file);
-      const res = await api.post('/media/upload-video', formData, {
-        headers: { 'Content-Type': 'multipart/form-data' }
-      });
-
-      if (res.data) {
-        const fieldName = side === 'front' ? 'video_front_path' : 'video_back_path';
-        const urlName = side === 'front' ? 'video_front_url' : 'video_back_url';
-        
-        setter({
-          ...currentData,
-          [fieldName]: res.data.path,
-          [urlName]: res.data.url
-        });
-        showToast(tr("Видео ({{p0}}) добавлено", { p0: side === 'front' ? tr("лицо") : tr("оборот") }), "success");
-      }
-    } catch (err) {
-      console.error(err);
-      showToast(tr("Ошибка загрузки видео: {{p0}}", { p0: err.response?.data?.detail || err.message }));
     } finally {
       setLoading(false);
     }
@@ -267,11 +180,8 @@ export const useMediaUpload = () => {
 
   return {
     uploadAudioFile,
-    uploadImage,
     uploadStudyImage,
     uploadCreatorImage,
-    uploadCardVideo,
-    uploadVideo,
     uploadCustomBackground,
     uploadDeckResource
   };

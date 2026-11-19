@@ -1,0 +1,75 @@
+.visual-card-form .visual-card-layout-block:has(.trainer-editor) > .visual-card-drag-handle { align-self: start; }
+.trainer-editor { display: grid; min-width: 0; gap: 8px; }
+.trainer-editor-heading, .trainer-editor-part-tools, .trainer-editor-part-types {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.trainer-editor-heading { font-weight: 700; }
+.trainer-editor-heading svg { color: var(--design-accent); }
+.trainer-editor-sentence {
+  min-width: 0;
+  padding: 8px;
+  border: 1px solid var(--design-glass-border);
+  border-radius: 10px;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.trainer-editor-option { display: inline-block; max-width: 100%; vertical-align: baseline; }
+.trainer-editor-text { position: relative; cursor: text; }
+.trainer-editor-text:not(:focus-within) .visual-card-inline-field { display: inline; }
+.trainer-editor .trainer-editor-text:not(:focus-within) textarea {
+  position: absolute;
+  inset-inline-start: 0;
+  width: 1px;
+  height: 1px;
+  min-height: 0;
+  pointer-events: none;
+}
+.trainer-editor-text:focus-within { display: block; }
+.trainer-editor-gap { display: inline; }
+.trainer-editor-gap > * { margin-inline: 2px; }
+.trainer-editor-gap-actions { display: inline-flex; gap: 2px; vertical-align: middle; }
+.trainer-editor-gap-actions .trainer-editor-add-option { border: 1px solid var(--design-glass-border); }
+.trainer-editor-auto-label { font: 600 .75rem system-ui, sans-serif; opacity: .8; }
+.trainer-editor-choice .trainer-editor-option { position: relative; padding-top: 32px; }
+.trainer-editor-option .trainer-gap {
+  display: inline-grid;
+  align-items: center;
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 64px;
+  max-width: 100%;
+  animation: none;
+}
+.trainer-editor-option .is-wrong .visual-card-inline-display { text-decoration: line-through; }
+.trainer-editor-option-tools {
+  position: absolute;
+  inset: 0 auto auto 0;
+  display: flex;
+  gap: 2px;
+  padding: 1px 2px;
+  border: 1px solid var(--design-glass-border);
+  border-radius: 8px;
+  background: var(--design-btn-secondary-bg, #334155);
+}
+.trainer-editor-option-tools .trainer-mark-correct { color: var(--design-cloze-correct-color, #4ade80); }
+.trainer-editor-option-tools .trainer-mark-wrong { color: var(--design-cloze-wrong-color, #f87171); }
+.trainer-editor-warning, .trainer-editor-help { margin: 0; }
+.trainer-editor-warning { color: var(--design-cloze-wrong-color, #f87171); }
+.trainer-editor-help { font-size: .8rem; opacity: .8; }
+.trainer-editor-parts-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 8px;
+}
+.trainer-editor-part-menu label { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+.trainer-editor-part-types button, .trainer-editor-auto { padding: 4px 8px; }
+.trainer-editor-part-tools button:disabled { opacity: .4; cursor: default; }
+@media (pointer: coarse) {
+  .trainer-editor-choice .trainer-editor-option { padding-top: 48px; }
+  .trainer-editor-option .trainer-gap { min-width: 92px; }
+  .trainer-editor-part-tools button, .trainer-editor-part-types button, .trainer-editor-auto { min-height: 44px; }
+}

@@ -327,9 +327,14 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
         (await import('/src/store/useUiStore.js')).useUiStore.getState().setView('creator');
       });
       await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
-      const source = kind === 'puzzle'
-        ? { ...content, card: { ...content.card, data: { tokens: [], translation: '' } } }
-        : content;
+      const data = { ...content.card.data };
+      if (kind === 'puzzle') Object.assign(data, { tokens: [], translation: '' });
+      if (kind === 'match') data.pairs = [{ left: '', right: '' }, { left: '', right: '' }];
+      if (kind === 'free_text') Object.assign(data, { prompt: '', sample_answer: '', accepted_answers: [],
+        grading_policy: { ...data.grading_policy, max_retries: 1 } });
+      if (kind === 'editable_text') Object.assign(data, { source_text: '', correct_text: '', accepted_answers: [],
+        grading_policy: { ...data.grading_policy, max_retries: 1 } });
+      const source = { ...content, card: { ...content.card, data } };
       await page.getByRole('textbox', { name: 'Полный content_v2 JSON' }).fill(JSON.stringify(source, null, 2));
       await page.getByRole('button', { name: 'Типизированная форма', exact: true }).click();
       await expect(page.getByRole('combobox', { name: 'Тип карточки' })).toHaveValue(kind);
@@ -341,6 +346,22 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
         await sentence.press('Enter');
         await page.getByRole('textbox', { name: 'Перевод', exact: true }).fill(translation);
         await expect(page.locator('.puzzle-editor .puzzle-slot-chip')).toHaveText(tokens);
+      } else if (kind === 'match') {
+        for (const [index, pair] of content.card.data.pairs.entries()) {
+          if (index >= 2) await page.getByRole('button', { name: 'Добавить пару', exact: true }).click();
+          await page.getByRole('textbox', { name: `Слева ${index + 1}`, exact: true }).fill(pair.left);
+          await page.getByRole('textbox', { name: `Справа ${index + 1}`, exact: true }).fill(pair.right);
+        }
+      } else if (kind === 'free_text' || kind === 'editable_text') {
+        const { prompt, sample_answer, source_text, correct_text, accepted_answers, grading_policy } = content.card.data;
+        await page.locator('#card-editor-front').fill(prompt ?? source_text);
+        await page.locator('#card-editor-back').fill(sample_answer ?? correct_text);
+        await page.getByText('Настройки проверки', { exact: true }).click();
+        for (const [index, answer] of accepted_answers.entries()) {
+          await page.getByRole('button', { name: 'Добавить вариант', exact: true }).click();
+          await page.getByRole('textbox', { name: `Вариант ответа ${index + 1}`, exact: true }).fill(answer);
+        }
+        await page.getByRole('combobox', { name: 'Лимит попыток', exact: true }).selectOption(String(grading_policy.max_retries));
       } else {
         await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
         await expect(page.getByRole('textbox', { name: 'Полный content_v2 JSON' })).toHaveValue(JSON.stringify(content, null, 2));
@@ -523,6 +544,9 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
   const withExplanation = (content, explanation) => ({ ...content, card: { ...content.card, explanation } });
   const expected = new Map(cards.map(([kind, card]) => [card.id,
     withExplanation(card.content_v2, 'Änderung ' + kind + '\nКонтекст [[literal]]')]));
+  const trainer = cards.find(([kind]) => kind === 'trainer')[1];
+  const trainerWithChoiceEdit = structuredClone(expected.get(trainer.id));
+  trainerWithChoiceEdit.card.data.parts[0].options[1] = { text: 'Sobald', correct: true };
 
   try {
     await launch();
@@ -555,6 +579,13 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
       expect(JSON.parse(await source.inputValue())).toEqual(expected.get(card.id));
       await page.getByRole('button', { name: 'Типизированная форма', exact: true }).click();
       await contextField().fill(expected.get(card.id).card.explanation);
+      if (kind === 'trainer') {
+        const option = page.getByRole('textbox', { name: 'Вариант ответа 1.2', exact: true });
+        await expect(option).toHaveValue('Wenn');
+        await option.fill('Sobald');
+        await page.getByRole('button', { name: 'Отметить как правильный 1.2', exact: true }).click();
+        expected.set(card.id, trainerWithChoiceEdit);
+      }
       if (index % 2) await page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
       if (index === cards.length - 1) {
         // The same Save button must commit locally even while connected.
@@ -638,8 +669,9 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
 
     const { id } = fixture.edit_cards.quiz;
     await openEditor(id);
-    const correctAnswer = page.getByRole('checkbox', { name: 'Верный ответ', exact: true }).nth(1);
-    await correctAnswer.uncheck();
+    const correctAnswer = page.getByRole('button', { name: 'Верный ответ 2', exact: true });
+    await expect(correctAnswer).toHaveAttribute('aria-pressed', 'true');
+    await correctAnswer.click();
     await save();
     await expect(item(id).getByRole('status')).toContainText('Ошибка синхронизации');
     const rejected = (await inspect()).operations[0];
@@ -651,7 +683,8 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
     await openDraft(id);
     await expect(panel().getByRole('alert')).toContainText('options');
     await panel().getByRole('button', { name: 'Продолжить редактирование' }).click();
-    await correctAnswer.check();
+    await expect(correctAnswer).toHaveAttribute('aria-pressed', 'false');
+    await correctAnswer.click();
     await page.locator('#card-editor-front').fill('Korrigierte Quizfrage?');
     await save();
     await expect.poll(async () => (await inspect()).operations).toEqual([]);
