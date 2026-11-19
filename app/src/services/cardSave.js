@@ -5,6 +5,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { cardWriteError, parseCardSource, validateStandardDraft } from '../utils/cardDraft';
+import { findCardDeck, parseDeckMetadata } from '../utils/deckUtils';
 import api from './api';
 import { prepareLocalDb } from './localDb';
 import { notifyCardEdit, syncService } from './syncService';
@@ -21,11 +22,12 @@ export async function saveCard(manualCardData = null, { awaitDelivery = false } 
   const { currentDeck } = useDeckStore.getState();
 
   const isEvent = manualCardData && typeof manualCardData === 'object' && 'preventDefault' in manualCardData;
-  const data = (manualCardData && !isEvent) ? manualCardData : session.editingCard;
+  const draft = (manualCardData && !isEvent) ? manualCardData : session.editingCard;
 
   const identity = getSessionIdentity();
   const account = getUserId();
-  if (!data?.content_v2 || (activeSave?.identity === identity && activeSave?.account === account)) return;
+  if (!draft?.content_v2 || (activeSave?.identity === identity && activeSave?.account === account)) return;
+  const { draftImageHeight, ...data } = draft;
   const flight = { identity, account };
   activeSave = flight;
   const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
@@ -121,26 +123,7 @@ export async function saveCard(manualCardData = null, { awaitDelivery = false } 
     }
 
     const { deckCards } = useDeckStore.getState();
-    let savedCard = (res?.data && res.data.id) ? res.data : data;
-    if (!savedLocally && data.image_height) {
-      savedCard = { ...savedCard, image_height: data.image_height };
-      if (currentDeck?.id) {
-        try {
-          let meta = currentDeck.metadata;
-          if (typeof meta === 'string') {
-            try { meta = JSON.parse(meta); } catch { meta = {}; }
-          } else {
-            meta = meta ? { ...meta } : {};
-          }
-          if (meta.imageHeight !== data.image_height) {
-            meta.imageHeight = data.image_height;
-            useDeckStore.getState().updateDeckMetadata(currentDeck.id, meta).catch(() => {});
-          }
-        } catch {
-          // ignore
-        }
-      }
-    }
+    const savedCard = (res?.data && res.data.id) ? res.data : data;
     if (res?.data && res.data.id) {
       const existingIdx = (deckCards || []).findIndex(c => String(c.id) === String(savedCard.id));
       let nextCards = [...(deckCards || [])];
@@ -212,6 +195,25 @@ export async function saveCard(manualCardData = null, { awaitDelivery = false } 
       ui.setView(sourceView);
     }
     if (deliverEdit && !awaitDelivery) void syncService.sync({ pendingNativeOnly: true, skipPull: true });
+
+    // Commit the deck setting separately, after publishing the card to the UI.
+    // The edit receipt can arrive while the metadata request is in flight.
+    const savedDeckId = savedCard.deck_id ?? finalDeckId;
+    if (draftImageHeight && savedDeckId > 0 && navigator.onLine && (deliverEdit || !savedLocally)) {
+      const deckState = useDeckStore.getState();
+      const deck = findCardDeck(deckState, savedDeckId);
+      const metadata = parseDeckMetadata(deck);
+      if (deck && Number(metadata?.imageHeight || 220) !== draftImageHeight) {
+        try {
+          const deckMetadata = await deckState.updateDeckMetadata(deck.id, { ...metadata, imageHeight: draftImageHeight });
+          if (!isCurrent()) return;
+          if (sourceView === 'study') session.updateCardInSession(savedCard.id, { deck_metadata: deckMetadata });
+        } catch {
+          if (!isCurrent()) return;
+          showToast(tr('Не удалось обновить настройки'), 'warning');
+        }
+      }
+    }
     return savedCard;
   } catch (err) {
     if (!isCurrent()) return;

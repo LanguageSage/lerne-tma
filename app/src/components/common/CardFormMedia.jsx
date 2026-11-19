@@ -1,6 +1,6 @@
 import { Image as ImageIcon, RefreshCw, RotateCw, Volume2, X } from 'lucide-react';
 import { tr } from '../../i18n/locale';
-import { useDeckStore } from '../../store/useDeckStore';
+import { parseDeckMetadata } from '../../utils/deckUtils';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import { FlagPicker } from './FlagPicker';
 
@@ -46,37 +46,10 @@ export function CardMediaFields({ cardData, setCardData, openImagePicker, genera
   );
 }
 
-export function CardCoverPreview({ cardData, setCardData, onEdit, onClear }) {
-  const currentDeck = useDeckStore(state => state.currentDeck);
-  const updateDeckMetadata = useDeckStore(state => state.updateDeckMetadata);
+export function CardCoverPreview({ cardData, setCardData, deck, onEdit, onClear }) {
   if (!cardData.image_url && !cardData.image_path) return null;
 
-  const getDeckH = () => {
-    try {
-      const meta = currentDeck?.metadata;
-      const parsed = meta ? (typeof meta === 'string' ? JSON.parse(meta) : meta) : {};
-      return parsed.imageHeight || 220;
-    } catch { return 220; }
-  };
-  const currentH = cardData.image_height || getDeckH();
-  const setImageHeight = value => setCardData(current => ({ ...current, image_height: value }));
-  const handleHeightChange = async (val) => {
-    setImageHeight(val);
-    if (currentDeck?.id) {
-      try {
-        let meta = currentDeck.metadata;
-        if (typeof meta === 'string') {
-          try { meta = JSON.parse(meta); } catch { meta = {}; }
-        } else {
-          meta = meta ? { ...meta } : {};
-        }
-        meta.imageHeight = val;
-        await updateDeckMetadata(currentDeck.id, meta);
-      } catch (e) {
-        console.error('Error syncing deck image height:', e);
-      }
-    }
-  };
+  const currentH = cardData.draftImageHeight ?? (parseDeckMetadata(deck ?? cardData)?.imageHeight || 220);
 
   return (
     <>
@@ -125,9 +98,10 @@ export function CardCoverPreview({ cardData, setCardData, onEdit, onClear }) {
             max={800}
             step={10}
             value={currentH}
-            onChange={e => setImageHeight(Number(e.target.value))}
-            onMouseUp={e => handleHeightChange(Number(e.target.value))}
-            onTouchEnd={e => handleHeightChange(Number(e.target.value))}
+            onChange={e => {
+              const draftImageHeight = Number(e.target.value);
+              setCardData(current => ({ ...current, draftImageHeight }));
+            }}
             style={{ flex: 1, accentColor: '#a855f7', cursor: 'pointer' }}
           />
           <span style={{ fontSize: '0.8rem', color: '#c084fc', fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>

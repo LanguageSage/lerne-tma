@@ -9,6 +9,7 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { attachDraftImage, changeDraft, changeDraftSource, draftSourceError } from '../../utils/cardDraft';
+import { findCardDeck } from '../../utils/deckUtils';
 import { studySideText } from '../../utils/structuredStudyCard';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { getResolvedStyle } from '../../utils/style';
@@ -90,6 +91,7 @@ export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) =
   const textStyles = useMemo(() => getDesignStylesFromV2(effectiveConfig), [effectiveConfig]);
   const loading = useUiStore(state => state.loading);
   const creatorDeckId = useDeckStore(state => isCreator ? state.currentDeck?.id : undefined);
+  const cardDeck = useDeckStore(state => findCardDeck(state, cardData?.deck_id));
   const { runAiGenerator, stopAiGeneration, generateAudioInternal } = useAiActions();
   const { playAudio } = useAudio();
   const { uploadCreatorImage } = useMediaUpload();
@@ -139,7 +141,7 @@ export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) =
 
   const clearCover = () => {
     coverUpload.current?.abort();
-    setCardData(current => ({ ...current, image_path: '', image_url: '' }));
+    setCardData(current => ({ ...current, image_path: '', image_url: '', draftImageHeight: undefined }));
   };
 
   return (
@@ -182,9 +184,10 @@ export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) =
               <VisualFields key={cardData.id} cardData={cardData} update={update} dictation={dictation}
                 designConfig={effectiveConfig} textStyles={textStyles} />
             </div>
-            <CardCoverPreview cardData={cardData} setCardData={setCardData}
+            <CardCoverPreview cardData={cardData} setCardData={setCardData} deck={cardDeck}
               onEdit={() => setIsEditingExistingImage(true)} onClear={clearCover} />
-            <CardLevelControls cardData={cardData} frontText={frontText} update={update} />
+            <CardLevelControls cardData={cardData} deckLanguage={cardDeck?.target_language}
+              frontText={frontText} update={update} />
           </div>
         </div>
 

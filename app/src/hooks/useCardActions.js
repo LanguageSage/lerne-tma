@@ -4,7 +4,7 @@ import { useAiActions } from './useAiActions';
 
 export const useCardActions = () => {
   const studySession = useStudySession();
-  const cardEditor = useCardEditor();
+  const cardEditor = useCardEditor(studySession.fetchNextCard);
   const aiActions = useAiActions();
 
   return {

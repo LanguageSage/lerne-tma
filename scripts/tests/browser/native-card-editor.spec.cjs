@@ -82,11 +82,203 @@ async function setupEditor(page, context, server) {
       useSessionStore.getState().setEditingCard(card);
       useUiStore.setState({ editorSourceView: 'decks' });
       useUiStore.getState().setView('editor');
-    }, { deck, card, load });
+    }, { deck: decks.find(item => item.id === deck.id) ?? deck, card, load });
   };
 }
 
 const cachedCard = page => page.evaluate(async () => (await (await import('/src/services/localDb.js')).prepareLocalDb()).cards.get(1));
+
+test('cover height stays in the edit draft until save and updates deck metadata once', async ({ page, context }, testInfo) => {
+  await page.setViewportSize({ width: 375, height: 900 });
+  const fixtureDeck = { ...deck, metadata: JSON.stringify({ imageHeight: 180, authored: 'preserve' }) };
+  const card = { id: 1, deck_id: 1, revision: 'cover-height', image_path: 'images/original.webp',
+    content_v2: { schema_version: 2, card: { type: 'standard', data: types.standard } } };
+  const server = { card, decks: [fixtureDeck], saves: [] };
+  const open = await setupEditor(page, context, server);
+  const metadataWrites = [];
+  await page.route('**/api/decks/1/metadata', route => {
+    const metadata = route.request().postDataJSON();
+    metadataWrites.push(metadata);
+    fixtureDeck.metadata = JSON.stringify(metadata);
+    return route.fulfill({ json: { metadata: fixtureDeck.metadata } });
+  });
+  const slider = page.locator('#tut-creator-front').getByRole('slider');
+  const cover = page.locator('.image-preview-box img');
+  const save = page.getByRole('button', { name: 'Сохранить карточку', exact: true });
+  const resize = async value => {
+    await slider.fill(String(value));
+    await slider.dispatchEvent('mouseup');
+    await expect(cover).toHaveCSS('height', value + 'px');
+  };
+
+  await open(server.card, true);
+  await expect(cover).toHaveCSS('height', '180px');
+  await resize(260);
+  await resize(300);
+  await page.locator('.view-editor .back-btn').press('Enter');
+  await expect(slider).toHaveCount(0);
+  await open(server.card, true);
+  expect(metadataWrites).toEqual([]);
+  expect(server.saves).toEqual([]);
+  await expect(cover).toHaveCSS('height', '180px');
+  await resize(260);
+  await slider.press('ArrowRight');
+  await expect(cover).toHaveCSS('height', '270px');
+  expect(metadataWrites).toEqual([]);
+  await save.click();
+  await expect(slider).toHaveCount(0);
+  await expect.poll(() => server.saves.length).toBe(1);
+  await expect.poll(() => metadataWrites).toEqual([{ imageHeight: 270, authored: 'preserve' }]);
+  expect(server.saves[0]).not.toHaveProperty('draftImageHeight');
+  expect(server.saves[0].image_path).toBe(card.image_path);
+  await open(server.card, true);
+  await expect(cover).toHaveCSS('height', '270px');
+  await expect.poll(() => cover.evaluate(img => img.naturalWidth)).toBeGreaterThan(0);
+  await page.locator('.image-preview-box').screenshot({ path: testInfo.outputPath('cover-height-375.png') });
+  await slider.press('ArrowRight');
+  await slider.press('ArrowLeft');
+  await save.click();
+  await expect(slider).toHaveCount(0);
+  await expect.poll(() => server.saves.length).toBe(2);
+  expect(metadataWrites).toHaveLength(1);
+});
+
+test('cover height for a new card updates the selected destination deck', async ({ page, context }) => {
+  const destination = { ...deck, id: 2, name: 'Destination', metadata: { imageHeight: 310, authored: 'destination' } };
+  const server = { decks: [deck, destination], saves: [] };
+  await setupEditor(page, context, server);
+  const metadataWrites = [];
+  await page.route('**/api/decks/*/metadata', route => {
+    const metadata = route.request().postDataJSON();
+    metadataWrites.push([new URL(route.request().url()).pathname, metadata]);
+    return route.fulfill({ json: { metadata } });
+  });
+  await page.route('**/api/media/upload-image', route =>
+    route.fulfill({ json: { path: 'images/original.webp', url: '/api/media/images/original.webp' } }));
+  await page.evaluate(async deck => {
+    (await import('/src/store/useDeckStore.js')).useDeckStore.setState({ currentDeck: deck });
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    useUiStore.setState({ view: 'creator', editorSourceView: 'decks' });
+  }, deck);
+  const creator = page.locator('.view-creator');
+  await creator.locator('select.form-input').first().selectOption('2');
+  await page.locator('#card-editor-front').fill('Ein neues Bild');
+  await page.getByText('Медиа и оформление', { exact: true }).click();
+  await page.getByRole('button', { name: 'Картинка', exact: true }).click();
+  await page.locator('.image-picker-dialog input[type=file]').first().setInputFiles({
+    name: 'cover.svg', mimeType: 'image/svg+xml',
+    buffer: Buffer.from('<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20"/>'),
+  });
+  await page.getByRole('button', { name: 'Применить', exact: true }).click();
+  await expect(page.locator('.image-preview-box img')).toHaveCSS('height', '310px');
+  await expect(page.locator('.image-picker-dialog')).toHaveCount(0);
+  await creator.locator('#tut-creator-front').getByRole('slider').fill('350');
+  await page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+  await expect(creator).toHaveCount(0);
+  expect(server.saves[0]).toMatchObject({ deck_id: 2, image_path: 'images/original.webp' });
+  await expect.poll(() => metadataWrites).toEqual([['/api/decks/2/metadata', { imageHeight: 350, authored: 'destination' }]]);
+});
+
+test('Share sends Native V2 content through the share sheet and still copies the link on desktop', async ({ page, context }) => {
+  await setupEditor(page, context, { saves: [] });
+  await page.route('**/api/share/generate/card/1', route => route.fulfill({ json: { share_id: 'native-fixture' } }));
+  const showShare = (type, data, desktop = false) => page.evaluate(async ({ type, data, desktop, deck }) => {
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const card = { id: 1, deck_id: 1, front: 'legacy front', back: 'legacy back',
+      content_v2: { schema_version: 2, card: { type, data } } };
+    Object.defineProperty(navigator, 'clipboard', { configurable: true,
+      value: desktop ? { writeText: async url => { window.copiedLink = url; } } : undefined });
+    Object.defineProperty(navigator, 'share', { configurable: true,
+      value: async payload => { window.sharePayload = payload; } });
+    window.sharePayload = null;
+    useDeckStore.setState({ currentDeck: deck, deckCards: [card] });
+    useUiStore.setState({ actionCard: card, isCardActionModalOpen: true });
+  }, { type, data, desktop, deck });
+
+  const link = 'https://t.me/LerneDeutsch287_bot?start=native-fixture';
+  for (const [type, title, text] of [
+    ['standard', 'Haus', 'Haus — дом'],
+    ['puzzle', 'Das ist ein Haus', 'Das ist ein Haus — Это дом'],
+    ['word_bank', 'Haus', 'Haus'],
+  ]) {
+    await showShare(type, types[type]);
+    await page.getByText('Поделиться', { exact: true }).click();
+    await expect.poll(() => page.evaluate(() => window.sharePayload)).toEqual({
+      title: 'Учи слово в Lerne: ' + title,
+      text: 'Изучай немецкий язык с карточкой: "' + text + '"',
+      url: link,
+    });
+  }
+  await showShare('standard', types.standard, true);
+  await page.getByText('Поделиться', { exact: true }).click();
+  await expect.poll(() => page.evaluate(() => window.copiedLink)).toBe(link);
+  expect(await page.evaluate(() => window.sharePayload)).toBeNull();
+});
+
+test('auto CEFR updates the editor draft synchronously and keeps the fallback for unsupported languages', async ({ page, context }) => {
+  const englishDeck = { ...deck, id: 2, name: 'English fixture', target_language: 'en' };
+  const open = await setupEditor(page, context, { decks: [deck, englishDeck], saves: [] });
+  const prompt = 'Obwohl er krank war, hätte er arbeiten müssen, wenn es erforderlich gewesen wäre.';
+  const card = { id: 1, deck_id: 1, revision: 'cefr-fixture', content_v2: { schema_version: 2, card: {
+    type: 'standard', level: 'A1', data: { prompt, answer: '' },
+  } } };
+
+  for (const [deck_id, target_language] of [[2, ' DE '], [1, undefined], [2, 'en']]) {
+    await open({ ...card, deck_id, target_language });
+    await page.getByTitle('Ручная смена уровня CEFR').click();
+    const result = await page.getByRole('button', { name: /Авто \(распознать\)/ }).evaluate(async (button, phrase) => {
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const { classifySentenceFast } = await import('/src/services/classifier/index.js');
+      const expected = classifySentenceFast(phrase, 'de').level;
+      button.click();
+      const { level, metadata } = useSessionStore.getState().editingCard.content_v2.card;
+      return { level, expected, source: metadata?.cefr?.source };
+    }, prompt);
+    expect(result.expected).not.toBe('A1');
+    expect(result).toEqual({ level: result.expected, expected: result.expected, source: 'local' });
+  }
+});
+
+for (const action of ['move', 'delete']) {
+  test(`Study continues with the next card after ${action} from card actions`, async ({ page, context }) => {
+    const source = { ...deck, folder_id: null, stats: { total: 2 } };
+    const destination = { ...deck, id: 2, folder_id: null, name: 'Destination', stats: { total: 0 } };
+    const cards = ['Erste Karte', 'Nächste Karte'].map((prompt, index) => ({
+      id: index + 1, deck_id: 1, position: index + 1, revision: 'a'.repeat(64),
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt, answer: '' } } },
+    }));
+    await setupEditor(page, context, { card: cards[0], decks: [source, destination], saves: [] });
+    await page.evaluate(async ({ source, destination, cards }) => {
+      const { prepareLocalDb } = await import('/src/services/localDb.js');
+      const { useDeckStore } = await import('/src/store/useDeckStore.js');
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      const db = await prepareLocalDb();
+      await db.decks.bulkPut([source, destination]);
+      await db.cards.bulkPut(cards);
+      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+      useSettingsStore.setState({ autoPlay: false });
+      useDeckStore.setState({ decks: [source, destination], currentDeck: source, deckCards: cards });
+      useSessionStore.getState().resetSession();
+      useSessionStore.getState().addToHistory(cards[0]);
+      useUiStore.getState().setView('study');
+    }, { source, destination, cards });
+
+    await page.locator('.study-card-actions-button').click();
+    const dialog = page.getByRole('dialog', { name: 'Управление карточкой' });
+    if (action === 'move') {
+      await dialog.getByRole('button', { name: 'Перенести в другую колоду' }).click();
+      await dialog.getByRole('button', { name: /Destination/ }).click();
+    } else {
+      await dialog.getByRole('button', { name: /Удалить карточку/ }).click();
+    }
+    await expect.poll(() => page.evaluate(async () =>
+      (await import('/src/store/useSessionStore.js')).useSessionStore.getState().card?.id)).toBe(2);
+    await expect(page.locator('#tut-study-card')).toContainText('Nächste Karte');
+  });
+}
 
 test('cover upload attaches to the latest draft after a delayed response', async ({ page, context }) => {
   const card = { id: 1, deck_id: 1, revision: 'cover-fixture', content_v2: { schema_version: 2,
