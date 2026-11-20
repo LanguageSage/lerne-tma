@@ -21,7 +21,7 @@ export const useCardNavigation = () => {
 
   const openEditor = useCallback(async (deckId, cardToEdit = null, source = 'cards') => {
     const { setView, setEditorSourceView, setIsAuthModalOpen, setLastSelectedCardId, setIsOpeningEditor, showToast } = useUiStore.getState();
-    const { setEditingCard } = useSessionStore.getState();
+    const { openEditingCard } = useSessionStore.getState();
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr("Для редактирования карточек войдите через Telegram"));
       return;
@@ -55,7 +55,7 @@ export const useCardNavigation = () => {
           }
         }
       }
-      setEditingCard({
+      openEditingCard({
         ...cardToEdit,
         id: cardToEdit.id,
         image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
@@ -66,7 +66,7 @@ export const useCardNavigation = () => {
         deck_id: cardToEdit.deck_id ?? deckId
       });
     } else {
-      setEditingCard({ content_v2: newCardContent(), deck_id: deckId });
+      openEditingCard({ content_v2: newCardContent(), deck_id: deckId });
     }
     setEditorSourceView(source);
     setView('editor');
@@ -74,14 +74,14 @@ export const useCardNavigation = () => {
 
   const openCreator = useCallback((deckId, source = 'cards', afterCardId = null) => {
     const { setView, setEditorSourceView, setIsAuthModalOpen } = useUiStore.getState();
-    const { setEditingCard } = useSessionStore.getState();
+    const { openEditingCard } = useSessionStore.getState();
     if (userProfile?.is_guest) {
       setIsAuthModalOpen(true, tr("Для создания карточек войдите через Telegram"));
       return;
     }
     captureScroll();
     setEditorSourceView(source);
-    setEditingCard({
+    openEditingCard({
       deck_id: deckId,
       content_v2: newCardContent(),
       image_path: '',

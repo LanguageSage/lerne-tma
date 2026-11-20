@@ -41,6 +41,7 @@ export const CardEditor = () => {
   const conflict = edit?.status === 'conflict';
   const merging = conflict && editingDraft;
   const handleSave = async (awaitDelivery = false) => {
+    setEditingDraft(true);
     const saved = await saveCard(null, { awaitDelivery });
     if (saved) setEditingDraft(false);
     return saved;
@@ -71,6 +72,7 @@ export const CardEditor = () => {
 
   return (
     <CardEditorShell view="editor" title={tr('Правка карточки')}>
+      {editingCard?.offline_create_error && <p role="alert">{editingCard.offline_create_error}</p>}
       {edit && (
         <section className="card-edit-panel" aria-label={tr('Синхронизация карточки')}>
           <h3 role="status">{offlineEditLabel(edit)}</h3>
@@ -104,7 +106,7 @@ export const CardEditor = () => {
           onSave={handleSave}
         />
       )}
-      {!edit && <LocalPublishButton cardId={editingCard?.id} beforeOpen={async () => {
+      {!edit && editingCard?.id > 0 && <LocalPublishButton cardId={editingCard.id} beforeOpen={async () => {
         const saved = await handleSave(true);
         return saved?.offline_edit ? null : saved;
       }} />}

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useLayoutEffect, useRef, useState } from 'react';
 import { useTranslation } from '../../i18n/i18nContext';
 import { CardForm } from '../common/CardForm';
 import { CardEditorShell } from './CardEditorShell';
@@ -22,6 +22,15 @@ export const CardCreator = () => {
   const currentDeckId = useDeckStore(state => state.currentDeck?.id);
   const [sourceDeckId, setSourceDeckId] = useState(currentDeckId);
   const [newCardData, setNewCardData] = useState(() => createDraft(currentDeckId));
+  const liveDraft = useRef(newCardData);
+  useLayoutEffect(() => {
+    liveDraft.current = newCardData;
+  }, [newCardData]);
+  const setDraft = updater => {
+    const next = typeof updater === 'function' ? updater(liveDraft.current) : updater;
+    liveDraft.current = next;
+    setNewCardData(next);
+  };
 
   // The destination picker changes the draft, while the current deck starts a new one.
   if (sourceDeckId !== currentDeckId) {
@@ -32,10 +41,14 @@ export const CardCreator = () => {
   return (
     <CardEditorShell view="creator" title={t('creator.title', 'Новая карточка')}
       settingsTitle={t('settings.title', 'Настройки')}>
+      {newCardData.offline_create_error && <p role="alert">{newCardData.offline_create_error}</p>}
       <CardForm
         cardData={newCardData}
-        setCardData={setNewCardData}
-        onSave={() => saveCard(newCardData)}
+        setCardData={setDraft}
+        onSave={() => saveCard(liveDraft.current, {
+          getDraft: () => useDeckStore.getState().currentDeck?.id === sourceDeckId ? liveDraft.current : null,
+          setDraft,
+        })}
         isCreator
       />
     </CardEditorShell>

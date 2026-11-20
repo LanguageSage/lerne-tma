@@ -43,7 +43,10 @@ function assertCardReadyForBatch(card, expectedRevision) {
   }
 }
 
-export async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
+export async function saveNativeCard(db, body, {
+  offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable,
+  offlineCreateId: tempId, offlineCreateRequestId: rejectedRequestId,
+}, userId) {
   if (body.content_v2?.schema_version !== 2 || typeof body.content_v2.card?.type !== 'string') {
     throw new Error(tr('Некорректный JSON карточки V2.'));
   }
@@ -54,7 +57,11 @@ export async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlin
     const key = CARD_CREATE_KEY + body.request_id;
     const pending = await db.syncState.get(key);
     if (pending) {
-      if (JSON.stringify(pending.payload) !== JSON.stringify(body)) throw new Error('Card create request changed');
+      const replay = tempId == null ? body
+        : { ...body, deck_id: pending.payload.deck_id, after_card_id: pending.payload.after_card_id };
+      if ((tempId != null && pending.tempId !== tempId) || JSON.stringify(pending.payload) !== JSON.stringify(replay)) {
+        throw new Error('Card create request changed');
+      }
       return result(await db.cards.get(pending.tempId));
     }
     const deck = body.deck_id == null
@@ -68,6 +75,29 @@ export async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlin
     if (isContentReadOnly(deck)) {
       if (ifAvailable) return null;
       readOnly();
+    }
+    if (tempId != null) {
+      const [draft, rejected] = await Promise.all([
+        db.cards.get(tempId),
+        rejectedRequestId ? db.syncState.get(CARD_CREATE_KEY + rejectedRequestId)
+          : db.syncState.where('key').startsWith(CARD_CREATE_KEY).filter(operation => operation.tempId === tempId).first(),
+      ]);
+      if (!rejected?.rejected || rejected.tempId !== tempId || rejected.deckId !== deck.id ||
+          !draft?.offline_create_error || draft.offline_create_request_id !== rejectedRequestId) {
+        throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
+      }
+      const payload = { ...body, deck_id: rejected.payload.deck_id, after_card_id: rejected.payload.after_card_id };
+      const local = { ...draft, content_v2: body.content_v2, offline_create_status: 'pending' };
+      delete local.offline_create_error;
+      delete local.offline_create_request_id;
+      for (const field of mediaPaths) if (Object.hasOwn(body, field)) {
+        if (local[field] !== body[field]) delete local[field.replace('_path', '_url')];
+        local[field] = body[field];
+      }
+      await db.cards.put(local);
+      await db.syncState.delete(rejected.key);
+      await db.syncState.add({ key, tempId, deckId: deck.id, payload });
+      return result(local);
     }
     const siblings = await db.cards.where('deck_id').equals(deck.id).filter(c => !c.is_deleted).toArray();
     const after = body.after_card_id == null ? null

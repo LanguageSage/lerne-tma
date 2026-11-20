@@ -16,6 +16,8 @@ export function remapOfflineUi({ detail }) {
     const next = { ...item, id: id('cards', item.id), deck_id: id('decks', item.deck_id) };
     if (confirmedCard && next.id === confirmedCard.id && item.id !== next.id) {
       delete next.offline_create_status;
+      delete next.offline_create_error;
+      delete next.offline_create_request_id;
       delete next.offline_move;
       Object.assign(next, confirmedCard);
     }
@@ -36,7 +38,15 @@ export function remapOfflineUi({ detail }) {
   });
   if (state.currentDeck) localStorage.setItem('lerne_current_deck_id', String(id('decks', state.currentDeck.id)));
   const session = useSessionStore.getState();
-  useSessionStore.setState({ card: card(session.card), editingCard: card(session.editingCard), studyHistory: session.studyHistory.map(card) });
+  let editingCard = card(session.editingCard);
+  if (confirmedCard && editingCard?.id === confirmedCard.id && editingCard.id !== session.editingCard.id) {
+    // Remap the open form without replacing input entered during delivery.
+    editingCard = { ...session.editingCard, id: editingCard.id, deck_id: editingCard.deck_id, revision: editingCard.revision };
+    delete editingCard.offline_create_status;
+    delete editingCard.offline_create_error;
+    delete editingCard.offline_create_request_id;
+  }
+  useSessionStore.setState({ card: card(session.card), editingCard, studyHistory: session.studyHistory.map(card) });
   const ui = useUiStore.getState();
   useUiStore.setState({
     activeFolderId: id('folders', ui.activeFolderId),
@@ -54,6 +64,8 @@ export function markOfflineCreateError({ detail }) {
     deckCards: state.deckCards.map(card),
     cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([key, cards]) => [key, cards.map(card)])),
   }));
+  const { editingCard, setEditingCard } = useSessionStore.getState();
+  if (editingCard?.id === detail.id) setEditingCard(card(editingCard));
 }
 
 export function updateOfflineEditUi({ detail }) {
@@ -180,6 +192,7 @@ export async function refreshPeerOfflineUi({ data }) {
     } else if (type === 'lerne:card-create-error' && card?.offline_create_status === 'error') {
       markOfflineCreateError({ detail: { userId, id, changes: {
         offline_create_status: card.offline_create_status, offline_create_error: card.offline_create_error,
+        offline_create_request_id: card.offline_create_request_id,
       } } });
     } else if (type === 'lerne:ids-remapped') {
       remapOfflineUi({ detail: { userId, mappings, confirmedCard: card, silent: true } });

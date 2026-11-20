@@ -151,9 +151,9 @@ export const DraggableCardItem = React.memo(({
       </small>}
       {c.offline_move && <small role="status">{offlineMoveLabel(c.offline_move)}</small>}
       {c.offline_lifecycle && <small role="status">{offlineLifecycleLabel(c)}</small>}
-      {c.offline_edit && (
+      {(c.offline_edit || c.offline_create_error) && (
         <div className="card-edit-status">
-          <small role="status">{offlineEditLabel(c.offline_edit)}</small>
+          {c.offline_edit && <small role="status">{offlineEditLabel(c.offline_edit)}</small>}
           {!isSelectMode && (
             <button
               type="button"

@@ -74,7 +74,7 @@ async function deliverCardCreates(db, operations, options, isCurrent, notify) {
       if (!isCurrent()) throw error;
       const rejected = error.response?.status === 422;
       const changes = { offline_create_status: 'error',
-        ...(rejected && { offline_create_error: cardWriteError(error) }) };
+        ...(rejected && { offline_create_error: cardWriteError(error), offline_create_request_id: operation.payload.request_id }) };
       const updated = await db.transaction('rw', db.cards, db.syncState, async () => {
         const pending = await db.syncState.get(operation.key);
         if (!isCurrent() || !ownsOperation(pending)) return false;

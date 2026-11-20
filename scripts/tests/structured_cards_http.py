@@ -1,5 +1,7 @@
 """Socket HTTP tests against the real authenticated routes on disposable PostgreSQL."""
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
+from contextvars import ContextVar
 import json
 import os
 from pathlib import Path
@@ -15,7 +17,7 @@ import httpx
 import uvicorn
 
 
-def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
+def verify(db, *, save_regressions_browser=False, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
            offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, ratings_browser=False, media_browser=False, layout_browser=False, recovery_browser=None):
     from api import models
@@ -51,7 +53,36 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         tokens = _create_session(account, utcnow())
         headers[user_id] = {'Authorization': f'Bearer {tokens.access_token}'}
 
-    server = uvicorn.Server(uvicorn.Config(app, log_level='error', lifespan='off', access_log=False))
+    sql_counts = ContextVar('native_save_sql_counts', default=None)
+    request_counts = defaultdict(Counter)
+    execute_sql = db.execute_sql
+
+    def measured_sql(*args, **kwargs):
+        count = sql_counts.get()
+        if count is not None:
+            count[0] += 1
+        return execute_sql(*args, **kwargs)
+
+    async def measured_app(scope, receive, send):
+        path = scope.get('path', '')
+        if not (path.startswith(('/api/cards/', '/api/sync/v2/')) or path.endswith('/cards')):
+            return await app(scope, receive, send)
+        path = '/'.join(':id' if part.isdecimal() else part for part in path.split('/'))
+        count = [0]
+        token = sql_counts.set(count)
+
+        async def measured_send(message):
+            if message['type'] == 'http.response.start':
+                request_counts[(scope['method'], path, message['status'])][count[0]] += 1
+            await send(message)
+
+        try:
+            await app(scope, receive, measured_send)
+        finally:
+            sql_counts.reset(token)
+
+    server = uvicorn.Server(uvicorn.Config(measured_app if save_regressions_browser else app,
+                                          log_level='error', lifespan='off', access_log=False))
     listener = socket.socket()
     listener.bind(('127.0.0.1', 0))
     port = listener.getsockname()[1]
@@ -77,6 +108,12 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
             if learning_browser or ratings_browser:
                 from structured_cards_learning import verify_learning
                 return verify_learning(client, port, models, headers, ratings_only=ratings_browser)
+            if save_regressions_browser:
+                with patch.object(db, 'execute_sql', measured_sql):
+                    passed = _run_save_regressions_browser(client, port, models, headers[1])
+                for route, counts in sorted(request_counts.items()):
+                    print('Native save HTTP/SQL', *route, 'SQL statements -> HTTP responses:', dict(sorted(counts.items())))
+                return passed
             if offline_create_browser:
                 if not _run_offline_create_browser(port, models, headers[1]):
                     return False
@@ -109,6 +146,27 @@ def verify(db, *, offline_create_browser=False, offline_edit_browser=False,
         listener.close()
         if thread.is_alive():
             raise RuntimeError('HTTP test server failed to stop')
+
+
+def _run_save_regressions_browser(client, port, models, authorization):
+    decks = [models.TMA_Deck.create(user_id=1, name=name, target_language='de')
+             for name in ('Save regression source', 'Save regression target')]
+    cards = []
+    for deck in decks:
+        for index in range(2):
+            response = client.post('cards/save', headers=authorization, json={
+                'deck_id': deck.id, 'request_id': str(uuid4()), 'content_v2': {'schema_version': 2, 'card': {
+                    'type': 'standard', 'data': {'prompt': f'{deck.name} {index}', 'answer': 'Fixture answer'}}},
+            })
+            response.raise_for_status()
+            cards.append(response.json())
+    models.TMAProgress.create(card_id=cards[1]['id'], user_id=1, flag=2)
+    public_decks = [{'id': deck.id, 'name': deck.name, 'user_id': 1, 'role': 'owner',
+                     'target_language': 'de', 'stats': {'total': 2, 'new': 2}} for deck in decks]
+    config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': decks[0].id, 'deck_name': decks[0].name,
+              'access_token': authorization['Authorization'].split(' ', 1)[1],
+              'save_regression': {'decks': public_decks, 'cards': cards}}
+    return _run_offline_browser(config, 'Native V2 save regression')
 
 
 def _run_offline_create_browser(port, models, authorization):
@@ -1016,10 +1074,10 @@ def _run_cases(client, models, headers, load_answer_context):
             self.assertEqual({row['content_v2']['card']['type']: row['content_v2'] for row in rows}, examples)
 
         def test_library_import_uses_native_content_and_retains_progress_on_repeat(self):
-            library = models.Deck.create(name='Native library fixture')
+            library = models.TMA_Deck.create(scope='library', user_id=None, name='Native library fixture')
             value = envelope('Literal [[ ]]')
             value['card']['metadata'] = {'extension': [True, None]}
-            models.Card.create(deck=library, content_v2=value, card_type=None, image_path='images/fixture.png')
+            models.TMA_Card.create(deck=library, content_v2=value, card_type=None, image_path='images/fixture.png')
             uri = f'decks/external/import/{library.id}'
             created = self.call('POST', uri)['deck_id']
             [first] = self.call('GET', f'decks/{created}/cards')
@@ -1031,9 +1089,11 @@ def _run_cases(client, models, headers, load_answer_context):
             self.assertEqual(models.TMAProgress.get(models.TMAProgress.card_id == first['id']).repetitions, 5)
             self.assertIsNone(models.TMA_Card.get_by_id(first['id']).front_text)
             self.assertEqual(models.TMA_Card.get_by_id(first['id']).image_path, 'images/fixture.png')
-            old = models.Deck.get(models.Deck.name == 'Old library fixture')
+            old = models.TMA_Deck.create(scope='library', user_id=None, name='Unmigrated library fixture')
+            models.TMA_Card.create(deck=old, front_text='old prompt', back_text='old answer', card_type='standard')
             self.call('POST', f'decks/external/import/{old.id}', 409)
-            self.assertFalse(models.TMA_Deck.select().where(models.TMA_Deck.name == old.name).exists())
+            self.assertFalse(models.TMA_Deck.select().where(
+                models.TMA_Deck.scope == 'personal', models.TMA_Deck.name == old.name).exists())
 
         def test_editor_ai_and_import_preview_use_v2(self):
             draft = {'schema_version': 2, 'card': {'type': 'standard',

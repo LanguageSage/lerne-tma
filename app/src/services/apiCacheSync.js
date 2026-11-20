@@ -84,10 +84,11 @@ export async function tryLocalFirstNativeCreate({
   assertCurrent,
   localRequest,
 }) {
-  if (!nativeCreate || !requestAccount || args[1]?.offlineCreateFlag) return null;
+  const retry = args[1]?.offlineCreateId != null;
+  if (!nativeCreate || !requestAccount || (!retry && args[1]?.offlineCreateFlag)) return null;
   // Persist the same operation before the first HTTP attempt when the
   // destination supports offline creation.
-  const local = await localRequest(args[0], { offlineCreateIfAvailable: true });
+  const local = await localRequest(args[0], { ...args[1], offlineCreateIfAvailable: !retry });
   if (!isCurrent()) throw new axios.CanceledError('Session changed before card delivery');
   if (!local) return null;
   const db = await prepareLocalDb();
@@ -124,10 +125,12 @@ export async function reconcileOnlineResponse({
   const studyCardRead = Boolean(studyCardMatch && response.data?.content_v2 && response.data?.id);
   const studyGrade = propKey === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)
     && Number(response.data?.graded_progress?.id) > 0;
+  const directCreate = propKey === 'post' && url === '/cards/save' && response.data?.id > 0
+    && response.data.content_v2?.schema_version === 2 && response.data.revision;
   const deckMatch = propKey === 'get' && url.match(/^\/decks\/(\d+)\/cards$/);
   const trashRead = propKey === 'get' && url === '/trash';
 
-  if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || studyCardRead || studyGrade || trashRead)
+  if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || studyCardRead || studyGrade || trashRead || directCreate)
       && requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
     try {
       const db = await prepareLocalDb();
@@ -173,7 +176,7 @@ export async function reconcileOnlineResponse({
             }
           });
         }
-        if (deckMatch || cardMatch || studyNext || studyCardRead) {
+        if (deckMatch || cardMatch || studyNext || studyCardRead || directCreate) {
           const cards = deckMatch ? response.data : [response.data];
           if (!Array.isArray(cards)) return response;
           const deckId = deckMatch ? Number(deckMatch[1]) : null;
@@ -229,6 +232,7 @@ export async function reconcileOnlineResponse({
             if ((studyNext || studyCardRead) && (merged?.is_deleted || (studyNext && merged !== response.data && Number(merged?.deck_id) !== studyNextDeckId))) {
               return localRequest(...args);
             }
+            if (directCreate) return response;
             const data = deckMatch ? merged : await cardMediaView(db, merged);
             assertCurrent();
             return { ...response, data };

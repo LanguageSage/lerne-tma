@@ -47,7 +47,7 @@ function preserveInlineFieldFocus(event) {
   }
 }
 
-function CardDeckField({ deckId, setCardData }) {
+function CardDeckField({ deckId, setCardData, disabled }) {
   const decks = useDeckStore(state => state.decks) ?? [];
   return (
     <div className="form-group" style={{ marginBottom: '8px' }}>
@@ -55,9 +55,10 @@ function CardDeckField({ deckId, setCardData }) {
       <select
         className="form-input"
         value={deckId || ''}
+        disabled={disabled}
         onChange={event => {
           const deck_id = Number(event.target.value);
-          setCardData(current => ({ ...current, deck_id }));
+          setCardData(current => ({ ...current, deck_id, after_card_id: null }));
         }}
         style={{
           width: '100%',
@@ -164,7 +165,8 @@ export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) =
         <CardSaveButton onSave={onSave} disabled={sourceDisabled} />
       </div>}
       <div hidden={isSourceMode}>
-        {isCreator && <CardDeckField deckId={cardData.deck_id} setCardData={setCardData} />}
+        {isCreator && <CardDeckField deckId={cardData.deck_id} setCardData={setCardData}
+          disabled={loading || Boolean(cardData.id)} />}
 
         <CardMediaFields cardData={cardData} setCardData={setCardData}
           openImagePicker={() => setIsImagePickerOpen(true)}
