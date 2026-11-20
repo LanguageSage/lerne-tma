@@ -1,5 +1,14 @@
 import en from './messages/en.json' with { type: 'json' };
 import uk from './messages/uk.json' with { type: 'json' };
+import ukTranslations from './locales/uk.json' with { type: 'json' };
+import ruTranslations from './locales/ru.json' with { type: 'json' };
+import enTranslations from './locales/en.json' with { type: 'json' };
+
+const TRANSLATIONS = {
+  uk: ukTranslations,
+  ru: ruTranslations,
+  en: enTranslations,
+};
 
 export const normalizeInterfaceLanguage = code => {
   const language = String(code || '').toLowerCase().split(/[-_]/)[0];
@@ -40,4 +49,35 @@ export function tr(source, params, language = getInterfaceLanguage()) {
   const messages = language === 'en' ? en : language === 'uk' ? uk : null;
   const text = messages?.[source] ?? source;
   return text.replace(/\{\{(\w+)\}\}/g, (match, key) => params?.[key] !== undefined ? String(params[key]) : match);
+}
+
+export function t(path, param1, param2, language = getInterfaceLanguage()) {
+  let fallback = '';
+  let params = null;
+
+  if (typeof param1 === 'object' && param1 !== null) {
+    params = param1;
+    fallback = path;
+  } else {
+    if (typeof param1 === 'string') fallback = param1;
+    if (typeof param2 === 'object' && param2 !== null) params = param2;
+  }
+
+  const dict = TRANSLATIONS[language] || TRANSLATIONS.uk;
+  const keys = String(path).split('.');
+  let current = dict;
+  for (const key of keys) {
+    if (current && current[key] !== undefined) {
+      current = current[key];
+    } else {
+      current = tr(fallback || path, null, language);
+      break;
+    }
+  }
+
+  if (typeof current === 'string' && params) {
+    return current.replace(/\{\{(\w+)\}\}/g, (_, k) => (params[k] !== undefined ? String(params[k]) : `{{${k}}}`));
+  }
+
+  return typeof current === 'string' ? current : String(current || '');
 }

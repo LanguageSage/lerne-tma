@@ -1,21 +1,20 @@
 /* eslint-disable react-refresh/only-export-components */
 import React, { createContext, useContext, useState, useEffect, useCallback, useMemo } from 'react';
-import ukTranslations from './locales/uk.json';
-import ruTranslations from './locales/ru.json';
-import enTranslations from './locales/en.json';
 import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
-import { setInterfaceLanguage, normalizeInterfaceLanguage, tr } from './locale';
+import { setInterfaceLanguage, normalizeInterfaceLanguage, getInterfaceLanguage, t as translateLocale } from './locale';
 import { useInterfaceLocale } from './useInterfaceLocale';
 import { useSettingsStore } from '../store/useSettingsStore';
 
-const TRANSLATIONS = {
-  uk: ukTranslations,
-  ru: ruTranslations,
-  en: enTranslations
-};
-
-const LanguageContext = createContext();
+const noop = () => {};
+const LanguageContext = createContext({
+  nativeLanguage: getInterfaceLanguage(),
+  changeNativeLanguage: noop,
+  syncNativeLanguageFromExternal: noop,
+  t: translateLocale,
+  isFirstLaunch: false,
+  setIsFirstLaunch: noop,
+});
 
 export function LanguageProvider({ children }) {
   const nativeLanguage = useInterfaceLocale();
@@ -92,36 +91,9 @@ export function LanguageProvider({ children }) {
     }
   }, []);
 
-  const t = useCallback((path, param1, param2) => {
-    let fallback = '';
-    let params = null;
-
-    if (typeof param1 === 'object' && param1 !== null) {
-      params = param1;
-      fallback = path;
-    } else {
-      if (typeof param1 === 'string') fallback = param1;
-      if (typeof param2 === 'object' && param2 !== null) params = param2;
-    }
-
-    const dict = TRANSLATIONS[nativeLanguage] || TRANSLATIONS.uk;
-    const keys = path.split('.');
-    let current = dict;
-    for (const key of keys) {
-      if (current && current[key] !== undefined) {
-        current = current[key];
-      } else {
-        current = tr(fallback || path, null, nativeLanguage);
-        break;
-      }
-    }
-
-    if (typeof current === 'string' && params) {
-      return current.replace(/\{\{(\w+)\}\}/g, (_, k) => (params[k] !== undefined ? String(params[k]) : `{{${k}}}`));
-    }
-
-    return typeof current === 'string' ? current : String(current || '');
-  }, [nativeLanguage]);
+  const t = useCallback((path, param1, param2) => (
+    translateLocale(path, param1, param2, nativeLanguage)
+  ), [nativeLanguage]);
 
   const value = useMemo(() => ({
     nativeLanguage, 

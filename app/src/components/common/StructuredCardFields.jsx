@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { getInterfaceLanguage, tr } from '../../i18n/locale';
-import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { useSpeechRecognitionCore } from '../../hooks/useSpeechRecognitionCore';
 import { cardTypes, newCardContent, promptField, cardWriteError } from '../../utils/cardDraft';
 import { networkApi } from '../../services/api';
 import { patchInfoBlock, patchLayoutItem } from '../../utils/cardLayout';
@@ -88,7 +88,7 @@ export function CardTypeField({ card, update }) {
 
 export function PromptDictation({ type, update }) {
   const prompt = promptField[type];
-  const speech = useSpeechRecognition({
+  const speech = useSpeechRecognitionCore({
     resetKey: type, language: getInterfaceLanguage(), silenceTimeoutMs: null,
     onEnd: transcript => {
       if (transcript?.trim() && prompt) update(current => ({ ...current, data: { ...current.data,

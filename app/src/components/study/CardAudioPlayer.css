@@ -18,6 +18,14 @@
   pointer-events: auto;
 }
 
+.card-audio-inline-wrapper {
+  width: 100%;
+  max-width: 100%;
+  display: flex;
+  justify-content: flex-end;
+  pointer-events: auto;
+}
+
 /* ── Collapsed Floating Pill Button ──────────────────────────────────── */
 .card-audio-floating-pill {
   display: inline-flex;

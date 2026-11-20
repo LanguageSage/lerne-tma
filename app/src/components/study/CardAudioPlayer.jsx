@@ -3,10 +3,8 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, Square, Volume2, RefreshCw, Mic2, Settings } from 'lucide-react';
-import { useUiStore } from '../../store/useUiStore';
 import { getAudioUrl } from '../../utils/media';
 import './CardAudioPlayer.css';
-import { useSettingsStore } from '../../store/useSettingsStore';
 import { StudyControlsBlock } from './StudyControlsBlock';
 
 
@@ -46,20 +44,24 @@ export const CardAudioPlayer = React.memo(({
   className = '',
   style = {},
   wrapperClassName = '',
-  wrapperStyle = {}
+  wrapperStyle = {},
+  collapsed,
+  onCollapsedChange,
+  onOpenSettings = null,
+  resolveAudioUrl: resolveAudioUrlProp = null,
+  inline = false,
 }) => {
   useInterfaceLocale();
-  const isCollapsed = useSettingsStore(s => s.playerCollapsed);
-  const setIsCollapsed = useSettingsStore(s => s.setPlayerCollapsed);
+  const [localCollapsed, setLocalCollapsed] = useState(false);
+  const isCollapsed = collapsed ?? localCollapsed;
+  const setIsCollapsed = onCollapsedChange ?? setLocalCollapsed;
   const [playbackError, setPlaybackError] = useState(null);
   const [showSpeedMenu, setShowSpeedMenu] = useState(false);
   const [showVoiceMenu, setShowVoiceMenu] = useState(false);
 
-  const openSettings = useUiStore((s) => s.openSettings);
-
   const resolveAudioUrl = (url) => {
     if (!url) return '';
-    return getAudioUrl(url);
+    return resolveAudioUrlProp ? resolveAudioUrlProp(url) : getAudioUrl(url);
   };
 
   const rawUrl = (voicePicker?.previewUrl) || audioUrl;
@@ -161,7 +163,7 @@ export const CardAudioPlayer = React.memo(({
 
   const handleOpenAudioSettings = (e) => {
     e.stopPropagation();
-    openSettings('voice');
+    onOpenSettings?.('voice');
   };
 
   if (!effectiveUrl && !canGenerate) return null;
@@ -174,9 +176,8 @@ export const CardAudioPlayer = React.memo(({
     ? voicePicker?.voices.find((v) => v.value === voicePicker?.selectedVoice)
     : { value: null, label: tr("Оригинал"), gender: 's' };
 
-  // ── EXPANDED FULL PLAYER STATE ────────────────────────────────────────────
-  return createPortal(
-    <div className={`card-audio-floating-wrapper ${wrapperClassName}`} style={wrapperStyle}>
+  const playerElement = (
+    <div className={`${inline ? 'card-audio-inline-wrapper' : 'card-audio-floating-wrapper'} ${wrapperClassName}`} style={wrapperStyle}>
       <StudyControlsBlock
         collapsed={isCollapsed}
         onCollapsedChange={(value) => {
@@ -272,10 +273,12 @@ export const CardAudioPlayer = React.memo(({
               </>
             )}
 
-            <button type="button" className="audio-player-btn-settings" onClick={handleOpenAudioSettings}>
-              <Settings size={13} />
-              <span>{tr("Настройки")}</span>
-            </button>
+            {onOpenSettings && (
+              <button type="button" className="audio-player-btn-settings" onClick={handleOpenAudioSettings}>
+                <Settings size={13} />
+                <span>{tr("Настройки")}</span>
+              </button>
+            )}
           </div>
 
         </div>
@@ -366,8 +369,9 @@ export const CardAudioPlayer = React.memo(({
         </div>
       </div>
       </StudyControlsBlock>
-    </div>,
-    document.body
+    </div>
   );
+
+  return inline ? playerElement : createPortal(playerElement, document.body);
 });
 
