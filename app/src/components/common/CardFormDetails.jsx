@@ -1,6 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { tr } from '../../i18n/locale';
-import { useTranslation } from '../../i18n/i18nContext';
+import { t, tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { answerField } from '../../utils/cardDraft';
 import { StudyCardText } from '../study/StudyCardText';
 import { InlineText } from './VisualCardFields';
@@ -15,7 +15,7 @@ function autoResize(field) {
 }
 
 function CardContextField({ explanation, update, textStyle, isSourceMode }) {
-  const { t } = useTranslation();
+  useInterfaceLocale();
   const contextRef = useRef(null);
   const { fontFamily, fontSize, fontWeight, fontStyle, lineHeight } = textStyle;
 

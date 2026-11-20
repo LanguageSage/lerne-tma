@@ -1,11 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
 import { getAudioUrl } from '../../utils/media';
-import { getSessionIdentity } from '../../utils/auth';
-import { useMediaUpload } from '../../hooks/useMediaUpload';
 
-export function CardAudioAttachments({ cardData, setCardData, disabled, onBusyChange }) {
-  const { uploadAudioFile } = useMediaUpload();
+export function CardAudioAttachments({
+  cardData,
+  setCardData,
+  disabled,
+  onBusyChange,
+  uploadAudioFile,
+  getSessionIdentity,
+  resolveAudioUrl = getAudioUrl,
+}) {
+  const resolveIdentity = getSessionIdentity || (() => 'default');
   const [selection, setSelection] = useState(null);
   const [preview, setPreview] = useState('');
   const [busy, setBusy] = useState(false);
@@ -34,9 +40,9 @@ export function CardAudioAttachments({ cardData, setCardData, disabled, onBusyCh
   }, [selection]);
 
   const upload = async () => {
-    if (!selection || busy || disabled || !navigator.onLine) return;
+    if (!selection || !uploadAudioFile || busy || disabled || !navigator.onLine) return;
     const attempt = ++generation.current;
-    const identity = getSessionIdentity();
+    const identity = resolveIdentity();
     const { side, file } = selection;
     const field = side === 'front' ? 'audio_path' : 'audio_back_path';
     const urlField = side === 'front' ? 'audio_url' : 'audio_back_url';
@@ -46,13 +52,13 @@ export function CardAudioAttachments({ cardData, setCardData, disabled, onBusyCh
     setBusy(true); onBusyChange(true); setError(''); setMessage('');
     try {
       const uploaded = await uploadAudioFile(file);
-      if (attempt !== generation.current || identity !== getSessionIdentity()) return;
+      if (attempt !== generation.current || identity !== resolveIdentity()) return;
       if (!unchanged(latest.current)) throw new Error(tr('Карточка или аудио изменились. Выберите файл ещё раз.'));
       setCardData(current => unchanged(current) ? { ...current, [field]: uploaded.path, [urlField]: uploaded.url } : current);
       setSelection(null);
       setMessage(tr('Аудио прикреплено к черновику. Сохраните карточку.'));
     } catch (failure) {
-      if (attempt === generation.current && identity === getSessionIdentity()) {
+      if (attempt === generation.current && identity === resolveIdentity()) {
         setError(failure.response?.data?.detail || failure.message);
       }
     } finally {
@@ -64,10 +70,10 @@ export function CardAudioAttachments({ cardData, setCardData, disabled, onBusyCh
     <p>{tr('Готовое аудио: MP3 или PCM WAV, до 20 МБ. Загрузка доступна при подключении к сети.')}</p>
     {['front', 'back'].map(side => {
       const path = cardData[side === 'front' ? 'audio_path' : 'audio_back_path'];
-      const label = side === 'front' ? tr('Аудио лицевой стороны') : tr('Аудио обратной стороны');
+      const label = side === 'front' ? tr('Аудио для вопроса') : tr('Аудио для ответа');
       return <fieldset key={side} disabled={disabled || busy}>
         <legend>{label}</legend>
-        {path && <audio key={path} controls preload="none" src={getAudioUrl(path)} aria-label={label}
+        {path && <audio key={path} controls preload="none" src={resolveAudioUrl(path)} aria-label={label}
           onError={() => setError(tr('Не удалось воспроизвести аудио. Проверьте файл и подключение.'))} />}
         <label className="card-audio-file">{path ? tr('Выбрать замену') : tr('Выбрать файл')}
           <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" aria-label={label}

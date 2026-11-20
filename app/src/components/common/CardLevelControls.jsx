@@ -1,16 +1,15 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, SlidersHorizontal } from 'lucide-react';
 import { tr } from '../../i18n/locale';
-import { useUiStore } from '../../store/useUiStore';
 import { buildCefrMetaFromClassifierResult, buildManualCefrMeta } from '../../utils/levelUtils';
 import { classifySentenceFast, supportsSentenceClassification } from '../../services/classifier';
 import { triggerHaptic } from '../../utils/platform';
 import { CardLevelBadge } from './CardLevelBadge';
 
-export function CardLevelControls({ cardData, deckLanguage, frontText, update }) {
+export function CardLevelControls({ cardData, deckLanguage, frontText, update, onNotify }) {
   const content = cardData.content_v2.card;
   const manualLevel = content.metadata?.cefr?.source === 'manual';
-  const showToast = useUiStore(state => state.showToast);
+  const showToast = onNotify || (() => {});
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
   const pickerRef = useRef(null);
 

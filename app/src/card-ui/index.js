@@ -1,4 +1,5 @@
 export { NativeCardViewer } from './NativeCardViewer.jsx';
+export { NativeCardFormCore } from './NativeCardFormCore.jsx';
 export { ExerciseRenderer } from '../components/study/ExerciseRenderer.jsx';
 export { StructuredCardLayout } from '../components/study/StructuredCardLayout.jsx';
 export { ExerciseInfoBlocks } from '../components/study/ExerciseInfoBlocks.jsx';
@@ -17,6 +18,14 @@ export {
   studySideText,
   isNativeStudyCard,
 } from '../utils/structuredStudyCard.js';
+export {
+  attachDraftImage,
+  cardTypes,
+  changeDraft,
+  changeDraftSource,
+  draftSourceError,
+  newCardContent,
+} from '../utils/cardDraft.js';
 export { defaultResolveMediaUrl, getAudioUrl, cleanMedia } from '../utils/media.js';
 export { getFlagStyle } from '../constants/cardFlags.js';
 export { t, tr, getInterfaceLanguage, setInterfaceLanguage } from '../i18n/locale.js';

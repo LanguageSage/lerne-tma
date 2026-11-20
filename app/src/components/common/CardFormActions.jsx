@@ -1,10 +1,10 @@
 import { BookOpen, RefreshCw, Sparkles, X } from 'lucide-react';
-import { tr } from '../../i18n/locale';
-import { useTranslation } from '../../i18n/i18nContext';
+import { t, tr } from '../../i18n/locale';
+import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { CardQuestionComposer } from '../study/CardQuestionComposer';
 
 export function CardSaveButton({ onSave, disabled, loading = false, style }) {
-  const { t } = useTranslation();
+  useInterfaceLocale();
   const label = t('creator.save', 'Сохранить');
   return (
     <button type="button" className="btn btn-primary btn-save-action" aria-label={label}
@@ -14,14 +14,14 @@ export function CardSaveButton({ onSave, disabled, loading = false, style }) {
   );
 }
 
-export function CardFormActions({ isCreator, type, frontText, onAiGenerate, onStopGeneration, onSave, loading, audioBusy }) {
-  const { t } = useTranslation();
+export function CardFormActions({ isCreator, type, frontText, onAiGenerate = null, onStopGeneration = null, onSave, onCancel = null, loading, audioBusy }) {
+  useInterfaceLocale();
   const isExistingQuiz = !isCreator && type === 'quiz';
   const hasFrontText = Boolean(frontText.trim());
 
   return (
     <div className={`ai-quick-actions ${loading || isExistingQuiz ? 'no-dynamic' : 'has-dynamic'}`} style={{ gap: '6px' }}>
-      {loading ? (
+      {onAiGenerate && (loading ? (
         <button
           type="button"
           className="btn-ai-generate loading"
@@ -51,9 +51,14 @@ export function CardFormActions({ isCreator, type, frontText, onAiGenerate, onSt
             <span>{t('creator.ai_generate', 'Генерировать ✨')}</span>
           </button>}
         </>
-      )}
-      {!isCreator && <CardQuestionComposer onSubmit={request => onAiGenerate('custom_directive', request)}
+      ))}
+      {!isCreator && onAiGenerate && <CardQuestionComposer onSubmit={request => onAiGenerate('custom_directive', request)}
         icon="✨" triggerLabel={tr("Выполнить просьбу")} title={tr("Что изменить в карточке?")} disabled={loading} />}
+      {onCancel && (
+        <button type="button" className="btn-secondary" style={{ minHeight: '44px' }} onClick={onCancel} disabled={loading}>
+          {tr("Отмена")}
+        </button>
+      )}
       <CardSaveButton onSave={onSave} disabled={loading || audioBusy} loading={loading} style={{ padding: '8px 16px' }} />
     </div>
   );
