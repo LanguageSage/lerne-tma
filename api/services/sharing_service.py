@@ -142,7 +142,7 @@ class SharingService:
                 TMA_Card.update(source=source_tag, creator_id=card.creator_id or creator_id).where(TMA_Card.id == copied.id).execute()
                 count += 1
         if count:
-            from api.services.utils import touch_deck_and_parent_folders
+            from api.services.collaborative_service import touch_deck_and_parent_folders
             touch_deck_and_parent_folders(target_deck.id)
         return count
 
@@ -503,7 +503,7 @@ class SharingService:
 
                 from api.services.structured_card_api import _clone, _position
                 new_card = _clone(source_card, inbox.id, _position(inbox.id))
-                from api.services.utils import touch_deck_and_parent_folders
+                from api.services.collaborative_service import touch_deck_and_parent_folders
                 touch_deck_and_parent_folders(inbox.id)
                 TMA_Card.update(source=f'shared_card:{source_card.share_id}', creator_id=source_creator).where(
                     TMA_Card.id == new_card.id).execute()

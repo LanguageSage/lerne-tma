@@ -36,6 +36,7 @@ async def verify_http(app, pool, accounts):
     from api import models, services
     from api.db_workers import run_db
     from api.routers import study
+    from scripts.tests.native_fixture import content as v2_content
 
     owner, other, viewer, editor = [account.account_id for account in accounts]
     headers = {account.account_id: {'Authorization': f'Bearer {account.access_token}'} for account in accounts}
@@ -54,10 +55,13 @@ async def verify_http(app, pool, accounts):
             for kind, target in (('deck', shared.id), ('folder', root.id)):
                 models.TMA_Collaborator.create(target_type=kind, target_id=target, user_id=user, role=role)
         decks = (private, shared, inherited, published, deleted)
-        cards = [models.TMA_Card.create(deck=deck, front_text='Synthetic duplicate', back_text='Synthetic answer')
+        cards = [models.TMA_Card.create(
+            deck=deck, content_v2=v2_content('Synthetic duplicate', 'Synthetic answer'), card_type=None)
                  for deck in decks]
-        following = models.TMA_Card.create(deck=private, front_text='Synthetic next card', back_text='', position=10)
-        removed = models.TMA_Card.create(deck=private, front_text='Synthetic removed', back_text='', is_deleted=True)
+        following = models.TMA_Card.create(
+            deck=private, content_v2=v2_content('Synthetic next card', ''), card_type=None, position=10)
+        removed = models.TMA_Card.create(
+            deck=private, content_v2=v2_content('Synthetic removed', ''), card_type=None, is_deleted=True)
         # Card authorship and the client-supplied deck must never grant access.
         cards[0].creator_id = other
         cards[0].save()

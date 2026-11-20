@@ -6,6 +6,7 @@ from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import FastAPI, Header
+from peewee import SqliteDatabase
 
 from api import ai_service, models
 from api.dependencies.auth import get_user_id
@@ -22,7 +23,8 @@ class AiSettingsDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
         scratch.mkdir(parents=True, exist_ok=True)
         self.path = scratch / f'{uuid4().hex}.sqlite3'
         self.db = self.database_factory() if self.database_factory else fixtures.TrackedDatabase(self.path)
-        sqlite_native(self, self.db, writes=True)
+        if isinstance(self.db, SqliteDatabase):
+            sqlite_native(self, self.db, writes=True)
         previous = models.tma_db.obj, models.lerne_db.obj
 
         def restore():

@@ -8,6 +8,12 @@ from playhouse.pool import PooledPostgresqlDatabase
 
 
 def verify(database_name, connection_args):
+    from pathlib import Path
+    import sys
+
+    tests_dir = str(Path(__file__).resolve().parent)
+    if tests_dir not in sys.path:
+        sys.path.insert(0, tests_dir)
     from scripts.tests.test_media_db_workers import MediaDbWorkerTests
     from scripts.tests.test_ai_settings_db_workers import AiSettingsDbWorkerTests
     assert database_name.startswith('lerne_security_test_')
