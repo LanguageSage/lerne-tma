@@ -298,7 +298,7 @@ def verify(db):
         unittest.defaultTestLoader.loadTestsFromTestCase(StorageTests)).wasSuccessful()
 
 
-def main():
+def main(*, http_check=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--study-performance', action='store_true', help='Measure synthetic Study HTTP/SQL on disposable PostgreSQL, without migrations')
@@ -394,6 +394,7 @@ def main():
                     or args.offline_delivery_browser or args.offline_isolation_browser
                     or args.offline_move_browser or args.offline_lifecycle_browser or args.offline_batch_browser or args.offline_list_browser or args.learning_browser or args.ratings_browser or args.media_browser or args.layout_browser or args.recovery_browser):
                 from structured_cards_http import verify as verify_http
+                verify_http = http_check or verify_http
                 return 0 if verify_http(db, save_regressions_browser=args.save_regressions_browser,
                                         offline_create_browser=args.offline_create_browser,
                                         offline_edit_browser=args.offline_edit_browser,
