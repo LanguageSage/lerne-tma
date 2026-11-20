@@ -6,6 +6,7 @@ import { newCardContent } from '../utils/cardDraft';
 import { getAudioUrl } from '../utils/media';
 import api from '../services/api';
 import { getSessionIdentity } from '../utils/auth';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 let activeOpenRequest = null;
 
@@ -20,6 +21,7 @@ export const useCardNavigation = () => {
   };
 
   const openEditor = useCallback(async (deckId, cardToEdit = null, source = 'cards') => {
+    if (IS_STANDALONE) return;
     const { setView, setEditorSourceView, setIsAuthModalOpen, setLastSelectedCardId, setIsOpeningEditor, showToast } = useUiStore.getState();
     const { setEditingCard } = useSessionStore.getState();
     if (userProfile?.is_guest) {
@@ -73,6 +75,7 @@ export const useCardNavigation = () => {
   }, [userProfile?.is_guest]);
 
   const openCreator = useCallback((deckId, source = 'cards', afterCardId = null) => {
+    if (IS_STANDALONE) return;
     const { setView, setEditorSourceView, setIsAuthModalOpen } = useUiStore.getState();
     const { setEditingCard } = useSessionStore.getState();
     if (userProfile?.is_guest) {

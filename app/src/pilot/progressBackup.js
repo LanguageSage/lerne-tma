@@ -8,10 +8,12 @@ import { sha256Hex } from './sha256.js';
 
 export const PROGRESS_BACKUP_FORMAT = 'lerne-offline-progress-backup';
 export const PROGRESS_BACKUP_SCHEMA_VERSION = 1;
+export const PROGRESS_BACKUP_INTEGRITY_SCOPE = 'full-v1';
 export const LAST_BACKUP_META_KEY = 'standalone_last_progress_backup';
 export const LAST_RESTORE_META_KEY = 'standalone_last_progress_restore';
 
 const ALLOWED_QUEUES = new Set(['new', 'learning', 'relearning', 'review']);
+const ALLOWED_INTEGRITY_SCOPES = new Set(['core-v1', 'full-v1']);
 
 export function canonicalJson(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
@@ -33,7 +35,19 @@ export function canonicalJson(value) {
   throw new Error('Backup contains unsupported value type');
 }
 
-function computeBackupHash(payload) {
+export function computeBackupHash(payload) {
+  return sha256Hex(canonicalJson({
+    format: payload.format,
+    schema_version: payload.schema_version,
+    exported_at: payload.exported_at,
+    app: payload.app,
+    summary: payload.summary,
+    records: payload.records,
+    deck_preferences: payload.deck_preferences,
+  }));
+}
+
+export function computeLegacyCoreBackupHash(payload) {
   return sha256Hex(canonicalJson({
     format: payload.format,
     schema_version: payload.schema_version,
@@ -106,19 +120,36 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
   }
 
-  if (parsed.integrity.algorithm !== 'sha256' || typeof parsed.integrity.payload_hash !== 'string'
-    || !/^[a-f0-9]{64}$/.test(parsed.integrity.payload_hash)) {
+  if (
+    parsed.integrity.algorithm !== 'sha256'
+    || typeof parsed.integrity.payload_hash !== 'string'
+    || !/^[a-f0-9]{64}$/.test(parsed.integrity.payload_hash)
+    || (parsed.integrity.scope !== undefined && !ALLOWED_INTEGRITY_SCOPES.has(parsed.integrity.scope))
+  ) {
     return { ok: false, code: 'INVALID_INTEGRITY_HEADER', error: tr('Отсутствует или некорректна контрольная сумма резервной копии.') };
   }
 
-  let recomputedHash;
+  const integrityScope = parsed.integrity.scope;
+  if (integrityScope === 'full-v1' && (parsed.summary === undefined || parsed.exported_at === undefined)) {
+    return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
+  }
+
+  let hashMatches = false;
   try {
-    recomputedHash = computeBackupHash(parsed);
+    if (integrityScope === 'full-v1') {
+      hashMatches = computeBackupHash(parsed) === parsed.integrity.payload_hash;
+    } else {
+      const legacyHash = computeLegacyCoreBackupHash(parsed);
+      const fullHash = parsed.summary !== undefined && parsed.exported_at !== undefined
+        ? computeBackupHash(parsed)
+        : null;
+      hashMatches = parsed.integrity.payload_hash === legacyHash || (fullHash !== null && parsed.integrity.payload_hash === fullHash);
+    }
   } catch {
     return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
   }
 
-  if (recomputedHash !== parsed.integrity.payload_hash) {
+  if (!hashMatches) {
     return {
       ok: false,
       code: 'INTEGRITY_MISMATCH',
@@ -126,7 +157,26 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     };
   }
 
-  if (parsed.app.pack_id !== pack.packId || !Number.isInteger(parsed.app.pack_version) || parsed.app.pack_version < 1) {
+  if (!isNullableIsoDate(parsed.exported_at ?? null) || !parsed.exported_at) {
+    return { ok: false, code: 'INVALID_METADATA', error: tr('В резервной копии указана некорректная дата экспорта.') };
+  }
+
+  if (
+    (parsed.app.mode !== undefined && parsed.app.mode !== 'standalone-offline-pilot')
+    || (parsed.app.application_id !== undefined && parsed.app.application_id !== STANDALONE_APPLICATION_ID)
+    || typeof parsed.app.card_set_fingerprint !== 'string'
+    || !/^[a-f0-9]{64}$/.test(parsed.app.card_set_fingerprint)
+  ) {
+    return { ok: false, code: 'INVALID_METADATA', error: tr('Метаданные приложения в резервной копии повреждены.') };
+  }
+
+  if (
+    parsed.app.pack_id !== pack.packId
+    || !Number.isInteger(parsed.app.pack_version)
+    || parsed.app.pack_version < 1
+    || parsed.app.pack_version > pack.packVersion
+    || (parsed.app.pack_version === pack.packVersion && parsed.app.card_set_fingerprint !== pack.cardSetFingerprint)
+  ) {
     return {
       ok: false,
       code: 'PACK_MISMATCH',
@@ -134,8 +184,21 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     };
   }
 
-  if (!isNullableIsoDate(parsed.exported_at ?? null) || !parsed.exported_at) {
-    return { ok: false, code: 'INVALID_METADATA', error: tr('В резервной копии указана некорректная дата экспорта.') };
+  if (integrityScope === 'full-v1' || parsed.summary !== undefined) {
+    if (
+      !parsed.summary
+      || typeof parsed.summary !== 'object'
+      || Array.isArray(parsed.summary)
+      || parsed.summary.total_records !== parsed.records.length
+      || parsed.summary.reviewed_records !== parsed.records.filter(isReviewedRecord).length
+      || parsed.summary.deck_count !== parsed.deck_preferences.length
+    ) {
+      return {
+        ok: false,
+        code: 'INVALID_METADATA',
+        error: tr('Метаданные резервной копии не совпадают с содержимым файла.'),
+      };
+    }
   }
 
   const { byId } = getStandaloneCardLookup(pack);
@@ -275,6 +338,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     ...payload,
     integrity: {
       algorithm: 'sha256',
+      scope: PROGRESS_BACKUP_INTEGRITY_SCOPE,
       payload_hash: computeBackupHash(payload),
     },
   };

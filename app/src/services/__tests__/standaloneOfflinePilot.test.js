@@ -1,7 +1,21 @@
-import test, { describe, beforeEach } from 'node:test';
+import test, { describe, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
+import { registerHooks } from 'node:module';
+
+registerHooks({
+  resolve(specifier, context, next) {
+    try {
+      return next(specifier, context);
+    } catch (error) {
+      if (error.code === 'ERR_MODULE_NOT_FOUND' && specifier.startsWith('.') && !/\.[a-z]+$/.test(specifier)) {
+        return next(`${specifier}.js`, context);
+      }
+      throw error;
+    }
+  },
+});
 
 const memStorage = new Map();
 if (!globalThis.localStorage) {
@@ -16,6 +30,8 @@ if (!globalThis.window) {
   globalThis.window = { location: { search: '', hostname: 'localhost', port: '' }, Capacitor: null };
 }
 
+mock.module('../apiConfig.js', { namedExports: { API_BASE_URL: '/api', mediaURL: value => value } });
+
 const { IS_STANDALONE, STANDALONE_USER_ID } = await import('../../utils/standaloneMode.js');
 const {
   buildStandalonePack,
@@ -26,12 +42,16 @@ const { ensureStandaloneSeed, validateStandalonePack, STANDALONE_SEED_MANIFEST_K
 const {
   PROGRESS_BACKUP_FORMAT,
   PROGRESS_BACKUP_SCHEMA_VERSION,
+  PROGRESS_BACKUP_INTEGRITY_SCOPE,
   LAST_BACKUP_META_KEY,
+  computeLegacyCoreBackupHash,
+  computeBackupHash,
   exportProgressBackup,
   recordBackupExportMeta,
   inspectProgressBackup,
   applyProgressBackup,
 } = await import('../../pilot/progressBackup.js');
+const { offlineApi, STANDALONE_MAX_GRADE_RECEIPTS } = await import('../offlineApi.js');
 const { calculateCardReview } = await import('../../utils/srsEngine.js');
 
 function createTestDexie(name) {
@@ -69,7 +89,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
   beforeEach(async () => {
     memStorage.clear();
     dbCounter += 1;
-    db = createTestDexie(`StandaloneTestDB_${dbCounter}`);
+    db = createTestDexie(`LerneStandaloneDB_Test_${dbCounter}`);
     await db.open();
   });
 
@@ -290,5 +310,286 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     const restoredDeck = await freshDb.decks.get(pack.decks[1].id);
     assert.equal(restoredDeck.is_learning, true);
     freshDb.close();
+  });
+
+  test('seed sets read-only deck permissions and migrates legacy owner decks while preserving is_learning', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+
+    const deckId = pack.decks[0].id;
+    const seededDeck = await db.decks.get(deckId);
+    assert.equal(seededDeck.role, 'viewer');
+    assert.equal(seededDeck.is_owner, false);
+    assert.equal(seededDeck.is_global_readonly, true);
+
+    await db.decks.update(deckId, {
+      role: 'owner',
+      is_owner: true,
+      is_global_readonly: false,
+      is_learning: true,
+    });
+
+    const migrated = await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(migrated.seeded, true);
+
+    const updatedDeck = await db.decks.get(deckId);
+    assert.equal(updatedDeck.role, 'viewer');
+    assert.equal(updatedDeck.is_owner, false);
+    assert.equal(updatedDeck.is_global_readonly, true);
+    assert.equal(updatedDeck.is_learning, true);
+  });
+
+  test('standalone DB rejects content writes while allowing SRS grades, flags, learning toggle, and progress reset', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
+
+    const deckId = pack.decks[0].id;
+    const cardId = pack.cards[0].id;
+    const cfg = { _testDb: db };
+    const READ_ONLY_ERR = /только для чтения|лише для перегляду|read-?only/i;
+
+    await assert.rejects(
+      offlineApi.handle('post', '/decks', { name: 'Blocked Deck' }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/folders', { name: 'Blocked Folder' }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', `/decks/${deckId}/rename`, { name: 'Renamed' }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('delete', `/decks/${deckId}`, null, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', `/decks/${deckId}/move`, { folder_id: null }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', `/decks/${deckId}/pin`, {}, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/decks/reorder', { deck_ids: [9102, 9101, 9103] }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/cards/save', {
+        deck_id: deckId,
+        request_id: 'req-create-blocked',
+        content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'x', answer: 'y' } } },
+      }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('patch', `/cards/${cardId}`, {
+        request_id: 'req-edit-blocked',
+        revision: 1,
+        content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'x', answer: 'y' } } },
+      }, { _testDb: db, offlineCardEdit: true }),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/cards/batch-move', {
+        card_ids: [cardId],
+        target_deck_id: 9102,
+        revisions: { [cardId]: 1 },
+        request_id: 'req-move-blocked',
+      }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/cards/batch-copy', {
+        card_ids: [cardId],
+        target_deck_id: 9102,
+        revisions: { [cardId]: 1 },
+        request_id: 'req-copy-blocked',
+      }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/cards/batch-delete', {
+        card_ids: [cardId],
+        revisions: { [cardId]: 1 },
+        request_id: 'req-del-blocked',
+      }, cfg),
+      READ_ONLY_ERR
+    );
+    await assert.rejects(
+      offlineApi.handle('post', '/cards/reorder', {
+        card_ids: [cardId, pack.cards[1].id],
+        revisions: { [cardId]: 1, [pack.cards[1].id]: 1 },
+        request_id: 'req-reorder-blocked',
+      }, cfg),
+      READ_ONLY_ERR
+    );
+
+    const graded = await offlineApi.handle('post', '/study/grade', {
+      card_id: cardId,
+      grade: 2,
+      action_id: 'personal-grade-1',
+      include_progress: true,
+      return_next: false,
+    }, cfg);
+    assert.equal(graded.data.graded_progress.repetitions, 1);
+
+    const flagged = await offlineApi.handle('post', `/cards/${cardId}/flag`, { flag: 3 }, cfg);
+    assert.equal(flagged.data.flag, 3);
+
+    const toggled = await offlineApi.handle('post', `/decks/${deckId}/toggle-learning`, { is_learning: true }, cfg);
+    assert.equal(toggled.data.is_learning, true);
+
+    await offlineApi.handle('post', `/decks/${deckId}/reset`, {}, cfg);
+    const resetProgress = await db.progress.get([cardId, STANDALONE_USER_ID]);
+    assert.equal(resetProgress.repetitions, 0);
+    assert.equal(resetProgress.queue, 'new');
+  });
+
+  test('standalone study grades keep bounded grade: receipts, zero review: keys, and idempotent duplicate protection', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
+
+    const totalGrades = 80;
+    for (let i = 1; i <= totalGrades; i += 1) {
+      const card = pack.cards[(i - 1) % pack.cards.length];
+      await offlineApi.handle('post', '/study/grade', {
+        card_id: card.id,
+        grade: 2,
+        action_id: `act-${i}`,
+        return_next: false,
+      }, { _testDb: db });
+    }
+
+    assert.equal(await db.syncState.where('key').startsWith('review:').count(), 0);
+    assert.equal(await db.syncState.where('key').startsWith('grade:').count(), STANDALONE_MAX_GRADE_RECEIPTS);
+    assert.equal(await db.syncState.get('grade:act-1'), undefined);
+    assert.ok(await db.syncState.get('grade:act-80'));
+
+    const lastCard = pack.cards[(totalGrades - 1) % pack.cards.length];
+    const beforeReplay = await db.progress.get([lastCard.id, STANDALONE_USER_ID]);
+
+    const replaySame = await offlineApi.handle('post', '/study/grade', {
+      card_id: lastCard.id,
+      grade: 2,
+      action_id: 'act-80',
+      include_progress: true,
+      return_next: false,
+    }, { _testDb: db });
+    assert.equal(replaySame.data.graded_progress.repetitions, beforeReplay.repetitions);
+
+    const afterReplay = await db.progress.get([lastCard.id, STANDALONE_USER_ID]);
+    assert.equal(afterReplay.repetitions, beforeReplay.repetitions);
+
+    await assert.rejects(
+      offlineApi.handle('post', '/study/grade', {
+        card_id: lastCard.id,
+        grade: 0,
+        action_id: 'act-80',
+        return_next: false,
+      }, { _testDb: db }),
+      /Grade action already used with different data/
+    );
+  });
+
+  test('backup integrity covers metadata and maintains compatibility with legacy core-v1 backups and pack upgrades', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+
+    const review = calculateCardReview({
+      card_id: pack.cards[0].id,
+      user_id: STANDALONE_USER_ID,
+      queue: 'new',
+      step_index: 0,
+      interval: 0,
+      ease_factor: 2.5,
+      repetitions: 0,
+      lapses: 0,
+    }, 2, false, 'scheduled', new Date('2026-11-20T06:00:00.000Z'));
+    await db.progress.put(review);
+
+    const exported = await exportProgressBackup({
+      db,
+      userId: STANDALONE_USER_ID,
+      pack,
+      now: new Date('2026-11-20T06:30:00.000Z'),
+    });
+    assert.equal(exported.backup.integrity.scope, PROGRESS_BACKUP_INTEGRITY_SCOPE);
+
+    const tamperedExportedAt = structuredClone(exported.backup);
+    tamperedExportedAt.exported_at = '2026-11-21T00:00:00.000Z';
+    const exportedAtRes = await inspectProgressBackup(JSON.stringify(tamperedExportedAt), { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(exportedAtRes.ok, false);
+    assert.equal(exportedAtRes.code, 'INTEGRITY_MISMATCH');
+
+    const tamperedSummary = structuredClone(exported.backup);
+    tamperedSummary.summary.total_records = 99;
+    const summaryTamperRes = await inspectProgressBackup(JSON.stringify(tamperedSummary), { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(summaryTamperRes.ok, false);
+    assert.equal(summaryTamperRes.code, 'INTEGRITY_MISMATCH');
+
+    const badSummaryWithRehash = structuredClone(exported.backup);
+    badSummaryWithRehash.summary.total_records = 99;
+    badSummaryWithRehash.integrity.payload_hash = computeBackupHash(badSummaryWithRehash);
+    const badSummaryRes = await inspectProgressBackup(JSON.stringify(badSummaryWithRehash), { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(badSummaryRes.ok, false);
+    assert.equal(badSummaryRes.code, 'INVALID_METADATA');
+
+    const badFingerprintWithRehash = structuredClone(exported.backup);
+    badFingerprintWithRehash.app.card_set_fingerprint = '0'.repeat(64);
+    badFingerprintWithRehash.integrity.payload_hash = computeBackupHash(badFingerprintWithRehash);
+    const badFpRes = await inspectProgressBackup(JSON.stringify(badFingerprintWithRehash), { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(badFpRes.ok, false);
+    assert.equal(badFpRes.code, 'PACK_MISMATCH');
+
+    const futureVersionWithRehash = structuredClone(exported.backup);
+    futureVersionWithRehash.app.pack_version = 99;
+    futureVersionWithRehash.integrity.payload_hash = computeBackupHash(futureVersionWithRehash);
+    const futureRes = await inspectProgressBackup(JSON.stringify(futureVersionWithRehash), { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(futureRes.ok, false);
+    assert.equal(futureRes.code, 'PACK_MISMATCH');
+
+    const legacyV1Backup = structuredClone(exported.backup);
+    legacyV1Backup.integrity = {
+      algorithm: 'sha256',
+      payload_hash: computeLegacyCoreBackupHash(legacyV1Backup),
+    };
+    const legacyRes = await inspectProgressBackup(JSON.stringify(legacyV1Backup), { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(legacyRes.ok, true);
+    assert.equal(legacyRes.preview.backupReviewedCount, 1);
+
+    const v2Specs = pack.decks.map((d, idx) => {
+      const doc = structuredClone(d.document);
+      if (idx === 0) {
+        doc.cards.push({
+          id: 'a2-13-new',
+          type: 'standard',
+          level: 'A2',
+          data: { prompt: 'die Vereinbarung', answer: 'договорённость' },
+        });
+      }
+      return {
+        id: d.id,
+        slug: d.slug,
+        targetLanguage: d.targetLanguage,
+        color: d.color,
+        position: d.position,
+        cardIdBase: d.id === 9101 ? 910100 : d.id === 9102 ? 910200 : 910300,
+        document: doc,
+      };
+    });
+    const v2Pack = buildStandalonePack({ packVersion: 2, deckSpecs: v2Specs });
+    const upgradeDb = createTestDexie(`LerneStandaloneDB_Upgrade_${dbCounter}`);
+    await upgradeDb.open();
+    await ensureStandaloneSeed({ db: upgradeDb, userId: STANDALONE_USER_ID, pack: v2Pack });
+    const upgradeInspect = await inspectProgressBackup(exported.json, { db: upgradeDb, userId: STANDALONE_USER_ID, pack: v2Pack });
+    assert.equal(upgradeInspect.ok, true);
+    const upgradeApplied = await applyProgressBackup(upgradeInspect.backup, { db: upgradeDb, userId: STANDALONE_USER_ID, pack: v2Pack });
+    assert.equal(upgradeApplied.restoredRecords, 1);
+    upgradeDb.close();
   });
 });

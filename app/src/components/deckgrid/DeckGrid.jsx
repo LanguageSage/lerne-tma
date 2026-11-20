@@ -231,7 +231,7 @@ export const DeckGrid = ({
   };
 
   const activeFolder = folders?.find(f => f.id === activeFolderId);
-  const canCreateContent = !activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor';
+  const canCreateContent = !IS_STANDALONE && (!activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor');
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
   const isInitialLoading = !hasInitialized || loading || (libraryStatus === 'idle' && Boolean(userProfile?.user_id))
     || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
@@ -529,8 +529,10 @@ export const DeckGrid = ({
                 <button className="btn btn-primary" onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}>{tr('Войти в аккаунт')}</button>
               </> : <>
                 <h3>{tr("У вас пока нет колод")}</h3>
-                <p>{tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
-                <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
+                {!IS_STANDALONE && <>
+                  <p>{tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
+                  <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
+                </>}
               </>}
             </div>
           ) : isFolderEmpty ? (
@@ -544,15 +546,19 @@ export const DeckGrid = ({
                   <>
                     <FolderOpen size={48} opacity={0.3} style={{ color: '#818cf8', marginBottom: 12, display: 'inline-block' }} />
                     <h3>{tr("Эта папка пуста")}</h3>
-                    <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>{tr("Создайте здесь новую колоду или подпапку!")}{' '}</p>
-                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить элемент")}</button>
+                    {!IS_STANDALONE && <>
+                      <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>{tr("Создайте здесь новую колоду или подпапку!")}{' '}</p>
+                      <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить элемент")}</button>
+                    </>}
                   </>
                 ) : (
                   <>
                     <Layers size={48} opacity={0.3} style={{ marginBottom: 12, display: 'inline-block' }} />
                     <h3>{tr("У вас пока нет колод на языке:")}{' '}{langInfo.name} {langInfo.flag}</h3>
-                    <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>{tr("Нажмите \"+\", чтобы создать свою первую колоду для изучения")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языка.")}{' '}</p>
-                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду (")}{langInfo.code.toUpperCase()})</button>
+                    {!IS_STANDALONE && <>
+                      <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>{tr("Нажмите \"+\", чтобы создать свою первую колоду для изучения")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языка.")}{' '}</p>
+                      <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду (")}{langInfo.code.toUpperCase()})</button>
+                    </>}
                   </>
                 )}
               </div>
@@ -663,7 +669,7 @@ export const DeckGrid = ({
         </div>
 
         {/* Collapsible dropdown menu at the very bottom for advanced tools */}
-        {activeFolderId === null && (
+        {!IS_STANDALONE && activeFolderId === null && (
           <div className="bottom-tools-container">
             <button 
               className={`bottom-tools-toggle ${isToolsOpen ? 'active' : ''}`}

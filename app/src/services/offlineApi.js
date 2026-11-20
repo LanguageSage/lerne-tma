@@ -8,8 +8,10 @@ import { writeCardNote } from './cardNotes.js';
 import {
   result,
   notFound,
+  readOnly,
   pendingCreate,
   unsupported,
+  isStandaloneDb,
   requireContentWrite,
   saveNativeCard,
   queueCardMove,
@@ -19,6 +21,9 @@ import {
 } from './cardOfflineQueue.js';
 
 export { resolveCardEdit } from './cardOfflineQueue.js';
+
+export const STANDALONE_MAX_GRADE_RECEIPTS = 64;
+let standaloneGradeSeq = 0;
 
 export const dirtyFields = previous => ({
   is_dirty: 1, local_revision: crypto.randomUUID(), updated_at: new Date().toISOString(),
@@ -125,7 +130,7 @@ export const offlineApi = {
     }
     const userId = getUserId();
     const identity = getSessionIdentity();
-    const db = await prepareLocalDb();
+    const db = config?._testDb || await prepareLocalDb();
     const isCurrent = () => userId === getUserId() && identity === getSessionIdentity();
     if (!isCurrent()) throw new Error('Session changed');
     const parsed = new URL(rawUrl, 'https://local.invalid');
@@ -135,6 +140,7 @@ export const offlineApi = {
     const m = method.toLowerCase();
     const body = data || {};
     const change = async (table, id, fields) => {
+      if (isStandaloneDb(db)) readOnly();
       const item = await table.get(id);
       if (!item) notFound();
       const owner = table.name === 'cards' ? await db.decks.get(item.deck_id) : item;
@@ -252,10 +258,36 @@ export const offlineApi = {
           'step_index', 'lapses', 'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
           intervals: getNextIntervals(updated, context), is_leech: isLeech(updated.lapses || 0) };
         // Same transaction as progress; every grade survives reload and batch retry.
-        await db.syncState.put({ key: `grade:${actionId}`, fingerprint, graded_progress: gradedProgress });
-        await db.syncState.put({ key: `review:${actionId}`, action_id: actionId, card_id: id,
-          rating: body.grade, review_context: context, is_extended: Boolean(body.is_extended),
-          review_time: updated.last_reviewed, scheduled_interval: updated.interval });
+        if (isStandaloneDb(db)) {
+          standaloneGradeSeq += 1;
+          await db.syncState.put({
+            key: `grade:${actionId}`,
+            fingerprint,
+            graded_progress: gradedProgress,
+            created_at: Date.now(),
+            seq: standaloneGradeSeq,
+          });
+          await db.syncState.where('key').startsWith('review:').delete();
+          const receipts = await db.syncState.where('key').startsWith('grade:').toArray();
+          if (receipts.length > STANDALONE_MAX_GRADE_RECEIPTS) {
+            receipts.sort((a, b) => (a.created_at || 0) - (b.created_at || 0)
+              || (a.seq || 0) - (b.seq || 0)
+              || a.key.localeCompare(b.key));
+            const excess = receipts.length - STANDALONE_MAX_GRADE_RECEIPTS;
+            const keysToDelete = receipts
+              .filter(item => item.key !== `grade:${actionId}`)
+              .slice(0, excess)
+              .map(item => item.key);
+            if (keysToDelete.length > 0) {
+              await db.syncState.bulkDelete(keysToDelete);
+            }
+          }
+        } else {
+          await db.syncState.put({ key: `grade:${actionId}`, fingerprint, graded_progress: gradedProgress });
+          await db.syncState.put({ key: `review:${actionId}`, action_id: actionId, card_id: id,
+            rating: body.grade, review_context: context, is_extended: Boolean(body.is_extended),
+            review_time: updated.last_reviewed, scheduled_interval: updated.interval });
+        }
       });
       const extra = body.include_progress && gradedProgress ? { graded_progress: gradedProgress } : {};
       if (body.return_next === false) return result({ status: 'success', ...extra });
@@ -278,6 +310,7 @@ export const offlineApi = {
     }
     match = url.match(/^\/(decks|folders)$/);
     if (m === 'post' && match) {
+      if (isStandaloneDb(db)) readOnly();
       const table = db[match[1]];
       const parentId = body.folder_id || body.parent_id;
       if (parentId) {
@@ -294,6 +327,7 @@ export const offlineApi = {
     if (m === 'post' && url === '/cards/reorder' && body.revisions) return queueCardSelection(db, body, 'reorder', isCurrent);
     match = url.match(/^\/(decks|folders)\/reorder$/);
     if (m === 'post' && match) {
+      if (isStandaloneDb(db)) readOnly();
       const table = db[match[1]];
       const ids = body[`${match[1].slice(0, -1)}_ids`] || [];
       await db.transaction('rw', table, db.decks, async () => {
@@ -308,6 +342,11 @@ export const offlineApi = {
     match = url.match(/^\/(cards|decks|folders)\/(-?\d+)(?:\/(rename|color|move|pin|flag|metadata|toggle-learning|reset))?$/);
     if (match && (m === 'post' || m === 'delete')) {
       const [, entity, rawId, action] = match;
+      const allowedInStandalone = m === 'post' && (
+        (entity === 'cards' && action === 'flag')
+        || (entity === 'decks' && (action === 'toggle-learning' || action === 'reset'))
+      );
+      if (isStandaloneDb(db) && !allowedInStandalone) readOnly();
       const id = Number(rawId);
       const table = db[entity];
       return db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
@@ -399,6 +438,7 @@ export const offlineApi = {
     }
     match = url.match(/^\/trash\/(deck|card)\/(-?\d+)\/restore$/);
     if (match && m === 'post') {
+      if (isStandaloneDb(db)) readOnly();
       if (match[1] === 'card') {
         const id = Number(match[2]);
         return queueCardLifecycle(db, id, body, false, userId, isCurrent);

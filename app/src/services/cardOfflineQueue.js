@@ -2,6 +2,7 @@ import { tr } from '../i18n/locale';
 import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { getUserId, getSessionIdentity } from '../utils/auth';
 import { cardTypes, validateStandardDraft } from '../utils/cardDraft.js';
+import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js';
 
 export const result = (data = {}) => ({ data });
 export const notFound = () => { throw new Error(tr("Запись не найдена на устройстве. Сначала выполните синхронизацию.")); };
@@ -11,20 +12,25 @@ export const pendingMove = () => { throw new Error(tr('Сначала завер
 export const pendingLifecycle = () => { throw new Error(tr('Сначала завершите синхронизацию удаления или восстановления.')); };
 export const mediaPaths = ['image_path', 'audio_path', 'audio_back_path', 'video_front_path', 'video_back_path'];
 
+export const isStandaloneDb = db => (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)
+  || (typeof db?.name === 'string' && db.name.startsWith(STANDALONE_DB_PREFIX));
+
 export function unsupported() {
   const error = new Error(tr("Для этого действия требуется подключение к интернету."));
   error.code = 'OFFLINE_UNSUPPORTED';
   return error;
 }
 
-export const isContentReadOnly = owner => !owner || owner.role === 'viewer'
+export const isContentReadOnly = (owner, db = null) => isStandaloneDb(db)
+  || !owner || owner.role === 'viewer'
   || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor');
 
 export async function requireContentWrite(db, entity, item) {
+  if (isStandaloneDb(db)) readOnly();
   if (!item) notFound();
   if (entity === 'cards' && item.offline_create_status) pendingCreate();
   const owner = entity === 'cards' ? await db.decks.get(item.deck_id) : item;
-  if (isContentReadOnly(owner)) readOnly();
+  if (isContentReadOnly(owner, db)) readOnly();
 }
 
 async function allocateTempCardId(db, aliases) {
@@ -44,6 +50,7 @@ function assertCardReadyForBatch(card, expectedRevision) {
 }
 
 export async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlineCreateIfAvailable: ifAvailable }, userId) {
+  if (isStandaloneDb(db)) readOnly();
   if (body.content_v2?.schema_version !== 2 || typeof body.content_v2.card?.type !== 'string') {
     throw new Error(tr('Некорректный JSON карточки V2.'));
   }
@@ -89,6 +96,7 @@ export async function saveNativeCard(db, body, { offlineCreateFlag: flag, offlin
 }
 
 export async function queueCardMove(db, body, isCurrent, copy = false) {
+  if (isStandaloneDb(db)) readOnly();
   if (!body?.revisions) throw unsupported();
   const ids = body.card_ids;
   const targetId = body.target_deck_id;
@@ -140,6 +148,7 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
 }
 
 export async function queueCardLifecycle(db, id, payload, deleting, userId, isCurrent) {
+  if (isStandaloneDb(db)) readOnly();
   if (!Number.isSafeInteger(id) || id <= 0) pendingCreate();
   return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
     const card = await db.cards.get(id);
@@ -172,6 +181,7 @@ export async function queueCardLifecycle(db, id, payload, deleting, userId, isCu
 }
 
 export async function queueCardSelection(db, payload, action, isCurrent) {
+  if (isStandaloneDb(db)) readOnly();
   const ids = payload.card_ids;
   if (!payload.request_id || !ids?.length || new Set(ids).size !== ids.length
       || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
@@ -201,6 +211,7 @@ export async function queueCardSelection(db, payload, action, isCurrent) {
 }
 
 export async function saveNativeEdit(db, id, body, expectedConflict) {
+  if (isStandaloneDb(db)) readOnly();
   if (body.content_v2?.schema_version !== 2 || !cardTypes.includes(body.content_v2.card?.type)) throw unsupported();
   if (body.content_v2.card.type === 'standard') validateStandardDraft(body.content_v2.card);
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
@@ -256,6 +267,7 @@ export async function resolveCardEdit(id, expected, keepLocal) {
   const identity = getSessionIdentity();
   const userId = getUserId();
   const db = await prepareLocalDb();
+  if (isStandaloneDb(db)) readOnly();
   const assertCurrent = () => {
     if (identity !== getSessionIdentity() || userId !== getUserId()) throw new Error('Session changed');
   };

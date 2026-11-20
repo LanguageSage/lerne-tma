@@ -243,6 +243,7 @@ async function run() {
     assert.equal(await page.locator('.guest-banner').count(), 0, 'GuestBanner must not show in standalone mode');
     assert.equal(await page.locator('.language-modal-overlay').count(), 0, 'LanguageWelcomeModal must not block cold boot');
     assert.equal(await page.locator('.auth-modal, [data-testid="auth-required-modal"]').count(), 0, 'Auth modal must not open');
+    assert.equal(await page.locator('#tut-add-deck').count(), 0, 'Create deck/folder button must be hidden in standalone read-only mode');
 
     const overflowHome = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     assert.equal(overflowHome, false, 'Home decks screen must not overflow horizontally at 375px');
@@ -251,6 +252,7 @@ async function run() {
     // 2. Study Deck 1 (12 cards, exercising ALL 7 offline card types)
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).click();
     await page.locator('.deck-intro-btn-start').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.deck-intro-edit-btn').count(), 0, 'Deck intro edit button must be hidden in standalone read-only mode');
     await page.screenshot({ path: path.join(EVIDENCE_DIR, '02-deck-intro.png'), fullPage: true });
     await page.locator('.deck-intro-btn-start').click();
 
@@ -326,6 +328,10 @@ async function run() {
     );
     const seedManifest = postRelaunchDb.syncState.find(s => s.key === 'standalone_seed_manifest');
     assert.equal(seedManifest?.pack_version, 1);
+    const reviewEntries = postRelaunchDb.syncState.filter(s => s.key.startsWith('review:'));
+    const gradeEntries = postRelaunchDb.syncState.filter(s => s.key.startsWith('grade:'));
+    assert.equal(reviewEntries.length, 0, 'Standalone mode must not accumulate syncState review: entries');
+    assert.equal(gradeEntries.length, 22, 'Standalone mode should retain recent bounded grade: receipts (22 <= 64)');
 
     // 5. Settings -> Profile -> Backup Export -> Tamper/Wrong-Format Reject -> Clean Install Wipe -> Restore
     await page.locator('#tut-main-settings').click();

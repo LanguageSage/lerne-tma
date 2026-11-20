@@ -149,7 +149,13 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
       const existingCards = await database.cards.bulkGet(resolvedPack.cards.map(c => c.id));
       const cacheMarkers = await database.syncState.bulkGet(resolvedPack.decks.map(d => `deck-cards:${d.id}`));
 
-      const allDecksPresent = existingDecks.every(deck => deck && !deck.is_deleted);
+      const allDecksPresent = existingDecks.every(deck => (
+        deck
+        && !deck.is_deleted
+        && deck.role === 'viewer'
+        && deck.is_owner === false
+        && deck.is_global_readonly === true
+      ));
       const allCardsPresent = existingCards.every(card => card && !card.is_deleted && card.content_v2?.schema_version === 2);
       const allCacheComplete = cacheMarkers.every(marker => marker?.complete === true);
 
@@ -195,8 +201,9 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
             color: deckEntry.color,
             position: deckEntry.position,
             target_language: deckEntry.targetLanguage,
-            role: 'owner',
-            is_owner: true,
+            role: 'viewer',
+            is_owner: false,
+            is_global_readonly: true,
             is_pinned: false,
             is_learning: false,
             is_deleted: 0,
@@ -208,7 +215,10 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
         } else {
           const needsDeckUpgrade = resolvedPack.packVersion > (existingManifest?.pack_version ?? 0)
             || existing.is_deleted
-            || existing.name !== deckEntry.document.deck.name;
+            || existing.name !== deckEntry.document.deck.name
+            || existing.role !== 'viewer'
+            || existing.is_owner !== false
+            || existing.is_global_readonly !== true;
           if (needsDeckUpgrade) {
             decksToPut.push({
               ...existing,
@@ -217,8 +227,9 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
               color: deckEntry.color,
               position: existing.position ?? deckEntry.position,
               target_language: deckEntry.targetLanguage,
-              role: existing.role || 'owner',
-              is_owner: existing.is_owner ?? true,
+              role: 'viewer',
+              is_owner: false,
+              is_global_readonly: true,
               is_learning: Boolean(existing.is_learning),
               is_deleted: 0,
               is_dirty: 0,
