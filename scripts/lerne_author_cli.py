@@ -3,7 +3,7 @@
 Lerne Author CLI — консольный инструмент для автора уроков и работы с AI-агентами.
 
 Команды:
-  export   — экспорт колоды или папки в канонический текстовый формат Lerne.
+  export   — экспорт колоды или папки в канонический JSON Native V2.
   update   — безопасное двухфазное обновление карточек из отредактированного файла
              через бэкенд-сервис (preview -> apply без мутации SRS).
   publish  — публикация новых уроков из файла (поддерживает мультиколодные файлы),
@@ -19,7 +19,6 @@ Lerne Author CLI — консольный инструмент для автор
 import os
 import sys
 import argparse
-from typing import Optional
 
 sys.stdout.reconfigure(encoding='utf-8')
 ROOT_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -32,12 +31,6 @@ load_dotenv()
 from api.database import initialize_database
 from api.models import TMA_Folder
 from api.services.author_service import (
-    CARD_SEPARATOR,
-    get_effective_user_id,
-    serialize_card,
-    serialize_deck,
-    serialize_folder,
-    parse_cards_text,
     parse_document,
     export_deck_content,
     export_folder_content,
@@ -315,7 +308,7 @@ def main():
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     # Subcommand: export
-    p_export = subparsers.add_parser("export", help="Экспорт колоды или папки в текстовый формат.")
+    p_export = subparsers.add_parser("export", help="Экспорт колоды или папки в JSON Native V2.")
     p_export.add_argument("--deck-id", type=int, help="ID колоды для экспорта.")
     p_export.add_argument("--folder-id", type=int, help="ID папки для экспорта.")
     p_export.add_argument("--out", type=str, help="Путь для сохранения файла (опционально).")
