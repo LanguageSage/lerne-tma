@@ -94,6 +94,49 @@ class MaterialPermissionTests(unittest.TestCase):
         presence = permissions.record_and_get_presence(202, 'folder', self.child.id)
         self.assertEqual(presence['updated_at'], after.isoformat())
 
+    def test_presence_eligibility_uses_private_direct_and_inherited_access(self):
+        personal = models.TMA_Folder.create(user_id=101, name='Unshared folder')
+        direct = self.targets[101]
+        for uid in (101, 202, 303):
+            for resource, target in (('decks', self.deck.id), ('folders', self.child.id)):
+                with self.subTest(uid=uid, resource=resource):
+                    rows = self.call('GET', f'/{resource}', uid).json()
+                    self.assertTrue(next(item for item in rows if item['id'] == target)['presence_enabled'])
+        self.assertFalse(next(item for item in self.call('GET', '/folders').json()
+                              if item['id'] == personal.id)['presence_enabled'])
+        self.assertFalse(next(item for item in self.call('GET', '/decks').json()
+                              if item['id'] == direct.id)['presence_enabled'])
+        models.TMA_Collaborator.create(target_type='deck', target_id=direct.id, user_id=303,
+                                       role='viewer', added_by=101)
+        for uid in (101, 303):
+            row = next(item for item in self.call('GET', '/decks', uid).json() if item['id'] == direct.id)
+            self.assertTrue(row['presence_enabled'])
+        self.assertEqual(self.call('GET', f'/collaborative/deck/{direct.id}/presence', 404).status_code, 403)
+        snapshot = self.call('GET', '/sync/v2/pull?card_schema=2').json()
+        self.assertTrue(all('presence_enabled' not in item for item in snapshot['decks'] + snapshot['folders']))
+
+    def test_public_access_alone_does_not_enable_presence(self):
+        published = models.TMA_Folder.create(user_id=101, name='Published', access_scope='global_readonly')
+        deck = models.TMA_Deck.create(user_id=101, folder=published, name='Published deck')
+        for resource, target in (('decks', deck.id), ('folders', published.id)):
+            row = next(item for item in self.call('GET', f'/{resource}', 404).json() if item['id'] == target)
+            self.assertTrue(row['is_shared'])
+            self.assertEqual(row['role'], 'viewer')
+            self.assertFalse(row['presence_enabled'])
+
+    def test_presence_includes_ancestor_owner_without_invitation(self):
+        private_root = models.TMA_Folder.create(user_id=101, name='Private ancestor')
+        descendant = models.TMA_Folder.create(user_id=202, parent=private_root, name='Editor-owned descendant')
+        for uid in (101, 202):
+            row = next(item for item in self.call('GET', '/folders', uid).json() if item['id'] == descendant.id)
+            self.assertFalse(row['is_shared'])
+            self.assertTrue(row['presence_enabled'])
+        url = f'/collaborative/folder/{descendant.id}/presence'
+        self.assertEqual(self.call('GET', url, 101).status_code, 200)
+        roster = self.call('GET', url, 202).json()
+        self.assertEqual({item['user_id'] for item in roster['collaborators']}, {101, 202})
+        self.assertEqual(roster['online_count'], 2)
+
     def test_private_and_inherited_read_matrix(self):
         for uid, role in ((101, 'owner'), (202, 'editor'), (303, 'viewer'), (404, None)):
             with self.subTest(uid=uid):

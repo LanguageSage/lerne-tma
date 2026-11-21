@@ -6,6 +6,7 @@ import { tr } from '../../i18n/locale';
 import { useLanguageStore } from '../useLanguageStore';
 import { useSessionStore } from '../useSessionStore';
 import { mergeStudyCardPatch, mergeStudyProgress } from '../../utils/structuredStudyCard.js';
+import { readPulledDeckCards, readPulledFolders } from '../../services/offlineApi.js';
 
 let reorderTimeout = null;
 
@@ -166,7 +167,7 @@ export const createDeckSlice = (set, get) => {
     }
   },
 
-  fetchDecks: async (force = false, attempts = 3) => {
+  fetchDecks: async (force = false, attempts = 3, fromPull = false) => {
     const { decks, libraryStatus } = get();
     if (!force && decks.length > 0 && libraryStatus === 'ready') return;
     return get().runLibraryLoad('decks', async (isCurrent) => {
@@ -175,15 +176,23 @@ export const createDeckSlice = (set, get) => {
       for (let attempt = 1; attempt <= attempts; attempt++) {
         if (!isCurrent()) return;
         try {
+          // The pull has folders, but library update status and resolved deck
+          // resources still come from /decks.
           const [decksRes, foldersRes] = await Promise.all([
-            api.get('/decks'),
-            api.get('/folders')
+            api.get('/decks'), fromPull ? null : api.get('/folders'),
           ]);
           if (!isCurrent()) return;
-          if (!Array.isArray(decksRes.data) || !Array.isArray(foldersRes.data)) throw new Error('Invalid library response');
-          const source = decksRes.dataSource === 'cache' || foldersRes.dataSource === 'cache' ? 'cache'
-            : decksRes.dataSource === 'local' || foldersRes.dataSource === 'local' ? 'local' : 'server';
-          get().setDecksAndFolders(decksRes.data, foldersRes.data, source);
+          const pulledFolders = fromPull ? await readPulledFolders().catch(() => undefined) : undefined;
+          if (!isCurrent()) return;
+          const folderIds = new Set(pulledFolders?.map(folder => folder.id));
+          const folders = pulledFolders && Array.isArray(decksRes.data)
+            && decksRes.data.every(deck => !deck.folder_id || folderIds.has(deck.folder_id))
+            ? { data: pulledFolders } : foldersRes ?? await api.get('/folders');
+          if (!isCurrent()) return;
+          if (!Array.isArray(decksRes.data) || !Array.isArray(folders.data)) throw new Error('Invalid library response');
+          const source = decksRes.dataSource === 'cache' || folders.dataSource === 'cache' ? 'cache'
+            : decksRes.dataSource === 'local' || folders.dataSource === 'local' ? 'local' : 'server';
+          get().setDecksAndFolders(decksRes.data, folders.data, source);
           return;
         } catch (err) {
           lastError = err;
@@ -204,18 +213,19 @@ export const createDeckSlice = (set, get) => {
     });
   },
 
-  fetchDeckCards: async (deckId, attempts = 3, forceLoading = false) => {
-    if (pendingFetchCards?.deckId === deckId && pendingFetchCards.isCurrent()) {
-      return pendingFetchCards.promise;
-    }
+  fetchDeckCards: async (deckId, attempts = 3, forceLoading = false, fromPull = false) => {
+    const previousLoad = pendingFetchCards?.deckId === deckId && pendingFetchCards.isCurrent()
+      ? pendingFetchCards : null;
+    if (previousLoad && (!fromPull || previousLoad.fromPull)) return previousLoad.promise;
+    if (previousLoad) previousLoad.superseded = true;
 
     const state = get();
     const account = getUserId();
     const identity = getSessionIdentity();
     const generation = state.storeGeneration;
     const isCurrent = () => account === getUserId() && identity === getSessionIdentity()
-      && generation === get().storeGeneration;
-    const entry = { deckId, isCurrent };
+      && generation === get().storeGeneration && !entry.superseded;
+    const entry = { deckId, isCurrent, fromPull };
     const isSameDeck = state.currentDeck?.id === deckId;
     const cached = state.cardsByDeck[deckId];
     const hasCards = (isSameDeck && state.deckCards && state.deckCards.length > 0) || (cached && cached.length > 0);
@@ -224,51 +234,73 @@ export const createDeckSlice = (set, get) => {
       set({ cardsLoading: true });
     }
 
+    const applyCards = (data, startedAt, isComplete, fromDexie = false) => {
+      if (!isCurrent()) return;
+      const previous = new Map((get().cardsByDeck[deckId] || []).map(card => [String(card.id), card]));
+      const recentPatches = recentProgress.get(`${get().storeGeneration}:${account}:${identity}:${deckId}`);
+      if (recentPatches) {
+        for (const [id, patch] of recentPatches) {
+          if (patch._studyProgressAt >= startedAt) {
+            previous.set(id, mergeStudyCardPatch(previous.get(id), patch));
+          }
+        }
+      }
+      for (const card of useSessionStore.getState().studyHistory) {
+        if (card.deck_id === deckId && card._studyProgressAt >= startedAt) {
+          previous.set(String(card.id), mergeStudyCardPatch(previous.get(String(card.id)), card));
+        }
+      }
+      const newCards = data.map(card => {
+        const cached = previous.get(String(card.id));
+        const fresh = isComplete
+          ? { ...card, _studyFetchedAt: Date.now(), _studyIdentity: identity, _studyContext: 'scheduled' }
+          : { ...card, _studyIdentity: identity, _studyContext: 'scheduled', _studyComplete: false };
+        if (fromDexie) {
+          // Creator attribution is present in targeted reads. A new
+          // snapshot row can get it when opened in Study.
+          if (fresh.creator_name === undefined) {
+            fresh.creator_name = cached?.creator_name;
+            fresh.creator_avatar = cached?.creator_avatar;
+            if (fresh.creator_name === undefined) delete fresh._studyFetchedAt;
+          }
+          if (fresh._studyProgressAt < startedAt) {
+            delete fresh._studyProgressAt;
+            delete fresh._studyProgressStartedAt;
+            delete fresh._studyProgressSeq;
+          }
+        }
+        // A background list may have read progress before a grade committed.
+        return cached?._studyProgressAt >= startedAt ? mergeStudyProgress(fresh, cached) : fresh;
+      });
+      set((prev) => ({
+        deckCards: prev.currentDeck?.id === deckId ? newCards : prev.deckCards,
+        cardsByDeck: {
+          ...prev.cardsByDeck,
+          [deckId]: newCards
+        },
+        cardsCompleteByDeck: {
+          ...prev.cardsCompleteByDeck,
+          [deckId]: isComplete
+        }
+      }));
+      return newCards;
+    };
     const fetchPromise = (async () => {
       try {
+        if (fromPull) {
+          const total = state.decks.find(deck => deck.id === deckId)?.stats?.total;
+          const local = await readPulledDeckCards(deckId, account, total, (cards, startedAt) =>
+            applyCards(cards, startedAt, true, true)).catch(() => undefined);
+          if (local || !isCurrent()) return local;
+        }
         let lastError;
         for (let attempt = 1; attempt <= attempts; attempt++) {
           if (!isCurrent()) return;
           try {
-            const endpoint = `/decks/${deckId}/cards`;
             const startedAt = Date.now();
-            const res = await api.get(endpoint);
-            if (!isCurrent()) return;
-            const previous = new Map((get().cardsByDeck[deckId] || []).map(card => [String(card.id), card]));
-            const recentPatches = recentProgress.get(`${get().storeGeneration}:${account}:${identity}:${deckId}`);
-            if (recentPatches) {
-              for (const [id, patch] of recentPatches) {
-                if (patch._studyProgressAt >= startedAt) {
-                  previous.set(id, mergeStudyCardPatch(previous.get(id), patch));
-                }
-              }
-            }
-            for (const card of useSessionStore.getState().studyHistory) {
-              if (card.deck_id === deckId && card._studyProgressAt >= startedAt) {
-                previous.set(String(card.id), mergeStudyCardPatch(previous.get(String(card.id)), card));
-              }
-            }
+            const res = await api.get(`/decks/${deckId}/cards`);
             const isComplete = res.complete !== false && res.dataSource !== 'cache' && res.dataSource !== 'local';
-            const newCards = (res.data || []).map(card => {
-              const cached = previous.get(String(card.id));
-              const fresh = isComplete
-                ? { ...card, _studyFetchedAt: Date.now(), _studyIdentity: identity, _studyContext: 'scheduled' }
-                : { ...card, _studyIdentity: identity, _studyContext: 'scheduled', _studyComplete: false };
-              // A background list may have read progress before a grade committed.
-              return cached?._studyProgressAt >= startedAt ? mergeStudyProgress(fresh, cached) : fresh;
-            });
-            set((prev) => ({
-              deckCards: prev.currentDeck?.id === deckId ? newCards : prev.deckCards,
-              cardsByDeck: {
-                ...prev.cardsByDeck,
-                [deckId]: newCards
-              },
-              cardsCompleteByDeck: {
-                ...prev.cardsCompleteByDeck,
-                [deckId]: isComplete
-              }
-            }));
-            return newCards;
+            return applyCards(res.data || [], startedAt, isComplete);
           } catch (err) {
             if (!isCurrent()) return;
             lastError = err;

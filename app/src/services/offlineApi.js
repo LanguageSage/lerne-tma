@@ -1,8 +1,9 @@
 import { tr } from '../i18n/locale';
-import { prepareLocalDb, getNextTempId } from './localDb';
+import { getLocalDb, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
 import { cardMediaView } from './mediaCache';
+import { emptyStudyProgress } from '../utils/structuredStudyCard.js';
 import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
 import {
@@ -40,12 +41,12 @@ const initialProgress = (card, userId) => ({
   flag: card.flag ?? 0, want_to_learn: card.want_to_learn ?? false,
 });
 
-async function cardView(db, card, userId, reviewContext = 'scheduled') {
-  const progress = await db.progress.get([card.id, userId]) || initialProgress(card, userId);
+async function cardView(db, card, userId, reviewContext = 'scheduled', options = {}) {
+  const progress = options.progress ?? (await db.progress.get([card.id, userId])) ?? initialProgress(card, userId);
   const content = card.content_v2?.card;
   if (!content) notFound();
   return {
-    ...await cardMediaView(db, card), level: content.level,
+    ...await cardMediaView(db, card, options.prefetch), level: content.level,
     intervals: getNextIntervals(progress, reviewContext), is_leech: isLeech(progress.lapses || 0),
     next_review: progress.next_review, last_reviewed: progress.last_reviewed,
     queue: progress.queue || 'new', interval: progress.interval || 0,
@@ -60,6 +61,35 @@ async function deckCards(db, deckId) {
   const deck = await db.decks.get(deckId);
   if (!deck || deck.is_deleted) notFound();
   return ordered((await db.cards.where('deck_id').equals(deckId).toArray()).filter(c => c.content_v2 && !c.is_deleted));
+}
+
+const activeFolders = (db, language) => db.folders.filter(folder => !folder.is_deleted
+  && (!language || !folder.target_language || folder.target_language === language)).toArray();
+
+export async function readPulledFolders() {
+  const db = getLocalDb();
+  return db.transaction('r', db.syncState, db.folders, async () => {
+    if (!(await db.syncState.get('lastSync'))?.readStartedAt) return;
+    return activeFolders(db);
+  });
+}
+
+export async function readPulledDeckCards(deckId, userId, expectedTotal, apply) {
+  const db = getLocalDb();
+  return db.transaction('r', db.syncState, db.decks, db.cards, db.progress, db.media, async () => {
+    const [checkpoint, completeness] = await db.syncState.bulkGet(['lastSync', `deck-cards:${deckId}`]);
+    if (!checkpoint?.readStartedAt || completeness?.complete === false) return;
+    const cards = await deckCards(db, deckId);
+    if (cards.filter(card => card.id > 0).length < expectedTotal) return;
+    const progress = await db.progress.bulkGet(cards.map(card => [card.id, userId]));
+    const startedAt = checkpoint.progressReadStartedAt ?? checkpoint.readStartedAt;
+    const data = await Promise.all(cards.map((card, index) => cardView(db, card, userId, 'scheduled', {
+      progress: progress[index] ?? (card._studyProgressAt >= startedAt ? initialProgress(card, userId) : emptyStudyProgress),
+      prefetch: false,
+    })));
+    // Publish before IndexedDB can start a queued write to the same tables.
+    return apply(data, startedAt);
+  });
 }
 
 async function deckStats(db, deckId, userId) {
@@ -153,7 +183,7 @@ export const offlineApi = {
         delete deck.metadata.is_learning;
         deck.is_learning = deck.is_learning ?? false;
       }
-      const folders = ordered(await db.folders.filter(f => !f.is_deleted && (!f.target_language || f.target_language === language)).toArray());
+      const folders = ordered(await activeFolders(db, language));
       if (url === '/decks') return result(decks);
       if (url === '/folders') return result(folders);
       return result({ decks, folders, settings: {}, prompts: {}, user_info: getUserProfile() });

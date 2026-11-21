@@ -324,10 +324,17 @@ def _run_offline_isolation_browser(port, models):
 
     first = models.TMA_Deck.create(user_id=1, name='Offline Standard fixture', target_language='de')
     second = models.TMA_Deck.create(user_id=2, name='Private B fixture', target_language='de')
+    alternate = models.TMA_Deck.create(user_id=1, name='Alternate A fixture', target_language='de')
+    alternate_card = models.TMA_Card.create(deck=alternate, creator_id=1, card_type=None, content_v2={
+        'schema_version': 2, 'card': {'type': 'standard', 'data': {'prompt': 'Alternate list', 'answer': 'Fixture answer'}},
+    })
     initial = session(1)
     config = {'origin': f'http://127.0.0.1:{port}', 'deck_id': first.id, 'isolation': True,
               'access_token': initial['access_token'], 'initial_session': initial, 'second_session': session(2),
               'new_session': session(1),
+              'alternate_deck': {'id': alternate.id, 'name': alternate.name, 'user_id': 1,
+                                 'role': 'owner', 'target_language': 'de', 'stats': {'total': 1}},
+              'alternate_card_id': alternate_card.id,
               'private_deck': {'id': second.id, 'name': second.name, 'user_id': 2,
                                'target_language': 'de', 'role': 'owner', 'stats': {'total': 0}}}
     receipts = models.TMAOfflineBatch.select().where(models.TMAOfflineBatch.key.startswith('cards-v2:save:'))

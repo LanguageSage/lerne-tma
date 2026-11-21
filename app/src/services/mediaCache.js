@@ -5,7 +5,7 @@ const pending = new Set();
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_CACHE_BYTES = 150 * 1024 * 1024;
 
-export async function localMediaURL(database, path, kind) {
+export async function localMediaURL(database, path, kind, prefetch = true) {
   const url = mediaURL(path, kind);
   if (!url || /^(blob:|data:)/.test(url)) return url;
   const key = `${database.name}:${url}`;
@@ -18,7 +18,7 @@ export async function localMediaURL(database, path, kind) {
       // Fallback to network URL if blob is unreadable
     }
   }
-  if (navigator.onLine && !pending.has(key) && pending.size < 4) {
+  if (prefetch && navigator.onLine && !pending.has(key) && pending.size < 4) {
     pending.add(key);
     cacheMedia(database, url).catch(error => console.warn('Media cache:', error.message))
       .finally(() => pending.delete(key));
@@ -55,16 +55,16 @@ async function cacheMedia(database, url) {
 }
 
 // Derived URLs never replace the durable paths stored on the card.
-export async function cardMediaView(database, card) {
+export async function cardMediaView(database, card, prefetch = true) {
   const result = { ...card };
   for (const [field, kind] of [['image', 'images'], ['audio', 'audio'], ['audio_back', 'audio'],
     ['video_front', 'videos'], ['video_back', 'videos']]) {
     const path = card[`${field}_path`] || card[`${field}_url`];
-    result[`${field}_url`] = await localMediaURL(database, path, kind);
+    result[`${field}_url`] = await localMediaURL(database, path, kind, prefetch);
   }
   result.layout_media_urls = {};
   for (const item of card.content_v2?.card?.layout || []) {
-    if (item.type === 'image') result.layout_media_urls[item.id] = await localMediaURL(database, item.path, 'images');
+    if (item.type === 'image') result.layout_media_urls[item.id] = await localMediaURL(database, item.path, 'images', prefetch);
   }
   return result;
 }

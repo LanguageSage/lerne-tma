@@ -114,6 +114,44 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
+test('a pull updates the open list before an earlier HTTP response arrives', async () => {
+  const f = fixture(), old = deferred();
+  const calls = [];
+  f.request = path => { calls.push(path); return old.promise; };
+  f.context.readPulledDeckCards = (_id, _user, _total, apply) => Promise.resolve(apply([{ id: 2 }], Date.now()));
+  f.store.getState().setCurrentDeck({ id: 1 });
+  const earlier = f.store.getState().fetchDeckCards(1);
+  await f.store.getState().fetchDeckCards(1, 1, false, true);
+  old.resolve({ data: [{ id: 1 }] });
+  await earlier;
+  assert.deepEqual(calls, ['/decks/1/cards']);
+  assert.equal(f.store.getState().deckCards[0].id, 2);
+});
+
+for (const scope of ['deck', 'account']) {
+  test(`a pending pull projection cannot replace the selected list after switching ${scope}`, async () => {
+    const f = fixture(), gate = deferred();
+    f.request = async () => assert.fail('An obsolete projection must not fetch again');
+    f.context.readPulledDeckCards = async (_id, _user, _total, apply) => {
+      await gate.promise;
+      return apply([{ id: 1 }], Date.now());
+    };
+    f.store.getState().setCurrentDeck({ id: 1 });
+    const pending = f.store.getState().fetchDeckCards(1, 1, false, true);
+    if (scope === 'account') {
+      f.userId = 202;
+      f.store.getState().resetDeckStore();
+    }
+    f.store.getState().setCurrentDeck({ id: 2 });
+    f.store.getState().setDeckCards([{ id: 202 }]);
+    gate.resolve();
+    await pending;
+    assert.equal(f.store.getState().currentDeck.id, 2);
+    assert.equal(f.store.getState().deckCards[0].id, 202);
+    if (scope === 'account') assert.equal(f.store.getState().cardsByDeck[1], undefined);
+  });
+}
+
 test('card response after an account switch cannot change any new-account state', async () => {
   const f = fixture(), old = deferred();
   f.request = () => old.promise;

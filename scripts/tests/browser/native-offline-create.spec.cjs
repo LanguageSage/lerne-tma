@@ -11,7 +11,7 @@ const deck = fixture && { id: fixture.deck_id, name: fixture.deck_name || 'Offli
   role: fixture.card || fixture.edit_cards ? 'editor' : 'owner', stats: { total: 0 } };
 const profile = { user_id: fixture?.user_id ?? 1, first_name: 'Test learner', is_guest: false };
 
-async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull) {
+async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull, controlDeckRead) {
   const startOffline = getPhase() === 'offline';
   await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
     ? route.continue() : route.abort('blockedbyclient'));
@@ -68,6 +68,9 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     }
     if (pathname === cardPath && phase === 'conflict-read-down') return route.abort('connectionreset');
     if (pathname === '/api/sync/v2/pull' && controlPull) return controlPull({ route, fetchFromServer });
+    if (controlDeckRead && route.request().headers()['x-fixture-delayed-deck-read'] === '1') {
+      return controlDeckRead({ route, fetchFromServer });
+    }
     if (fixture.isolation && pathname === '/api/sync/collab-pull') {
       return route.fulfill({ response: await fetchFromServer() });
     }
@@ -88,7 +91,7 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
     const visibleDecks = fixture.save_regression?.decks ?? (fixture.list ? [fixture.list.source, fixture.list.shared, fixture.list.foreign] : fixture.move
       ? [fixture.move.source, fixture.move.target, fixture.move.denied]
-      : [asSecond ? fixture.private_deck : deck]);
+      : asSecond ? [fixture.private_deck] : [deck, ...(fixture.alternate_deck ? [fixture.alternate_deck] : [])]);
     if (fixture.isolation && pathname === '/api/auth/v2/me') return route.fulfill({ response: await fetchFromServer() });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: visibleDecks, folders: [],
       settings: {}, prompts: {}, user_settings: {}, user_info: asSecond ? { ...profile, user_id: 2 } : profile } });
@@ -1504,6 +1507,7 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   const writes = [];
   let heldWrite;
   let heldPull;
+  let heldDeckRead;
   const hold = () => {
     const { promise, resolve } = Promise.withResolvers();
     return { promise, release: resolve };
@@ -1520,12 +1524,18 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
     }
     if (!tab.isClosed()) await route.fulfill({ response });
   }, async ({ route, fetchFromServer }) => {
+    const gate = heldPull?.tab === route.request().frame().page() ? heldPull : null;
     const response = await fetchFromServer();
-    const gate = heldPull;
     if (gate) {
       gate.snapshot = await response.json();
       await gate.promise;
     }
+    await route.fulfill({ response });
+  }, async ({ route, fetchFromServer }) => {
+    const gate = heldDeckRead;
+    const response = await fetchFromServer();
+    gate.cards = await response.json();
+    await gate.promise;
     await route.fulfill({ response });
   });
 
@@ -1563,9 +1573,14 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   };
   const createOffline = async (tab, title) => {
     await enterDraft(tab, title, true);
-    await expect(tab.getByText(title, { exact: true })).toBeVisible();
-    const operation = (await inspect(tab)).queue.find(row => row.payload.content_v2.card.data.prompt === title);
-    expect(operation.tempId).toBeLessThan(0);
+    let operation;
+    await expect.poll(async () => {
+      operation = (await inspect(tab)).queue.find(row => row.payload.content_v2.card.data.prompt === title);
+      return operation?.tempId ?? 0;
+    }).toBeLessThan(0);
+    const draft = tab.locator('#card-item-' + operation.tempId);
+    await expect(draft).toBeVisible();
+    await expect(draft).toContainText(title);
     await tab.evaluate(() => { delete navigator.onLine; });
     return operation;
   };
@@ -1592,17 +1607,10 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect((await inspect(peer)).queue).toEqual([shared]);
   for (const tab of [page, peer]) await tab.evaluate(() => { delete navigator.locks; });
 
-  const staleDeck = hold();
-  await peer.route(url => url.pathname === '/api/decks/' + deck.id + '/cards', async route => {
-    const { pathname, search } = new URL(route.request().url());
-    const response = await route.fetch({ url: fixture.origin + pathname + search, maxRetries: 0 });
-    staleDeck.cards = await response.json();
-    await staleDeck.promise;
-    await route.fulfill({ response });
-  }, { times: 1 });
+  const staleDeck = heldDeckRead = hold();
   const lateList = peer.evaluate(async deckId => {
     const { default: api } = await import('/src/services/api.js');
-    return (await api.get('/decks/' + deckId + '/cards')).data;
+    return (await api.get('/decks/' + deckId + '/cards', { headers: { 'x-fixture-delayed-deck-read': '1' } })).data;
   }, deck.id);
   await expect.poll(() => staleDeck.cards).toEqual([]);
 
@@ -1620,13 +1628,14 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   }
   const sharedId = writesFor(shared)[0].card.id;
   expect((await lateList).map(card => card.id)).toEqual([sharedId]);
+  heldDeckRead = null;
   await expect(peer.locator('#card-item-' + sharedId)).toContainText('Shared queue draft');
   await expect(peer.locator('#card-item-' + shared.tempId)).toHaveCount(0);
   expect((await inspect(peer)).aliases[shared.tempId]).toBe(sharedId);
 
   // The earlier pull must not overwrite a newer server revision another tab
   // has already read into the shared database.
-  heldPull = hold();
+  heldPull = { ...hold(), tab: page };
   const stalePull = sync(page, { pullOnly: true });
   try {
     await expect.poll(() => heldPull.snapshot?.cards.find(card => card.id === sharedId)?.revision)
@@ -1648,6 +1657,36 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   heldPull = null;
   expect((await inspect(peer)).cards.find(card => card.id === sharedId).content_v2.card.data.answer)
     .toBe('New answer on the server');
+
+  await openList(peer, fixture.alternate_deck);
+  await expect(peer.locator('#card-item-' + fixture.alternate_card_id)).toContainText('Alternate list');
+  await openList(peer);
+  const selection = await peer.evaluate(async ({ source, destination }) => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const db = (await import('/src/services/localDb.js')).getLocalDb();
+    const entered = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    const original = db.progress.bulkGet;
+    db.progress.bulkGet = async function (...args) {
+      const rows = await original.apply(this, args);
+      entered.resolve();
+      await db.constructor.waitFor(release.promise);
+      return rows;
+    };
+    const loading = useDeckStore.getState().fetchDeckCards(source, 1, false, true);
+    try {
+      await Promise.race([entered.promise, loading.then(() => { throw new Error('Expected a Dexie card read'); })]);
+      useDeckStore.getState().setCurrentDeck(destination);
+    } finally {
+      db.progress.bulkGet = original;
+      release.resolve();
+      await loading;
+    }
+    const state = useDeckStore.getState();
+    return { deck: state.currentDeck.id, cards: state.deckCards.map(card => card.id) };
+  }, { source: deck.id, destination: fixture.alternate_deck });
+  expect(selection).toEqual({ deck: fixture.alternate_deck.id, cards: [fixture.alternate_card_id] });
+  await openList(peer);
 
   // Resuming a tab revalidates the shared native snapshot through V2 pull.
   const native = peer.waitForResponse(response => response.url().includes('/api/sync/v2/pull'));
@@ -1714,7 +1753,7 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   await expect(peer.locator('#card-item-' + switching.tempId)).toContainText('Private A pending draft');
   await expect(peer.getByText('Private B draft', { exact: true })).toHaveCount(0);
 
-  heldPull = hold();
+  heldPull = { ...hold(), tab: peer };
   const latePull = sync(peer, { pullOnly: true });
   try {
     await expect.poll(() => heldPull.snapshot?.status).toBe('success');
@@ -1730,6 +1769,25 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect(writesFor(switching)).toHaveLength(2);
   expect(writesFor(switching)[0]).toEqual(writesFor(switching)[1]);
   expect((await inspect(peer)).queue).toEqual([]);
+
+  heldPull = { ...hold(), tab: peer };
+  const accountPull = sync(peer, { pullOnly: true });
+  try {
+    await expect.poll(() => heldPull.snapshot?.cards.some(card => card.id === sharedId)).toBe(true);
+    await login(fixture.second_session);
+  } finally {
+    heldPull.release();
+    expect(await accountPull).toMatchObject({ success: false, native_success: false });
+  }
+  heldPull = null;
+  await openList(peer, fixture.private_deck);
+  const accountState = await peer.evaluate(async () => {
+    const state = (await import('/src/store/useDeckStore.js')).useDeckStore.getState();
+    return { deck: state.currentDeck.id, cards: state.deckCards.map(card => card.deck_id),
+      cached: [...Object.values(state.cardsByDeck).flat(), ...state.duplicateCards].map(card => card.deck_id) };
+  });
+  expect(accountState).toEqual({ deck: fixture.private_deck.id,
+    cards: [fixture.private_deck.id], cached: [fixture.private_deck.id] });
 });
 
 test('completes V2 list operations with search parity and durable atomic delivery', async ({ browser }, testInfo) => {

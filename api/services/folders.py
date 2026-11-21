@@ -31,7 +31,7 @@ def get_active_folders(user_id: int, folder_map: dict = None):
         folders = [folder_map[fid] for fid in accessible_folder_ids if fid in folder_map]
         folders.sort(key=lambda f: (getattr(f, 'position', 0) or 0, f.id))
 
-        collab_info = get_batch_collaborative_info(user_id, folders=folders, folder_map=folder_map)
+        collab_info = get_batch_collaborative_info(user_id, folders=folders, folder_map=folder_map, include_presence=True)
         folder_collab_map = collab_info.get('folders', {})
 
         result = []
@@ -50,6 +50,7 @@ def get_active_folders(user_id: int, folder_map: dict = None):
                 "target_language": getattr(f, 'target_language', 'de') or 'de',
                 "position": getattr(f, 'position', 0) or 0,
                 "is_shared": is_shared,
+                "presence_enabled": collab_meta.get('presence_enabled', False),
                 "role": role,
                 "is_owner": role == 'owner',
                 "is_global_readonly": is_global_readonly,

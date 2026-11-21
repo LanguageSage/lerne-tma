@@ -139,12 +139,65 @@ export const collectUserSettings = (state) => {
   return settings;
 };
 
+const SETTINGS_RECHECK_MS = 60_000;
 let saveTimer = null;
 let settingsGeneration = 0;
 let settingsWrite = null;
-export const debouncedSaveSettings = (get) => {
+let settingsFetch = null;
+let confirmedSettings = null;
+let pendingStudyWrite = null;
+let studyMutationSeq = 0;
+
+const hasPendingStudyWrite = (account) => Boolean(
+  account && pendingStudyWrite?.account === account && pendingStudyWrite?.generation === settingsGeneration
+);
+
+const clearPendingStudyWrite = (account, generation, seq = studyMutationSeq) => {
+  if (
+    pendingStudyWrite?.account === account
+    && pendingStudyWrite?.generation === generation
+    && studyMutationSeq === seq
+  ) {
+    pendingStudyWrite = null;
+  }
+};
+
+const sameSettingValue = (a, b) => {
+  if (Object.is(a, b)) return true;
+  if (a == null || b == null || typeof a !== 'object' || typeof b !== 'object') return false;
+  if (Array.isArray(a) || Array.isArray(b)) {
+    if (!Array.isArray(a) || !Array.isArray(b) || a.length !== b.length) return false;
+    return a.every((item, index) => sameSettingValue(item, b[index]));
+  }
+  const keysA = Object.keys(a).filter((key) => a[key] !== undefined);
+  const keysB = Object.keys(b).filter((key) => b[key] !== undefined);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key) => Object.prototype.hasOwnProperty.call(b, key) && sameSettingValue(a[key], b[key]));
+};
+
+const hasUnsavedSettingValues = (payload, serverData, designPending = false) => {
+  if (designPending) return true;
+  if (!serverData || typeof serverData !== 'object' || Array.isArray(serverData)) return true;
+  for (const [key, value] of Object.entries(payload || {})) {
+    if (value === undefined) continue;
+    if (key === 'designV2') {
+      if (!serverData.designV2 && value) return true;
+      continue;
+    }
+    if (!Object.prototype.hasOwnProperty.call(serverData, key) || !sameSettingValue(value, serverData[key])) {
+      return true;
+    }
+  }
+  return false;
+};
+
+export const debouncedSaveSettings = (get, options = {}) => {
   if (saveTimer) clearTimeout(saveTimer);
   const account = getUserId(), generation = settingsGeneration;
+  if (account && options.study !== false) {
+    studyMutationSeq++;
+    pendingStudyWrite = { account, generation };
+  }
   saveTimer = setTimeout(() => {
     saveTimer = null;
     if (account !== getUserId() || generation !== settingsGeneration) return;
@@ -302,6 +355,9 @@ export const useSettingsStore = create((set, get) => {
     activateSettingsAccount: () => {
       const isAdmin = get().designAccountId === getUserId() && get().isAdmin;
       settingsGeneration++;
+      confirmedSettings = null;
+      pendingStudyWrite = null;
+      settingsFetch = null;
       if (saveTimer) clearTimeout(saveTimer);
       saveTimer = null;
       try {
@@ -328,14 +384,22 @@ export const useSettingsStore = create((set, get) => {
     syncUserSettingsFromServer: (serverSettings) => {
       if (!serverSettings || typeof serverSettings !== 'object' || Array.isArray(serverSettings)) return;
       if (get().designAccountId !== getUserId()) get().activateSettingsAccount();
+      const account = getUserId();
       try {
-        const record = openPersonalDesignRecord(getUserId());
+        const record = openPersonalDesignRecord(account);
         if (record) {
           const next = savePersonalDesignRecord(reconcilePersonalDesign(record, serverSettings));
           set({ personalDesignV2: next.document, designMigrationError: null });
-          if (next.pending) debouncedSaveSettings(get);
+          if (next.pending) debouncedSaveSettings(get, { study: false });
         }
       } catch (error) { set({ designMigrationError: error.message }); }
+      if (account) {
+        confirmedSettings = { account, generation: settingsGeneration, syncedAt: Date.now(), serverData: serverSettings };
+      }
+      if (hasPendingStudyWrite(account)) {
+        debouncedSaveSettings(get);
+        return;
+      }
 
       const migrateAutoplay = Number(serverSettings.autoplayVersion) !== AUTOPLAY_VERSION;
       // Old clients/server snapshots must not overwrite the new settings after migration.
@@ -380,9 +444,30 @@ export const useSettingsStore = create((set, get) => {
       if (migrateAutoplay) debouncedSaveSettings(get);
     },
 
+    hasPendingSettingsSync: (account = getUserId()) => {
+      if (!account) return false;
+      if (hasPendingStudyWrite(account)) return true;
+      if (saveTimer !== null && account === getUserId()) return true;
+      const record = readPersonalDesignRecord(account);
+      return Boolean(record?.pending && (record?.serverSeen || record?.edited));
+    },
+
+    hasFreshSettings: (maxAgeMs = SETTINGS_RECHECK_MS, account = getUserId()) => {
+      if (!account || !(maxAgeMs > 0) || !confirmedSettings) return false;
+      return (
+        confirmedSettings.account === account
+        && confirmedSettings.generation === settingsGeneration
+        && (Date.now() - confirmedSettings.syncedAt) < maxAgeMs
+      );
+    },
+
     saveCurrentSettingsToServer: () => {
       const account = getUserId(), generation = settingsGeneration;
       if (settingsWrite?.generation === generation) return settingsWrite.promise;
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
       const operation = { generation };
       operation.promise = (async () => {
         const current = () => account === getUserId() && generation === settingsGeneration;
@@ -397,13 +482,28 @@ export const useSettingsStore = create((set, get) => {
           const reconciled = savePersonalDesignRecord(reconcilePersonalDesign(record, response.data));
           set({ personalDesignV2: reconciled.document });
           const sent = structuredClone(reconciled.document);
-          const result = await networkApi.post('/user/settings', collectUserSettings(get()), { _expectedUserId: account });
+          const seqBeforeEval = studyMutationSeq;
+          const payload = collectUserSettings(get());
+          if (!hasUnsavedSettingValues(payload, response.data, reconciled.pending)) {
+            clearPendingStudyWrite(account, generation, seqBeforeEval);
+            confirmedSettings = { account, generation, syncedAt: Date.now(), serverData: response.data };
+            set({ designMigrationError: null });
+            return true;
+          }
+          const result = await networkApi.post('/user/settings', payload, { _expectedUserId: account });
           if (!current()) return false;
           if (result.data?.designMigrationVersion !== 1) throw new Error('Server did not confirm safe design migration');
           const latest = readPersonalDesignRecord(account);
           const next = savePersonalDesignRecord(acknowledgePersonalDesign(latest, sent, result.data?.settings?.designV2));
+          clearPendingStudyWrite(account, generation, seqBeforeEval);
+          confirmedSettings = {
+            account,
+            generation,
+            syncedAt: Date.now(),
+            serverData: result.data?.settings ?? response.data,
+          };
           set({ personalDesignV2: next.document, designMigrationError: null });
-          if (next.pending) debouncedSaveSettings(get);
+          if (next.pending) debouncedSaveSettings(get, { study: false });
           return true;
         } catch (error) {
           if (current()) set({ designMigrationError: error.message });
@@ -415,15 +515,39 @@ export const useSettingsStore = create((set, get) => {
       return operation.promise;
     },
 
-    fetchUserSettingsFromServer: async () => {
+    fetchUserSettingsFromServer: async ({ force = false, maxAgeMs = 0 } = {}) => {
       const account = getUserId(), generation = settingsGeneration;
       if (!account || saveTimer !== null || settingsWrite?.generation === generation) return null;
-      try {
-        const res = await networkApi.get('/user/settings', { _expectedUserId: account });
-        if (account !== getUserId() || generation !== settingsGeneration) return null;
-        get().syncUserSettingsFromServer(res.data);
-        return res.data;
-      } catch { return null; }
+      if (!force && maxAgeMs > 0 && get().hasFreshSettings(maxAgeMs, account) && !get().hasPendingSettingsSync(account)) {
+        return confirmedSettings.serverData;
+      }
+      if (settingsFetch?.account === account && settingsFetch?.generation === generation) {
+        return settingsFetch.promise;
+      }
+      const operation = { account, generation, promise: null };
+      operation.promise = (async () => {
+        try {
+          const res = await networkApi.get('/user/settings', { _expectedUserId: account });
+          if (account !== getUserId() || generation !== settingsGeneration) return null;
+          get().syncUserSettingsFromServer(res.data);
+          return res.data;
+        } catch {
+          return null;
+        } finally {
+          if (settingsFetch === operation) settingsFetch = null;
+        }
+      })();
+      settingsFetch = operation;
+      return operation.promise;
+    },
+
+    syncUserSettingsIfNeeded: async ({ force = false, maxAgeMs = SETTINGS_RECHECK_MS } = {}) => {
+      const account = getUserId();
+      if (!account) return null;
+      if (get().hasPendingSettingsSync(account)) {
+        return get().saveCurrentSettingsToServer();
+      }
+      return get().fetchUserSettingsFromServer({ force, maxAgeMs });
     },
 
     // --- Admin/API Settings (Fetched from Backend) ---

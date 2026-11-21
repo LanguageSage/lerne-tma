@@ -21,11 +21,32 @@ export const useAppInitialization = (checkStartParam) => {
   const { setAdminSettings, setUserPrompts, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
 
   useEffect(() => {
+    let awaitingStartupInit = true;
+    let startupUserId = getUserId();
+    let startupSessionIdentity = getSessionIdentity();
+    let lastSettingsIdentity = startupSessionIdentity;
+    let wentOffline = typeof navigator !== 'undefined' ? !navigator.onLine : false;
+
     const unsubscribeSettingsAccount = useAuthStore.subscribe((state, previous) => {
       if (state.userProfile?.user_id !== previous.userProfile?.user_id
           || state.sessionRevision !== previous.sessionRevision) {
-        useSettingsStore.getState().activateSettingsAccount();
-        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
+        const nextUserId = getUserId();
+        const nextIdentity = getSessionIdentity();
+        const store = useSettingsStore.getState();
+        const accountChanged = nextUserId !== store.designAccountId || nextIdentity !== lastSettingsIdentity;
+        if (!accountChanged) return;
+        lastSettingsIdentity = nextIdentity;
+        store.activateSettingsAccount();
+        const switchedDuringStartup = awaitingStartupInit
+          && ((startupUserId !== null && nextUserId !== startupUserId) || nextIdentity !== startupSessionIdentity);
+        if (!awaitingStartupInit || switchedDuringStartup) {
+          awaitingStartupInit = false;
+          if (navigator.onLine && (getAccessToken() || getUserId())) {
+            store.syncUserSettingsIfNeeded({ force: true }).catch(() => {});
+          }
+        } else {
+          startupUserId = nextUserId;
+        }
       }
     });
     const tg = window.Telegram?.WebApp;
@@ -76,11 +97,16 @@ export const useAppInitialization = (checkStartParam) => {
       if (profile && useAuthStore.getState().status === 'authenticated') syncProfile(profile).catch(() => console.warn('Profile sync unavailable'));
 
       if (navigator.onLine) runBackgroundSync();
-      if (isOfflineMode() && navigator.onLine) {
-        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
-      }
 
-      try { await initPromise; } finally { useUiStore.setState({ loading: false, hasInitialized: true }); }
+      try {
+        await initPromise;
+      } finally {
+        awaitingStartupInit = false;
+        useUiStore.setState({ loading: false, hasInitialized: true });
+      }
+      if (isOfflineMode() && navigator.onLine && (getAccessToken() || getUserId())) {
+        useSettingsStore.getState().syncUserSettingsIfNeeded().catch(() => {});
+      }
     };
 
     const runBackgroundSync = (recheckMs = SHARED_EVENT_WINDOW_MS) => syncService.sync({ background: true, recheckMs })
@@ -122,23 +148,35 @@ export const useAppInitialization = (checkStartParam) => {
         setTimeout(checkStartParam, 500);
         if (navigator.onLine && (getAccessToken() || getUserId())) {
           resumeSync();
-          useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
+          useSettingsStore.getState().syncUserSettingsIfNeeded().catch(() => {});
         }
       }
+    };
+
+    const handleOffline = () => {
+      wentOffline = true;
     };
 
     // Listen for online event (reconnection)
     const handleOnline = async () => {
       console.log("[Sync] Network online detected. Triggering auto-sync...");
-      const { restoreSession, sessionRevision } = useAuthStore.getState();
+      const wasOffline = wentOffline;
+      wentOffline = false;
+      const { restoreSession } = useAuthStore.getState();
       await restoreSession({ refreshLibrary: false });
       resumeSync();
-      if (useAuthStore.getState().sessionRevision === sessionRevision) {
-        useSettingsStore.getState().fetchUserSettingsFromServer().catch(() => {});
+      if (getAccessToken() || getUserId()) {
+        const store = useSettingsStore.getState();
+        if (store.hasPendingSettingsSync()) {
+          store.saveCurrentSettingsToServer().catch(() => {});
+        } else if (wasOffline) {
+          store.syncUserSettingsIfNeeded().catch(() => {});
+        }
       }
     };
 
     document.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('offline', handleOffline);
     window.addEventListener('online', handleOnline);
     window.addEventListener('lerne:ids-remapped', remapOfflineUi);
     window.addEventListener('lerne:card-create-error', markOfflineCreateError);
@@ -158,6 +196,7 @@ export const useAppInitialization = (checkStartParam) => {
       unsubscribeSettingsAccount();
       unsubscribeSyncUi();
       document.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('offline', handleOffline);
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('lerne:ids-remapped', remapOfflineUi);
       window.removeEventListener('lerne:card-create-error', markOfflineCreateError);

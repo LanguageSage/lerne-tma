@@ -1,94 +1,110 @@
-import { useState, useEffect, useRef, useCallback } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import api from '../services/api';
 import { useDeckStore } from '../store/useDeckStore';
+import { getSessionIdentity, getUserId, subscribeAuthSession } from '../utils/auth';
 
-/**
- * Custom hook for live collaborative presence and auto-syncing cards when changes occur.
- * 
- * @param {string} targetType - 'deck' or 'folder'
- * @param {number|string} targetId - ID of deck or folder
- * @param {boolean} enabled - whether live sync is active
- */
-export const useCollaborativePresence = (targetType, targetId, enabled = true) => {
-  const [collaborators, setCollaborators] = useState([]);
-  const [onlineCount, setOnlineCount] = useState(0);
-  const [isShared, setIsShared] = useState(false);
-  const lastUpdatedAtRef = useRef(null);
+const POLL_INTERVAL_MS = 4000;
 
-  const checkPresence = useCallback(async () => {
-    if (!targetId || !enabled) return;
-
-    try {
-      const endpoint = `/collaborative/${targetType}/${targetId}/presence`;
-      const res = await api.get(endpoint);
-      if (res.data) {
-        const { collaborators: colList, online_count, updated_at } = res.data;
-        
-        setCollaborators(colList || []);
-        setOnlineCount(online_count || 0);
-        setIsShared((colList || []).length > 1);
-
-        // Check if target updated_at timestamp changed on server
-        if (updated_at) {
-          if (lastUpdatedAtRef.current && lastUpdatedAtRef.current !== updated_at) {
-            console.log(`[CollaborativeSync] Server update detected (${lastUpdatedAtRef.current} -> ${updated_at}). Auto-refreshing...`);
-            const deckStore = useDeckStore.getState();
-            
-            // Refresh decks & folders list
-            deckStore.fetchDecks().catch(err => {
-              console.warn("[CollaborativeSync] Fetch decks failed:", err);
-            });
-
-            // If a deck is open, refresh deck cards
-            const currentDeckId = targetType === 'deck' ? targetId : deckStore.currentDeck?.id;
-            if (currentDeckId) {
-              deckStore.fetchDeckCards(currentDeckId, 1, true).catch(err => {
-                console.warn("[CollaborativeSync] Card auto-refresh failed:", err);
-              });
-            }
-          }
-          lastUpdatedAtRef.current = updated_at;
-        }
-      }
-    } catch (err) {
-      console.warn("[CollaborativeSync] Presence check error:", err);
-    }
-  }, [targetType, targetId, enabled]);
+export const useCollaborativePresence = (targetType, target, enabled) => {
+  const identity = useSyncExternalStore(subscribeAuthSession, getSessionIdentity);
+  const account = useSyncExternalStore(subscribeAuthSession, getUserId);
+  // Older cached library entries still carry the server's effective sharing flag.
+  const targetId = enabled && target?.id > 0 && (target.presence_enabled ?? target.is_shared) ? target.id : null;
+  const role = targetId ? target.role : null;
+  const scope = useMemo(() => (identity && account && targetId ? { targetType, targetId, identity, account, role } : null),
+    [targetType, targetId, identity, account, role]);
+  const [presence, setPresence] = useState(null);
 
   useEffect(() => {
-    if (!targetId || !enabled) return;
+    if (!scope) return;
+    const { targetType, targetId, identity, account } = scope;
+    let active = true;
+    let timer;
+    let pending;
+    let denied = false;
+    let lastUpdatedAt;
+    const isCurrent = () => active && identity === getSessionIdentity() && account === getUserId();
+    const canPoll = () => isCurrent() && document.visibilityState === 'visible' && navigator.onLine;
 
-    let isMounted = true;
-    Promise.resolve().then(() => {
-      if (isMounted) checkPresence();
-    });
+    const pause = () => {
+      clearInterval(timer);
+      timer = undefined;
+      pending?.abort();
+      pending = undefined;
+    };
 
-    // Heartbeat & presence polling every 4 seconds
-    const interval = setInterval(() => {
-      checkPresence();
-    }, 4000);
+    const poll = async () => {
+      if (pending || !canPoll()) return;
+      const controller = new AbortController();
+      pending = controller;
+      try {
+        const { data } = await api.get(`/collaborative/${targetType}/${targetId}/presence`, {
+          signal: controller.signal,
+          _expectedUserId: account,
+          _expectedSessionIdentity: identity,
+        });
+        if (!canPoll() || controller.signal.aborted) return;
 
-    // Check on window focus and tab/app visibility change
-    const handleVisibility = () => {
-      if (document.visibilityState === 'visible') {
-        checkPresence();
+        setPresence({ scope, data });
+        const updatedAt = data.updated_at;
+        const changed = lastUpdatedAt !== undefined && lastUpdatedAt !== updatedAt;
+        lastUpdatedAt = updatedAt;
+        if (!changed) return;
+
+        const store = useDeckStore.getState();
+        if (targetType === 'deck') {
+          store.fetchDeckCards(targetId, 1, true).catch(error => {
+            if (isCurrent()) console.warn('[CollaborativeSync] Card refresh failed:', error);
+          });
+        } else {
+          store.fetchDecks(true).catch(error => {
+            if (isCurrent()) console.warn('[CollaborativeSync] Library refresh failed:', error);
+          });
+        }
+      } catch (error) {
+        if (!isCurrent() || controller.signal.aborted) return;
+        if ([401, 403, 404].includes(error.response?.status)) {
+          denied = true;
+          pause();
+          setPresence(null);
+        }
+      } finally {
+        if (pending === controller) pending = undefined;
       }
     };
-    window.addEventListener('focus', handleVisibility);
-    document.addEventListener('visibilitychange', handleVisibility);
 
-    return () => {
-      isMounted = false;
-      clearInterval(interval);
-      window.removeEventListener('focus', handleVisibility);
-      document.removeEventListener('visibilitychange', handleVisibility);
+    const updatePolling = () => {
+      if (denied || !canPoll()) {
+        pause();
+      } else if (timer === undefined) {
+        timer = setInterval(poll, POLL_INTERVAL_MS);
+        void poll();
+      }
     };
-  }, [targetId, enabled, checkPresence]);
 
+    const onVisibilityChange = () => {
+      pause();
+      updatePolling();
+    };
+
+    queueMicrotask(updatePolling);
+    document.addEventListener('visibilitychange', onVisibilityChange);
+    window.addEventListener('online', updatePolling);
+    window.addEventListener('offline', updatePolling);
+    return () => {
+      active = false;
+      pause();
+      document.removeEventListener('visibilitychange', onVisibilityChange);
+      window.removeEventListener('online', updatePolling);
+      window.removeEventListener('offline', updatePolling);
+    };
+  }, [scope]);
+
+  const data = scope && presence?.scope === scope ? presence.data : null;
+  const collaborators = data?.collaborators ?? [];
   return {
     collaborators,
-    onlineCount,
-    isShared,
-    checkPresence
+    onlineCount: data?.online_count ?? 0,
+    isShared: collaborators.length > 1,
   };
 };

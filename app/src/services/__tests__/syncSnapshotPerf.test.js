@@ -60,6 +60,7 @@ mock.module('../networkApi.js', {
 const { saveAuthSession, saveUserProfile } = await import('../../utils/auth.js');
 const { getLocalDb, resetAllDatabases } = await import('../localDb.js');
 const { syncService } = await import('../syncService.js');
+const { readPulledDeckCards, readPulledFolders } = await import('../offlineApi.js');
 
 const snapshotCard = (id, revision = 'rev-1', front = 'Prompt') => {
   const card = nativeCard('standard', {
@@ -89,6 +90,41 @@ afterEach(async () => {
       request.onerror = reject;
     });
   }
+});
+
+test('pull projection preserves local order, visibility, personal progress and media', async () => {
+  const db = getLocalDb();
+  const now = Date.now();
+  await db.syncState.put({ key: 'lastSync', readStartedAt: now });
+  await db.decks.put({ id: 5 });
+  await db.folders.bulkPut([{ id: 1, target_language: 'de' }, { id: 2, target_language: 'hu' },
+    { id: 3, is_deleted: true }]);
+  await db.cards.bulkPut([
+    { ...snapshotCard(1), position: 10, queue: 'review', flag: 3 },
+    { ...snapshotCard(-1, 'draft', 'Local card'), position: 11, offline_create_status: 'pending' },
+    { ...snapshotCard(2, 'draft', 'Local edit'), position: 12, offline_edit: { status: 'pending' }, image_path: 'fixture.webp' },
+    { ...snapshotCard(3), position: 13, is_deleted: true },
+    { ...snapshotCard(4), position: 14, deck_id: 6 },
+  ]);
+  await db.media.put({ url: 'fixture.webp', blob: new Blob(['synthetic'], { type: 'image/webp' }) });
+  await db.progress.bulkPut([
+    { card_id: 2, user_id: 1, queue: 'learning', want_to_learn: true, flag: 2 },
+    { card_id: 2, user_id: 2, queue: 'review', flag: 4 },
+  ]);
+  assert.deepEqual((await readPulledFolders()).map(folder => folder.id).sort(), [1, 2]);
+  const cards = await readPulledDeckCards(5, 1, 2, (data, startedAt) => {
+    assert.equal(startedAt, now);
+    return data;
+  });
+  assert.deepEqual(cards.map(card => card.id), [1, -1, 2]);
+  assert.deepEqual(cards.map(card => card.queue), ['new', 'new', 'learning']);
+  assert.equal(cards[2].content_v2.card.data.prompt, 'Local edit');
+  assert.equal(cards[2].flag, 2);
+  assert.equal(cards[2].want_to_learn, true);
+  assert.match(cards[2].image_url, /^blob:/);
+  assert.equal(await readPulledDeckCards(5, 1, 3, () => assert.fail('Incomplete count must fall back')), undefined);
+  await db.syncState.put({ key: 'deck-cards:5', complete: false });
+  assert.equal(await readPulledDeckCards(5, 1, 2, () => assert.fail('Partial cache must fall back')), undefined);
 });
 
 test('inspectCardCutover reuses precomputed active database without dropping secondary DB blockers', async () => {

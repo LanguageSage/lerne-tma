@@ -1,5 +1,6 @@
 import logging
 import datetime
+from functools import lru_cache
 from typing import Optional, List, Dict, Any
 from peewee import fn
 
@@ -199,7 +200,7 @@ def set_folder_access_scope(folder_id: int, access_scope: str, requester_id: int
 # Batch collaborative info (used by list endpoints)
 # ---------------------------------------------------------------------------
 
-def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders: List[Any] = None, folder_map: Dict[int, Any] = None) -> Dict[str, Dict[int, Dict[str, Any]]]:
+def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders: List[Any] = None, folder_map: Dict[int, Any] = None, *, include_presence: bool = False) -> Dict[str, Dict[int, Dict[str, Any]]]:
     """
     Computes effective user role and is_shared for multiple decks and folders in 1-2 DB queries.
     Also sets is_global_readonly and is_official flags.
@@ -294,6 +295,21 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
         shared_memo[fid] = False
         return False
 
+    def has_invited_peer(target_type, target_id, owner_id):
+        return any(c.user_id != owner_id for c in collabs_by_target.get((target_type, target_id), ()))
+
+    @lru_cache(maxsize=None)
+    def has_folder_peer(fid, owner_id, published):
+        folder = folder_map.get(fid)
+        if not folder or folder.is_deleted:
+            return False
+        # A different ancestor owner can edit a descendant in a private branch.
+        return (
+            (not published and folder.user_id != owner_id)
+            or has_invited_peer('folder', fid, owner_id)
+            or has_folder_peer(folder.parent_id, owner_id, published)
+        )
+
     deck_info = {}
     for d in decks:
         if d.folder_id in global_root_owners:
@@ -331,6 +347,10 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
             'is_global_readonly': is_global,
             'is_official': is_global,
         }
+        if include_presence:
+            deck_info[d.id]['presence_enabled'] = bool(deck_role and d.scope == 'personal' and (
+                has_invited_peer('deck', d.id, d.user_id) or has_folder_peer(deck_folder_id, d.user_id, is_global)
+            ))
 
     folder_info = {}
     for f in folders:
@@ -342,6 +362,8 @@ def get_batch_collaborative_info(user_id: int, decks: List[Any] = None, folders:
             'is_global_readonly': is_global,
             'is_official': is_global,
         }
+        if include_presence:
+            folder_info[f.id]['presence_enabled'] = bool(role and has_folder_peer(f.id, f.user_id, is_global))
 
     return {'decks': deck_info, 'folders': folder_info}
 
@@ -538,7 +560,7 @@ def _get_all_parent_folder_ids(folder_id: int) -> List[int]:
     return ids
 
 
-def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
+def get_collaborators(target_type: str, target_id: int, *, presence_target=None, presence_parents=None) -> List[Dict[str, Any]]:
     """Returns all collaborators and owner for a given folder or deck, including inherited folder collaborators."""
     collaborators = []
     seen_user_ids = set()
@@ -546,7 +568,9 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
     # Get owner info
     owner_id = None
     folder_id = None
-    if target_type == 'deck':
+    if presence_target is not None:
+        owner_id = presence_target.user_id
+    elif target_type == 'deck':
         deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
         if deck:
             owner_id = deck.user_id
@@ -578,13 +602,15 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
 
     # Inherited folder collaborators if deck or folder is inside a parent folder
     folder_rows = []
-    if folder_id:
-        parent_folder_ids = _get_all_parent_folder_ids(folder_id)
-        if parent_folder_ids:
-            folder_rows = list(models.TMA_Collaborator.select().where(
-                (models.TMA_Collaborator.target_type == 'folder') &
-                (models.TMA_Collaborator.target_id << parent_folder_ids)
-            ))
+    parent_folder_ids = (
+        [folder.id for folder in presence_parents] if presence_parents is not None
+        else _get_all_parent_folder_ids(folder_id) if folder_id else []
+    )
+    if parent_folder_ids:
+        folder_rows = list(models.TMA_Collaborator.select().where(
+            (models.TMA_Collaborator.target_type == 'folder') &
+            (models.TMA_Collaborator.target_id << parent_folder_ids)
+        ))
 
     all_rows = direct_rows + folder_rows
     for r in all_rows:
@@ -592,7 +618,9 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
             continue
         seen_user_ids.add(r.user_id)
         u = models.TMAUser.get_or_none(models.TMAUser.user_id == r.user_id)
-        effective_role = get_effective_user_role(r.user_id, target_type, target_id) or r.role
+        effective_role = get_effective_user_role(
+            r.user_id, target_type, target_id, deck_obj=presence_target if target_type == 'deck' else None,
+        ) or r.role
         collaborators.append({
             "id": r.id,
             "user_id": r.user_id,
@@ -604,6 +632,27 @@ def get_collaborators(target_type: str, target_id: int) -> List[Dict[str, Any]]:
             "can_edit_audio": bool(effective_role in ('owner', 'editor') or getattr(r, 'can_edit_audio', False)),
             "created_at": r.created_at.isoformat() if r.created_at else None
         })
+
+    # A descendant can belong to the editor who created it. The ancestor owner
+    # still has access without a named grant, except under the publication policy.
+    if presence_parents and getattr(presence_target, 'access_scope', None) != 'global_readonly' and not any(
+        folder.access_scope == 'global_readonly' for folder in presence_parents
+    ):
+        for folder in presence_parents:
+            uid = folder.user_id
+            if uid in seen_user_ids:
+                continue
+            seen_user_ids.add(uid)
+            user = models.TMAUser.get_or_none(models.TMAUser.user_id == uid)
+            collaborators.append({
+                "user_id": uid,
+                "username": user.username if user else None,
+                "first_name": user.first_name if user else f"User #{uid}",
+                "photo_url": user.photo_url if user else None,
+                "role": "owner",
+                "is_owner": False,
+                "can_edit_audio": True,
+            })
 
     return collaborators
 
@@ -932,44 +981,42 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
     key = f"{target_type}:{target_id}"
     now = datetime.datetime.now()
 
-    if key not in _active_presence_map:
-        _active_presence_map[key] = {}
-
-    _active_presence_map[key][user_id] = now
-
-    # Also record presence for all parent folders if target is a deck or subfolder
-    deck = None
-    folder_id = None
+    active = _active_presence_map.setdefault(key, {})
+    active[user_id] = now
     if target_type == 'deck':
-        deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
-        if deck:
-            folder_id = deck.folder_id
-    elif target_type == 'folder':
-        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
-        if folder:
-            folder_id = folder.parent_id
+        target = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
+        folder_id = target.folder_id if target else None
+    else:
+        target = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
+        folder_id = target.parent_id if target else None
 
-    if folder_id:
-        for p_id in _get_all_parent_folder_ids(folder_id):
-            f_key = f"folder:{p_id}"
-            if f_key not in _active_presence_map:
-                _active_presence_map[f_key] = {}
-            _active_presence_map[f_key][user_id] = now
+    # Read the ancestors once for both the roster and their heartbeats.
+    parents = []
+    visited = set()
+    while folder_id and folder_id not in visited:
+        visited.add(folder_id)
+        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == folder_id, models.TMA_Folder.is_deleted == False)
+        if not folder:
+            break
+        parents.append(folder)
+        _active_presence_map.setdefault(f"folder:{folder_id}", {})[user_id] = now
+        folder_id = folder.parent_id
 
     # Clean up stale heartbeats older than 60 seconds
-    stale_users = [u for u, ts in _active_presence_map[key].items() if (now - ts).total_seconds() > 60]
+    stale_users = [u for u, ts in active.copy().items() if (now - ts).total_seconds() > 60]
     for u in stale_users:
-        del _active_presence_map[key][u]
+        if (now - active.get(u, now)).total_seconds() > 60:
+            active.pop(u, None)
 
-    collaborators = get_collaborators(target_type, target_id)
+    collaborators = get_collaborators(target_type, target_id, presence_target=target, presence_parents=parents)
     online_count = 0
 
     for c in collaborators:
         uid = c["user_id"]
-        last_ts = _active_presence_map[key].get(uid)
-        if not last_ts and folder_id:
-            for p_id in _get_all_parent_folder_ids(folder_id):
-                f_ts = _active_presence_map.get(f"folder:{p_id}", {}).get(uid)
+        last_ts = active.get(uid)
+        if not last_ts:
+            for folder in parents:
+                f_ts = _active_presence_map[f"folder:{folder.id}"].get(uid)
                 if f_ts and (not last_ts or f_ts > last_ts):
                     last_ts = f_ts
 
@@ -981,21 +1028,10 @@ def record_and_get_presence(user_id: int, target_type: str, target_id: int) -> d
 
     collaborators.sort(key=lambda x: (not x["is_online"], x.get("last_seen_seconds") or 999999))
 
-    updated_at_iso = None
-    if target_type == 'deck':
-        if not deck:
-            deck = models.TMA_Deck.get_or_none(models.TMA_Deck.id == target_id)
-        if deck and deck.updated_at:
-            updated_at_iso = deck.updated_at.isoformat()
-    elif target_type == 'folder':
-        folder = models.TMA_Folder.get_or_none(models.TMA_Folder.id == target_id)
-        if folder and folder.updated_at:
-            updated_at_iso = folder.updated_at.isoformat()
-
     return {
         "target_type": target_type,
         "target_id": target_id,
-        "updated_at": updated_at_iso,
+        "updated_at": target.updated_at.isoformat() if target and target.updated_at else None,
         "online_count": online_count,
         "collaborators": collaborators
     }

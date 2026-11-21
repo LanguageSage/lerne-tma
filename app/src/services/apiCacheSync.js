@@ -187,6 +187,7 @@ export async function reconcileOnlineResponse({
               deckMatch ? db.cards.where('deck_id').equals(deckId).toArray() : [],
             ]);
             if (!isCurrent()) throw new axios.CanceledError('Session changed during card read');
+            if (deckMatch && lastSync?.readStartedAt > requestStartedAt) return null;
             const reconciledCards = [];
             const reconciledSet = new Set();
             const visible = cards.map((card, index) => {
@@ -229,6 +230,7 @@ export async function reconcileOnlineResponse({
             return visible[0];
           });
           if (isCurrent()) {
+            if (deckMatch && merged === null) return localRequest(...args);
             if ((studyNext || studyCardRead) && (merged?.is_deleted || (studyNext && merged !== response.data && Number(merged?.deck_id) !== studyNextDeckId))) {
               return localRequest(...args);
             }

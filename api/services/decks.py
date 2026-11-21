@@ -389,7 +389,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
             TMASetting.key, TMASetting.value).where(TMASetting.key.in_(list(learning_keys))) }
 
         # Batch resolve collaborative roles and is_shared in 1 query
-        collab_info = get_batch_collaborative_info(user_id, decks=decks, folder_map=folder_map)
+        collab_info = get_batch_collaborative_info(user_id, decks=decks, folder_map=folder_map, include_presence=True)
         deck_collab_map = collab_info.get('decks', {})
 
         from peewee import Case
@@ -471,6 +471,7 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
                 "metadata": parsed_metadata,
                 "is_learning": learning_states.get(d.id, False),
                 "is_shared": is_shared,
+                "presence_enabled": collab_meta.get('presence_enabled', False),
                 "is_global_readonly": collab_meta.get('is_global_readonly', False),
                 "role": role,
                 "is_owner": role == 'owner',
