@@ -1,13 +1,25 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { getInterfaceLanguage, tr } from '../../i18n/locale';
-import { useSpeechRecognition } from '../../hooks/useSpeechRecognition';
+import { useSpeechRecognitionCore } from '../../hooks/useSpeechRecognitionCore';
 import { cardTypes, newCardContent, promptField, cardWriteError } from '../../utils/cardDraft';
-import { networkApi } from '../../services/api';
 import { patchInfoBlock, patchLayoutItem } from '../../utils/cardLayout';
 import './StructuredCardFields.css';
 
-function CardImages({ card, update, attachImage }) {
+async function defaultUploadLayoutImage(file, signal) {
+  const form = new FormData();
+  form.append('file', file);
+  const res = await fetch('/api/media/upload-image', { method: 'POST', body: form, signal });
+  const payload = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(payload?.detail?.message || payload?.detail || `HTTP ${res.status}`);
+    err.response = { data: payload };
+    throw err;
+  }
+  return payload;
+}
+
+function CardImages({ card, update, attachImage, uploadLayoutImage }) {
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
   const [uploading, setUploading] = useState(false);
@@ -27,9 +39,9 @@ function CardImages({ card, update, attachImage }) {
     uploadRequest.current = request;
     setUploading(true); setError('');
     try {
-      const form = new FormData(); form.append('file', file);
-      const response = await networkApi.post('/media/upload-image', form, { signal: request.signal });
-      if (!request.signal.aborted) attach(response.data.path);
+      const uploaded = await (uploadLayoutImage || defaultUploadLayoutImage)(file, request.signal);
+      const uploadedPath = typeof uploaded === 'string' ? uploaded : uploaded?.path;
+      if (!request.signal.aborted && uploadedPath) attach(uploadedPath);
     } catch (failure) { if (!request.signal.aborted) setError(cardWriteError(failure)); }
     finally { if (uploadRequest.current === request) { uploadRequest.current = null; setUploading(false); } }
   };
@@ -88,7 +100,7 @@ export function CardTypeField({ card, update }) {
 
 export function PromptDictation({ type, update }) {
   const prompt = promptField[type];
-  const speech = useSpeechRecognition({
+  const speech = useSpeechRecognitionCore({
     resetKey: type, language: getInterfaceLanguage(), silenceTimeoutMs: null,
     onEnd: transcript => {
       if (transcript?.trim() && prompt) update(current => ({ ...current, data: { ...current.data,
@@ -125,7 +137,7 @@ function CardTopics({ topics, update }) {
   </details>;
 }
 
-export function StructuredCardExtras({ card, update, attachImage }) {
+export function StructuredCardExtras({ card, update, attachImage, uploadLayoutImage }) {
   return <>
     <CardTopics topics={card.topics || []} update={update} />
     {card.info?.some(block => block.type === 'options') && <details className="card-form-secondary">
@@ -136,7 +148,7 @@ export function StructuredCardExtras({ card, update, attachImage }) {
     </details>}
     <details>
       <summary>{tr('Изображения')}</summary>
-      <CardImages card={card} update={update} attachImage={attachImage} />
+      <CardImages card={card} update={update} attachImage={attachImage} uploadLayoutImage={uploadLayoutImage} />
     </details>
   </>;
 }

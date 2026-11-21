@@ -24,7 +24,8 @@ def verify(control):
     try:
         db.create_tables([models.LibraryCategory, models.Deck, models.Card, models.TMAUser,
                           models.TMA_Folder, models.TMA_Deck, models.TMA_Card, models.TMACardNote,
-                          models.TMAProgress, models.TMAReviewHistory, models.TMA_Collaborator])
+                          models.TMAProgress, models.TMAReviewHistory, models.TMA_Collaborator,
+                          models.TMAMedia])
         run_structured_cards_v2_migration(db)
         run_library_cards_v2_migration(db)
         run_card_source_migration(db)
@@ -42,9 +43,11 @@ def verify(control):
         samples = _native_examples()
         assert len(samples) == 9
         for order, content in enumerate(samples.values(), 1):
+            audio_name = f'synthetic-{order}.mp3'
+            models.TMAMedia.create(folder='audio', filename=audio_name, content=b'\xff\xfb\x90\x00' + b'\0' * 200)
             models.Card.create(deck=library, content_v2=content, card_type=None, position=order,
                                image_path=f'images/synthetic-{order}.webp',
-                               audio_path=f'audio/synthetic-{order}.mp3')
+                               audio_path=f'audio/{audio_name}')
         db.execute_sql("UPDATE card SET image_data=%s,creator_id=7 WHERE position=1", (b'synthetic embedded image',))
         personal = models.TMA_Card.create(id=987, deck=123, content_v2=samples['standard'], card_type=None)
         note = models.TMACardNote.create(id=str(uuid4()), card=personal, user_id=7, text='Keep this synthetic note')

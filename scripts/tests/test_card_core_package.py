@@ -23,13 +23,32 @@ class CardCorePackageTests(unittest.TestCase):
 
     def test_package_never_imports_application_or_storage(self):
         # AST check also catches imports inside functions without executing them.
-        allowed = {'copy', 'json', 're', 'typing', 'pydantic', 'pydantic_core'}
-        for path in (PACKAGE / 'lerne_card_core').glob('*.py'):
+        allowed = {
+            '__future__', 'copy', 'dataclasses', 'datetime', 'functools', 'hashlib',
+            'importlib', 'json', 'logging', 'os', 'pathlib', 're', 'typing', 'urllib',
+            'pydantic', 'pydantic_core',
+        }
+        for path in (PACKAGE / 'lerne_card_core').rglob('*.py'):
             for node in ast.walk(ast.parse(path.read_text(encoding='utf-8'))):
                 if isinstance(node, ast.Import):
                     self.assertTrue(all(n.name.split('.')[0] in allowed for n in node.names), path.name)
                 elif isinstance(node, ast.ImportFrom) and not node.level:
                     self.assertIn(node.module.split('.')[0], allowed, path.name)
+
+    def test_tma_shims_alias_shared_modules(self):
+        for shim_name, core_name in (
+            ('api.services.answer_contract', 'api.card_core.lerne_card_core.answer_contract'),
+            ('api.services.deck_passport', 'api.card_core.lerne_card_core.deck_passport'),
+            ('api.services.input_parser', 'api.card_core.lerne_card_core.input_parser'),
+            ('api.services.structured_cards_v2', 'api.card_core.lerne_card_core.structured_cards_v2'),
+            ('api.services.structured_cards_legacy', 'api.card_core.lerne_card_core.structured_cards_legacy'),
+            ('api.services.cefr_metadata', 'api.card_core.lerne_card_core.cefr_metadata'),
+            ('api.services.cefr_rubrics', 'api.card_core.lerne_card_core.cefr_rubrics'),
+            ('api.services.language_config', 'api.card_core.lerne_card_core.language_config'),
+            ('api.services.classifier', 'api.card_core.lerne_card_core.classifier'),
+            ('api.utils.storage_keys', 'api.card_core.lerne_card_core.storage_keys'),
+        ):
+            self.assertIs(importlib.import_module(shim_name), importlib.import_module(core_name))
 
     def test_contract_follows_implementation_and_rejects_modified_adapter(self):
         from scripts import verify_admin_contract as verifier

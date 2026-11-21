@@ -6,11 +6,10 @@ import { getDesignStylesFromV2 } from '../../utils/cardStyles.js';
 import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
-import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
+import { useSpeechRecognitionCore } from '../../hooks/useSpeechRecognitionCore.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { assessmentFreeTextEvidence } from '../../utils/assessment.js';
 import { freeTextTaskSupport } from '../../utils/supportEvidence.js';
-import { useSettingsStore } from '../../store/useSettingsStore.js';
 import './StudyCardFreeText.css';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 
@@ -41,26 +40,29 @@ export const StudyCardFreeText = React.memo(({
   designConfig,
   assessmentMode = false,
   supportHistoryUnknown = false,
+  evaluateAnswer = null,
+  isAdmin = false,
+  onBeforeDictation = null,
 }) => {
   useInterfaceLocale();
   const currentKey = reviewKey ?? (card?.id != null ? String(card.id) : null);
   const [prevKey, setPrevKey] = useState(currentKey);
   const [userInput, setUserInput] = useState(savedState?.userInput ?? editableTextData?.sourceText ?? '');
   const [showExample, setShowExample] = useState(savedState?.showExample || false);
-  const isAdmin = useSettingsStore(s => s.isAdmin);
   const [diagnosticsEnabled, setDiagnosticsEnabled] = useState(false);
   const { state, submit, recordSupport, evidence, diagnostics } = useFreeTextEvaluation(card?.id, savedState?.evaluationState, currentKey,
-    null, isAdmin && diagnosticsEnabled, { trackSupport: Boolean(freeTextData), assessmentMode,
-      supportHistoryUnknown, taskSupport: freeTextTaskSupport(card) });
+    evaluateAnswer, isAdmin && diagnosticsEnabled, { trackSupport: Boolean(freeTextData), assessmentMode,
+      supportHistoryUnknown, taskSupport: freeTextTaskSupport(card), card });
   const feedbackSeen = useRef({ key: currentKey, count: savedState?.evaluationState?.attemptCount ?? 0 });
   const reported = useRef(Boolean(savedState?.isCompleted));
   const submitting = useRef(false);
   const dictationBase = useRef('');
-  const { isListening, isPaused, isStopping, speechError, start, stop, pause, resume, cancel } = useSpeechRecognition({
+  const { isListening, isPaused, isStopping, speechError, start, stop, pause, resume, cancel } = useSpeechRecognitionCore({
     resetKey: `${card?.id}:${currentKey}`,
     language: card?.target_language,
     silenceTimeoutMs: null,
     autoRestart: true,
+    onBeforeStart: onBeforeDictation,
     onTranscript: text => {
       if (text) setUserInput([dictationBase.current.trimEnd(), text].filter(Boolean).join(' ').slice(0, 4000));
     },

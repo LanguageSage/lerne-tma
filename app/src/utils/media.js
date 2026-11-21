@@ -46,3 +46,14 @@ export const cleanMedia = (path) => {
   return path;
 };
 
+export function defaultResolveMediaUrl(path, kind = 'images') {
+  if (!path || typeof path !== 'string') return null;
+  if (kind === 'audio') return getAudioUrl(path);
+  const trimmed = path.trim();
+  if (!trimmed) return null;
+  if (/^(https?:|blob:|data:)/.test(trimmed)) return trimmed;
+  if (trimmed.startsWith('/api/media/')) return trimmed;
+  const clean = trimmed.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
+  return clean ? `/api/media/${kind}/${clean.split(/[\\/]/).pop()}` : null;
+}
+

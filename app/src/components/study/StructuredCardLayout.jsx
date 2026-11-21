@@ -1,12 +1,12 @@
 import React from 'react';
 import { studyContent, studyInfoBlocks, studyLayout } from '../../utils/structuredStudyCard';
-import { mediaURL } from '../../services/apiConfig';
+import { defaultResolveMediaUrl } from '../../utils/media';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks';
 import { StudyCardImage } from './StudyCardImage';
 import './StructuredCardLayout.css';
 
 /** Compose the existing exercise; this component owns no learning state. */
-export function StructuredCardLayout({ card, exercise, afterAnswer = false, renderItem, renderInfoText }) {
+export function StructuredCardLayout({ card, exercise, afterAnswer = false, renderItem, renderInfoText, resolveMediaUrl = defaultResolveMediaUrl }) {
   const content = studyContent(card);
   const blocks = studyInfoBlocks(content);
   return <div className="structured-card-layout">
@@ -17,7 +17,7 @@ export function StructuredCardLayout({ card, exercise, afterAnswer = false, rend
             renderText={renderInfoText && ((text, display) => renderInfoText(item, text, display))} />
         </div>
           : item.type === 'image' ? <figure data-layout-id={item.id}>
-            <StudyCardImage src={card.layout_media_urls?.[item.id] || mediaURL(item.path, 'images')}
+            <StudyCardImage src={card.layout_media_urls?.[item.id] || resolveMediaUrl(item.path, 'images')}
               alt={item.alt} height={220} cardId={`${card.id}:${item.id}`} showResizeHandle={false} />
             {item.caption && <figcaption>{item.caption}</figcaption>}
           </figure> : null;

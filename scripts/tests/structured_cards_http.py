@@ -17,12 +17,13 @@ import httpx
 import uvicorn
 
 
-def verify(db, *, save_regressions_browser=False, offline_create_browser=False, offline_edit_browser=False,
+def verify(db, *, admin_interop=None, save_regressions_browser=False, offline_create_browser=False, offline_edit_browser=False,
            offline_delivery_browser=False, offline_isolation_browser=False, offline_move_browser=False,
            offline_lifecycle_browser=False, offline_batch_browser=False, offline_list_browser=False, learning_browser=False, ratings_browser=False, media_browser=False, layout_browser=False, recovery_browser=None):
     from api import models
     from api.auth.service import _create_session, utcnow
-    from api.migrations import run_card_rating_migration, run_library_cards_v2_migration, run_structured_cards_v2_migration
+    from api.migrations import (run_card_rating_migration, run_library_cards_v2_migration,
+                                run_structured_cards_v2_migration, run_unified_cards_migration)
     from api.main import app
     from api.services.answer_evaluation import load_answer_context
 
@@ -40,12 +41,18 @@ def verify(db, *, save_regressions_browser=False, offline_create_browser=False, 
     run_structured_cards_v2_migration(db)
     db.execute_sql('ALTER TABLE card DROP COLUMN content_v2, ALTER COLUMN front_text SET NOT NULL, '
                    'ALTER COLUMN back_text SET NOT NULL, ALTER COLUMN card_type SET NOT NULL')
-    legacy_library = models.Deck.create(name='Old library fixture')
-    db.execute_sql('INSERT INTO card (deck_id, front_text, back_text, card_type, created_at, is_deleted, history, position, flag) '
-                   "VALUES (%s, 'old prompt', 'old answer', 'standard', now(), false, '[]', 7, 0)", (legacy_library.id,))
-    assert run_library_cards_v2_migration(db) == {'applied': True, 'migration_id': 94}
-    assert run_library_cards_v2_migration(db) == {'applied': False, 'migration_id': 94}
-    assert models.Card.select().where(models.Card.deck == legacy_library.id).get().front_text == 'old prompt'
+    if admin_interop:
+        # The cross-editor fixture needs the actual reviewed unified deck catalog.
+        # Start empty, so migration 96 does not have to convert any V1 content.
+        run_library_cards_v2_migration(db)
+        assert run_unified_cards_migration(db)['applied']
+    else:
+        legacy_library = models.Deck.create(name='Old library fixture')
+        db.execute_sql('INSERT INTO card (deck_id, front_text, back_text, card_type, created_at, is_deleted, history, position, flag) '
+                       "VALUES (%s, 'old prompt', 'old answer', 'standard', now(), false, '[]', 7, 0)", (legacy_library.id,))
+        assert run_library_cards_v2_migration(db) == {'applied': True, 'migration_id': 94}
+        assert run_library_cards_v2_migration(db) == {'applied': False, 'migration_id': 94}
+        assert models.Card.select().where(models.Card.deck == legacy_library.id).get().front_text == 'old prompt'
     headers = {}
     for user_id in (1, 2, 3):
         models.TMAUser.create(user_id=user_id, is_guest=(user_id == 3), default_decks_initialized=True)
@@ -139,7 +146,7 @@ def verify(db, *, save_regressions_browser=False, offline_create_browser=False, 
             if (offline_create_browser or offline_edit_browser or offline_delivery_browser
                     or offline_isolation_browser or offline_move_browser or offline_lifecycle_browser or offline_batch_browser or offline_list_browser):
                 return True
-            return _run_cases(client, models, headers, load_answer_context)
+            return (admin_interop or _run_cases)(client, models, headers, load_answer_context)
     finally:
         server.should_exit = True
         thread.join(timeout=10)

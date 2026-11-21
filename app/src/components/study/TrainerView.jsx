@@ -7,7 +7,9 @@ import { ArrowLeft, Clock, Target, Folder, Eye } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
-import { useAudio } from '../../hooks/useAudio';
+import { useAudio, stopGlobalAudio } from '../../hooks/useAudio';
+import { evaluateFreeTextAnswer } from '../../services/answerEvaluationService';
+import { mediaURL } from '../../services/apiConfig';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 
@@ -25,6 +27,7 @@ export const TrainerView = () => {
   const { currentDeck, deckCards, fetchDeckCards } = useDeckStore();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
+  const isAdmin = useSettingsStore(s => s.isAdmin);
   const effectiveConfig = useSettingsStore(s => s.activeDesignConfig);
   const cardBgFront = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
   const cardBgBack = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
@@ -285,6 +288,10 @@ export const TrainerView = () => {
                   <ExerciseRenderer
                     card={currentCard}
                     designConfig={effectiveConfig}
+                    isAdmin={isAdmin}
+                    evaluateAnswer={evaluateFreeTextAnswer}
+                    resolveMediaUrl={mediaURL}
+                    onBeforeDictation={stopGlobalAudio}
                     studyMode="trainer"
                     isPureTrainerMode={true}
                     isFlipped={isFlipped}

@@ -1,12 +1,24 @@
 import { Image as ImageIcon, RefreshCw, RotateCw, Volume2, X } from 'lucide-react';
 import { tr } from '../../i18n/locale';
 import { parseDeckMetadata } from '../../utils/deckUtils';
+import { defaultResolveMediaUrl } from '../../utils/media';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import { FlagPicker } from './FlagPicker';
 
-export function CardMediaFields({ cardData, setCardData, openImagePicker, generateAudio, loading, audioBusy, setAudioBusy }) {
+export function CardMediaFields({
+  cardData,
+  setCardData,
+  openImagePicker,
+  generateAudio = null,
+  loading,
+  audioBusy,
+  setAudioBusy,
+  uploadAudioFile = null,
+  getSessionIdentity = null,
+  resolveAudioUrl,
+}) {
   const playGeneratedAudio = async () => {
-    if (audioBusy) return;
+    if (audioBusy || !generateAudio) return;
     setAudioBusy(true);
     try { await generateAudio(); }
     finally { setAudioBusy(false); }
@@ -29,24 +41,27 @@ export function CardMediaFields({ cardData, setCardData, openImagePicker, genera
           <ImageIcon size={18} />
           <span>{tr("Картинка")}</span>
         </button>
-        <button
-          type="button"
-          className="form-toolbar-btn btn-audio"
-          onClick={playGeneratedAudio}
-          disabled={loading || audioBusy}
-          title={tr("Озвучить")}
-        >
-          {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
-          <span>{loading ? tr("Озвучивание...") : tr("Озвучить")}</span>
-        </button>
+        {generateAudio && (
+          <button
+            type="button"
+            className="form-toolbar-btn btn-audio"
+            onClick={playGeneratedAudio}
+            disabled={loading || audioBusy}
+            title={tr("Озвучить")}
+          >
+            {loading ? <RefreshCw size={18} className="spin" /> : <Volume2 size={18} />}
+            <span>{loading ? tr("Озвучивание...") : tr("Озвучить")}</span>
+          </button>
+        )}
       </div>
       <CardAudioAttachments cardData={cardData} setCardData={setCardData} disabled={loading || audioBusy}
-        onBusyChange={setAudioBusy} />
+        onBusyChange={setAudioBusy} uploadAudioFile={uploadAudioFile}
+        getSessionIdentity={getSessionIdentity} resolveAudioUrl={resolveAudioUrl} />
     </details>
   );
 }
 
-export function CardCoverPreview({ cardData, setCardData, deck, onEdit, onClear }) {
+export function CardCoverPreview({ cardData, setCardData, deck, onEdit, onClear, resolveMediaUrl = defaultResolveMediaUrl }) {
   if (!cardData.image_url && !cardData.image_path) return null;
 
   const currentH = cardData.draftImageHeight ?? (parseDeckMetadata(deck ?? cardData)?.imageHeight || 220);
@@ -55,7 +70,7 @@ export function CardCoverPreview({ cardData, setCardData, deck, onEdit, onClear 
     <>
       <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
         <img
-          src={cardData.image_url || `/api/media/${cardData.image_path}`}
+          src={cardData.image_url || resolveMediaUrl(cardData.image_path, 'images')}
           alt=""
           style={{
             display: 'block',

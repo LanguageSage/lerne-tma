@@ -28,6 +28,17 @@ def git(*args):
     return subprocess.check_output(['git', '-C', str(ROOT), *args])
 
 
+def package_relpaths(package_root: Path):
+    return sorted(
+        p.relative_to(package_root).as_posix()
+        for p in package_root.rglob('*')
+        if p.is_file()
+        and '__pycache__' not in p.parts
+        and p.suffix in {'.py', '.json'}
+        and p.relative_to(package_root).as_posix() != 'provenance.json'
+    )
+
+
 def verify_sources():
     release = json.loads((PROJECT / 'provenance.json').read_text(encoding='utf-8'))
     if b'\r' in (PROJECT / 'provenance.json').read_bytes():
@@ -37,7 +48,7 @@ def verify_sources():
     version = tomllib.loads((PROJECT / 'pyproject.toml').read_text(encoding='utf-8'))['project']['version']
     if version != release['version']:
         raise RuntimeError('Project/provenance version differs')
-    names = {p.name for p in (PROJECT / 'lerne_card_core').glob('*.py')}
+    names = set(package_relpaths(PROJECT / 'lerne_card_core'))
     if names != set(release['files']):
         raise RuntimeError('Incomplete package file catalog')
     for name, expected in release['files'].items():
@@ -66,17 +77,21 @@ def verify_wheel(path):
         if provenance != (PROJECT / 'provenance.json').read_bytes():
             raise RuntimeError('Wheel provenance differs')
         members = wheel.namelist()
-        expected_py = {'lerne_card_core/' + name for name in release['files']}
-        if {n for n in members if n.endswith('.py')} != expected_py or len(members) != len(set(members)):
+        expected_pkg = {'lerne_card_core/' + name for name in release['files']}
+        actual_pkg = {
+            n for n in members
+            if n.startswith('lerne_card_core/') and not n.endswith('/') and n != 'lerne_card_core/provenance.json'
+        }
+        if actual_pkg != expected_pkg or len(members) != len(set(members)):
             raise RuntimeError('Unexpected wheel sources')
         for name, expected in release['files'].items():
             raw = wheel.read('lerne_card_core/' + name)
             if sha256(raw).hexdigest() != expected:
                 raise RuntimeError('Wheel source differs: ' + name)
         info = 'lerne_card_core-' + release['version'] + '.dist-info/'
-        expected_members = expected_py | {'lerne_card_core/provenance.json'} | {
+        expected_members = expected_pkg | {'lerne_card_core/provenance.json'} | {
             info + name for name in ('METADATA', 'WHEEL', 'top_level.txt', 'RECORD')}
-        if set(members) != expected_members:
+        if {n for n in members if not n.endswith('/')} != expected_members:
             raise RuntimeError('Unexpected wheel contents')
         metadata = wheel.read(info + 'METADATA').decode()
         if 'Version: ' + release['version'] not in metadata.splitlines():
@@ -139,7 +154,9 @@ def build(output):
         package = scratch / 'lerne_card_core'
         package.mkdir()
         for name in release['files']:
-            shutil.copyfile(PROJECT / 'lerne_card_core' / name, package / name)
+            dst = package / name
+            dst.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(PROJECT / 'lerne_card_core' / name, dst)
         shutil.copyfile(PROJECT / 'provenance.json', package / 'provenance.json')
         env = {k: v for k, v in os.environ.items() if k.upper() not in {'PYTHONPATH', 'PYTHONHOME'}}
         env['SOURCE_DATE_EPOCH'] = git('show', '-s', '--format=%ct', release['source_revision']).decode().strip()
