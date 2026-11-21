@@ -1,6 +1,8 @@
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
+import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
+import { assertArchiveSafeMetadata } from './materialMetadataPolicy.js';
 import { getStandaloneProfileName, STANDALONE_USER_ID } from '../utils/standaloneMode.js';
 import {
   buildOriginKey,
@@ -32,25 +34,6 @@ const SHA256_RE = /^[a-f0-9]{64}$/;
 const ASSET_PATH_RE = /^media\/([a-f0-9]{64})\.[a-z0-9]{2,4}$/;
 const CHAR_FIELD_MAX = 255;
 const TEXT_FIELD_MAX = 2_000_000;
-const CARD_MAX_BYTES = 256 * 1024;
-
-export const FORBIDDEN_METADATA_KEYS = new Set([
-  'progress', 'srs', 'review_history', 'history', 'session', 'sessions',
-  'access_token', 'refresh_token', 'password', 'secret', 'api_key', 'service_role',
-  'apikey', 'accesstoken', 'refreshtoken', 'supabase_key', 'authorization',
-  'auth', 'authentication', 'jwt', 'cookie', 'cookies', 'session_id', 'session_token',
-  'client_secret', 'bot_token', 'credentials', 'user_progress', 'next_review',
-  'last_reviewed', 'ease_factor', 'repetitions', 'lapses', 'review_count',
-]);
-
-export const CONTENT_METADATA_KEYS = new Set([
-  'front', 'front_text', 'back', 'back_text', 'context', 'type', 'card_type',
-  'image', 'image_path', 'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
-  'accepted_answers', 'grading_policy', 'intro', 'pedagogy', 'passport',
-  'text', 'prompt', 'answer', 'answers', 'options', 'pairs', 'tokens', 'back_note',
-  'sample_answer', 'source_text', 'correct_text', 'summary', 'translation',
-]);
-
 export const FOLDER_FIELDS = ['name', 'color', 'target_language', 'position', 'is_deleted', 'parent_id'];
 export const DECK_V3_FIELDS = ['name', 'level', 'topic', 'target_language', 'position', 'is_deleted', 'folder_id', 'metadata'];
 export const DECK_V4_FIELDS = [...DECK_V3_FIELDS, 'scope', 'category_id', 'is_default'];
@@ -72,10 +55,6 @@ export const ROLE_TO_FOLDER = {
   video: 'videos',
   background: 'backgrounds',
 };
-const ALLOWED_LEVELS = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
-const ALLOWED_CARD_TYPES = new Set([
-  'theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank', 'free_text', 'editable_text',
-]);
 const INLINE_URI_RE = /(?:https?:\/\/[^\s"'<>()[\]{}]+|\/api\/media\/(?:images|audio|videos|backgrounds|tma-audio)\/[^\s"'<>()[\]{}]+)/g;
 
 function failArchive(message) {
@@ -570,236 +549,32 @@ export function checkMaterialMetadata(rawValue) {
     failArchive('Метаданные материала должны быть объектом JSON.');
   }
 
-  const visit = (item) => {
-    if (isPlainObject(item)) {
-      for (const [key, nested] of Object.entries(item)) {
-        const normalized = key.toLowerCase().replaceAll('-', '_');
-        if (
-          FORBIDDEN_METADATA_KEYS.has(normalized)
-          || normalized.endsWith('_secret')
-          || normalized.endsWith('_password')
-          || normalized.endsWith('_token')
-        ) {
-          failArchive('Метаданные содержат пользовательское состояние или секреты.');
-        }
-        visit(nested);
-      }
-    } else if (Array.isArray(item)) {
-      for (const nested of item) {
-        visit(nested);
-      }
-    }
-  };
-  visit(parsed);
+  assertArchiveSafeMetadata(parsed);
 
   return canonicalJson(parsed);
 }
 
-function isNonBlankText(value) {
-  return typeof value === 'string' && /\S/.test(value);
+function archiveMediaEntry(token, assets) {
+  return assets.get(token.slice('archive://'.length));
 }
 
-function validateMetadataContentKeys(metadata) {
-  if (!isPlainObject(metadata)) {
-    failArchive('Некорректный формат metadata карточки V2.');
-  }
-  for (const key of Object.keys(metadata)) {
-    if (CONTENT_METADATA_KEYS.has(key)) {
-      failArchive(`Недопустимое поле в metadata карточки V2: ${key}`);
-    }
-  }
+function restoreInlineMedia(text, assets) {
+  return text.replace(ARCHIVE_TOKEN_RE, token => {
+    const entry = archiveMediaEntry(token, assets);
+    return entry ? `/api/media/${entry.folder}/${entry.filename}` : token;
+  });
 }
 
-export function validateNativeV2Envelope(envelope, { expectArchiveTokens = true } = {}) {
-  if (!isPlainObject(envelope) || !setEquals(Object.keys(envelope), ['schema_version', 'card']) || envelope.schema_version !== 2) {
-    failArchive('Некорректная обёртка Native V2.');
+function restoreCardMedia(envelope, assets) {
+  const canonical = structuredClone(envelope);
+  for (const { owner, key, role } of iterNativeMediaFields(canonical)) {
+    const { folder, filename } = archiveMediaEntry(owner[key], assets);
+    owner[key] = role === 'image' ? `${folder}/${filename}` : `/api/media/${folder}/${filename}`;
   }
-  const card = envelope.card;
-  if (!isPlainObject(card) || !ALLOWED_CARD_TYPES.has(card.type) || !isPlainObject(card.data)) {
-    failArchive('Некорректный тип или данные карточки Native V2.');
+  for (const { owner, key } of iterTextLocations(canonical)) {
+    owner[key] = restoreInlineMedia(owner[key], assets);
   }
-  if (card.level !== undefined && card.level !== null && !ALLOWED_LEVELS.has(card.level)) {
-    failArchive('Некорректный уровень CEFR карточки V2.');
-  }
-  if (card.info !== undefined && !Array.isArray(card.info)) {
-    failArchive('Некорректный блок info карточки V2.');
-  }
-  if (card.metadata !== undefined) {
-    validateMetadataContentKeys(card.metadata);
-    checkMaterialMetadata(card.metadata);
-  }
-  if (card.explanation !== undefined && typeof card.explanation !== 'string') {
-    failArchive('Некорректное поле explanation карточки V2.');
-  }
-
-  const infoList = card.info || [];
-  for (const block of infoList) {
-    if (!isPlainObject(block)) failArchive('Некорректный элемент info в карточке V2.');
-    if (block.type === 'options') {
-      if (!Array.isArray(block.items) || block.items.length === 0 || block.items.some(item => !isNonBlankText(item))) {
-        failArchive('Некорректные опции в info карточки V2.');
-      }
-    } else if (['task', 'source', 'example', 'text'].includes(block.type)) {
-      if (!isNonBlankText(block.text)) {
-        failArchive('Пустой текстовый блок info в карточке V2.');
-      }
-    } else {
-      failArchive('Неизвестный тип блока info в карточке V2.');
-    }
-  }
-
-  if (card.layout !== undefined && card.layout !== null) {
-    if (!Array.isArray(card.layout) || card.layout.length === 0 || card.layout.length > 500) {
-      failArchive('Некорректная разметка layout карточки V2.');
-    }
-    const ids = new Set();
-    let exerciseCount = 0;
-    const infoIndices = [];
-    for (const el of card.layout) {
-      if (!isPlainObject(el) || typeof el.id !== 'string' || !/^[A-Za-z0-9_-]{1,128}$/.test(el.id)) {
-        failArchive('Некорректный идентификатор элемента layout V2.');
-      }
-      if (ids.has(el.id)) failArchive('Повторный ID элемента layout V2.');
-      ids.add(el.id);
-
-      if (el.type === 'exercise') {
-        exerciseCount += 1;
-      } else if (el.type === 'info') {
-        if (!Number.isInteger(el.index) || el.index < 0 || el.index >= infoList.length) {
-          failArchive('Некорректный индекс info в layout V2.');
-        }
-        infoIndices.push(el.index);
-      } else if (el.type === 'image') {
-        if (typeof el.path !== 'string' || !el.path.trim()) {
-          failArchive('Некорректный путь изображения в layout V2.');
-        }
-        if (expectArchiveTokens) {
-          if (!ARCHIVE_TOKEN_FULL_RE.test(el.path)) {
-            failArchive('Медиа V2 отсутствует в архиве.');
-          }
-        } else if (!/^images\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(el.path) || el.path.includes('..')) {
-          failArchive('Некорректный путь изображения в layout V2.');
-        }
-      } else {
-        failArchive('Неизвестный элемент layout V2.');
-      }
-    }
-    if (exerciseCount !== 1 || infoIndices.length !== infoList.length) {
-      failArchive('Разметка layout V2 должна содержать ровно один exercise и все info.');
-    }
-    const sortedIndices = [...infoIndices].sort((a, b) => a - b);
-    if (sortedIndices.some((val, idx) => val !== idx)) {
-      failArchive('Разметка layout V2 должна ссылаться на каждый блок info ровно один раз.');
-    }
-  }
-
-  for (const fieldRef of iterNativeMediaFields(envelope)) {
-    const val = fieldRef.owner[fieldRef.key];
-    if (expectArchiveTokens && (typeof val !== 'string' || !ARCHIVE_TOKEN_FULL_RE.test(val))) {
-      failArchive('Медиа V2 отсутствует в архиве.');
-    }
-  }
-
-  const { type, data } = card;
-  switch (type) {
-    case 'theory':
-      if (!isNonBlankText(data.text)) failArchive('Карточка theory без текста.');
-      break;
-    case 'standard':
-      if (!isNonBlankText(data.prompt)) failArchive('Карточка standard без вопроса.');
-      break;
-    case 'trainer': {
-      if (!Array.isArray(data.parts) || data.parts.length === 0 || !data.parts.some(p => p?.type === 'input' || p?.type === 'choice')) {
-        failArchive('Карточка trainer должна содержать хотя бы один пропуск input/choice.');
-      }
-      for (const part of data.parts) {
-        if (part?.type === 'text') {
-          if (typeof part.text !== 'string' || !part.text.length) {
-            failArchive('Пустой текстовый фрагмент в trainer.');
-          }
-        } else if (part?.type === 'input') {
-          if (!Array.isArray(part.answers) || part.answers.length === 0 || part.answers.some(a => !isNonBlankText(a))) {
-            failArchive('Пропуск input в trainer должен содержать ответы.');
-          }
-        } else if (part?.type === 'choice') {
-          if (!Array.isArray(part.options) || part.options.length === 0 || !part.options.some(o => o?.correct === true)) {
-            failArchive('Пропуск choice в trainer должен содержать варианты и правильный ответ.');
-          }
-          if (part.distractors !== 'auto' && part.options.length < 2) {
-            failArchive('Пропуск choice в trainer должен содержать >=2 вариантов.');
-          }
-        } else {
-          failArchive('Некорректный фрагмент в карточке trainer.');
-        }
-      }
-      break;
-    }
-    case 'quiz': {
-      if (!Array.isArray(data.options) || data.options.length < 2 || !data.options.some(o => o?.correct === true)) {
-        failArchive('Карточка quiz должна содержать >=2 вариантов и >=1 правильный.');
-      }
-      const labels = data.options.map(o => o?.text);
-      if (labels.some(t => !isNonBlankText(t)) || new Set(labels).size !== labels.length) {
-        failArchive('Варианты quiz должны быть непустыми и уникальными.');
-      }
-      const promptOk = typeof data.prompt === 'string' && data.prompt.trim().length > 0;
-      const visibleInfo = card.layout
-        ? new Set(card.layout.filter(e => e.type === 'info' && e.visibility !== 'after_answer').map(e => e.index))
-        : new Set(infoList.map((_, i) => i));
-      const hasTaskSource = infoList.some((b, idx) => visibleInfo.has(idx) && (b.type === 'task' || b.type === 'source'));
-      if (!promptOk && !hasTaskSource) {
-        failArchive('Карточка quiz без вопроса или блока task/source.');
-      }
-      break;
-    }
-    case 'match':
-      if (!Array.isArray(data.pairs) || data.pairs.length < 2 || data.pairs.some(p => !isNonBlankText(p?.left) || !isNonBlankText(p?.right))) {
-        failArchive('Карточка match должна содержать >=2 непустых пар.');
-      }
-      break;
-    case 'puzzle':
-      if (!Array.isArray(data.tokens) || data.tokens.length < 1 || data.tokens.some(t => !isNonBlankText(t))) {
-        failArchive('Карточка puzzle должна содержать >=1 токен.');
-      }
-      break;
-    case 'word_bank': {
-      if (!Array.isArray(data.options) || data.options.length < 1 || data.options.some(o => !isNonBlankText(o))) {
-        failArchive('Карточка word_bank должна содержать слова в банке.');
-      }
-      if (!Array.isArray(data.parts) || data.parts.length < 1) {
-        failArchive('Карточка word_bank без фрагментов.');
-      }
-      const used = new Set();
-      for (const part of data.parts) {
-        if (part?.type === 'gap') {
-          if (!Number.isInteger(part.option) || part.option < 0 || part.option >= data.options.length || used.has(part.option)) {
-            failArchive('Некорректная ссылка на слово в word_bank.');
-          }
-          used.add(part.option);
-        } else if (part?.type !== 'text' || typeof part.text !== 'string' || !part.text.length) {
-          failArchive('Некорректный текстовый фрагмент в word_bank.');
-        }
-      }
-      if (used.size === 0) failArchive('Карточка word_bank должна содержать хотя бы один пропуск.');
-      break;
-    }
-    case 'free_text':
-      if (!isNonBlankText(data.prompt) || !isNonBlankText(data.sample_answer)) {
-        failArchive('Карточка free_text должна содержать вопрос и образец ответа.');
-      }
-      break;
-    case 'editable_text':
-      if (!isNonBlankText(data.source_text) || !isNonBlankText(data.correct_text) || data.source_text.trim() === data.correct_text.trim()) {
-        failArchive('Карточка editable_text должна содержать различающиеся исходный и исправленный тексты.');
-      }
-      break;
-    default:
-      failArchive('Неизвестный тип карточки V2.');
-  }
-
-  if (new TextEncoder().encode(canonicalJson(card)).length > CARD_MAX_BYTES) {
-    failArchive('Карточка V2 превышает 256 КБ.');
-  }
+  return canonical;
 }
 
 export function orderFoldersTopologically(rows) {
@@ -922,10 +697,7 @@ export function validateMaterialArchiveDocument(rawDocument) {
 
       const parentKey = kind === 'folder' ? 'parent_id' : kind === 'deck' ? 'folder_id' : 'deck_id';
       for (const [field, value] of Object.entries(values)) {
-        if (field === 'content_v2') {
-          validateNativeV2Envelope(value, { expectArchiveTokens: true });
-          continue;
-        }
+        if (field === 'content_v2') continue;
         if (field === 'is_default') {
           if (typeof value !== 'boolean') failArchive('Некорректный флаг библиотечной колоды.');
         } else if (field === 'category_id') {
@@ -1037,6 +809,9 @@ export function validateMaterialArchiveDocument(rawDocument) {
         for (const ref of iterNativeMediaFields(row.values.content_v2)) {
           verifyTypedMedia(ref.owner[ref.key], ref.role);
         }
+        const canonical = restoreCardMedia(row.values.content_v2, assetBySha);
+        validateNativeV2Content(canonical, { writable: true });
+        assertArchiveSafeMetadata(canonical.card.metadata);
         for (const [field, role] of Object.entries(CARD_ATTACHMENTS)) {
           if (row.values[field]) verifyTypedMedia(row.values[field], role);
         }
@@ -1275,12 +1050,6 @@ export async function applyMaterialArchiveImport({
   if (document.assets.length > 0 && !mediaInTransaction) await commitMedia(document.assets);
 
   const assetBySha = new Map(document.assets.map(entry => [entry.sha256, entry]));
-  const replaceTokensWithCanonicalUrls = (text) => text.replace(ARCHIVE_TOKEN_RE, (token) => {
-    const sha = token.slice('archive://'.length);
-    const entry = assetBySha.get(sha);
-    return entry ? `/api/media/${entry.folder}/${entry.filename}` : token;
-  });
-
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
@@ -1399,7 +1168,7 @@ export async function applyMaterialArchiveImport({
       const mappedFolderId = row.values.folder_id == null ? null : (idMap.folder.get(row.values.folder_id) ?? null);
       let parsedMetadata = {};
       if (row.values.metadata != null) {
-        const replacedMeta = replaceTokensWithCanonicalUrls(row.values.metadata);
+        const replacedMeta = restoreInlineMedia(row.values.metadata, assetBySha);
         parsedMetadata = JSON.parse(replacedMeta);
       }
       if (!Array.isArray(parsedMetadata.resources)) {
@@ -1467,23 +1236,12 @@ export async function applyMaterialArchiveImport({
       if (ownExport && existing?.standalone_card_key && !existing.standalone_source) continue;
 
       const localDeckId = idMap.deck.get(row.values.deck_id);
-      const valuesCopy = structuredClone(row.values);
-
-      for (const ref of iterNativeMediaFields(valuesCopy.content_v2)) {
-        const sha = ref.owner[ref.key].slice('archive://'.length);
-        const entry = assetBySha.get(sha);
-        if (entry) {
-          ref.owner[ref.key] = ref.role === 'image'
-            ? `${entry.folder}/${entry.filename}`
-            : `/api/media/${entry.folder}/${entry.filename}`;
-        }
+      const { content_v2: archivedContent, ...fields } = row.values;
+      const valuesCopy = { ...fields };
+      for (const { owner, key } of iterTextLocations(valuesCopy)) {
+        owner[key] = restoreInlineMedia(owner[key], assetBySha);
       }
-
-      for (const loc of iterTextLocations(valuesCopy)) {
-        loc.owner[loc.key] = replaceTokensWithCanonicalUrls(loc.owner[loc.key]);
-      }
-
-      const contentV2 = valuesCopy.content_v2;
+      const contentV2 = restoreCardMedia(archivedContent, assetBySha);
       const frontText = studySideText(contentV2.card, 'front');
       const cardLang = deckLanguages.get(localDeckId) || existing?.target_language || 'de';
 

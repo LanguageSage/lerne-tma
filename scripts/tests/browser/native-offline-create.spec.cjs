@@ -270,15 +270,26 @@ test.describe('Native V2 save regression', () => {
         device = await browser.browserType().launchPersistentContext(testInfo.outputPath('profile'), {
           viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
         });
-        await setupDevice(device, () => phase, (payload, status, receipt) => writes.push({ payload, status, receipt }));
+        await setupDevice(device, () => phase, () => {}, false, async ({ route, payload, fetchFromServer }) => {
+          const data = payload.content_v2?.card?.data;
+          if (data?.prompt === title && !data.options[0].correct) {
+            const receipt = { detail: [{ loc: ['body', 'content_v2', 'card', 'quiz', 'data', 'options'],
+              msg: 'Synthetic policy rejected this option' }] };
+            writes.push({ payload, status: 422, receipt });
+            return route.fulfill({ status: 422, json: receipt });
+          }
+          const response = await fetchFromServer();
+          writes.push({ payload, status: response.status(), receipt: await response.json() });
+          return route.fulfill({ response });
+        });
         page = device.pages()[0];
         await ready(page);
       };
       const openSource = () => page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
       const source = () => page.getByRole('textbox', { name: 'Полный content_v2 JSON' });
-      const title = deferred ? 'Deferred invalid Quiz' : 'Immediate invalid Quiz';
+      const title = deferred ? 'Deferred rejected Quiz' : 'Immediate rejected Quiz';
       const invalid = { schema_version: 2, card: { type: 'quiz', data: {
-        prompt: title, options: [{ text: 'Ja', correct: false }, { text: 'Nein', correct: false }],
+        prompt: title, options: [{ text: 'Ja', correct: false }, { text: 'Nein', correct: true }],
       } } };
       try {
         await launch();
@@ -707,11 +718,15 @@ test('creates all nine V2 types offline across a Chromium restart and replays th
     }
     const bad = await page.evaluate(async deckId => {
       const { default: api } = await import('/src/services/api.js');
+      const { offlineApi } = await import('/src/services/offlineApi.js');
       const payload = { content_v2: { schema_version: 2, card: { type: 'match', data: {} } },
         deck_id: deckId, request_id: crypto.randomUUID() };
-      const { data: card } = await api.post('/cards/save', payload);
-      return { card, payload };
+      const clientError = await api.post('/cards/save', payload).then(() => null, error => error.message);
+      // Simulate an outbox entry left by an older client, before local validation.
+      const { data: card } = await offlineApi.handle('post', '/cards/save', payload, {});
+      return { card, payload, clientError };
     }, deck.id);
+    expect(bad.clientError).toContain('card.data.pairs');
     const queued = await inspectLocal(page);
     expect(queued.cards).toHaveLength(10);
     expect(queued.operations).toHaveLength(10);
@@ -824,6 +839,7 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
   test.setTimeout(600000);
   const cards = Object.entries(fixture.edit_cards);
   const attempts = [];
+  const serverRejectedContext = 'Rejected by a newer server rule';
   let phase = 'ready';
   let device, page;
   async function launch() {
@@ -832,6 +848,12 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
     });
     await setupDevice(device, () => phase, () => {}, false, async ({ route, payload, fetchFromServer }) => {
       const queued = (await inspect()).operations.find(op => op.payload.request_id === payload.request_id)?.payload;
+      if (payload.content_v2?.card?.explanation === serverRejectedContext) {
+        const receipt = { detail: [{ loc: ['body', 'content_v2', 'card', 'quiz', 'data', 'options'],
+          msg: 'Synthetic policy rejected this option' }] };
+        attempts.push({ payload, queued, status: 422, receipt });
+        return route.fulfill({ status: 422, json: receipt });
+      }
       const response = await fetchFromServer();
       attempts.push({ payload, queued, status: response.status(), receipt: await response.json() });
       return phase === 'lose-response' ? route.abort('connectionreset') : route.fulfill({ response });
@@ -1002,13 +1024,20 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
 
     const { id } = fixture.edit_cards.quiz;
     await openEditor(id);
+    const validContext = await contextField().inputValue();
     const correctAnswer = page.getByRole('button', { name: 'Верный ответ 2', exact: true });
     await expect(correctAnswer).toHaveAttribute('aria-pressed', 'true');
     await correctAnswer.click();
     await save();
+    await expect(page.getByText(/At least one correct option is required/)).toBeVisible();
+    await expect(page.locator('.view-editor')).toBeVisible();
+    expect((await inspect()).operations).toEqual([]);
+    await correctAnswer.click();
+    await contextField().fill(serverRejectedContext);
+    await save();
     await expect(item(id).getByRole('status')).toContainText('Ошибка синхронизации');
     const rejected = (await inspect()).operations[0];
-    expect(rejected.payload.content_v2.card.data.options.every(option => !option.correct)).toBe(true);
+    expect(rejected.payload.content_v2.card.explanation).toBe(serverRejectedContext);
     expect(attempts.at(-1)).toMatchObject({ status: 422, payload: rejected.payload });
     await expect.poll(sync).toMatchObject({ success: false, native_success: false, pull_success: true,
       pending: { blockers: { 'cards:unacknowledged_native_state': 1, 'syncState:native_operation': 1 } } });
@@ -1016,8 +1045,8 @@ test('edits all nine V2 types, replays after Chromium restarts and resolves conf
     await openDraft(id);
     await expect(panel().getByRole('alert')).toContainText('options');
     await panel().getByRole('button', { name: 'Продолжить редактирование' }).click();
-    await expect(correctAnswer).toHaveAttribute('aria-pressed', 'false');
-    await correctAnswer.click();
+    await expect(correctAnswer).toHaveAttribute('aria-pressed', 'true');
+    await contextField().fill(validContext);
     await page.locator('#card-editor-front').fill('Korrigierte Quizfrage?');
     await save();
     await expect.poll(async () => (await inspect()).operations).toEqual([]);

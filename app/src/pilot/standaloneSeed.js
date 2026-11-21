@@ -1,63 +1,15 @@
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
-import { getStandalonePack, SUPPORTED_OFFLINE_CARD_TYPES } from './standalonePack.js';
+import { nativeV2Version, validateNativeV2Content } from '../utils/nativeV2Contract.js';
+import { getStandalonePack } from './standalonePack.js';
 
 export const STANDALONE_SEED_MANIFEST_KEY = 'standalone_seed_manifest';
 
-const SUPPORTED_TYPE_SET = new Set(SUPPORTED_OFFLINE_CARD_TYPES);
 let defaultSeedFlight = null;
 
 function isNonEmptyString(value) {
   return typeof value === 'string' && value.trim().length > 0;
-}
-
-function validateCardContent(card, label) {
-  if (!card || typeof card !== 'object') {
-    throw new Error(`${label}: card object is required`);
-  }
-  if (!SUPPORTED_TYPE_SET.has(card.type)) {
-    throw new Error(`${label}: unsupported offline card type "${card.type}"`);
-  }
-  if (!card.data || typeof card.data !== 'object' || Array.isArray(card.data)) {
-    throw new Error(`${label}: card.data must be an object`);
-  }
-  switch (card.type) {
-    case 'theory':
-      if (!isNonEmptyString(card.data.text)) throw new Error(`${label}: theory requires text`);
-      break;
-    case 'standard':
-      if (!isNonEmptyString(card.data.prompt)) throw new Error(`${label}: standard requires prompt`);
-      break;
-    case 'trainer':
-      if (!Array.isArray(card.data.parts) || !card.data.parts.some(p => p?.type === 'input' || p?.type === 'choice')) {
-        throw new Error(`${label}: trainer requires at least one input or choice part`);
-      }
-      break;
-    case 'quiz':
-      if (!Array.isArray(card.data.options) || card.data.options.length < 2 || !card.data.options.some(o => o?.correct === true)) {
-        throw new Error(`${label}: quiz requires >=2 options with >=1 correct option`);
-      }
-      break;
-    case 'match':
-      if (!Array.isArray(card.data.pairs) || card.data.pairs.length < 2) {
-        throw new Error(`${label}: match requires >=2 pairs`);
-      }
-      break;
-    case 'puzzle':
-      if (!Array.isArray(card.data.tokens) || card.data.tokens.length < 1) {
-        throw new Error(`${label}: puzzle requires >=1 token`);
-      }
-      break;
-    case 'word_bank':
-      if (!Array.isArray(card.data.options) || !card.data.options.length
-        || !Array.isArray(card.data.parts) || !card.data.parts.some(p => p?.type === 'gap')) {
-        throw new Error(`${label}: word_bank requires options and at least one gap`);
-      }
-      break;
-    default:
-      throw new Error(`${label}: unsupported card type`);
-  }
 }
 
 export function validateStandalonePack(pack) {
@@ -88,7 +40,7 @@ export function validateStandalonePack(pack) {
       throw new Error(`Invalid or duplicate bundled deck slug: ${deck.slug}`);
     }
     deckSlugs.add(deck.slug);
-    if (deck.document?.schema_version !== 2 || !isNonEmptyString(deck.document?.deck?.name)) {
+    if (deck.document?.schema_version !== nativeV2Version || !isNonEmptyString(deck.document?.deck?.name)) {
       throw new Error(`Bundled deck "${deck.slug}" is not a valid Native JSON V2 document`);
     }
   }
@@ -110,7 +62,11 @@ export function validateStandalonePack(pack) {
       throw new Error(`Invalid or duplicate bundled card key: ${entry.cardKey}`);
     }
     cardKeys.add(entry.cardKey);
-    validateCardContent(entry.card, `Card ${entry.cardKey}`);
+    try {
+      validateNativeV2Content({ schema_version: nativeV2Version, card: entry.card }, { writable: true });
+    } catch (error) {
+      throw new Error(`Card ${entry.cardKey}: ${error.message}`, { cause: error });
+    }
   }
 }
 
@@ -158,7 +114,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
       ));
       const allCardsPresent = existingCards.every(card => (
         card
-        && (card.standalone_local_edit || (!card.is_deleted && card.content_v2?.schema_version === 2))
+        && (card.standalone_local_edit || (!card.is_deleted && card.content_v2?.schema_version === nativeV2Version))
       ));
       const allCacheComplete = cacheMarkers.every(marker => marker?.complete === true);
 
@@ -252,7 +208,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
       resolvedPack.cards.forEach((cardEntry, idx) => {
         const existing = existingCards[idx];
         const contentV2 = {
-          schema_version: 2,
+          schema_version: nativeV2Version,
           card: structuredClone(cardEntry.card),
         };
         const frontText = studySideText(cardEntry.card, 'front');

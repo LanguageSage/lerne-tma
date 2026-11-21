@@ -12,7 +12,7 @@ from api.models import TMA_Card, TMA_Deck, TMAUser, TMACardKnowledgeItem, tma_db
 from .receipts import _claim_receipt, _digest, finish_receipt as _finish
 from .collaborative_service import _require_can_mutate, get_effective_user_role, touch_deck_and_parent_folders
 from .structured_card_storage import create_v2_card, decode_v2_content, replace_v2_card
-from .structured_cards_v2 import Card, Document, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_CARDS
+from .structured_cards_v2 import ContentV2, Document, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_CARDS
 from .media import audio_write_scope, card_audio_payload
 
 ID = Annotated[int, Field(strict=True, gt=0, le=2147483647)]
@@ -22,18 +22,6 @@ MEDIA_PATHS = ('image_path', 'audio_path', 'audio_back_path', 'video_front_path'
 
 class Request(BaseModel):
     model_config = ConfigDict(extra='forbid')
-
-
-class ContentV2(Request):
-    schema_version: Literal[2]
-    card: Card
-
-    @field_validator('schema_version', mode='before')
-    @classmethod
-    def strict_version(cls, value):
-        if type(value) is not int:
-            raise ValueError('schema_version must be integer 2')
-        return value
 
 
 class MediaFields(Request):

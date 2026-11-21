@@ -5,15 +5,6 @@ import { sha256Hex } from './sha256.js';
 
 export const STANDALONE_PACK_ID = 'lerne-offline-pilot-de-v1';
 export const STANDALONE_PACK_VERSION = 1;
-export const SUPPORTED_OFFLINE_CARD_TYPES = [
-  'theory',
-  'standard',
-  'trainer',
-  'quiz',
-  'match',
-  'puzzle',
-  'word_bank',
-];
 
 const DEFAULT_DECK_SPECS = [
   {

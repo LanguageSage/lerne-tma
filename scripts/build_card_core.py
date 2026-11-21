@@ -51,9 +51,12 @@ def verify_sources():
     names = set(package_relpaths(PROJECT / 'lerne_card_core'))
     if names != set(release['files']):
         raise RuntimeError('Incomplete package file catalog')
+    source_tree = release.get('source_tree')
+    if source_tree and git('cat-file', '-t', source_tree).strip() != b'tree':
+        raise RuntimeError('Reviewed package source must be a Git tree')
     for name, expected in release['files'].items():
         relative = 'api/card_core/lerne_card_core/' + name
-        original = git('show', release['source_revision'] + ':' + relative)
+        original = git('show', f'{source_tree}:{name}' if source_tree else f"{release['source_revision']}:{relative}")
         if sha256(original).hexdigest() != release['source_files'][relative]:
             raise RuntimeError('Git source differs: ' + name)
         # An older packaging-only release permits a version-only source delta.

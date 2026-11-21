@@ -1,7 +1,6 @@
 import { tr } from '../i18n/locale';
 import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { getUserId, getSessionIdentity } from '../utils/auth';
-import { cardTypes, validateStandardDraft } from '../utils/cardDraft.js';
 import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js';
 
 export const result = (data = {}) => ({ data });
@@ -54,9 +53,6 @@ export async function saveNativeCard(db, body, {
   offlineCreateId: tempId, offlineCreateRequestId: rejectedRequestId,
 }, userId) {
   if (isStandaloneDb(db)) readOnly();
-  if (body.content_v2?.schema_version !== 2 || typeof body.content_v2.card?.type !== 'string') {
-    throw new Error(tr('Некорректный JSON карточки V2.'));
-  }
   if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
   if (!body.request_id) throw new Error('Missing card create request ID');
 
@@ -242,8 +238,6 @@ export async function queueCardSelection(db, payload, action, isCurrent) {
 
 export async function saveNativeEdit(db, id, body, expectedConflict) {
   if (isStandaloneDb(db)) readOnly();
-  if (body.content_v2?.schema_version !== 2 || !cardTypes.includes(body.content_v2.card?.type)) throw unsupported();
-  if (body.content_v2.card.type === 'standard') validateStandardDraft(body.content_v2.card);
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
   return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
     const key = CARD_EDIT_KEY + id;

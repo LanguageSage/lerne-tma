@@ -36,7 +36,6 @@ const { IS_STANDALONE, STANDALONE_USER_ID } = await import('../../utils/standalo
 const {
   buildStandalonePack,
   getStandalonePack,
-  SUPPORTED_OFFLINE_CARD_TYPES,
 } = await import('../../pilot/standalonePack.js');
 const { ensureStandaloneSeed, validateStandalonePack, STANDALONE_SEED_MANIFEST_KEY } = await import('../../pilot/standaloneSeed.js');
 const {
@@ -97,7 +96,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(IS_STANDALONE, false);
   });
 
-  test('bundled Native JSON V2 pack has 3 valid decks, 30 cards, and covers all 7 offline card types', () => {
+  test('bundled Native JSON V2 pack has 3 valid decks, 30 cards, and covers 7 sample card types', () => {
     const pack = getStandalonePack();
     validateStandalonePack(pack);
 
@@ -105,7 +104,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(pack.cards.length, 30);
 
     const seenTypes = new Set(pack.cards.map(c => c.card.type));
-    for (const type of SUPPORTED_OFFLINE_CARD_TYPES) {
+    for (const type of ['theory', 'standard', 'trainer', 'quiz', 'match', 'puzzle', 'word_bank']) {
       assert.equal(seenTypes.has(type), true, `Missing card type: ${type}`);
     }
     assert.equal(seenTypes.has('free_text'), false);

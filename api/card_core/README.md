@@ -1,4 +1,4 @@
-# lerne-card-core 0.1.8
+# lerne-card-core 0.2.1
 
 Canonical source for pure JSON V2 validation, passport validation/merge, the answer
 contract, native Codex/JSON V2 import, legacy syntax parsing and V2-to-legacy conversion. This is the only
@@ -28,6 +28,33 @@ Never overwrite an already released version or modify extracted wheel sources.
 The first release moves five AST-identical TMA/Admin modules with only relative
 import changes. Provenance records the selected TMA revision and original bytes.
 The DB compatibility contract is separate; extraction alone changes no semantics.
+
+## Native V2 client contract
+
+The `ContentV2` envelope and card models in `structured_cards_v2.py` own the
+structural constraints and defaults. Model `rules` carry cross-field constraints
+into JSON Schema as `x-rules`. The Python and JS evaluators implement the rule
+operators, while the declarations live with the Pydantic models.
+
+For a new field, edit its Pydantic model. For a cross-field check, add a rule
+using an existing operator. The generator reports custom Pydantic hooks and
+schema features that lack a browser equivalent.
+
+```sh
+python scripts/generate_native_v2_contract.py
+python scripts/generate_native_v2_contract.py --check
+python scripts/test_backend.py scripts/tests/test_native_v2_client_contract.py
+```
+
+The generated client file is checked into TMA so browser builds are self-contained.
+The parity test checks accepted and rejected inputs and normalized defaults. A
+separate test changes the minimum number of Trainer gaps in a copy of the source
+and regenerates the browser contract.
+
+An APK or TMA source change does not publish a card-core wheel. The reviewed
+`source_tree` in provenance identifies the package subtree in Git, independent
+of the commit that includes the manifest. The referenced Git revision still
+provides the wheel's reproducible timestamp.
 
 0.1.1 fixes Quiz question/option boundaries: checkbox blocks take precedence over
 numbered question statements, labelled answers must form a complete suffix, and

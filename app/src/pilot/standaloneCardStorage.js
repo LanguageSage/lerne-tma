@@ -1,5 +1,6 @@
 import { tr } from '../i18n/locale.js';
-import { validateStandaloneCardContent } from '../utils/cardDraft.js';
+import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
+import { assertArchiveSafeMetadata } from './materialMetadataPolicy.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
 import {
   buildOriginKey,
@@ -117,7 +118,8 @@ export async function createStandaloneCard(db, body, { flag = 0 } = {}, userId =
   if (!body?.request_id || typeof body.request_id !== 'string') {
     throw new Error('Missing card create request ID');
   }
-  validateStandaloneCardContent(body.content_v2);
+  validateNativeV2Content(body.content_v2, { writable: true });
+  assertArchiveSafeMetadata(body.content_v2.card.metadata);
   if (body.content_v2.card.layout != null) {
     throw new Error(tr('Изменение макета (layout) карточки пока недоступно без редактора дизайна. Редактируйте содержимое карточки без изменения layout.'));
   }
@@ -249,7 +251,8 @@ export async function updateStandaloneCard(db, id, body, { flag } = {}, userId =
   if (!body?.request_id || typeof body.request_id !== 'string') {
     throw new Error('Missing card edit request ID');
   }
-  validateStandaloneCardContent(body.content_v2);
+  validateNativeV2Content(body.content_v2, { writable: true });
+  assertArchiveSafeMetadata(body.content_v2.card.metadata);
 
   const { normalized: normalizedContent, mediaPatch } = normalizeMediaForStorage(body, body.content_v2);
   const fingerprint = canonicalCompareValue({

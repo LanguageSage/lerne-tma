@@ -6,6 +6,7 @@ import { networkApi as axiosInstance } from './networkApi.js';
 import { syncService } from './syncService.js';
 import { handleLocalFirstRequest, tryLocalFirstNativeCreate, reconcileOnlineResponse } from './apiCacheSync.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
 
 // Проксируем методы Axios для поддержки офлайн-режима и автоматического фоллбека
 const api = new Proxy(axiosInstance, {
@@ -46,6 +47,9 @@ const api = new Proxy(axiosInstance, {
           err.code = 'ERR_STANDALONE_OFFLINE';
           throw err;
         }
+        const nativeCreate = propKey === 'post' && url === '/cards/save';
+        const nativeEdit = propKey === 'patch' && /^\/cards\/-?\d+$/.test(url);
+        if (nativeCreate || nativeEdit) validateNativeV2Content(args[0]?.content_v2, { writable: true });
         const fetchFreshCard = id => api.get(`/cards/${id}`, { freshCard: true });
         const localFirst = await handleLocalFirstRequest({
           propKey, url, args, requestAccount, isCurrent, assertCurrent, localRequest, fetchFreshCard,
@@ -53,7 +57,6 @@ const api = new Proxy(axiosInstance, {
         if (localFirst) return localFirst;
 
         const requestStartedAt = Date.now();
-        const nativeCreate = propKey === 'post' && url === '/cards/save' && Object.hasOwn(args[0] ?? {}, 'content_v2');
         const configIndex = ['get', 'delete'].includes(propKey) ? 0 : 1;
         args[configIndex] = {
           _expectedUserId: requestAccount, _expectedSessionIdentity: requestIdentity, ...args[configIndex],

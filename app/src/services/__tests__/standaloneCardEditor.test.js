@@ -75,7 +75,7 @@ mock.module('../apiConfig.js', {
 
 const { sha256Hex, sha256BytesHex } = await import('../../pilot/sha256.js');
 const { buildZipArchive, computeCrc32 } = await import('../../pilot/zipCodec.js');
-const { validateStandaloneCardContent } = await import('../../utils/cardDraft.js');
+const { validateNativeV2Content } = await import('../../utils/nativeV2Contract.js');
 const {
   STANDALONE_MAX_CARD_OP_RECEIPTS,
 } = await import('../../pilot/standaloneCardStorage.js');
@@ -304,40 +304,40 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     memStorage.set('native_language', 'ru');
   });
 
-  test('validateStandaloneCardContent accepts all 9 types and enforces canonical Native V2 constraints', () => {
+  test('validateNativeV2Content accepts all 9 types and enforces canonical Native V2 constraints', () => {
     for (const card of sampleCardsAll9()) {
-      validateStandaloneCardContent({ schema_version: 2, card });
+      validateNativeV2Content({ schema_version: 2, card });
     }
 
-    assert.throws(() => validateStandaloneCardContent(null), /schema_version: 2/);
-    assert.throws(() => validateStandaloneCardContent({ schema_version: 2, card: { type: 'unknown', data: {} } }), /тип/i);
-    assert.throws(() => validateStandaloneCardContent({
+    assert.throws(() => validateNativeV2Content(null), /Expected object/);
+    assert.throws(() => validateNativeV2Content({ schema_version: 2, card: { type: 'unknown', data: {} } }), /card.type/);
+    assert.throws(() => validateNativeV2Content({
       schema_version: 2,
       card: { type: 'standard', data: { prompt: 'A\0B', answer: 'C' } },
-    }), /размер|розмір|текст/i);
-    assert.throws(() => validateStandaloneCardContent({
+    }, { writable: true }), /Unicode/i);
+    assert.throws(() => validateNativeV2Content({
       schema_version: 2,
       card: { type: 'standard', data: { prompt: 'x', extra: 'y' } },
-    }), /Standard/i);
-    assert.throws(() => validateStandaloneCardContent({
+    }), /card.data.extra/i);
+    assert.throws(() => validateNativeV2Content({
       schema_version: 2,
       card: { type: 'standard', data: { prompt: 'x'.repeat(260 * 1024), answer: 'y' } },
-    }), /размер|розмір/i);
-    assert.throws(() => validateStandaloneCardContent({
+    }), /UTF-8 JSON/i);
+    assert.throws(() => validateNativeV2Content({
       schema_version: 2,
       card: {
         type: 'editable_text',
         data: { source_text: 'gleich', correct_text: 'gleich' },
       },
-    }), /различаться|різнитися/i);
-    assert.throws(() => validateStandaloneCardContent({
+    }), /source and correction must differ/i);
+    assert.throws(() => validateNativeV2Content({
       schema_version: 2,
       card: {
         type: 'editable_text',
         data: { source_text: 'alt', correct_text: 'neu', grading_policy: { mode: 'open_text' } },
       },
     }), /controlled_text|exact/i);
-    assert.throws(() => validateStandaloneCardContent({
+    assert.throws(() => validateNativeV2Content({
       schema_version: 2,
       card: {
         type: 'standard',
@@ -827,7 +827,7 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
       cardIdBase: d.id === 9101 ? 910100 : d.id === 9102 ? 910200 : 910300,
       document: structuredClone(d.document),
     }));
-    upgradedSpecs[0].document.cards[0].data.prompt = 'Seed V2 Prompt Should Be Skipped';
+    upgradedSpecs[0].document.cards[0].data.text = 'Seed V2 Text Should Be Skipped';
     const upgradedPack = buildStandalonePack({ packVersion: 2, deckSpecs: upgradedSpecs });
     await ensureStandaloneSeed({ db: backupDb, userId: STANDALONE_USER_ID, pack: upgradedPack });
     const seedCardAfterUpgrade = await backupDb.cards.get(editedSeedCard.id);
