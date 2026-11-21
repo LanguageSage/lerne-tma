@@ -27,7 +27,7 @@ function formatTimestamp(isoString, locale) {
   return new Date(parsed).toLocaleString(locale || undefined);
 }
 
-export const StandaloneBackupSection = () => {
+export const StandaloneBackupSection = ({ refreshToken = 0 }) => {
   const locale = useInterfaceLocale();
   const showToast = useUiStore(state => state.showToast);
   const fileInputRef = useRef(null);
@@ -49,7 +49,7 @@ export const StandaloneBackupSection = () => {
 
   useEffect(() => {
     void refreshStatus();
-  }, [refreshStatus]);
+  }, [refreshStatus, refreshToken]);
 
   const handleExport = async () => {
     if (busy) return;
@@ -346,10 +346,18 @@ export const StandaloneBackupSection = () => {
             </div>
             <div>
               {tr('В файле: {{p0}} записей ({{p1}} изучено).', {
-                p0: pendingRestore.preview.backupProgressCount,
-                p1: pendingRestore.preview.backupReviewedCount,
+                p0: pendingRestore.preview.totalBackupRecords ?? pendingRestore.preview.backupProgressCount,
+                p1: pendingRestore.preview.totalBackupReviewed ?? pendingRestore.preview.backupReviewedCount,
               })}
             </div>
+            {(pendingRestore.preview.backupImportedCount || 0) > 0 && (
+              <div>
+                {tr('Импортированные курсы: найдено совпадений — {{p0}}, не найдено на устройстве — {{p1}}.', {
+                  p0: pendingRestore.preview.matchedImportedRecords || 0,
+                  p1: pendingRestore.preview.unmatchedImportedRecords || 0,
+                })}
+              </div>
+            )}
             {pendingRestore.preview.willOverwriteLocalProgress && (
               <div style={{ color: '#fcd34d', fontWeight: 600 }}>
                 {tr('Внимание: на этом устройстве уже есть локальный прогресс ({{p0}} записей). Подтверждение перезапишет его данными из файла.', {

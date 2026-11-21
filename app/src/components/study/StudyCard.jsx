@@ -264,14 +264,14 @@ export const StudyCard = React.memo(({
 
   const frontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: isBackPrompt ? null : frontVoicePicker,
+    voicePicker: (IS_STANDALONE || isBackPrompt) ? null : frontVoicePicker,
     cardText: isBackPrompt ? '' : frontText,
     cardId: isBackPrompt ? null : card?.id,
   };
 
   const backFrontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: isReverse ? null : frontVoicePicker,
+    voicePicker: (IS_STANDALONE || isReverse) ? null : frontVoicePicker,
     cardText: isReverse ? '' : frontText,
     cardId: isReverse ? null : card?.id,
   };
@@ -282,9 +282,9 @@ export const StudyCard = React.memo(({
   };
 
   const hasExistingFrontAudio = Boolean(getPhysicalSideAudioSource(card, promptPhysicalSide));
-  const showFrontAudio = Boolean(hasExistingFrontAudio || (!isBackPrompt && frontText));
+  const showFrontAudio = Boolean(hasExistingFrontAudio || (!IS_STANDALONE && !isBackPrompt && frontText));
   const hasExistingBackFrontAudio = Boolean(getPhysicalSideAudioSource(card, isReverse ? 'back' : 'front'));
-  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!isReverse && frontText));
+  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!IS_STANDALONE && !isReverse && frontText));
 
   return (
     <NativeCardViewer
@@ -322,7 +322,7 @@ export const StudyCard = React.memo(({
           ? <MarkdownRenderer>{raw}</MarkdownRenderer>
           : <KaraokeText text={plain} activeWordIndex={activeWordIndex} style={style} />
       )}
-      evaluateAnswer={evaluateFreeTextAnswer}
+      evaluateAnswer={IS_STANDALONE ? null : evaluateFreeTextAnswer}
       isAdmin={isAdmin}
       onBeforeDictation={stopGlobalAudio}
       onTrainerAnswer={onTrainerAnswer}
@@ -339,7 +339,7 @@ export const StudyCard = React.memo(({
           onFlip={onFlip}
           loading={loading}
           playAudio={playAudio}
-          onPlayCardAudio={async () => {
+          onPlayCardAudio={IS_STANDALONE ? null : async () => {
             const url = await frontVoicePicker.generateAndSaveToCard(card?.id, frontText, false);
             if (url) playAudio?.(url);
           }}

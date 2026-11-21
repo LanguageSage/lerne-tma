@@ -6,6 +6,8 @@ import { useUiStore } from '../store/useUiStore.js';
 import { useLanguageStore } from '../store/useLanguageStore.js';
 import { storage } from '../utils/auth.js';
 import { tr } from '../i18n/locale.js';
+import { prepareLocalDb } from '../services/localDb.js';
+import { initOfflineMediaStore } from './offlineMediaStore.js';
 import { ensureStandaloneSeed } from './standaloneSeed.js';
 
 function ensureStandaloneLanguageDefaults() {
@@ -41,6 +43,9 @@ export function runStandaloneBootstrap() {
 
       useSettingsStore.getState().activateSettingsAccount();
       await ensureStandaloneSeed();
+      if (cancelled) return;
+
+      await initOfflineMediaStore(await prepareLocalDb());
       if (cancelled) return;
 
       const initRes = await offlineApi.handle('get', '/init');

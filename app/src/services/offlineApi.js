@@ -2,7 +2,7 @@ import { tr } from '../i18n/locale';
 import { getLocalDb, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
 import { getUserId, getUserProfile, getSessionIdentity } from '../utils/auth';
-import { cardMediaView } from './mediaCache';
+import { cardMediaView, localMediaURL } from './mediaCache';
 import { emptyStudyProgress } from '../utils/structuredStudyCard.js';
 import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
@@ -68,8 +68,20 @@ async function deckCards(db, deckId) {
   return ordered((await db.cards.where('deck_id').equals(deckId).toArray()).filter(c => c.content_v2 && !c.is_deleted));
 }
 
-const activeFolders = (db, language) => db.folders.filter(folder => !folder.is_deleted
-  && (!language || !folder.target_language || folder.target_language === language)).toArray();
+const STANDALONE_SUPPORTED_LANGUAGES = new Set(['de', 'en', 'no']);
+const matchesVisibleLanguage = (itemLang, language, standalone) => (
+  !language
+  || !itemLang
+  || itemLang === language
+  || (standalone && !STANDALONE_SUPPORTED_LANGUAGES.has(itemLang))
+);
+const RESOURCE_KIND_MAP = { image: 'images', audio: 'audio', video: 'videos', background: 'backgrounds' };
+
+const activeFolders = (db, language) => {
+  const standalone = isStandaloneDb(db);
+  return db.folders.filter(folder => !folder.is_deleted
+    && matchesVisibleLanguage(folder.target_language, language, standalone)).toArray();
+};
 
 export async function readPulledFolders() {
   const db = getLocalDb();
@@ -182,13 +194,27 @@ export const offlineApi = {
 
     if (m === 'get' && ['/init', '/decks', '/folders'].includes(url)) {
       const language = localStorage.getItem('lerne_target_language') || 'de';
-      const decks = ordered(await db.decks.filter(d => !d.is_deleted && (!d.target_language || d.target_language === language)).toArray());
-      for (const deck of decks) {
+      const standalone = isStandaloneDb(db);
+      const rawDecks = ordered(await db.decks.filter(d => !d.is_deleted
+        && matchesVisibleLanguage(d.target_language, language, standalone)).toArray());
+      const decks = await Promise.all(rawDecks.map(async (deck) => {
         deck.stats = await deckStats(db, deck.id, userId);
         deck.metadata = jsonObject(deck.metadata);
         delete deck.metadata.is_learning;
         deck.is_learning = deck.is_learning ?? false;
-      }
+        if (standalone && Array.isArray(deck.metadata?.resources) && deck.metadata.resources.length > 0) {
+          const resolvedResources = await Promise.all(deck.metadata.resources.map(async (res) => {
+            if (!res || typeof res !== 'object') return res;
+            const raw = res.url || res.path;
+            if (!raw) return res;
+            const folder = RESOURCE_KIND_MAP[res.type] || 'images';
+            const resolvedUrl = await localMediaURL(db, raw, folder, false);
+            return resolvedUrl ? { ...res, url: resolvedUrl } : { ...res, url: '' };
+          }));
+          deck.metadata = { ...deck.metadata, resources: resolvedResources };
+        }
+        return deck;
+      }));
       const folders = ordered(await activeFolders(db, language));
       if (url === '/decks') return result(decks);
       if (url === '/folders') return result(folders);

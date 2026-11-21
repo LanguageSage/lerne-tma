@@ -173,10 +173,12 @@ export const DeckGrid = ({
   };
 
   const currentFolders = React.useMemo(() => {
+    const supported = new Set(['de', 'en', 'no']);
     return folders ? folders.filter(f => {
       if ((f.parent_id ?? null) !== (activeFolderId ?? null)) return false;
       if (activeFolderId !== null) return true;
-      return (f.target_language || 'de') === activeLanguage;
+      const folderLang = f.target_language || 'de';
+      return folderLang === activeLanguage || (IS_STANDALONE && !supported.has(folderLang));
     }) : [];
   }, [folders, activeFolderId, activeLanguage]);
 

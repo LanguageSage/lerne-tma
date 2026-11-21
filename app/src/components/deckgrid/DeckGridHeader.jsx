@@ -1,7 +1,7 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React from 'react';
-import { Plus, Settings, ChevronLeft, Search, BookOpen, MessageSquare } from 'lucide-react';
+import { Plus, Settings, ChevronLeft, Search, BookOpen, MessageSquare, Package } from 'lucide-react';
 import { useUiStore } from '../../store/useUiStore';
 import { getAccessToken, getUserId } from '../../utils/auth';
 import { networkApi } from '../../services/api';
@@ -93,6 +93,18 @@ export const DeckGridHeader = ({
           >
             <Search size={20} />
           </button>
+          {IS_STANDALONE && (
+            <button
+              type="button"
+              className="header-action-btn"
+              onClick={() => useUiStore.getState().openSettings('profile')}
+              title={tr('Учебные материалы (ZIP)')}
+              aria-label={tr('Учебные материалы (ZIP)')}
+              data-testid="standalone-open-materials-btn"
+            >
+              <Package size={20} aria-hidden="true" />
+            </button>
+          )}
           <button 
             id="tut-main-settings" 
             className="settings-btn" 

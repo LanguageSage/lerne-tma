@@ -9,11 +9,12 @@ import { sha256Hex } from './sha256.js';
 export const PROGRESS_BACKUP_FORMAT = 'lerne-offline-progress-backup';
 export const PROGRESS_BACKUP_SCHEMA_VERSION = 1;
 export const PROGRESS_BACKUP_INTEGRITY_SCOPE = 'full-v1';
+export const PROGRESS_BACKUP_INTEGRITY_SCOPE_V2 = 'full-v2';
 export const LAST_BACKUP_META_KEY = 'standalone_last_progress_backup';
 export const LAST_RESTORE_META_KEY = 'standalone_last_progress_restore';
 
 const ALLOWED_QUEUES = new Set(['new', 'learning', 'relearning', 'review']);
-const ALLOWED_INTEGRITY_SCOPES = new Set(['core-v1', 'full-v1']);
+const ALLOWED_INTEGRITY_SCOPES = new Set(['core-v1', 'full-v1', 'full-v2']);
 
 export function canonicalJson(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
@@ -36,7 +37,7 @@ export function canonicalJson(value) {
 }
 
 export function computeBackupHash(payload) {
-  return sha256Hex(canonicalJson({
+  const base = {
     format: payload.format,
     schema_version: payload.schema_version,
     exported_at: payload.exported_at,
@@ -44,7 +45,12 @@ export function computeBackupHash(payload) {
     summary: payload.summary,
     records: payload.records,
     deck_preferences: payload.deck_preferences,
-  }));
+  };
+  if (payload.imported_records !== undefined || payload.imported_deck_preferences !== undefined) {
+    base.imported_records = payload.imported_records || [];
+    base.imported_deck_preferences = payload.imported_deck_preferences || [];
+  }
+  return sha256Hex(canonicalJson(base));
 }
 
 export function computeLegacyCoreBackupHash(payload) {
@@ -65,6 +71,62 @@ function isNullableIsoDate(value) {
 
 function isReviewedRecord(record) {
   return Boolean(record && (record.last_reviewed != null || record.queue !== 'new' || (record.repetitions || 0) > 0));
+}
+
+function hasValidSrsFields(record) {
+  return (
+    ALLOWED_QUEUES.has(record.queue)
+    && typeof record.interval === 'number' && Number.isFinite(record.interval) && record.interval >= 0
+    && typeof record.ease_factor === 'number' && Number.isFinite(record.ease_factor) && record.ease_factor >= 1.0 && record.ease_factor <= 5.0
+    && Number.isInteger(record.repetitions) && record.repetitions >= 0
+    && Number.isInteger(record.lapses) && record.lapses >= 0
+    && (record.step_index === null || (Number.isInteger(record.step_index) && record.step_index >= 0))
+    && Number.isInteger(record.flag) && record.flag >= 0 && record.flag <= 7
+    && typeof record.want_to_learn === 'boolean'
+    && isNullableIsoDate(record.next_review)
+    && isNullableIsoDate(record.last_reviewed)
+    && isNullableIsoDate(record.updated_at)
+  );
+}
+
+function serializeProgressRecord(row, cardKey, extra = {}) {
+  return {
+    card_id: row.card_id,
+    card_key: cardKey,
+    ...extra,
+    queue: ALLOWED_QUEUES.has(row.queue) ? row.queue : 'new',
+    interval: typeof row.interval === 'number' && Number.isFinite(row.interval) && row.interval >= 0 ? row.interval : 0,
+    ease_factor: typeof row.ease_factor === 'number' && Number.isFinite(row.ease_factor) && row.ease_factor >= 1.0 && row.ease_factor <= 5.0
+      ? row.ease_factor : 2.5,
+    repetitions: Number.isInteger(row.repetitions) && row.repetitions >= 0 ? row.repetitions : 0,
+    lapses: Number.isInteger(row.lapses) && row.lapses >= 0 ? row.lapses : 0,
+    step_index: Number.isInteger(row.step_index) && row.step_index >= 0 ? row.step_index : null,
+    flag: Number.isInteger(row.flag) && row.flag >= 0 && row.flag <= 7 ? row.flag : 0,
+    want_to_learn: Boolean(row.want_to_learn),
+    next_review: typeof row.next_review === 'string' && Number.isFinite(Date.parse(row.next_review)) ? row.next_review : null,
+    last_reviewed: typeof row.last_reviewed === 'string' && Number.isFinite(Date.parse(row.last_reviewed)) ? row.last_reviewed : null,
+    updated_at: typeof row.updated_at === 'string' && Number.isFinite(Date.parse(row.updated_at)) ? row.updated_at : null,
+  };
+}
+
+function toDbProgressRow(cardId, userId, rec, fallbackNowIso) {
+  return {
+    card_id: cardId,
+    user_id: userId,
+    queue: rec.queue,
+    interval: rec.interval,
+    ease_factor: rec.ease_factor,
+    repetitions: rec.repetitions,
+    lapses: rec.lapses,
+    step_index: rec.step_index,
+    flag: rec.flag,
+    want_to_learn: rec.want_to_learn,
+    is_leech: isLeech(rec.lapses),
+    next_review: rec.next_review,
+    last_reviewed: rec.last_reviewed,
+    updated_at: rec.updated_at || fallbackNowIso,
+    is_dirty: 0,
+  };
 }
 
 function formatBackupFileName(date) {
@@ -130,13 +192,23 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
   }
 
   const integrityScope = parsed.integrity.scope;
-  if (integrityScope === 'full-v1' && (parsed.summary === undefined || parsed.exported_at === undefined)) {
+  const hasImportedSection = parsed.imported_records !== undefined || parsed.imported_deck_preferences !== undefined;
+  if (
+    (integrityScope === 'full-v1' || integrityScope === 'full-v2')
+    && (parsed.summary === undefined || parsed.exported_at === undefined)
+  ) {
+    return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
+  }
+  if (integrityScope === 'full-v2' && (!Array.isArray(parsed.imported_records) || !Array.isArray(parsed.imported_deck_preferences))) {
+    return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
+  }
+  if (integrityScope !== 'full-v2' && hasImportedSection) {
     return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
   }
 
   let hashMatches = false;
   try {
-    if (integrityScope === 'full-v1') {
+    if (integrityScope === 'full-v1' || integrityScope === 'full-v2') {
       hashMatches = computeBackupHash(parsed) === parsed.integrity.payload_hash;
     } else {
       const legacyHash = computeLegacyCoreBackupHash(parsed);
@@ -184,15 +256,19 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     };
   }
 
-  if (integrityScope === 'full-v1' || parsed.summary !== undefined) {
-    if (
-      !parsed.summary
-      || typeof parsed.summary !== 'object'
-      || Array.isArray(parsed.summary)
-      || parsed.summary.total_records !== parsed.records.length
-      || parsed.summary.reviewed_records !== parsed.records.filter(isReviewedRecord).length
-      || parsed.summary.deck_count !== parsed.deck_preferences.length
-    ) {
+  if (integrityScope === 'full-v1' || integrityScope === 'full-v2' || parsed.summary !== undefined) {
+    const baseSummaryMatches = parsed.summary
+      && typeof parsed.summary === 'object'
+      && !Array.isArray(parsed.summary)
+      && parsed.summary.total_records === parsed.records.length
+      && parsed.summary.reviewed_records === parsed.records.filter(isReviewedRecord).length
+      && parsed.summary.deck_count === parsed.deck_preferences.length;
+    const importedSummaryMatches = integrityScope !== 'full-v2' || (
+      parsed.summary.imported_records === parsed.imported_records.length
+      && parsed.summary.imported_reviewed_records === parsed.imported_records.filter(isReviewedRecord).length
+      && parsed.summary.imported_deck_count === parsed.imported_deck_preferences.length
+    );
+    if (!baseSummaryMatches || !importedSummaryMatches) {
       return {
         ok: false,
         code: 'INVALID_METADATA',
@@ -222,17 +298,7 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
       };
     }
 
-    if (!ALLOWED_QUEUES.has(record.queue)
-      || typeof record.interval !== 'number' || !Number.isFinite(record.interval) || record.interval < 0
-      || typeof record.ease_factor !== 'number' || !Number.isFinite(record.ease_factor) || record.ease_factor < 1.0 || record.ease_factor > 5.0
-      || !Number.isInteger(record.repetitions) || record.repetitions < 0
-      || !Number.isInteger(record.lapses) || record.lapses < 0
-      || (record.step_index !== null && (!Number.isInteger(record.step_index) || record.step_index < 0))
-      || !Number.isInteger(record.flag) || record.flag < 0 || record.flag > 7
-      || typeof record.want_to_learn !== 'boolean'
-      || !isNullableIsoDate(record.next_review)
-      || !isNullableIsoDate(record.last_reviewed)
-      || !isNullableIsoDate(record.updated_at)) {
+    if (!hasValidSrsFields(record)) {
       return {
         ok: false,
         code: 'INVALID_SRS_FIELDS',
@@ -255,6 +321,35 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     }
   }
 
+  if (integrityScope === 'full-v2') {
+    const seenImportedKeys = new Set();
+    for (const record of parsed.imported_records) {
+      if (!record || typeof record !== 'object' || Array.isArray(record)
+        || !Number.isInteger(record.card_id)
+        || typeof record.card_key !== 'string' || !record.card_key.trim()
+        || typeof record.deck_key !== 'string'
+        || seenImportedKeys.has(record.card_key)) {
+        return { ok: false, code: 'INVALID_RECORD', error: tr('Одна из записей прогресса в файле повреждена.') };
+      }
+      seenImportedKeys.add(record.card_key);
+      if (!hasValidSrsFields(record)) {
+        return { ok: false, code: 'INVALID_SRS_FIELDS', error: tr('Некорректные значения SRS в резервной копии.') };
+      }
+    }
+
+    const seenImportedDecks = new Set();
+    for (const pref of parsed.imported_deck_preferences) {
+      if (!pref || typeof pref !== 'object' || Array.isArray(pref)
+        || !Number.isInteger(pref.deck_id)
+        || typeof pref.deck_key !== 'string' || !pref.deck_key.trim()
+        || typeof pref.is_learning !== 'boolean'
+        || seenImportedDecks.has(pref.deck_key)) {
+        return { ok: false, code: 'INVALID_DECK_PREF', error: tr('Некорректные настройки колод в резервной копии.') };
+      }
+      seenImportedDecks.add(pref.deck_key);
+    }
+  }
+
   return { ok: true, backup: parsed };
 }
 
@@ -264,8 +359,8 @@ export async function recordBackupExportMeta({ db = null, exportedAt, summary } 
   await database.syncState.put({
     key: LAST_BACKUP_META_KEY,
     exported_at: timestamp,
-    total_records: summary?.total_records ?? 0,
-    reviewed_records: summary?.reviewed_records ?? 0,
+    total_records: (summary?.total_records ?? 0) + (summary?.imported_records ?? 0),
+    reviewed_records: (summary?.reviewed_records ?? 0) + (summary?.imported_reviewed_records ?? 0),
   });
 }
 
@@ -278,30 +373,19 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   }
 
   const { byId } = getStandaloneCardLookup(resolvedPack);
-  const [rawProgress, deckRows] = await Promise.all([
+  const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
+
+  const [rawProgress, deckRows, allDecks, allCards] = await Promise.all([
     database.progress.where('user_id').equals(resolvedUserId).toArray(),
     database.decks.bulkGet(resolvedPack.decks.map(d => d.id)),
+    database.decks.filter(d => !d.is_deleted).toArray(),
+    database.cards.filter(c => !c.is_deleted).toArray(),
   ]);
 
   const records = rawProgress
     .filter(row => byId.has(row.card_id))
     .sort((a, b) => a.card_id - b.card_id)
-    .map(row => ({
-      card_id: row.card_id,
-      card_key: byId.get(row.card_id).cardKey,
-      queue: ALLOWED_QUEUES.has(row.queue) ? row.queue : 'new',
-      interval: typeof row.interval === 'number' && Number.isFinite(row.interval) && row.interval >= 0 ? row.interval : 0,
-      ease_factor: typeof row.ease_factor === 'number' && Number.isFinite(row.ease_factor) && row.ease_factor >= 1.0 && row.ease_factor <= 5.0
-        ? row.ease_factor : 2.5,
-      repetitions: Number.isInteger(row.repetitions) && row.repetitions >= 0 ? row.repetitions : 0,
-      lapses: Number.isInteger(row.lapses) && row.lapses >= 0 ? row.lapses : 0,
-      step_index: Number.isInteger(row.step_index) && row.step_index >= 0 ? row.step_index : null,
-      flag: Number.isInteger(row.flag) && row.flag >= 0 && row.flag <= 7 ? row.flag : 0,
-      want_to_learn: Boolean(row.want_to_learn),
-      next_review: typeof row.next_review === 'string' && Number.isFinite(Date.parse(row.next_review)) ? row.next_review : null,
-      last_reviewed: typeof row.last_reviewed === 'string' && Number.isFinite(Date.parse(row.last_reviewed)) ? row.last_reviewed : null,
-      updated_at: typeof row.updated_at === 'string' && Number.isFinite(Date.parse(row.updated_at)) ? row.updated_at : null,
-    }));
+    .map(row => serializeProgressRecord(row, byId.get(row.card_id).cardKey));
 
   const deckPreferences = resolvedPack.decks
     .map((deck, idx) => ({
@@ -311,11 +395,45 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     }))
     .sort((a, b) => a.deck_id - b.deck_id);
 
+  const importedDecks = allDecks
+    .filter(d => !builtInDeckIds.has(d.id) && typeof d.standalone_deck_key === 'string' && d.standalone_deck_key)
+    .sort((a, b) => a.standalone_deck_key.localeCompare(b.standalone_deck_key));
+  const importedDeckById = new Map(importedDecks.map(d => [d.id, d]));
+
+  const importedCards = allCards.filter(c => (
+    !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key
+  ));
+  const importedCardById = new Map(importedCards.map(c => [c.id, c]));
+
+  const importedRecords = rawProgress
+    .filter(row => importedCardById.has(row.card_id))
+    .map(row => {
+      const card = importedCardById.get(row.card_id);
+      const deck = importedDeckById.get(card.deck_id);
+      return serializeProgressRecord(row, card.standalone_card_key, {
+        deck_key: deck?.standalone_deck_key || '',
+      });
+    })
+    .sort((a, b) => a.card_key.localeCompare(b.card_key));
+
+  const importedDeckPreferences = importedDecks.map(deck => ({
+    deck_id: deck.id,
+    deck_key: deck.standalone_deck_key,
+    name: deck.name || '',
+    is_learning: Boolean(deck.is_learning),
+  }));
+
+  const hasImported = importedRecords.length > 0 || importedDeckPreferences.length > 0;
   const exportedAt = now.toISOString();
   const summary = {
     total_records: records.length,
     reviewed_records: records.filter(isReviewedRecord).length,
     deck_count: resolvedPack.decks.length,
+    ...(hasImported ? {
+      imported_records: importedRecords.length,
+      imported_reviewed_records: importedRecords.filter(isReviewedRecord).length,
+      imported_deck_count: importedDeckPreferences.length,
+    } : {}),
   };
 
   const payload = {
@@ -332,13 +450,17 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     summary,
     records,
     deck_preferences: deckPreferences,
+    ...(hasImported ? {
+      imported_records: importedRecords,
+      imported_deck_preferences: importedDeckPreferences,
+    } : {}),
   };
 
   const backup = {
     ...payload,
     integrity: {
       algorithm: 'sha256',
-      scope: PROGRESS_BACKUP_INTEGRITY_SCOPE,
+      scope: hasImported ? PROGRESS_BACKUP_INTEGRITY_SCOPE_V2 : PROGRESS_BACKUP_INTEGRITY_SCOPE,
       payload_hash: computeBackupHash(payload),
     },
   };
@@ -365,10 +487,21 @@ export async function inspectProgressBackup(rawText, { db = null, userId = null,
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
   const { byId } = getStandaloneCardLookup(resolvedPack);
-  const currentRows = (await database.progress.where('user_id').equals(resolvedUserId).toArray())
-    .filter(row => byId.has(row.card_id));
+  const [progressRows, allCards] = await Promise.all([
+    database.progress.where('user_id').equals(resolvedUserId).toArray(),
+    database.cards.filter(c => !c.is_deleted).toArray(),
+  ]);
 
+  const importedCards = allCards.filter(c => !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key);
+  const importedCardById = new Map(importedCards.map(c => [c.id, c]));
+  const importedCardByKey = new Map(importedCards.map(c => [c.standalone_card_key, c]));
+
+  const currentRows = progressRows.filter(row => byId.has(row.card_id) || importedCardById.has(row.card_id));
   const parsed = validation.backup;
+  const importedRecords = Array.isArray(parsed.imported_records) ? parsed.imported_records : [];
+  const matchedImported = importedRecords.filter(rec => importedCardByKey.has(rec.card_key));
+  const unmatchedImported = importedRecords.length - matchedImported.length;
+
   return {
     ok: true,
     backup: parsed,
@@ -379,6 +512,12 @@ export async function inspectProgressBackup(rawText, { db = null, userId = null,
       fingerprintMatchesExact: parsed.app.card_set_fingerprint === resolvedPack.cardSetFingerprint,
       backupProgressCount: parsed.records.length,
       backupReviewedCount: parsed.records.filter(isReviewedRecord).length,
+      backupImportedCount: importedRecords.length,
+      backupImportedReviewedCount: importedRecords.filter(isReviewedRecord).length,
+      matchedImportedRecords: matchedImported.length,
+      unmatchedImportedRecords: unmatchedImported,
+      totalBackupRecords: parsed.records.length + importedRecords.length,
+      totalBackupReviewed: parsed.records.filter(isReviewedRecord).length + importedRecords.filter(isReviewedRecord).length,
       currentProgressCount: currentRows.length,
       currentReviewedCount: currentRows.filter(isReviewedRecord).length,
       willOverwriteLocalProgress: currentRows.length > 0,
@@ -402,31 +541,66 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
 
   const bundledCardIds = new Set(resolvedPack.cards.map(c => c.id));
   const nowIso = new Date().toISOString();
+  let restoredImportedRecords = 0;
+  let restoredImportedReviewed = 0;
+  let unmatchedImportedRecords = 0;
 
-  await database.transaction('rw', database.progress, database.decks, database.syncState, async () => {
-    const existingRows = (await database.progress.where('user_id').equals(resolvedUserId).toArray())
-      .filter(row => bundledCardIds.has(row.card_id));
-    if (existingRows.length > 0) {
-      await database.progress.bulkDelete(existingRows.map(row => [row.card_id, resolvedUserId]));
+  await database.transaction('rw', database.progress, database.decks, database.cards, database.syncState, async () => {
+    const [existingProgressRows, allDecks, allCards] = await Promise.all([
+      database.progress.where('user_id').equals(resolvedUserId).toArray(),
+      database.decks.filter(d => !d.is_deleted).toArray(),
+      database.cards.filter(c => !c.is_deleted).toArray(),
+    ]);
+
+    const importedDeckByKey = new Map();
+    for (const deck of allDecks) {
+      if (deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
     }
 
-    const rowsToPut = backup.records.map(rec => ({
-      card_id: rec.card_id,
-      user_id: resolvedUserId,
-      queue: rec.queue,
-      interval: rec.interval,
-      ease_factor: rec.ease_factor,
-      repetitions: rec.repetitions,
-      lapses: rec.lapses,
-      step_index: rec.step_index,
-      flag: rec.flag,
-      want_to_learn: rec.want_to_learn,
-      is_leech: isLeech(rec.lapses),
-      next_review: rec.next_review,
-      last_reviewed: rec.last_reviewed,
-      updated_at: rec.updated_at || nowIso,
-      is_dirty: 0,
-    }));
+    const importedCardByKey = new Map();
+    for (const card of allCards) {
+      if (!bundledCardIds.has(card.id) && card.standalone_card_key) {
+        importedCardByKey.set(card.standalone_card_key, card);
+      }
+    }
+
+    const importedDecksPrefs = Array.isArray(backup.imported_deck_preferences) ? backup.imported_deck_preferences : [];
+    const importedRecords = Array.isArray(backup.imported_records) ? backup.imported_records : [];
+
+    const coveredImportedDeckIds = new Set(
+      importedDecksPrefs.map(p => importedDeckByKey.get(p.deck_key)?.id).filter(Boolean)
+    );
+    const matchedImportedPairs = [];
+    for (const rec of importedRecords) {
+      const localCard = importedCardByKey.get(rec.card_key);
+      if (localCard) {
+        matchedImportedPairs.push({ rec, localCard });
+      } else {
+        unmatchedImportedRecords += 1;
+      }
+    }
+    restoredImportedRecords = matchedImportedPairs.length;
+    restoredImportedReviewed = matchedImportedPairs.filter(({ rec }) => isReviewedRecord(rec)).length;
+
+    const targetCardIdsToReplace = new Set(bundledCardIds);
+    for (const card of allCards) {
+      if (coveredImportedDeckIds.has(card.deck_id)) {
+        targetCardIdsToReplace.add(card.id);
+      }
+    }
+    for (const { localCard } of matchedImportedPairs) {
+      targetCardIdsToReplace.add(localCard.id);
+    }
+
+    const existingToDelete = existingProgressRows.filter(row => targetCardIdsToReplace.has(row.card_id));
+    if (existingToDelete.length > 0) {
+      await database.progress.bulkDelete(existingToDelete.map(row => [row.card_id, resolvedUserId]));
+    }
+
+    const rowsToPut = [
+      ...backup.records.map(rec => toDbProgressRow(rec.card_id, resolvedUserId, rec, nowIso)),
+      ...matchedImportedPairs.map(({ rec, localCard }) => toDbProgressRow(localCard.id, resolvedUserId, rec, nowIso)),
+    ];
 
     if (rowsToPut.length > 0) {
       await database.progress.bulkPut(rowsToPut);
@@ -434,9 +608,9 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
 
     const prefMap = new Map(backup.deck_preferences.map(p => [p.deck_id, p.is_learning]));
     const deckIds = [...prefMap.keys()];
+    const updatedDecks = [];
     if (deckIds.length > 0) {
       const existingDecks = await database.decks.bulkGet(deckIds);
-      const updatedDecks = [];
       existingDecks.forEach((deck, index) => {
         if (!deck) return;
         updatedDecks.push({
@@ -445,9 +619,18 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
           learning_dirty: 0,
         });
       });
-      if (updatedDecks.length > 0) {
-        await database.decks.bulkPut(updatedDecks);
-      }
+    }
+    for (const pref of importedDecksPrefs) {
+      const localDeck = importedDeckByKey.get(pref.deck_key);
+      if (!localDeck) continue;
+      updatedDecks.push({
+        ...localDeck,
+        is_learning: Boolean(pref.is_learning),
+        learning_dirty: 0,
+      });
+    }
+    if (updatedDecks.length > 0) {
+      await database.decks.bulkPut(updatedDecks);
     }
 
     await database.syncState.where('key').startsWith('grade:').delete();
@@ -461,8 +644,11 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
   });
 
   return {
-    restoredRecords: backup.records.length,
-    restoredReviewed: backup.records.filter(isReviewedRecord).length,
+    restoredRecords: backup.records.length + restoredImportedRecords,
+    restoredReviewed: backup.records.filter(isReviewedRecord).length + restoredImportedReviewed,
+    restoredBuiltInRecords: backup.records.length,
+    restoredImportedRecords,
+    unmatchedImportedRecords,
     restoredAt: nowIso,
   };
 }
@@ -472,15 +658,27 @@ export async function getStandaloneBackupStatus({ db = null, userId = null, pack
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
   const { byId } = getStandaloneCardLookup(resolvedPack);
-  const [progressRows, lastBackup, lastRestore] = await Promise.all([
+  const [progressRows, allDecks, allCards, lastBackup, lastRestore] = await Promise.all([
     database.progress.where('user_id').equals(resolvedUserId).toArray(),
+    database.decks.filter(d => !d.is_deleted).toArray(),
+    database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),
     database.syncState.get(LAST_BACKUP_META_KEY),
     database.syncState.get(LAST_RESTORE_META_KEY),
   ]);
-  const relevant = progressRows.filter(row => byId.has(row.card_id));
+
+  const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
+  const importedDecks = allDecks.filter(d => !builtInDeckIds.has(d.id) && Boolean(d.standalone_deck_key));
+  const importedCardIds = new Set(allCards.filter(c => !byId.has(c.id) && Boolean(c.standalone_card_key)).map(c => c.id));
+  const activeCardIds = new Set([...byId.keys(), ...importedCardIds]);
+  const relevant = progressRows.filter(row => activeCardIds.has(row.card_id));
+
   return {
-    deckCount: resolvedPack.decks.length,
-    cardCount: resolvedPack.cards.length,
+    deckCount: allDecks.length,
+    cardCount: allCards.length,
+    builtInDeckCount: resolvedPack.decks.length,
+    builtInCardCount: resolvedPack.cards.length,
+    importedDeckCount: importedDecks.length,
+    importedCardCount: importedCardIds.size,
     progressCount: relevant.length,
     reviewedCount: relevant.filter(isReviewedRecord).length,
     lastBackupAt: lastBackup?.exported_at || null,

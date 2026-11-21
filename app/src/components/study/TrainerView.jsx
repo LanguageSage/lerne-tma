@@ -20,6 +20,7 @@ import { TrainerFinished } from './TrainerFinished.jsx';
 import { isNativeStudyCard, studyContent, studyErrorDetail, studyExerciseType, studyInfoBlocks, studySideText } from '../../utils/structuredStudyCard.js';
 import { StudyError } from './StudyError.jsx';
 import { navigateUp } from '../../utils/navigation';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const TrainerView = () => {
   useInterfaceLocale();
@@ -289,7 +290,7 @@ export const TrainerView = () => {
                     card={currentCard}
                     designConfig={effectiveConfig}
                     isAdmin={isAdmin}
-                    evaluateAnswer={evaluateFreeTextAnswer}
+                    evaluateAnswer={IS_STANDALONE ? null : evaluateFreeTextAnswer}
                     resolveMediaUrl={mediaURL}
                     onBeforeDictation={stopGlobalAudio}
                     studyMode="trainer"

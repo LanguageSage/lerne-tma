@@ -28,6 +28,7 @@ import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
 import { isNativeStudyCard, studyContent, studyExplanation, studySideText } from '../../utils/structuredStudyCard.js';
 import { useStudyStepFlow } from '../../hooks/useStudyStepFlow.js';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { canGradeStudyFlow, isSuccessfulStudyAnswer, STUDY_ACTION } from '../../utils/studySteps.js';
 
 
@@ -378,7 +379,9 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
           }
         };
         try {
-          if (!url || alwaysRegenerateAudio) {
+          if (IS_STANDALONE) {
+            if (!url) return;
+          } else if (!url || alwaysRegenerateAudio) {
             url = await generateAudio();
             if (cancelled) return;
           }

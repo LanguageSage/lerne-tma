@@ -16,65 +16,91 @@ const INITIAL_HASH = [
 
 const rotr = (value, bits) => (value >>> bits) | (value << (32 - bits));
 
+function toUint8Array(input) {
+  if (input instanceof Uint8Array) return input;
+  if (input instanceof ArrayBuffer) return new Uint8Array(input);
+  if (ArrayBuffer.isView(input)) return new Uint8Array(input.buffer, input.byteOffset, input.byteLength);
+  throw new TypeError('Expected Uint8Array, ArrayBuffer, or TypedArray');
+}
+
+function processBlock(blockBytes, view, offset, h, w) {
+  for (let i = 0; i < 16; i += 1) {
+    w[i] = view.getUint32(offset + i * 4, false);
+  }
+  for (let i = 16; i < 64; i += 1) {
+    const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
+    const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
+    w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
+  }
+
+  let [a, b, c, d, e, f, g, hh] = h;
+  for (let i = 0; i < 64; i += 1) {
+    const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
+    const ch = (e & f) ^ (~e & g);
+    const temp1 = (hh + S1 + ch + K[i] + w[i]) >>> 0;
+    const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
+    const maj = (a & b) ^ (a & c) ^ (b & c);
+    const temp2 = (S0 + maj) >>> 0;
+
+    hh = g;
+    g = f;
+    f = e;
+    e = (d + temp1) >>> 0;
+    d = c;
+    c = b;
+    b = a;
+    a = (temp1 + temp2) >>> 0;
+  }
+
+  h[0] = (h[0] + a) >>> 0;
+  h[1] = (h[1] + b) >>> 0;
+  h[2] = (h[2] + c) >>> 0;
+  h[3] = (h[3] + d) >>> 0;
+  h[4] = (h[4] + e) >>> 0;
+  h[5] = (h[5] + f) >>> 0;
+  h[6] = (h[6] + g) >>> 0;
+  h[7] = (h[7] + hh) >>> 0;
+}
+
+/**
+ * Compute a deterministic lowercase SHA-256 hex digest for raw bytes.
+ * Pure JS so ZIP/media integrity verification works identically in Node, HTTP test contexts, and Android WebView.
+ */
+export function sha256BytesHex(input) {
+  const bytes = toUint8Array(input);
+  const h = INITIAL_HASH.slice();
+  const w = new Uint32Array(64);
+  const fullBlockBytes = Math.floor(bytes.length / 64) * 64;
+  const inputView = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+
+  for (let offset = 0; offset < fullBlockBytes; offset += 64) {
+    processBlock(bytes, inputView, offset, h, w);
+  }
+
+  const remainder = bytes.length - fullBlockBytes;
+  const tailLength = remainder + 9 <= 64 ? 64 : 128;
+  const tail = new Uint8Array(tailLength);
+  if (remainder > 0) {
+    tail.set(bytes.subarray(fullBlockBytes));
+  }
+  tail[remainder] = 0x80;
+
+  const bitLength = bytes.length * 8;
+  const tailView = new DataView(tail.buffer);
+  tailView.setUint32(tailLength - 8, Math.floor(bitLength / 0x100000000), false);
+  tailView.setUint32(tailLength - 4, bitLength >>> 0, false);
+
+  for (let offset = 0; offset < tailLength; offset += 64) {
+    processBlock(tail, tailView, offset, h, w);
+  }
+
+  return Array.from(h, word => word.toString(16).padStart(8, '0')).join('');
+}
+
 /**
  * Compute a deterministic lowercase SHA-256 hex digest for UTF-8 text.
  * Pure JS so backup integrity verification works identically in Node, HTTP test contexts, and Android WebView.
  */
 export function sha256Hex(input) {
-  const bytes = new TextEncoder().encode(String(input ?? ''));
-  const bitLength = bytes.length * 8;
-  const paddedLength = Math.ceil((bytes.length + 9) / 64) * 64;
-  const padded = new Uint8Array(paddedLength);
-  padded.set(bytes);
-  padded[bytes.length] = 0x80;
-
-  const view = new DataView(padded.buffer);
-  const highBits = Math.floor(bitLength / 0x100000000);
-  const lowBits = bitLength >>> 0;
-  view.setUint32(paddedLength - 8, highBits, false);
-  view.setUint32(paddedLength - 4, lowBits, false);
-
-  const h = INITIAL_HASH.slice();
-  const w = new Uint32Array(64);
-
-  for (let offset = 0; offset < paddedLength; offset += 64) {
-    for (let i = 0; i < 16; i += 1) {
-      w[i] = view.getUint32(offset + i * 4, false);
-    }
-    for (let i = 16; i < 64; i += 1) {
-      const s0 = rotr(w[i - 15], 7) ^ rotr(w[i - 15], 18) ^ (w[i - 15] >>> 3);
-      const s1 = rotr(w[i - 2], 17) ^ rotr(w[i - 2], 19) ^ (w[i - 2] >>> 10);
-      w[i] = (w[i - 16] + s0 + w[i - 7] + s1) >>> 0;
-    }
-
-    let [a, b, c, d, e, f, g, hh] = h;
-    for (let i = 0; i < 64; i += 1) {
-      const S1 = rotr(e, 6) ^ rotr(e, 11) ^ rotr(e, 25);
-      const ch = (e & f) ^ (~e & g);
-      const temp1 = (hh + S1 + ch + K[i] + w[i]) >>> 0;
-      const S0 = rotr(a, 2) ^ rotr(a, 13) ^ rotr(a, 22);
-      const maj = (a & b) ^ (a & c) ^ (b & c);
-      const temp2 = (S0 + maj) >>> 0;
-
-      hh = g;
-      g = f;
-      f = e;
-      e = (d + temp1) >>> 0;
-      d = c;
-      c = b;
-      b = a;
-      a = (temp1 + temp2) >>> 0;
-    }
-
-    h[0] = (h[0] + a) >>> 0;
-    h[1] = (h[1] + b) >>> 0;
-    h[2] = (h[2] + c) >>> 0;
-    h[3] = (h[3] + d) >>> 0;
-    h[4] = (h[4] + e) >>> 0;
-    h[5] = (h[5] + f) >>> 0;
-    h[6] = (h[6] + g) >>> 0;
-    h[7] = (h[7] + hh) >>> 0;
-  }
-
-  return Array.from(h, word => word.toString(16).padStart(8, '0')).join('');
+  return sha256BytesHex(new TextEncoder().encode(String(input ?? '')));
 }

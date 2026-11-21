@@ -12,6 +12,7 @@ import { openExternalLink, closeApp } from '../../utils/platform';
 import { getSessionIdentity, getUserId, resetUserSession } from '../../utils/auth';
 import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { StandaloneBackupSection } from '../../pilot/StandaloneBackupSection.jsx';
+import { StandaloneMaterialsSection } from '../../pilot/StandaloneMaterialsSection.jsx';
 
 export const ProfileTab = ({ userId }) => {
   useInterfaceLocale();
@@ -29,6 +30,7 @@ export const ProfileTab = ({ userId }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [syncReport, setSyncReport] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [materialsVersion, setMaterialsVersion] = useState(0);
   useEffect(() => { setSyncReport(null); }, [userId, userProfile?.user_id]);
 
   useEffect(() => {
@@ -92,7 +94,8 @@ export const ProfileTab = ({ userId }) => {
   if (IS_STANDALONE) {
     return (
       <div className="profile-tab">
-        <StandaloneBackupSection />
+        <StandaloneMaterialsSection onMaterialsChanged={() => setMaterialsVersion(v => v + 1)} />
+        <StandaloneBackupSection refreshToken={materialsVersion} />
         <div className="link-telegram-section glass" style={{ marginTop: '16px', border: '1px solid rgba(168, 85, 247, 0.25)', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(59, 130, 246, 0.03))' }}>
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
             <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>

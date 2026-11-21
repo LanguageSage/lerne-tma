@@ -1,4 +1,6 @@
 import { IS_LOCAL } from './localMode.js';
+import { IS_STANDALONE } from './standaloneMode.js';
+import { isOfflineMediaUrl, resolveOfflineMediaUrlSync } from '../pilot/offlineMediaResolver.js';
 
 const SUPABASE_AUDIO_CDN = 'https://wdopyuulhiykrextyvnt.supabase.co/storage/v1/object/public/audio';
 
@@ -12,7 +14,8 @@ export const getAudioUrl = (pathOrUrl) => {
   if (!pathOrUrl || typeof pathOrUrl !== 'string') return '';
   const trimmed = pathOrUrl.trim();
   if (!trimmed) return '';
-  if (trimmed.startsWith('blob:') || trimmed.startsWith('data:')) return trimmed;
+  if (isOfflineMediaUrl(trimmed)) return trimmed;
+  if (IS_STANDALONE) return resolveOfflineMediaUrlSync(trimmed, 'audio') || '';
   if (IS_LOCAL) return `/api/media/audio/${trimmed.split('?')[0].split(/[\\/]/).pop()}`;
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
@@ -51,7 +54,9 @@ export function defaultResolveMediaUrl(path, kind = 'images') {
   if (kind === 'audio') return getAudioUrl(path);
   const trimmed = path.trim();
   if (!trimmed) return null;
-  if (/^(https?:|blob:|data:)/.test(trimmed)) return trimmed;
+  if (isOfflineMediaUrl(trimmed)) return trimmed;
+  if (IS_STANDALONE) return resolveOfflineMediaUrlSync(trimmed, kind);
+  if (/^https?:/.test(trimmed)) return trimmed;
   if (trimmed.startsWith('/api/media/')) return trimmed;
   const clean = trimmed.replace(/^(images|audio|videos)\//, '').replace(/^\/lid_images\//, '');
   return clean ? `/api/media/${kind}/${clean.split(/[\\/]/).pop()}` : null;
