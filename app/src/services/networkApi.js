@@ -14,6 +14,56 @@ const axiosInstance = axios.create({
 });
 
 // Bearer is the only credential. Saved account IDs only select offline storage.
+const statusFlights = new Map();
+const origStatusGet = axiosInstance.get.bind(axiosInstance);
+
+axiosInstance.get = function getWithStatusSingleFlight(url, config) {
+  if (
+    url !== '/sync/v2/status'
+    || config?._retry
+    || config?._bypassStatusFlight
+    || config?.signal
+    || config?.cancelToken
+    || (config?.params && Object.keys(config.params).length > 0)
+  ) {
+    return origStatusGet(url, config);
+  }
+  if (config?._expectedUserId !== undefined && config._expectedUserId !== getUserId()) {
+    return Promise.reject(new axios.CanceledError('Account changed before request'));
+  }
+  if (config?._expectedSessionIdentity !== undefined && config._expectedSessionIdentity !== getSessionIdentity()) {
+    return Promise.reject(new axios.CanceledError('Session changed before request'));
+  }
+  const expectedUserId = config?._expectedUserId !== undefined ? config._expectedUserId : getUserId();
+  const expectedIdentity = config?._expectedSessionIdentity !== undefined ? config._expectedSessionIdentity : getSessionIdentity();
+  const explicitAuth = config?.headers?.Authorization ?? config?.headers?.authorization ?? '';
+  if (!expectedIdentity && !explicitAuth) {
+    return origStatusGet(url, config);
+  }
+  const key = JSON.stringify([expectedUserId ?? null, expectedIdentity ?? null, explicitAuth || '']);
+  let entry = statusFlights.get(key);
+  if (!entry) {
+    const flightConfig = {
+      ...(config || {}),
+      _expectedUserId: expectedUserId,
+      _expectedSessionIdentity: expectedIdentity,
+    };
+    entry = { promise: null };
+    entry.promise = origStatusGet(url, flightConfig).finally(() => {
+      if (statusFlights.get(key) === entry) {
+        statusFlights.delete(key);
+      }
+    });
+    statusFlights.set(key, entry);
+  }
+  return entry.promise.then((response) => {
+    if (getUserId() !== expectedUserId || getSessionIdentity() !== expectedIdentity) {
+      throw new axios.CanceledError('Session changed during request');
+    }
+    return response;
+  });
+};
+
 axiosInstance.interceptors.request.use(async (config) => {
   if (config._retry && config._authIdentity !== getSessionIdentity()) {
     throw new axios.CanceledError('Session changed before retry');
@@ -50,7 +100,8 @@ axiosInstance.interceptors.request.use(async (config) => {
     config._authUserId = userId;
     config._authIdentity = getSessionIdentity();
   }
-  if (token && !url.startsWith('/auth/') && url !== '/sync/v2/status') {
+  const basePath = url.split('?')[0];
+  if (token && !basePath.startsWith('/auth/') && basePath !== '/sync/v2/status') {
     const db = getLocalDb();
     const current = () => getSessionIdentity() === config._authIdentity && getUserId() === config._authUserId;
     if (await db.syncState.get('serverGenerationConflict')) throw generationError();

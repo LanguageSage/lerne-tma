@@ -88,7 +88,7 @@ function SortableBlock({ item, block, position, update, onMove, children }) {
   </SortableCardItem>;
 }
 
-export function VisualCardFields({ cardData, update, exercise, dictation, footer }) {
+export function VisualCardFields({ cardData, update, exercise, dictation, footer, resolveMediaUrl }) {
   const card = cardData.content_v2.card;
   const layout = studyLayout(card, { afterAnswer: true });
   const fields = useRef(null);
@@ -127,7 +127,7 @@ export function VisualCardFields({ cardData, update, exercise, dictation, footer
   return <div ref={fields} className="visual-card-editor-layout">
     {dictation && <div className="visual-card-editor-dictation">{dictation}</div>}
     <SortableCardList items={layout.map(item => item.id)} onMove={move}>
-        <StructuredCardLayout card={cardData} afterAnswer
+        <StructuredCardLayout card={cardData} afterAnswer resolveMediaUrl={resolveMediaUrl}
           renderItem={(item, element, position) => <>
             {insertControl(position)}
             <SortableBlock item={item} position={position} block={item.type === 'info' ? card.info[item.index] : null}

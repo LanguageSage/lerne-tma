@@ -5,6 +5,9 @@ import { useSessionStore } from '../../store/useSessionStore.js';
 import { useDeckStore } from '../../store/useDeckStore.js';
 import { useSettingsStore } from '../../store/useSettingsStore.js';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
+import { evaluateFreeTextAnswer } from '../../services/answerEvaluationService.js';
+import { mediaURL } from '../../services/apiConfig.js';
+import { stopGlobalAudio } from '../../hooks/useAudio.js';
 import { assessmentSummary, recordAssessmentResult } from '../../utils/assessment.js';
 import { saveAssessment } from '../../services/assessmentService.js';
 import { returnToDeckIntro } from '../../utils/navigation.js';
@@ -88,7 +91,13 @@ export function AssessmentView() {
       {['trainer', 'free_text', 'editable_text'].includes(studyContent(card)?.type) ? <ExerciseRenderer
         key={`${session.id}:${card.id}`} reviewKey={`${session.id}:${card.id}`} card={card}
         supportHistoryUnknown={session.supportHistoryUnknownCardId === card.id}
-        studyMode="classic" native assessmentMode styles={settings} onTrainerAnswer={save} />
+        studyMode="classic" native assessmentMode
+        designConfig={settings.activeDesignConfig}
+        isAdmin={settings.isAdmin}
+        evaluateAnswer={evaluateFreeTextAnswer}
+        resolveMediaUrl={mediaURL}
+        onBeforeDictation={stopGlobalAudio}
+        styles={settings} onTrainerAnswer={save} />
         : <p role="alert">{tr('Механика задания не поддерживается в экзамене. Вернитесь к колоде.')}</p>}
       <div className="assessment-actions">
         {result ? <button type="button" className="btn btn-primary" disabled={busy || Boolean(error)} onClick={advance}>

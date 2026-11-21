@@ -168,7 +168,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator, openEditor } = useCardNavigation();
   const isDeckViewActive = ['cards', 'study', 'trainer', 'editor'].includes(view);
-  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck?.id, isDeckViewActive);
+  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck, isDeckViewActive);
 
 
 

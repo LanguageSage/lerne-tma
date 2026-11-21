@@ -368,7 +368,8 @@ async function runSync(userId, identity, isCurrent, {
   const refreshScheduled = pullApplied || refreshFromOutbox || libraryOnly || Boolean(progressIds);
   if (refreshScheduled) {
     const progressOnly = Boolean(progressIds && !refreshFromOutbox);
-    const hint = { libraryOnly, progressOnly, ...(progressOnly && { progressIds }) };
+    const fromPull = pullApplied || libraryOnly || Boolean(progressIds);
+    const hint = { libraryOnly, progressOnly, fromPull, ...(progressOnly && { progressIds }) };
     notifySyncUi('lerne:synced', { userId, complete: false, cardLifecycleRejection, ...hint }, hint);
   }
   if (background) return { success: !firstError, pull_success: pullSuccess, pull_applied: pullApplied, reason: firstError?.message };

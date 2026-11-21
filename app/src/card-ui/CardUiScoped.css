@@ -1,0 +1,1071 @@
+@import '../design/designUi.css';
+@import '../components/common/MarkdownRenderer.css';
+@import '../components/study/StudyCard.css';
+@import '../components/study/StudyCardTrainer.css';
+@import '../components/study/StudyCardMatch.css';
+@import '../components/study/StudyCardFreeText.css';
+@import '../components/study/StructuredCardLayout.css';
+@import '../components/study/CardAudioPlayer.css';
+@import '../components/study/StudyControlsBlock.css';
+@import '../components/study/KaraokeText.css';
+@import '../components/study/AnswerVictoryAnimation.css';
+@import '../components/common/CardForm.css';
+@import '../components/common/StructuredCardFields.css';
+@import '../components/common/VisualCardFields.css';
+@import '../components/common/TrainerCardFields.css';
+@import '../components/common/MatchCardFields.css';
+@import '../components/common/WrittenCardFields.css';
+
+.lerne-card-ui-root {
+  font-family: var(--design-ui-font, 'Inter'), sans-serif;
+  line-height: var(--design-ui-lh, 1.5);
+  color-scheme: dark;
+  color: var(--design-text-color, rgba(255, 255, 255, 0.87));
+  box-sizing: border-box;
+  width: 100%;
+}
+
+.lerne-card-ui-root *,
+.lerne-card-ui-root *::before,
+.lerne-card-ui-root *::after {
+  box-sizing: border-box;
+}
+
+.lerne-card-ui-root .glass {
+  background: var(--design-glass-bg, rgba(255, 255, 255, 0.05));
+  backdrop-filter: blur(var(--design-glass-blur, 12px));
+  -webkit-backdrop-filter: blur(var(--design-glass-blur, 12px));
+  border: 1px solid var(--design-glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: var(--design-radius, 20px);
+  box-shadow: var(--design-panel-shadow, none);
+}
+
+.lerne-card-ui-root .card-container {
+  width: 100%;
+  height: auto;
+  min-height: 250px;
+  position: relative;
+}
+
+.lerne-card-ui-root .card-inner {
+  position: relative;
+  width: 100%;
+  height: auto;
+  min-height: 250px;
+  border-radius: 20px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.lerne-card-ui-root .card-face {
+  position: relative;
+  z-index: 10;
+  width: 100%;
+  padding: 30px 20px;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-start;
+  align-items: center;
+  flex: 1;
+  background: transparent;
+}
+
+.lerne-card-ui-root .card-front {
+  background: rgba(30, 41, 59, 0.65);
+}
+
+.lerne-card-ui-root .card-back {
+  background: rgba(15, 23, 42, 0.7);
+}
+
+.lerne-card-ui-root .card-bg-layer {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+}
+
+.lerne-card-ui-root .card-front .bg-standard { background: rgba(30, 41, 59, 0.65); }
+.lerne-card-ui-root .card-back .bg-standard { background: rgba(15, 23, 42, 0.7); }
+
+.lerne-card-ui-root .bg-mesh { background: #0f172a; }
+.lerne-card-ui-root .bg-mesh .blob {
+  position: absolute;
+  border-radius: 50%;
+  filter: blur(45px);
+  opacity: 0.65;
+  mix-blend-mode: screen;
+}
+.lerne-card-ui-root .card-front .bg-mesh .blob { opacity: 0.5; }
+.lerne-card-ui-root .card-back .bg-mesh .blob { opacity: 0.8; }
+
+.lerne-card-ui-root .bg-aurora { background: #09090b; }
+.lerne-card-ui-root .aurora-wave {
+  position: absolute;
+  border-radius: 40% 60% 70% 30% / 40% 50% 60% 50%;
+  filter: blur(30px);
+  mix-blend-mode: overlay;
+}
+.lerne-card-ui-root .aurora-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(0, 0, 0, 0.4) 100%);
+  z-index: 1;
+}
+
+.lerne-card-ui-root .bg-holo { background: #1e1e2f; overflow: hidden; }
+.lerne-card-ui-root .holo-gradient { position: absolute; mix-blend-mode: color-dodge; opacity: 0.5; }
+.lerne-card-ui-root .holo-glass-effect {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.1) 0%, rgba(255, 255, 255, 0) 100%);
+  backdrop-filter: blur(2px);
+  z-index: 1;
+}
+
+.lerne-card-ui-root .bg-liquid { background: #0a1128; overflow: hidden; }
+.lerne-card-ui-root .liquid-container { position: absolute; inset: -20%; filter: contrast(130%) brightness(120%); }
+.lerne-card-ui-root .liquid-blob { position: absolute; border-radius: 50%; filter: blur(40px); mix-blend-mode: screen; opacity: 0.8; }
+.lerne-card-ui-root .blob-blue { width: 70%; height: 70%; background: radial-gradient(circle, rgba(0, 198, 255, 0.7), transparent 70%); top: -10%; left: -10%; }
+.lerne-card-ui-root .blob-purple { width: 80%; height: 80%; background: radial-gradient(circle, rgba(122, 47, 247, 0.6), transparent 70%); bottom: -20%; right: -20%; }
+.lerne-card-ui-root .blob-cyan { width: 60%; height: 60%; background: radial-gradient(circle, rgba(0, 255, 204, 0.5), transparent 70%); top: 30%; left: 30%; }
+
+.lerne-card-ui-root .bg-liquid-sunset { background: #1a0f0f; overflow: hidden; }
+.lerne-card-ui-root .bg-liquid-sunset .blob-1 { background: radial-gradient(circle, rgba(255, 82, 82, 0.6), transparent 70%); width: 80%; height: 80%; top: -10%; left: -10%; }
+.lerne-card-ui-root .bg-liquid-sunset .blob-2 { background: radial-gradient(circle, rgba(255, 171, 64, 0.5), transparent 70%); width: 70%; height: 70%; bottom: -10%; right: -10%; }
+.lerne-card-ui-root .bg-liquid-sunset .blob-3 { background: radial-gradient(circle, rgba(236, 72, 153, 0.4), transparent 70%); width: 60%; height: 60%; top: 30%; left: 30%; }
+
+.lerne-card-ui-root .bg-liquid-ocean { background: #020617; overflow: hidden; }
+.lerne-card-ui-root .bg-liquid-ocean .blob-1 { background: radial-gradient(circle, rgba(56, 189, 248, 0.6), transparent 70%); width: 90%; height: 90%; top: -20%; right: -10%; }
+.lerne-card-ui-root .bg-liquid-ocean .blob-2 { background: radial-gradient(circle, rgba(30, 64, 175, 0.5), transparent 70%); width: 80%; height: 80%; bottom: -10%; left: -10%; }
+.lerne-card-ui-root .bg-liquid-ocean .blob-3 { background: radial-gradient(circle, rgba(45, 212, 191, 0.4), transparent 70%); width: 70%; height: 70%; top: 20%; left: 20%; }
+
+.lerne-card-ui-root .bg-liquid-cosmic { background: #0c0a1f; overflow: hidden; }
+.lerne-card-ui-root .bg-liquid-cosmic .blob-1 { background: radial-gradient(circle, rgba(168, 85, 247, 0.6), transparent 70%); width: 85%; height: 85%; top: -10%; left: 10%; }
+.lerne-card-ui-root .bg-liquid-cosmic .blob-2 { background: radial-gradient(circle, rgba(236, 72, 153, 0.5), transparent 70%); width: 75%; height: 75%; bottom: 0; right: -10%; }
+.lerne-card-ui-root .bg-liquid-cosmic .blob-3 { background: radial-gradient(circle, rgba(79, 70, 229, 0.4), transparent 70%); width: 65%; height: 65%; top: 40%; left: -10%; }
+
+.lerne-card-ui-root .bg-liquid-morning { background: #0a2e2f; overflow: hidden; }
+.lerne-card-ui-root .bg-liquid-morning .blob-1 { background: radial-gradient(circle, rgba(34, 193, 195, 0.6), transparent 70%); width: 90%; height: 90%; top: -15%; right: -10%; }
+.lerne-card-ui-root .bg-liquid-morning .blob-2 { background: radial-gradient(circle, rgba(82, 192, 162, 0.5), transparent 70%); width: 80%; height: 80%; bottom: -10%; left: -10%; }
+.lerne-card-ui-root .bg-liquid-morning .blob-3 { background: radial-gradient(circle, rgba(253, 187, 45, 0.4), transparent 70%); width: 70%; height: 70%; top: 25%; left: 20%; }
+
+.lerne-card-ui-root .liquid-overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.05) 0%, rgba(255, 255, 255, 0) 100%);
+  z-index: 1;
+}
+
+.lerne-card-ui-root .bg-dark-obsidian { background: radial-gradient(circle at 50% 0%, #1e293b 0%, #0f172a 55%, #020617 100%); }
+.lerne-card-ui-root .bg-dark-minimal { background: linear-gradient(180deg, #18181b 0%, #09090b 100%); }
+.lerne-card-ui-root .bg-dark-midnight { background: radial-gradient(ellipse at top, #0f1d3a 0%, #070d1e 65%, #020617 100%); }
+.lerne-card-ui-root .bg-dark-emerald { background: radial-gradient(ellipse at top, #06281e 0%, #021a13 60%, #010d0a 100%); }
+.lerne-card-ui-root .bg-dark-mocha { background: radial-gradient(ellipse at top, #24160f 0%, #150c07 60%, #0a0503 100%); }
+
+.lerne-card-ui-root .bg-video { background: #000; overflow: hidden; }
+.lerne-card-ui-root .bg-video-element {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  min-width: 100%;
+  min-height: 100%;
+  width: auto;
+  height: auto;
+  transform: translate(-50%, -50%);
+  object-fit: cover;
+  opacity: 0.85;
+}
+.lerne-card-ui-root .video-overlay {
+  position: absolute;
+  inset: 0;
+  background: radial-gradient(circle at center, rgba(0, 0, 0, 0.1) 0%, rgba(0, 0, 0, 0.5) 100%);
+  z-index: 1;
+}
+
+.lerne-card-ui-root .video-container-card {
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  margin-bottom: 20px;
+  background: #000;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+.lerne-card-ui-root .video-container-card video {
+  width: 100%;
+  display: block;
+  object-fit: contain;
+}
+
+.lerne-card-ui-root .text-front,
+.lerne-card-ui-root .text-back,
+.lerne-card-ui-root .text-context,
+.lerne-card-ui-root .text-front-mini {
+  font-size: inherit;
+  color: inherit;
+  font-weight: 600;
+  line-height: 1.35;
+  margin: 0;
+  width: 100%;
+  overflow-wrap: break-word;
+  white-space: pre-wrap;
+}
+
+.lerne-card-ui-root .btn {
+  padding: 12px 24px;
+  border-radius: 12px;
+  border: none;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  touch-action: manipulation;
+}
+.lerne-card-ui-root .btn:active { transform: scale(0.95); }
+.lerne-card-ui-root .btn:disabled { opacity: 0.5; cursor: not-allowed; pointer-events: none; }
+
+.lerne-card-ui-root .btn-primary:not(.btn-grade) {
+  background: var(--design-btn-primary-bg, linear-gradient(135deg, #6366f1, #a855f7));
+  color: var(--design-btn-primary-color, #ffffff);
+  border: 1px solid var(--design-btn-primary-border, transparent);
+}
+.lerne-card-ui-root .btn-secondary {
+  background: var(--design-btn-secondary-bg, rgba(255, 255, 255, 0.08));
+}
+
+.lerne-card-ui-root .card-loading-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(2, 6, 23, 0.45);
+  border-radius: inherit;
+  z-index: 30;
+}
+
+.lerne-card-ui-root .card-back-front-section {
+  position: relative;
+  width: 100%;
+  padding: 8px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+  margin-bottom: 0;
+  backdrop-filter: blur(6px);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+}
+
+.lerne-card-ui-root .back-quiz-question {
+  font-size: 1.2rem;
+  font-weight: 700;
+  line-height: 1.4;
+  margin-bottom: 6px;
+}
+
+.lerne-card-ui-root .back-quiz-subdivider {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 10px 0 8px;
+  color: #94a3b8;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.4px;
+}
+
+.lerne-card-ui-root .back-quiz-subdivider::before,
+.lerne-card-ui-root .back-quiz-subdivider::after {
+  content: '';
+  flex: 1;
+  height: 1px;
+  background: rgba(255, 255, 255, 0.1);
+}
+
+.lerne-card-ui-root .back-quiz-options-compact {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-top: 4px;
+}
+
+.lerne-card-ui-root .back-quiz-opt-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  font-size: 0.95rem;
+  color: #cbd5e1;
+  text-align: left;
+}
+
+.lerne-card-ui-root .back-quiz-opt-row.is-correct {
+  background: rgba(34, 197, 94, 0.14);
+  border-color: rgba(34, 197, 94, 0.45);
+  color: #4ade80;
+  font-weight: 600;
+  box-shadow: 0 0 12px rgba(34, 197, 94, 0.15);
+}
+
+.lerne-card-ui-root .back-quiz-opt-tag {
+  width: 22px;
+  height: 22px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.1);
+  font-size: 0.75rem;
+  font-weight: 800;
+  flex-shrink: 0;
+}
+
+.lerne-card-ui-root .back-quiz-opt-row.is-correct .back-quiz-opt-tag {
+  background: #22c55e;
+  color: #020617;
+}
+
+.lerne-card-ui-root .back-quiz-opt-label { flex: 1; line-height: 1.35; }
+
+.lerne-card-ui-root .back-quiz-opt-badge {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #22c55e;
+  background: rgba(34, 197, 94, 0.18);
+  border: 1px solid rgba(34, 197, 94, 0.35);
+  padding: 2px 6px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+.lerne-card-ui-root .card-side-separator {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  margin: 8px 0 6px;
+}
+
+.lerne-card-ui-root .card-side-separator .separator-line {
+  flex: 1;
+  height: var(--design-sep-width, 1px);
+  background: linear-gradient(90deg, transparent, var(--design-sep-color, rgba(168, 85, 247, 0.45)), transparent);
+  opacity: var(--design-sep-opacity, 1);
+}
+
+.lerne-card-ui-root .card-side-separator .separator-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 2px 8px;
+  border-radius: 20px;
+  background: rgba(168, 85, 247, 0.15);
+  color: #c084fc;
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.lerne-card-ui-root .back-answer-block {
+  position: relative;
+  width: 100%;
+  padding: 0 2px;
+}
+
+.lerne-card-ui-root .card-context-wrapper {
+  width: 100%;
+  margin-top: 14px;
+}
+
+.lerne-card-ui-root .card-context-wrapper .text-context {
+  padding: 10px 14px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
+  backdrop-filter: blur(4px);
+}
+
+.lerne-card-ui-root .interactive-mode-container {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  height: 100%;
+  padding: 10px 0;
+}
+
+.lerne-card-ui-root .cloze-masked-text {
+  text-align: center;
+  margin-bottom: 24px;
+  line-height: 1.35;
+  letter-spacing: 0.5px;
+}
+
+.lerne-card-ui-root .puzzle-target-slots,
+.lerne-card-ui-root .puzzle-pool-chips {
+  position: relative;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 64px;
+  padding: 12px;
+  border: 1px solid var(--design-puzzle-container-border, rgba(255, 255, 255, 0.08));
+  border-radius: var(--design-puzzle-container-radius, 12px);
+  background: var(--design-puzzle-container-bg, rgba(255, 255, 255, 0.03));
+  margin-bottom: 16px;
+}
+
+.lerne-card-ui-root .puzzle-slot-chip,
+.lerne-card-ui-root .btn-puzzle-chip {
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  min-width: 0;
+  max-width: 100%;
+  padding: 8px 14px;
+  overflow-wrap: anywhere;
+  border-radius: var(--design-puzzle-item-radius, 99px);
+  background: var(--design-puzzle-item-bg, rgba(168, 85, 247, 0.16));
+  border: 1px solid var(--design-puzzle-item-border, rgba(168, 85, 247, 0.42));
+  color: var(--design-puzzle-item-color, #f1f5f9);
+  font: inherit;
+  touch-action: pan-y;
+  user-select: none;
+  cursor: grab;
+  transition: filter 150ms ease;
+}
+
+.lerne-card-ui-root .puzzle-slot-chip {
+  background: var(--design-puzzle-selected-bg, rgba(168, 85, 247, 0.35));
+  color: var(--design-puzzle-selected-color, #a78bfa);
+  border-color: var(--design-puzzle-selected-border, rgba(168, 85, 247, 0.4));
+}
+
+.lerne-card-ui-root .puzzle-exercise.is-correct :is(.puzzle-target-slots, .puzzle-slot-chip) {
+  background: var(--design-puzzle-correct-bg, rgba(34, 197, 94, 0.12));
+  color: var(--design-puzzle-correct-color, #86efac);
+  border-color: var(--design-puzzle-correct-border, #22c55e);
+}
+
+.lerne-card-ui-root .puzzle-exercise.is-wrong .puzzle-target-slots {
+  background: var(--design-puzzle-wrong-bg, rgba(239, 68, 68, 0.12));
+  border-color: var(--design-puzzle-wrong-border, #ef4444);
+}
+
+.lerne-card-ui-root .puzzle-placeholder {
+  font-size: 0.8rem;
+  color: var(--design-puzzle-item-color, #94a3b8);
+  text-align: center;
+}
+
+.lerne-card-ui-root .puzzle-actions {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  max-width: 340px;
+  margin: 12px auto 4px;
+}
+
+.lerne-card-ui-root .puzzle-check-action {
+  flex: 1;
+  min-height: 44px;
+  padding: 13px 20px;
+  border-radius: 16px;
+  background: var(--design-btn-primary-bg, #7c3aed);
+  color: var(--design-btn-primary-color, #ffffff);
+  border: 1px solid var(--design-btn-primary-border, transparent);
+}
+
+.lerne-card-ui-root .puzzle-reset-action {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  min-width: 44px;
+  border-radius: 16px;
+  background: var(--design-btn-secondary-bg, rgba(255, 255, 255, 0.08));
+  color: var(--design-btn-secondary-color, #94a3b8);
+  border: 1px solid var(--design-btn-secondary-border, rgba(255, 255, 255, 0.12));
+  cursor: pointer;
+}
+
+.lerne-card-ui-root .puzzle-token-with-boundary {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  min-width: 0;
+}
+
+.lerne-card-ui-root .puzzle-boundary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 14px;
+  width: 14px;
+  pointer-events: none;
+}
+
+.lerne-card-ui-root .puzzle-boundary.is-incorrect { color: var(--design-puzzle-wrong-color, #f87171); }
+.lerne-card-ui-root .puzzle-boundary.is-correct { color: var(--design-puzzle-correct-color, #86efac); opacity: 0.8; }
+.lerne-card-ui-root .puzzle-feedback-hint {
+  margin: -8px 0 16px;
+  color: var(--design-puzzle-wrong-color, #fca5a5);
+  font-size: 0.85rem;
+  text-align: center;
+  overflow-wrap: anywhere;
+}
+
+.lerne-card-ui-root .puzzle-drop-indicator {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  transform: translateX(-50%);
+  width: 4px;
+  height: 30px;
+  background: var(--design-puzzle-selected-border, #c084fc);
+  border-radius: 2px;
+}
+
+.puzzle-drag-overlay {
+  display: inline-flex;
+  box-sizing: border-box;
+  width: max-content;
+  align-items: center;
+  min-height: 44px;
+  max-width: min(80vw, 320px);
+  padding: 8px 16px;
+  overflow-wrap: anywhere;
+  border: 1.5px solid var(--design-puzzle-selected-border, #c084fc);
+  border-radius: var(--design-puzzle-item-radius, 99px);
+  background: var(--design-puzzle-selected-bg, rgba(48, 26, 76, 0.96));
+  color: var(--design-puzzle-selected-color, #f1f5f9);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.32);
+  pointer-events: none;
+}
+
+@keyframes skeleton-pulse {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+.lerne-card-ui-root .creator-form {
+  --creator-inline-padding: 10px;
+  margin-top: 4px;
+  padding: 8px var(--creator-inline-padding);
+  color: rgba(255, 255, 255, 0.92);
+}
+
+.lerne-card-ui-root .creator-form .form-group {
+  margin-bottom: 6px;
+}
+
+.lerne-card-ui-root .sub-label {
+  display: block;
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  margin-bottom: 4px;
+}
+
+.lerne-card-ui-root .form-input,
+.lerne-card-ui-root select.form-input {
+  width: 100%;
+  box-sizing: border-box;
+  border-radius: 10px;
+  padding: 8px 12px;
+  background-color: #1e293b;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font: inherit;
+}
+
+.lerne-card-ui-root select.form-input option {
+  background-color: #1e293b;
+  color: #ffffff;
+}
+
+.lerne-card-ui-root .form-toolbar {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  margin-bottom: 8px;
+  justify-content: flex-end;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.lerne-card-ui-root .form-toolbar-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 6px 14px;
+  min-height: 36px;
+  border-radius: 10px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.08);
+  color: #f8fafc;
+}
+
+.lerne-card-ui-root .form-toolbar-btn.btn-image {
+  background: rgba(59, 130, 246, 0.14);
+  border-color: rgba(96, 165, 250, 0.35);
+  color: #93c5fd;
+}
+
+.lerne-card-ui-root .form-toolbar-btn.btn-audio {
+  background: rgba(168, 85, 247, 0.14);
+  border-color: rgba(192, 132, 252, 0.35);
+  color: #d8b4fe;
+}
+
+.lerne-card-ui-root .form-toolbar-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.lerne-card-ui-root .ai-quick-actions {
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 6px 0 10px;
+  width: 100%;
+}
+
+.lerne-card-ui-root .ai-quick-actions > button,
+.lerne-card-ui-root .ai-quick-actions > .btn,
+.lerne-card-ui-root .ai-quick-actions > .btn-ai-generate {
+  flex: 1 1 calc(50% - 5px);
+  min-width: 0;
+  white-space: nowrap;
+  justify-content: center;
+}
+
+.lerne-card-ui-root .ai-quick-actions > button span,
+.lerne-card-ui-root .ai-quick-actions > .btn span,
+.lerne-card-ui-root .ai-quick-actions > .btn-ai-generate span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lerne-card-ui-root .ai-quick-actions:not(.has-request).has-dynamic > .btn-save-action,
+.lerne-card-ui-root .ai-quick-actions:not(.has-request).has-dynamic > .btn-primary {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+.lerne-card-ui-root .ai-quick-actions > .card-question-composer.is-action {
+  flex: 1 1 calc(50% - 5px);
+  width: auto;
+  margin: 0;
+}
+
+.lerne-card-ui-root .ai-quick-actions > .card-question-composer.is-action.is-open {
+  flex-basis: 100%;
+}
+
+.lerne-card-ui-root .btn-ai-generate {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px;
+  background: linear-gradient(135deg, rgba(255, 255, 0, 0.1), rgba(255, 100, 0, 0.1));
+  border: 1px solid rgba(255, 255, 0, 0.3);
+  border-radius: 12px;
+  color: #ffff00;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  font-size: 0.95rem;
+}
+
+.lerne-card-ui-root .btn-ai-generate:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  filter: grayscale(1);
+}
+
+.lerne-card-ui-root .hidden-file-input {
+  display: none;
+}
+
+.lerne-card-ui-root .textarea-preview {
+  background: transparent;
+  position: relative;
+  z-index: 2;
+  border: none;
+  box-shadow: none;
+  outline: none;
+  resize: none;
+}
+
+.lerne-card-ui-root .image-preview-box {
+  position: relative;
+  width: 100%;
+  border-radius: 12px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lerne-card-ui-root .image-preview-box img {
+  display: block;
+  width: 100%;
+  object-fit: contain;
+}
+
+.lerne-card-ui-root .image-clear-btn,
+.lerne-card-ui-root .image-edit-btn {
+  position: absolute;
+  top: 10px;
+  width: 40px;
+  height: 40px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 12px;
+  background: rgba(15, 23, 42, 0.9);
+  color: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.5);
+  z-index: 10;
+}
+
+.lerne-card-ui-root .image-clear-btn { right: 10px; }
+.lerne-card-ui-root .image-edit-btn { right: 58px; }
+
+.lerne-card-ui-root .image-picker-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 3000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgba(15, 23, 42, 0.75);
+  backdrop-filter: blur(12px);
+  overflow-y: auto;
+}
+
+.lerne-card-ui-root .image-picker-dialog {
+  width: 100%;
+  max-width: 440px;
+  max-height: calc(100dvh - 32px);
+  padding: 22px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  background: #1e293b;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
+  overflow-y: auto;
+  margin: auto;
+}
+
+.lerne-card-ui-root .image-picker-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+}
+
+.lerne-card-ui-root .image-picker-close {
+  width: 36px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.06);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.lerne-card-ui-root .image-picker-actions {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.lerne-card-ui-root .image-picker-tile {
+  min-height: 104px;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.06);
+  color: #e0e7ff;
+  text-decoration: none;
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  font-weight: 700;
+  text-align: center;
+}
+
+.lerne-card-ui-root .camera-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 2700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: #020617;
+  overflow-y: auto;
+}
+
+.lerne-card-ui-root .camera-capture-dialog {
+  width: 100%;
+  max-width: 480px;
+  max-height: calc(100dvh - 32px);
+  padding: 18px;
+  border-radius: 18px;
+  background: #0f172a;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  overflow-y: auto;
+  margin: auto;
+}
+
+.lerne-card-ui-root .camera-preview {
+  width: 100%;
+  aspect-ratio: 3 / 4;
+  max-height: 62vh;
+  border-radius: 14px;
+  background: #020617;
+  object-fit: cover;
+}
+
+.lerne-card-ui-root .camera-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.lerne-card-ui-root .camera-error {
+  margin: 0;
+  color: #fca5a5;
+  font-size: 0.9rem;
+}
+
+.lerne-card-ui-root .image-editor-dialog {
+  width: 100%;
+  max-width: 500px;
+  max-height: calc(100dvh - 32px);
+  padding: 16px;
+  border-radius: 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  background: rgba(22, 27, 46, 0.95);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.5);
+  user-select: none;
+  overflow-y: auto;
+  margin: auto;
+}
+
+.lerne-card-ui-root .image-editor-canvas-container {
+  position: relative;
+  width: 100%;
+  height: 280px;
+  border-radius: 14px;
+  background: #0f172a;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: grab;
+  touch-action: none;
+  border: 1px dashed rgba(255, 255, 255, 0.15);
+}
+
+.lerne-card-ui-root .image-editor-canvas {
+  max-width: 100%;
+  max-height: 100%;
+  display: block;
+}
+
+.lerne-card-ui-root .crop-overlay-box {
+  position: absolute;
+  pointer-events: none;
+  border: 2px solid rgba(168, 85, 247, 0.85);
+  box-shadow: 0 0 0 9999px rgba(0, 0, 0, 0.5);
+}
+
+.lerne-card-ui-root .crop-ratio-1-1 { width: 240px; height: 240px; }
+.lerne-card-ui-root .crop-ratio-4-3 { width: 260px; height: 195px; }
+.lerne-card-ui-root .crop-ratio-16-9 { width: 270px; height: 152px; }
+.lerne-card-ui-root .crop-ratio-free { width: 85%; height: 85%; }
+.lerne-card-ui-root .crop-grid-line { position: absolute; background: rgba(255, 255, 255, 0.3); }
+.lerne-card-ui-root .crop-grid-line.h1 { top: 33.33%; left: 0; right: 0; height: 1px; }
+.lerne-card-ui-root .crop-grid-line.h2 { top: 66.66%; left: 0; right: 0; height: 1px; }
+.lerne-card-ui-root .crop-grid-line.v1 { left: 33.33%; top: 0; bottom: 0; width: 1px; }
+.lerne-card-ui-root .crop-grid-line.v2 { left: 66.66%; top: 0; bottom: 0; width: 1px; }
+
+.lerne-card-ui-root .canvas-drag-hint {
+  position: absolute;
+  bottom: 8px;
+  left: 0;
+  right: 0;
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.65);
+  pointer-events: none;
+}
+
+.lerne-card-ui-root .image-editor-toolbar {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+}
+
+.lerne-card-ui-root .toolbar-group {
+  display: flex;
+  gap: 6px;
+  background: rgba(255, 255, 255, 0.05);
+  padding: 4px;
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.lerne-card-ui-root .btn-editor-action {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #e2e8f0;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lerne-card-ui-root .btn-editor-action.active {
+  background: rgba(168, 85, 247, 0.35);
+  border-color: #a855f7;
+  color: #ffffff;
+}
+
+.lerne-card-ui-root .image-editor-zoom-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(255, 255, 255, 0.04);
+  padding: 6px 12px;
+  border-radius: 12px;
+}
+
+.lerne-card-ui-root .btn-zoom {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: white;
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+
+.lerne-card-ui-root .zoom-slider {
+  flex: 1;
+  accent-color: #a855f7;
+  height: 4px;
+  cursor: pointer;
+}
+
+.lerne-card-ui-root .zoom-value {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #cbd5e1;
+  min-width: 36px;
+  text-align: right;
+}
+
+.lerne-card-ui-root .image-editor-ratios {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.lerne-card-ui-root .ratio-label {
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+  margin-right: 4px;
+}
+
+.lerne-card-ui-root .btn-ratio {
+  flex: 1;
+  padding: 6px 4px;
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: rgba(255, 255, 255, 0.04);
+  color: #cbd5e1;
+  font-size: 0.75rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.lerne-card-ui-root .btn-ratio.active {
+  background: rgba(168, 85, 247, 0.25);
+  border-color: #a855f7;
+  color: white;
+}
+
+.lerne-card-ui-root .image-editor-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 4px;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.lerne-card-ui-root .spin {
+  animation: spin 1s linear infinite;
+}

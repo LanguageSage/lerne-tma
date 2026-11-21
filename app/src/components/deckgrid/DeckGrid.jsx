@@ -36,6 +36,24 @@ import { navigateUp } from '../../utils/navigation';
 import api from '../../services/api';
 import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
+function needsFolderPresenceLookup(folder, folders) {
+  if (!folder || folder.id <= 0 || folder.presence_enabled != null) return false;
+  if (folder.is_global_readonly) return true;
+  if (folder.is_shared || folder.user_id == null) return false;
+
+  // A pull can represent an editor-owned child as unshared even though
+  // an ancestor's owner can also access it.
+  const visited = new Set([folder.id]);
+  let parentId = folder.parent_id;
+  while (parentId && !visited.has(parentId)) {
+    visited.add(parentId);
+    const parent = folders.find(entry => entry.id === parentId);
+    if (!parent || parent.user_id !== folder.user_id) return true;
+    parentId = parent.parent_id;
+  }
+  return false;
+}
+
 export const DeckGrid = ({ 
   startTutorial, 
   openSyncModal
@@ -75,12 +93,30 @@ export const DeckGrid = ({
   const libraryStatus = useDeckStore(s => s.libraryStatus);
   const libraryError = useDeckStore(s => s.libraryError);
   const fetchDecks = useDeckStore(s => s.fetchDecks);
+  const fetchFolders = useDeckStore(s => s.fetchFolders);
 
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const langInfo = useLanguageStore(state => state.getLanguageInfo());
 
 
-  const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolderId, view === 'decks' && activeFolderId !== null);
+  const activeFolder = folders?.find(f => f.id === activeFolderId);
+  const lookupFolderPresence = !IS_STANDALONE && view === 'decks' && needsFolderPresenceLookup(activeFolder, folders);
+  const { collaborators, onlineCount, isShared } = useCollaborativePresence('folder', activeFolder,
+    !IS_STANDALONE && view === 'decks' && !lookupFolderPresence);
+
+  React.useEffect(() => {
+    if (!lookupFolderPresence || !hasInitialized || isFetchingDecks) return;
+    const refresh = () => {
+      if (navigator.onLine && document.visibilityState === 'visible') void fetchFolders();
+    };
+    refresh();
+    document.addEventListener('visibilitychange', refresh);
+    window.addEventListener('online', refresh);
+    return () => {
+      document.removeEventListener('visibilitychange', refresh);
+      window.removeEventListener('online', refresh);
+    };
+  }, [lookupFolderPresence, activeFolderId, hasInitialized, isFetchingDecks, fetchFolders]);
 
   const isSearchActive = Boolean(deckSearchQuery.trim());
 
@@ -230,7 +266,6 @@ export const DeckGrid = ({
     return trail;
   };
 
-  const activeFolder = folders?.find(f => f.id === activeFolderId);
   const canCreateContent = !IS_STANDALONE && (!activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor');
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
   const isInitialLoading = !hasInitialized || loading || (libraryStatus === 'idle' && Boolean(userProfile?.user_id))

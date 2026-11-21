@@ -15,6 +15,7 @@ export const useSessionStore = create((set, get) => ({
   isFlipped: false,
   apiError: null,
   editingCard: null,
+  editorDraftVersion: 0,
   editorSourceView: 'cards', // 'cards' | 'study'
   isLearningMore: false,
   forcedSeenIds: [],
@@ -103,6 +104,7 @@ export const useSessionStore = create((set, get) => ({
   setEditingCard: (updater) => set((state) => ({ 
     editingCard: typeof updater === 'function' ? updater(state.editingCard) : updater 
   })),
+  openEditingCard: editingCard => set(state => ({ editingCard, editorDraftVersion: state.editorDraftVersion + 1 })),
   setEditorSourceView: (source) => set({ editorSourceView: source }),
 
   addToHistory: (card) => {

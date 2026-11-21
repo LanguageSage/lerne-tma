@@ -1,5 +1,5 @@
 import React, { useMemo } from 'react';
-import { useSettingsStore } from '../../store/useSettingsStore.js';
+import { DEFAULT_DESIGN_CONFIG_V2 } from '../../design/designConfig.js';
 import {
   studyContent, studyExerciseType, studyInfoBlocks, studyMatch, studyQuiz, studyTrainer, studyWordBank, layoutAnswerRevealed
 } from '../../utils/structuredStudyCard.js';
@@ -41,11 +41,12 @@ export const ExerciseRenderer = React.memo(({
   assessmentMode = false,
   supportHistoryUnknown = false,
   previewAfterAnswer = false,
+  evaluateAnswer = null,
+  isAdmin = false,
+  resolveMediaUrl,
+  onBeforeDictation = null,
 }) => {
-  // Standalone trainer callers use the effective app design; scoped previews
-  // explicitly supply their V2 draft. Null/undefined selects the active V2.
-  const activeDesign = useSettingsStore(state => state.activeDesignConfig);
-  const effectiveDesign = designConfig ?? activeDesign;
+  const effectiveDesign = designConfig ?? DEFAULT_DESIGN_CONFIG_V2;
   const exerciseCard = card;
   const structured = studyContent(card);
   const { detectedType, data } = useMemo(() => {
@@ -63,6 +64,7 @@ export const ExerciseRenderer = React.memo(({
 
   const withInformation = exercise => structured?.layout
     ? <StructuredCardLayout card={card} exercise={exercise}
+        resolveMediaUrl={resolveMediaUrl}
         afterAnswer={previewAfterAnswer || layoutAnswerRevealed(savedState)} />
     : <><ExerciseInfoBlocks blocks={studyInfoBlocks(structured)} />{exercise}</>;
 
@@ -123,6 +125,9 @@ export const ExerciseRenderer = React.memo(({
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
+          evaluateAnswer={evaluateAnswer}
+          isAdmin={isAdmin}
+          onBeforeDictation={onBeforeDictation}
         />
       );
 
@@ -142,6 +147,9 @@ export const ExerciseRenderer = React.memo(({
           isPureTrainerMode={isPureTrainerMode}
           savedState={savedState}
           onSaveState={onSaveState}
+          evaluateAnswer={evaluateAnswer}
+          isAdmin={isAdmin}
+          onBeforeDictation={onBeforeDictation}
         />
       );
 

@@ -1,26 +1,17 @@
 import { useEffect, useRef, useState } from 'react';
 import { Check, SlidersHorizontal } from 'lucide-react';
 import { tr } from '../../i18n/locale';
-import { useUiStore } from '../../store/useUiStore';
 import { buildCefrMetaFromClassifierResult, buildManualCefrMeta } from '../../utils/levelUtils';
-import { classifySentenceFast } from '../../services/classifier';
+import { classifySentenceFast, supportsSentenceClassification } from '../../services/classifier';
 import { triggerHaptic } from '../../utils/platform';
 import { CardLevelBadge } from './CardLevelBadge';
 
-export function CardLevelControls({ cardData, frontText, update }) {
+export function CardLevelControls({ cardData, deckLanguage, frontText, update, onNotify }) {
   const content = cardData.content_v2.card;
   const manualLevel = content.metadata?.cefr?.source === 'manual';
-  const showToast = useUiStore(state => state.showToast);
-  const [isClassifyingLevel, setIsClassifyingLevel] = useState(false);
+  const showToast = onNotify || (() => {});
   const [isLevelPickerOpen, setIsLevelPickerOpen] = useState(false);
-  const timerRef = useRef(null);
   const pickerRef = useRef(null);
-
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) clearTimeout(timerRef.current);
-    };
-  }, []);
 
   useEffect(() => {
     if (!isLevelPickerOpen) return;
@@ -34,24 +25,18 @@ export function CardLevelControls({ cardData, frontText, update }) {
   }, [isLevelPickerOpen]);
 
   const handleReclassifyLevel = () => {
-    if (isClassifyingLevel) return;
-    setIsClassifyingLevel(true);
     setIsLevelPickerOpen(false);
     triggerHaptic('medium');
 
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      const front = frontText.trim();
-      const res = classifySentenceFast(front, 'de');
-      const newLevel = res.level || 'A1';
+    const language = [cardData.target_language, deckLanguage].find(supportsSentenceClassification);
+    const res = classifySentenceFast(frontText.trim(), language);
+    const newLevel = res.level || 'A1';
 
-      update(card => ({ ...card, level: newLevel, metadata: { ...card.metadata,
-        cefr: buildCefrMetaFromClassifierResult({ ...res, level: newLevel }, 'local') } }));
+    update(card => ({ ...card, level: newLevel, metadata: { ...card.metadata,
+      cefr: buildCefrMetaFromClassifierResult({ ...res, level: newLevel }, 'local') } }));
 
-      setIsClassifyingLevel(false);
-      triggerHaptic('success');
-      showToast(tr("Уровень определен: {{p0}} ({{p1}})", { p0: newLevel, p1: res.reason_short || res.reason }), 'success');
-    }, 1000);
+    triggerHaptic('success');
+    showToast(tr("Уровень определен: {{p0}} ({{p1}})", { p0: newLevel, p1: res.reason_short || res.reason }), 'success');
   };
 
   const handleSelectManualLevel = (selectedLevel) => {
@@ -84,15 +69,7 @@ export function CardLevelControls({ cardData, frontText, update }) {
       }}
     >
       <div style={{ display: 'flex', alignItems: 'center', gap: '6px', position: 'relative', flexWrap: 'wrap' }}>
-        <div
-          style={{
-            opacity: isClassifyingLevel ? 0 : 1,
-            transform: isClassifyingLevel ? 'scale(0.8)' : 'scale(1)',
-            transition: 'opacity 0.25s ease, transform 0.25s ease',
-            pointerEvents: isClassifyingLevel ? 'none' : 'auto'
-          }}
-          title={tr("Нажмите для автоматического пересчета уровня")}
-        >
+        <div title={tr("Нажмите для автоматического пересчета уровня")}>
           <CardLevelBadge
             card={cardData}
             size="sm"

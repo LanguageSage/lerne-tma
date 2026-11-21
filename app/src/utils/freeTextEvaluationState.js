@@ -1,4 +1,31 @@
 import { createSupportSession, captureSupportEvidence } from './supportEvidence.js';
+import { normalizeAnswer } from './text.js';
+
+export function evaluateFreeTextLocally(card, answer) {
+  const content = card?.content_v2?.card;
+  const data = content?.data || {};
+  const acceptedList = [
+    data.correct_text,
+    data.sample_answer,
+    ...(Array.isArray(data.accepted_answers) ? data.accepted_answers : []),
+  ]
+    .filter(item => typeof item === 'string' && item.trim())
+    .map(normalizeAnswer);
+  const normalized = normalizeAnswer(answer);
+  const matched = Boolean(normalized && acceptedList.includes(normalized));
+  return {
+    result: matched
+      ? { verdict: 'correct', accepted: true, evaluator: 'local' }
+      : {
+        verdict: 'needs_retry',
+        accepted: false,
+        hint: 'Локальная проверка: сравните ответ с образцом.',
+        evaluator: 'local',
+      },
+    grading_policy: { max_retries: 3 },
+    diagnostics: { ai_called: false },
+  };
+}
 
 /** One owner of educational attempts. Transport failures and duplicate submits never count. */
 export const isValidAnswerEvaluationResult = result => (

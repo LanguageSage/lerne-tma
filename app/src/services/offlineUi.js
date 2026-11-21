@@ -16,6 +16,8 @@ export function remapOfflineUi({ detail }) {
     const next = { ...item, id: id('cards', item.id), deck_id: id('decks', item.deck_id) };
     if (confirmedCard && next.id === confirmedCard.id && item.id !== next.id) {
       delete next.offline_create_status;
+      delete next.offline_create_error;
+      delete next.offline_create_request_id;
       delete next.offline_move;
       Object.assign(next, confirmedCard);
     }
@@ -36,7 +38,15 @@ export function remapOfflineUi({ detail }) {
   });
   if (state.currentDeck) localStorage.setItem('lerne_current_deck_id', String(id('decks', state.currentDeck.id)));
   const session = useSessionStore.getState();
-  useSessionStore.setState({ card: card(session.card), editingCard: card(session.editingCard), studyHistory: session.studyHistory.map(card) });
+  let editingCard = card(session.editingCard);
+  if (confirmedCard && editingCard?.id === confirmedCard.id && editingCard.id !== session.editingCard.id) {
+    // Remap the open form without replacing input entered during delivery.
+    editingCard = { ...session.editingCard, id: editingCard.id, deck_id: editingCard.deck_id, revision: editingCard.revision };
+    delete editingCard.offline_create_status;
+    delete editingCard.offline_create_error;
+    delete editingCard.offline_create_request_id;
+  }
+  useSessionStore.setState({ card: card(session.card), editingCard, studyHistory: session.studyHistory.map(card) });
   const ui = useUiStore.getState();
   useUiStore.setState({
     activeFolderId: id('folders', ui.activeFolderId),
@@ -54,6 +64,8 @@ export function markOfflineCreateError({ detail }) {
     deckCards: state.deckCards.map(card),
     cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([key, cards]) => [key, cards.map(card)])),
   }));
+  const { editingCard, setEditingCard } = useSessionStore.getState();
+  if (editingCard?.id === detail.id) setEditingCard(card(editingCard));
 }
 
 export function updateOfflineEditUi({ detail }) {
@@ -118,7 +130,7 @@ async function refreshProgressUi(userId, progressIds, isCurrent) {
   const [checkpoint, rows] = await db.transaction('r', db.syncState, db.progress, () => Promise.all([
     db.syncState.get('lastSync'), db.progress.bulkGet(progressIds.map(id => [id, userId])),
   ]));
-  if (!isCurrent() || !checkpoint?.progressCounts) return;
+  if (!isCurrent() || !checkpoint?.progressCounts) return false;
   const progress = new Map(progressIds.map((id, index) => [id, rows[index] ?? emptyStudyProgress]));
   const patchCard = card => {
     const updated = progress.get(card?.id);
@@ -139,17 +151,22 @@ async function refreshProgressUi(userId, progressIds, isCurrent) {
     cardsByDeck: Object.fromEntries(Object.entries(state.cardsByDeck).map(([id, cards]) => [id, cards.map(patchCard)])),
   }));
   useSessionStore.setState(state => ({ card: patchCard(state.card), studyHistory: state.studyHistory.map(patchCard) }));
+  return true;
 }
 
 export async function refreshOfflineUi({ detail }) {
+  const generation = useDeckStore.getState().storeGeneration;
   const identity = getSessionIdentity();
-  const isCurrent = () => detail.userId === getUserId() && identity === getSessionIdentity();
+  const isCurrent = () => detail.userId === getUserId() && identity === getSessionIdentity()
+    && generation === useDeckStore.getState().storeGeneration;
   if (!isCurrent() || detail.alreadyRefreshed) return;
   try {
     const state = useDeckStore.getState();
-    if (detail.progressOnly) {
-      await refreshProgressUi(detail.userId, detail.progressIds, isCurrent);
-      if (detail.libraryOnly && isCurrent()) await state.fetchDecks(true);
+    const progressRefreshed = detail.progressOnly
+      && await refreshProgressUi(detail.userId, detail.progressIds, isCurrent).catch(() => false);
+    if (!isCurrent()) return;
+    if (progressRefreshed) {
+      if (detail.libraryOnly) await state.fetchDecks(true, undefined, detail.fromPull);
       return;
     }
     if (detail.cardLifecycleRejection) {
@@ -157,11 +174,31 @@ export async function refreshOfflineUi({ detail }) {
         ? 'Конфликт версий' : 'Ошибка синхронизации. Карточка сохранена на устройстве.'), 'error');
     }
     if (!detail.libraryOnly && useUiStore.getState().view === 'trash') await state.fetchTrash();
-    if (detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
-    await state.fetchDecks(true);
-    if (detail.libraryOnly || detail.userId !== getUserId() || identity !== getSessionIdentity()) return;
-    const current = useDeckStore.getState().currentDeck;
-    if (current && useDeckStore.getState().decks.some(d => d.id === current.id)) await state.fetchDeckCards(current.id);
+    if (!isCurrent()) return;
+    const fromPull = detail.fromPull && !detail.progressOnly;
+    if (fromPull && !detail.libraryOnly) {
+      // A full pull can move a card into or out of a previously opened deck.
+      // Keep only the selected list while it refreshes.
+      useDeckStore.setState(({ cardsByDeck, cardsCompleteByDeck, currentDeck }) => ({
+        cardsByDeck: Object.fromEntries(Object.entries(cardsByDeck).filter(([id]) => id === String(currentDeck?.id))),
+        cardsCompleteByDeck: Object.fromEntries(Object.entries(cardsCompleteByDeck).filter(([id]) => id === String(currentDeck?.id))),
+      }));
+    }
+    if (fromPull) await state.getPendingLibraryLoad('init');
+    if (!isCurrent()) return;
+    try {
+      await state.fetchDecks(true, undefined, fromPull);
+    } catch (error) {
+      if (!fromPull || detail.libraryOnly) throw error;
+      // A failed summary read can still leave a usable committed card list.
+    }
+    if ((detail.libraryOnly && !detail.progressOnly) || !isCurrent()) return;
+    const { currentDeck, decks, libraryStatus } = useDeckStore.getState();
+    if (decks.some(deck => deck.id === currentDeck?.id)) {
+      await state.fetchDeckCards(currentDeck.id, undefined, false, fromPull);
+    } else if (fromPull && libraryStatus === 'ready' && currentDeck?.id > 0) {
+      useDeckStore.setState({ deckCards: [], cardsByDeck: {}, cardsCompleteByDeck: {}, cardsLoading: false });
+    }
   } catch (error) {
     console.warn('Offline view refresh:', error.message);
   }
@@ -180,13 +217,13 @@ export async function refreshPeerOfflineUi({ data }) {
     } else if (type === 'lerne:card-create-error' && card?.offline_create_status === 'error') {
       markOfflineCreateError({ detail: { userId, id, changes: {
         offline_create_status: card.offline_create_status, offline_create_error: card.offline_create_error,
+        offline_create_request_id: card.offline_create_request_id,
       } } });
     } else if (type === 'lerne:ids-remapped') {
       remapOfflineUi({ detail: { userId, mappings, confirmedCard: card, silent: true } });
       if (id != null && !data.refreshAfterSync) await refreshOfflineUi({ detail: { userId } });
     } else if (type === 'lerne:synced') {
-      await refreshOfflineUi({ detail: { userId, libraryOnly: data.libraryOnly,
-        progressOnly: data.progressOnly, progressIds: data.progressIds } });
+      await refreshOfflineUi({ detail: data });
     }
   } catch (error) {
     if (isCurrent()) console.warn('Offline tab refresh:', error.message);

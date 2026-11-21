@@ -60,12 +60,15 @@ def inspect(root=ROOT):
     required += ['api/card_core/__init__.py']
     required += ['api/card_core/lerne_card_core/' + name + '.py' for name in (
         '__init__', 'answer_contract', 'deck_passport', 'input_parser',
-        'structured_cards_v2', 'structured_cards_legacy')]
+        'structured_cards_v2', 'structured_cards_legacy', 'cefr_metadata',
+        'cefr_rubrics', 'language_config', 'prompt_builders', 'language_service',
+        'storage_keys', 'classifier/__init__', 'classifier/pipeline',
+        'classifier/rules_de', 'classifier/vocabulary', 'classifier/scorer')]
     required += [f'{base}/vocab_de{suffix}.json'
-                 for base in ('api/services/classifier/data', 'app/src/services/classifier/data')
+                 for base in ('api/card_core/lerne_card_core/classifier/data', 'app/src/services/classifier/data')
                  for suffix in ('', '_medium', '_max')]
     required += [p for p in names if p.endswith('.json') and
-                 (p.startswith('api/services/classifier/data/') or p.startswith('app/src/'))
+                 (p.startswith('api/card_core/lerne_card_core/classifier/data/') or p.startswith('app/src/'))
                  and '/__tests__/' not in p]
     blocked = ['tools/admin/server.py', 'local/runtime.py', 'scripts/local_dev.py',
                '.env', 'api/.env', 'data/config/local.json', 'api/data/backups/private.json',

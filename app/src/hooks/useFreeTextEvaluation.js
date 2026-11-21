@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { createFreeTextEvaluationSession } from '../utils/freeTextEvaluationState.js';
-import { evaluateFreeTextAnswer } from '../services/answerEvaluationService.js';
+import { createFreeTextEvaluationSession, evaluateFreeTextLocally } from '../utils/freeTextEvaluationState.js';
 
 export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAnswer = null, diagnosticsEnabled = false, supportOptions = {}) {
   const currentKey = reviewKey ?? cardId;
@@ -36,7 +35,8 @@ export function useFreeTextEvaluation(cardId, savedState, reviewKey, evaluateAns
     // Resolve and invoke inside the session's error boundary, including the first submit.
     const promise = activeSession.submit(answer, async text => {
       setDiagnosticState({ key: activeKey, data: null });
-      const response = await (evaluateAnswer ?? evaluateFreeTextAnswer)(cardId, text, { diagnostics: diagnosticsEnabled });
+      const evaluator = evaluateAnswer ?? ((_id, value) => evaluateFreeTextLocally(supportOptions?.card, value));
+      const response = await evaluator(cardId, text, { diagnostics: diagnosticsEnabled });
       if (mounted.current && currentKeyRef.current === activeKey) {
         setDiagnosticState({ key: activeKey, data: response.diagnostics ?? null });
       }

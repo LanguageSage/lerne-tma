@@ -250,12 +250,39 @@ async function run() {
     await page.screenshot({ path: path.join(EVIDENCE_DIR, '01-home-decks.png'), fullPage: true });
 
     // 2. Study Deck 1 (12 cards, exercising ALL 7 offline card types)
+    const seeded = await readIndexedDbState(page);
+    const firstDeck = seeded.decks.find(deck => deck.name === 'Alltag & Kommunikation (A2)');
+    const firstCard = seeded.cards.filter(card => card.deck_id === firstDeck.id)
+      .sort((a, b) => a.position - b.position)[0];
+    await page.evaluate(({ dbName, card }) => new Promise((resolve, reject) => {
+      const open = indexedDB.open(dbName);
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const db = open.result;
+        const tx = db.transaction(['cards', 'media'], 'readwrite');
+        const url = new URL('/api/media/images/standalone-test.svg', location.origin).href;
+        const blob = new Blob(['<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24"><rect width="24" height="24" fill="purple"/></svg>'], { type: 'image/svg+xml' });
+        tx.objectStore('media').put({ url, blob });
+        tx.objectStore('cards').put({ ...card, image_path: url });
+        tx.oncomplete = () => { db.close(); resolve(); };
+        tx.onabort = () => { db.close(); reject(tx.error); };
+      };
+    }), { dbName: seeded.dbName, card: firstCard });
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).click();
     await page.locator('.deck-intro-btn-start').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.deck-intro-edit-btn').count(), 0, 'Deck intro edit button must be hidden in standalone read-only mode');
     await page.screenshot({ path: path.join(EVIDENCE_DIR, '02-deck-intro.png'), fullPage: true });
     await page.locator('.deck-intro-btn-start').click();
 
+    const cachedImage = page.locator('#tut-study-card img[src^="blob:"]');
+    await cachedImage.waitFor({ state: 'visible' });
+    await page.waitForFunction(() => document.querySelector('#tut-study-card img[src^="blob:"]')?.naturalWidth === 24);
+    await page.locator('.study-card-flip-button').click();
+    await page.locator('.card-back').waitFor({ state: 'visible' });
+    assert.equal(await page.locator('.study-card-rating, .card-question-composer').count(), 0,
+      'Standalone study should hide the server-backed rating and question controls');
+    await page.locator('.study-card-flip-button').click();
+    await page.locator('.card-front').waitFor({ state: 'visible' });
     await completeTheoryOrStandard(page, 2); // a2-01 theory -> Good
     await completeTheoryOrStandard(page, 0); // a2-02 standard -> Again
     await completeTheoryOrStandard(page, 1); // a2-03 standard -> Hard

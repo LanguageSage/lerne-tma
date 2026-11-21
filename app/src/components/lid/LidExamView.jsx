@@ -7,6 +7,7 @@ import {
   MapPin, RefreshCw, BookOpen, ShieldCheck, Check 
 } from 'lucide-react';
 import { useLidStore } from '../../store/useLidStore';
+import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { getBundeslandByCode } from '../../data/bundeslaender';
 import { BundeslandModal } from './BundeslandModal';
@@ -20,7 +21,9 @@ import './LidExam.css';
 
 export const LidExamView = () => {
   useInterfaceLocale();
-  const { setView, showToast } = useUiStore();
+  const { setView, showToast, openSettings } = useUiStore();
+  const playerCollapsed = useSettingsStore(s => s.playerCollapsed);
+  const setPlayerCollapsed = useSettingsStore(s => s.setPlayerCollapsed);
   const {
     screen,
     examMode,
@@ -467,6 +470,9 @@ export const LidExamView = () => {
               voicePicker={voicePicker}
               cardText={currentQ.question}
               cardId={currentQ.id}
+              collapsed={playerCollapsed}
+              onCollapsedChange={setPlayerCollapsed}
+              onOpenSettings={() => openSettings('voice')}
               wrapperClassName="lid-exam-audio-wrapper"
             />
           )}

@@ -1,11 +1,4 @@
-"""
-api/services/classifier/__init__.py
-
-Entry point for the local rule-based CEFR classifier.
-Supports German (de) only; other languages return confidence=0.0 (AI fallback).
-No external dependencies — pure Python, runs on Vercel Serverless with zero overhead.
-"""
-
-from .pipeline import classify_sentence_fast
-
-__all__ = ["classify_sentence_fast"]
+"""Compatibility import; implementation belongs to lerne-card-core."""
+import sys
+from api.card_core.lerne_card_core import classifier as _implementation
+sys.modules[__name__] = _implementation

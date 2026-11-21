@@ -5,6 +5,7 @@ installed in the interpreter. No sibling discovery or production configuration.
 Only the native Admin router is mounted: its launch/Host perimeter is not tested.
 """
 import argparse
+from functools import partial
 import os
 from pathlib import Path
 import sys
@@ -16,7 +17,7 @@ ROOT = Path(__file__).resolve().parents[1]
 def verify(client, models, headers, _load_answer_context):
     from api.main import app
     from lerne_admin.core.api import models as admin_models
-    from lerne_admin.core.compatibility import guard_database
+    from lerne_admin.core.compatibility import diagnose, guard_database
     from lerne_admin.routers.cards import router
     from lerne_admin.routers.author import router as author_router
     from peewee import PostgresqlDatabase
@@ -39,6 +40,12 @@ def verify(client, models, headers, _load_answer_context):
         return {key: value for key, value in _card_state(models, cid).items() if key != 'card'}
 
     try:
+        report = diagnose(admin_db)
+        status = report['operations']['native_cards']
+        if not status['writable']:
+            fields = ', '.join(f"{item['table']}.{item['field']}"
+                               for item in report['findings'] if 'native_cards' in item['operations'])
+            raise RuntimeError(f'Disposable PostgreSQL fixture is not writable by Admin: {status}; {fields}')
         deck = models.TMA_Deck.create(user_id=1, name='Synthetic cross-editor acceptance', target_language='de')
         models.TMAMedia.create(folder='images', filename='cross-editor.webp', content=b'synthetic bytes')
         for kind, content in _native_examples().items():
@@ -100,9 +107,8 @@ def main():
         os.environ['LERNE_ADMIN_STATE_DIR'] = str(ROOT / 'local/test-data' / ('cross-admin-' + uuid4().hex))
         return verify(*arguments)
 
-    structured_cards_http._run_cases = run
     sys.argv = [sys.argv[0], '--bin-dir', str(args.bin_dir), '--http']
-    return structured_cards_postgres.main()
+    return structured_cards_postgres.main(http_check=partial(structured_cards_http.verify, admin_interop=run))
 
 
 if __name__ == '__main__':

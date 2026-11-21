@@ -4,16 +4,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Camera, Search, ClipboardPaste, X } from 'lucide-react';
 import { ImageEditorModal } from './ImageEditorModal';
-import { useUiStore } from '../../store/useUiStore';
 
 export const MediaPicker = ({ 
   isOpen, 
   onClose, 
   onImageUpload, 
   searchQuery = '', 
-  loading = false
+  loading = false,
+  onNotify = null,
 }) => {
   useInterfaceLocale();
+  const showToast = onNotify || (() => {});
   const [isCameraOpen, setIsCameraOpen] = useState(false);
   const [cameraError, setCameraError] = useState('');
   const [editingFile, setEditingFile] = useState(null);
@@ -131,10 +132,10 @@ export const MediaPicker = ({
           }
         }
       }
-      useUiStore.getState().showToast(tr("В буфере обмена нет картинки. Скопируйте изображение и попробуйте снова."), 'info');
+      showToast(tr("В буфере обмена нет картинки. Скопируйте изображение и попробуйте снова."), 'info');
     } catch (err) {
       console.warn('Clipboard read failed:', err);
-      useUiStore.getState().showToast(tr("Не удалось получить доступ к буферу. Вы можете нажать Ctrl+V."), 'info');
+      showToast(tr("Не удалось получить доступ к буферу. Вы можете нажать Ctrl+V."), 'info');
     }
   };
 

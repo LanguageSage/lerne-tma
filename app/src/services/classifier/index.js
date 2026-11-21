@@ -13,13 +13,15 @@ import { calculateResult } from './scorer.js';
 const CLASSIFIER_CACHE = new Map();
 const MAX_CACHE_SIZE = 1000;
 
+export const supportsSentenceClassification = language => typeof language === 'string'
+  && language.toLowerCase().trim() === 'de';
+
 export function classifySentenceFast(phrase, targetLanguage = 'de') {
   if (!phrase || !phrase.trim()) {
     return { level: 'A1', confidence: 0.0, source: 'empty', ai_used: false };
   }
 
-  const lang = (targetLanguage || 'de').toLowerCase().trim();
-  if (lang !== 'de') {
+  if (!supportsSentenceClassification(targetLanguage || 'de')) {
     return { level: 'A1', confidence: 0.0, source: 'unsupported_lang', ai_used: false };
   }
 

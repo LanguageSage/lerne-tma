@@ -11,16 +11,17 @@ const deck = fixture && { id: fixture.deck_id, name: fixture.deck_name || 'Offli
   role: fixture.card || fixture.edit_cards ? 'editor' : 'owner', stats: { total: 0 } };
 const profile = { user_id: fixture?.user_id ?? 1, first_name: 'Test learner', is_guest: false };
 
-async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull) {
+async function setupDevice(context, getPhase, observeSave, owner = false, controlWrite, controlPull, controlDeckRead) {
   const startOffline = getPhase() === 'offline';
   await context.route('**/*', route => new URL(route.request().url()).origin === 'http://127.0.0.1:5199'
     ? route.continue() : route.abort('blockedbyclient'));
   await context.routeWebSocket('**/*', () => {});
-  await context.addInitScript(({ token, profile, manualSync, isolation, startOffline }) => {
+  await context.addInitScript(({ token, profile, manualSync, isolation, startOffline, saveRegression }) => {
     localStorage.setItem('native_language', 'ru');
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
+    if (saveRegression) localStorage.setItem('lerne_auto_generate_card_audio', 'false');
     if (!isolation || !localStorage.getItem('lerne_auth_v2_session')) {
       localStorage.setItem('lerne_user_profile', JSON.stringify(profile));
       localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: profile.user_id, access_token: token }));
@@ -34,12 +35,15 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     }
   }, { token: owner ? fixture.owner_token : fixture.access_token, profile: { ...profile, user_id: owner ? 2 : profile.user_id },
     manualSync: (Boolean(fixture.card || fixture.edit_cards) && !owner) || fixture.isolation
-      || Boolean(fixture.move || fixture.lifecycle || fixture.list),
-    isolation: fixture.isolation, startOffline });
+      || Boolean(fixture.move || fixture.lifecycle || fixture.list || fixture.save_regression),
+    isolation: fixture.isolation, startOffline, saveRegression: Boolean(fixture.save_regression) });
   await context.route('**/api/**', async route => {
     const { pathname, search } = new URL(route.request().url());
     const phase = getPhase();
     if (phase === 'offline') return route.abort('internetdisconnected');
+    if (phase === 'pull-only' && pathname !== '/api/sync/v2/pull' && pathname !== '/api/sync/v2/status') {
+      return route.abort('internetdisconnected');
+    }
     const cardPath = '/api/cards/' + fixture.card?.id;
     const updating = /^\/api\/cards\/\d+$/.test(pathname) && route.request().method() === 'PATCH';
     const fetchFromServer = () => route.fetch({
@@ -64,6 +68,9 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
     }
     if (pathname === cardPath && phase === 'conflict-read-down') return route.abort('connectionreset');
     if (pathname === '/api/sync/v2/pull' && controlPull) return controlPull({ route, fetchFromServer });
+    if (controlDeckRead && route.request().headers()['x-fixture-delayed-deck-read'] === '1') {
+      return controlDeckRead({ route, fetchFromServer });
+    }
     if (fixture.isolation && pathname === '/api/sync/collab-pull') {
       return route.fulfill({ response: await fetchFromServer() });
     }
@@ -82,9 +89,9 @@ async function setupDevice(context, getPhase, observeSave, owner = false, contro
       }
     }
     const asSecond = fixture.isolation && route.request().headers().authorization === 'Bearer ' + fixture.second_session.access_token;
-    const visibleDecks = fixture.list ? [fixture.list.source, fixture.list.shared, fixture.list.foreign] : fixture.move
+    const visibleDecks = fixture.save_regression?.decks ?? (fixture.list ? [fixture.list.source, fixture.list.shared, fixture.list.foreign] : fixture.move
       ? [fixture.move.source, fixture.move.target, fixture.move.denied]
-      : [asSecond ? fixture.private_deck : deck];
+      : asSecond ? [fixture.private_deck] : [deck, ...(fixture.alternate_deck ? [fixture.alternate_deck] : [])]);
     if (fixture.isolation && pathname === '/api/auth/v2/me') return route.fulfill({ response: await fetchFromServer() });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: visibleDecks, folders: [],
       settings: {}, prompts: {}, user_settings: {}, user_info: asSecond ? { ...profile, user_id: 2 } : profile } });
@@ -120,6 +127,332 @@ async function openList(page, targetDeck = deck) {
     await useDeckStore.getState().fetchDeckCards(deck.id);
   }, targetDeck);
 }
+
+test.describe('Native V2 save regression', () => {
+  test.skip(!fixture?.save_regression, 'Native V2 save regression fixture only');
+  test.setTimeout(90000);
+  const waitForSync = page => expect.poll(() => page.evaluate(async () =>
+    (await navigator.locks.query()).held.some(lock => lock.name === 'lerne-offline-sync'))).toBe(false);
+  const ready = async page => {
+    await page.goto('/');
+    await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
+    await openList(page, fixture.save_regression.decks[0]);
+    await expect(page.locator('#card-item-' + fixture.save_regression.cards[0].id)).toBeVisible();
+    await waitForSync(page);
+  };
+  const newStandard = async (page, text) => {
+    await page.locator('#tut-fab-add').click();
+    await page.locator('#card-editor-front').fill(text);
+    await page.locator('#card-editor-back').fill('Synthetic answer');
+  };
+  const save = page => page.getByRole('button', { name: 'Сохранить карточку', exact: true }).click();
+  const sync = (page, options) => page.evaluate(async options => {
+    const { syncService } = await import('/src/services/syncService.js');
+    return syncService.sync(options);
+  }, options);
+  const setOnline = (page, online) => page.evaluate(value => Object.defineProperty(navigator, 'onLine',
+    { configurable: true, value }), online);
+  const readServer = async (page, id) => {
+    const response = await page.request.get(fixture.origin + '/api/cards/' + id,
+      { headers: { authorization: 'Bearer ' + fixture.access_token } });
+    expect(response.ok()).toBe(true);
+    return response.json();
+  };
+
+  for (const flag of [0, 2]) test(`keeps later creator input after ${flag ? 'direct' : 'queued'} creation`, async ({ page, context }) => {
+    const writes = [];
+    const flagWrites = [];
+    page.on('request', request => {
+      if (request.url().endsWith('/flag')) flagWrites.push(request.postDataJSON().flag);
+    });
+    let release;
+    const blocked = new Promise(resolve => { release = resolve; });
+    await setupDevice(context, () => 'ready', () => {}, false, async ({ route, payload, fetchFromServer }) => {
+      const response = await fetchFromServer();
+      writes.push({ payload, receipt: await response.json(), status: response.status() });
+      if (writes.length === 1) await blocked;
+      await route.fulfill({ response });
+    });
+    await ready(page);
+    await newStandard(page, 'Changed while creation is in flight ' + flag);
+    if (flag) {
+      await page.getByText('Медиа и оформление', { exact: true }).click();
+      await page.locator('.flag-picker-container button').nth(flag).click();
+    }
+    const field = page.locator('#card-editor-context');
+    await field.fill('Sent Context');
+    await save(page);
+    try {
+      await expect.poll(() => writes.length).toBe(1);
+      await field.fill('New Context');
+    } finally {
+      release();
+    }
+    await expect(page.locator('.btn-save-action')).toBeEnabled();
+    await expect(field).toHaveValue('New Context');
+    expect(writes[0].payload.content_v2.card.explanation).toBe('Sent Context');
+    expect(writes).toHaveLength(1);
+    await save(page);
+    await expect.poll(() => writes.length).toBe(2);
+    expect(writes[1]).toMatchObject({ status: 200, receipt: { id: writes[0].receipt.id },
+      payload: { revision: writes[0].receipt.revision, content_v2: { card: { explanation: 'New Context' } } } });
+    expect(writes[1].payload.request_id).not.toBe(writes[0].payload.request_id);
+    await expect(page.locator('.view-creator')).toHaveCount(0);
+    await waitForSync(page);
+    expect(flagWrites).toEqual(flag ? [flag] : []);
+  });
+
+  test('keeps editor input on a lost response and preserves the next opened card', async ({ page, context }) => {
+    const [first, second] = fixture.save_regression.cards;
+    const writes = [];
+    let release, lose;
+    let blocked = new Promise(resolve => { release = resolve; });
+    await setupDevice(context, () => 'ready', () => {}, false, async ({ route, payload, fetchFromServer }) => {
+      const response = await fetchFromServer();
+      writes.push({ payload, receipt: await response.json(), status: response.status() });
+      await blocked;
+      if (lose) await route.abort('connectionreset');
+      else await route.fulfill({ response });
+    });
+    await ready(page);
+    const openEdit = card => page.evaluate(async card => {
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useSessionStore.getState().setEditingCard(card);
+      useUiStore.getState().setView('editor');
+    }, card);
+    const startSave = () => page.evaluate(() => {
+      window.saveInFlight = import('/src/services/cardSave.js').then(({ saveCard }) => saveCard(null, { awaitDelivery: true }));
+    });
+    const finishSave = () => page.evaluate(() => window.saveInFlight);
+    const field = page.locator('#card-editor-context');
+    await openEdit(first);
+    await field.fill('Context accepted before connection reset');
+    await startSave();
+    try {
+      await expect.poll(() => writes.length).toBe(1);
+      await field.fill('Context kept after connection reset');
+      lose = true;
+    } finally {
+      release();
+    }
+    await finishSave();
+    await expect(page.locator('.view-editor')).toBeVisible();
+    if (!(await field.isVisible())) await page.getByRole('button', { name: 'Продолжить редактирование' }).click();
+    await expect(field).toHaveValue('Context kept after connection reset');
+    expect(writes[0].status).toBe(200);
+    lose = false;
+    blocked = new Promise(resolve => { release = resolve; });
+    await startSave();
+    try {
+      await expect.poll(() => writes.length).toBe(2);
+      expect(writes[1]).toEqual(writes[0]);
+      await openEdit(second);
+      await field.fill('Draft of another card');
+    } finally {
+      release();
+    }
+    await finishSave();
+    await expect(field).toHaveValue('Draft of another card');
+    expect((await readServer(page, second.id)).content_v2).toEqual(second.content_v2);
+    // A subsequent pass promotes and delivers the newer draft using the replayed revision.
+    await sync(page, { pendingNativeOnly: true, skipPull: true });
+    expect(writes).toHaveLength(3);
+    expect(writes[2]).toMatchObject({ status: 200, payload: { revision: writes[1].receipt.revision,
+      content_v2: { card: { explanation: 'Context kept after connection reset' } } } });
+  });
+
+  for (const deferred of [false, true]) {
+    test(`recovers the ${deferred ? 'deferred' : 'immediate'} 422 on the same local card`, async ({ browser }, testInfo) => {
+      const writes = [];
+      let phase = 'ready', device, page;
+      const launch = async () => {
+        device = await browser.browserType().launchPersistentContext(testInfo.outputPath('profile'), {
+          viewport: { width: 375, height: 844 }, serviceWorkers: 'block',
+        });
+        await setupDevice(device, () => phase, (payload, status, receipt) => writes.push({ payload, status, receipt }));
+        page = device.pages()[0];
+        await ready(page);
+      };
+      const openSource = () => page.getByRole('button', { name: 'Исходный JSON', exact: true }).click();
+      const source = () => page.getByRole('textbox', { name: 'Полный content_v2 JSON' });
+      const title = deferred ? 'Deferred invalid Quiz' : 'Immediate invalid Quiz';
+      const invalid = { schema_version: 2, card: { type: 'quiz', data: {
+        prompt: title, options: [{ text: 'Ja', correct: false }, { text: 'Nein', correct: false }],
+      } } };
+      try {
+        await launch();
+        if (deferred) {
+          phase = 'offline';
+          await setOnline(page, false);
+        }
+        await page.locator('#tut-fab-add').click();
+        await openSource();
+        await source().fill(JSON.stringify(invalid));
+        await save(page);
+        if (deferred) {
+          await expect(page.locator('.view-creator')).toHaveCount(0);
+          expect(writes).toHaveLength(0);
+          phase = 'ready';
+          await setOnline(page, true);
+          await sync(page, { pendingNativeOnly: true, skipPull: true });
+        }
+        await expect.poll(() => writes.map(write => write.status)).toEqual([422]);
+        const rejected = (await inspectLocal(page)).operations[0];
+        expect(rejected).toMatchObject({ rejected: true, payload: { content_v2: invalid } });
+        if (!deferred) {
+          await expect(page.locator('.view-creator').getByRole('alert')).toContainText('options');
+          await expect(source()).toHaveValue(JSON.stringify(invalid));
+          await expect(page.getByText('Карточка сохранена на устройстве', { exact: true })).toHaveCount(0);
+          await page.screenshot({ path: testInfo.outputPath('immediate-422-375.png') });
+        }
+        await device.close();
+        phase = 'offline';
+        await launch();
+        const row = page.locator('#card-item-' + rejected.tempId);
+        await expect(row.getByRole('status')).toContainText('options');
+        const openDraft = row.getByRole('button', { name: 'Открыть локальную правку' });
+        await expect(openDraft).toBeVisible();
+        expect(await row.evaluate(element => element.scrollWidth <= element.clientWidth)).toBe(true);
+        await openDraft.click();
+        await expect(page.locator('.view-editor').getByRole('alert')).toContainText('options');
+        if (deferred) await page.screenshot({ path: testInfo.outputPath('reopened-422-375.png') });
+        await openSource();
+        const fixed = structuredClone(invalid);
+        fixed.card.data.options[0].correct = true;
+        await source().fill(JSON.stringify(fixed));
+        await save(page);
+        await expect(page.locator('.view-editor')).toHaveCount(0);
+        const [retry] = (await inspectLocal(page)).operations;
+        expect(retry).toMatchObject({ tempId: rejected.tempId, payload: { content_v2: fixed } });
+        expect(retry.payload.request_id).not.toBe(rejected.payload.request_id);
+        expect(writes).toHaveLength(1);
+        await device.close();
+        await launch();
+        expect((await inspectLocal(page)).operations).toEqual([retry]);
+        phase = 'ready';
+        await setOnline(page, true);
+        await sync(page, { pendingNativeOnly: true, skipPull: true });
+        expect(writes.map(write => write.status)).toEqual([422, 200]);
+        const id = writes[1].receipt.id;
+        const local = await inspectLocal(page, rejected.tempId);
+        expect(local.operations).toEqual([]);
+        expect(local.alias).toBe(id);
+        expect(local.cards.filter(card => card.content_v2.card.data.prompt === title).map(card => card.id)).toEqual([id]);
+        expect((await readServer(page, id)).content_v2.card.data).toMatchObject(fixed.card.data);
+      } finally {
+        await device?.close();
+      }
+    });
+  }
+
+  test('inserts into the destination cache without changing the displayed deck', async ({ page, context }) => {
+    const [sourceDeck, targetDeck] = fixture.save_regression.decks;
+    const [, , anchor, last] = fixture.save_regression.cards;
+    const writes = [];
+    await setupDevice(context, () => 'ready', (payload, status, receipt) => writes.push({ payload, status, receipt }));
+    await ready(page);
+    await openList(page, targetDeck);
+    await openList(page, sourceDeck);
+    const cache = () => page.evaluate(async () => {
+      const { useDeckStore } = await import('/src/store/useDeckStore.js');
+      const { deckCards, cardsByDeck } = useDeckStore.getState();
+      return { visible: deckCards.map(card => card.id), cached: Object.fromEntries(
+        Object.entries(cardsByDeck).map(([deck, cards]) => [deck, cards.map(card => card.id)])) };
+    });
+    const before = await cache();
+    await page.evaluate(async ({ deckId, afterId }) => {
+      const { useSessionStore } = await import('/src/store/useSessionStore.js');
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useSessionStore.getState().setEditingCard({ deck_id: deckId, after_card_id: afterId });
+      useUiStore.getState().setView('creator');
+    }, { deckId: targetDeck.id, afterId: anchor.id });
+    await page.locator('#card-editor-front').fill('Placed in another deck');
+    await page.locator('#card-editor-back').fill('Synthetic answer');
+    await save(page);
+    await expect(page.locator('.view-creator')).toHaveCount(0);
+    expect(writes).toHaveLength(1);
+    expect(writes[0]).toMatchObject({ status: 200, payload: { after_card_id: anchor.id }, receipt: { deck_id: targetDeck.id } });
+    const id = writes[0].receipt.id;
+    expect(await cache()).toEqual({ visible: before.visible,
+      cached: { ...before.cached, [targetDeck.id]: [anchor.id, id, last.id] } });
+    await openList(page, targetDeck);
+    expect((await cache()).visible).toEqual([anchor.id, id, last.id]);
+    await openList(page, sourceDeck);
+    await newStandard(page, 'Selected another deck in the creator');
+    await page.getByRole('combobox').filter({ has: page.getByRole('option', { name: targetDeck.name }) })
+      .selectOption(String(targetDeck.id));
+    await save(page);
+    await expect(page.locator('.view-creator')).toHaveCount(0);
+    expect(writes).toHaveLength(2);
+    expect(writes[1]).toMatchObject({ status: 200, receipt: { deck_id: targetDeck.id } });
+    expect(await cache()).toEqual({ visible: before.visible,
+      cached: { ...before.cached, [targetDeck.id]: [anchor.id, id, last.id, writes[1].receipt.id] } });
+  });
+
+  test('persists a changed personal flag from a pull-only card and skips an unchanged flag', async ({ page, context }) => {
+    const sourceDeck = fixture.save_regression.decks[0];
+    const [, card] = fixture.save_regression.cards;
+    const flagRequests = [];
+    let phase = 'ready';
+    page.on('request', request => {
+      if (request.url().endsWith('/flag')) flagRequests.push(request.postDataJSON());
+    });
+    await setupDevice(context, () => phase, () => {});
+    await ready(page);
+    phase = 'pull-only';
+    expect(await sync(page, { pullOnly: true })).toMatchObject({ pull_success: true });
+    const localFlag = () => page.evaluate(async id => {
+      const { prepareLocalDb } = await import('/src/services/localDb.js');
+      const db = await prepareLocalDb();
+      return { cardFlag: (await db.cards.get(id)).flag, progress: (await db.progress.get([id, 1])).flag };
+    }, card.id);
+    expect(await localFlag()).toEqual({ cardFlag: undefined, progress: 2 });
+    await setOnline(page, false);
+    await openList(page, sourceDeck);
+    const openEdit = async () => {
+      await page.locator('#card-item-' + card.id).getByRole('button', { name: 'Действия с карточкой' }).click();
+      await page.getByRole('button', { name: /Редактировать/ }).click();
+    };
+    await openEdit();
+    await page.locator('#card-editor-context').fill('Unchanged flag');
+    await save(page);
+    await expect(page.locator('.view-editor')).toHaveCount(0);
+    expect(await localFlag()).toEqual({ cardFlag: undefined, progress: 2 });
+    await page.locator('#card-item-' + card.id).getByRole('button', { name: 'Открыть локальную правку' }).click();
+    await page.getByRole('button', { name: 'Продолжить редактирование' }).click();
+    await page.getByText('Медиа и оформление', { exact: true }).click();
+    await page.locator('.flag-picker-container button').first().click();
+    await save(page);
+    await expect(page.locator('.view-editor')).toHaveCount(0);
+    expect((await localFlag()).progress).toBe(0);
+    phase = 'ready';
+    await setOnline(page, true);
+    await sync(page);
+    await sync(page);
+    expect((await readServer(page, card.id)).flag).toBe(0);
+    expect((await localFlag()).progress).toBe(0);
+    expect(flagRequests).toEqual([]);
+    await openList(page, sourceDeck);
+    await openEdit();
+    await page.getByText('Медиа и оформление', { exact: true }).click();
+    await page.locator('.flag-picker-container button').nth(2).click();
+    await save(page);
+    await expect(page.locator('.view-editor')).toHaveCount(0);
+    expect(flagRequests).toEqual([{ flag: 2 }]);
+    expect((await readServer(page, card.id)).flag).toBe(2);
+    await waitForSync(page);
+    await openList(page, sourceDeck);
+    await openEdit();
+    await page.locator('#card-editor-context').fill('Online save with the same flag');
+    await save(page);
+    await expect(page.locator('.view-editor')).toHaveCount(0);
+    await expect.poll(async () => (await readServer(page, card.id)).content_v2.card.explanation)
+      .toBe('Online save with the same flag');
+    await waitForSync(page);
+    expect(flagRequests).toEqual([{ flag: 2 }]);
+  });
+});
 
 test('persists Standard offline, replays a committed write and pulls it on a separate device', async ({ page, context, browser }, testInfo) => {
   test.skip(Boolean(fixture?.card || fixture?.isolation || fixture?.move || fixture?.contents), 'Standard creation fixture only');
@@ -1174,6 +1507,7 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   const writes = [];
   let heldWrite;
   let heldPull;
+  let heldDeckRead;
   const hold = () => {
     const { promise, resolve } = Promise.withResolvers();
     return { promise, release: resolve };
@@ -1190,12 +1524,18 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
     }
     if (!tab.isClosed()) await route.fulfill({ response });
   }, async ({ route, fetchFromServer }) => {
+    const gate = heldPull?.tab === route.request().frame().page() ? heldPull : null;
     const response = await fetchFromServer();
-    const gate = heldPull;
     if (gate) {
       gate.snapshot = await response.json();
       await gate.promise;
     }
+    await route.fulfill({ response });
+  }, async ({ route, fetchFromServer }) => {
+    const gate = heldDeckRead;
+    const response = await fetchFromServer();
+    gate.cards = await response.json();
+    await gate.promise;
     await route.fulfill({ response });
   });
 
@@ -1233,9 +1573,14 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   };
   const createOffline = async (tab, title) => {
     await enterDraft(tab, title, true);
-    await expect(tab.getByText(title, { exact: true })).toBeVisible();
-    const operation = (await inspect(tab)).queue.find(row => row.payload.content_v2.card.data.prompt === title);
-    expect(operation.tempId).toBeLessThan(0);
+    let operation;
+    await expect.poll(async () => {
+      operation = (await inspect(tab)).queue.find(row => row.payload.content_v2.card.data.prompt === title);
+      return operation?.tempId ?? 0;
+    }).toBeLessThan(0);
+    const draft = tab.locator('#card-item-' + operation.tempId);
+    await expect(draft).toBeVisible();
+    await expect(draft).toContainText(title);
     await tab.evaluate(() => { delete navigator.onLine; });
     return operation;
   };
@@ -1262,17 +1607,10 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect((await inspect(peer)).queue).toEqual([shared]);
   for (const tab of [page, peer]) await tab.evaluate(() => { delete navigator.locks; });
 
-  const staleDeck = hold();
-  await peer.route(url => url.pathname === '/api/decks/' + deck.id + '/cards', async route => {
-    const { pathname, search } = new URL(route.request().url());
-    const response = await route.fetch({ url: fixture.origin + pathname + search, maxRetries: 0 });
-    staleDeck.cards = await response.json();
-    await staleDeck.promise;
-    await route.fulfill({ response });
-  }, { times: 1 });
+  const staleDeck = heldDeckRead = hold();
   const lateList = peer.evaluate(async deckId => {
     const { default: api } = await import('/src/services/api.js');
-    return (await api.get('/decks/' + deckId + '/cards')).data;
+    return (await api.get('/decks/' + deckId + '/cards', { headers: { 'x-fixture-delayed-deck-read': '1' } })).data;
   }, deck.id);
   await expect.poll(() => staleDeck.cards).toEqual([]);
 
@@ -1290,13 +1628,14 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   }
   const sharedId = writesFor(shared)[0].card.id;
   expect((await lateList).map(card => card.id)).toEqual([sharedId]);
+  heldDeckRead = null;
   await expect(peer.locator('#card-item-' + sharedId)).toContainText('Shared queue draft');
   await expect(peer.locator('#card-item-' + shared.tempId)).toHaveCount(0);
   expect((await inspect(peer)).aliases[shared.tempId]).toBe(sharedId);
 
   // The earlier pull must not overwrite a newer server revision another tab
   // has already read into the shared database.
-  heldPull = hold();
+  heldPull = { ...hold(), tab: page };
   const stalePull = sync(page, { pullOnly: true });
   try {
     await expect.poll(() => heldPull.snapshot?.cards.find(card => card.id === sharedId)?.revision)
@@ -1318,6 +1657,36 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   heldPull = null;
   expect((await inspect(peer)).cards.find(card => card.id === sharedId).content_v2.card.data.answer)
     .toBe('New answer on the server');
+
+  await openList(peer, fixture.alternate_deck);
+  await expect(peer.locator('#card-item-' + fixture.alternate_card_id)).toContainText('Alternate list');
+  await openList(peer);
+  const selection = await peer.evaluate(async ({ source, destination }) => {
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const db = (await import('/src/services/localDb.js')).getLocalDb();
+    const entered = Promise.withResolvers();
+    const release = Promise.withResolvers();
+    const original = db.progress.bulkGet;
+    db.progress.bulkGet = async function (...args) {
+      const rows = await original.apply(this, args);
+      entered.resolve();
+      await db.constructor.waitFor(release.promise);
+      return rows;
+    };
+    const loading = useDeckStore.getState().fetchDeckCards(source, 1, false, true);
+    try {
+      await Promise.race([entered.promise, loading.then(() => { throw new Error('Expected a Dexie card read'); })]);
+      useDeckStore.getState().setCurrentDeck(destination);
+    } finally {
+      db.progress.bulkGet = original;
+      release.resolve();
+      await loading;
+    }
+    const state = useDeckStore.getState();
+    return { deck: state.currentDeck.id, cards: state.deckCards.map(card => card.id) };
+  }, { source: deck.id, destination: fixture.alternate_deck });
+  expect(selection).toEqual({ deck: fixture.alternate_deck.id, cards: [fixture.alternate_card_id] });
+  await openList(peer);
 
   // Resuming a tab revalidates the shared native snapshot through V2 pull.
   const native = peer.waitForResponse(response => response.url().includes('/api/sync/v2/pull'));
@@ -1384,7 +1753,7 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   await expect(peer.locator('#card-item-' + switching.tempId)).toContainText('Private A pending draft');
   await expect(peer.getByText('Private B draft', { exact: true })).toHaveCount(0);
 
-  heldPull = hold();
+  heldPull = { ...hold(), tab: peer };
   const latePull = sync(peer, { pullOnly: true });
   try {
     await expect.poll(() => heldPull.snapshot?.status).toBe('success');
@@ -1400,6 +1769,25 @@ test('isolates Standard queues across tabs and login sessions', async ({ page, c
   expect(writesFor(switching)).toHaveLength(2);
   expect(writesFor(switching)[0]).toEqual(writesFor(switching)[1]);
   expect((await inspect(peer)).queue).toEqual([]);
+
+  heldPull = { ...hold(), tab: peer };
+  const accountPull = sync(peer, { pullOnly: true });
+  try {
+    await expect.poll(() => heldPull.snapshot?.cards.some(card => card.id === sharedId)).toBe(true);
+    await login(fixture.second_session);
+  } finally {
+    heldPull.release();
+    expect(await accountPull).toMatchObject({ success: false, native_success: false });
+  }
+  heldPull = null;
+  await openList(peer, fixture.private_deck);
+  const accountState = await peer.evaluate(async () => {
+    const state = (await import('/src/store/useDeckStore.js')).useDeckStore.getState();
+    return { deck: state.currentDeck.id, cards: state.deckCards.map(card => card.deck_id),
+      cached: [...Object.values(state.cardsByDeck).flat(), ...state.duplicateCards].map(card => card.deck_id) };
+  });
+  expect(accountState).toEqual({ deck: fixture.private_deck.id,
+    cards: [fixture.private_deck.id], cached: [fixture.private_deck.id] });
 });
 
 test('completes V2 list operations with search parity and durable atomic delivery', async ({ browser }, testInfo) => {

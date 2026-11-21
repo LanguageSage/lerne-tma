@@ -14,6 +14,12 @@ export const parseDeckMetadata = (deck) => {
   }
 };
 
+export const findCardDeck = ({ currentDeck, decks }, deckId) => {
+  if (!deckId || deckId === 'duplicates') return currentDeck;
+  if (Number(currentDeck?.id) === Number(deckId)) return currentDeck;
+  return decks.find(deck => Number(deck.id) === Number(deckId));
+};
+
 /** Authored plan only. No stage completion / competence scores inferred from SRS. */
 export const getDeckPedagogy = (deck) => {
   const pedagogy = parseDeckMetadata(deck)?.pedagogy;

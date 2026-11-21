@@ -298,7 +298,7 @@ def verify(db):
         unittest.defaultTestLoader.loadTestsFromTestCase(StorageTests)).wasSuccessful()
 
 
-def main():
+def main(*, http_check=None):
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--bin-dir', type=Path, required=True)
     parser.add_argument('--study-performance', action='store_true', help='Measure synthetic Study HTTP/SQL on disposable PostgreSQL, without migrations')
@@ -314,6 +314,7 @@ def main():
     parser.add_argument('--legacy-drain-browser', action='store_true', help='Guarded V1 queue delivery over Chromium/FastAPI/disposable PostgreSQL; no migrations')
     parser.add_argument('--legacy-drain-baseline', action='store_true', help='Reproduce 7.4 native false-success with its committed sync module')
     parser.add_argument('--offline-create-browser', action='store_true', help='Run Standard and all-type offline creation browser scenarios over socket HTTP')
+    parser.add_argument('--save-regressions-browser', action='store_true', help='Run Native V2 save regressions over Chromium and disposable PostgreSQL')
     parser.add_argument('--offline-edit-browser', action='store_true', help='Run the offline edit and conflict browser scenario over socket HTTP')
     parser.add_argument('--offline-delivery-browser', action='store_true', help='Run the offline delivery failure scenarios over socket HTTP')
     parser.add_argument('--offline-isolation-browser', action='store_true', help='Run the account and tab isolation browser scenario')
@@ -389,11 +390,13 @@ def main():
             if args.cutover_preflight:
                 from structured_cards_cutover import verify as verify_cutover
                 return 0 if verify_cutover(db, binaries, scratch) else 1
-            if (args.http or args.offline_create_browser or args.offline_edit_browser
+            if (args.http or args.save_regressions_browser or args.offline_create_browser or args.offline_edit_browser
                     or args.offline_delivery_browser or args.offline_isolation_browser
                     or args.offline_move_browser or args.offline_lifecycle_browser or args.offline_batch_browser or args.offline_list_browser or args.learning_browser or args.ratings_browser or args.media_browser or args.layout_browser or args.recovery_browser):
                 from structured_cards_http import verify as verify_http
-                return 0 if verify_http(db, offline_create_browser=args.offline_create_browser,
+                verify_http = http_check or verify_http
+                return 0 if verify_http(db, save_regressions_browser=args.save_regressions_browser,
+                                        offline_create_browser=args.offline_create_browser,
                                         offline_edit_browser=args.offline_edit_browser,
                                         offline_delivery_browser=args.offline_delivery_browser,
                                         offline_isolation_browser=args.offline_isolation_browser,

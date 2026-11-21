@@ -8,10 +8,9 @@ import { cardWriteError } from '../utils/cardDraft';
 import { getSessionIdentity, getUserId } from '../utils/auth';
 import { prepareLocalDb } from '../services/localDb';
 import { offlineLifecycleLabel, offlineMoveLabel } from '../services/offlineUi';
-import { saveCard } from '../services/cardSave';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
-import { useStudySession } from './useStudySession';
+import { studyContent, studySideText } from '../utils/structuredStudyCard';
 
 function visibleCard(cardId) {
   const deck = useDeckStore.getState();
@@ -20,10 +19,9 @@ function visibleCard(cardId) {
     .find(card => String(card?.id) === String(cardId) && card.revision);
 }
 
-export const useCardEditor = () => {
+export const useCardEditor = (fetchNextCard) => {
   const { fetchDecks, fetchDeckCards } = useDeckStore();
   const { setLoading, showToast } = useUiStore();
-  const { fetchNextCard } = useStudySession();
 
   const handleDeleteCard = async (cardId, skipConfirm = false) => {
     if (!skipConfirm && !window.confirm(tr("Удалить эту карточку?"))) return;
@@ -162,8 +160,10 @@ export const useCardEditor = () => {
       const isMobile = isTelegram() || isNative();
       if (isMobile) setLoading(true);
 
-      const title = targetCard.front || tr("Карточка Lerne");
-      const text = `${targetCard.front || ''} — ${targetCard.back || ''}`;
+      const content = studyContent(targetCard);
+      const front = studySideText(content);
+      const title = front || tr("Карточка Lerne");
+      const text = [front, studySideText(content, 'back')].filter(Boolean).join(' — ');
       
       const shareData = {
         title: tr("Учи слово в Lerne: {{p0}}", { p0: title }),
@@ -311,7 +311,6 @@ export const useCardEditor = () => {
     handleBatchTransferCards(cardIds, targetDeckId, onDuplicate, true);
 
   return {
-    saveCard,
     handleDeleteCard,
     handleSetCardFlag,
     handleMoveCard,
