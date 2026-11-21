@@ -1,4 +1,5 @@
 import { Capacitor, registerPlugin } from '@capacitor/core';
+import Dexie from 'dexie';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { sha256BytesHex } from './sha256.js';
 import {
@@ -153,7 +154,10 @@ export async function storeWebMediaAssets(database, assets, blobsBySha) {
     const { entry, bytes, canonicalUrl } = verifiedEntries[i];
     const existing = existingRows[i];
     if (existing?.blob) {
-      const existingBytes = new Uint8Array(await existing.blob.arrayBuffer());
+      if (existing.blob.size !== entry.size) {
+        throw new Error(`Конфликт существующего медиа ${entry.filename}: файл не изменён.`);
+      }
+      const existingBytes = new Uint8Array(await Dexie.waitFor(() => existing.blob.arrayBuffer()));
       const existingSha = sha256BytesHex(existingBytes);
       if (existingSha !== entry.sha256 || existingBytes.length !== entry.size) {
         throw new Error(`Конфликт существующего медиа ${entry.filename}: файл не изменён.`);
@@ -163,31 +167,12 @@ export async function storeWebMediaAssets(database, assets, blobsBySha) {
       itemsToWrite.push({
         url: canonicalUrl,
         blob: new Blob([bytes], { type: entry.mime || 'application/octet-stream' }),
-        bytes,
-        entry,
       });
     }
   }
 
   if (itemsToWrite.length > 0) {
-    await database.transaction('rw', database.media, async () => {
-      await database.media.bulkPut(itemsToWrite.map(item => ({ url: item.url, blob: item.blob })));
-    });
-  }
-
-  for (const item of verifiedEntries) {
-    addKnownOfflineMediaKey(`${item.entry.folder}/${item.entry.filename}`);
-  }
-  if (typeof URL?.createObjectURL === 'function') {
-    for (const item of itemsToWrite) {
-      if (!getWebBlobUrl(item.url)) {
-        try {
-          setWebBlobUrl(item.url, URL.createObjectURL(item.blob));
-        } catch {
-          // Ignore object URL errors in Node unit tests.
-        }
-      }
-    }
+    await database.media.bulkAdd(itemsToWrite);
   }
 
   return {
@@ -204,6 +189,9 @@ export async function readWebMediaAssetBytes(database, folder, filename) {
   const row = await database.media.get(canonicalUrl);
   if (!row?.blob) {
     throw new Error(`Файл ${folder}/${filename} отсутствует в локальном хранилище.`);
+  }
+  if (row.blob.size > 20 * 1024 * 1024) {
+    throw new Error(`Файл ${folder}/${filename} превышает допустимый размер.`);
   }
   const buffer = await row.blob.arrayBuffer();
   return new Uint8Array(buffer);

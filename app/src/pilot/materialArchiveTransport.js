@@ -1,5 +1,4 @@
 import { prepareLocalDb } from '../services/localDb.js';
-import { sha256Hex } from './sha256.js';
 import { buildZipArchive, readZipArchive } from './zipCodec.js';
 import {
   MAX_ARCHIVE_BYTES,
@@ -9,7 +8,6 @@ import {
   buildMaterialArchiveExport,
   inspectMaterialArchiveForImport,
   inspectMediaBytes,
-  parseJsonStrictNoDuplicates,
 } from './materialArchive.js';
 import {
   getOfflineMaterialArchivePlugin,
@@ -43,7 +41,7 @@ export async function inspectArchiveWebBytes(rawBytes, fileName = '', { db = nul
       return { ok: false, error: 'В архиве отсутствуют manifest.json или manifest.sha256.' };
     }
 
-    const decoder = new TextDecoder('utf-8', { fatal: true });
+    const decoder = new TextDecoder('utf-8', { fatal: true, ignoreBOM: true });
     let manifestJson;
     let manifestSha256;
     try {
@@ -53,40 +51,16 @@ export async function inspectArchiveWebBytes(rawBytes, fileName = '', { db = nul
       return { ok: false, error: 'Манифест архива содержит некорректную кодировку UTF-8.' };
     }
 
-    if (sha256Hex(manifestJson) !== manifestSha256.trim()) {
-      return { ok: false, error: 'Контрольная сумма манифеста не совпадает.' };
-    }
-
-    const parsedDoc = parseJsonStrictNoDuplicates(manifestJson);
-    const declaredAssets = Array.isArray(parsedDoc?.assets) ? parsedDoc.assets : [];
-    const folderByPath = new Map();
-    for (const asset of declaredAssets) {
-      if (asset && typeof asset.path === 'string' && typeof asset.folder === 'string') {
-        folderByPath.set(asset.path, asset.folder);
-      }
-    }
-
-    const verifiedZipEntries = new Map();
     const blobsBySha = new Map();
-
-    for (const [entryPath, bytes] of zipMap.entries()) {
-      if (entryPath === 'manifest.json' || entryPath === 'manifest.sha256') {
-        verifiedZipEntries.set(entryPath, { size: bytes.length });
-        continue;
-      }
-      const expectedFolder = folderByPath.get(entryPath);
-      if (!expectedFolder) {
-        return { ok: false, error: 'Состав ZIP не совпадает с манифестом.' };
-      }
-      const inspected = inspectMediaBytes(bytes, expectedFolder);
-      verifiedZipEntries.set(entryPath, inspected);
-      blobsBySha.set(inspected.sha256, bytes);
-    }
-
     const inspection = await inspectMaterialArchiveForImport({
       manifestJson,
       manifestSha256,
-      verifiedZipEntries,
+      verifiedZipEntries: zipMap,
+      inspectEntry: (bytes, asset) => {
+        const inspected = inspectMediaBytes(bytes, asset.folder);
+        blobsBySha.set(inspected.sha256, bytes);
+        return inspected;
+      },
       fileName,
       db,
       userId,
@@ -133,11 +107,13 @@ export async function pickArchiveForImportNative({ db = null, userId = null } = 
   }
 
   try {
-    const verifiedZipEntries = new Map();
+    // The native bridge sends the two checked manifest files as fields, not media entries.
+    const verifiedZipEntries = new Map([['manifest.json', {}], ['manifest.sha256', {}]]);
     for (const entry of Array.isArray(picked.zipEntries) ? picked.zipEntries : []) {
-      if (entry?.path) {
-        verifiedZipEntries.set(entry.path, entry);
+      if (!entry?.path || verifiedZipEntries.has(entry.path)) {
+        throw new Error('Некорректный или повторный файл в архиве.');
       }
+      verifiedZipEntries.set(entry.path, entry);
     }
     const inspection = await inspectMaterialArchiveForImport({
       manifestJson: picked.manifestJson,
@@ -178,19 +154,26 @@ export async function confirmArchiveImport(pendingImport, { db = null, userId = 
         stagingId: pendingImport.stagingId,
         assets,
       });
-      registerNativeMediaFiles(assets);
     }
     : async (assets) => storeWebMediaAssets(database, assets, pendingImport.blobsBySha);
 
   const result = await applyMaterialArchiveImport({
     inspection: pendingImport.inspection,
     commitMedia,
+    mediaInTransaction: pendingImport.channel !== 'native',
     db: database,
     userId,
     fileName: pendingImport.fileName || '',
   });
 
-  await initOfflineMediaStore(database);
+  if (pendingImport.channel === 'native') {
+    registerNativeMediaFiles(pendingImport.inspection.document.assets);
+    await cancelPendingArchiveImport(pendingImport);
+  } else {
+    await initOfflineMediaStore(database).catch(error => {
+      console.warn('[StandaloneMaterials] Unable to refresh local media URLs:', error);
+    });
+  }
   return result;
 }
 
@@ -264,6 +247,9 @@ export async function exportSelectedMaterialsZip({
     });
     if (res?.cancelled) {
       return { cancelled: true };
+    }
+    if (res?.saved !== true) {
+      throw new Error('Сохранение ZIP-архива не подтверждено.');
     }
     return {
       cancelled: false,

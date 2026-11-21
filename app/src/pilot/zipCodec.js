@@ -7,6 +7,8 @@ const SIG_LOCAL_FILE_HEADER = 0x04034b50;
 const SIG_CENTRAL_DIR_HEADER = 0x02014b50;
 const SIG_EOCD = 0x06054b50;
 const SIG_ZIP64_LOCATOR = 0x07064b50;
+const FLAG_DESCRIPTOR = 0x0008;
+const SUPPORTED_FLAGS = 0x0800 | FLAG_DESCRIPTOR | 0x0006;
 
 const CRC_TABLE = (() => {
   const table = new Uint32Array(256);
@@ -84,7 +86,7 @@ async function transformWithDeflateStream(bytes, mode, maxOutputBytes = ZIP_MAX_
 
   const writePromise = (async () => {
     try {
-      const chunkSize = 256 * 1024;
+      const chunkSize = mode === 'decompress' ? 16 * 1024 : 256 * 1024;
       for (let offset = 0; offset < bytes.length; offset += chunkSize) {
         await writer.write(bytes.subarray(offset, Math.min(bytes.length, offset + chunkSize)));
       }
@@ -94,6 +96,7 @@ async function transformWithDeflateStream(bytes, mode, maxOutputBytes = ZIP_MAX_
     }
   })();
 
+  const output = mode === 'decompress' ? new Uint8Array(maxOutputBytes) : null;
   const chunks = [];
   let totalLength = 0;
   try {
@@ -106,7 +109,8 @@ async function transformWithDeflateStream(bytes, mode, maxOutputBytes = ZIP_MAX_
           await reader.cancel().catch(() => {});
           throw new Error('Размер распакованного файла в архиве превышает допустимый лимит.');
         }
-        chunks.push(value);
+        if (output) output.set(value, totalLength - value.byteLength);
+        else chunks.push(value);
       }
     }
   } catch (error) {
@@ -119,6 +123,7 @@ async function transformWithDeflateStream(bytes, mode, maxOutputBytes = ZIP_MAX_
 
   await writePromise;
 
+  if (output) return output.subarray(0, totalLength);
   const result = new Uint8Array(totalLength);
   let pos = 0;
   for (const chunk of chunks) {
@@ -170,7 +175,7 @@ export async function readZipArchive(input, {
     throw new Error('Слишком много файлов в архиве.');
   }
 
-  if (cdOffset + cdSize > eocdOffset) {
+  if (cdOffset + cdSize !== eocdOffset) {
     throw new Error('Повреждён центральный каталог ZIP-архива.');
   }
 
@@ -204,8 +209,8 @@ export async function readZipArchive(input, {
       throw new Error('Усечённая запись в центральном каталоге ZIP.');
     }
 
-    if ((flags & 0x01) !== 0 || (flags & 0x40) !== 0) {
-      throw new Error('Шифрование в архиве не поддерживается.');
+    if ((flags & ~SUPPORTED_FLAGS) !== 0) {
+      throw new Error('Шифрование или другие флаги не поддерживаются в ZIP.');
     }
     if (diskStart !== 0 || compressedSize === 0xffffffff || uncompressedSize === 0xffffffff) {
       throw new Error('Многотомные или ZIP64-записи в архиве не поддерживаются.');
@@ -215,7 +220,7 @@ export async function readZipArchive(input, {
     }
 
     const unixMode = (externalAttr >>> 16) & 0o170000;
-    if (unixMode === 0o120000 || unixMode === 0o040000 || (externalAttr & 0x10) !== 0) {
+    if ((unixMode !== 0 && unixMode !== 0o100000) || (externalAttr & 0x10) !== 0) {
       throw new Error('Каталоги и ссылки в архиве не поддерживаются.');
     }
 
@@ -242,6 +247,8 @@ export async function readZipArchive(input, {
 
     records.push({
       name,
+      nameBytes: bytes.subarray(cursor + 46, cursor + 46 + nameLen),
+      flags,
       method,
       crc32,
       compressedSize,
@@ -260,7 +267,8 @@ export async function readZipArchive(input, {
   const files = new Map();
   let actualTotalUncompressed = 0;
 
-  for (const rec of records) {
+  const byOffset = [...records].sort((a, b) => a.localHeaderOffset - b.localHeaderOffset);
+  for (const [index, rec] of byOffset.entries()) {
     const lh = rec.localHeaderOffset;
     if (lh + 30 > cdOffset || view.getUint32(lh, true) !== SIG_LOCAL_FILE_HEADER) {
       throw new Error('Повреждён локальный заголовок файла в ZIP-архиве.');
@@ -269,17 +277,36 @@ export async function readZipArchive(input, {
     const localMethod = view.getUint16(lh + 8, true);
     const localNameLen = view.getUint16(lh + 26, true);
     const localExtraLen = view.getUint16(lh + 28, true);
-    if ((localFlags & 0x01) !== 0 || localMethod !== rec.method) {
+    const localNameStart = lh + 30;
+    if (localFlags !== rec.flags || localMethod !== rec.method || localNameLen !== rec.nameBytes.length
+        || !rec.nameBytes.every((byte, i) => byte === bytes[localNameStart + i])) {
       throw new Error('Несогласованный заголовок файла в ZIP-архиве.');
     }
 
     const dataStart = lh + 30 + localNameLen + localExtraLen;
     const dataEnd = dataStart + rec.compressedSize;
-    if (dataEnd > cdOffset) {
+    const nextOffset = byOffset[index + 1]?.localHeaderOffset ?? cdOffset;
+    if (dataEnd > nextOffset) {
       throw new Error('Сжатые данные файла выходят за пределы архива.');
     }
+    const matchesDetails = offset => view.getUint32(offset, true) === rec.crc32
+      && view.getUint32(offset + 4, true) === rec.compressedSize
+      && view.getUint32(offset + 8, true) === rec.uncompressedSize;
+    if (localFlags & FLAG_DESCRIPTOR) {
+      const signedDescriptor = dataEnd + 16 <= nextOffset && view.getUint32(dataEnd, true) === 0x08074b50
+        && matchesDetails(dataEnd + 4);
+      if (!signedDescriptor && (dataEnd + 12 > nextOffset || !matchesDetails(dataEnd))) {
+        throw new Error('Повреждён дескриптор записи в ZIP-архиве.');
+      }
+    } else if (!matchesDetails(lh + 14)) {
+      throw new Error('Несогласованный заголовок файла в ZIP-архиве.');
+    }
+    rec.dataStart = dataStart;
+    rec.dataEnd = dataEnd;
+  }
 
-    const payload = bytes.subarray(dataStart, dataEnd);
+  for (const rec of records) {
+    const payload = bytes.subarray(rec.dataStart, rec.dataEnd);
     let data;
     if (rec.method === 0) {
       if (rec.compressedSize !== rec.uncompressedSize) {
@@ -315,9 +342,12 @@ export async function buildZipArchive(entries) {
   if (!Array.isArray(entries) || entries.length === 0) {
     throw new Error('Архив должен содержать хотя бы один файл.');
   }
+  if (entries.length > ZIP_MAX_ENTRIES) throw new Error('Слишком много файлов в архиве.');
   const encoder = new TextEncoder();
   const seenNames = new Set();
   const prepared = [];
+  let uncompressedTotal = 0;
+  let totalSize = 22;
 
   for (const entry of entries) {
     const name = validateZipEntryName(entry?.name);
@@ -326,9 +356,15 @@ export async function buildZipArchive(entries) {
     }
     seenNames.add(name);
     const raw = toUint8Array(entry.data);
+    uncompressedTotal += raw.length;
+    if (raw.length > ZIP_MAX_ENTRY_BYTES || uncompressedTotal > ZIP_MAX_ARCHIVE_BYTES) {
+      throw new Error('Вложения превышают допустимый размер ZIP.');
+    }
     const nameBytes = encoder.encode(name);
     const crc32 = computeCrc32(raw);
     const compressed = await transformWithDeflateStream(raw, 'compress', Math.max(1024, raw.length + 1024 * 1024));
+    totalSize += 76 + 2 * nameBytes.length + compressed.length;
+    if (totalSize > ZIP_MAX_ARCHIVE_BYTES) throw new Error('Итоговый ZIP-архив превышает 512 МБ.');
     prepared.push({
       nameBytes,
       crc32,
@@ -336,18 +372,6 @@ export async function buildZipArchive(entries) {
       compressed,
       method: 8,
     });
-  }
-
-  let localTotal = 0;
-  let cdTotal = 0;
-  for (const item of prepared) {
-    localTotal += 30 + item.nameBytes.length + item.compressed.length;
-    cdTotal += 46 + item.nameBytes.length;
-  }
-
-  const totalSize = localTotal + cdTotal + 22;
-  if (totalSize > ZIP_MAX_ARCHIVE_BYTES) {
-    throw new Error('Итоговый ZIP-архив превышает 512 МБ.');
   }
 
   const out = new Uint8Array(totalSize);

@@ -63,6 +63,23 @@ mock.module('../../utils/standaloneMode.js', {
 });
 
 const { sha256Hex, sha256BytesHex } = await import('../../pilot/sha256.js');
+let nativeArchive;
+const capacitor = await import('@capacitor/core');
+mock.module('@capacitor/core', {
+  namedExports: {
+    ...capacitor,
+    Capacitor: {
+      ...capacitor.Capacitor,
+      isNativePlatform: () => Boolean(nativeArchive),
+      isPluginAvailable: () => Boolean(nativeArchive),
+    },
+    registerPlugin: name => name === 'OfflineMaterialArchive' ? {
+      pickArchiveForImport: (...args) => nativeArchive.pickArchiveForImport(...args),
+      commitImportMedia: (...args) => nativeArchive.commitImportMedia(...args),
+      cancelImport: (...args) => nativeArchive.cancelImport(...args),
+    } : capacitor.registerPlugin(name),
+  },
+});
 const { isOfflineMediaUrl, resolveOfflineMediaUrlSync, clearOfflineMediaCache: clearResolverCache } = await import('../../pilot/offlineMediaResolver.js');
 
 mock.module('../apiConfig.js', {
@@ -84,11 +101,13 @@ const {
   getExportableMaterialsTree,
   buildMaterialArchiveExport,
   MAX_ARCHIVE_BYTES,
+  parseJsonStrictNoDuplicates,
 } = await import('../../pilot/materialArchive.js');
 const {
   inspectArchiveWebBytes,
   confirmArchiveImport,
   buildWebArchiveZipBytes,
+  pickArchiveForImportNative,
 } = await import('../../pilot/materialArchiveTransport.js');
 const {
   clearOfflineMediaCache,
@@ -550,7 +569,13 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     const cdSigPos = Buffer.from(corruptCrc).indexOf(Buffer.from([0x50, 0x4b, 0x01, 0x02]));
     assert.ok(cdSigPos >= 0);
     corruptCrc[cdSigPos + 16] ^= 0xff;
+    await assert.rejects(() => readZipArchive(corruptCrc), /Несогласованный заголовок/i);
+    corruptCrc[14] ^= 0xff;
     await assert.rejects(() => readZipArchive(corruptCrc), /Контрольная сумма CRC-32/i);
+
+    const wrongLocalName = zipBytes.slice();
+    wrongLocalName[30] ^= 1;
+    await assert.rejects(() => readZipArchive(wrongLocalName), /Несогласованный заголовок/i);
 
     // Unsafe path traversal & backslash
     await assert.rejects(() => buildZipArchive([{ name: '../evil.txt', data: binData }]), /путь/i);
@@ -703,6 +728,12 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     const v3Deck = (await db.decks.toArray()).find(d => d.standalone_source === v3.document.source);
     assert.equal(v3Deck.standalone_deck_scope, 'personal');
     assert.equal(v3Deck.standalone_category_id, null);
+    const v2 = buildRichCourseFixture({ source: `LOCAL:${'2'.repeat(64)}`, version: 2 });
+    const v2Pending = await inspectArchiveWebBytes(await buildArchiveZipFromDoc(v2.document, v2.mediaAssets), 'v2.zip', { db });
+    assert.equal(v2Pending.ok, true, v2Pending.error);
+    assert.equal(v2Pending.inspection.originalVersion, 2);
+    await confirmArchiveImport(v2Pending, { db, userId: STANDALONE_USER_ID });
+    assert.equal(await db.cards.filter(c => c.standalone_source === v2.document.source).count(), v2.document.content.card.length);
     assert.equal(v3Deck.standalone_is_default, false);
   });
 
@@ -763,6 +794,15 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal(afterProgress.interval, srsRow.interval);
     assert.equal(afterProgress.repetitions, srsRow.repetitions);
     assert.equal(afterProgress.next_review, srsRow.next_review);
+
+    const localCard = { ...afterCard, is_dirty: 1, front_text: 'Local edit' };
+    await db.cards.put(localCard);
+    await assert.rejects(
+      () => confirmArchiveImport(reInspectSame, { db, userId: STANDALONE_USER_ID }),
+      /локальные изменения/i,
+    );
+    assert.deepEqual(await db.cards.get(trackedCard.id), localCard);
+    assert.deepEqual(await db.progress.get([trackedCard.id, STANDALONE_USER_ID]), afterProgress);
   });
 
   test('5. Corrupt/tampered archives, validation violations & commit failures leave zero partial writes', async () => {
@@ -790,6 +830,10 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       { name: 'manifest.sha256', data: encoder.encode(sha256Hex(dupManifest)) },
     ]);
     assert.equal((await inspectArchiveWebBytes(dupZip, 'dup-json.zip', { db })).ok, false);
+    assert.throws(() => parseJsonStrictNoDuplicates('{"__proto__":{},"\\u005f_proto__":{}}'), /Повторный ключ/);
+    const ownProto = parseJsonStrictNoDuplicates('{"__proto__":{"fake":true}}');
+    assert.equal(ownProto.fake, undefined);
+    assert.equal(Object.hasOwn(ownProto, '__proto__'), true);
 
     // 5c. Missing media file in ZIP
     const missingMediaZip = await buildZipArchive([
@@ -836,6 +880,56 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal(await db.decks.count(), beforeDeckCount);
     assert.equal(await db.cards.count(), beforeCardCount);
     assert.equal(await db.folders.count(), 0);
+
+    const failCardWrite = () => { throw new Error('Simulated IndexedDB failure'); };
+    db.cards.hook('creating', failCardWrite);
+    try {
+      await assert.rejects(() => confirmArchiveImport(validInspected, { db, userId: STANDALONE_USER_ID }), /Simulated IndexedDB failure/);
+      assert.equal(await db.media.count(), 0);
+      assert.equal(await db.folders.count(), 0);
+      assert.equal(await db.cards.count(), beforeCardCount);
+    } finally {
+      db.cards.hook('creating').unsubscribe(failCardWrite);
+    }
+  });
+
+  test('Accepts the native bridge result, rejects missing or duplicate entries, and releases staging', async () => {
+    const fixture = buildRichCourseFixture();
+    const entries = fixture.mediaAssets.map(({ folder, filename, sha256, size, mime, path }) => ({
+      sha256, size, mime, path,
+      ext: filename.slice(filename.lastIndexOf('.')),
+      detectedKind: folder === 'audio' ? 'audio' : 'image',
+    }));
+    const manifestJson = JSON.stringify(fixture.document);
+    const cancelled = [];
+    let stored = false;
+    let zipEntries = entries;
+    nativeArchive = {
+      pickArchiveForImport: async () => ({
+        stagingId: 'from-java',
+        fileName: 'native.zip',
+        manifestJson,
+        manifestSha256: sha256Hex(manifestJson),
+        zipEntries,
+      }),
+      cancelImport: async ({ stagingId }) => { cancelled.push(stagingId); },
+      commitImportMedia: async ({ assets }) => { stored = assets.length === entries.length; },
+    };
+    try {
+      for (const badEntries of [entries.slice(1), [...entries, entries[0]]]) {
+        zipEntries = badEntries;
+        assert.equal((await pickArchiveForImportNative({ db })).ok, false);
+      }
+      zipEntries = entries;
+      const picked = await pickArchiveForImportNative({ db });
+      assert.equal(picked.ok, true, picked.error);
+      await confirmArchiveImport(picked, { db, userId: STANDALONE_USER_ID });
+      assert.equal(stored, true);
+      assert.equal(await db.cards.count(), fixture.document.content.card.length);
+      assert.deepEqual(cancelled, ['from-java', 'from-java', 'from-java']);
+    } finally {
+      nativeArchive = null;
+    }
   });
 
   test('6. Selective export tree + ZIP export + fail-closed on missing local media', async () => {
@@ -863,10 +957,12 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal(folderExport.document.content.folder.length, 2);
     assert.equal(folderExport.document.content.deck.length, 1);
     assert.equal(folderExport.document.content.card.length, 8);
-    assert.match(folderExport.document.source, /^LOCAL:[a-f0-9]{64}$/);
+    assert.equal(folderExport.document.source, v4.document.source);
+    assert.deepEqual(folderExport.document.content.deck.map(row => row.id), [101]);
 
     const roundtripInspect = await inspectArchiveWebBytes(folderExport.zipBytes, folderExport.fileName, { db, userId: STANDALONE_USER_ID });
     assert.equal(roundtripInspect.ok, true, roundtripInspect.error);
+    assert.equal(roundtripInspect.inspection.preview.newCards, 0);
 
     // Verify stored web media bytes are exact
     const asset0 = v4.mediaAssets[0];
@@ -908,6 +1004,7 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     // Import target course + another unimported course B
     const mainCourse = buildRichCourseFixture({ source: `Supabase:${'c'.repeat(64)}` });
     const otherCourse = buildRichCourseFixture({ source: `Supabase:${'d'.repeat(64)}`, version: 3, targetLanguage: 'es' });
+    otherCourse.document.source_users[0].name = 'Another author';
     await confirmArchiveImport(
       await inspectArchiveWebBytes(await buildArchiveZipFromDoc(mainCourse.document, mainCourse.mediaAssets), 'main.zip', { db, userId: STANDALONE_USER_ID }),
       { db, userId: STANDALONE_USER_ID },
@@ -987,5 +1084,33 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       d => d.standalone_source === mainCourse.document.source && d.name === 'Cours Complet'
     );
     assert.equal(relocatedDeck.is_learning, true);
+
+    // Restoring the older backup must leave reviews that were not in that backup intact.
+    const anotherCard = (await db2.cards.where('deck_id').equals(relocatedDeck.id).toArray())
+      .find(card => card.id !== relocatedCard.id);
+    const newerReview = { ...importedProg2, card_id: anotherCard.id };
+    await db2.progress.put(newerReview);
+    await applyProgressBackup(v2Backup.json, { db: db2, userId: STANDALONE_USER_ID, pack });
+    assert.deepEqual(await db2.progress.get([anotherCard.id, STANDALONE_USER_ID]), newerReview);
+
+    // A selection spanning two sources uses the exporting database's own identity.
+    const mixed = await buildWebArchiveZipBytes({ db, deckIds: [mainCard.deck_id, otherCard.deck_id] });
+    assert.match(mixed.document.source, /^LOCAL:[a-f0-9]{64}$/);
+    assert.deepEqual(new Set(mixed.document.source_users.map(user => user.name)), new Set(['Admin Author', 'Another author']));
+    const selfImport = await inspectArchiveWebBytes(mixed.zipBytes, mixed.fileName, { db });
+    assert.equal(selfImport.ok, true, selfImport.error);
+    assert.equal(selfImport.inspection.preview.newCards, 0);
+    await confirmArchiveImport(selfImport, { db, userId: STANDALONE_USER_ID });
+    assert.equal(await db.cards.count(), allCardsBefore.length);
+
+    const cleanDb = createStandaloneTestDb(`LerneStandaloneDB_clean_${dbCounter}`);
+    await cleanDb.open();
+    const mixedImport = await inspectArchiveWebBytes(mixed.zipBytes, mixed.fileName, { db: cleanDb });
+    assert.equal(mixedImport.ok, true, mixedImport.error);
+    await confirmArchiveImport(mixedImport, { db: cleanDb, userId: STANDALONE_USER_ID });
+    const restoredMixed = await applyProgressBackup(v2Backup.json, { db: cleanDb, userId: STANDALONE_USER_ID, pack });
+    assert.equal(restoredMixed.restoredImportedRecords, 2);
+    assert.equal(restoredMixed.unmatchedImportedRecords, 0);
+    await cleanDb.delete();
   });
 });

@@ -27,6 +27,10 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+    if (isOfflinePilot) {
+        sourceSets.debug.manifest.srcFile 'src/offline/AndroidManifest.xml'
+        sourceSets.release.manifest.srcFile 'src/offline/AndroidManifest.xml'
+    }
 }
 
 repositories {

@@ -9,6 +9,7 @@ import { useAuthStore } from '../store/useAuthStore';
 import { useUiStore } from '../store/useUiStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { isNativeStudyCard, isStudyMigrationError, studyErrorDetail } from '../utils/structuredStudyCard.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { playGradeSound } from '../utils/gradeSounds';
 
 const reviewKey = session => `${session.sessionRevision}:${session.historyIndex}:${session.card?.id}`;
@@ -250,16 +251,17 @@ export const useStudySession = () => {
       return_next: !localNext,
       include_progress: true
     };
-    // Background success may patch progress, but must never navigate after a local transition.
-    const scope = watchRequest(!localNext);
-    if (localNext) {
+    const advanceLocally = () => {
       if (nextHistoryIndex < session.studyHistory.length) {
         session.moveToHistory(nextHistoryIndex);
         if (!session.isLearningMore) refreshCard(localNext, { ifStale: true });
       } else {
         showLocalCard(localNext);
       }
-    }
+    };
+    const advanceBeforeSave = localNext && !IS_STANDALONE;
+    const scope = watchRequest(!advanceBeforeSave);
+    if (advanceBeforeSave) advanceLocally();
 
     let failure = null;
     try {
@@ -287,7 +289,9 @@ export const useStudySession = () => {
         }
       }
 
-      if (!localNext && scope.isCurrent()) {
+      if (localNext && IS_STANDALONE && scope.isCurrent()) {
+        advanceLocally();
+      } else if (!localNext && scope.isCurrent()) {
         if (res.data.finished) {
           session.setIsSessionFinished(true);
           session.setCard(null);

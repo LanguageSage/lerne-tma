@@ -23,6 +23,7 @@ LiD ticket выбирает карточки и формирует ответ с
 
 1. `useStudyNavigation` запускает сессию; `useStudySession` получает карточки и держит историю в session store.
 2. `StudyCard` читает `content_v2.card`. `ExerciseRenderer` передаёт структурированные параметры компоненту упражнения и его feedback adapter. Состояние попытки привязано к `reviewKey`. Прежний разбор авторского текста используется в предпросмотрах.
+   В Android Standalone письменные ответы проверяются локально по эталону и допустимым вариантам. При оценке следующая карточка открывается после подтверждения записи в Dexie. Диктовка и кнопки создания и редактирования карточки скрыты.
 3. Exercise completion передаёт evidence через `onTrainerAnswer`; `StudyView` завершает шаг answer. Явная цепочка required actions завершается после всех шагов; default сохраняет ручную оценку. Grade сохраняется через `/study/grade` и запускает Knowledge capture.
 4. Online SRS: study router → `update_card_progress` → `api/srs.py` → `TMAProgress` / `TMAReviewHistory`.
 5. Offline SRS: `offlineApi.js` → `srsEngine.js` → Dexie progress + review event; доставка — [sync](sync.md).

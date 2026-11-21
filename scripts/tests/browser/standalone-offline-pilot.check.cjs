@@ -1,8 +1,10 @@
 const assert = require('node:assert/strict');
+const { createHash } = require('node:crypto');
 const fs = require('node:fs');
 const http = require('node:http');
 const path = require('node:path');
 const { chromium } = require('playwright');
+const { expect } = require('@playwright/test');
 
 const WORKTREE_ROOT = path.resolve(__dirname, '../../..');
 const DIST_DIR = path.join(WORKTREE_ROOT, 'app', 'dist');
@@ -185,6 +187,116 @@ async function completeWordBank(page, words, gradeIndex) {
   await gradeCard(page, gradeIndex);
 }
 
+async function checkWrittenCards(page) {
+  const { buildZipArchive } = await import('../../../app/src/pilot/zipCodec.js');
+  const hash = bytes => createHash('sha256').update(bytes).digest('hex');
+  const image = Buffer.from('R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7', 'base64');
+  const audio = Buffer.alloc(44 + 32000);
+  audio.write('RIFF', 0);
+  audio.writeUInt32LE(audio.length - 8, 4);
+  audio.write('WAVEfmt ', 8);
+  audio.writeUInt32LE(16, 16);
+  audio.writeUInt16LE(1, 20);
+  audio.writeUInt16LE(1, 22);
+  audio.writeUInt32LE(8000, 24);
+  audio.writeUInt32LE(16000, 28);
+  audio.writeUInt16LE(2, 32);
+  audio.writeUInt16LE(16, 34);
+  audio.write('data', 36);
+  audio.writeUInt32LE(audio.length - 44, 40);
+  const assetRecord = (bytes, folder, ext, mime) => {
+    const sha256 = hash(bytes);
+    return {
+      sha256, folder, mime, size: bytes.length,
+      filename: `archive_${sha256}.${ext}`,
+      path: `media/${sha256}.${ext}`,
+    };
+  };
+  const imageAsset = assetRecord(image, 'images', 'gif', 'image/gif');
+  const audioAsset = assetRecord(audio, 'audio', 'wav', 'audio/wav');
+  const freeText = { type: 'free_text', data: { prompt: 'Wo wohnst du?', sample_answer: 'Ich wohne in Berlin.' }, image: `archive://${imageAsset.sha256}` };
+  const editableText = { type: 'editable_text', data: { source_text: 'Die Katze schlafen.', correct_text: 'Die Katze schläft.' } };
+  const name = 'Schreiben offline';
+  const manifest = Buffer.from(JSON.stringify({
+    format: 'lerne-materials',
+    version: 4,
+    source: `LOCAL:${hash('browser-written-cards-fixture')}`,
+    source_users: [{ id: 1, name: 'Fixture', username: null }],
+    assets: [imageAsset, audioAsset],
+    content: {
+      folder: [],
+      deck: [{ id: 1, author: 1, values: {
+        name, level: 'A2', topic: null, target_language: 'de', position: 0,
+        is_deleted: false, folder_id: null, metadata: null, scope: 'personal', category_id: null, is_default: false,
+      } }],
+      card: [freeText, editableText].map((card, position) => ({ id: position + 1, author: 1, values: {
+        content_v2: { schema_version: 2, card }, image_path: null,
+        audio_path: position === 0 ? `archive://${audioAsset.sha256}` : null, audio_back_path: null,
+        video_front_path: null, video_back_path: null, difficulty: null, source: 'user', position, is_deleted: false, deck_id: 1,
+      } })),
+    },
+  }));
+  const archive = await buildZipArchive([
+    { name: 'manifest.json', data: manifest },
+    { name: 'manifest.sha256', data: Buffer.from(hash(manifest)) },
+    { name: imageAsset.path, data: image },
+    { name: audioAsset.path, data: audio },
+  ]);
+
+  await page.locator('#tut-main-settings').click();
+  await page.locator('#settings-tab-select').selectOption('profile');
+  await page.getByTestId('standalone-import-materials-input').setInputFiles({
+    name: 'written-cards.zip', mimeType: 'application/zip', buffer: Buffer.from(archive),
+  });
+  await page.getByTestId('standalone-import-confirm-btn').click();
+  await page.getByTestId('standalone-materials-status').waitFor();
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name, exact: true }).click();
+  const imported = await readIndexedDbState(page);
+  const importedDeck = imported.decks.find(deck => deck.name === name);
+  const importedIds = new Set(imported.cards.filter(card => card.deck_id === importedDeck.id).map(card => card.id));
+  const countWrittenProgress = async () => {
+    const { progress } = await readIndexedDbState(page);
+    return progress.filter(row => importedIds.has(row.card_id)).length;
+  };
+  await page.locator('.deck-intro-btn-start').click();
+  await page.waitForFunction(() => document.querySelector('#tut-study-card img[src^="blob:"]')?.naturalWidth === 1);
+  const audioPlayer = page.locator('.card-audio-floating-wrapper .study-controls-block');
+  await audioPlayer.waitFor();
+  if (await audioPlayer.locator('.study-controls-restore').isEnabled()) {
+    await audioPlayer.locator('.study-controls-restore').click();
+  }
+  if ((await audioPlayer.locator('.audio-player-btn-main.playing').count()) === 0) {
+    await audioPlayer.locator('.audio-player-btn-main').click();
+  }
+  await audioPlayer.locator('.audio-player-btn-main.playing').waitFor();
+
+  for (const [selector, data, correctAnswer] of [
+    ['.free-text-exercise:not(.editable-text-exercise)', freeText.data, freeText.data.sample_answer],
+    ['.editable-text-exercise', editableText.data, editableText.data.correct_text],
+  ]) {
+    const exercise = page.locator(selector);
+    const input = exercise.locator('textarea');
+    await input.waitFor();
+    assert.equal(await exercise.locator('.free-text-dictate').count(), 0);
+    if (data.source_text) {
+      assert.equal(await countWrittenProgress(), 1, 'Advance to the next card requires a committed grade');
+      assert.equal(await input.inputValue(), data.source_text);
+    }
+    await input.fill('Unpassende Antwort.');
+    await exercise.locator('button[type="submit"]').click();
+    await exercise.locator('.free-text-feedback:not(.is-success)').waitFor();
+    await input.fill(correctAnswer);
+    await exercise.locator('button[type="submit"]').click();
+    await exercise.locator('.free-text-feedback.is-success').waitFor();
+    await gradeCard(page, 2);
+  }
+  await expect.poll(countWrittenProgress).toBe(2);
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name, exact: true }).waitFor();
+  assert.equal(await countWrittenProgress(), 2);
+}
+
 async function run() {
   if (!fs.existsSync(path.join(DIST_DIR, 'index.html'))) {
     throw new Error(`Standalone app/dist missing at ${DIST_DIR}`);
@@ -281,6 +393,8 @@ async function run() {
     await page.locator('.card-back').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.study-card-rating, .card-question-composer').count(), 0,
       'Standalone study should hide the server-backed rating and question controls');
+    assert.equal(await page.locator('#tut-study-add-card, #tut-study-edit-card').count(), 0,
+      'Standalone study should hide authoring controls');
     await page.locator('.study-card-flip-button').click();
     await page.locator('.card-front').waitFor({ state: 'visible' });
     await completeTheoryOrStandard(page, 2); // a2-01 theory -> Good
@@ -459,6 +573,7 @@ async function run() {
       assert.equal(row.last_reviewed, orig.last_reviewed);
     }
 
+    await checkWrittenCards(page);
     assert.deepEqual(forbiddenRequests, [], `Forbidden network/API requests detected: ${JSON.stringify(forbiddenRequests)}`);
     assert.deepEqual(pageErrors, [], `Uncaught page errors detected: ${JSON.stringify(pageErrors)}`);
     assert.deepEqual(consoleErrors, [], `Console errors detected: ${JSON.stringify(consoleErrors)}`);

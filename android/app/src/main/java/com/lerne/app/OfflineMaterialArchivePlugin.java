@@ -1,12 +1,12 @@
 package com.lerne.app;
 
 import android.app.Activity;
-import android.content.ActivityNotFoundException;
 import android.content.Intent;
 import android.database.Cursor;
 import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.OpenableColumns;
+import android.provider.DocumentsContract;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -17,7 +17,6 @@ import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import java.io.BufferedInputStream;
 import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileNotFoundException;
@@ -25,12 +24,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
+import java.nio.ByteBuffer;
+import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.util.Arrays;
 import java.util.Enumeration;
-import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Locale;
 import java.util.Map;
@@ -41,6 +42,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.regex.Pattern;
 import java.util.zip.ZipEntry;
+import java.util.zip.CRC32;
 import java.util.zip.ZipFile;
 import java.util.zip.ZipOutputStream;
 import org.json.JSONArray;
@@ -72,6 +74,10 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         "^archive_[a-f0-9]{64}\\.[a-z0-9]{2,4}$"
     );
     private static final Pattern STAGING_ID_PATTERN = Pattern.compile("^[A-Za-z0-9-]{8,64}$");
+    private static final String PROCESS_ID = UUID.randomUUID().toString().substring(0, 8);
+    private static final Pattern STAGED_FILE = Pattern.compile("(?:import|export|probe)-[a-f0-9-]+\\.(?:zip|tmp)");
+    private static final Pattern PARTIAL_MEDIA = Pattern.compile("archive_[a-f0-9]{64}\\.[a-z0-9]{2,4}\\.[a-f0-9-]+\\.partial");
+    private static boolean cleanedStaging;
 
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, File> pendingExports = new ConcurrentHashMap<>();
@@ -167,7 +173,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         AppActivityRunner.runOnUi(this, () -> {
             try {
                 startActivityForResult(call, intent, "handlePickArchiveResult");
-            } catch (ActivityNotFoundException ex) {
+            } catch (RuntimeException ex) {
                 call.reject("System file picker is unavailable on this device", ex);
             }
         });
@@ -186,10 +192,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         }
 
         Uri uri = result.getData().getData();
-        String displayName = resolveDisplayName(uri, "");
-
         ioExecutor.execute(() -> {
-            String stagingId = UUID.randomUUID().toString();
+            String stagingId = PROCESS_ID + "-" + UUID.randomUUID().toString();
             File stagedZip = null;
             try {
                 File stagingDir = ensureStagingDir();
@@ -199,7 +203,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 JSObject inspected = inspectStagedZip(stagedZip, stagingDir);
                 inspected.put("cancelled", false);
                 inspected.put("stagingId", stagingId);
-                inspected.put("fileName", displayName);
+                inspected.put("fileName", resolveDisplayName(uri, ""));
                 call.resolve(inspected);
             } catch (Exception ex) {
                 if (stagedZip != null) {
@@ -219,16 +223,15 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             call.reject("Invalid archive staging identifier");
             return;
         }
-        if (assets == null) {
+        if (assets == null || assets.length() > MAX_ASSETS) {
             call.reject("Assets list is required");
             return;
         }
 
         ioExecutor.execute(() -> {
-            File stagedZip = null;
             try {
                 File stagingDir = ensureStagingDir();
-                stagedZip = new File(stagingDir, "import-" + stagingId + ".zip");
+                File stagedZip = new File(stagingDir, "import-" + stagingId + ".zip");
                 if (!stagedZip.isFile()) {
                     call.reject("Staged archive is no longer available. Please pick the ZIP again.");
                     return;
@@ -239,10 +242,6 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 call.resolve(outcome);
             } catch (Exception ex) {
                 call.reject(ex.getMessage() != null ? ex.getMessage() : "Failed to save archive media files", ex);
-            } finally {
-                if (stagedZip != null && stagedZip.exists()) {
-                    stagedZip.delete();
-                }
             }
         });
     }
@@ -287,6 +286,9 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             File stagedExport = null;
             try {
                 byte[] manifestBytes = manifestJson.getBytes(StandardCharsets.UTF_8);
+                if (manifestBytes.length > MAX_MANIFEST_BYTES || assets.length() > MAX_ASSETS) {
+                    throw new IOException("Архив превышает допустимые лимиты.");
+                }
                 String computedSha = sha256Bytes(manifestBytes);
                 if (!computedSha.equals(manifestSha256.trim())) {
                     call.reject("Manifest checksum mismatch before creating ZIP");
@@ -295,9 +297,10 @@ public class OfflineMaterialArchivePlugin extends Plugin {
 
                 File mediaRoot = ensureMediaRoot();
                 File stagingDir = ensureStagingDir();
-                stagedExport = new File(stagingDir, "export-" + UUID.randomUUID().toString() + ".zip");
+                stagedExport = new File(stagingDir, "export-" + PROCESS_ID + "-" + UUID.randomUUID() + ".zip");
 
                 writeExportZipFile(stagedExport, manifestBytes, manifestSha256.trim().getBytes(StandardCharsets.UTF_8), mediaRoot, assets);
+                if (stagedExport.length() > MAX_ARCHIVE_BYTES) throw new IOException("Архив превышает 512 МБ.");
                 verifyZipReadable(stagedExport);
 
                 pendingExports.put(call.getCallbackId(), stagedExport);
@@ -310,7 +313,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 AppActivityRunner.runOnUi(this, () -> {
                     try {
                         startActivityForResult(call, intent, "handleExportZipResult");
-                    } catch (ActivityNotFoundException ex) {
+                    } catch (RuntimeException ex) {
                         File removed = pendingExports.remove(call.getCallbackId());
                         if (removed != null) {
                             removed.delete();
@@ -354,20 +357,21 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         String fallbackName = call.getString("fileName", DEFAULT_EXPORT_NAME);
 
         ioExecutor.execute(() -> {
-            try (InputStream in = new BufferedInputStream(new FileInputStream(stagedExport));
-                 OutputStream out = openWritableStream(uri)) {
-                if (out == null) {
-                    call.reject("Unable to open destination file for writing");
-                    return;
-                }
-                byte[] buffer = new byte[65536];
-                int read;
+            try {
                 long total = 0;
-                while ((read = in.read(buffer)) != -1) {
-                    out.write(buffer, 0, read);
-                    total += read;
+                try (InputStream in = new BufferedInputStream(new FileInputStream(stagedExport));
+                     OutputStream out = openWritableStream(uri)) {
+                    if (out == null) throw new IOException("Unable to open destination file for writing");
+                    byte[] buffer = new byte[65536];
+                    int read;
+                    while ((read = in.read(buffer)) != -1) {
+                        out.write(buffer, 0, read);
+                        total += read;
+                    }
+                    if (total != stagedExport.length()) {
+                        throw new IOException("Неполное чтение подготовленного ZIP-архива.");
+                    }
                 }
-                out.flush();
 
                 JSObject response = new JSObject();
                 response.put("cancelled", false);
@@ -376,7 +380,12 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 response.put("fileName", resolveDisplayName(uri, fallbackName));
                 response.put("size", total);
                 call.resolve(response);
-            } catch (IOException | SecurityException ex) {
+            } catch (IOException | RuntimeException ex) {
+                try {
+                    DocumentsContract.deleteDocument(getContext().getContentResolver(), uri);
+                } catch (IOException | RuntimeException ignored) {
+                    // Some providers cannot delete a failed export.
+                }
                 call.reject("Failed to write ZIP archive: " + ex.getMessage(), ex);
             } finally {
                 if (stagedExport.exists()) {
@@ -399,6 +408,20 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         if (!dir.exists() && !dir.mkdirs()) {
             throw new IOException("Cannot create archive staging directory");
         }
+        synchronized (OfflineMaterialArchivePlugin.class) {
+            if (!cleanedStaging) {
+                File[] stale = dir.listFiles((parent, name) -> STAGED_FILE.matcher(name).matches()
+                    && !name.contains("-" + PROCESS_ID + "-"));
+                if (stale != null) for (File file : stale) file.delete();
+                File mediaRoot = ensureMediaRoot();
+                for (String folder : MEDIA_FOLDERS) {
+                    File[] partials = new File(mediaRoot, folder)
+                        .listFiles((parent, name) -> PARTIAL_MEDIA.matcher(name).matches());
+                    if (partials != null) for (File file : partials) file.delete();
+                }
+                cleanedStaging = true;
+            }
+        }
         return dir;
     }
 
@@ -413,7 +436,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         File target = new File(folderDir, filename);
         String rootCanonical = mediaRoot.getCanonicalPath();
         String targetCanonical = target.getCanonicalPath();
-        if (!targetCanonical.startsWith(rootCanonical + File.separator)) {
+        if (!targetCanonical.equals(rootCanonical + File.separator + folder + File.separator + filename)) {
             throw new IOException("Media path escapes storage root");
         }
         return target;
@@ -440,22 +463,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         }
     }
 
-    private static void validateEntryPath(String name) throws IOException {
-        if (name == null || name.isEmpty() || name.length() > 1024) {
-            throw new IOException("Некорректный путь файла в архиве.");
-        }
-        if (name.startsWith("/") || name.endsWith("/") || name.contains("\\") || name.contains(":") || name.contains("\0")) {
-            throw new IOException("Недопустимый путь в архиве: " + name);
-        }
-        String[] parts = name.split("/", -1);
-        for (String part : parts) {
-            if (part.isEmpty() || ".".equals(part) || "..".equals(part)) {
-                throw new IOException("Недопустимый путь в архиве: " + name);
-            }
-        }
-    }
-
     private JSObject inspectStagedZip(File stagedZip, File stagingDir) throws IOException {
+        MaterialZipHeaders.verify(stagedZip, MAX_ENTRIES);
         try (ZipFile zip = new ZipFile(stagedZip)) {
             Set<String> seenNames = new HashSet<>();
             long totalDeclaredUnpacked = 0;
@@ -474,7 +483,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 if (entry.isDirectory()) {
                     throw new IOException("Каталоги в архиве не поддерживаются.");
                 }
-                validateEntryPath(name);
+                MaterialZipHeaders.validateEntryPath(name);
                 if (!seenNames.add(name)) {
                     throw new IOException("Повторные файлы в архиве.");
                 }
@@ -482,7 +491,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                     ? MAX_MANIFEST_BYTES
                     : ("manifest.sha256".equals(name) ? 64L : MAX_ASSET_BYTES);
                 long declared = entry.getSize();
-                if (declared > maxEntry) {
+                if (declared < 0 || declared > maxEntry
+                    || (entry.getMethod() != ZipEntry.STORED && entry.getMethod() != ZipEntry.DEFLATED)) {
                     throw new IOException("Вложение превышает допустимый размер.");
                 }
                 if (declared > 0) {
@@ -504,8 +514,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
 
             byte[] manifestBytes = readBoundedEntryBytes(zip, manifestEntry, MAX_MANIFEST_BYTES);
             byte[] shaBytes = readBoundedEntryBytes(zip, shaEntry, 64L);
-            String manifestJson = new String(manifestBytes, StandardCharsets.UTF_8);
-            String manifestSha256 = new String(shaBytes, StandardCharsets.UTF_8);
+            String manifestJson = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(manifestBytes)).toString();
+            String manifestSha256 = StandardCharsets.UTF_8.newDecoder().decode(ByteBuffer.wrap(shaBytes)).toString();
             if (!sha256Bytes(manifestBytes).equals(manifestSha256.trim())) {
                 throw new IOException("Контрольная сумма манифеста не совпадает.");
             }
@@ -519,9 +529,9 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 if ("manifest.json".equals(name) || "manifest.sha256".equals(name)) {
                     continue;
                 }
-                File probeFile = new File(stagingDir, "probe-" + UUID.randomUUID().toString() + ".tmp");
+                File probeFile = new File(stagingDir, "probe-" + PROCESS_ID + "-" + UUID.randomUUID() + ".tmp");
                 try {
-                    MediaProbe probe = probeZipMediaEntry(zip, entry, probeFile, MAX_ASSET_BYTES);
+                    MediaProbe probe = probeZipMediaEntry(zip, entry, probeFile);
                     actualTotalUnpacked += probe.size;
                     if (actualTotalUnpacked > MAX_ARCHIVE_BYTES) {
                         throw new IOException("Распакованный архив больше 512 МБ.");
@@ -550,19 +560,28 @@ public class OfflineMaterialArchivePlugin extends Plugin {
     }
 
     private byte[] readBoundedEntryBytes(ZipFile zip, ZipEntry entry, long maxBytes) throws IOException {
-        try (InputStream in = zip.getInputStream(entry);
-             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            byte[] buffer = new byte[16384];
-            long total = 0;
-            int read;
-            while ((read = in.read(buffer)) != -1) {
-                total += read;
-                if (total > maxBytes) {
-                    throw new IOException("Вложение превышает допустимый размер.");
-                }
-                out.write(buffer, 0, read);
+        if (entry.getSize() < 0 || entry.getSize() > maxBytes) {
+            throw new IOException("Вложение превышает допустимый размер.");
+        }
+        byte[] bytes = new byte[(int) entry.getSize()];
+        CRC32 crc = new CRC32();
+        try (InputStream in = zip.getInputStream(entry)) {
+            int offset = 0;
+            while (offset < bytes.length) {
+                int read = in.read(bytes, offset, bytes.length - offset);
+                if (read == -1) throw new IOException("Неполное чтение ZIP: " + entry.getName());
+                crc.update(bytes, offset, read);
+                offset += read;
             }
-            return out.toByteArray();
+            if (in.read() != -1) throw new IOException("Размер записи ZIP не совпадает.");
+        }
+        verifyEntryIntegrity(entry, bytes.length, crc);
+        return bytes;
+    }
+
+    private static void verifyEntryIntegrity(ZipEntry entry, long size, CRC32 crc) throws IOException {
+        if (size != entry.getSize() || crc.getValue() != entry.getCrc()) {
+            throw new IOException("Размер или CRC-32 записи ZIP не совпадает: " + entry.getName());
         }
     }
 
@@ -582,8 +601,9 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         }
     }
 
-    private MediaProbe probeZipMediaEntry(ZipFile zip, ZipEntry entry, File probeFile, long maxBytes) throws IOException {
+    private MediaProbe probeZipMediaEntry(ZipFile zip, ZipEntry entry, File probeFile) throws IOException {
         MessageDigest digest = newSha256();
+        CRC32 crc = new CRC32();
         byte[] prefix = new byte[8192];
         int prefixLen = 0;
         long total = 0;
@@ -593,10 +613,11 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             byte[] buffer = new byte[65536];
             int read;
             while ((read = in.read(buffer)) != -1) {
-                if (total + read > maxBytes) {
+                if (total + read > entry.getSize()) {
                     throw new IOException("Медиафайл превышает лимит 20 МБ.");
                 }
                 digest.update(buffer, 0, read);
+                crc.update(buffer, 0, read);
                 out.write(buffer, 0, read);
                 if (prefixLen < prefix.length) {
                     int toCopy = Math.min(read, prefix.length - prefixLen);
@@ -608,6 +629,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             out.flush();
         }
 
+        verifyEntryIntegrity(entry, total, crc);
         if (total <= 0) {
             throw new IOException("Пустой медиафайл в архиве.");
         }
@@ -626,7 +648,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             return new MediaProbe(sha, total, "image", extMime[0], extMime[1]);
         }
 
-        String[] audioExtMime = detectAudioExtAndMime(head, total, probeFile);
+        String[] audioExtMime = entry.getName().endsWith(".mp4") ? null : detectAudioExtAndMime(head, total, probeFile);
         if (audioExtMime != null) {
             return new MediaProbe(sha, total, "audio", audioExtMime[0], audioExtMime[1]);
         }
@@ -658,7 +680,10 @@ public class OfflineMaterialArchivePlugin extends Plugin {
 
                 File target = resolveSafeMediaTarget(mediaRoot, folder, filename);
                 ZipEntry entry = zip.getEntry(path);
-                if (entry == null || entry.isDirectory()) {
+                if (entry == null || entry.isDirectory() || size <= 0 || size > MAX_ASSET_BYTES
+                    || entry.getSize() != size || !path.startsWith("media/")
+                    || !filename.equals("archive_" + path.substring("media/".length()))
+                    || !filename.startsWith("archive_" + sha + ".")) {
                     throw new IOException("Отсутствует медиафайл в ZIP: " + path);
                 }
                 if (target.exists()) {
@@ -696,7 +721,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                         int read;
                         while ((read = in.read(buffer)) != -1) {
                             total += read;
-                            if (total > MAX_ASSET_BYTES) {
+                            if (total > sizes[i]) {
                                 throw new IOException("Медиафайл превышает лимит 20 МБ.");
                             }
                             digest.update(buffer, 0, read);
@@ -739,6 +764,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
     ) throws IOException, JSONException {
         try (FileOutputStream fos = new FileOutputStream(outputZip);
              ZipOutputStream zos = new ZipOutputStream(new BufferedOutputStream(fos))) {
+            long archiveSize = (long) manifestBytes.length + manifestShaBytes.length;
 
             zos.putNextEntry(new ZipEntry("manifest.json"));
             zos.write(manifestBytes);
@@ -756,8 +782,12 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 String entryPath = item.getString("path");
                 String expectedSha = item.getString("sha256");
                 long expectedSize = item.getLong("size");
+                archiveSize += expectedSize;
+                if (expectedSize <= 0 || expectedSize > MAX_ASSET_BYTES || archiveSize > MAX_ARCHIVE_BYTES) {
+                    throw new IOException("Размер медиа в архиве превышает допустимый лимит.");
+                }
 
-                validateEntryPath(entryPath);
+                MaterialZipHeaders.validateEntryPath(entryPath);
                 File source = resolveSafeMediaTarget(mediaRoot, folder, filename);
                 if (!source.isFile() || source.length() != expectedSize) {
                     throw new IOException("Медиафайл отсутствует или изменился: " + folder + "/" + filename);
@@ -769,9 +799,10 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 try (InputStream in = new BufferedInputStream(new FileInputStream(source))) {
                     int read;
                     while ((read = in.read(buffer)) != -1) {
+                        total += read;
+                        if (total > expectedSize) throw new IOException("Размер медиа изменился при экспорте.");
                         digest.update(buffer, 0, read);
                         zos.write(buffer, 0, read);
-                        total += read;
                     }
                 }
                 zos.closeEntry();
@@ -890,7 +921,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         if (b.length >= 12
             && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
             && b[8] == 'W' && b[9] == 'A' && b[10] == 'V' && b[11] == 'E') {
-            return new String[] { ".wav", "audio/wav" };
+            return hasValidWavChunks(probeFile, totalLength) ? new String[] { ".wav", "audio/wav" } : null;
         }
         if (b.length >= 4 && b[0] == 'O' && b[1] == 'g' && b[2] == 'g' && b[3] == 'S') {
             return new String[] { ".ogg", "audio/ogg" };
@@ -905,6 +936,31 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             return new String[] { ".mp3", "audio/mpeg" };
         }
         return null;
+    }
+
+    private static boolean hasValidWavChunks(File probeFile, long size) throws IOException {
+        byte[] bytes = new byte[8];
+        ByteBuffer chunk = ByteBuffer.wrap(bytes).order(ByteOrder.LITTLE_ENDIAN);
+        boolean format = false;
+        boolean samples = false;
+        try (RandomAccessFile file = new RandomAccessFile(probeFile, "r")) {
+            for (long offset = 12; offset + bytes.length <= size;) {
+                file.seek(offset);
+                file.readFully(bytes);
+                long length = chunk.getInt(4) & 0xffffffffL;
+                long end = offset + bytes.length + length;
+                if (end > size) return false;
+                int type = chunk.getInt(0);
+                if (type == 0x20746d66 && length >= 16) format = true; // fmt
+                if (type == 0x61746164) { // data
+                    if (length == 0) return false;
+                    samples = true;
+                }
+                if (format && samples) return true;
+                offset = end + (length & 1);
+            }
+        }
+        return false;
     }
 
     private static boolean hasMp3Header(byte[] b, File probeFile, long totalLength) throws IOException {

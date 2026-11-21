@@ -1,7 +1,8 @@
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
-import { getStandaloneProfileName, STANDALONE_APPLICATION_ID, STANDALONE_USER_ID } from '../utils/standaloneMode.js';
+import { getStandaloneProfileName, STANDALONE_USER_ID } from '../utils/standaloneMode.js';
+import { buildOriginKey, getMaterialExportSource, MATERIAL_EXPORT_SOURCE_KEY } from './materialArchiveIdentity.js';
 import { canonicalJson } from './progressBackup.js';
 import { sha256BytesHex, sha256Hex } from './sha256.js';
 import { OFFLINE_MEDIA_KEY_PREFIX, parseOfflineMediaRef } from './offlineMediaResolver.js';
@@ -108,6 +109,7 @@ export function parseJsonStrictNoDuplicates(text) {
     failArchive('Манифест архива должен быть строкой JSON.');
   }
   const clean = text.replace(/^\uFEFF/, '');
+  const numberPattern = /-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/y;
   let pos = 0;
 
   const skipWhitespace = () => {
@@ -191,7 +193,12 @@ export function parseJsonStrictNoDuplicates(text) {
           failArchive('Ожидалось двоеточие в объекте JSON.');
         }
         pos += 1;
-        obj[key] = parseValue(depth + 1);
+        const value = parseValue(depth + 1);
+        if (key === '__proto__') {
+          Object.defineProperty(obj, key, { value, enumerable: true, writable: true, configurable: true });
+        } else {
+          obj[key] = value;
+        }
         skipWhitespace();
         if (clean[pos] === '}') {
           pos += 1;
@@ -239,7 +246,8 @@ export function parseJsonStrictNoDuplicates(text) {
       pos += 4;
       return null;
     }
-    const numMatch = /^-?(?:0|[1-9]\d*)(?:\.\d+)?(?:[eE][+-]?\d+)?/.exec(clean.slice(pos));
+    numberPattern.lastIndex = pos;
+    const numMatch = numberPattern.exec(clean);
     if (numMatch) {
       pos += numMatch[0].length;
       const parsed = Number(numMatch[0]);
@@ -789,27 +797,24 @@ export function validateNativeV2Envelope(envelope, { expectArchiveTokens = true 
 }
 
 export function orderFoldersTopologically(rows) {
-  const remaining = new Map(rows.map(row => [row.id, row]));
+  const children = new Map();
+  for (const row of rows) {
+    const parent = row.values.parent_id;
+    if (!children.has(parent)) children.set(parent, []);
+    children.get(parent).push(row);
+  }
   const ordered = [];
-  const resolved = new Set([null]);
-
-  while (remaining.size > 0) {
-    const ready = [];
-    for (const row of remaining.values()) {
-      if (resolved.has(row.values.parent_id)) {
-        ready.push(row);
-      }
-    }
-    if (ready.length === 0) {
-      failArchive('Цикл или отсутствующий родитель папки.');
-    }
+  let ready = children.get(null) || [];
+  while (ready.length > 0) {
     ready.sort((a, b) => (a.values.position || 0) - (b.values.position || 0) || a.id - b.id);
+    const next = [];
     for (const row of ready) {
       ordered.push(row);
-      resolved.add(row.id);
-      remaining.delete(row.id);
+      for (const child of children.get(row.id) || []) next.push(child);
     }
+    ready = next;
   }
+  if (ordered.length !== rows.length) failArchive('Цикл или отсутствующий родитель папки.');
   return ordered;
 }
 
@@ -846,6 +851,7 @@ export function validateMaterialArchiveDocument(rawDocument) {
   }
 
   const byId = { folder: new Map(), deck: new Map(), card: new Map() };
+  const deckMetadataById = new Map();
   const expectedDeckFields = DECK_V4_FIELDS;
   const charFieldLimits = {
     folder: new Set(['name', 'color', 'target_language', 'access_scope']),
@@ -950,12 +956,8 @@ export function validateMaterialArchiveDocument(rawDocument) {
         const metaObj = JSON.parse(checkMaterialMetadata(values.metadata));
         for (const res of Array.isArray(metaObj.resources) ? metaObj.resources : []) {
           if (!isPlainObject(res)) failArchive('Некорректный ресурс в метаданных.');
-          if (['audio', 'image', 'video', 'background'].includes(res.type) && res.url) {
-            if (typeof res.url !== 'string' || !ARCHIVE_TOKEN_FULL_RE.test(res.url)) {
-              failArchive('Медиа ресурса отсутствует в архиве.');
-            }
-          }
         }
+        deckMetadataById.set(row.id, metaObj);
       }
       byId[kind].set(row.id, row);
     }
@@ -1006,17 +1008,31 @@ export function validateMaterialArchiveDocument(rawDocument) {
   }
 
   const referencedShas = new Set();
+  const verifyTypedMedia = (token, role) => {
+    const sha = typeof token === 'string' && ARCHIVE_TOKEN_FULL_RE.test(token)
+      ? token.slice('archive://'.length)
+      : null;
+    if (!sha || assetBySha.get(sha)?.folder !== ROLE_TO_FOLDER[role]) {
+      failArchive('Медиа отсутствует в архиве или имеет другую категорию.');
+    }
+  };
   for (const kind of ['folder', 'deck', 'card']) {
     for (const row of content[kind]) {
+      if (kind === 'deck') {
+        const metadata = deckMetadataById.get(row.id);
+        for (const resource of Array.isArray(metadata?.resources) ? metadata.resources : []) {
+          if (!Object.hasOwn(ROLE_TO_FOLDER, resource.type)) continue;
+          for (const key of ['url', 'path']) {
+            if (resource[key]) verifyTypedMedia(resource[key], resource.type);
+          }
+        }
+      }
       if (row.values.content_v2) {
         for (const ref of iterNativeMediaFields(row.values.content_v2)) {
-          const sha = ref.owner[ref.key].slice('archive://'.length);
-          const expectedFolder = ROLE_TO_FOLDER[ref.role];
-          const assetEntry = assetBySha.get(sha);
-          if (!assetEntry || assetEntry.folder !== expectedFolder) {
-            failArchive('Медиа V2 отсутствует или имеет другую категорию.');
-          }
-          referencedShas.add(sha);
+          verifyTypedMedia(ref.owner[ref.key], ref.role);
+        }
+        for (const [field, role] of Object.entries(CARD_ATTACHMENTS)) {
+          if (row.values[field]) verifyTypedMedia(row.values[field], role);
         }
       }
       for (const loc of iterTextLocations(row.values)) {
@@ -1031,15 +1047,6 @@ export function validateMaterialArchiveDocument(rawDocument) {
         }
         if (value.includes('/api/media/') || value.includes('/storage/v1/object/public/')) {
           failArchive('Архив содержит невложенные медиа.');
-        }
-        if (
-          kind === 'card'
-          && loc.owner === row.values
-          && Object.hasOwn(CARD_ATTACHMENTS, loc.key)
-          && value
-          && !ARCHIVE_TOKEN_FULL_RE.test(value)
-        ) {
-          failArchive('Внешнее вложение не включено в архив.');
         }
       }
     }
@@ -1072,10 +1079,6 @@ export function validateMaterialArchiveDocument(rawDocument) {
   };
 }
 
-function buildOriginKey(source, kind, sourceId) {
-  return `archive:${source}:${kind}:${sourceId}`;
-}
-
 /**
  * Validate an archive + verify every ZIP entry against manifest, and preview import impact against Dexie.
  */
@@ -1083,6 +1086,7 @@ export async function inspectMaterialArchiveForImport({
   manifestJson,
   manifestSha256,
   verifiedZipEntries,
+  inspectEntry = value => value,
   fileName = '',
   db = null,
   userId = null,
@@ -1109,7 +1113,7 @@ export async function inspectMaterialArchiveForImport({
   }
 
   for (const assetEntry of document.assets) {
-    const inspected = verifiedZipEntries.get(assetEntry.path);
+    const inspected = inspectEntry(verifiedZipEntries.get(assetEntry.path), assetEntry);
     if (!inspected) {
       failArchive(`Медиа повреждено или отсутствует в архиве: ${assetEntry.filename}`);
     }
@@ -1137,28 +1141,32 @@ export async function inspectMaterialArchiveForImport({
 
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
-  const [existingFolders, existingDecks, existingCards, progressRows, registryRecord] = await Promise.all([
+  const [existingFolders, existingDecks, existingCards, progressRows, exportSource, registryRecord] = await Promise.all([
     database.folders.toArray(),
     database.decks.toArray(),
     database.cards.toArray(),
     resolvedUserId != null ? database.progress.where('user_id').equals(resolvedUserId).toArray() : Promise.resolve([]),
+    database.syncState.get(MATERIAL_EXPORT_SOURCE_KEY),
     database.syncState.get(IMPORT_REGISTRY_KEY),
   ]);
 
-  const registry = registryRecord?.origins || {};
+  const ownExport = exportSource?.source === document.source;
   const folderByOrigin = new Map();
   const deckByOrigin = new Map();
   const cardByOrigin = new Map();
   for (const f of existingFolders) {
     if (f.standalone_origin_key) folderByOrigin.set(f.standalone_origin_key, f);
+    if (ownExport) folderByOrigin.set(buildOriginKey(document.source, 'folder', f.id), f);
   }
   for (const d of existingDecks) {
     const key = d.standalone_origin_key || d.standalone_deck_key;
     if (key) deckByOrigin.set(key, d);
+    if (ownExport) deckByOrigin.set(buildOriginKey(document.source, 'deck', d.id), d);
   }
   for (const c of existingCards) {
     const key = c.standalone_origin_key || c.standalone_card_key;
     if (key) cardByOrigin.set(key, c);
+    if (ownExport) cardByOrigin.set(buildOriginKey(document.source, 'card', c.id), c);
   }
   const progressByCardId = new Set(progressRows.map(p => p.card_id));
 
@@ -1166,7 +1174,7 @@ export async function inspectMaterialArchiveForImport({
   let updatedFolders = 0;
   for (const row of document.content.folder) {
     const originKey = buildOriginKey(document.source, 'folder', row.id);
-    if (folderByOrigin.has(originKey) || registry[originKey]) updatedFolders += 1;
+    if (folderByOrigin.has(originKey)) updatedFolders += 1;
     else newFolders += 1;
   }
 
@@ -1174,7 +1182,7 @@ export async function inspectMaterialArchiveForImport({
   let updatedDecks = 0;
   for (const row of document.content.deck) {
     const originKey = buildOriginKey(document.source, 'deck', row.id);
-    if (deckByOrigin.has(originKey) || registry[originKey]) updatedDecks += 1;
+    if (deckByOrigin.has(originKey)) updatedDecks += 1;
     else newDecks += 1;
   }
 
@@ -1184,7 +1192,7 @@ export async function inspectMaterialArchiveForImport({
   for (const row of document.content.card) {
     const originKey = buildOriginKey(document.source, 'card', row.id);
     const existing = cardByOrigin.get(originKey);
-    const matchedId = existing?.id ?? registry[originKey];
+    const matchedId = existing?.id;
     if (matchedId) {
       updatedCards += 1;
       if (progressByCardId.has(matchedId)) {
@@ -1195,8 +1203,8 @@ export async function inspectMaterialArchiveForImport({
     }
   }
 
-  const previousImport = (registryRecord?.imports || []).find(item => item.source === document.source) || null;
   const isReimport = updatedFolders > 0 || updatedDecks > 0 || updatedCards > 0;
+  const previousImport = (registryRecord?.imports || []).find(item => item.source === document.source);
 
   return {
     ok: true,
@@ -1235,6 +1243,7 @@ export async function inspectMaterialArchiveForImport({
 export async function applyMaterialArchiveImport({
   inspection,
   commitMedia,
+  mediaInTransaction = false,
   db = null,
   userId = null,
   fileName = '',
@@ -1243,18 +1252,15 @@ export async function applyMaterialArchiveImport({
     failArchive('Отсутствуют проверенные данные архива для импорта.');
   }
   const { document } = inspection;
-  if (document.assets.length > 0) {
-    if (typeof commitMedia !== 'function') {
-      failArchive('Не настроен обработчик сохранения медиафайлов.');
-    }
-    await commitMedia(document.assets);
-  }
-
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
   if (resolvedUserId == null) {
     failArchive('Отсутствует идентификатор локального профиля.');
   }
+  if (document.assets.length > 0 && typeof commitMedia !== 'function') {
+    failArchive('Не настроен обработчик сохранения медиафайлов.');
+  }
+  if (document.assets.length > 0 && !mediaInTransaction) await commitMedia(document.assets);
 
   const assetBySha = new Map(document.assets.map(entry => [entry.sha256, entry]));
   const replaceTokensWithCanonicalUrls = (text) => text.replace(ARCHIVE_TOKEN_RE, (token) => {
@@ -1266,13 +1272,16 @@ export async function applyMaterialArchiveImport({
   const nowIso = new Date().toISOString();
   const nowMs = Date.now();
 
-  return database.transaction('rw', database.folders, database.decks, database.cards, database.syncState, async () => {
-    const [existingFolders, existingDecks, existingCards, countersRecord, registryRecord] = await Promise.all([
+  const tables = [database.folders, database.decks, database.cards, database.syncState];
+  if (mediaInTransaction && document.assets.length > 0) tables.push(database.media);
+  return database.transaction('rw', tables, async () => {
+    const [existingFolders, existingDecks, existingCards, countersRecord, registryRecord, exportSource] = await Promise.all([
       database.folders.toArray(),
       database.decks.toArray(),
       database.cards.toArray(),
       database.syncState.get(ID_COUNTERS_KEY),
       database.syncState.get(IMPORT_REGISTRY_KEY),
+      database.syncState.get(MATERIAL_EXPORT_SOURCE_KEY),
     ]);
 
     const origins = { ...(registryRecord?.origins || {}) };
@@ -1298,10 +1307,20 @@ export async function applyMaterialArchiveImport({
       if (k) cardByOrigin.set(k, c);
     }
 
+    const maxId = (rows, kind) => rows.reduce(
+      (max, row) => Math.max(max, Number(row.id) || 0),
+      Math.max(IMPORTED_ID_START, countersRecord?.[kind] || 0),
+    );
     const counters = {
-      folder: Math.max(IMPORTED_ID_START, countersRecord?.folder || 0, ...existingFolders.map(f => Number(f.id) || 0)),
-      deck: Math.max(IMPORTED_ID_START, countersRecord?.deck || 0, ...existingDecks.map(d => Number(d.id) || 0)),
-      card: Math.max(IMPORTED_ID_START, countersRecord?.card || 0, ...existingCards.map(c => Number(c.id) || 0)),
+      folder: maxId(existingFolders, 'folder'),
+      deck: maxId(existingDecks, 'deck'),
+      card: maxId(existingCards, 'card'),
+    };
+    const ownExport = exportSource?.source === document.source;
+    const matchExisting = (originKey, sourceId, byOrigin, byId) => {
+      const existing = (ownExport ? byId.get(sourceId) : undefined) || byOrigin.get(originKey);
+      if (existing?.is_dirty) failArchive('Импорт остановлен: в материалах есть несохранённые локальные изменения.');
+      return existing;
     };
     const nextId = (kind) => {
       counters[kind] += 1;
@@ -1319,7 +1338,7 @@ export async function applyMaterialArchiveImport({
     const orderedFolders = orderFoldersTopologically(document.content.folder);
     for (const row of orderedFolders) {
       const originKey = buildOriginKey(document.source, 'folder', row.id);
-      const existing = folderByOrigin.get(originKey) || existingFoldersById.get(origins[originKey]);
+      const existing = matchExisting(originKey, row.id, folderByOrigin, existingFoldersById);
       const localId = existing?.id || nextId('folder');
       idMap.folder.set(row.id, localId);
       origins[originKey] = localId;
@@ -1343,10 +1362,10 @@ export async function applyMaterialArchiveImport({
         is_shared: false,
         is_deleted: 0,
         is_dirty: 0,
-        standalone_origin_key: originKey,
-        standalone_source: document.source,
-        standalone_source_id: row.id,
-        standalone_source_author: row.author ?? null,
+        standalone_origin_key: existing?.standalone_origin_key || originKey,
+        standalone_source: existing?.standalone_source || document.source,
+        standalone_source_id: existing?.standalone_source_id ?? row.id,
+        standalone_source_author: existing?.standalone_source_author ?? row.author ?? null,
         created_at: existing?.created_at || nowIso,
         updated_at: nowIso,
       });
@@ -1357,7 +1376,7 @@ export async function applyMaterialArchiveImport({
     let updatedDecks = 0;
     for (const row of document.content.deck) {
       const originKey = buildOriginKey(document.source, 'deck', row.id);
-      const existing = deckByOrigin.get(originKey) || existingDecksById.get(origins[originKey]);
+      const existing = matchExisting(originKey, row.id, deckByOrigin, existingDecksById);
       const localId = existing?.id || nextId('deck');
       idMap.deck.set(row.id, localId);
       origins[originKey] = localId;
@@ -1378,6 +1397,7 @@ export async function applyMaterialArchiveImport({
 
       const targetLang = row.values.target_language || 'de';
       deckLanguages.set(localId, targetLang);
+      if (ownExport && existing?.standalone_slug) continue;
 
       decksToPut.push({
         ...(existing || {}),
@@ -1398,11 +1418,11 @@ export async function applyMaterialArchiveImport({
         is_deleted: 0,
         is_dirty: 0,
         metadata: parsedMetadata,
-        standalone_origin_key: originKey,
-        standalone_deck_key: originKey,
-        standalone_source: document.source,
-        standalone_source_id: row.id,
-        standalone_source_author: row.author ?? null,
+        standalone_origin_key: existing?.standalone_origin_key || originKey,
+        standalone_deck_key: existing?.standalone_deck_key || originKey,
+        standalone_source: existing?.standalone_source || document.source,
+        standalone_source_id: existing?.standalone_source_id ?? row.id,
+        standalone_source_author: existing?.standalone_source_author ?? row.author ?? null,
         standalone_deck_scope: row.values.scope || 'personal',
         standalone_category_id: row.values.category_id ?? null,
         standalone_is_default: Boolean(row.values.is_default),
@@ -1421,12 +1441,13 @@ export async function applyMaterialArchiveImport({
     let updatedCards = 0;
     for (const row of document.content.card) {
       const originKey = buildOriginKey(document.source, 'card', row.id);
-      const existing = cardByOrigin.get(originKey) || existingCardsById.get(origins[originKey]);
+      const existing = matchExisting(originKey, row.id, cardByOrigin, existingCardsById);
       const localId = existing?.id || nextId('card');
       origins[originKey] = localId;
 
       if (existing) updatedCards += 1;
       else importedCards += 1;
+      if (ownExport && existing?.standalone_card_key && !existing.standalone_source) continue;
 
       const localDeckId = idMap.deck.get(row.values.deck_id);
       const valuesCopy = structuredClone(row.values);
@@ -1465,11 +1486,11 @@ export async function applyMaterialArchiveImport({
         difficulty: valuesCopy.difficulty ?? null,
         source: valuesCopy.source ?? 'user',
         revision: (Number(existing?.revision) || 0) + 1,
-        standalone_origin_key: originKey,
-        standalone_card_key: originKey,
-        standalone_source: document.source,
-        standalone_source_id: row.id,
-        standalone_source_author: row.author ?? null,
+        standalone_origin_key: existing?.standalone_origin_key || originKey,
+        standalone_card_key: existing?.standalone_card_key || originKey,
+        standalone_source: existing?.standalone_source || document.source,
+        standalone_source_id: existing?.standalone_source_id ?? row.id,
+        standalone_source_author: existing?.standalone_source_author ?? row.author ?? null,
         is_deleted: 0,
         is_dirty: 0,
         created_at: existing?.created_at || nowIso,
@@ -1490,6 +1511,7 @@ export async function applyMaterialArchiveImport({
       });
     }
 
+    if (mediaInTransaction && document.assets.length > 0) await commitMedia(document.assets);
     if (foldersToPut.length > 0) await database.folders.bulkPut(foldersToPut);
     if (decksToPut.length > 0) await database.decks.bulkPut(decksToPut);
     if (cardsToPut.length > 0) await database.cards.bulkPut(cardsToPut);
@@ -1631,31 +1653,23 @@ export async function getExportableMaterialsTree({ db = null } = {}) {
     };
   };
 
-  const buildFolderStats = (folderId, seen = new Set()) => {
-    if (seen.has(folderId)) return { subfolderCount: 0, deckCount: 0, cardCount: 0, mediaFiles: new Set() };
-    seen.add(folderId);
-    const childFolders = childrenByFolder.get(folderId) || [];
-    const directDecks = decksByFolder.get(folderId) || [];
-    let subfolderCount = childFolders.length;
-    let deckCount = directDecks.length;
+  const buildFolderStats = folderId => {
+    const folderIds = new Set([folderId]);
+    let deckCount = 0;
     let cardCount = 0;
     const mediaFiles = new Set();
-
-    for (const deck of directDecks) {
-      const cards = cardsByDeck.get(deck.id) || [];
-      cardCount += cards.length;
-      for (const ref of collectMediaRefsForDeckAndCards(deck, cards).values()) {
-        mediaFiles.add(ref.relativePath);
+    for (const id of folderIds) {
+      for (const child of childrenByFolder.get(id) || []) folderIds.add(child.id);
+      for (const deck of decksByFolder.get(id) || []) {
+        deckCount += 1;
+        const cards = cardsByDeck.get(deck.id) || [];
+        cardCount += cards.length;
+        for (const ref of collectMediaRefsForDeckAndCards(deck, cards).values()) {
+          mediaFiles.add(ref.relativePath);
+        }
       }
     }
-    for (const child of childFolders) {
-      const sub = buildFolderStats(child.id, seen);
-      subfolderCount += sub.subfolderCount;
-      deckCount += sub.deckCount;
-      cardCount += sub.cardCount;
-      for (const path of sub.mediaFiles) mediaFiles.add(path);
-    }
-    return { subfolderCount, deckCount, cardCount, mediaFiles };
+    return { subfolderCount: folderIds.size - 1, deckCount, cardCount, mediaFiles };
   };
 
   const rootFolders = (childrenByFolder.get(null) || []).sort(sortByPos).map(folder => {
@@ -1744,15 +1758,13 @@ export async function buildMaterialArchiveExport({
     for (const id of requestedFolders) {
       if (folderMap.has(id)) selectedFolderIds.add(id);
     }
-    let expanded = true;
-    while (expanded) {
-      expanded = false;
-      for (const folder of allFolders) {
-        if (!selectedFolderIds.has(folder.id) && folder.parent_id != null && selectedFolderIds.has(folder.parent_id)) {
-          selectedFolderIds.add(folder.id);
-          expanded = true;
-        }
-      }
+    const children = new Map();
+    for (const folder of allFolders) {
+      if (!children.has(folder.parent_id)) children.set(folder.parent_id, []);
+      children.get(folder.parent_id).push(folder.id);
+    }
+    for (const parentId of selectedFolderIds) {
+      for (const childId of children.get(parentId) || []) selectedFolderIds.add(childId);
     }
   }
 
@@ -1791,18 +1803,33 @@ export async function buildMaterialArchiveExport({
     failArchive('Выбор карточек превышает лимит архива.');
   }
 
+  const selectedRows = [...selectedFolders, ...selectedDecks, ...selectedCards];
+  const sourceCandidates = new Set(selectedRows.map(row => row.standalone_source));
+  const [singleSource] = sourceCandidates;
+  const preserveSource = sourceCandidates.size === 1 && SOURCE_IDENTITY_RE.test(singleSource || '');
+  const source = preserveSource ? singleSource : await getMaterialExportSource(database);
+  const exportId = row => preserveSource ? row.standalone_source_id : row.id;
+  const exportedFolderId = id => folderMap.has(id) && selectedFolderIds.has(id) ? exportId(folderMap.get(id)) : null;
   const rawRefs = new Map();
   const addRef = (rawPath, role) => {
-    if (typeof rawPath !== 'string' || !rawPath.trim()) return;
+    if (typeof rawPath !== 'string' || !rawPath.trim()) {
+      failArchive('Некорректная ссылка на медиа.');
+    }
     const parsed = parseOfflineMediaRef(rawPath, role || 'images');
-    if (!parsed) {
+    if (!parsed || (role && parsed.folder !== ROLE_TO_FOLDER[role])) {
       failArchive(`В материалах обнаружена неподдерживаемая или внешняя ссылка медиа: ${rawPath}`);
     }
     rawRefs.set(rawPath, parsed);
   };
+  const addInlineRefs = (value) => {
+    for (const loc of iterTextLocations(value)) {
+      const matches = loc.owner[loc.key].match(INLINE_URI_RE) || [];
+      for (const uri of matches) addRef(uri, null);
+    }
+  };
 
   const exportedFolders = selectedFolders.map(folder => ({
-    id: folder.id,
+    id: exportId(folder),
     author: isPositiveInt(folder.standalone_source_author) ? folder.standalone_source_author : STANDALONE_USER_ID,
     values: {
       name: folder.name,
@@ -1810,9 +1837,9 @@ export async function buildMaterialArchiveExport({
       target_language: folder.target_language || 'de',
       position: isInt32(folder.position) ? folder.position : 0,
       is_deleted: false,
-      parent_id: folder.parent_id != null && selectedFolderIds.has(folder.parent_id) ? folder.parent_id : null,
+      parent_id: exportedFolderId(folder.parent_id),
     },
-    _source: folder.standalone_source || null,
+    _source: folder.standalone_source_author ? folder.standalone_source : null,
   }));
 
   const exportedDecks = selectedDecks.map(deck => {
@@ -1829,17 +1856,14 @@ export async function buildMaterialArchiveExport({
         if (res.path) addRef(res.path, res.type);
       }
     }
-    for (const loc of iterTextLocations(metaCopy)) {
-      const matches = loc.owner[loc.key].match(INLINE_URI_RE) || [];
-      for (const uri of matches) addRef(uri, null);
-    }
+    addInlineRefs(metaCopy);
 
     const author = isLibrary
       ? null
       : (isPositiveInt(deck.standalone_source_author) ? deck.standalone_source_author : STANDALONE_USER_ID);
 
     return {
-      id: deck.id,
+        id: exportId(deck),
       author,
       values: {
         name: deck.name,
@@ -1848,13 +1872,13 @@ export async function buildMaterialArchiveExport({
         target_language: deck.target_language || 'de',
         position: isInt32(deck.position) ? deck.position : 0,
         is_deleted: false,
-        folder_id: isLibrary ? null : (deck.folder_id != null && selectedFolderIds.has(deck.folder_id) ? deck.folder_id : null),
-        metadata: checkMaterialMetadata(metaCopy),
+        folder_id: isLibrary ? null : exportedFolderId(deck.folder_id),
+        metadata: metaCopy,
         scope,
         category_id: isLibrary ? (isPositiveInt(deck.standalone_category_id) ? deck.standalone_category_id : null) : null,
         is_default: isLibrary ? Boolean(deck.standalone_is_default) : false,
       },
-      _source: deck.standalone_source || null,
+      _source: deck.standalone_source_author ? deck.standalone_source : null,
     };
   });
 
@@ -1869,18 +1893,16 @@ export async function buildMaterialArchiveExport({
         addRef(card[field], role);
       }
     }
-    for (const loc of iterTextLocations({ content_v2: contentV2 })) {
-      const matches = loc.owner[loc.key].match(INLINE_URI_RE) || [];
-      for (const uri of matches) addRef(uri, null);
-    }
+    addInlineRefs({ content_v2: contentV2 });
 
-    const deckAuthor = deckAuthorById.get(card.deck_id);
+    const exportedDeckId = exportId(deckMap.get(card.deck_id));
+    const deckAuthor = deckAuthorById.get(exportedDeckId);
     const author = isPositiveInt(card.standalone_source_author)
       ? card.standalone_source_author
       : (deckAuthor === null ? null : STANDALONE_USER_ID);
 
     return {
-      id: card.id,
+      id: exportId(card),
       author,
       values: {
         content_v2: contentV2,
@@ -1893,9 +1915,9 @@ export async function buildMaterialArchiveExport({
         source: typeof card.source === 'string' && card.source ? card.source.slice(0, CHAR_FIELD_MAX) : 'user',
         position: isInt32(card.position) ? card.position : 0,
         is_deleted: false,
-        deck_id: card.deck_id,
+        deck_id: exportedDeckId,
       },
-      _source: card.standalone_source || null,
+      _source: card.standalone_source_author ? card.standalone_source : null,
     };
   });
 
@@ -1968,7 +1990,6 @@ export async function buildMaterialArchiveExport({
     }
   }
 
-  const sortedRawUris = [...replacements.keys()].sort((a, b) => b.length - a.length);
   const rewriteRow = (row) => {
     if (row.values.content_v2) {
       for (const fieldRef of iterNativeMediaFields(row.values.content_v2)) {
@@ -1978,52 +1999,51 @@ export async function buildMaterialArchiveExport({
       }
     }
     for (const loc of iterTextLocations(row.values)) {
-      let val = loc.owner[loc.key];
-      for (const uri of sortedRawUris) {
-        if (val.includes(uri)) {
-          val = val.replaceAll(uri, replacements.get(uri));
-        }
-      }
-      loc.owner[loc.key] = val;
+      const val = loc.owner[loc.key];
+      loc.owner[loc.key] = replacements.get(val) || val.replace(INLINE_URI_RE, uri => replacements.get(uri) || uri);
     }
   };
+
+  const authoredRows = [...exportedFolders, ...exportedDecks, ...exportedCards].filter(row => row.author !== null);
+  const reservedAuthorIds = new Set(authoredRows.map(row => row.author));
+  const storedUsersBySource = registryRecord?.sourceUsersBySource || {};
+  const authorsByKey = new Map();
+  const usedAuthorIds = new Set();
+  let nextAuthorId = 1;
+  for (const row of authoredRows) {
+    const authorKey = `${row._source || ''}:${row.author}`;
+    if (!authorsByKey.has(authorKey)) {
+      let id = row.author;
+      if (usedAuthorIds.has(id)) {
+        while (reservedAuthorIds.has(nextAuthorId) || usedAuthorIds.has(nextAuthorId)) nextAuthorId += 1;
+        id = nextAuthorId;
+      }
+      const user = row._source
+        ? storedUsersBySource[row._source]?.[String(row.author)]
+        : { name: getStandaloneProfileName(), username: 'offline_pilot' };
+      authorsByKey.set(authorKey, { id, name: user?.name ?? null, username: user?.username ?? null });
+      usedAuthorIds.add(id);
+    }
+    row.author = authorsByKey.get(authorKey).id;
+  }
 
   const cleanRow = ({ id, author, values }) => ({ id, author, values });
   const content = {
     folder: exportedFolders.map(row => { rewriteRow(row); return cleanRow(row); }),
-    deck: exportedDecks.map(row => { rewriteRow(row); return cleanRow(row); }),
+    deck: exportedDecks.map(row => {
+      rewriteRow(row);
+      row.values.metadata = checkMaterialMetadata(row.values.metadata);
+      return cleanRow(row);
+    }),
     card: exportedCards.map(row => { rewriteRow(row); return cleanRow(row); }),
   };
 
-  const authorSourceMap = new Map();
-  for (const row of [...exportedFolders, ...exportedDecks, ...exportedCards]) {
-    if (row.author !== null && !authorSourceMap.has(row.author)) {
-      authorSourceMap.set(row.author, row._source || null);
-    }
-  }
-
-  const storedUsersBySource = registryRecord?.sourceUsersBySource || {};
-  const sourceUsers = [...authorSourceMap.keys()].sort((a, b) => a - b).map(authorId => {
-    if (authorId === STANDALONE_USER_ID) {
-      return {
-        id: STANDALONE_USER_ID,
-        name: getStandaloneProfileName(),
-        username: 'offline_pilot',
-      };
-    }
-    const originSource = authorSourceMap.get(authorId);
-    const known = originSource ? storedUsersBySource[originSource]?.[String(authorId)] : null;
-    return {
-      id: authorId,
-      name: known?.name ?? null,
-      username: known?.username ?? null,
-    };
-  });
+  const sourceUsers = [...authorsByKey.values()].sort((a, b) => a.id - b.id);
 
   const document = {
     format: MATERIAL_ARCHIVE_FORMAT,
     version: MATERIAL_ARCHIVE_EXPORT_VERSION,
-    source: `LOCAL:${sha256Hex(`LerneAndroidOffline:${STANDALONE_APPLICATION_ID}`)}`,
+    source,
     source_users: sourceUsers,
     content,
     assets: [...assetsBySha.values()],

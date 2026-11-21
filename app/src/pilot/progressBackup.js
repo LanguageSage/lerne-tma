@@ -3,6 +3,7 @@ import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { isLeech } from '../utils/srsEngine.js';
 import { STANDALONE_APPLICATION_ID } from '../utils/standaloneMode.js';
+import { buildOriginKey, getMaterialExportSource } from './materialArchiveIdentity.js';
 import { getStandaloneCardLookup, getStandalonePack } from './standalonePack.js';
 import { sha256Hex } from './sha256.js';
 
@@ -15,6 +16,11 @@ export const LAST_RESTORE_META_KEY = 'standalone_last_progress_restore';
 
 const ALLOWED_QUEUES = new Set(['new', 'learning', 'relearning', 'review']);
 const ALLOWED_INTEGRITY_SCOPES = new Set(['core-v1', 'full-v1', 'full-v2']);
+const validMaterialKey = (key, kind) => key === undefined || (
+  typeof key === 'string' && key.length < 120
+  && /^archive:LOCAL:[a-f0-9]{64}:(card|deck):[1-9]\d*$/.test(key)
+  && key.includes(`:${kind}:`)
+);
 
 export function canonicalJson(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
@@ -328,6 +334,7 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
         || !Number.isInteger(record.card_id)
         || typeof record.card_key !== 'string' || !record.card_key.trim()
         || typeof record.deck_key !== 'string'
+        || !validMaterialKey(record.material_key, 'card')
         || seenImportedKeys.has(record.card_key)) {
         return { ok: false, code: 'INVALID_RECORD', error: tr('Одна из записей прогресса в файле повреждена.') };
       }
@@ -343,6 +350,7 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
         || !Number.isInteger(pref.deck_id)
         || typeof pref.deck_key !== 'string' || !pref.deck_key.trim()
         || typeof pref.is_learning !== 'boolean'
+        || !validMaterialKey(pref.material_key, 'deck')
         || seenImportedDecks.has(pref.deck_key)) {
         return { ok: false, code: 'INVALID_DECK_PREF', error: tr('Некорректные настройки колод в резервной копии.') };
       }
@@ -399,6 +407,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     .filter(d => !builtInDeckIds.has(d.id) && typeof d.standalone_deck_key === 'string' && d.standalone_deck_key)
     .sort((a, b) => a.standalone_deck_key.localeCompare(b.standalone_deck_key));
   const importedDeckById = new Map(importedDecks.map(d => [d.id, d]));
+  const exportSource = importedDecks.length > 0 ? await getMaterialExportSource(database) : null;
 
   const importedCards = allCards.filter(c => (
     !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key
@@ -412,6 +421,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
       const deck = importedDeckById.get(card.deck_id);
       return serializeProgressRecord(row, card.standalone_card_key, {
         deck_key: deck?.standalone_deck_key || '',
+        material_key: exportSource ? buildOriginKey(exportSource, 'card', card.id) : undefined,
       });
     })
     .sort((a, b) => a.card_key.localeCompare(b.card_key));
@@ -419,6 +429,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   const importedDeckPreferences = importedDecks.map(deck => ({
     deck_id: deck.id,
     deck_key: deck.standalone_deck_key,
+    material_key: buildOriginKey(exportSource, 'deck', deck.id),
     name: deck.name || '',
     is_learning: Boolean(deck.is_learning),
   }));
@@ -499,7 +510,9 @@ export async function inspectProgressBackup(rawText, { db = null, userId = null,
   const currentRows = progressRows.filter(row => byId.has(row.card_id) || importedCardById.has(row.card_id));
   const parsed = validation.backup;
   const importedRecords = Array.isArray(parsed.imported_records) ? parsed.imported_records : [];
-  const matchedImported = importedRecords.filter(rec => importedCardByKey.has(rec.card_key));
+  const matchedImported = importedRecords.filter(rec => (
+    importedCardByKey.has(rec.card_key) || importedCardByKey.has(rec.material_key)
+  ));
   const unmatchedImported = importedRecords.length - matchedImported.length;
 
   return {
@@ -554,7 +567,7 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
 
     const importedDeckByKey = new Map();
     for (const deck of allDecks) {
-      if (deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
+      if (deck.standalone_source && deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
     }
 
     const importedCardByKey = new Map();
@@ -567,13 +580,13 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
     const importedDecksPrefs = Array.isArray(backup.imported_deck_preferences) ? backup.imported_deck_preferences : [];
     const importedRecords = Array.isArray(backup.imported_records) ? backup.imported_records : [];
 
-    const coveredImportedDeckIds = new Set(
-      importedDecksPrefs.map(p => importedDeckByKey.get(p.deck_key)?.id).filter(Boolean)
-    );
     const matchedImportedPairs = [];
+    const targetCardIdsToReplace = new Set(bundledCardIds);
     for (const rec of importedRecords) {
-      const localCard = importedCardByKey.get(rec.card_key);
+      const localCard = importedCardByKey.get(rec.card_key) || importedCardByKey.get(rec.material_key);
       if (localCard) {
+        if (targetCardIdsToReplace.has(localCard.id)) throw new Error('Несколько записей SRS указывают на одну карточку.');
+        targetCardIdsToReplace.add(localCard.id);
         matchedImportedPairs.push({ rec, localCard });
       } else {
         unmatchedImportedRecords += 1;
@@ -581,16 +594,6 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
     }
     restoredImportedRecords = matchedImportedPairs.length;
     restoredImportedReviewed = matchedImportedPairs.filter(({ rec }) => isReviewedRecord(rec)).length;
-
-    const targetCardIdsToReplace = new Set(bundledCardIds);
-    for (const card of allCards) {
-      if (coveredImportedDeckIds.has(card.deck_id)) {
-        targetCardIdsToReplace.add(card.id);
-      }
-    }
-    for (const { localCard } of matchedImportedPairs) {
-      targetCardIdsToReplace.add(localCard.id);
-    }
 
     const existingToDelete = existingProgressRows.filter(row => targetCardIdsToReplace.has(row.card_id));
     if (existingToDelete.length > 0) {
@@ -621,7 +624,7 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
       });
     }
     for (const pref of importedDecksPrefs) {
-      const localDeck = importedDeckByKey.get(pref.deck_key);
+      const localDeck = importedDeckByKey.get(pref.deck_key) || importedDeckByKey.get(pref.material_key);
       if (!localDeck) continue;
       updatedDecks.push({
         ...localDeck,
