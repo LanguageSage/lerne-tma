@@ -1,0 +1,108 @@
+[
+  {
+    "name": "Unicode answer at the 4000-code-point limit",
+    "valid": true,
+    "card": { "type": "free_text", "data": { "prompt": "A", "sample_answer": "B", "accepted_answers": [""] } },
+    "repeat": { "path": ["data", "accepted_answers", 0], "value": "\ud83d\ude00", "count": 4000 }
+  },
+  {
+    "name": "Unicode answer over the limit",
+    "valid": false,
+    "card": { "type": "editable_text", "data": { "source_text": "A", "correct_text": "B", "accepted_answers": [""] } },
+    "repeat": { "path": ["data", "accepted_answers", 0], "value": "\ud83d\ude00", "count": 4001 }
+  },
+  {
+    "name": "Unicode correction at the limit",
+    "valid": true,
+    "card": { "type": "editable_text", "data": { "source_text": "A", "correct_text": "" } },
+    "repeat": { "path": ["data", "correct_text"], "value": "\ud83d\ude00", "count": 4000 }
+  },
+  {
+    "name": "Unicode source over the limit",
+    "valid": false,
+    "card": { "type": "editable_text", "data": { "source_text": "", "correct_text": "B" } },
+    "repeat": { "path": ["data", "source_text"], "value": "\ud83d\ude00", "count": 4001 }
+  },
+  {
+    "name": "Python strips U+001F around a correction",
+    "valid": false,
+    "card": { "type": "editable_text", "data": { "source_text": "A\u001f", "correct_text": "A" } }
+  },
+  {
+    "name": "Python retains U+FEFF in a Quiz prompt",
+    "valid": true,
+    "card": { "type": "quiz", "data": { "prompt": "\ufeff", "options": [{ "text": "A", "correct": true }, { "text": "B" }] } }
+  },
+  {
+    "name": "Theory at exactly 256 KiB after normalization",
+    "valid": true,
+    "card": { "type": "theory", "data": { "text": "" } },
+    "repeat": { "path": ["data", "text"], "value": "x", "count": 261990 }
+  },
+  {
+    "name": "Theory one byte over 256 KiB after normalization",
+    "valid": false,
+    "card": { "type": "theory", "data": { "text": "" } },
+    "repeat": { "path": ["data", "text"], "value": "x", "count": 261991 }
+  },
+  {
+    "name": "Quiz at 256 KiB with implicit option and layout defaults",
+    "valid": true,
+    "card": {
+      "type": "quiz",
+      "data": { "prompt": "", "options": [{ "text": "ja", "correct": true }, { "text": "nein" }] },
+      "info": [{ "type": "task", "text": "Aufgabe" }],
+      "layout": [
+        { "type": "info", "id": "task", "index": 0 },
+        { "type": "exercise", "id": "exercise" },
+        { "type": "image", "id": "img", "path": "images/a..b.png" }
+      ],
+      "metadata": { "weight": 0.00001 }
+    },
+    "repeat": { "path": ["data", "prompt"], "value": "x", "count": 261665 }
+  },
+  {
+    "name": "Quiz exceeds the byte limit with option, layout and exponent defaults",
+    "valid": false,
+    "card": {
+      "type": "quiz",
+      "data": { "prompt": "", "options": [{ "text": "ja", "correct": true }, { "text": "nein" }] },
+      "info": [{ "type": "task", "text": "Aufgabe" }],
+      "layout": [
+        { "type": "info", "id": "task", "index": 0 },
+        { "type": "exercise", "id": "exercise" },
+        { "type": "image", "id": "img", "path": "images/a..b.png" }
+      ],
+      "metadata": { "weight": 0.00001 }
+    },
+    "repeat": { "path": ["data", "prompt"], "value": "x", "count": 261666 }
+  },
+  {
+    "name": "Trainer byte limit includes the default distractors field",
+    "valid": false,
+    "card": { "type": "trainer", "data": { "parts": [{ "type": "text", "text": "" }, { "type": "choice", "options": [{ "text": "ja", "correct": true }, { "text": "nein" }] }] } },
+    "repeat": { "path": ["data", "parts", 0, "text"], "value": "x", "count": 261852 }
+  },
+  {
+    "name": "Free Text byte limit includes the implicit grading policy",
+    "valid": false,
+    "card": { "type": "free_text", "data": { "prompt": "", "sample_answer": "A" } },
+    "repeat": { "path": ["data", "prompt"], "value": "x", "count": 261770 }
+  },
+  {
+    "name": "Editable Text byte limit includes default controlled grading",
+    "valid": false,
+    "card": { "type": "editable_text", "data": { "source_text": "A", "correct_text": "B" }, "explanation": "" },
+    "repeat": { "path": ["explanation"], "value": "x", "count": 261754 }
+  },
+  {
+    "name": "Layout image cannot escape its folder",
+    "valid": false,
+    "card": { "type": "theory", "data": { "text": "A" }, "layout": [{ "id": "ex", "type": "exercise" }, { "id": "image", "type": "image", "path": "images/../a.png" }] }
+  },
+  {
+    "name": "An author cover reference is a nonblank string in card-core",
+    "valid": true,
+    "card": { "type": "theory", "data": { "text": "A" }, "image": "legacy-cover.png" }
+  }
+]

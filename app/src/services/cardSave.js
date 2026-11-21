@@ -4,7 +4,7 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 import { getSessionIdentity, getUserId } from '../utils/auth';
-import { cardWriteError, parseCardSource, validateStandardDraft, validateStandaloneCardContent } from '../utils/cardDraft';
+import { cardWriteError, parseCardSource, validateStandardDraft } from '../utils/cardDraft';
 import { findCardDeck, parseDeckMetadata } from '../utils/deckUtils';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import api from './api';
@@ -93,7 +93,6 @@ export async function saveCard(manualCardData = null, {
       if (!nativeEdit && !finalDeckId) {
         throw new Error(tr('Выберите колоду'));
       }
-      validateStandaloneCardContent(content);
       const path = nativeEdit ? `/cards/${data.id}` : '/cards/save';
       const reqData = { content_v2: content };
       if (nativeEdit) {
@@ -385,12 +384,13 @@ export async function saveCard(manualCardData = null, {
     return savedCard;
   } catch (err) {
     if (!isCurrent()) return;
-    console.error(err);
+    const localConflict = IS_STANDALONE && err.response?.data?.detail?.code === 'card_revision_conflict';
+    if (!localConflict) console.error(err);
     const detail = cardWriteError(err);
     if (IS_STANDALONE || (err.response?.status && err.response.status < 500)) pendingSave = null;
     if (!currentDraft(data.id)) return;
     showToast(tr("Ошибка сохранения: {{p0}}", { p0: detail }), "error");
-    if (err.response?.status === 409 && data.id) {
+    if (!IS_STANDALONE && err.response?.status === 409 && data.id) {
       ui.showToast(tr('Карточка изменилась на сервере. Черновик сохранён в форме. Откройте актуальную карточку перед повторной правкой.'), 'warning');
     }
   } finally {

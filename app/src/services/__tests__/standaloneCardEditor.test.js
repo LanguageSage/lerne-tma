@@ -348,7 +348,7 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     }), /layout/i);
   });
 
-  test('creates all 9 Native V2 types on readonly decks, preserves deck origin, supports after_card_id and idempotency', async () => {
+  test('creates and edits all 9 Native V2 types on readonly decks, preserves origin, placement and idempotency', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     const deckId = pack.decks[0].id;
@@ -396,6 +396,16 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
       /request changed/
     );
 
+    for (const [index, card] of sampleCardsAll9().entries()) {
+      const cardId = createdIds[index];
+      const content_v2 = { schema_version: 2, card: { ...card, explanation: `Edited ${card.type}` } };
+      const updated = await offlineApi.handle('patch', `/cards/${cardId}`, {
+        request_id: `edit-all9-${index}`, revision: 1, content_v2,
+      }, cfg);
+      assert.equal(updated.data.revision, 2);
+      assert.deepEqual((await db.cards.get(cardId)).content_v2, content_v2);
+    }
+
     const anchorCardId = createdIds[0];
     const insertedRes = await offlineApi.handle('post', '/cards/save', {
       deck_id: deckId,
@@ -412,13 +422,60 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     await assertZeroCloudQueue(db);
   });
 
+  test('allocates unique IDs above imported and deleted rows and the persistent counter', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    const deckId = pack.decks[0].id;
+    const highestImportedId = IMPORTED_ID_START + 50;
+    await db.cards.add({ id: highestImportedId, deck_id: deckId, is_deleted: 1 });
+    await db.syncState.put({ key: ID_COUNTERS_KEY, card: highestImportedId - 1 });
+
+    const create = request_id => offlineApi.handle('post', '/cards/save', {
+      deck_id: deckId, request_id, content_v2: { schema_version: 2, card: sampleCardsAll9()[0] },
+    }, { _testDb: db });
+    const concurrent = await Promise.all([create('allocate-a'), create('allocate-b')]);
+    assert.deepEqual(concurrent.map(result => result.data.id).sort((a, b) => a - b),
+      [highestImportedId + 1, highestImportedId + 2]);
+    await db.syncState.put({ key: ID_COUNTERS_KEY, card: highestImportedId + 10 });
+    assert.equal((await create('allocate-c')).data.id, highestImportedId + 11);
+  });
+
+  test('concurrent edits only commit one revision and the winning request can replay', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    const original = await db.cards.get(pack.cards[0].id);
+    const bodies = ['first edit', 'second edit'].map((explanation, index) => ({
+      request_id: `concurrent-edit-${index}`,
+      revision: original.revision,
+      content_v2: { ...original.content_v2, card: { ...original.content_v2.card, explanation } },
+    }));
+    const edit = body => offlineApi.handle('patch', `/cards/${original.id}`, body, { _testDb: db });
+    const results = await Promise.allSettled(bodies.map(edit));
+    const winner = results.findIndex(result => result.status === 'fulfilled');
+    assert.notEqual(winner, -1);
+    const loser = 1 - winner;
+    assert.equal(results[loser].status, 'rejected');
+    assert.equal(results[loser].reason.response?.status, 409);
+    assert.equal(results[loser].reason.response.data.detail.code, 'card_revision_conflict');
+    const saved = await db.cards.get(original.id);
+    assert.equal(saved.revision, original.revision + 1);
+    assert.deepEqual(saved.content_v2, bodies[winner].content_v2);
+    assert.equal(await db.syncState.get(`standalone-card-op:${bodies[loser].request_id}`), undefined);
+
+    const replay = await edit(bodies[winner]);
+    assert.equal(replay.data.revision, saved.revision);
+    assert.deepEqual(await db.cards.get(original.id), saved);
+    await assert.rejects(edit({ ...bodies[loser], revision: undefined }), error => error.response?.status === 409);
+    await assertZeroCloudQueue(db);
+  });
+
   test('edits preserve SRS & unchanged layout, reject layout mutations, prune receipts, and delete cleanly', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     const deckId = pack.decks[0].id;
     const cfg = { _testDb: db, offlineCardEdit: true };
 
-    const seedCard = pack.cards[0];
+    const seedCard = await db.cards.get(pack.cards[0].id);
     const srsProgress = {
       ...calculateCardReview({
         card_id: seedCard.id,
@@ -754,7 +811,7 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     await backupDb.open();
     await ensureStandaloneSeed({ db: backupDb, userId: STANDALONE_USER_ID, pack: basePack });
     const seedDeckId = basePack.decks[0].id;
-    const editedSeedCard = basePack.cards[0];
+    const editedSeedCard = await backupDb.cards.get(basePack.cards[0].id);
     await offlineApi.handle('patch', `/cards/${editedSeedCard.id}`, {
       request_id: 'edit-seed-before-upgrade',
       revision: editedSeedCard.revision,

@@ -1,7 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { attachDraftImage, cardTypes, changeDraft, changeDraftSource, draftSourceError,
-  newCardContent, parseCardSource, patchGradingPolicy, puzzleDraftTokens, validateStandardDraft } from '../cardDraft.js';
+  newCardContent, parseCardSource, patchGradingPolicy, puzzleDraftTokens,
+  validateStandaloneCardContent, validateStandardDraft } from '../cardDraft.js';
+
+const standaloneFixtures = new URL('../../../../tests/fixtures/standalone_native_v2_validation.json', import.meta.url);
+
+test('standalone agrees with card-core on shared Native V2 validation cases', () => {
+  for (const { name, valid, card, repeat } of JSON.parse(readFileSync(standaloneFixtures, 'utf8'))) {
+    if (repeat) {
+      const parent = repeat.path.slice(0, -1).reduce((item, key) => item[key], card);
+      parent[repeat.path.at(-1)] = repeat.value.repeat(repeat.count);
+    }
+    const content = { schema_version: 2, card };
+    if (valid) {
+      const original = structuredClone(content);
+      assert.doesNotThrow(() => validateStandaloneCardContent(content), name);
+      assert.deepEqual(content, original, name);
+    } else {
+      assert.throws(() => validateStandaloneCardContent(content), name);
+    }
+  }
+});
 
 test('uploads wait for valid JSON and attach once to the corrected card in completion order', () => {
   let draft = { id: 1, content_v2: newCardContent() };

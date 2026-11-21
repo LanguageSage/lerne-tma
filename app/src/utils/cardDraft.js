@@ -172,6 +172,18 @@ const V2_GRADING_POLICY_KEYS = new Set([
   'mode', 'max_retries', 'typo_tolerance', 'semantic_equivalence',
   'grammar_requires_retry', 'case_sensitive', 'punctuation_sensitive',
 ]);
+const V2_CARD_DEFAULTS = {
+  id: null, image: null, info: [], layout: null, explanation: '', level: null, topics: null, metadata: {},
+};
+const V2_DATA_DEFAULTS = {
+  standard: { answer: '' }, theory: { summary: '' }, puzzle: { translation: '' },
+  trainer: { back_note: '' }, quiz: { back_note: '' }, match: { back_note: '' },
+  free_text: { accepted_answers: [] }, editable_text: { accepted_answers: [] },
+};
+const V2_GRADING_DEFAULTS = {
+  mode: 'controlled_text', typo_tolerance: true, semantic_equivalence: true,
+  grammar_requires_retry: true, case_sensitive: false, punctuation_sensitive: false, max_retries: 3,
+};
 const V2_CONTENT_META_KEYS = new Set([
   'front', 'front_text', 'back', 'back_text', 'context', 'type', 'card_type',
   'image', 'image_path', 'data', 'parts', 'info', 'explanation', 'level', 'topics', 'cards',
@@ -198,6 +210,64 @@ function hasOnlyAllowedKeys(obj, allowed) {
 
 function isNonBlankText(value) {
   return typeof value === 'string' && /[^\p{White_Space}]/u.test(value);
+}
+
+function trimLikePython(value) {
+  // str.strip() also strips U+001C–U+001F and retains U+FEFF.
+  const spaces = String.raw`[\p{White_Space}${'\u001c-\u001f'}]`;
+  return value.replace(new RegExp(`^${spaces}+|${spaces}+$`, 'gu'), '');
+}
+
+function exceedsAnswerLimit(value) {
+  if (value.length <= 4000) return false;
+  let index = 0;
+  for (let characters = 0; index < value.length; characters += 1) {
+    if (characters === 4000) return true;
+    index += value.codePointAt(index) > 0xffff ? 2 : 1;
+  }
+  return false;
+}
+
+function validateSerializedCardSize(card) {
+  // Match card-core's model dump for the byte limit without altering the stored draft.
+  const withOptionDefaults = option => ({ correct: false, ...option });
+  const data = { ...V2_DATA_DEFAULTS[card.type], ...card.data };
+  if (card.type === 'quiz') data.options = data.options.map(withOptionDefaults);
+  if (card.type === 'trainer') {
+    data.parts = data.parts.map(part => part.type === 'choice'
+      ? { distractors: null, ...part, options: part.options.map(withOptionDefaults) }
+      : part);
+  }
+  if (card.type === 'free_text' || card.type === 'editable_text') {
+    data.grading_policy = {
+      ...V2_GRADING_DEFAULTS,
+      ...(card.type === 'editable_text' ? { typo_tolerance: false }
+        : data.grading_policy === undefined ? { mode: 'open_text' } : {}),
+      ...data.grading_policy,
+    };
+  }
+  const normalized = { ...V2_CARD_DEFAULTS, ...card, data };
+  if (card.layout) {
+    normalized.layout = card.layout.map(item => {
+      if (item.type === 'image') return { alt: '', caption: '', visibility: 'before_answer', ...item };
+      return item.type === 'info' ? { visibility: 'before_answer', ...item } : item;
+    });
+  }
+
+  let invalidText = false;
+  let numberByteAdjustment = 0;
+  const invalidJsonText = text => text.includes('\0') || /[\ud800-\udfff]/u.test(text);
+  const encoded = JSON.stringify(normalized, (key, value) => {
+    if (invalidJsonText(key) || (typeof value === 'string' && invalidJsonText(value))) invalidText = true;
+    if (typeof value === 'number' && value !== 0 && Math.abs(value) < 0.0001) {
+      // Python formats small floats with a two-digit exponent.
+      numberByteAdjustment += value.toExponential().replace(/e-(\d)$/, 'e-0$1').length - String(value).length;
+    }
+    return value;
+  });
+  if (invalidText || new TextEncoder().encode(encoded).length + numberByteAdjustment > 256 * 1024) {
+    throw new Error(tr('Недопустимый текст или размер карточки.'));
+  }
 }
 
 function checkAllowedKeys(obj, allowed, message) {
@@ -244,7 +314,7 @@ function validateCardMetadata(metadata) {
 function validateWrittenAnswers(data, allowOpenText) {
   if (data.accepted_answers !== undefined) {
     if (!Array.isArray(data.accepted_answers) || data.accepted_answers.length > 20
-      || data.accepted_answers.some(ans => !isNonBlankText(ans) || ans.length > 4000)) {
+      || data.accepted_answers.some(ans => !isNonBlankText(ans) || exceedsAnswerLimit(ans))) {
       throw new Error(tr('Допустимые ответы: не более 20 непустых вариантов до 4000 символов.'));
     }
   }
@@ -285,12 +355,8 @@ export function validateStandaloneCardContent(envelope) {
   if (card.explanation !== undefined && typeof card.explanation !== 'string') {
     throw new Error(tr('Некорректное поле контекста карточки V2.'));
   }
-  if (card.image !== undefined && card.image !== null) {
-    if (typeof card.image !== 'string' || card.image.includes('..')
-      || (!/^images\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(card.image)
-        && !/^\/api\/media\/images\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(card.image))) {
-      throw new Error(tr('Некорректный путь обложки карточки V2.'));
-    }
+  if (card.image != null && !isNonBlankText(card.image)) {
+    throw new Error(tr('Некорректный путь обложки карточки V2.'));
   }
   if (card.topics !== undefined && card.topics !== null) {
     if (!Array.isArray(card.topics) || card.topics.some(topic => !isNonBlankText(topic))) {
@@ -350,7 +416,7 @@ export function validateStandaloneCardContent(envelope) {
         infoIndices.push(el.index);
       } else if (el.type === 'image') {
         checkAllowedKeys(el, new Set(['id', 'type', 'path', 'alt', 'caption', 'visibility']), tr('Неизвестный элемент layout V2.'));
-        if (typeof el.path !== 'string' || el.path.length > 1024 || el.path.includes('..')
+        if (typeof el.path !== 'string' || el.path.length > 1024
           || !/^images\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$/.test(el.path)) {
           throw new Error(tr('Некорректный путь изображения в layout V2.'));
         }
@@ -457,7 +523,7 @@ export function validateStandaloneCardContent(envelope) {
         ? new Set(card.layout.filter(e => e.type === 'info' && e.visibility !== 'after_answer').map(e => e.index))
         : new Set(infoList.map((_, idx) => idx));
       const hasTaskOrSource = infoList.some((block, idx) => visibleInfo.has(idx) && (block.type === 'task' || block.type === 'source'));
-      if (!isNonBlankText(data.prompt) && !hasTaskOrSource) {
+      if (!trimLikePython(data.prompt) && !hasTaskOrSource) {
         throw new Error(tr('Введите вопрос теста или добавьте блок задания.'));
       }
       break;
@@ -521,10 +587,10 @@ export function validateStandaloneCardContent(envelope) {
       if (!isNonBlankText(data.source_text) || !isNonBlankText(data.correct_text)) {
         throw new Error(tr('Заполните исходный и исправленный тексты.'));
       }
-      if (data.source_text.length > 4000 || data.correct_text.length > 4000) {
+      if (exceedsAnswerLimit(data.source_text) || exceedsAnswerLimit(data.correct_text)) {
         throw new Error(tr('Текст должен содержать не более 4000 символов.'));
       }
-      if (data.source_text.trim() === data.correct_text.trim()) {
+      if (trimLikePython(data.source_text) === trimLikePython(data.correct_text)) {
         throw new Error(tr('Исходный и исправленный тексты должны различаться.'));
       }
       validateWrittenAnswers(data, false);
@@ -533,14 +599,7 @@ export function validateStandaloneCardContent(envelope) {
       throw new Error(tr('Неизвестный тип карточки V2.'));
   }
 
-  let invalidText = false;
-  const encoded = JSON.stringify(card, (key, value) => {
-    if (key.includes('\0') || (typeof value === 'string' && value.includes('\0'))) invalidText = true;
-    return value;
-  });
-  if (invalidText || new TextEncoder().encode(encoded).length > 256 * 1024) {
-    throw new Error(tr('Недопустимый текст или размер карточки.'));
-  }
+  validateSerializedCardSize(card);
 }
 
 export function cardWriteError(error) {

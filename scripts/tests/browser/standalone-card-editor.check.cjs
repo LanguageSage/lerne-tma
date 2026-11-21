@@ -553,6 +553,33 @@ async function run() {
     assert.equal(editedLayoutCard.content_v2.card.data.prompt, 'Layout Card Edited');
     assert.deepEqual(editedLayoutCard.content_v2.card.layout, originalLayout, 'Existing layout must remain intact');
 
+    const editedLayoutRow = page.locator('.card-item').filter({ hasText: 'Layout Card Edited' }).first();
+    await editedLayoutRow.locator('.card-item-actions-trigger').click();
+    await page.getByRole('button', { name: /Редактировать/ }).click();
+    await page.locator('#card-editor-front').fill('Unsaved draft after a conflict');
+    await page.evaluate(({ dbName, card }) => new Promise((resolve, reject) => {
+      const open = indexedDB.open(dbName);
+      open.onerror = () => reject(open.error);
+      open.onsuccess = () => {
+        const database = open.result;
+        const tx = database.transaction('cards', 'readwrite');
+        card.revision += 1;
+        card.content_v2.card.data.prompt = 'Newer local text';
+        tx.objectStore('cards').put(card);
+        tx.oncomplete = () => { database.close(); resolve(); };
+        tx.onerror = () => reject(tx.error);
+      };
+    }), { dbName: afterLayoutEdit.dbName, card: editedLayoutCard });
+    await page.locator('.view-editor .btn-save-action').first().click();
+    await page.getByText(/Карточка изменилась на устройстве/).waitFor({ state: 'visible' });
+    assert.equal(await page.locator('#card-editor-front').inputValue(), 'Unsaved draft after a conflict');
+    const afterConflict = (await readIndexedDbState(page)).cards.find(c => c.id === editedLayoutCard.id);
+    assert.equal(afterConflict.revision, editedLayoutCard.revision + 1);
+    assert.equal(afterConflict.content_v2.card.data.prompt, 'Newer local text');
+    page.once('dialog', dialog => dialog.accept());
+    await page.locator('.view-editor').getByRole('button', { name: 'Отмена', exact: true }).click();
+    await page.locator('.view-editor').waitFor({ state: 'hidden' });
+
     // 5. StudyView reflection + grading SRS + edit via StudyHeader + reload persistence + delete
     await page.locator('.view-cards .back-btn').click({ force: true });
     await page.locator('.deck-intro-btn-start').waitFor({ state: 'visible' });

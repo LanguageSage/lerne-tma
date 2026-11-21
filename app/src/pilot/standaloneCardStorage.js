@@ -149,18 +149,16 @@ export async function createStandaloneCard(db, body, { flag = 0 } = {}, userId =
     const deck = Number.isSafeInteger(deckId) ? await db.decks.get(deckId) : null;
     if (!deck || deck.is_deleted) notFound();
 
-    const [countersRecord, existingCardKeys, siblingsRaw, exportSource] = await Promise.all([
+    const [countersRecord, [maxExistingId], siblingsRaw, exportSource] = await Promise.all([
       db.syncState.get(ID_COUNTERS_KEY),
-      db.cards.toCollection().primaryKeys(),
+      db.cards.where(':id').between(IMPORTED_ID_START, Number.MAX_SAFE_INTEGER, false, true)
+        .reverse().limit(1).primaryKeys(),
       db.cards.where('deck_id').equals(deck.id).filter(c => !c.is_deleted).toArray(),
       getMaterialExportSourceInTx(db),
     ]);
 
-    const maxExistingId = existingCardKeys.reduce((max, key) => {
-      const n = Number(key);
-      return Number.isFinite(n) && n > max ? n : max;
-    }, IMPORTED_ID_START);
-    const nextCardId = Math.max(IMPORTED_ID_START, Number(countersRecord?.card) || 0, maxExistingId) + 1;
+    const nextCardId = Math.max(maxExistingId ?? IMPORTED_ID_START, Number(countersRecord?.card) || 0) + 1;
+    if (!Number.isSafeInteger(nextCardId)) throw new Error('Local card ID limit reached');
 
     await db.syncState.put({
       ...(countersRecord || {}),
@@ -277,6 +275,11 @@ export async function updateStandaloneCard(db, id, body, { flag } = {}, userId =
 
     const current = await db.cards.get(cardId);
     if (!current?.content_v2 || current.is_deleted) notFound();
+    if (body.revision !== current.revision) {
+      const error = new Error(tr('Карточка изменилась на устройстве. Черновик сохранён в форме. Откройте актуальную карточку перед повторной правкой.'));
+      error.response = { status: 409, data: { detail: { code: 'card_revision_conflict', card_id: cardId, message: error.message } } };
+      throw error;
+    }
 
     const deck = await db.decks.get(current.deck_id);
     if (!deck || deck.is_deleted) notFound();
