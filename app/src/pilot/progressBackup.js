@@ -407,12 +407,14 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     .filter(d => !builtInDeckIds.has(d.id) && typeof d.standalone_deck_key === 'string' && d.standalone_deck_key)
     .sort((a, b) => a.standalone_deck_key.localeCompare(b.standalone_deck_key));
   const importedDeckById = new Map(importedDecks.map(d => [d.id, d]));
-  const exportSource = importedDecks.length > 0 ? await getMaterialExportSource(database) : null;
 
   const importedCards = allCards.filter(c => (
     !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key
   ));
   const importedCardById = new Map(importedCards.map(c => [c.id, c]));
+  const exportSource = (importedDecks.length > 0 || importedCards.length > 0)
+    ? await getMaterialExportSource(database)
+    : null;
 
   const importedRecords = rawProgress
     .filter(row => importedCardById.has(row.card_id))

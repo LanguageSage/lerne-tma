@@ -8,6 +8,7 @@ export function CardAudioAttachments({
   disabled,
   onBusyChange,
   uploadAudioFile,
+  allowOfflineUpload = false,
   getSessionIdentity,
   resolveAudioUrl = getAudioUrl,
 }) {
@@ -40,7 +41,7 @@ export function CardAudioAttachments({
   }, [selection]);
 
   const upload = async () => {
-    if (!selection || !uploadAudioFile || busy || disabled || !navigator.onLine) return;
+    if (!selection || !uploadAudioFile || busy || disabled || (!allowOfflineUpload && !navigator.onLine)) return;
     const attempt = ++generation.current;
     const identity = resolveIdentity();
     const { side, file } = selection;
@@ -67,13 +68,14 @@ export function CardAudioAttachments({
   };
 
   return <div className="card-audio-attachments">
-    <p>{tr('Готовое аудио: MP3 или PCM WAV, до 20 МБ. Загрузка доступна при подключении к сети.')}</p>
+    <p>{tr(allowOfflineUpload ? 'Готовое аудио: MP3 или PCM WAV, до 20 МБ. Файл сохраняется локально на устройстве.' : 'Готовое аудио: MP3 или PCM WAV, до 20 МБ. Загрузка доступна при подключении к сети.')}</p>
     {['front', 'back'].map(side => {
       const path = cardData[side === 'front' ? 'audio_path' : 'audio_back_path'];
+      const previewUrl = cardData[side === 'front' ? 'audio_url' : 'audio_back_url'] || resolveAudioUrl(path);
       const label = side === 'front' ? tr('Аудио для вопроса') : tr('Аудио для ответа');
       return <fieldset key={side} disabled={disabled || busy}>
         <legend>{label}</legend>
-        {path && <audio key={path} controls preload="none" src={resolveAudioUrl(path)} aria-label={label}
+        {path && <audio key={path} controls preload="none" src={previewUrl} aria-label={label}
           onError={() => setError(tr('Не удалось воспроизвести аудио. Проверьте файл и подключение.'))} />}
         <label className="card-audio-file">{path ? tr('Выбрать замену') : tr('Выбрать файл')}
           <input type="file" accept=".mp3,.wav,audio/mpeg,audio/wav" aria-label={label}
@@ -91,7 +93,7 @@ export function CardAudioAttachments({
           <p>{selection.file.name}</p>
           <audio key={preview} controls preload="metadata" src={preview || undefined} aria-label={tr('Предпрослушивание файла')}
             onError={() => setError(tr('Файл не воспроизводится. Поддерживаются MP3 и PCM WAV.'))} />
-          <button type="button" className="btn-secondary" onClick={upload} disabled={!online}>
+          <button type="button" className="btn-secondary" onClick={upload} disabled={!allowOfflineUpload && !online}>
             {busy ? tr('Загрузка аудио…') : tr('Прикрепить аудио')}
           </button>
           <button type="button" className="btn-secondary" onClick={() => setSelection(null)}>{tr('Отмена выбора')}</button>

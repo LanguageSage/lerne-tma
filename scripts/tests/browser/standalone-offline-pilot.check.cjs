@@ -393,8 +393,8 @@ async function run() {
     await page.locator('.card-back').waitFor({ state: 'visible' });
     assert.equal(await page.locator('.study-card-rating, .card-question-composer').count(), 0,
       'Standalone study should hide the server-backed rating and question controls');
-    assert.equal(await page.locator('#tut-study-add-card, #tut-study-edit-card').count(), 0,
-      'Standalone study should hide authoring controls');
+    assert.equal(await page.locator('#tut-study-add-card, #tut-study-edit-card').count(), 2,
+      'Standalone study should expose local authoring controls');
     await page.locator('.study-card-flip-button').click();
     await page.locator('.card-front').waitFor({ state: 'visible' });
     await completeTheoryOrStandard(page, 2); // a2-01 theory -> Good

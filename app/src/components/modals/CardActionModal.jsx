@@ -15,6 +15,7 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardNotes } from '../../hooks/useCardNotes';
 import { StudyCardInfo } from '../study/StudyCardInfo';
 import { CardNotesPanel, NoteIndicator } from './CardNotesPanel';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 export const CardActionModal = ({
   isOpen,
   onClose,
@@ -30,7 +31,7 @@ export const CardActionModal = ({
   useInterfaceLocale();
   const [mode, setMode] = React.useState('main');
   const [expandedFolders, setExpandedFolders] = React.useState({});
-  const notes = useCardNotes(isOpen ? card?.id : null, card?.deck_id, true);
+  const notes = useCardNotes(isOpen && !IS_STANDALONE ? card?.id : null, card?.deck_id, true);
   const modalRef = React.useRef(null);
   const { handleSetCardFlag } = useCardActions();
 
@@ -43,6 +44,7 @@ export const CardActionModal = ({
   const targetDeckId = card?.deck_id != null ? card.deck_id : currentDeck?.id;
   const actionDeck = decks?.find(d => String(d.id) === String(targetDeckId)) || currentDeck;
   const canEditContent = actionDeck?.role === 'owner' || actionDeck?.role === 'editor' || (actionDeck && !actionDeck.role && !actionDeck.is_global_readonly);
+  const canAuthorCard = IS_STANDALONE ? Boolean(actionDeck) : canEditContent;
   const isCurrentDeck = currentDeck && String(currentDeck.id) === String(targetDeckId);
   const cardsList = React.useMemo(() => {
     return (isCurrentDeck && deckCards && deckCards.length > 0)
@@ -214,7 +216,7 @@ export const CardActionModal = ({
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
 
-                {canEditContent && <button
+                {!IS_STANDALONE && canEditContent && <button
                   className="action-menu-item"
                   onClick={() => setMode('move')}
                 >
@@ -227,7 +229,7 @@ export const CardActionModal = ({
                   </div>
                 </button>}
 
-                {canEditContent && <button
+                {!IS_STANDALONE && canEditContent && <button
                   className="action-menu-item"
                   onClick={() => setMode('copy')}
                 >
@@ -240,7 +242,7 @@ export const CardActionModal = ({
                   </div>
                 </button>}
 
-                <button
+                {!IS_STANDALONE && <button
                   className="action-menu-item"
                   onClick={() => { onShare(card); onClose(); }}
                 >
@@ -251,9 +253,9 @@ export const CardActionModal = ({
                     <strong>{tr("Поделиться")}</strong>
                     <span>{tr("Отправить ссылку в Telegram")}</span>
                   </div>
-                </button>
+                </button>}
 
-                {canEditContent && onEdit && (
+                {canAuthorCard && onEdit && (
                   <button
                     className="action-menu-item"
                     onClick={() => { onEdit(card); onClose(); }}
@@ -268,7 +270,7 @@ export const CardActionModal = ({
                   </button>
                 )}
 
-                {canEditContent && <button
+                {!IS_STANDALONE && canEditContent && <button
                   className="action-menu-item"
                   onClick={() => setMode('position')}
                 >
@@ -293,7 +295,7 @@ export const CardActionModal = ({
 
                 <div style={{ height: '1px', background: 'rgba(255, 255, 255, 0.05)', margin: '6px 0' }} />
 
-                {canEditContent && <button
+                {canAuthorCard && <button
                   className="action-menu-item delete"
                   onClick={() => { onDelete(card); onClose(); }}
                 >
@@ -302,15 +304,15 @@ export const CardActionModal = ({
                   </div>
                   <div className="action-menu-text">
                     <strong style={{ color: '#ef4444' }}>{tr("Удалить карточку")}</strong>
-                    <span>{tr(card.content_v2 ? 'Карточку можно восстановить из корзины' : 'Это действие нельзя отменить')}</span>
+                    <span>{IS_STANDALONE ? tr('Карточка будет удалена с этого устройства') : tr(card.content_v2 ? 'Карточку можно восстановить из корзины' : 'Это действие нельзя отменить')}</span>
                   </div>
                 </button>}
-                <button type="button" className="action-menu-item" aria-label={tr('Мои заметки')} onClick={() => setMode('notes')}>
+                {!IS_STANDALONE && <button type="button" className="action-menu-item" aria-label={tr('Мои заметки')} onClick={() => setMode('notes')}>
                   <div className="action-menu-icon"><MessageSquare size={20} /></div>
                   <div className="action-menu-text"><strong>{tr('Мои заметки')}</strong></div>
                   <NoteIndicator {...notes} />
-                </button>
-                <button type="button" className="action-menu-item" onClick={() => {
+                </button>}
+                {!IS_STANDALONE && <button type="button" className="action-menu-item" onClick={() => {
                   const ui = useUiStore.getState();
                   if (!getUserId() || ui.userProfile?.is_guest) {
                     onClose();
@@ -319,7 +321,7 @@ export const CardActionModal = ({
                 }}>
                   <div className="action-menu-icon"><MessageSquare size={20} /></div>
                   <div className="action-menu-text"><strong>{tr('Предложить улучшение')}</strong></div>
-                </button>
+                </button>}
                 <button type="button" className="action-menu-item" aria-label={tr('Информация о карточке')} onClick={() => setMode('info')}>
                   <div className="action-menu-icon"><Info size={20} /></div>
                   <div className="action-menu-text"><strong>{tr('Информация о карточке')}</strong></div>

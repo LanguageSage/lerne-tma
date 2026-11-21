@@ -678,10 +678,22 @@
   white-space: nowrap;
 }
 
-.lerne-card-ui-root .ai-quick-actions:not(.has-request).has-dynamic > .btn-save-action,
-.lerne-card-ui-root .ai-quick-actions:not(.has-request).has-dynamic > .btn-primary {
+.lerne-card-ui-root .ai-quick-actions:not(.has-request):not(.no-ai).has-dynamic > .btn-save-action,
+.lerne-card-ui-root .ai-quick-actions:not(.has-request):not(.no-ai).has-dynamic > .btn-primary {
   flex: 1 1 100%;
   width: 100%;
+}
+
+.lerne-card-ui-root .ai-quick-actions.no-ai {
+  gap: 8px;
+}
+.lerne-card-ui-root .ai-quick-actions.no-ai > .btn-secondary {
+  flex: 0 0 auto;
+  min-width: 96px;
+  padding: 8px 14px;
+}
+.lerne-card-ui-root .ai-quick-actions.no-ai > .btn-save-action {
+  flex: 1 1 120px;
 }
 
 .lerne-card-ui-root .ai-quick-actions > .card-question-composer.is-action {

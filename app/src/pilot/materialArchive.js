@@ -2,10 +2,18 @@ import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
 import { getStandaloneProfileName, STANDALONE_USER_ID } from '../utils/standaloneMode.js';
-import { buildOriginKey, getMaterialExportSource, MATERIAL_EXPORT_SOURCE_KEY } from './materialArchiveIdentity.js';
+import {
+  buildOriginKey,
+  getMaterialExportSource,
+  ID_COUNTERS_KEY,
+  IMPORTED_ID_START,
+  MATERIAL_EXPORT_SOURCE_KEY,
+} from './materialArchiveIdentity.js';
 import { canonicalJson } from './progressBackup.js';
 import { sha256BytesHex, sha256Hex } from './sha256.js';
 import { OFFLINE_MEDIA_KEY_PREFIX, parseOfflineMediaRef } from './offlineMediaResolver.js';
+
+export { ID_COUNTERS_KEY, IMPORTED_ID_START };
 
 export const MATERIAL_ARCHIVE_FORMAT = 'lerne-materials';
 export const MATERIAL_ARCHIVE_EXPORT_VERSION = 4;
@@ -15,9 +23,7 @@ export const MAX_ARCHIVE_BYTES = 512 * 1024 * 1024;
 export const MAX_MANIFEST_BYTES = 64 * 1024 * 1024;
 export const MAX_ASSET_BYTES = 20 * 1024 * 1024;
 export const MAX_ASSETS = 10000;
-export const IMPORTED_ID_START = 1000000;
 export const IMPORT_REGISTRY_KEY = 'standalone_import_registry';
-export const ID_COUNTERS_KEY = 'standalone_id_counters';
 
 const ARCHIVE_TOKEN_RE = /archive:\/\/[a-f0-9]{64}/g;
 const ARCHIVE_TOKEN_FULL_RE = /^archive:\/\/[a-f0-9]{64}$/;
@@ -1188,13 +1194,18 @@ export async function inspectMaterialArchiveForImport({
 
   let newCards = 0;
   let updatedCards = 0;
+  let protectedCards = 0;
   let preservedProgressCount = 0;
   for (const row of document.content.card) {
     const originKey = buildOriginKey(document.source, 'card', row.id);
     const existing = cardByOrigin.get(originKey);
     const matchedId = existing?.id;
     if (matchedId) {
-      updatedCards += 1;
+      if (existing?.standalone_local_edit) {
+        protectedCards += 1;
+      } else {
+        updatedCards += 1;
+      }
       if (progressByCardId.has(matchedId)) {
         preservedProgressCount += 1;
       }
@@ -1203,7 +1214,7 @@ export async function inspectMaterialArchiveForImport({
     }
   }
 
-  const isReimport = updatedFolders > 0 || updatedDecks > 0 || updatedCards > 0;
+  const isReimport = updatedFolders > 0 || updatedDecks > 0 || updatedCards > 0 || protectedCards > 0;
   const previousImport = (registryRecord?.imports || []).find(item => item.source === document.source);
 
   return {
@@ -1221,6 +1232,7 @@ export async function inspectMaterialArchiveForImport({
       updatedDecks,
       newCards,
       updatedCards,
+      protectedCards,
       totalFolders: document.content.folder.length,
       totalDecks: document.content.deck.length,
       totalCards: document.content.card.length,
@@ -1439,12 +1451,17 @@ export async function applyMaterialArchiveImport({
 
     let importedCards = 0;
     let updatedCards = 0;
+    let protectedCards = 0;
     for (const row of document.content.card) {
       const originKey = buildOriginKey(document.source, 'card', row.id);
       const existing = matchExisting(originKey, row.id, cardByOrigin, existingCardsById);
       const localId = existing?.id || nextId('card');
       origins[originKey] = localId;
 
+      if (existing?.standalone_local_edit) {
+        protectedCards += 1;
+        continue;
+      }
       if (existing) updatedCards += 1;
       else importedCards += 1;
       if (ownExport && existing?.standalone_card_key && !existing.standalone_source) continue;
@@ -1555,6 +1572,7 @@ export async function applyMaterialArchiveImport({
       updatedDecks,
       importedCards,
       updatedCards,
+      protectedCards,
       mediaCount: document.assets.length,
       languages: inspection.preview.languages,
       preservedProgressCount: inspection.preview.preservedProgressCount,
@@ -1804,9 +1822,10 @@ export async function buildMaterialArchiveExport({
   }
 
   const selectedRows = [...selectedFolders, ...selectedDecks, ...selectedCards];
+  const hasLocalAuthoring = selectedRows.some(row => row.standalone_local_edit || row.standalone_local_created);
   const sourceCandidates = new Set(selectedRows.map(row => row.standalone_source));
   const [singleSource] = sourceCandidates;
-  const preserveSource = sourceCandidates.size === 1 && SOURCE_IDENTITY_RE.test(singleSource || '');
+  const preserveSource = !hasLocalAuthoring && sourceCandidates.size === 1 && SOURCE_IDENTITY_RE.test(singleSource || '');
   const source = preserveSource ? singleSource : await getMaterialExportSource(database);
   const exportId = row => preserveSource ? row.standalone_source_id : row.id;
   const exportedFolderId = id => folderMap.has(id) && selectedFolderIds.has(id) ? exportId(folderMap.get(id)) : null;

@@ -14,6 +14,7 @@ export function CardMediaFields({
   audioBusy,
   setAudioBusy,
   uploadAudioFile = null,
+  allowOfflineUpload = false,
   getSessionIdentity = null,
   resolveAudioUrl,
 }) {
@@ -56,12 +57,21 @@ export function CardMediaFields({
       </div>
       <CardAudioAttachments cardData={cardData} setCardData={setCardData} disabled={loading || audioBusy}
         onBusyChange={setAudioBusy} uploadAudioFile={uploadAudioFile}
+        allowOfflineUpload={allowOfflineUpload}
         getSessionIdentity={getSessionIdentity} resolveAudioUrl={resolveAudioUrl} />
     </details>
   );
 }
 
-export function CardCoverPreview({ cardData, setCardData, deck, onEdit, onClear, resolveMediaUrl = defaultResolveMediaUrl }) {
+export function CardCoverPreview({
+  cardData,
+  setCardData,
+  deck,
+  onEdit,
+  onClear,
+  resolveMediaUrl = defaultResolveMediaUrl,
+  hideHeightSlider = false,
+}) {
   if (!cardData.image_url && !cardData.image_path) return null;
 
   const currentH = cardData.draftImageHeight ?? (parseDeckMetadata(deck ?? cardData)?.imageHeight || 220);
@@ -104,26 +114,28 @@ export function CardCoverPreview({ cardData, setCardData, deck, onEdit, onClear,
         </button>
       </div>
 
-      <div style={{ margin: '0 10px 10px 10px', zIndex: 3, position: 'relative' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.07)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
-          <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>{tr("Высота")}</span>
-          <input
-            type="range"
-            min={60}
-            max={800}
-            step={10}
-            value={currentH}
-            onChange={e => {
-              const draftImageHeight = Number(e.target.value);
-              setCardData(current => ({ ...current, draftImageHeight }));
-            }}
-            style={{ flex: 1, accentColor: '#a855f7', cursor: 'pointer' }}
-          />
-          <span style={{ fontSize: '0.8rem', color: '#c084fc', fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>
-            {currentH}px
-          </span>
+      {!hideHeightSlider && (
+        <div style={{ margin: '0 10px 10px 10px', zIndex: 3, position: 'relative' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '10px 12px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.07)', border: '1px solid rgba(168, 85, 247, 0.2)' }}>
+            <span style={{ fontSize: '0.75rem', color: '#94a3b8', whiteSpace: 'nowrap' }}>{tr("Высота")}</span>
+            <input
+              type="range"
+              min={60}
+              max={800}
+              step={10}
+              value={currentH}
+              onChange={e => {
+                const draftImageHeight = Number(e.target.value);
+                setCardData(current => ({ ...current, draftImageHeight }));
+              }}
+              style={{ flex: 1, accentColor: '#a855f7', cursor: 'pointer' }}
+            />
+            <span style={{ fontSize: '0.8rem', color: '#c084fc', fontWeight: 700, minWidth: '46px', textAlign: 'right' }}>
+              {currentH}px
+            </span>
+          </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

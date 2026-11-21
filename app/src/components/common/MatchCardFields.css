@@ -31,6 +31,7 @@
   .visual-card-form .visual-card-layout-block:has(.match-editor) > [data-layout-id] { grid-area: 1 / 1 / auto / -1; }
   .visual-card-form .visual-card-layout-block:has(.match-editor) > .visual-card-drag-handle { z-index: 1; }
   .match-editor > .match-heading { padding-inline-start: 34px; }
+  .visual-card-layout-block-locked .match-editor > .match-heading { padding-inline-start: 0; }
   .match-editor-pair { gap: 4px; }
   .match-editor-pair .match-item { padding-inline: 6px; }
   .match-editor-connector { width: 12px; }
@@ -41,4 +42,5 @@
 }
 @media (max-width: 480px) and (pointer: coarse) {
   .match-editor > .match-heading { padding-inline-start: 50px; }
+  .visual-card-layout-block-locked .match-editor > .match-heading { padding-inline-start: 0; }
 }

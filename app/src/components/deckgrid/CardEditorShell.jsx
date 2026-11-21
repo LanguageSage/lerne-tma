@@ -7,7 +7,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { useUiStore } from '../../store/useUiStore';
 import { navigateUp } from '../../utils/navigation';
 
-export function CardEditorShell({ view, title, settingsTitle, children }) {
+export function CardEditorShell({ view, title, settingsTitle, onBack = null, children }) {
   useInterfaceLocale();
   const setIsSettingsOpen = useUiStore(state => state.setIsSettingsOpen);
   const [animDone, setAnimDone] = useState(false);
@@ -22,7 +22,15 @@ export function CardEditorShell({ view, title, settingsTitle, children }) {
         className="view"
       >
         <div className="header-compact">
-          <button className="back-btn" onClick={navigateUp}><ChevronLeft size={24} /></button>
+          <button
+            type="button"
+            className="back-btn"
+            onClick={onBack || navigateUp}
+            aria-label={tr('Назад')}
+            title={tr('Назад')}
+          >
+            <ChevronLeft size={24} />
+          </button>
           <h2>{title}</h2>
           <div className="header-actions">
             <button className="header-action-btn" disabled title={tr('Добавить карточку')}>

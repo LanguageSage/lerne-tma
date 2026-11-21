@@ -624,3 +624,11 @@ legacy parser не входит в этот цикл. Явные вариант�
 проверяет реальные HTTP/PostgreSQL и Chromium/Dexie сценарии всех девяти типов.
 Frontend unit gate: `npm run test:frontend`; общий backend: `python scripts/test_backend.py`.
 Admin имеет собственные unit/PG/browser runners и получает проверенный card-core 0.1.7.
+
+## Android Standalone (локальный редактор V2)
+
+- Android Standalone переиспользует общий UI-стек веб-редактора (`CardCreator`, `CardEditor`, `CardEditorShell`, `CardForm`, `NativeCardFormCore` и визуальные компоненты 9 типов) поверх Dexie через `api.js` -> `offlineApi.js` -> `app/src/pilot/standaloneCardStorage.js`, позволяя создавать, редактировать и удалять личные локальные копии даже в импортированных `viewer` / `is_global_readonly` колодах без изменения их прав и исходного `source`.
+- `app/src/utils/cardDraft.js` (`validateStandaloneCardContent`) проверяет полный контракт Native Structured Cards V2 до записи; позиция при вставке (`after_card_id`) поддерживает целые индексы со сдвигом.
+- Серверные и неподдерживаемые в автономии возможности (`AI`-генерация, серверный `TTS`, диктовка, поиск изображений Google, групповые операции/корзина, правка высоты обложки в метаданных колоды) отключены; локальные обложки и MP3/PCM WAV сохраняются через `app/src/pilot/localMediaWriter.js` (Android SAF `OfflineMaterialArchivePlugin.storeMediaAsset` или Dexie `db.media`).
+- Визуальный редактор дизайна/макета (`card.layout`) не включён (`lockLayout`): блоки и изображения `layout` показываются в UI только для чтения и защищены каноническим сравнением при сохранении, оставляя существующую разметку нетронутой.
+- Проверки: `app/src/services/__tests__/standaloneCardEditor.test.js`, `scripts/tests/browser/standalone-card-editor.check.cjs`.

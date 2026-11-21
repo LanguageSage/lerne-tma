@@ -166,11 +166,15 @@ export const StandaloneMaterialsSection = ({ onMaterialsChanged = null }) => {
 
       const totalDecks = result.importedDecks + result.updatedDecks;
       const totalCards = result.importedCards + result.updatedCards;
-      const msg = tr('Материалы импортированы: колод — {{p0}}, карточек — {{p1}}, медиа — {{p2}}.', {
+      const protectedCards = result.protectedCards || 0;
+      let msg = tr('Материалы импортированы: колод — {{p0}}, карточек — {{p1}}, медиа — {{p2}}.', {
         p0: totalDecks,
         p1: totalCards,
         p2: result.mediaCount,
       });
+      if (protectedCards > 0) {
+        msg += ` ${tr('Защищено локальных правок карточек: {{p0}}.', { p0: protectedCards })}`;
+      }
       setStatusMessage(msg);
       showToast(tr('Учебные материалы импортированы'), 'success');
     } catch (error) {
@@ -368,6 +372,13 @@ export const StandaloneMaterialsSection = ({ onMaterialsChanged = null }) => {
                 {tr('Повторный импорт: материалы будут обновлены без дубликатов, а сохранённый прогресс SRS ({{p0}} записей) останется нетронутым.', {
                   p0: preview.preservedProgressCount,
                 })}
+                {(preview.protectedCards || 0) > 0 && (
+                  <div data-testid="standalone-import-protected-notice" style={{ marginTop: '4px', color: '#86efac' }}>
+                    {tr('Локально изменённых карточек защищено от перезаписи: {{p0}}.', {
+                      p0: preview.protectedCards,
+                    })}
+                  </div>
+                )}
               </div>
             )}
             <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginTop: '4px' }}>

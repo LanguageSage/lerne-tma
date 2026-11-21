@@ -156,7 +156,10 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
         && deck.is_owner === false
         && deck.is_global_readonly === true
       ));
-      const allCardsPresent = existingCards.every(card => card && !card.is_deleted && card.content_v2?.schema_version === 2);
+      const allCardsPresent = existingCards.every(card => (
+        card
+        && (card.standalone_local_edit || (!card.is_deleted && card.content_v2?.schema_version === 2))
+      ));
       const allCacheComplete = cacheMarkers.every(marker => marker?.complete === true);
 
       if (
@@ -269,7 +272,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
             created_at: nowIso,
             updated_at: nowIso,
           });
-        } else if (resolvedPack.packVersion > (existing.revision ?? 0) || existing.is_deleted) {
+        } else if (!existing.standalone_local_edit && (resolvedPack.packVersion > (existing.revision ?? 0) || existing.is_deleted)) {
           updatedCards += 1;
           cardsToPut.push({
             ...existing,

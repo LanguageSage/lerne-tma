@@ -20,7 +20,7 @@ export function CardFormActions({ isCreator, type, frontText, onAiGenerate = nul
   const hasFrontText = Boolean(frontText.trim());
 
   return (
-    <div className={`ai-quick-actions ${loading || isExistingQuiz ? 'no-dynamic' : 'has-dynamic'}`} style={{ gap: '6px' }}>
+    <div className={`ai-quick-actions ${onAiGenerate ? '' : 'no-ai '}${loading || isExistingQuiz ? 'no-dynamic' : 'has-dynamic'}`} style={{ gap: '6px' }}>
       {onAiGenerate && (loading ? (
         <button
           type="button"

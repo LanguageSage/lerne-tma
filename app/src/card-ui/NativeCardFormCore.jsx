@@ -77,6 +77,9 @@ export const NativeCardFormCore = ({
   onStopGeneration = null,
   onNotify = null,
   rootClassName = '',
+  lockLayout = false,
+  allowOfflineAudioUpload = false,
+  hideCoverHeightSlider = false,
 }) => {
   useInterfaceLocale();
 
@@ -168,6 +171,11 @@ export const NativeCardFormCore = ({
               style={{ fontFamily: 'monospace', whiteSpace: 'pre-wrap', minHeight: '280px' }}
             />
             {sourceError && <p id="card-editor-json-error" role="alert">{tr(sourceError)}</p>}
+            {lockLayout && (
+              <p role="note" data-testid="standalone-json-layout-note" style={{ fontSize: '0.82rem', color: '#94a3b8', margin: '4px 0' }}>
+                {tr('Визуальный редактор дизайна пока недоступен автономно: создание или изменение layout будет отклонено при сохранении. Сохраняйте существующий layout без изменений.')}
+              </p>
+            )}
             {Boolean(cardData.pendingLayoutImages?.length) && (
               <p role="status">{tr('Загруженные изображения будут добавлены после исправления JSON.')}</p>
             )}
@@ -194,6 +202,7 @@ export const NativeCardFormCore = ({
             audioBusy={audioBusy}
             setAudioBusy={setAudioBusy}
             uploadAudioFile={onUploadAudio}
+            allowOfflineUpload={allowOfflineAudioUpload}
             getSessionIdentity={getSessionIdentity}
             resolveAudioUrl={resolveAudioUrl}
           />
@@ -221,6 +230,7 @@ export const NativeCardFormCore = ({
                   designConfig={designConfig}
                   textStyles={textStyles}
                   resolveMediaUrl={resolveMediaUrl}
+                  lockLayout={lockLayout}
                 />
               </div>
 
@@ -231,6 +241,7 @@ export const NativeCardFormCore = ({
                 resolveMediaUrl={resolveMediaUrl}
                 onEdit={() => setIsEditingExistingImage(true)}
                 onClear={clearCover}
+                hideHeightSlider={hideCoverHeightSlider}
               />
 
               <CardLevelControls
@@ -251,6 +262,7 @@ export const NativeCardFormCore = ({
             update={update}
             attachImage={path => attachDraftImage(setCardData, cardData.id, path)}
             uploadLayoutImage={onUploadLayoutImage}
+            lockLayout={lockLayout}
           />
 
           <CardFormActions
@@ -299,6 +311,19 @@ export const NativeCardFormCore = ({
 
   function clearCover() {
     coverUpload.current?.abort();
-    setCardData(current => ({ ...current, image_path: '', image_url: '', draftImageHeight: undefined }));
+    setCardData(current => {
+      if (!current) return current;
+      const next = { ...current, image_path: '', image_url: '', draftImageHeight: undefined };
+      if (lockLayout && next.content_v2?.card?.image) {
+        const nextCard = { ...next.content_v2.card };
+        delete nextCard.image;
+        const nextEnvelope = { ...next.content_v2, card: nextCard };
+        next.content_v2 = nextEnvelope;
+        if (next.content_v2_source != null) {
+          next.content_v2_source = JSON.stringify(nextEnvelope, null, 2);
+        }
+      }
+      return next;
+    });
   }
 };

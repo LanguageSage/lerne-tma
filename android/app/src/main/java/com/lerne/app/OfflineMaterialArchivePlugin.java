@@ -7,6 +7,7 @@ import android.graphics.BitmapFactory;
 import android.net.Uri;
 import android.provider.OpenableColumns;
 import android.provider.DocumentsContract;
+import android.util.Base64;
 import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
@@ -73,6 +74,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
     private static final Pattern ASSET_FILENAME_PATTERN = Pattern.compile(
         "^archive_[a-f0-9]{64}\\.[a-z0-9]{2,4}$"
     );
+    private static final Pattern SHA256_PATTERN = Pattern.compile("^[a-f0-9]{64}$");
     private static final Pattern STAGING_ID_PATTERN = Pattern.compile("^[A-Za-z0-9-]{8,64}$");
     private static final String PROCESS_ID = UUID.randomUUID().toString().substring(0, 8);
     private static final Pattern STAGED_FILE = Pattern.compile("(?:import|export|probe)-[a-f0-9-]+\\.(?:zip|tmp)");
@@ -264,6 +266,141 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             JSObject res = new JSObject();
             res.put("cancelled", true);
             call.resolve(res);
+        });
+    }
+
+    @PluginMethod
+    public void storeMediaAsset(PluginCall call) {
+        String folder = call.getString("folder", "");
+        String filename = call.getString("filename", "");
+        String expectedSha = call.getString("sha256", "");
+        long expectedSize = call.getData() != null ? call.getData().optLong("size", -1L) : -1L;
+        String dataBase64 = call.getString("dataBase64", "");
+
+        if (!"images".equals(folder) && !"audio".equals(folder)) {
+            call.reject("Unsupported local media folder");
+            return;
+        }
+        if (expectedSha == null || !SHA256_PATTERN.matcher(expectedSha).matches()) {
+            call.reject("Invalid media checksum");
+            return;
+        }
+        if (filename == null || !ASSET_FILENAME_PATTERN.matcher(filename).matches()
+            || !filename.startsWith("archive_" + expectedSha + ".")) {
+            call.reject("Invalid canonical media filename");
+            return;
+        }
+        if (expectedSize <= 0 || expectedSize > MAX_ASSET_BYTES) {
+            call.reject("Медиафайл превышает лимит 20 МБ.");
+            return;
+        }
+        if (dataBase64 == null || dataBase64.isEmpty()) {
+            call.reject("Empty media payload");
+            return;
+        }
+
+        ioExecutor.execute(() -> {
+            File partial = null;
+            try {
+                byte[] bytes;
+                try {
+                    bytes = Base64.decode(dataBase64, Base64.DEFAULT);
+                } catch (IllegalArgumentException ex) {
+                    call.reject("Некорректные байты медиафайла.");
+                    return;
+                }
+                if (bytes.length != expectedSize || bytes.length > MAX_ASSET_BYTES) {
+                    call.reject("Размер медиафайла не совпадает.");
+                    return;
+                }
+                if (!expectedSha.equals(sha256Bytes(bytes))) {
+                    call.reject("Контрольная сумма медиа не совпадает.");
+                    return;
+                }
+
+                if ("images".equals(folder)) {
+                    String[] extMime = imageExtAndMime(bytes);
+                    if (extMime == null || !filename.endsWith(extMime[0])) {
+                        call.reject("Повреждённое или неподдерживаемое изображение.");
+                        return;
+                    }
+                    BitmapFactory.Options opts = new BitmapFactory.Options();
+                    opts.inJustDecodeBounds = true;
+                    BitmapFactory.decodeByteArray(bytes, 0, bytes.length, opts);
+                    if (opts.outWidth <= 0 || opts.outHeight <= 0
+                        || ((long) opts.outWidth * (long) opts.outHeight) > MAX_IMAGE_PIXELS) {
+                        call.reject("Повреждённое или слишком большое изображение.");
+                        return;
+                    }
+                }
+
+                File mediaRoot = ensureMediaRoot();
+                File target = resolveSafeMediaTarget(mediaRoot, folder, filename);
+                byte[] head = Arrays.copyOf(bytes, Math.min(bytes.length, 8192));
+
+                if (target.exists()) {
+                    if (!target.isFile() || target.length() != expectedSize || !expectedSha.equals(sha256File(target))) {
+                        call.reject("Конфликт существующего медиа " + filename + ": файл не изменён.");
+                        return;
+                    }
+                    if ("audio".equals(folder)) {
+                        String[] extMime = detectAudioExtAndMime(head, bytes.length, target);
+                        if (extMime == null || !filename.endsWith(extMime[0])) {
+                            call.reject("Неподдерживаемый или повреждённый аудиофайл.");
+                            return;
+                        }
+                    }
+                    JSObject res = new JSObject();
+                    res.put("stored", false);
+                    res.put("reused", true);
+                    res.put("folder", folder);
+                    res.put("filename", filename);
+                    res.put("relativePath", folder + "/" + filename);
+                    call.resolve(res);
+                    return;
+                }
+
+                File parent = target.getParentFile();
+                if (parent != null && !parent.exists() && !parent.mkdirs()) {
+                    throw new IOException("Unable to create media subfolder: " + parent.getName());
+                }
+                partial = new File(parent, target.getName() + "." + UUID.randomUUID().toString() + ".partial");
+                try (FileOutputStream fos = new FileOutputStream(partial);
+                     BufferedOutputStream out = new BufferedOutputStream(fos)) {
+                    out.write(bytes);
+                    out.flush();
+                    fos.getFD().sync();
+                }
+
+                if ("audio".equals(folder)) {
+                    String[] extMime = detectAudioExtAndMime(head, bytes.length, partial);
+                    if (extMime == null || !filename.endsWith(extMime[0])) {
+                        call.reject("Неподдерживаемый или повреждённый аудиофайл.");
+                        return;
+                    }
+                }
+
+                boolean renamed = partial.renameTo(target);
+                if (!renamed) {
+                    if (!target.isFile() || target.length() != expectedSize || !expectedSha.equals(sha256File(target))) {
+                        throw new IOException("Не удалось сохранить медиафайл: " + target.getName());
+                    }
+                }
+
+                JSObject res = new JSObject();
+                res.put("stored", renamed);
+                res.put("reused", !renamed);
+                res.put("folder", folder);
+                res.put("filename", filename);
+                res.put("relativePath", folder + "/" + filename);
+                call.resolve(res);
+            } catch (Exception ex) {
+                call.reject(ex.getMessage() != null ? ex.getMessage() : "Не удалось сохранить медиафайл.", ex);
+            } finally {
+                if (partial != null && partial.exists()) {
+                    partial.delete();
+                }
+            }
         });
     }
 

@@ -6,9 +6,9 @@ import { EditableTextField, FreeTextHeading, FreeTextPrompt } from '../study/Stu
 import { InlineText, VisualCardFields } from './VisualCardFields';
 import './WrittenCardFields.css';
 
-export function FreeTextCardFields({ cardData, update, dictation, textStyles }) {
+export function FreeTextCardFields({ cardData, update, dictation, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { prompt } = cardData.content_v2.card.data;
-  return <VisualCardFields cardData={cardData} update={update} dictation={dictation}
+  return <VisualCardFields cardData={cardData} update={update} dictation={dictation} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<FreeTextPrompt style={textStyles.frontText}>
       <InlineText block id="card-editor-front" value={prompt} label={tr('Задание')}
         onChange={text => update(card => ({ ...card, data: { ...card.data, prompt: text } }))} />
@@ -19,10 +19,10 @@ export function FreeTextCardFields({ cardData, update, dictation, textStyles }) 
   />;
 }
 
-export function EditableTextCardFields({ cardData, update, dictation, textStyles }) {
+export function EditableTextCardFields({ cardData, update, dictation, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { source_text } = cardData.content_v2.card.data;
   const label = tr('Исходный текст');
-  return <VisualCardFields cardData={cardData} update={update} dictation={dictation}
+  return <VisualCardFields cardData={cardData} update={update} dictation={dictation} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<EditableTextField inputId="card-editor-front" label={label}>
       <div className="editable-text-editor-input" style={{ ...textStyles.contextText, color: undefined }}>
         <InlineText block id="card-editor-front" value={source_text} label={label}

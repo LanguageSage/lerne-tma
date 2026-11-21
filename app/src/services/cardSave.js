@@ -4,8 +4,9 @@ import { useSessionStore } from '../store/useSessionStore';
 import { useSettingsStore } from '../store/useSettingsStore';
 import { useUiStore } from '../store/useUiStore';
 import { getSessionIdentity, getUserId } from '../utils/auth';
-import { cardWriteError, parseCardSource, validateStandardDraft } from '../utils/cardDraft';
+import { cardWriteError, parseCardSource, validateStandardDraft, validateStandaloneCardContent } from '../utils/cardDraft';
 import { findCardDeck, parseDeckMetadata } from '../utils/deckUtils';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import api from './api';
 import { mediaPaths } from './cardOfflineQueue';
 import { prepareLocalDb } from './localDb';
@@ -85,6 +86,115 @@ export async function saveCard(manualCardData = null, {
     let finalDeckId = data.deck_id;
     if (finalDeckId === 'duplicates' || !finalDeckId) {
       finalDeckId = currentDeck?.id !== 'duplicates' ? currentDeck?.id : null;
+    }
+
+    if (IS_STANDALONE) {
+      const nativeEdit = data.id > 0;
+      if (!nativeEdit && !finalDeckId) {
+        throw new Error(tr('Выберите колоду'));
+      }
+      validateStandaloneCardContent(content);
+      const path = nativeEdit ? `/cards/${data.id}` : '/cards/save';
+      const reqData = { content_v2: content };
+      if (nativeEdit) {
+        reqData.revision = data.revision;
+      } else {
+        reqData.deck_id = Number(finalDeckId);
+        if (data.after_card_id) reqData.after_card_id = Number(data.after_card_id);
+      }
+      for (const field of mediaPaths) {
+        if (data[field] !== undefined) reqData[field] = data[field] || null;
+      }
+      const fingerprint = JSON.stringify([path, reqData, data.flag ?? null]);
+      if (pendingSave?.identity !== identity || pendingSave.account !== account || pendingSave.fingerprint !== fingerprint) {
+        pendingSave = { identity, account, fingerprint, id: crypto.randomUUID() };
+      }
+      reqData.request_id = pendingSave.id;
+
+      const res = nativeEdit
+        ? await api.patch(path, reqData, { offlineCardEdit: true, standaloneFlag: data.flag })
+        : await api.post(path, reqData, { offlineCreateFlag: data.flag });
+      if (!isCurrent()) return;
+      pendingSave = null;
+      showToast(tr('Карточка сохранена'), 'success');
+
+      const savedCard = res?.data?.id ? res.data : data;
+      if (savedCard?.id) {
+        useDeckStore.setState(currentDeckState => {
+          const targetDeckId = savedCard.deck_id;
+          if (!targetDeckId) return {};
+          const isDisplayed = String(currentDeckState.currentDeck?.id) === String(targetDeckId);
+          const nextCards = [...(isDisplayed ? currentDeckState.deckCards : currentDeckState.cardsByDeck[targetDeckId] ?? [])];
+          const existingIdx = nextCards.findIndex(c => String(c.id) === String(savedCard.id));
+          if (existingIdx !== -1) {
+            nextCards[existingIdx] = { ...nextCards[existingIdx], ...savedCard };
+          } else {
+            const afterIdx = nextCards.findIndex(c => String(c.id) === String(data.after_card_id));
+            const insertIdx = afterIdx >= 0 ? afterIdx + 1 : nextCards.findIndex(c => c.position >= savedCard.position);
+            nextCards.splice(insertIdx < 0 ? nextCards.length : insertIdx, 0, savedCard);
+          }
+
+          const updatedDecks = !data.id && existingIdx < 0
+            ? (currentDeckState.decks || []).map(d => {
+                if (String(d.id) === String(targetDeckId)) {
+                  const oldStats = d.stats || { total: 0, new: 0, learning: 0, due: 0 };
+                  return {
+                    ...d,
+                    stats: {
+                      ...oldStats,
+                      total: (oldStats.total || 0) + 1,
+                      new: (oldStats.new || 0) + 1,
+                    },
+                  };
+                }
+                return d;
+              })
+            : currentDeckState.decks;
+
+          return {
+            ...(isDisplayed && { deckCards: nextCards }),
+            cardsByDeck: { ...currentDeckState.cardsByDeck, [targetDeckId]: nextCards },
+            decks: updatedDecks,
+          };
+        });
+        if (savedCard.deck_id) {
+          void useDeckStore.getState().fetchDeckCards(savedCard.deck_id).catch(() => {});
+        }
+        void useDeckStore.getState().fetchDecks(true).catch(() => {});
+      }
+
+      const current = currentDraft(savedCard.id);
+      const keepOpen = current && draftFingerprint(current) !== sentDraft;
+      if (keepOpen) {
+        retainDraft(current, savedCard);
+        return;
+      }
+      if (!current) return;
+
+      const sourceView = ui.editorSourceView || 'cards';
+      session.setEditingCard(null);
+      if (savedCard?.id) {
+        ui.setLastSelectedCardId(savedCard.id);
+      }
+
+      if (sourceView === 'study' && savedCard?.id) {
+        session.setCard(savedCard);
+        session.setIsFlipped(false);
+        const { studyHistory, historyIndex } = session;
+        if (data.id && historyIndex >= 0 && studyHistory[historyIndex]?.id === savedCard.id) {
+          const updatedHistory = [...studyHistory];
+          updatedHistory[historyIndex] = savedCard;
+          session.setStudyHistory(updatedHistory);
+        } else if (!data.id) {
+          session.addToHistory(savedCard);
+        }
+      }
+      if (window.history.state?.view === 'editor' || window.history.state?.view === 'creator') {
+        window.history.back();
+      } else {
+        ui.setView(sourceView);
+      }
+      return savedCard;
     }
 
     const nativeEdit = data.id > 0;
@@ -277,7 +387,7 @@ export async function saveCard(manualCardData = null, {
     if (!isCurrent()) return;
     console.error(err);
     const detail = cardWriteError(err);
-    if (err.response?.status && err.response.status < 500) pendingSave = null;
+    if (IS_STANDALONE || (err.response?.status && err.response.status < 500)) pendingSave = null;
     if (!currentDraft(data.id)) return;
     showToast(tr("Ошибка сохранения: {{p0}}", { p0: detail }), "error");
     if (err.response?.status === 409 && data.id) {

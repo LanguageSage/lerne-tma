@@ -6,7 +6,6 @@ import { HelpButton } from '../TutorialOverlay';
 import { UserProfileBadge } from '../common/UserBadge';
 import { useUiStore } from '../../store/useUiStore';
 import { LocalPublishButton } from '../common/LocalPublishButton';
-import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const StudyHeader = ({
   deckName,
@@ -47,7 +46,7 @@ export const StudyHeader = ({
 
       <HelpButton topic="study" />
 
-      {!IS_STANDALONE && <button
+      <button
         id="tut-study-edit-card"
         className="header-action-btn"
         onClick={onOpenEditor}
@@ -55,7 +54,7 @@ export const StudyHeader = ({
         title={tr("Редактировать")}
       >
         <Edit2 size={22} />
-      </button>}
+      </button>
 
       <button
         id="tut-study-design"
@@ -76,13 +75,13 @@ export const StudyHeader = ({
         <Settings size={22} />
       </button>
 
-      {!IS_STANDALONE && <button
+      <button
         id="tut-study-add-card"
         className="header-action-btn study-add-card-btn"
         onClick={onOpenCreator}
         title={tr("Добавить карточку")}
       >
         <Plus size={22} />
-      </button>}
+      </button>
     </div>
   </div>); };

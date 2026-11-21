@@ -377,22 +377,31 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
       offlineApi.handle('post', '/decks/reorder', { deck_ids: [9102, 9101, 9103] }, cfg),
       READ_ONLY_ERR
     );
-    await assert.rejects(
-      offlineApi.handle('post', '/cards/save', {
-        deck_id: deckId,
-        request_id: 'req-create-blocked',
-        content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'x', answer: 'y' } } },
-      }, cfg),
-      READ_ONLY_ERR
-    );
-    await assert.rejects(
-      offlineApi.handle('patch', `/cards/${cardId}`, {
-        request_id: 'req-edit-blocked',
-        revision: 1,
-        content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'x', answer: 'y' } } },
-      }, { _testDb: db, offlineCardEdit: true }),
-      READ_ONLY_ERR
-    );
+
+    const created = await offlineApi.handle('post', '/cards/save', {
+      deck_id: deckId,
+      request_id: 'req-create-standalone-allowed',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'x', answer: 'y' } } },
+    }, cfg);
+    assert.ok(created.data.id > 1000000);
+    assert.equal(created.data.deck_id, deckId);
+    assert.equal(created.data.standalone_local_created, true);
+
+    const edited = await offlineApi.handle('patch', `/cards/${cardId}`, {
+      request_id: 'req-edit-standalone-allowed',
+      revision: 1,
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'updated', answer: 'обновлено' } } },
+    }, { _testDb: db, offlineCardEdit: true });
+    assert.equal(edited.data.id, cardId);
+    assert.equal(edited.data.standalone_local_edit, true);
+    assert.equal(edited.data.content_v2.card.data.prompt, 'updated');
+
+    const singleDeleted = await offlineApi.handle('post', '/cards/batch-delete', {
+      card_ids: [created.data.id],
+      request_id: 'req-del-single-standalone',
+    }, cfg);
+    assert.equal(singleDeleted.data.is_deleted, 1);
+
     await assert.rejects(
       offlineApi.handle('post', '/cards/batch-move', {
         card_ids: [cardId],
@@ -413,9 +422,9 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     );
     await assert.rejects(
       offlineApi.handle('post', '/cards/batch-delete', {
-        card_ids: [cardId],
-        revisions: { [cardId]: 1 },
-        request_id: 'req-del-blocked',
+        card_ids: [cardId, pack.cards[1].id],
+        revisions: { [cardId]: 1, [pack.cards[1].id]: 1 },
+        request_id: 'req-del-multi-blocked',
       }, cfg),
       READ_ONLY_ERR
     );

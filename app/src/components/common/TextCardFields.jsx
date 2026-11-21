@@ -7,12 +7,12 @@ import { StudyCardText } from '../study/StudyCardText';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { InlineText, VisualCardFields } from './VisualCardFields';
 
-export function TextCardFields({ cardData, update, dictation, textStyles }) {
+export function TextCardFields({ cardData, update, dictation, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { type, data } = cardData.content_v2.card;
   const field = promptField[type];
   const value = data[field];
   const theory = type === 'theory';
-  return <VisualCardFields cardData={cardData} update={update} dictation={dictation}
+  return <VisualCardFields cardData={cardData} update={update} dictation={dictation} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<StudyCardText style={textStyles.frontText}>
       <InlineText block id="card-editor-front" value={value} label={tr(theory ? 'Теоретический текст' : 'Вопрос')}
         display={theory ? <MarkdownRenderer>{value}</MarkdownRenderer> : <KaraokeText text={stripMarkdown(value)} />}

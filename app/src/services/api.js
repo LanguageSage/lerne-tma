@@ -27,6 +27,25 @@ const api = new Proxy(axiosInstance, {
           assertCurrent();
           return response;
         };
+        if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+          const isStandaloneOfflineEndpoint =
+            url.startsWith('/decks') ||
+            url.startsWith('/folders') ||
+            url.startsWith('/cards') ||
+            url.startsWith('/study') ||
+            url.startsWith('/trash') ||
+            url.startsWith('/init') ||
+            url.startsWith('/card-notes');
+          if (isStandaloneOfflineEndpoint) {
+            const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
+            const isDeckCardsRead = propKey === 'get' && /^\/decks\/-?\d+\/cards(?:\?|$)/.test(url);
+            const response = await localRequest(...args);
+            return (isLibraryRead || isDeckCardsRead) ? { ...response, dataSource: 'local' } : response;
+          }
+          const err = new Error('Offline standalone mode: server endpoint unavailable');
+          err.code = 'ERR_STANDALONE_OFFLINE';
+          throw err;
+        }
         const fetchFreshCard = id => api.get(`/cards/${id}`, { freshCard: true });
         const localFirst = await handleLocalFirstRequest({
           propKey, url, args, requestAccount, isCurrent, assertCurrent, localRequest, fetchFreshCard,
@@ -70,16 +89,6 @@ const api = new Proxy(axiosInstance, {
           || !navigator.onLine || /^\/cards\/-\d+$/.test(url);
         const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
         const isDeckCardsRead = propKey === 'get' && /^\/decks\/-?\d+\/cards(?:\?|$)/.test(url);
-
-        if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
-          if (isOfflineEndpoint) {
-            const response = await localRequest(...args);
-            return (isLibraryRead || isDeckCardsRead) ? { ...response, dataSource: 'local' } : response;
-          }
-          const err = new Error('Offline standalone mode: server endpoint unavailable');
-          err.code = 'ERR_STANDALONE_OFFLINE';
-          throw err;
-        }
 
         if (forceOffline && isOfflineEndpoint) {
           try {

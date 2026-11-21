@@ -7,6 +7,11 @@ import { emptyStudyProgress } from '../utils/structuredStudyCard.js';
 import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
 import {
+  createStandaloneCard,
+  updateStandaloneCard,
+  deleteStandaloneCard,
+} from '../pilot/standaloneCardStorage.js';
+import {
   result,
   notFound,
   readOnly,
@@ -277,8 +282,20 @@ export const offlineApi = {
       if (!card?.content_v2 || card.is_deleted) notFound();
       return result(await cardView(db, card, userId));
     }
-    if (m === 'patch' && match && Number(match[1]) > 0 && config.offlineCardEdit) {
-      return saveNativeEdit(db, Number(match[1]), body, config.offlineEditConflict);
+    if (m === 'patch' && match && Number(match[1]) > 0) {
+      if (isStandaloneDb(db)) {
+        const updated = await updateStandaloneCard(
+          db,
+          Number(match[1]),
+          body,
+          { flag: config.standaloneFlag },
+          userId,
+        );
+        return result(await cardView(db, updated, userId, 'scheduled', { prefetch: false }));
+      }
+      if (config.offlineCardEdit) {
+        return saveNativeEdit(db, Number(match[1]), body, config.offlineEditConflict);
+      }
     }
     match = url.match(/^\/study\/card\/(-?\d+)$/);
     if (m === 'get' && match) {
@@ -356,11 +373,26 @@ export const offlineApi = {
         return result({ status: 'success', next_error: err.response?.data?.detail || err.message, ...extra });
       }
     }
-    if (m === 'post' && url === '/cards/save') return saveNativeCard(db, body, config, userId);
+    if (m === 'post' && url === '/cards/save') {
+      if (isStandaloneDb(db)) {
+        const created = await createStandaloneCard(
+          db,
+          body,
+          { flag: config.offlineCreateFlag },
+          userId,
+        );
+        return result(await cardView(db, created, userId, 'scheduled', { prefetch: false }));
+      }
+      return saveNativeCard(db, body, config, userId);
+    }
     if (m === 'post' && url === '/cards/batch-move') return queueCardMove(db, body, isCurrent);
     if (m === 'post' && url === '/cards/batch-copy') return queueCardMove(db, body, isCurrent, true);
     if (m === 'post' && url === '/cards/batch-delete') {
       const cardIds = (body.card_ids || []).map(Number);
+      if (isStandaloneDb(db)) {
+        if (cardIds.length !== 1) readOnly();
+        return result(await deleteStandaloneCard(db, cardIds[0], body));
+      }
       return cardIds.length === 1 ? queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent)
         : queueCardSelection(db, body, 'delete', isCurrent);
     }

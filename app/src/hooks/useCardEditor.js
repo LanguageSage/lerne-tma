@@ -11,6 +11,7 @@ import { offlineLifecycleLabel, offlineMoveLabel } from '../services/offlineUi';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { studyContent, studySideText } from '../utils/structuredStudyCard';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 function visibleCard(cardId) {
   const deck = useDeckStore.getState();
@@ -69,7 +70,16 @@ export const useCardEditor = (fetchNextCard) => {
       session.removeCardFromSession(cardId);
       
       const freshSession = useSessionStore.getState();
-      if (ui.view === 'study' && currentDeck) {
+      const targetView = ui.view === 'editor' ? (ui.editorSourceView || 'cards') : ui.view;
+      if (ui.view === 'editor') {
+        session.setEditingCard(null);
+        if (window.history.state?.view === 'editor') {
+          window.history.back();
+        } else {
+          ui.setView(targetView);
+        }
+      }
+      if (targetView === 'study' && currentDeck) {
         if (!freshSession.card) {
           if (updatedDeckCards.length > 0) {
             await fetchNextCard(currentDeck.id, true);
@@ -77,6 +87,10 @@ export const useCardEditor = (fetchNextCard) => {
             session.setCard(null);
           }
         }
+      }
+      if (IS_STANDALONE) {
+        void fetchDecks(true).catch(() => {});
+        if (currentDeck?.id) void fetchDeckCards(currentDeck.id).catch(() => {});
       }
     } catch (err) {
       console.error('Delete Card Error:', err);
