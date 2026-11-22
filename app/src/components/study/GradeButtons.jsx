@@ -7,8 +7,22 @@ import { getNextIntervals } from '../../utils/srsEngine';
 import { StudyControlsBlock } from './StudyControlsBlock';
 import { prepareGradeSounds } from '../../utils/gradeSounds';
 
+// Server previews use Russian, and cached previews can use an earlier UI locale.
+const intervalMessages = ['{{p0}} мин', '{{p0}} ч', '{{p0}} дн', '<1 дн', '{{p0}} мес', '{{p0}} г.'];
+const intervalTemplates = new Map(intervalMessages.flatMap(message =>
+  ['ru', 'en', 'uk'].map(locale => [tr(message, {}, locale), message])
+));
+
+function localizeInterval(label, locale) {
+  if (typeof label !== 'string') return label;
+  const amount = label.match(/^\d+(?:\.\d+)?(?= )/)?.[0];
+  const template = amount ? '{{p0}}' + label.slice(amount.length) : label;
+  const message = intervalTemplates.get(template);
+  return message ? tr(message, { p0: amount }, locale) : label;
+}
+
 export const GradeButtons = ({ card, loading, onGrade }) => {
-  useInterfaceLocale();
+  const locale = useInterfaceLocale();
   const { t } = useTranslation();
   const srsExtendedGrades = useSettingsStore((s) => s.srsExtendedGrades);
   const gradingCollapsed = useSettingsStore((s) => s.gradingCollapsed);
@@ -81,7 +95,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
     return wrapControls(
       <div className="grade-buttons grade-buttons-floating grade-buttons-extended">
         {extGrades.map(({ grade, fallback }) => {
-          const val = dynIntervals?.[grade] || fallback;
+          const val = localizeInterval(dynIntervals?.[grade], locale) || fallback;
           return (
             <button
               key={grade}
@@ -109,7 +123,7 @@ export const GradeButtons = ({ card, loading, onGrade }) => {
   return wrapControls(
     <div className="grade-buttons grade-buttons-floating">
       {grades.map(({ grade, label, className, intervalIdx, fallback }) => {
-        const val = computedIntervals?.[intervalIdx] || computedIntervals?.[String(intervalIdx)] || fallback;
+        const val = localizeInterval(computedIntervals?.[intervalIdx], locale) || fallback;
         return (
           <button
             key={grade}
