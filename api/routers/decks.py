@@ -65,7 +65,6 @@ def copy_deck(deck_id: int, data: native.DeckCopy, user_id: int = Depends(get_us
 @router.delete("/{deck_id}")
 @db_worker
 def delete_deck(deck_id: int, user_id: int = Depends(get_user_id)):
-    _require_can_mutate(user_id, 'deck', deck_id)
     if services.delete_deck(deck_id, user_id):
         return {"status": "success"}
     raise HTTPException(status_code=404, detail="Deck not found or access denied")
