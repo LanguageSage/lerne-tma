@@ -8,6 +8,7 @@ from fastapi import HTTPException
 from peewee import PostgresqlDatabase, fn
 
 from ..models import TMA_Deck, TMA_Card, TMAUser, tma_db
+from .collaborative_service import is_deck_active, is_folder_chain_active
 from .utils import add_to_history
 
 logger = logging.getLogger('api.services.decks')
@@ -103,8 +104,12 @@ def import_deck(external_deck_id: int, user_id: int, mode: str = 'merge', local_
             if not target:
                 raise HTTPException(404, 'Study deck not found')
         else:
-            target = query.where(TMA_Deck.user_id == user_id, TMA_Deck.name == name).order_by(
-                TMA_Deck.is_deleted, TMA_Deck.id).for_update().first()
+            candidates = list(query.where(TMA_Deck.user_id == user_id, TMA_Deck.name == name).order_by(
+                TMA_Deck.is_deleted, TMA_Deck.id).for_update())
+            target = next(
+                (d for d in candidates if d.folder_id is None or is_folder_chain_active(d.folder_id)),
+                None,
+            )
         if target and target.is_deleted and not force_trash and not local_deck_id and mode != 'copy':
             return {'status': 'in_trash', 'name': source.name, 'deck_name': source.name,
                     'deck_id': external_deck_id, 'trash_deck_id': target.id}
@@ -130,7 +135,7 @@ def promote_to_library(deck_id):
     with tma_db.atomic():
         # Use library-before-study lock ordering for both transfer directions.
         original = TMA_Deck.get_or_none(TMA_Deck.scope == 'personal', TMA_Deck.id == deck_id, TMA_Deck.is_deleted == False)
-        if not original:
+        if not is_deck_active(original):
             raise HTTPException(404, 'Study deck not found')
         target = TMA_Deck.select().where(TMA_Deck.scope == 'library', TMA_Deck.name == original.name, TMA_Deck.is_deleted == False).for_update().first()
         if not target:

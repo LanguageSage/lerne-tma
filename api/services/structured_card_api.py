@@ -10,7 +10,13 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator, model_valida
 
 from api.models import TMA_Card, TMA_Deck, TMAUser, TMACardKnowledgeItem, tma_db
 from .receipts import _claim_receipt, _digest, finish_receipt as _finish
-from .collaborative_service import _require_can_mutate, get_effective_user_role, touch_deck_and_parent_folders
+from .collaborative_service import (
+    _require_can_mutate,
+    get_effective_user_role,
+    is_deck_active,
+    is_folder_chain_active,
+    touch_deck_and_parent_folders,
+)
 from .structured_card_storage import create_v2_card, decode_v2_content, replace_v2_card
 from .structured_cards_v2 import ContentV2, Document, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_CARDS
 from .media import audio_write_scope, card_audio_payload
@@ -225,6 +231,8 @@ def _lock_decks(ids, user_id, *, writable, trash_owner=False):
         query = query.where(TMA_Deck.is_deleted == False)
     decks = {deck.id: deck for deck in query.order_by(TMA_Deck.id).for_update()}
     if len(decks) != len(ids):
+        raise HTTPException(404, 'Deck not found')
+    if not trash_owner and any(not is_deck_active(deck) for deck in decks.values()):
         raise HTTPException(404, 'Deck not found')
     for deck_id in sorted(ids):
         if deck_id in writable:
@@ -568,13 +576,17 @@ def restore_card(card_id, data, user_id):
             return replay
         if not card.is_deleted or content_response(card)['revision'] != data.revision:
             raise _lifecycle_conflict(card)
+        deck = decks[card.deck_id]
+        if deck.is_deleted or not is_folder_chain_active(deck.folder_id):
+            raise HTTPException(409, {
+                'code': 'parent_deleted',
+                'card_id': card.id,
+                'card': lifecycle_state(card),
+                'message': 'Сначала восстановите родительскую колоду.' if deck.is_deleted else 'Сначала восстановите родительскую папку.',
+            })
         now = datetime.datetime.now()
         card.is_deleted, card.updated_at = False, now
         card.save(only=[TMA_Card.is_deleted, TMA_Card.updated_at])
-        deck = decks[card.deck_id]
-        if deck.is_deleted:
-            deck.is_deleted = False
-            deck.save(only=[TMA_Deck.is_deleted])
         _touch(decks)
         return _finish(receipt, {'status': 'success', 'card': lifecycle_state(card)})
 

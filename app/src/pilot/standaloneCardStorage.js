@@ -9,7 +9,7 @@ import {
   IMPORTED_ID_START,
 } from './materialArchiveIdentity.js';
 import { parseOfflineMediaRef } from './offlineMediaResolver.js';
-import { mediaPaths, notFound } from '../services/cardOfflineQueue.js';
+import { mediaPaths, notFound, isDeckActiveInCache, loadFolderMap } from '../services/cardOfflineQueue.js';
 
 export const STANDALONE_CARD_OP_PREFIX = 'standalone-card-op:';
 export const STANDALONE_MAX_CARD_OP_RECEIPTS = 64;
@@ -136,7 +136,7 @@ export async function createStandaloneCard(db, body, { flag = 0 } = {}, userId =
   const opKey = STANDALONE_CARD_OP_PREFIX + body.request_id;
   const nowIso = new Date().toISOString();
 
-  return db.transaction('rw', db.cards, db.decks, db.progress, db.syncState, async () => {
+  return db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState, async () => {
     const existingOp = await db.syncState.get(opKey);
     if (existingOp) {
       if (existingOp.fingerprint !== fingerprint) {
@@ -148,8 +148,11 @@ export async function createStandaloneCard(db, body, { flag = 0 } = {}, userId =
     }
 
     const deckId = Number(body.deck_id);
-    const deck = Number.isSafeInteger(deckId) ? await db.decks.get(deckId) : null;
-    if (!deck || deck.is_deleted) notFound();
+    const [deck, folderMap] = await Promise.all([
+      Number.isSafeInteger(deckId) ? db.decks.get(deckId) : null,
+      loadFolderMap(db),
+    ]);
+    if (!isDeckActiveInCache(deck, folderMap)) notFound();
 
     const [countersRecord, [maxExistingId], siblingsRaw, exportSource] = await Promise.all([
       db.syncState.get(ID_COUNTERS_KEY),
@@ -265,7 +268,7 @@ export async function updateStandaloneCard(db, id, body, { flag } = {}, userId =
   const opKey = STANDALONE_CARD_OP_PREFIX + body.request_id;
   const nowIso = new Date().toISOString();
 
-  return db.transaction('rw', db.cards, db.decks, db.progress, db.syncState, async () => {
+  return db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState, async () => {
     const existingOp = await db.syncState.get(opKey);
     if (existingOp) {
       if (existingOp.fingerprint !== fingerprint) {
@@ -284,8 +287,8 @@ export async function updateStandaloneCard(db, id, body, { flag } = {}, userId =
       throw error;
     }
 
-    const deck = await db.decks.get(current.deck_id);
-    if (!deck || deck.is_deleted) notFound();
+    const [deck, folderMap] = await Promise.all([db.decks.get(current.deck_id), loadFolderMap(db)]);
+    if (!isDeckActiveInCache(deck, folderMap)) notFound();
 
     const currentLayout = current.content_v2.card.layout ?? null;
     const nextLayout = normalizedContent.card.layout ?? null;
@@ -360,7 +363,7 @@ export async function deleteStandaloneCard(db, id, body = {}) {
   const nowIso = new Date().toISOString();
   const opKey = body?.request_id ? STANDALONE_CARD_OP_PREFIX + body.request_id : null;
 
-  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+  return db.transaction('rw', db.folders, db.cards, db.decks, db.syncState, async () => {
     if (opKey) {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
@@ -379,8 +382,8 @@ export async function deleteStandaloneCard(db, id, body = {}) {
       return { ...current, is_deleted: 1 };
     }
 
-    const deck = await db.decks.get(current.deck_id);
-    if (!deck || deck.is_deleted) notFound();
+    const [deck, folderMap] = await Promise.all([db.decks.get(current.deck_id), loadFolderMap(db)]);
+    if (!isDeckActiveInCache(deck, folderMap)) notFound();
 
     const deletedCard = {
       ...current,

@@ -11,18 +11,21 @@ def get_active_folders(user_id: int, folder_map: dict = None):
     """Возвращает все активные папки пользователя (собственные, по соавторству и глобальные)."""
     try:
         from .decks import ensure_inbox_deck
-        from .collaborative_service import get_user_accessible_folder_ids, get_batch_collaborative_info
+        from .collaborative_service import filter_active_folder_map, get_user_accessible_folder_ids, get_batch_collaborative_info
+
+        def _load_active_folders():
+            return filter_active_folder_map({
+                f.id: f for f in TMA_Folder.select().where(TMA_Folder.is_deleted == False)
+            })
 
         if folder_map is None:
-            all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
-            folder_map = {f.id: f for f in all_folders}
+            folder_map = _load_active_folders()
 
         # Only ensure inbox folder/deck if missing
         has_inbox_folder = any(f.user_id == user_id and f.name == "📥 Входящие" for f in folder_map.values())
         if not has_inbox_folder:
             ensure_inbox_deck(user_id)
-            all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
-            folder_map = {f.id: f for f in all_folders}
+            folder_map = _load_active_folders()
 
         accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
         if not accessible_folder_ids:
@@ -101,10 +104,10 @@ def _require_folder_write(folder_id: int, user_id: int) -> TMA_Folder:
     - global_readonly viewer: 403 with helpful message
     - no access: 404
     """
+    from .collaborative_service import _require_can_mutate, is_folder_chain_active
     folder = TMA_Folder.get_or_none((TMA_Folder.id == folder_id) & (TMA_Folder.is_deleted == False))
-    if not folder:
+    if not folder or not is_folder_chain_active(folder.parent_id):
         raise HTTPException(status_code=404, detail="Папка не найдена")
-    from .collaborative_service import _require_can_mutate
     _require_can_mutate(user_id, 'folder', folder_id)
     return folder
 
@@ -131,10 +134,10 @@ def create_folder(name: str, user_id: int, parent_id: int = None, color: str = N
                 return existing_lid
 
         if parent_id is not None:
+            from .collaborative_service import _require_can_mutate, is_folder_chain_active
             parent = TMA_Folder.get_or_none((TMA_Folder.id == parent_id) & (TMA_Folder.is_deleted == False))
-            if not parent:
+            if not parent or not is_folder_chain_active(parent.parent_id):
                 raise ValueError("Родительская папка не найдена или нет доступа")
-            from .collaborative_service import _require_can_mutate
             _require_can_mutate(user_id, 'folder', parent_id)
 
         folder = TMA_Folder.create(
@@ -234,40 +237,45 @@ def get_descendant_folder_ids(folder_id: int, user_id: int) -> list:
 
 
 def delete_folder(folder_id: int, user_id: int):
-    """Каскадно мягко удаляет папку, её подпапки и все колоды внутри них в корзину."""
+    """Мягко удаляет папку в корзину, сохраняя иерархию и состояния потомков для восстановления."""
     try:
-        # Only owners can delete; _require_folder_write handles global_readonly guard
-        folder = _require_folder_write(folder_id, user_id)
-        if folder.user_id != user_id:
-            # Editor attempted delete — not allowed
-            raise HTTPException(status_code=403, detail="Только владелец может удалить папку")
-
-        if folder.name == "📥 Входящие":
-            active_inbox_count = TMA_Folder.select().where(
-                (TMA_Folder.user_id == user_id) &
-                (TMA_Folder.name == "📥 Входящие") &
-                (TMA_Folder.is_deleted == False)
-            ).count()
-            if active_inbox_count <= 1:
-                raise ValueError("Нельзя удалить основную папку Входящие")
-
-        now = datetime.datetime.now()
-        descendant_ids = get_descendant_folder_ids(folder_id, user_id)
-        all_target_folder_ids = [folder_id] + descendant_ids
+        from .collaborative_service import _require_can_mutate, is_folder_chain_active
 
         with tma_db.atomic():
-            TMA_Deck.update(is_deleted=True, updated_at=now).where(
-                (TMA_Deck.folder_id << all_target_folder_ids) & (TMA_Deck.user_id == user_id)
-            ).execute()
-            TMA_Folder.update(is_deleted=True, updated_at=now).where(
-                (TMA_Folder.id << all_target_folder_ids) & (TMA_Folder.user_id == user_id)
-            ).execute()
+            query = TMA_Folder.select().where(TMA_Folder.id == folder_id)
+            if tma_db.for_update:
+                query = query.for_update()
+            folder = query.first()
+            if not folder:
+                raise HTTPException(status_code=404, detail="Папка не найдена")
+            if folder.user_id != user_id:
+                raise HTTPException(status_code=403, detail="Только владелец может удалить папку")
+            if folder.is_deleted:
+                _require_can_mutate(user_id, 'folder', folder_id, allow_deleted=True)
+                return True
+            if not is_folder_chain_active(folder.parent_id):
+                raise HTTPException(status_code=404, detail="Папка не найдена")
+            _require_can_mutate(user_id, 'folder', folder_id)
+
+            if folder.name == "📥 Входящие":
+                active_inbox_count = TMA_Folder.select().where(
+                    (TMA_Folder.user_id == user_id) &
+                    (TMA_Folder.name == "📥 Входящие") &
+                    (TMA_Folder.is_deleted == False)
+                ).count()
+                if active_inbox_count <= 1:
+                    raise ValueError("Нельзя удалить основную папку Входящие")
+
+            now = datetime.datetime.now()
+            folder.is_deleted = True
+            folder.updated_at = now
+            folder.save(only=[TMA_Folder.is_deleted, TMA_Folder.updated_at])
 
         if folder.share_id:
             filename = f"preview_{folder.share_id}.png"
             TMAMedia.delete().where((TMAMedia.filename == filename) & (TMAMedia.folder == 'previews')).execute()
 
-        logger.info(f"Cascade soft-deleted folder {folder_id} ({len(descendant_ids)} subfolders) and its decks for user {user_id}")
+        logger.info(f"Soft-deleted folder {folder_id} for user {user_id} (subtree preserved)")
         return True
     except (HTTPException, ValueError):
         raise

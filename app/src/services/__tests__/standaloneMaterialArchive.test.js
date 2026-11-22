@@ -67,7 +67,7 @@ let nativeArchive;
 const capacitor = await import('@capacitor/core');
 mock.module('@capacitor/core', {
   namedExports: {
-    ...capacitor,
+    ...Object.fromEntries(Object.entries(capacitor).filter(([name]) => name !== '__esModule')),
     Capacitor: {
       ...capacitor.Capacitor,
       isNativePlatform: () => Boolean(nativeArchive),

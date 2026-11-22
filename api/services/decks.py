@@ -333,13 +333,16 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
     try:
         now = datetime.datetime.now()
 
+        from .collaborative_service import (
+            get_folder_access_map,
+            get_user_accessible_deck_ids,
+            get_user_accessible_folder_ids,
+            get_batch_collaborative_info,
+        )
+
         if strict:
             # Init requires provisioning to succeed before taking the folder snapshot.
             ensure_starter_decks(user_id, strict=True)
-
-        if folder_map is None:
-            all_folders = list(TMA_Folder.select().where(TMA_Folder.is_deleted == False))
-            folder_map = {f.id: f for f in all_folders}
 
         if not strict:
             try:
@@ -348,15 +351,10 @@ def get_active_decks(user_id: int, folder_map: dict = None, *, strict=False):
             except Exception:
                 pass
 
-        # Update folder_map in case ensure_starter_decks created folders
-        if folder_map is not None:
-            user_folders = list(TMA_Folder.select().where((TMA_Folder.user_id == user_id) & (TMA_Folder.is_deleted == False)))
-            for uf in user_folders:
-                if uf.id not in folder_map:
-                    folder_map[uf.id] = uf
+        if folder_map is None:
+            folder_map = get_folder_access_map()
 
         # 2. Получаем все доступные пользователю колоды (собственные и расшаренные)
-        from .collaborative_service import get_user_accessible_deck_ids, get_user_accessible_folder_ids, get_batch_collaborative_info
         accessible_deck_ids = get_user_accessible_deck_ids(user_id, folder_map=folder_map)
         accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
 
@@ -557,17 +555,24 @@ def get_library_categories():
 def delete_deck(deck_id: int, user_id: int):
     try:
         from .collaborative_service import _require_can_mutate
-        _require_can_mutate(user_id, 'deck', deck_id)
-        # Мягкое удаление: помечаем колоду и её карточки как is_deleted = True
-        now = datetime.datetime.now()
-        deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id)
-        if not deck:
-            return False
-        TMA_Card.update(is_deleted=True, updated_at=now).where(TMA_Card.deck_id == deck_id).execute()
-        deck.is_deleted = True
-        deck.updated_at = now
-        deck.save()
-        return True
+
+        with tma_db.atomic():
+            query = TMA_Deck.select().where(TMA_Deck.id == deck_id)
+            if tma_db.for_update:
+                query = query.for_update()
+            deck = query.first()
+            if not deck:
+                return False
+            if deck.is_deleted:
+                _require_can_mutate(user_id, 'deck', deck_id, allow_deleted=True)
+                return True
+            _require_can_mutate(user_id, 'deck', deck_id)
+            # Не перезаписываем TMA_Card.is_deleted: индивидуально удалённые карточки
+            # сохраняют своё состояние, а активные скрываются через deck.is_deleted.
+            deck.is_deleted = True
+            deck.updated_at = datetime.datetime.now()
+            deck.save(only=[TMA_Deck.is_deleted, TMA_Deck.updated_at])
+            return True
     except Exception as e:
         logger.error(f"Error deleting deck: {e}", exc_info=True)
         raise e
@@ -652,6 +657,8 @@ def rename_deck(deck_id: int, new_name: str, user_id: int):
 def get_community_content(user_id: int):
     """Возвращает колоды пользователей, которые можно 'влить' в библиотеку (для админа)."""
     try:
+        from .collaborative_service import get_folder_access_map
+        active_folder_ids = set(get_folder_access_map())
         # Колоды пользователей, ещё не опубликованные в библиотеке.
         lib_names = {d.name for d in TMA_Deck.select(TMA_Deck.name).where(TMA_Deck.scope == 'library')}
         user_decks = TMA_Deck.select().where(TMA_Deck.scope == 'personal', ~(TMA_Deck.name << list(lib_names)) & (TMA_Deck.is_deleted == False))
@@ -660,15 +667,16 @@ def get_community_content(user_id: int):
             "name": d.name,
             "user_id": d.user_id,
             "cards_count": TMA_Card.select().where(TMA_Card.deck_id == d.id, TMA_Card.is_deleted == False).count()
-        } for d in user_decks]
+        } for d in user_decks if d.folder_id is None or d.folder_id in active_folder_ids]
     except Exception as e:
         logger.error(f"Error fetching community content: {e}", exc_info=True)
         raise e
 
 def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
     try:
+        from .collaborative_service import is_deck_active
         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
-        if not deck:
+        if not is_deck_active(deck):
             return None
 
         from .collaborative_service import get_effective_user_role
@@ -695,9 +703,9 @@ def update_deck_metadata(deck_id: int, metadata_dict: dict, user_id: int):
 def toggle_deck_learning(deck_id: int, user_id: int, is_learning: bool = None):
     """Set the user's learning preference without changing canonical deck metadata."""
     try:
-        from .collaborative_service import get_effective_user_role
+        from .collaborative_service import get_effective_user_role, is_deck_active
         deck = TMA_Deck.get_or_none((TMA_Deck.id == deck_id) & (TMA_Deck.is_deleted == False))
-        if not deck:
+        if not is_deck_active(deck):
             return None
 
         role = get_effective_user_role(user_id, 'deck', deck_id)

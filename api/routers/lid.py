@@ -109,12 +109,17 @@ def get_exam_ticket(
     target_state = STATE_CODE_TO_NAME.get(state_code.upper(), 'Bayern')
 
     def find_user_decks(uid):
-        return list(models.TMA_Deck.select().join(models.TMA_Folder).where(
-            models.TMA_Folder.user_id == uid,
-            models.TMA_Folder.name.ilike('%Leben in Deutschland%'),
-            models.TMA_Folder.is_deleted == False,
-            models.TMA_Deck.is_deleted == False
-        ))
+        from api.services.collaborative_service import get_folder_access_map
+        active_folders = set(get_folder_access_map())
+        return [
+            d for d in models.TMA_Deck.select().join(models.TMA_Folder).where(
+                models.TMA_Folder.user_id == uid,
+                models.TMA_Folder.name.ilike('%Leben in Deutschland%'),
+                models.TMA_Folder.is_deleted == False,
+                models.TMA_Deck.is_deleted == False
+            )
+            if d.folder_id in active_folders
+        ]
 
     user_decks = find_user_decks(user_id)
     b1 = next((d for d in user_decks if d.name.startswith('1.') or 'politik' in d.name.lower()), None)

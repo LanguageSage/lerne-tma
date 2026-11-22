@@ -152,7 +152,7 @@ export async function resolveLocalRequest(url, body) {
   const resolvedUrl = url
     .replace(/\/(decks|folders|cards)\/(-\d+)(?=\/|\?|$)/g, (_, kind, value) => `/${kind}/${id(kind, Number(value))}`)
     .replace(/\/study\/card\/(-\d+)/, (_, value) => `/study/card/${id('cards', Number(value))}`)
-    .replace(/\/trash\/(deck|card)\/(-\d+)/, (_, kind, value) => `/trash/${kind}/${id(`${kind}s`, Number(value))}`);
+    .replace(/\/trash\/(folder|deck|card)\/(-\d+)/, (_, kind, value) => `/trash/${kind}/${id(`${kind}s`, Number(value))}`);
   if (!body || typeof body !== 'object' || body instanceof FormData) return { url: resolvedUrl, body };
   const copy = { ...body };
   for (const [field, kind] of Object.entries({ card_id: 'cards', deck_id: 'decks', target_deck_id: 'decks', folder_id: 'folders', parent_id: 'folders', after_card_id: 'cards' })) {

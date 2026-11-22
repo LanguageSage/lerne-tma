@@ -114,6 +114,12 @@ def get_study_stats(user_id: int = Depends(get_user_id)):
     today_start = now.replace(hour=0, minute=0, second=0, microsecond=0)
 
     try:
+        from api.services.collaborative_service import get_folder_access_map
+        active_folder_ids = list(get_folder_access_map())
+        folder_filter = (
+            models.TMA_Deck.folder_id.is_null(True)
+            | (models.TMA_Deck.folder_id << active_folder_ids)
+        ) if active_folder_ids else models.TMA_Deck.folder_id.is_null(True)
         # 1. Сбор карточек пользователя и их SRS-прогресса
         user_cards_query = (
             models.TMA_Card
@@ -133,6 +139,7 @@ def get_study_stats(user_id: int = Depends(get_user_id)):
             .where(
                 (models.TMA_Deck.user_id == user_id) &
                 (models.TMA_Deck.is_deleted == False) &
+                folder_filter &
                 (models.TMA_Card.is_deleted == False)
             )
         )
