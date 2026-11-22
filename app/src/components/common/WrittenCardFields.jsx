@@ -2,13 +2,14 @@ import React from 'react';
 import { Plus, Trash2 } from 'lucide-react';
 import { tr } from '../../i18n/locale';
 import { patchGradingPolicy } from '../../utils/cardDraft';
+import { nativeV2Field } from '../../utils/nativeV2Contract.js';
 import { EditableTextField, FreeTextHeading, FreeTextPrompt } from '../study/StudyCardFreeText';
 import { InlineText, VisualCardFields } from './VisualCardFields';
 import './WrittenCardFields.css';
 
-export function FreeTextCardFields({ cardData, update, dictation, textStyles }) {
+export function FreeTextCardFields({ cardData, update, dictation, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { prompt } = cardData.content_v2.card.data;
-  return <VisualCardFields cardData={cardData} update={update} dictation={dictation}
+  return <VisualCardFields cardData={cardData} update={update} dictation={dictation} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<FreeTextPrompt style={textStyles.frontText}>
       <InlineText block id="card-editor-front" value={prompt} label={tr('Задание')}
         onChange={text => update(card => ({ ...card, data: { ...card.data, prompt: text } }))} />
@@ -19,10 +20,10 @@ export function FreeTextCardFields({ cardData, update, dictation, textStyles }) 
   />;
 }
 
-export function EditableTextCardFields({ cardData, update, dictation, textStyles }) {
+export function EditableTextCardFields({ cardData, update, dictation, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { source_text } = cardData.content_v2.card.data;
   const label = tr('Исходный текст');
-  return <VisualCardFields cardData={cardData} update={update} dictation={dictation}
+  return <VisualCardFields cardData={cardData} update={update} dictation={dictation} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<EditableTextField inputId="card-editor-front" label={label}>
       <div className="editable-text-editor-input" style={{ ...textStyles.contextText, color: undefined }}>
         <InlineText block id="card-editor-front" value={source_text} label={label}
@@ -40,11 +41,16 @@ const rules = {
   case_sensitive: 'Учитывать регистр',
   punctuation_sensitive: 'Учитывать пунктуацию',
 };
-const attemptLimits = Array.from({ length: 10 }, (_, index) => index + 1);
 
 export function AnswerGradingFields({ card, update }) {
   const { accepted_answers: answers = [], grading_policy: policy } = card.data;
-  const freeText = card.type === 'free_text';
+  const grading = nativeV2Field(card.type, 'grading_policy');
+  const modeField = grading.properties.mode;
+  const retryField = grading.properties.max_retries;
+  const attemptLimits = Array.from({ length: retryField.maximum - retryField.minimum + 1 },
+    (_, index) => retryField.minimum + index);
+  const modeOptions = [...new Set([...Object.keys(modes), ...modeField.enum])]
+    .filter(mode => modeField.enum.includes(mode));
   const updateAnswers = change => update(card => ({
     ...card, data: { ...card.data, accepted_answers: change(card.data.accepted_answers ?? []) },
   }));
@@ -67,17 +73,17 @@ export function AnswerGradingFields({ card, update }) {
         </button>
       </div>)}
       <button type="button" className="visual-card-icon-control" aria-label={tr('Добавить вариант')} title={tr('Добавить вариант')}
-        disabled={answers.length >= 20} onClick={() => updateAnswers(items => [...items, ''])}>
+        disabled={answers.length >= nativeV2Field(card.type, 'accepted_answers').maxItems}
+        onClick={() => updateAnswers(items => [...items, ''])}>
         <Plus size={16} aria-hidden="true" />
       </button>
     </fieldset>
     <fieldset className="card-form-text-field free-text-rule-grid">
       <legend>{tr('Правила проверки')}</legend>
       <label>{tr('Режим проверки')}
-        <select className="form-input" value={policy?.mode ?? (freeText && !policy ? 'open_text' : 'controlled_text')}
+        <select className="form-input" value={policy?.mode ?? (policy ? modeField.default : grading.default.mode)}
           onChange={event => setRule('mode', event.target.value)}>
-          {Object.entries(modes).filter(([mode]) => freeText || mode !== 'open_text')
-            .map(([mode, label]) => <option key={mode} value={mode}>{tr(label)}</option>)}
+          {modeOptions.map(mode => <option key={mode} value={mode}>{tr(modes[mode] ?? mode)}</option>)}
         </select>
       </label>
       <label>{tr('Лимит попыток')}

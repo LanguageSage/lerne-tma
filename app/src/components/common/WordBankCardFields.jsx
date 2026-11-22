@@ -47,7 +47,7 @@ function sentenceSelection(root, parts) {
     ? { index, text: part.text, start, end: start + selected.length } : null;
 }
 
-export function WordBankCardFields({ cardData, update, designConfig }) {
+export function WordBankCardFields({ cardData, update, designConfig, lockLayout = false, resolveMediaUrl }) {
   const source = cardData.content_v2.card.data;
   const data = useMemo(() => joinWordBankText(source), [source]);
   const wordBank = useMemo(() => studyWordBank(data), [data]);
@@ -90,7 +90,7 @@ export function WordBankCardFields({ cardData, update, designConfig }) {
       ? { ...current, parts: current.parts.filter((_, i) => i !== index) } : current;
   });
 
-  return <VisualCardFields cardData={cardData} update={update} exercise={
+  return <VisualCardFields cardData={cardData} update={update} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl} exercise={
     <div ref={exercise} className="word-bank-editor">
       <WordBankContent data={wordBank.parts.length ? wordBank : { ...wordBank, parts: [{ type: 'text', text: '' }] }}
         designConfig={designConfig}

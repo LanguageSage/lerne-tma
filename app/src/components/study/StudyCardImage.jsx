@@ -78,7 +78,7 @@ export const StudyCardImage = React.memo(({
 
   if (!src) return null;
 
-  const effectiveSrc = retryTimestamp
+  const effectiveSrc = retryTimestamp && !/^(blob:|data:)/.test(src) && !src.includes('/_capacitor_file_/')
     ? `${src}${src.includes('?') ? '&' : '?'}_retry=${retryCount}&_t=${retryTimestamp}`
     : src;
 

@@ -11,6 +11,8 @@ import { useLanguageStore } from '../store/useLanguageStore';
 import { isOfflineMode } from '../services/localDb';
 import { subscribeSyncUi, syncService } from '../services/syncService';
 import { markOfflineCreateError, updateOfflineEditUi, remapOfflineUi, refreshOfflineUi, refreshPeerOfflineUi } from '../services/offlineUi';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import { runStandaloneBootstrap } from '../pilot/standaloneBootstrap.js';
 
 const SYNC_INTERVAL_MS = 60_000;
 const SHARED_POLL_WINDOW_MS = SYNC_INTERVAL_MS - 5_000;
@@ -21,6 +23,10 @@ export const useAppInitialization = (checkStartParam) => {
   const { setAdminSettings, setUserPrompts, setIsAdmin, setPublishedDesignV2 } = useSettingsStore();
 
   useEffect(() => {
+    if (IS_STANDALONE) {
+      return runStandaloneBootstrap();
+    }
+
     let awaitingStartupInit = true;
     let startupUserId = getUserId();
     let startupSessionIdentity = getSessionIdentity();

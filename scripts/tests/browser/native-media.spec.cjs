@@ -90,7 +90,8 @@ async function playable(page) {
   const play = page.getByRole('button', { name: 'Воспроизвести', exact: true }).last();
   await play.click();
   await expect(page.getByRole('button', { name: 'Пауза', exact: true }).last()).toBeVisible();
-  await page.getByRole('button', { name: 'Пауза', exact: true }).last().click();
+  // The short fixture can finish after playback is observed.
+  await page.evaluate(async () => (await import('/src/hooks/useAudio.js')).stopGlobalAudio());
 }
 
 test('nine native types retain playable media through cache, restart, retries and lifecycle', async ({ browser }, info) => {
@@ -313,7 +314,7 @@ test('ready audio uploads through the editor, preserves sides and survives failu
   };
   await openEditor(card);
   const draft = () => page.evaluate(async () => (await import('/src/store/useSessionStore.js')).useSessionStore.getState().editingCard);
-  const field = side => page.getByRole('group', { name: side === 'front' ? 'Аудио лицевой стороны' : 'Аудио обратной стороны' });
+  const field = side => page.getByRole('group', { name: side === 'front' ? 'Аудио для вопроса' : 'Аудио для ответа' });
   // A real, playable PCM WAV generated in the test; it never leaves loopback.
   const recording = Buffer.alloc(44 + 16000);
   recording.write('RIFF'); recording.writeUInt32LE(recording.length - 8, 4); recording.write('WAVEfmt ', 8);
@@ -385,6 +386,6 @@ test('ready audio uploads through the editor, preserves sides and survives failu
   await page.evaluate(() => waitSync());
   await context.setOffline(true); control.offline = true;
   await page.evaluate(async () => (await import('/src/i18n/locale.js')).setInterfaceLanguage('en'));
-  await expect(page.getByRole('group', { name: 'Back audio' })).toBeVisible();
+  await expect(page.getByRole('group', { name: 'Answer audio' })).toBeVisible();
   expect(tts).toEqual([]);
 });

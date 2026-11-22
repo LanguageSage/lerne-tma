@@ -10,6 +10,7 @@ import { stripMarkdown } from '../utils/text';
 import { isNativeStudyCard, studyContent, studySideText } from '../utils/structuredStudyCard.js';
 import { getAudioUrl } from '../utils/media';
 import { buildAutoplaySequence, createAutoplayQueue, normalizeAutoplaySettings } from '../utils/autoplaySequence';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 const getCardText = (card, side) => studySideText(studyContent(card), side);
 
@@ -76,7 +77,8 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
     const existing = getAudioUrl(latest[urlKey] || latest[pathKey]);
     const wrongBack = back && ((latest.audio_back_url && latest.audio_back_url === latest.audio_url)
       || (latest.audio_back_path && latest.audio_back_path === latest.audio_path));
-    if (existing && !force && !wrongBack) return existing;
+    if (existing && (IS_STANDALONE || !force) && !wrongBack) return existing;
+    if (IS_STANDALONE) throw new Error(tr('Озвучка карточки отсутствует на устройстве'));
     const text = getCardText(latest, side);
     if (!text.trim()) throw new Error(tr("Нет текста для озвучки"));
     setStatus(back ? tr("Генерируем перевод") : tr("Генерируем фразу"));

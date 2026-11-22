@@ -5,7 +5,7 @@ import { puzzleDraftTokens } from '../../utils/cardDraft';
 import { MarkdownRenderer } from './MarkdownRenderer';
 import { InlineText, VisualCardFields } from './VisualCardFields';
 
-export function PuzzleCardFields({ cardData, update, textStyles }) {
+export function PuzzleCardFields({ cardData, update, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { data, info } = cardData.content_v2.card;
   const [edit, setEdit] = useState(null);
   const inputRef = useRef(null);
@@ -26,7 +26,7 @@ export function PuzzleCardFields({ cardData, update, textStyles }) {
     }
   }, [editing]);
 
-  return <VisualCardFields cardData={cardData} update={update} exercise={
+  return <VisualCardFields cardData={cardData} update={update} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl} exercise={
     <div className="puzzle-editor puzzle-exercise is-correct">
       {!info?.some(block => block.type === 'task' && block.text.trim()) && <div className="puzzle-editor-instruction">
         <Puzzle size={15} aria-hidden="true" />

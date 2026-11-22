@@ -1,6 +1,7 @@
 import { getLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { resolveAwaitingKnowledgeAttempts } from './knowledgeDbService.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 const pending = new WeakMap();
 
@@ -11,7 +12,7 @@ export function waitForDeckKnowledge(database, deckId) {
 
 // Content belongs to the account/database that started this request.
 export function prepareDeckKnowledge(deckId) {
-  if (import.meta.env?.VITE_KNOWLEDGE_LAYER_ENABLED === 'false') return;
+  if (IS_STANDALONE || import.meta.env?.VITE_KNOWLEDGE_LAYER_ENABLED === 'false') return;
   if (!Number.isInteger(Number(deckId)) || Number(deckId) <= 0) return;
   const userId = getUserId();
   if (!userId || (typeof navigator !== 'undefined' && navigator.onLine === false)) return;

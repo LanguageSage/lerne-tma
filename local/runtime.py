@@ -97,7 +97,16 @@ def configure_local():
             os.environ.pop(key, None)
     # Native libpq does not use Python sockets: the URL is validated independently.
     os.environ['LERNE_LOCAL_DATABASE_URL'] = config['database_url']
-    os.environ['ADMIN_USER_ID'] = str(LOCAL_USER_ID)
+    if config.get('purpose') == 'native-v2-preview':
+        admin_user_id = config.get('admin_user_id')
+        if admin_user_id is not None:
+            if isinstance(admin_user_id, bool) or not isinstance(admin_user_id, int) or admin_user_id <= 0:
+                raise RuntimeError('LOCAL preview admin_user_id must be a positive integer')
+            os.environ['ADMIN_USER_ID'] = str(admin_user_id)
+        else:
+            os.environ.pop('ADMIN_USER_ID', None)
+    else:
+        os.environ['ADMIN_USER_ID'] = str(LOCAL_USER_ID)
     sys.addaudithook(_network_audit)
     _configured = True
 

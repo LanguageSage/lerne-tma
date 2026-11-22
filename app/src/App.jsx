@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import './App.css';
 import { IS_LOCAL } from './utils/localMode.js';
+import { IS_STANDALONE } from './utils/standaloneMode.js';
 
 // Utils & Services
 import { getUserId, storage } from './utils/auth';
@@ -301,7 +302,7 @@ function AppContent() {
 
       {/* Overlays and Modals */}
       {view === 'creator' && <CardCreator />}
-      {view === 'editor' && <CardEditor />}
+      {view === 'editor' && <CardEditor onDelete={(cardId) => handleDeleteCard(cardId, false)} />}
       {isBatchModalOpen && <BatchCardModal />}
       {isNewDeckModalOpen && <DeckModals />}
       {isRenameModalOpen && <RenameDeckModal />}
@@ -348,7 +349,7 @@ function AppContent() {
           folders={folders}
           onMove={handleMoveCard}
           onCopy={handleCopyCard}
-          onDelete={(c) => handleDeleteCard(c.id, true)}
+          onDelete={(c) => handleDeleteCard(c.id, !IS_STANDALONE)}
           onToggleLearn={handleToggleLearn}
           onShare={handleShareCard}
           onEdit={(c) => openEditor(c.deck_id || currentDeck?.id, c, view)}

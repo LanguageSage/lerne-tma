@@ -5,17 +5,23 @@ Passports and grading policies retain their existing owners.
 Cards compile deterministically to the existing DSL via structured_cards_legacy.py.
 """
 import json
-from typing import Annotated, Literal
+from typing import Annotated, ClassVar, Literal
 
 from pydantic import (BaseModel, ConfigDict, Field, JsonValue,
-                      TypeAdapter, ValidationError, field_validator, model_validator)
+                      TypeAdapter, field_validator, model_validator)
 from pydantic_core import PydanticCustomError
 
 from .answer_contract import GradingPolicy
 from .deck_passport import validate_passport
+from .native_v2_rules import enforce_rules
 
 
-Text = Annotated[str, Field(min_length=1, pattern=r'\S')]
+# Rust and ECMA regex engines agree on White_Space, unlike their \S shortcuts.
+NonBlank = r'[^\p{White_Space}]'
+Text = Annotated[str, Field(min_length=1, pattern=NonBlank)]
+MAX_ANSWER_CHARACTERS = 4000
+AnswerText = Annotated[Text, Field(max_length=MAX_ANSWER_CHARACTERS)]
+AnswerVariants = Annotated[list[AnswerText], Field(max_length=20)]
 Texts = Annotated[list[Text], Field(min_length=1)]
 Level = Literal['A1', 'A2', 'B1', 'B2', 'C1', 'C2']
 MAX_CARD_BYTES = 256 * 1024
@@ -38,6 +44,21 @@ def _check_size(text: str | bytes, limit: int):
 class V2Model(BaseModel):
     model_config = ConfigDict(extra='forbid', strict=True, allow_inf_nan=False,
                               revalidate_instances='always')
+    rules: ClassVar[tuple[dict, ...]] = ()
+
+    @model_validator(mode='after')
+    def native_v2_semantics(self):
+        if self.rules:
+            enforce_rules(self, self.rules)
+        return self
+
+    @classmethod
+    def __get_pydantic_json_schema__(cls, core_schema, handler):
+        schema = super().__get_pydantic_json_schema__(core_schema, handler)
+        if cls.rules:
+            schema = handler.resolve_ref_schema(schema)
+            schema['x-rules'] = list(cls.rules)
+        return schema
 
 
 class Option(V2Model):
@@ -45,13 +66,11 @@ class Option(V2Model):
     correct: bool = False
 
 
-def check_options(options):
-    labels = [option.text for option in options]
-    if len(set(labels)) != len(labels):
-        raise ValueError('Options must have unique text')
-    if not any(option.correct for option in options):
-        raise ValueError('At least one correct option is required')
-    return options
+OPTION_RULES = (
+    dict(kind='unique', path=['options'], key='text', message='Options must have unique text'),
+    dict(kind='count', path=['options'], where={'correct': [True]}, min=1,
+         message='At least one correct option is required'),
+)
 
 
 class TextPart(V2Model):
@@ -63,31 +82,18 @@ class InputPart(V2Model):
     type: Literal['input']
     answers: Texts
 
-    @field_validator('answers')
-    @classmethod
-    def valid_answers(cls, value):
-        if len(set(value)) != len(value):
-            raise ValueError('Answers must be unique')
-        return value
+    rules = (dict(kind='unique', path=['answers'], message='Answers must be unique'),)
 
 
 class ChoicePart(V2Model):
     type: Literal['choice']
     options: Annotated[list[Option], Field(min_length=1)]
     distractors: Literal['auto'] | None = None
-
-    @model_validator(mode='after')
-    def check_choice(self) -> 'ChoicePart':
-        check_options(self.options)
-        if self.distractors == 'auto':
-            if len(self.options) != 1:
-                raise ValueError('Auto distractors require exactly one option')
-            if not self.options[0].correct:
-                raise ValueError('Auto distractor option must be correct')
-        else:
-            if len(self.options) < 2:
-                raise ValueError("Choice requires at least two options when distractors is not 'auto'")
-        return self
+    rules = (*OPTION_RULES,
+             dict(kind='count', path=['options'], when={'distractors': ['auto']}, max=1,
+                  message='Auto distractors require exactly one option'),
+             dict(kind='count', path=['options'], when={'distractors': [None]}, min=2,
+                  message="Choice requires at least two options when distractors is not 'auto'"))
 
 
 TrainerPart = Annotated[TextPart | InputPart | ChoicePart, Field(discriminator='type')]
@@ -135,13 +141,6 @@ class LayoutImage(V2Model):
     caption: str = ''
     visibility: Visibility = 'before_answer'
 
-    @field_validator('path')
-    @classmethod
-    def durable_image_path(cls, value):
-        if any(part in ('', '.', '..') for part in value.split('/')):
-            raise ValueError('Image must reference a durable images/ media path')
-        return value
-
 
 LayoutElement = Annotated[LayoutInfo | LayoutExercise | LayoutImage, Field(discriminator='type')]
 
@@ -160,19 +159,15 @@ class TrainerData(V2Model):
     back_note: str = ''
     parts: Annotated[list[TrainerPart], Field(min_length=1)]
 
-    @field_validator('parts')
-    @classmethod
-    def has_gap(cls, value):
-        if all(part.type == 'text' for part in value):
-            raise ValueError('Trainer requires an input or choice part')
-        return value
+    rules = (dict(kind='count', path=['parts'], where={'type': ['input', 'choice']},
+                  min=1, message='Trainer requires an input or choice part'),)
 
 
 class QuizData(V2Model):
     back_note: str = ''
     prompt: str
     options: Annotated[list[Option], Field(min_length=2)]
-    _options = field_validator('options')(check_options)
+    rules = OPTION_RULES
 
 
 class Pair(V2Model):
@@ -195,33 +190,20 @@ class WordBankData(V2Model):
     parts: Annotated[list[Annotated[TextPart | GapPart, Field(discriminator='type')]],
                      Field(min_length=1)]
 
-    @field_validator('parts')
-    @classmethod
-    def valid_references(cls, parts, info):
-        seen, errors = set(), []
-        for index, part in enumerate(parts):
-            if part.type != 'gap':
-                continue
-            message = None
-            if part.option in seen:
-                message = 'Each gap must use a different bank item'
-            elif 'options' in info.data and part.option >= len(info.data['options']):
-                message = 'Gap references an absent bank item'
-            if message:
-                errors.append({'type': PydanticCustomError('gap_reference', message),
-                               'loc': (index, 'gap', 'option'), 'input': part.option})
-            seen.add(part.option)
-        if errors:
-            raise ValidationError.from_exception_data(cls.__name__, errors)
-        if not seen:
-            raise ValueError('Word Bank requires a gap')
-        return parts
+    rules = (
+        dict(kind='count', path=['parts'], where={'type': ['gap']},
+             min=1, message='Word Bank requires a gap'),
+        dict(kind='references', path=['parts'], where={'type': ['gap']}, key='option',
+             target=['options'], code='gap_reference', at=['gap', 'option'],
+             message='Invalid bank item reference', duplicate='Each gap must use a different bank item',
+             missing='Gap references an absent bank item'),
+    )
 
 
 class FreeTextData(V2Model):
     prompt: Text
     sample_answer: Text  # A model answer, not an exact-match key.
-    accepted_answers: list[Text] = Field(default_factory=list)
+    accepted_answers: AnswerVariants = Field(default_factory=list)
     grading_policy: GradingPolicy = Field(default_factory=lambda: GradingPolicy(mode='open_text'))
 
     @field_validator('grading_policy', mode='before')
@@ -229,46 +211,24 @@ class FreeTextData(V2Model):
     def revalidate_policy(cls, value):
         return value.model_dump() if isinstance(value, GradingPolicy) else value
 
-    @field_validator('accepted_answers')
-    @classmethod
-    def answer_variants(cls, value):
-        if len(value) > 20 or any(len(item) > 4000 for item in value):
-            raise ValueError('At most 20 nonblank answers of at most 4000 characters')
-        return value
+
+class EditableGradingPolicy(GradingPolicy):
+    mode: Literal['controlled_text', 'exact'] = 'controlled_text'
+    typo_tolerance: bool = False
 
 
 class EditableTextData(V2Model):
-    source_text: Text
-    correct_text: Text
-    accepted_answers: list[Text] = Field(default_factory=list)
-    grading_policy: GradingPolicy = Field(default_factory=lambda: GradingPolicy(
-        mode='controlled_text', typo_tolerance=False))
+    source_text: AnswerText
+    correct_text: AnswerText
+    accepted_answers: AnswerVariants = Field(default_factory=list)
+    grading_policy: EditableGradingPolicy = Field(default_factory=EditableGradingPolicy)
+    rules = (dict(kind='distinct_text', fields=[['source_text'], ['correct_text']],
+                  message='Editable Text source and correction must differ'),)
 
     @field_validator('grading_policy', mode='before')
     @classmethod
     def revalidate_policy(cls, value):
-        if isinstance(value, GradingPolicy):
-            return value.model_dump()
-        if isinstance(value, dict):
-            return {'mode': 'controlled_text', 'typo_tolerance': False, **value}
-        return value
-
-    @field_validator('accepted_answers')
-    @classmethod
-    def answer_variants(cls, value):
-        if len(value) > 20 or any(len(item) > 4000 for item in value):
-            raise ValueError('At most 20 nonblank answers of at most 4000 characters')
-        return value
-
-    @model_validator(mode='after')
-    def has_edit(self):
-        if len(self.source_text) > 4000 or len(self.correct_text) > 4000:
-            raise ValueError('Editable Text fields must fit the 4000-character answer limit')
-        if self.source_text.strip() == self.correct_text.strip():
-            raise ValueError('Editable Text source and correction must differ')
-        if self.grading_policy.mode == 'open_text':
-            raise ValueError('Editable Text requires controlled_text or exact grading')
-        return self
+        return value.model_dump() if isinstance(value, GradingPolicy) else value
 
 
 # Extension metadata must never become a shadow content/answer/passport payload.
@@ -280,11 +240,8 @@ CONTENT_KEYS = {'front', 'front_text', 'back', 'back_text', 'context', 'type', '
                 'sample_answer', 'source_text', 'correct_text', 'summary', 'translation'}
 
 
-def check_metadata(value):
-    if CONTENT_KEYS.intersection(value):
-        raise ValueError('Content, answers and passport belong in their explicit fields')
-    json.dumps(value, allow_nan=False)
-    return value
+METADATA_RULE = dict(kind='reserved_keys', path=['metadata'], keys=sorted(CONTENT_KEYS),
+                     message='Content, answers and passport belong in their explicit fields')
 
 
 class CardBase(V2Model):
@@ -296,21 +253,16 @@ class CardBase(V2Model):
     level: Level | None = None
     topics: list[Text] | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
-    _metadata = field_validator('metadata')(check_metadata)
-
-    @model_validator(mode='after')
-    def bounded_content(self):
-        if self.layout is not None:
-            ids = [element.id for element in self.layout]
-            if len(set(ids)) != len(ids):
-                raise ValueError('Layout element IDs must be unique')
-            if sum(element.type == 'exercise' for element in self.layout) != 1:
-                raise ValueError('Layout must contain exactly one exercise')
-            references = [element.index for element in self.layout if element.type == 'info']
-            if sorted(references) != list(range(len(self.info))):
-                raise ValueError('Layout must reference every info block exactly once')
-        _check_size(_canonical_json(self.model_dump(mode='json')), MAX_CARD_BYTES)
-        return self
+    rules = (
+        METADATA_RULE,
+        dict(kind='unique', path=['layout'], key='id', message='Layout element IDs must be unique'),
+        dict(kind='count', path=['layout'], where={'type': ['exercise']}, min=1, max=1,
+             message='Layout must contain exactly one exercise'),
+        dict(kind='references', path=['layout'], where={'type': ['info']}, key='index',
+             target=['info'], complete=True, message='Layout must reference every info block exactly once'),
+        dict(kind='json_bytes', max=MAX_CARD_BYTES,
+             message=f'UTF-8 JSON exceeds {MAX_CARD_BYTES} bytes', code='content_too_large'),
+    )
 
 
 class TheoryCard(CardBase):
@@ -332,15 +284,12 @@ class QuizCard(CardBase):
     type: Literal['quiz']
     data: QuizData
 
-    @model_validator(mode='after')
-    def has_prompt(self):
-        visible = {item.index for item in self.layout or [] if item.type == 'info'
-                   and item.visibility == 'before_answer'} if self.layout is not None else set(range(len(self.info)))
-        if not self.data.prompt.strip() and not any(
-            index in visible and block.type in ('task', 'source') for index, block in enumerate(self.info)
-        ):
-            raise ValueError('Quiz requires a prompt or a task/source block')
-        return self
+    rules = (*CardBase.rules,
+             dict(kind='visible_text', path=['data', 'prompt'], alternative=['info'],
+                  where={'type': ['task', 'source']},
+                  selection=dict(path=['layout'], key='index',
+                                 where={'type': ['info'], 'visibility': ['before_answer']}),
+                  message='Quiz requires a prompt or a task/source block'))
 
 
 class MatchCard(CardBase):
@@ -371,13 +320,30 @@ class EditableTextCard(CardBase):
 Card = Annotated[TheoryCard | StandardCard | TrainerCard | QuizCard | MatchCard |
                  PuzzleCard | WordBankCard | FreeTextCard | EditableTextCard, Field(discriminator='type')]
 CARD_ADAPTER = TypeAdapter(Card)
+SchemaVersion = Literal[2]
+
+
+class ContentV2(V2Model):
+    schema_version: SchemaVersion
+    card: Card
+
+    @field_validator('schema_version', mode='before')
+    @classmethod
+    def strict_version(cls, value):
+        return require_integer_version(value)
+
+
+def require_integer_version(value):
+    if type(value) is not int:
+        raise ValueError('schema_version must be integer 2')
+    return value
 
 
 class Deck(V2Model):
     name: Text
     passport: dict[str, JsonValue] | None = None
     metadata: dict[str, JsonValue] = Field(default_factory=dict)
-    _metadata = field_validator('metadata')(check_metadata)
+    rules = (METADATA_RULE,)
 
     @field_validator('passport')
     @classmethod
@@ -390,16 +356,14 @@ class Deck(V2Model):
 
 
 class Document(V2Model):
-    schema_version: Literal[2]
+    schema_version: SchemaVersion
     deck: Deck
     cards: Annotated[list[Card], Field(max_length=MAX_DOCUMENT_CARDS)]
 
     @field_validator('schema_version', mode='before')
     @classmethod
     def integer_version(cls, value):
-        if type(value) is not int:
-            raise ValueError('schema_version must be integer 2')
-        return value
+        return require_integer_version(value)
 
     @field_validator('cards')
     @classmethod

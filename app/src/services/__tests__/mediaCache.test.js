@@ -71,6 +71,26 @@ test('inline media uses the account cache without replacing canonical content pa
   } finally { await db.delete(); }
 });
 
+test('pull views resolve cached media without prefetching misses in a read transaction', async () => {
+  const db = database();
+  const requests = [];
+  globalThis.fetch = async url => {
+    requests.push(url);
+    return new Response(null, { status: 503 });
+  };
+  const image = 'https://fixture.invalid/images/cached.webp';
+  const audio = 'https://fixture.invalid/audio/uncached.mp3';
+  try {
+    await db.media.put({ url: image, blob: new Blob(['cached'], { type: 'image/webp' }) });
+    const view = await db.transaction('r', db.media, () =>
+      cardMediaView(db, { image_path: image, audio_path: audio }, false));
+    assert.match(view.image_url, /^blob:/);
+    assert.equal(await (await fetchBlob(view.image_url)).text(), 'cached');
+    assert.equal(view.audio_url, audio);
+    assert.deepEqual(requests, []);
+  } finally { await db.delete(); }
+});
+
 test('uncached offline media retains its URL and another account cannot reuse cached blobs', async () => {
   const owner = database(), other = database();
   const url = 'https://fixture.invalid/audio/shared.mp3';

@@ -1,4 +1,6 @@
 import { mediaURL } from './apiConfig.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import { isOfflineMediaUrl, resolveOfflineMediaUrlAsync } from '../pilot/offlineMediaStore.js';
 
 const objectUrls = new Map();
 const pending = new Set();
@@ -6,8 +8,12 @@ const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_CACHE_BYTES = 150 * 1024 * 1024;
 
 export async function localMediaURL(database, path, kind, prefetch = true) {
+  if (IS_STANDALONE) {
+    const offline = await resolveOfflineMediaUrlAsync(database, path, kind);
+    if (offline) return offline;
+  }
   const url = mediaURL(path, kind);
-  if (!url || /^(blob:|data:)/.test(url)) return url;
+  if (!url || isOfflineMediaUrl(url)) return url;
   const key = `${database.name}:${url}`;
   const cached = await database.media.get(url);
   if (cached && cached.blob) {
@@ -18,12 +24,12 @@ export async function localMediaURL(database, path, kind, prefetch = true) {
       // Fallback to network URL if blob is unreadable
     }
   }
-  if (prefetch && navigator.onLine && !pending.has(key) && pending.size < 4) {
+  if (!IS_STANDALONE && prefetch && navigator.onLine && !pending.has(key) && pending.size < 4) {
     pending.add(key);
     cacheMedia(database, url).catch(error => console.warn('Media cache:', error.message))
       .finally(() => pending.delete(key));
   }
-  return url;
+  return IS_STANDALONE ? null : url;
 }
 
 async function cacheMedia(database, url) {
@@ -59,7 +65,9 @@ export async function cardMediaView(database, card, prefetch = true) {
   const result = { ...card };
   for (const [field, kind] of [['image', 'images'], ['audio', 'audio'], ['audio_back', 'audio'],
     ['video_front', 'videos'], ['video_back', 'videos']]) {
-    const path = card[`${field}_path`] || card[`${field}_url`];
+    const path = field === 'image'
+      ? (card.image_path || card.content_v2?.card?.image || card.image_url)
+      : (card[`${field}_path`] || card[`${field}_url`]);
     result[`${field}_url`] = await localMediaURL(database, path, kind, prefetch);
   }
   result.layout_media_urls = {};

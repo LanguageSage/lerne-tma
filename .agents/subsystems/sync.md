@@ -5,6 +5,14 @@
 Dexie, offline CRUD, временные ID, sync v2, повтор пакета, review history и перенос настроек.
 Knowledge Attempts отправляются отдельным механизмом: [knowledge](knowledge.md).
 
+### Android Standalone
+
+- `app/src/pilot/materialArchiveTransport.js` вызывает Android SAF для staged ZIP. Плагин проверяет каталог, CRC-32 и SHA-256, читает вложения с диска и записывает медиа по проверенному хешу в закрытое хранилище приложения. Перед публикацией материалов должны быть доступны все их медиа.
+- Импорт папок, колод, карточек и их индекса атомарен в Dexie. Браузер Standalone включает сами медиа в ту же транзакцию. Android может повторно использовать уже записанные проверенные файлы, если транзакция Dexie не завершилась.
+- Экспорт одного исходного набора сохраняет его source и ID. Для смешанной выборки или набора с локально созданными/изменёнными карточками (`standalone_local_created` / `standalone_local_edit`) source закреплён за локальной БД, а резервная копия SRS содержит дополнительный ключ для восстановления после переноса этого ZIP. При восстановлении импортированного прогресса записи карточек, отсутствующих в резервной копии, сохраняются.
+- `app/src/pilot/standaloneCardStorage.js` (`createStandaloneCard`, `updateStandaloneCard`, `deleteStandaloneCard`) и `app/src/pilot/localMediaWriter.js` (+ Android `OfflineMaterialArchivePlugin.storeMediaAsset`) сохраняют карточки V2 и локальные медиа атомарно с `is_dirty: 0`, устойчивыми ID `> 1000000`, ограниченным журналом `standalone-card-op:` и без постановки в облачные очереди (`card-create-v2:`, `card-edit-v2:`, `card-lifecycle-v2:`, `review:`). Редактирование сохраняет прогресс SRS и защищает изменённые/удалённые карточки (`standalone_local_edit: true`) от перезаписи при повторном импорте ZIP и обновлении `standaloneSeed.js`.
+- APK offline pilot собирается без разрешения `INTERNET`. `scripts/tests/browser/standalone-offline-pilot.check.cjs`, `standalone-offline-materials.check.cjs` и `standalone-card-editor.check.cjs` проверяют обучение, архивы ZIP и локальный редактор V2 в Chromium с блокировкой внешних запросов. Проверки SAF, WebView и обновления APK на устройстве проводятся отдельно.
+
 ## Primary entry points
 
 | Задача | Файлы от корня репозитория |
@@ -319,6 +327,11 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 ## Relevant tests
 
 - Offline v2: `scripts/tests/test_offline_sync.py`, `scripts/tests/offline_sandbox.py`.
+- Offline progress reads: `app/src/services/__tests__/offlineProgressReads.test.js`.
+  The local catalog reads account progress once, includes `folders` in catalog/study
+  read transactions, and preserves A-01 active-hierarchy checks (`deleteRestoreOffline.test.js`).
+  Study and card lists batch progress by compound card/account key and keep the cached
+  card fallback for missing rows.
 - Background sync: `structured_cards_postgres.py --bin-dir <path> --background-sync-browser` compares the previous and current clients in Chromium on synthetic PostgreSQL and exercises reconnect, delivery, and conflicts.
 - SQL read regressions: `scripts/tests/test_sync_read_queries.py` — реальные pull routes,
   проекции без image_data, batch study lookup, permissions и сохранность неизбранных полей.

@@ -5,6 +5,8 @@ import { offlineApi } from './offlineApi.js';
 import { networkApi as axiosInstance } from './networkApi.js';
 import { syncService } from './syncService.js';
 import { handleLocalFirstRequest, tryLocalFirstNativeCreate, reconcileOnlineResponse } from './apiCacheSync.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
 
 // Проксируем методы Axios для поддержки офлайн-режима и автоматического фоллбека
 const api = new Proxy(axiosInstance, {
@@ -26,6 +28,28 @@ const api = new Proxy(axiosInstance, {
           assertCurrent();
           return response;
         };
+        if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+          const isStandaloneOfflineEndpoint =
+            url.startsWith('/decks') ||
+            url.startsWith('/folders') ||
+            url.startsWith('/cards') ||
+            url.startsWith('/study') ||
+            url.startsWith('/trash') ||
+            url.startsWith('/init') ||
+            url.startsWith('/card-notes');
+          if (isStandaloneOfflineEndpoint) {
+            const isLibraryRead = propKey === 'get' && /^\/(init|decks|folders)(?:\?|$)/.test(url);
+            const isDeckCardsRead = propKey === 'get' && /^\/decks\/-?\d+\/cards(?:\?|$)/.test(url);
+            const response = await localRequest(...args);
+            return (isLibraryRead || isDeckCardsRead) ? { ...response, dataSource: 'local' } : response;
+          }
+          const err = new Error('Offline standalone mode: server endpoint unavailable');
+          err.code = 'ERR_STANDALONE_OFFLINE';
+          throw err;
+        }
+        const nativeCreate = propKey === 'post' && url === '/cards/save';
+        const nativeEdit = propKey === 'patch' && /^\/cards\/-?\d+$/.test(url);
+        if (nativeCreate || nativeEdit) validateNativeV2Content(args[0]?.content_v2, { writable: true });
         const fetchFreshCard = id => api.get(`/cards/${id}`, { freshCard: true });
         const localFirst = await handleLocalFirstRequest({
           propKey, url, args, requestAccount, isCurrent, assertCurrent, localRequest, fetchFreshCard,
@@ -33,7 +57,6 @@ const api = new Proxy(axiosInstance, {
         if (localFirst) return localFirst;
 
         const requestStartedAt = Date.now();
-        const nativeCreate = propKey === 'post' && url === '/cards/save' && Object.hasOwn(args[0] ?? {}, 'content_v2');
         const configIndex = ['get', 'delete'].includes(propKey) ? 0 : 1;
         args[configIndex] = {
           _expectedUserId: requestAccount, _expectedSessionIdentity: requestIdentity, ...args[configIndex],

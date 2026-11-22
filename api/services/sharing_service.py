@@ -8,6 +8,7 @@ import urllib.request
 from PIL import Image, ImageDraw, ImageFont
 from fastapi import HTTPException
 from api.models import TMA_Deck, TMA_Card, TMA_Folder, TMAMedia, TMAUser, tma_db
+from .collaborative_service import _require_can_mutate, is_deck_active, is_folder_chain_active
 
 logger = logging.getLogger(__name__)
 
@@ -142,7 +143,7 @@ class SharingService:
                 TMA_Card.update(source=source_tag, creator_id=card.creator_id or creator_id).where(TMA_Card.id == copied.id).execute()
                 count += 1
         if count:
-            from api.services.utils import touch_deck_and_parent_folders
+            from api.services.collaborative_service import touch_deck_and_parent_folders
             touch_deck_and_parent_folders(target_deck.id)
         return count
 
@@ -223,17 +224,23 @@ class SharingService:
             now = datetime.datetime.now()
             if share_id.startswith("d_"):
                 source_deck = TMA_Deck.get_or_none(TMA_Deck.share_id == share_id, TMA_Deck.is_deleted == False)
-                if not source_deck:
+                if not is_deck_active(source_deck):
                     raise HTTPException(status_code=404, detail="Shared deck not found")
 
                 deck_lang = (getattr(source_deck, 'target_language', 'de') or 'de').lower().strip()
 
-                # Check if deck with same name and language exists for this user
-                existing_deck = TMA_Deck.get_or_none(
-                    TMA_Deck.user_id == user_id,
-                    TMA_Deck.name == source_deck.name,
-                    ((TMA_Deck.target_language == deck_lang) | (TMA_Deck.target_language.is_null() if deck_lang == 'de' else False)),
-                    TMA_Deck.is_deleted == False
+                # Check if active deck with same name and language exists for this user
+                existing_deck = next(
+                    (
+                        d for d in TMA_Deck.select().where(
+                            TMA_Deck.user_id == user_id,
+                            TMA_Deck.name == source_deck.name,
+                            ((TMA_Deck.target_language == deck_lang) | (TMA_Deck.target_language.is_null() if deck_lang == 'de' else False)),
+                            TMA_Deck.is_deleted == False,
+                        )
+                        if is_deck_active(d)
+                    ),
+                    None,
                 )
                 if existing_deck and not resolution:
                     return {
@@ -316,7 +323,7 @@ class SharingService:
 
             elif share_id.startswith("f_"):
                 source_folder = TMA_Folder.get_or_none((TMA_Folder.share_id == share_id) & (TMA_Folder.is_deleted == False))
-                if not source_folder:
+                if not source_folder or not is_folder_chain_active(source_folder.id):
                     raise HTTPException(status_code=404, detail="Shared folder not found")
 
                 folder_lang = (getattr(source_folder, 'target_language', 'de') or 'de').lower().strip()
@@ -460,7 +467,7 @@ class SharingService:
 
             elif share_id.startswith("c_"):
                 source_card = TMA_Card.get_or_none(TMA_Card.share_id == share_id, TMA_Card.is_deleted == False)
-                if not source_card:
+                if not source_card or not is_deck_active(source_card.deck):
                     raise HTTPException(status_code=404, detail="Shared card not found")
 
                 card_lang = (getattr(source_card.deck, 'target_language', 'de') if source_card.deck else 'de') or 'de'
@@ -503,7 +510,7 @@ class SharingService:
 
                 from api.services.structured_card_api import _clone, _position
                 new_card = _clone(source_card, inbox.id, _position(inbox.id))
-                from api.services.utils import touch_deck_and_parent_folders
+                from api.services.collaborative_service import touch_deck_and_parent_folders
                 touch_deck_and_parent_folders(inbox.id)
                 TMA_Card.update(source=f'shared_card:{source_card.share_id}', creator_id=source_creator).where(
                     TMA_Card.id == new_card.id).execute()

@@ -33,6 +33,7 @@ import { CollaboratorPresenceBar } from '../collaborative/CollaboratorPresenceBa
 import { getCardListBgStyle } from '../../utils/style';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useTranslation } from '../../i18n/i18nContext';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard, matchesSearchQuery } from '../../utils/search';
 import { parseDeckMetadata } from '../../utils/deckUtils';
@@ -295,6 +296,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   }
 
   const canEditContent = currentDeck.role === 'owner' || currentDeck.role === 'editor' || (!currentDeck.role && !currentDeck.is_global_readonly);
+  const canAuthorCards = IS_STANDALONE ? true : canEditContent;
 
   return (
     <div className={`view-cards ${isSelectMode ? 'has-batch-selection' : ''}`}>
@@ -515,8 +517,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           ) : deckCards.length === 0 ? (
             <div className="empty-cards-state glass">
               <h3>{tr("В этой колоде пока нет карточек")}</h3>
-              {canEditContent && <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>}
-              {canEditContent && <button 
+              {canAuthorCards && <p>{tr("Нажмите на \"+\" в правом верхнем углу или на кнопку ниже, чтобы создать свою первую карточку.")}</p>}
+              {canAuthorCards && <button 
                 className="btn btn-primary" 
                 style={{ marginTop: '10px' }} 
                 onClick={() => openCreator(currentDeck?.id)}
@@ -599,7 +601,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           )}
         </div>
         
-        {!isSelectMode && canEditContent && (
+        {!isSelectMode && canAuthorCards && (
           <button id="tut-fab-add" className="fab-add-card" onClick={() => openCreator(currentDeck?.id)}>
             <Plus size={28} />
           </button>

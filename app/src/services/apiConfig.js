@@ -1,5 +1,7 @@
 import { getAudioUrl } from '../utils/media';
 import { IS_LOCAL } from '../utils/localMode.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import { isOfflineMediaUrl, resolveOfflineMediaUrlSync } from '../pilot/offlineMediaResolver.js';
 
 const getApiBaseUrl = () => {
   if (IS_LOCAL) return '/api';
@@ -23,7 +25,9 @@ export const mediaURL = (path, kind = 'images') => {
   if (kind === 'audio') {
     return getAudioUrl(path);
   }
-  if (/^(https?:|blob:|data:)/.test(path)) return path;
+  if (isOfflineMediaUrl(path)) return path;
+  if (IS_STANDALONE) return resolveOfflineMediaUrlSync(path, kind);
+  if (/^https?:/.test(path)) return path;
   const base = new URL(API_BASE_URL, window.location.origin);
   const relative = path.startsWith('/api/media/')
     ? path : `${base.pathname.replace(/\/$/, '')}/media/${kind}/${path.split(/[\\/]/).pop()}`;

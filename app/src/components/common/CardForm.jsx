@@ -10,6 +10,7 @@ import { findCardDeck } from '../../utils/deckUtils';
 import { getResolvedStyle } from '../../utils/style';
 import { tr } from '../../i18n/locale';
 import { NativeCardFormCore } from '../../card-ui/NativeCardFormCore.jsx';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 function CardDeckField({ deckId, setCardData, disabled }) {
   const decks = useDeckStore(state => state.decks) ?? [];
@@ -46,7 +47,7 @@ const uploadLayoutImageViaNetworkApi = async (file, signal) => {
   return response.data;
 };
 
-export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) => {
+export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCreator = false }) => {
   const personalConfig = useSettingsStore(state => state.personalDesignV2?.config);
   const effectiveConfig = useSettingsStore(state => state.activeDesignConfig);
   const loading = useUiStore(state => state.loading);
@@ -74,6 +75,7 @@ export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) =
       cardData={cardData}
       setCardData={setCardData}
       onSave={onSave}
+      onCancel={onCancel}
       isCreator={isCreator}
       loading={loading}
       deck={cardDeck}
@@ -82,18 +84,22 @@ export const CardForm = ({ cardData, setCardData, onSave, isCreator = false }) =
       designConfig={effectiveConfig}
       resolvedBgFront={resolvedBgFront}
       resolvedBgBack={resolvedBgBack}
+      enableDictation={!IS_STANDALONE && isCreator}
+      lockLayout={IS_STANDALONE}
+      allowOfflineAudioUpload={IS_STANDALONE}
+      hideCoverHeightSlider={IS_STANDALONE}
       topSlot={
         isCreator && cardData ? (
           <CardDeckField deckId={cardData.deck_id} setCardData={setCardData} disabled={loading || Boolean(cardData.id)} />
         ) : null
       }
       onUploadCoverImage={uploadCreatorImage}
-      onUploadLayoutImage={uploadLayoutImageViaNetworkApi}
+      onUploadLayoutImage={IS_STANDALONE ? null : uploadLayoutImageViaNetworkApi}
       onUploadAudio={uploadAudioFile}
       getSessionIdentity={getSessionIdentity}
-      onGenerateAudio={() => generateAudioInternal(cardData, setCardData, playAudio)}
-      onAiGenerate={handleAiGenerate}
-      onStopGeneration={stopAiGeneration}
+      onGenerateAudio={IS_STANDALONE ? null : (() => generateAudioInternal(cardData, setCardData, playAudio))}
+      onAiGenerate={IS_STANDALONE ? null : handleAiGenerate}
+      onStopGeneration={IS_STANDALONE ? null : stopAiGeneration}
       onNotify={showToast}
     />
   );

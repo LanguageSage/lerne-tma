@@ -7,6 +7,7 @@ import { inspectCardCutover, inspectCutoverDatabase, inspectCutoverStorage } fro
 import { observeServerGeneration, generationError, isGenerationConflict } from './serverGeneration.js';
 import { entities, keyFor, deliverEntityBatch, hasPendingEntityChanges, syncLearningPreferences } from './entityBatchSync.js';
 import { emptyStudyProgress, mergeStudyProgress } from '../utils/structuredStudyCard.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import {
   subscribeSyncUi,
   notifySyncUi,
@@ -202,6 +203,7 @@ async function applyProgressSnapshot(db, data, userId, base, pullStartedAt, isCu
 
 export const syncService = {
   async sync(options) {
+    if (IS_STANDALONE) return { success: false, standalone: true, reason: tr('Автономный офлайн-режим: синхронизация с сервером отключена.') };
     if (!navigator.onLine) return { success: false, reason: tr("Нет подключения к интернету") };
     const userId = getUserId();
     const identity = getSessionIdentity();

@@ -33,6 +33,25 @@ def choice():
 
 
 class V2ValidationTests(unittest.TestCase):
+    def test_standalone_validation_matches_shared_native_v2_cases(self):
+        from api.services.structured_cards_v2 import validate_card
+
+        cases = json.loads((EXAMPLES.parent / 'standalone_native_v2_validation.json').read_text(encoding='utf-8'))
+        for case in cases:
+            with self.subTest(case=case['name']):
+                card = case['card']
+                repeat = case.get('repeat')
+                if repeat:
+                    parent = card
+                    for key in repeat['path'][:-1]:
+                        parent = parent[key]
+                    parent[repeat['path'][-1]] = repeat['value'] * repeat['count']
+                if case['valid']:
+                    validate_card(card)
+                else:
+                    with self.assertRaises(ValidationError):
+                        validate_card(card)
+
     def test_layout_roundtrip_order_identity_and_all_nine_types(self):
         from api.services.structured_cards_v2 import validate_card
         values = [card.model_dump(mode='json') for path in EXAMPLES.glob('*.json')

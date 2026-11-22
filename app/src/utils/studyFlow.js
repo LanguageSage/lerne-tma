@@ -1,8 +1,13 @@
+import { IS_STANDALONE } from './standaloneMode.js';
+
+const SUPPORTED_TARGET_LANGUAGES = new Set(['de', 'en', 'no']);
+
 // Decks are already ordered by the store. Share the grid's visibility rule.
 export const getThemeDecks = (decks, folderId, language = 'de') => decks.filter(deck =>
   !deck.is_deleted && Number.isInteger(deck.id) && !deck.is_pseudo &&
   (deck.folder_id ?? null) === (folderId ?? null) &&
-  (folderId != null || (deck.target_language || 'de') === language)
+  (folderId != null || (deck.target_language || 'de') === language
+    || (IS_STANDALONE && deck.target_language && !SUPPORTED_TARGET_LANGUAGES.has(deck.target_language)))
 );
 
 export const getNextThemeDeck = (decks, currentDeck) => {

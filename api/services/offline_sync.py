@@ -11,6 +11,7 @@ from api.services.collaborative_service import (
     get_user_accessible_folder_ids, get_batch_collaborative_info,
     _require_can_mutate,
     get_folder_access_map,
+    is_deck_active, is_folder_chain_active,
 )
 
 
@@ -121,6 +122,7 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
             sorted_folders.extend(ready)
             folders = [f for f in folders if f not in ready]
 
+        deleted_in_batch_folders = set()
         for name, items in (('folders', sorted_folders), ('decks', request.decks)):
             model = table_map[name]
             if len({item.id for item in items}) != len(items):
@@ -130,9 +132,12 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                 values = {field: raw[field] for field in FIELDS[name] if field in raw}
                 lookup_fields = (model.id,)
                 if name == 'decks':
-                    lookup_fields = (model.id, model.metadata)
+                    lookup_fields = (model.id, model.metadata, model.folder_id, model.is_deleted)
+                elif name == 'folders':
+                    lookup_fields = (model.id, model.user_id, model.parent_id, model.is_deleted)
                 if drain_legacy:
-                    lookup_fields = (model.id, *(getattr(model, field) for field in FIELDS[name]), model.updated_at)
+                    lookup_fields = (model.id, *(getattr(model, field) for field in FIELDS[name]), model.updated_at,
+                                     *((model.user_id,) if name == 'folders' else ()))
                 lookup = model.select(*lookup_fields)
                 if drain_legacy:
                     lookup = lookup.for_update()
@@ -141,9 +146,14 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                     raise HTTPException(409, 'Запись удалена на сервере. Локальные изменения сохранены.')
                 if existing:
                     require_access(user_id, name[:-1], existing.id)
+                    if name == 'folders' and values.get('is_deleted') is True and not existing.is_deleted and existing.user_id != user_id:
+                        raise HTTPException(403, 'Только владелец может удалить папку')
+
+                restoring = bool(existing and existing.is_deleted and values.get('is_deleted') is False)
+                effective_deleted = values.get('is_deleted', existing.is_deleted if existing else False)
 
                 if name == 'folders':
-                    parent_id = resolve('folders', item.parent_id)
+                    parent_id = resolve('folders', item.parent_id) if 'parent_id' in values else (existing.parent_id if existing else None)
                     if parent_id:
                         require_access(user_id, 'folder', parent_id)
                         seen = {existing.id} if existing else set()
@@ -154,12 +164,20 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                             seen.add(ancestor)
                             folder = models.TMA_Folder.select(models.TMA_Folder.parent_id).where(models.TMA_Folder.id == ancestor).first()
                             ancestor = folder.parent_id if folder else None
-                    values['parent_id'] = parent_id
+                        if restoring or (not effective_deleted and parent_id not in deleted_in_batch_folders):
+                            if not is_folder_chain_active(parent_id):
+                                raise HTTPException(409, {'code': 'parent_folder_deleted', 'message': 'Сначала восстановите родительскую папку.'})
+                    if 'parent_id' in values:
+                        values['parent_id'] = parent_id
                 elif name == 'decks':
-                    folder_id = resolve('folders', item.folder_id)
+                    folder_id = resolve('folders', item.folder_id) if 'folder_id' in values else (existing.folder_id if existing else None)
                     if folder_id:
                         require_access(user_id, 'folder', folder_id)
-                    values['folder_id'] = folder_id
+                        if restoring or (not effective_deleted and folder_id not in deleted_in_batch_folders):
+                            if not is_folder_chain_active(folder_id):
+                                raise HTTPException(409, {'code': 'parent_folder_deleted', 'message': 'Сначала восстановите родительскую папку.'})
+                    if 'folder_id' in values:
+                        values['folder_id'] = folder_id
                     if values.get('metadata') is None:
                         values.pop('metadata', None)
                     elif 'metadata' in values:
@@ -174,11 +192,15 @@ def push_offline(request, user_id: int, *, drain_legacy: bool = False) -> dict:
                         query = query.where(model.metadata == existing.metadata)
                     if not query.execute():
                         raise HTTPException(409, 'Запись изменена на сервере. Повторите синхронизацию.')
+                    if name == 'folders' and effective_deleted:
+                        deleted_in_batch_folders.add(existing.id)
                 else:
                     values['created_at'] = now
                     values['user_id'] = user_id
                     new_item = model.create(**values)
                     maps[name][str(item.id)] = new_item.id
+                    if name == 'folders' and effective_deleted:
+                        deleted_in_batch_folders.add(new_item.id)
 
         # Every deck has passed authorization. Validation stays before COMMIT;
         # a missing object rolls back all rows and the receipt together.
@@ -291,12 +313,12 @@ def _row_versions(query, model):
     return query.select(fn.MD5(fn.STRING_AGG(stamp, ',').order_by(model.id))).scalar()
 
 
-def _deck_summary_versions(user_id, decks, now):
+def _deck_summary_versions(user_id, decks, now, folder_map=None):
     from api.services.decks import get_library_update_sources
 
     card = models.TMA_Card
     personal = models.TMAProgress
-    active_decks = [deck for deck in decks if not deck.is_deleted]
+    active_decks = [deck for deck in decks if is_deck_active(deck, folder_map=folder_map)]
     sources = get_library_update_sources({deck.name for deck in active_decks})
     due_by_deck = (personal.select(card.deck_id, fn.COUNT(personal.id))
                    .join(card, on=(personal.card_id == card.id))
@@ -318,8 +340,13 @@ def _read_snapshot(user_id: int, snapshot_version: str | None, *, postgres: bool
     folder_ids = set(get_user_accessible_folder_ids(user_id, folder_map=folder_map))
     deck_ids = set(get_user_accessible_deck_ids(user_id, folder_map=folder_map, accessible_folder_ids=folder_ids))
     # Owned tombstones must reach devices as well as active shared content.
-    folder_ids.update(f.id for f in models.TMA_Folder.select(models.TMA_Folder.id).where(models.TMA_Folder.user_id == user_id))
-    deck_ids.update(d.id for d in models.TMA_Deck.select(models.TMA_Deck.id).where(models.TMA_Deck.user_id == user_id))
+    owned_folders = list(models.TMA_Folder.select(models.TMA_Folder.id).where(models.TMA_Folder.user_id == user_id))
+    folder_ids.update(f.id for f in owned_folders)
+    owned_decks = list(models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.folder_id).where(models.TMA_Deck.user_id == user_id))
+    deck_ids.update(
+        d.id for d in owned_decks
+        if d.folder_id is None or d.folder_id in folder_ids or d.folder_id in folder_map
+    )
     folders = list(models.TMA_Folder.select(*(getattr(models.TMA_Folder, f) for f in PULL_FIELDS['folders'])).where(models.TMA_Folder.id.in_(folder_ids)))
     decks = list(models.TMA_Deck.select(*(getattr(models.TMA_Deck, f) for f in PULL_FIELDS['decks'])).where(models.TMA_Deck.id.in_(deck_ids)))
     from api.services.structured_card_api import content_response
@@ -364,7 +391,7 @@ def _read_snapshot(user_id: int, snapshot_version: str | None, *, postgres: bool
     result['server_time'] = datetime.datetime.now(datetime.timezone.utc).isoformat()
     study_rows = None
     if snapshot_version is not None:
-        result['deck_summary_version'], catalogue_version = _deck_summary_versions(user_id, decks, datetime.datetime.now())
+        result['deck_summary_version'], catalogue_version = _deck_summary_versions(user_id, decks, datetime.datetime.now(), folder_map=folder_map)
         scoped_progress = progress.where(personal.card_id.in_(cards.select(card.id)))
         if postgres:
             rows = [_row_versions(cards, card), _row_versions(scoped_progress, personal)]

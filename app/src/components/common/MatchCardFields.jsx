@@ -6,7 +6,7 @@ import { MatchTile } from '../study/StudyCardMatch';
 import { InlineText, SortableCardItem, SortableCardList, VisualCardFields } from './VisualCardFields';
 import './MatchCardFields.css';
 
-export function MatchCardFields({ cardData, update, textStyles }) {
+export function MatchCardFields({ cardData, update, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { pairs } = cardData.content_v2.card.data;
   const rows = useRef(null);
   const nextFocus = useRef(null);
@@ -41,7 +41,7 @@ export function MatchCardFields({ cardData, update, textStyles }) {
         position === index ? { ...entry, [side]: text } : entry))} />
   </MatchTile>;
 
-  return <VisualCardFields cardData={cardData} update={update} exercise={
+  return <VisualCardFields cardData={cardData} update={update} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl} exercise={
     <div className="match-editor" ref={rows}>
       <div className="match-heading"><Link2 size={16} aria-hidden="true" />{tr('Сопоставьте пары:')}</div>
       <SortableCardList items={pairs.map((_, index) => index)} onMove={movePair}

@@ -3,6 +3,7 @@ import { getAccessToken, getAuthSession, saveAuthSession, requireAuthSession, ge
 import { getLocalDb } from './localDb.js';
 import { API_BASE_URL } from './apiConfig.js';
 import { IS_LOCAL } from '../utils/localMode.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { generationError, observeServerGeneration } from './serverGeneration.js';
 
 const baseURL = API_BASE_URL;
@@ -75,6 +76,11 @@ axiosInstance.interceptors.request.use(async (config) => {
   }
   if (IS_LOCAL && (config.baseURL !== '/api' || !config.url?.startsWith('/') || config.url.startsWith('//'))) {
     throw new Error('External API requests disabled in LOCAL');
+  }
+  if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+    const err = new Error('Network API disabled in standalone offline mode');
+    err.code = 'ERR_STANDALONE_OFFLINE';
+    throw err;
   }
   const url = config.url || '';
   if (/(?:\/ai\/|\/cards\/ai-)(?:enrich|generate)-batch/.test(url)) {

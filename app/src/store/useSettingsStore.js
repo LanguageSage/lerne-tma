@@ -7,6 +7,7 @@ import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignR
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence.js';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
 const DESIGN_V2_CACHE_KEY = 'lerne:published-design:v2';
@@ -192,6 +193,7 @@ const hasUnsavedSettingValues = (payload, serverData, designPending = false) => 
 };
 
 export const debouncedSaveSettings = (get, options = {}) => {
+  if (IS_STANDALONE) return;
   if (saveTimer) clearTimeout(saveTimer);
   const account = getUserId(), generation = settingsGeneration;
   if (account && options.study !== false) {
@@ -462,6 +464,7 @@ export const useSettingsStore = create((set, get) => {
     },
 
     saveCurrentSettingsToServer: () => {
+      if (IS_STANDALONE) return Promise.resolve(false);
       const account = getUserId(), generation = settingsGeneration;
       if (settingsWrite?.generation === generation) return settingsWrite.promise;
       if (saveTimer) {
@@ -516,6 +519,7 @@ export const useSettingsStore = create((set, get) => {
     },
 
     fetchUserSettingsFromServer: async ({ force = false, maxAgeMs = 0 } = {}) => {
+      if (IS_STANDALONE) return null;
       const account = getUserId(), generation = settingsGeneration;
       if (!account || saveTimer !== null || settingsWrite?.generation === generation) return null;
       if (!force && maxAgeMs > 0 && get().hasFreshSettings(maxAgeMs, account) && !get().hasPendingSettingsSync(account)) {
@@ -542,6 +546,7 @@ export const useSettingsStore = create((set, get) => {
     },
 
     syncUserSettingsIfNeeded: async ({ force = false, maxAgeMs = SETTINGS_RECHECK_MS } = {}) => {
+      if (IS_STANDALONE) return null;
       const account = getUserId();
       if (!account) return null;
       if (get().hasPendingSettingsSync(account)) {

@@ -2,6 +2,20 @@ name: Build Android APK
 
 on:
   workflow_dispatch:
+    inputs:
+      build_mode:
+        description: 'APK build mode'
+        required: true
+        default: 'offline-pilot'
+        type: choice
+        options:
+          - offline-pilot
+          - standard
+      build_upgrade_test_pair:
+        description: 'For offline-pilot: build both v1 and v2 APKs signed with the same debug keystore for upgrade testing'
+        required: false
+        default: true
+        type: boolean
 
 jobs:
   checks:
@@ -32,6 +46,8 @@ jobs:
           npm --prefix app install --legacy-peer-deps
 
       - name: Build Web Application
+        env:
+          VITE_LERNE_STANDALONE: ${{ (inputs.build_mode || 'offline-pilot') == 'offline-pilot' && '1' || '0' }}
         run: |
           npm --prefix app run build
 
@@ -41,7 +57,8 @@ jobs:
         run: |
           npx cap sync android
 
-      - name: Build Android Debug APK
+      - name: Build Standard Android Debug APK
+        if: ${{ (inputs.build_mode || 'offline-pilot') == 'standard' }}
         run: |
           cd android
           chmod +x gradlew
@@ -49,8 +66,31 @@ jobs:
         env:
           JAVA_HOME: ${{ env.JAVA_HOME }}
 
-      - name: Upload Debug APK Artifact
+      - name: Build Offline Pilot Android Debug APK (v1 + optional v2 upgrade pair)
+        if: ${{ (inputs.build_mode || 'offline-pilot') == 'offline-pilot' }}
+        run: |
+          mkdir -p dist-apk
+          cd android
+          chmod +x gradlew
+          ./gradlew assembleDebug --no-daemon -PlerneOfflinePilot=true -PlernePilotVersionCode=1 -PlernePilotVersionName=1.0.0-offline-pilot
+          cp app/build/outputs/apk/debug/app-debug.apk ../dist-apk/lerne-offline-pilot-v1-debug.apk
+          if [ "${{ inputs.build_upgrade_test_pair }}" != "false" ]; then
+            ./gradlew assembleDebug --no-daemon -PlerneOfflinePilot=true -PlernePilotVersionCode=2 -PlernePilotVersionName=1.0.1-offline-pilot
+            cp app/build/outputs/apk/debug/app-debug.apk ../dist-apk/lerne-offline-pilot-v2-debug.apk
+          fi
+        env:
+          JAVA_HOME: ${{ env.JAVA_HOME }}
+
+      - name: Upload Standard Debug APK Artifact
+        if: ${{ (inputs.build_mode || 'offline-pilot') == 'standard' }}
         uses: actions/upload-artifact@v4
         with:
           name: Lerne-Android-Debug-APK
           path: android/app/build/outputs/apk/debug/app-debug.apk
+
+      - name: Upload Offline Pilot Debug APK Artifact
+        if: ${{ (inputs.build_mode || 'offline-pilot') == 'offline-pilot' }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: Lerne-Offline-Pilot-Debug-APK
+          path: dist-apk/*.apk

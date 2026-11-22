@@ -9,12 +9,15 @@ class DeployManifestTests(unittest.TestCase):
     def test_tma_does_not_import_admin_or_removed_admin_fixtures(self):
         sources = subprocess.check_output(['git', 'ls-files', '--cached', '--others', '--exclude-standard',
                                           '--', 'api', 'local', 'scripts/tests', 'tests'], cwd=ROOT, text=True)
+        production_files = set(inspect()['source_files'])
         for relative in sorted(set(sources.splitlines())):
             path = ROOT / relative
             if path.suffix == '.py' and path.is_file():
                 for node in ast.walk(ast.parse(path.read_text(encoding='utf-8-sig'))):
                     names = [node.module or ''] if isinstance(node, ast.ImportFrom) else [n.name for n in node.names] if isinstance(node, ast.Import) else []
-                    self.assertFalse(any(n.startswith(('tools.admin', 'lerne_admin')) for n in names), str(path))
+                    if any(n.startswith(('tools.admin', 'lerne_admin')) for n in names):
+                        self.assertEqual(relative, 'scripts/tests/test_android_admin_archive_compat.py')
+                        self.assertNotIn(relative, production_files)
                     if isinstance(node, ast.ImportFrom) and node.module == 'scripts.tests':
                         for alias in node.names:
                             if alias.name.startswith(('test_', 'admin_')):

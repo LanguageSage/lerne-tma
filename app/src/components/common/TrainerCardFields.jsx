@@ -12,7 +12,7 @@ const partTypes = {
   auto: ['Пропуск с автоматическими вариантами', { type: 'choice', distractors: 'auto', options: [{ text: '', correct: true }] }],
 };
 
-export function TrainerCardFields({ cardData, update, textStyles }) {
+export function TrainerCardFields({ cardData, update, textStyles, lockLayout = false, resolveMediaUrl }) {
   const { parts } = cardData.content_v2.card.data;
   const editor = useRef(null);
   const addPartButton = useRef(null);
@@ -144,7 +144,7 @@ export function TrainerCardFields({ cardData, update, textStyles }) {
   };
 
   let gap = 0;
-  return <VisualCardFields cardData={cardData} update={update}
+  return <VisualCardFields cardData={cardData} update={update} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<div ref={editor} className="trainer-editor trainer-exercise">
       <div className="trainer-editor-heading"><Puzzle size={18} aria-hidden="true" />{tr('Заполните пропуски:')}</div>
       <div className="trainer-editor-sentence" style={textStyles.frontText}>

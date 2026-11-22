@@ -5,7 +5,7 @@ import { studyQuiz } from '../../utils/structuredStudyCard';
 import { QuizContent } from '../study/StudyCardQuiz';
 import { InlineText, VisualCardFields } from './VisualCardFields';
 
-export function QuizCardFields({ cardData, update, designConfig, dictation }) {
+export function QuizCardFields({ cardData, update, designConfig, dictation, lockLayout = false, resolveMediaUrl }) {
   const card = cardData.content_v2.card;
   const quiz = studyQuiz(card.data);
   const fields = useRef(null);
@@ -23,7 +23,7 @@ export function QuizCardFields({ cardData, update, designConfig, dictation }) {
   }));
   const editOption = (index, patch) => updateOptions(options =>
     options.map((option, i) => i === index ? { ...option, ...patch } : option));
-  return <VisualCardFields cardData={cardData} update={update} dictation={dictation}
+  return <VisualCardFields cardData={cardData} update={update} dictation={dictation} lockLayout={lockLayout} resolveMediaUrl={resolveMediaUrl}
     exercise={<div ref={fields}>
       <QuizContent options={quiz.options} designConfig={designConfig}
         question={<InlineText id="card-editor-front" value={quiz.question} display={quiz.question} label={tr('Вопрос')}

@@ -3,6 +3,7 @@ import { create } from 'zustand';
 import { cloudStorage } from '../utils/auth';
 import api from '../services/api';
 import { useDeckStore } from './useDeckStore';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 export const SUPPORTED_LANGUAGES = [
   { code: 'de', name: 'Deutsch', flag: '🇩🇪', get label() { return tr("Немецкий"); }, get desc() { return tr("Изучение грамматики, артиклей der/die/das и падежей"); } },
@@ -34,7 +35,7 @@ export const useLanguageStore = create((set, get) => ({
       set({ activeLanguage: code, hasSelectedLanguage: true, isLanguageModalOpen: false });
 
       // 3. Backend DB sync
-      if (!skipBackend) {
+      if (!skipBackend && !IS_STANDALONE) {
         try {
           await api.post('/user/language', { active_language: code, has_selected_language: true });
         } catch (err) {

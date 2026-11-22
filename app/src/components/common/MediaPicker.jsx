@@ -4,6 +4,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Camera, Search, ClipboardPaste, X } from 'lucide-react';
 import { ImageEditorModal } from './ImageEditorModal';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const MediaPicker = ({ 
   isOpen, 
@@ -118,7 +119,11 @@ export const MediaPicker = ({
       }
       if (navigator.clipboard?.readText) {
         const text = (await navigator.clipboard.readText() || '').trim();
-        if (/^https?:\/\/.*\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(text) || /^data:image\//i.test(text)) {
+        if (IS_STANDALONE && /^https?:\/\//i.test(text)) {
+          showToast(tr("Загрузка изображений по ссылке недоступна автономно. Выберите файл или вставьте картинку."), 'info');
+          return;
+        }
+        if ((!IS_STANDALONE && /^https?:\/\/.*\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(text)) || /^data:image\//i.test(text)) {
           try {
             const res = await fetch(text);
             const blob = await res.blob();
@@ -221,16 +226,18 @@ export const MediaPicker = ({
                   <ClipboardPaste size={24} color="#fbbf24" />
                   <span>{tr("Из буфера")}</span>
                 </button>
-                <a
-                  href={googleImageUrl}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="image-picker-tile"
-                  title={tr("Открыть поиск картинок Google в новой вкладке")}
-                >
-                  <Search size={24} color="#34d399" />
-                  <span>{tr("Поиск Google")}</span>
-                </a>
+                {!IS_STANDALONE && (
+                  <a
+                    href={googleImageUrl}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="image-picker-tile"
+                    title={tr("Открыть поиск картинок Google в новой вкладке")}
+                  >
+                    <Search size={24} color="#34d399" />
+                    <span>{tr("Поиск Google")}</span>
+                  </a>
+                )}
               </div>
               <input
                 ref={galleryInputRef}

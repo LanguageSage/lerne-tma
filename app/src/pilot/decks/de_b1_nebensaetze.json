@@ -1,0 +1,165 @@
+{
+  "schema_version": 2,
+  "deck": {
+    "name": "Nebensätze & Konjunktionen (B1)",
+    "passport": {
+      "schema_version": 1,
+      "intro": {
+        "title": "Nebensätze & Konjunktionen",
+        "level": "B1",
+        "topic": "Сложноподчинённые предложения и союзы",
+        "goal": "Уверенно различать союзы с прямым порядком слов и союзы, отправляющие глагол в конец",
+        "learning_outcomes": [
+          "Строить придаточные с weil, obwohl, dass, wenn",
+          "Различать denn (позиция 0) и weil (глагол в конце)",
+          "Уверенно переходить от придаточного к главному предложению"
+        ],
+        "estimated_time": "10 мин"
+      },
+      "pedagogy": {
+        "lesson_type": "practice"
+      }
+    },
+    "metadata": {
+      "target_language": "de",
+      "author": "Lerne Offline Pilot"
+    }
+  },
+  "cards": [
+    {
+      "id": "b1-neb-01",
+      "type": "theory",
+      "level": "B1",
+      "topics": ["Nebensätze"],
+      "info": [
+        { "type": "task", "text": "Сравните порядок слов после союзов." }
+      ],
+      "data": {
+        "text": "**Союзы Nebensatz** (*weil, dass, obwohl, wenn, damit, bevor*) отправляют спрягаемый глагол **в самый конец**:\nIch bleibe hier, **weil** ich noch arbeiten **muss**.\n\n**ADUSO-союзы** (*aber, denn, und, sondern, oder*) не меняют порядок слов:\nIch bleibe hier, **denn** ich **muss** noch arbeiten.",
+        "summary": "weil/obwohl/dass → глагол в конец; denn/aber → прямой порядок слов."
+      },
+      "explanation": "Если придаточное стоит перед главным, главное начинается со спрягаемого глагола: Obwohl es regnet, gehen wir spazieren."
+    },
+    {
+      "id": "b1-neb-02",
+      "type": "standard",
+      "level": "B1",
+      "topics": ["Konjunktionen"],
+      "data": {
+        "prompt": "obwohl + Verb am Ende",
+        "answer": "хотя, несмотря на то что (уступительный союз)"
+      },
+      "explanation": "Пример: Obwohl ich müde bin, lerne ich noch 15 Minuten."
+    },
+    {
+      "id": "b1-neb-03",
+      "type": "trainer",
+      "level": "B1",
+      "topics": ["Konjunktionen"],
+      "info": [
+        { "type": "task", "text": "Выберите союз, подходящий к такому порядку слов." }
+      ],
+      "data": {
+        "back_note": "Глагол (habe) стоит на 2-м месте сразу после подлежащего (ich) → нужен союз denn.",
+        "parts": [
+          { "type": "text", "text": "Ich kaufe ein Ticket, " },
+          {
+            "type": "choice",
+            "options": [
+              { "text": "denn", "correct": true },
+              { "text": "weil", "correct": false },
+              { "text": "obwohl", "correct": false }
+            ]
+          },
+          { "type": "text", "text": " ich habe morgen eine Reise." }
+        ]
+      },
+      "explanation": "С weil было бы: ..., weil ich morgen eine Reise habe."
+    },
+    {
+      "id": "b1-neb-04",
+      "type": "trainer",
+      "level": "B1",
+      "topics": ["Nebensätze"],
+      "info": [
+        { "type": "task", "text": "Вставьте союз хотя (несмотря на то что) по-немецки." }
+      ],
+      "data": {
+        "back_note": "obwohl вводит уступительное придаточное с глаголом в конце.",
+        "parts": [
+          { "type": "input", "answers": ["Obwohl", "obwohl"] },
+          { "type": "text", "text": " der Bus Verspätung hatte, kamen wir rechtzeitig an." }
+        ]
+      },
+      "explanation": "Obwohl ... hatte → глагол стоит в конце придаточного."
+    },
+    {
+      "id": "b1-neb-05",
+      "type": "quiz",
+      "level": "B1",
+      "topics": ["Wortstellung"],
+      "data": {
+        "prompt": "Какой вариант верен при начале фразы с придаточного предложения?",
+        "back_note": "Всё придаточное целиком занимает 1-ю позицию, поэтому на 2-й стоит спрягаемый глагол главного предложения.",
+        "options": [
+          { "text": "Wenn du Zeit hast, können wir zusammen kochen.", "correct": true },
+          { "text": "Wenn du Zeit hast, wir können zusammen kochen.", "correct": false },
+          { "text": "Wenn hast du Zeit, können wir zusammen kochen.", "correct": false }
+        ]
+      },
+      "explanation": "Правило «глагол — запятая — глагол» для связки Nebensatz + Hauptsatz."
+    },
+    {
+      "id": "b1-neb-06",
+      "type": "match",
+      "level": "B1",
+      "topics": ["Konjunktionen"],
+      "info": [
+        { "type": "task", "text": "Соотнесите союзы с их значением." }
+      ],
+      "data": {
+        "back_note": "Основные союзы уровня B1.",
+        "pairs": [
+          { "left": "obwohl", "right": "хотя" },
+          { "left": "deshalb", "right": "поэтому" },
+          { "left": "damit", "right": "чтобы" },
+          { "left": "falls", "right": "в случае если" }
+        ]
+      }
+    },
+    {
+      "id": "b1-neb-07",
+      "type": "puzzle",
+      "level": "B1",
+      "topics": ["Nebensätze"],
+      "info": [
+        { "type": "task", "text": "Соберите предложение с придаточным причины." }
+      ],
+      "data": {
+        "tokens": ["Sie", "lernt", "Deutsch,", "weil", "sie", "in", "Wien", "arbeiten", "möchte."],
+        "translation": "Она учит немецкий, потому что хочет работать в Вене."
+      },
+      "explanation": "В придаточном с weil спрягаемый глагол möchte стоит в самом конце после инфинитива arbeiten."
+    },
+    {
+      "id": "b1-neb-08",
+      "type": "word_bank",
+      "level": "B1",
+      "topics": ["Konjunktionen"],
+      "info": [
+        { "type": "task", "text": "Заполните пропуски подходящими союзами." }
+      ],
+      "data": {
+        "options": ["dass", "ob", "weil"],
+        "parts": [
+          { "type": "text", "text": "Ich weiß nicht, " },
+          { "type": "gap", "option": 1 },
+          { "type": "text", "text": " er heute kommt, " },
+          { "type": "gap", "option": 2 },
+          { "type": "text", "text": " er noch im Büro ist." }
+        ]
+      },
+      "explanation": "ob используется для косвенного вопроса «ли»; weil — для причины."
+    }
+  ]
+}

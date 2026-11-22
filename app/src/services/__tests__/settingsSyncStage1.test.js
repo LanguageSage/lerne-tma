@@ -185,6 +185,9 @@ mock.module('../../store/useDeckStore.js', { namedExports: { useDeckStore } });
 mock.module('../../store/useLanguageStore.js', { namedExports: { useLanguageStore } });
 mock.module('../../store/useAuthStore.js', { namedExports: { useAuthStore } });
 mock.module('../localDb.js', { namedExports: { isOfflineMode: () => storage.get('offline_mode') === 'true' } });
+mock.module('../../pilot/standaloneBootstrap.js', {
+  namedExports: { runStandaloneBootstrap: () => assert.fail('Web startup invoked the standalone bootstrap') },
+});
 mock.module('../syncService.js', { namedExports: { subscribeSyncUi: () => () => {}, syncService: { sync: async () => ({}) } } });
 mock.module('../offlineUi.js', {
   namedExports: {

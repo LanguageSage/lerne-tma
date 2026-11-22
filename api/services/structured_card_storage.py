@@ -4,7 +4,7 @@ import datetime
 from peewee import PostgresqlDatabase
 
 from api.models import TMA_Card
-from api.services.structured_cards_v2 import Card, validate_card
+from api.services.structured_cards_v2 import Card, ContentV2, validate_card
 
 
 class V2CardNotFound(LookupError):
@@ -72,10 +72,7 @@ def read_v2_card(card_id: int) -> Card:
 
 
 def decode_v2_content(envelope) -> Card:
-    if (not isinstance(envelope, dict) or envelope.keys() != {'schema_version', 'card'}
-            or type(envelope['schema_version']) is not int or envelope['schema_version'] != 2):
-        raise ValueError('Invalid stored Structured Cards V2 envelope')
-    return validate_card(envelope['card'])
+    return ContentV2.model_validate(envelope).card
 
 
 def replace_v2_card(card_id: int, value, *, previous=None) -> Card:

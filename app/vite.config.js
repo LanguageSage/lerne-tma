@@ -9,6 +9,8 @@ import { randomBytes } from 'node:crypto'
 const mode = (process.env.LERNE_MODE || '').toUpperCase();
 if (mode && mode !== 'LOCAL') throw new Error('Unknown LERNE_MODE; use LOCAL or leave it unset');
 const local = mode === 'LOCAL' || process.env.VITE_LERNE_LOCAL === '1';
+const standalone = process.env.VITE_LERNE_STANDALONE === '1';
+if (local && standalone) throw new Error('LOCAL and STANDALONE cannot be enabled together');
 const preview = local && process.env.LERNE_V2_PREVIEW === '1';
 const localPort = preview ? 5174 : 5173;
 const localApiPort = preview ? 8002 : 8001;
@@ -43,6 +45,14 @@ const localPlugin = {
     if (id.endsWith('.css')) return code.replace(/@import url\(['"]https?:[^;]+;/g, '');
   },
 };
+const standalonePlugin = {
+  name: 'lerne-standalone-offline',
+  transformIndexHtml: html => html.replace(/<link[^>]+https:\/\/fonts\.[^>]+>/g, '')
+    .replace(/<script src="https:\/\/telegram\.org[^>]+><\/script>/g, ''),
+  transform(code, id) {
+    if (id.endsWith('.css')) return code.replace(/@import url\(['"]https?:[^;]+;/g, '');
+  },
+};
 
 // https://vite.dev/config/
 export default defineConfig(({ command }) => {
@@ -50,11 +60,12 @@ export default defineConfig(({ command }) => {
   return {
   // The regression server must not load developer credentials or proxy to a
   // configured backend. Missing API mocks fail against a closed local port.
-  envDir: local || process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
+  envDir: local || standalone || process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
   define: { 'import.meta.env.VITE_LERNE_LOCAL': JSON.stringify(local ? '1' : '0'),
+    'import.meta.env.VITE_LERNE_STANDALONE': JSON.stringify(standalone ? '1' : '0'),
     'import.meta.env.VITE_LERNE_V2_PREVIEW': JSON.stringify(preview ? '1' : '0') },
   html: { cspNonce: localNonce },
-  plugins: [react(), ...(local ? [localPlugin] : [])],
+  plugins: [react(), ...(local ? [localPlugin] : []), ...(standalone ? [standalonePlugin] : [])],
   server: {
     hmr: process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
     host: local ? '127.0.0.1' : true,

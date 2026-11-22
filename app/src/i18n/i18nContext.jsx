@@ -5,6 +5,7 @@ import api from '../services/api';
 import { setInterfaceLanguage, normalizeInterfaceLanguage, getInterfaceLanguage, t as translateLocale } from './locale';
 import { useInterfaceLocale } from './useInterfaceLocale';
 import { useSettingsStore } from '../store/useSettingsStore';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 const noop = () => {};
 const LanguageContext = createContext({
@@ -19,6 +20,7 @@ const LanguageContext = createContext({
 export function LanguageProvider({ children }) {
   const nativeLanguage = useInterfaceLocale();
   const [isFirstLaunch, setIsFirstLaunch] = useState(() => {
+    if (IS_STANDALONE) return false;
     const nativeDone = localStorage.getItem('native_language_selected') === 'true';
     const targetDone = localStorage.getItem('lerne_has_selected_language') === 'true';
     return !nativeDone || !targetDone;
@@ -26,6 +28,7 @@ export function LanguageProvider({ children }) {
 
   // 1. Restore native language from Telegram CloudStorage on mount if missing in LocalStorage
   useEffect(() => {
+    if (IS_STANDALONE) return;
     const savedAtStart = localStorage.getItem('native_language');
     const restoreFromCloud = async () => {
       try {
@@ -52,7 +55,7 @@ export function LanguageProvider({ children }) {
   useEffect(() => {
     const previous = localStorage.getItem('native_language');
     setInterfaceLanguage(nativeLanguage);
-    if (previous && previous !== nativeLanguage) {
+    if (!IS_STANDALONE && previous && previous !== nativeLanguage) {
       cloudStorage.set('lerne_native_language', nativeLanguage);
       api.post('/user/language', { native_language: nativeLanguage }).catch(() => {});
     }
@@ -70,11 +73,13 @@ export function LanguageProvider({ children }) {
         setIsFirstLaunch(false);
       }
 
-      // Async sync to backend
-      api.post('/user/language', { native_language: code }).catch(err => {
-        console.error("Failed to save native language to backend:", err);
-      });
-      useSettingsStore.getState().saveCurrentSettingsToServer().catch(() => {});
+      if (!IS_STANDALONE) {
+        // Async sync to backend
+        api.post('/user/language', { native_language: code }).catch(err => {
+          console.error("Failed to save native language to backend:", err);
+        });
+        useSettingsStore.getState().saveCurrentSettingsToServer().catch(() => {});
+      }
     }
   }, []);
 

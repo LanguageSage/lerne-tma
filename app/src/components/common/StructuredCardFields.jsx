@@ -137,7 +137,8 @@ function CardTopics({ topics, update }) {
   </details>;
 }
 
-export function StructuredCardExtras({ card, update, attachImage, uploadLayoutImage }) {
+export function StructuredCardExtras({ card, update, attachImage, uploadLayoutImage, lockLayout = false }) {
+  const layoutImages = Array.isArray(card.layout) ? card.layout.filter(item => item.type === 'image') : [];
   return <>
     <CardTopics topics={card.topics || []} update={update} />
     {card.info?.some(block => block.type === 'options') && <details className="card-form-secondary">
@@ -148,7 +149,22 @@ export function StructuredCardExtras({ card, update, attachImage, uploadLayoutIm
     </details>}
     <details>
       <summary>{tr('Изображения')}</summary>
-      <CardImages card={card} update={update} attachImage={attachImage} uploadLayoutImage={uploadLayoutImage} />
+      {lockLayout ? (
+        <div className="card-layout-editor card-layout-editor-locked" data-testid="standalone-layout-images-locked">
+          <p style={{ margin: '0 0 6px', fontSize: '0.85rem', lineHeight: 1.4 }}>
+            {tr('Добавление и изменение изображений в макете (layout) требует визуального редактора дизайна. Для обложки карточки используйте кнопку «Картинка» в разделе «Медиа и оформление».')}
+          </p>
+          {layoutImages.length > 0 && (
+            <ul style={{ margin: 0, paddingInlineStart: '18px', fontSize: '0.8rem', opacity: 0.85, overflowWrap: 'anywhere' }}>
+              {layoutImages.map(item => (
+                <li key={item.id}>{item.path}{item.caption ? ` — ${item.caption}` : ''}</li>
+              ))}
+            </ul>
+          )}
+        </div>
+      ) : (
+        <CardImages card={card} update={update} attachImage={attachImage} uploadLayoutImage={uploadLayoutImage} />
+      )}
     </details>
   </>;
 }

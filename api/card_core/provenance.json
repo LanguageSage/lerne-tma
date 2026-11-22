@@ -1,13 +1,13 @@
 {
   "name": "lerne-card-core",
-  "version": "0.2.0",
+  "version": "0.2.1",
   "source_repository": "LanguageSage/lerne-tma",
-  "source_revision": "a35524df0855c631744a41146e6bd8e39974a1ca",
-  "source_version": "0.2.0",
+  "source_revision": "4c642e5d5f48fe8515c17684566c3a977dcfed9d",
+  "source_version": "0.2.1",
   "newline": "LF",
-  "source_state": "Stage 5: consolidate cefr_metadata, cefr_rubrics, language_config, prompt_builders, language_service, classifier, and storage_keys into lerne-card-core 0.2.0.",
+  "source_state": "Native V2 generated client contract and shared semantic declarations.",
   "source_files": {
-    "api/card_core/lerne_card_core/__init__.py": "73e50ca8a2c49c23cbb6129af3128d55f39c70370148beca136ce045e2906e1e",
+    "api/card_core/lerne_card_core/__init__.py": "f11394d3677c2c54f6ce7d8a0b2a6f518b187431d907d763c412f1d53d24e6d6",
     "api/card_core/lerne_card_core/answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "api/card_core/lerne_card_core/cefr_metadata.py": "07db8abeb864e7b4f74bbe98450640b51274af3ae2006e4a896f3c4046c1c182",
     "api/card_core/lerne_card_core/cefr_rubrics.py": "8d9b5c027585a013fb76bc179eb10b97cbbb833c0b10a6303b6a3e92d9974cf7",
@@ -23,14 +23,15 @@
     "api/card_core/lerne_card_core/input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
     "api/card_core/lerne_card_core/language_config.py": "3fbdc6661e7fd3708657b76097d68baf4a4693764a4ed0ff21c47a48f20ce522",
     "api/card_core/lerne_card_core/language_service.py": "2fae8ce4993a2fb92f5b95d09095197cb41899b26b311cc7b1f709ca1a14a3bd",
+    "api/card_core/lerne_card_core/native_v2_rules.py": "de9ad127ff25fa7da0258c0b9a5daeb38ba8399f691c627e265e88f51c675846",
     "api/card_core/lerne_card_core/prompt_builders.py": "ba2eb840a125dbdf6b58a16783d578b6757ed043e6c480bdc7c68ee58bcfd6fc",
     "api/card_core/lerne_card_core/storage_keys.py": "7abc7f542f5a8e9e6ac42705c93688d48d6887a778f8166b56523bbe52d7ea9b",
     "api/card_core/lerne_card_core/structured_cards_import.py": "a5eb4d71f8a4798a75d85cd097cc9795f1ba74dd6925ee514819aacd77a57921",
     "api/card_core/lerne_card_core/structured_cards_legacy.py": "831b6d16f16cdc448ad8c8572ecf3b96098e998d3a35038421d537dd962737a1",
-    "api/card_core/lerne_card_core/structured_cards_v2.py": "1ea7f7f9a6492c5d32fecc46e67d1f64ffe12bb5e9611f1b69cd029103659a51"
+    "api/card_core/lerne_card_core/structured_cards_v2.py": "9e8c37168c39b0b43de74534f0536107a849182424920e1a0d736abcab75dbdb"
   },
   "files": {
-    "__init__.py": "73e50ca8a2c49c23cbb6129af3128d55f39c70370148beca136ce045e2906e1e",
+    "__init__.py": "f11394d3677c2c54f6ce7d8a0b2a6f518b187431d907d763c412f1d53d24e6d6",
     "answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",
     "cefr_metadata.py": "07db8abeb864e7b4f74bbe98450640b51274af3ae2006e4a896f3c4046c1c182",
     "cefr_rubrics.py": "8d9b5c027585a013fb76bc179eb10b97cbbb833c0b10a6303b6a3e92d9974cf7",
@@ -46,15 +47,17 @@
     "input_parser.py": "3f81a600aa27625e6dff38186a5368456c889a403193b89c69cabb2bafe7e59d",
     "language_config.py": "3fbdc6661e7fd3708657b76097d68baf4a4693764a4ed0ff21c47a48f20ce522",
     "language_service.py": "2fae8ce4993a2fb92f5b95d09095197cb41899b26b311cc7b1f709ca1a14a3bd",
+    "native_v2_rules.py": "de9ad127ff25fa7da0258c0b9a5daeb38ba8399f691c627e265e88f51c675846",
     "prompt_builders.py": "ba2eb840a125dbdf6b58a16783d578b6757ed043e6c480bdc7c68ee58bcfd6fc",
     "storage_keys.py": "7abc7f542f5a8e9e6ac42705c93688d48d6887a778f8166b56523bbe52d7ea9b",
     "structured_cards_import.py": "a5eb4d71f8a4798a75d85cd097cc9795f1ba74dd6925ee514819aacd77a57921",
     "structured_cards_legacy.py": "831b6d16f16cdc448ad8c8572ecf3b96098e998d3a35038421d537dd962737a1",
-    "structured_cards_v2.py": "1ea7f7f9a6492c5d32fecc46e67d1f64ffe12bb5e9611f1b69cd029103659a51"
+    "structured_cards_v2.py": "9e8c37168c39b0b43de74534f0536107a849182424920e1a0d736abcab75dbdb"
   },
   "build": {
     "setuptools": "80.9.0",
     "wheel": "0.45.1",
     "archive": "sorted ZIP, fixed Unix permissions, Git SOURCE_DATE_EPOCH, LF dist-info, SHA-256 RECORD"
-  }
+  },
+  "source_tree": "9c79b7568224552cb5a2e8a4adc2fb5758f48d37"
 }

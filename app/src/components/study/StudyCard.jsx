@@ -25,6 +25,7 @@ import { studyContent, studyExerciseType, studySideText } from '../../utils/stru
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { NativeCardViewer } from '../../card-ui/NativeCardViewer.jsx';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 const LeechBadge = ({ lapses }) => (
   <div
@@ -263,14 +264,14 @@ export const StudyCard = React.memo(({
 
   const frontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: isBackPrompt ? null : frontVoicePicker,
+    voicePicker: (IS_STANDALONE || isBackPrompt) ? null : frontVoicePicker,
     cardText: isBackPrompt ? '' : frontText,
     cardId: isBackPrompt ? null : card?.id,
   };
 
   const backFrontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: isReverse ? null : frontVoicePicker,
+    voicePicker: (IS_STANDALONE || isReverse) ? null : frontVoicePicker,
     cardText: isReverse ? '' : frontText,
     cardId: isReverse ? null : card?.id,
   };
@@ -281,9 +282,9 @@ export const StudyCard = React.memo(({
   };
 
   const hasExistingFrontAudio = Boolean(getPhysicalSideAudioSource(card, promptPhysicalSide));
-  const showFrontAudio = Boolean(hasExistingFrontAudio || (!isBackPrompt && frontText));
+  const showFrontAudio = Boolean(hasExistingFrontAudio || (!IS_STANDALONE && !isBackPrompt && frontText));
   const hasExistingBackFrontAudio = Boolean(getPhysicalSideAudioSource(card, isReverse ? 'back' : 'front'));
-  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!isReverse && frontText));
+  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!IS_STANDALONE && !isReverse && frontText));
 
   return (
     <NativeCardViewer
@@ -321,7 +322,7 @@ export const StudyCard = React.memo(({
           ? <MarkdownRenderer>{raw}</MarkdownRenderer>
           : <KaraokeText text={plain} activeWordIndex={activeWordIndex} style={style} />
       )}
-      evaluateAnswer={evaluateFreeTextAnswer}
+      evaluateAnswer={IS_STANDALONE ? null : evaluateFreeTextAnswer}
       isAdmin={isAdmin}
       onBeforeDictation={stopGlobalAudio}
       onTrainerAnswer={onTrainerAnswer}
@@ -338,7 +339,7 @@ export const StudyCard = React.memo(({
           onFlip={onFlip}
           loading={loading}
           playAudio={playAudio}
-          onPlayCardAudio={async () => {
+          onPlayCardAudio={IS_STANDALONE ? null : async () => {
             const url = await frontVoicePicker.generateAndSaveToCard(card?.id, frontText, false);
             if (url) playAudio?.(url);
           }}
@@ -351,7 +352,7 @@ export const StudyCard = React.memo(({
       topBackSlot={leechBadge}
       backQuestionSlot={(
         <>
-          <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />
+          {!IS_STANDALONE && <CardQuestionComposer key={card?.id} onSubmit={handleAsk} submitLabel={tr('Задать')} />}
           {aiExplanation && (
             <div className="ai-explanation-block card-context-wrapper">
               <strong>{tr('Ответ ИИ:')}</strong>
@@ -382,7 +383,7 @@ export const StudyCard = React.memo(({
         </div>
       ) : null}
       footerRightSlot={<CardActionButton card={card} size={20} className="study-card-actions-button" refreshNotes />}
-      footerBottomSlot={<CardRating key={card?.id} card={card} deckId={card?.deck_id ?? deckId} />}
+      footerBottomSlot={!IS_STANDALONE && <CardRating key={card?.id} card={card} deckId={card?.deck_id ?? deckId} />}
       inlineAudio={false}
     />
   );

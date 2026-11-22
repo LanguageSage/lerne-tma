@@ -43,6 +43,12 @@
   border-radius: 8px;
   background: var(--design-glass-bg);
 }
+.visual-card-form .visual-card-layout-block-locked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.visual-card-form .visual-card-layout-block-locked > [data-layout-id] {
+  grid-area: auto;
+}
 .visual-card-form .text-front .visual-card-inline-field,
 .visual-card-form-back .visual-card-inline-field {
   padding: 6px 8px;
@@ -50,6 +56,24 @@
   border-radius: 8px;
 }
 .visual-card-form .ai-quick-actions > :is(button, .card-question-composer) { flex-basis: 100%; }
+.visual-card-form .ai-quick-actions.no-ai > button { flex-basis: auto; }
+
+.standalone-editor-danger-zone {
+  margin-top: 12px;
+  display: flex;
+  justify-content: flex-end;
+}
+.standalone-editor-delete-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 44px;
+  width: 100%;
+  color: #fca5a5;
+  border-color: rgba(239, 68, 68, 0.35);
+  background: rgba(239, 68, 68, 0.08);
+}
 
 .visual-card-form-section {
   margin-block: 10px;

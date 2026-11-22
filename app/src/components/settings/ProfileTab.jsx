@@ -10,6 +10,9 @@ import { db } from '../../services/localDb';
 import { syncService } from '../../services/syncService';
 import { openExternalLink, closeApp } from '../../utils/platform';
 import { getSessionIdentity, getUserId, resetUserSession } from '../../utils/auth';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
+import { StandaloneBackupSection } from '../../pilot/StandaloneBackupSection.jsx';
+import { StandaloneMaterialsSection } from '../../pilot/StandaloneMaterialsSection.jsx';
 
 export const ProfileTab = ({ userId }) => {
   useInterfaceLocale();
@@ -27,6 +30,7 @@ export const ProfileTab = ({ userId }) => {
   const [isSaving, setIsSaving] = useState(false);
   const [syncReport, setSyncReport] = useState(null);
   const [syncing, setSyncing] = useState(false);
+  const [materialsVersion, setMaterialsVersion] = useState(0);
   useEffect(() => { setSyncReport(null); }, [userId, userProfile?.user_id]);
 
   useEffect(() => {
@@ -75,7 +79,7 @@ export const ProfileTab = ({ userId }) => {
     cancelPendingAuth
   } = useAuthStore();
 
-  useEffect(() => { if (userProfile && !userProfile.is_guest) refreshAuthMethods(); }, [userProfile, refreshAuthMethods]);
+  useEffect(() => { if (!IS_STANDALONE && userProfile && !userProfile.is_guest) refreshAuthMethods(); }, [userProfile, refreshAuthMethods]);
   const credentialEmail = passwordSettings?.email || loginEmail;
   const savePassword = async (event) => {
     event.preventDefault();
@@ -86,6 +90,33 @@ export const ProfileTab = ({ userId }) => {
       if (result.success) { setLoginPassword(''); setPasswordConfirmation(''); }
     } finally { setSavingPassword(false); }
   };
+
+  if (IS_STANDALONE) {
+    return (
+      <div className="profile-tab">
+        <StandaloneMaterialsSection onMaterialsChanged={() => setMaterialsVersion(v => v + 1)} />
+        <StandaloneBackupSection refreshToken={materialsVersion} />
+        <div className="link-telegram-section glass" style={{ marginTop: '16px', border: '1px solid rgba(168, 85, 247, 0.25)', background: 'linear-gradient(135deg, rgba(168, 85, 247, 0.05), rgba(59, 130, 246, 0.03))' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <h4 style={{ margin: 0, display: 'flex', alignItems: 'center', gap: '8px', fontSize: '0.9rem' }}>
+              <BarChart2 size={16} color="#a855f7" />{tr("Статистика памяти и SRS")}{' '}</h4>
+            <span style={{ fontSize: '0.7rem', padding: '2px 8px', borderRadius: '10px', background: 'rgba(168, 85, 247, 0.15)', color: '#c084fc', fontWeight: 600 }}>{tr("Вкладка SRS")}</span>
+          </div>
+          <p style={{ fontSize: '0.78rem', color: '#94a3b8', margin: '0 0 10px 0' }}>{tr("Статистика долгосрочной памяти, прогноз повторений и расширенные настройки интервалов доступны в отдельной вкладке.")}{' '}</p>
+          <button
+            type="button"
+            className="btn btn-primary"
+            style={{ width: '100%', background: 'linear-gradient(135deg, #a855f7, #6366f1)', border: 'none', padding: '8px 12px', fontSize: '0.82rem' }}
+            onClick={() => {
+              setSettingsTab('srs');
+              try { localStorage.setItem('lerne_last_settings_tab', 'srs'); } catch { /* ignore */ }
+            }}
+          >
+            <Sparkles size={14} style={{ marginRight: '6px' }} />{tr("Перейти в раздел SRS")}{' '}</button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="profile-tab">

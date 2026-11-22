@@ -41,7 +41,7 @@ def verify(database_name, connection_args):
     from api.auth.service import register_email_password
     from api.db_workers import db_worker, run_db
     from api.routers import (
-        auth, auth_v2, card_notes, card_ratings, collaborative, debug, decks, feedback, folders,
+        auth, auth_v2, card_notes, card_ratings, cards, collaborative, debug, decks, feedback, folders,
         knowledge, lid, media, messages, share, sync, trash,
     )
     from local.router import router as local_router
@@ -95,7 +95,7 @@ def verify(database_name, connection_args):
     app.get('/api/health')(health_check)
     app.include_router(sync.router, prefix='/api')
     app.include_router(knowledge.router, prefix='/api')
-    for router in (card_notes.router, card_ratings.router, messages.router, trash.router,
+    for router in (card_notes.router, card_ratings.router, cards.router, messages.router, trash.router,
                    decks.router, feedback.router, folders.router, lid.router,
                    auth.router, auth_v2.router, local_router, collaborative.router,
                    debug.router, share.router, media.router):
@@ -263,6 +263,7 @@ async def verify_init_health(client, pool, headers, account_ids):
 async def verify_collaborative_share(client, pool, headers, account_ids):
     from api import models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     owner, viewer = headers
     owner_id, viewer_id = account_ids
@@ -272,7 +273,7 @@ async def verify_collaborative_share(client, pool, headers, account_ids):
     def seed_deck():
         models.TMAUser.update(username=viewer_name).where(models.TMAUser.user_id == viewer_id).execute()
         deck = models.TMA_Deck.create(user_id=owner_id, name='C2G share fixture')
-        models.TMA_Card.create(deck=deck, creator_id=owner_id, front_text='Hallo', back_text='Hello')
+        models.TMA_Card.create(deck=deck, creator_id=owner_id, content_v2=v2_content('Hallo', 'Hello'), card_type=None)
         models.TMAMedia.create(folder='images', filename=media_name, content=b'\xff\xd8\xfffixture')
         return deck.id
 
@@ -322,10 +323,27 @@ async def verify_collaborative_share(client, pool, headers, account_ids):
     assert comparison['existing_id'] == imported.json()['new_deck_id']
     assert comparison['my_cards_count'] == 1 and not pool._in_use
 
+    single_card_id = await run_db(
+        lambda: models.TMA_Card.create(
+            deck=deck_id, creator_id=owner_id,
+            content_v2=v2_content('Tschüss', 'Bye'), card_type=None,
+        ).id
+    )
+    card_share = await client.post(f'/api/share/generate/card/{single_card_id}', headers=owner)
+    assert card_share.status_code == 200, card_share.text
+    card_share_id = card_share.json()['share_id']
+    imported_card = await client.post('/api/share/import', headers=viewer, json={'share_id': card_share_id})
+    assert imported_card.status_code == 200, imported_card.text
+    card_result = imported_card.json()
+    assert card_result['status'] == 'ok' and card_result['type'] == 'card'
+    copied_card = await run_db(models.TMA_Card.get_by_id, card_result['new_id'])
+    assert copied_card.content_v2['card']['data']['prompt'] == 'Tschüss' and not pool._in_use
+
 
 async def verify_auth(client, pool):
     from api import models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     auth_v2 = '/api/auth/v2'
     me = f'{auth_v2}/me'
@@ -384,7 +402,8 @@ async def verify_auth(client, pool):
 
     def seed_card():
         deck = models.TMA_Deck.create(user_id=owner_id, name='Auth deletion fixture')
-        return models.TMA_Card.create(deck=deck, front_text='fixture', back_text='fixture').id
+        return models.TMA_Card.create(
+            deck=deck, content_v2=v2_content('fixture', 'fixture'), card_type=None).id
 
     card_id = await run_db(seed_card)
     # This final delete fails after the card and deck deletes in the same transaction.
@@ -415,6 +434,7 @@ async def verify_auth(client, pool):
 async def verify_local_auth(client, app, pool, other_headers, other_id):
     from api import local_runtime, models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     local_user_id = local_runtime.LOCAL_USER_ID
 
@@ -424,7 +444,8 @@ async def verify_local_auth(client, app, pool, other_headers, other_id):
         card_ids = []
         for user_id in (local_user_id, other_id):
             deck = models.TMA_Deck.create(user_id=user_id, name='LOCAL auth fixture')
-            card_ids.append(models.TMA_Card.create(deck=deck, front_text='fixture', back_text='fixture').id)
+            card_ids.append(models.TMA_Card.create(
+                deck=deck, content_v2=v2_content('fixture', 'fixture'), card_type=None).id)
         return card_ids
 
     card_id, foreign_card_id = await run_db(seed_cards)
@@ -467,17 +488,12 @@ async def verify_local_auth(client, app, pool, other_headers, other_id):
 async def verify_sync(client, pool, headers, viewer_id, disconnect_review):
     from api import models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     owner, viewer = headers
     request_id = str(uuid4())
-    progress = {'card_id': -3, 'queue': 'review', 'interval': 7, 'ease_factor': 2.5,
-                'repetitions': 1, 'lapses': 0}
-    review = {'card_id': -3, 'rating': 2, 'review_time': '2026-11-01T10:00:00Z',
-              'scheduled_interval': 7}
     batch = {'request_id': request_id, 'folders': [{'id': -1, 'name': 'Offline folder'}],
-             'decks': [{'id': -2, 'folder_id': -1, 'name': 'Offline deck'}],
-             'cards': [{'id': -3, 'deck_id': -2, 'front_text': 'Offline card', 'back_text': 'Back'}],
-             'progress': [progress], 'reviews': [review]}
+             'decks': [{'id': -2, 'folder_id': -1, 'name': 'Offline deck'}]}
 
     async def push(payload, auth=owner, expected=200):
         response = await client.post('/api/sync/v2/push', headers=auth, json=payload)
@@ -501,42 +517,84 @@ async def verify_sync(client, pool, headers, viewer_id, disconnect_review):
     assert not pool._in_use, 'Sync worker left a PostgreSQL connection checked out'
     receipt = duplicates[0].json()
     assert all(reply.json() == receipt for reply in duplicates)
-    assert receipt['review_count'] == 1
-    card_id = receipt['mappings']['cards']['-3']
+    assert receipt['review_count'] == 0
     deck_id = receipt['mappings']['decks']['-2']
     folder_id = receipt['mappings']['folders']['-1']
-    # Simulate a lost acknowledgement by submitting the original unchanged
-    # request again. Then verify a conflicting payload cannot mutate the card.
     assert (await push(batch)).json() == receipt
-    await push({**batch, 'reviews': [{**review, 'rating': 0}]}, expected=409)
+    await push({**batch, 'decks': [{'id': -2, 'folder_id': -1, 'name': 'Changed'}]}, expected=409)
     assert not pool._in_use
+
+    # Legacy card creation via /api/sync/v2/push or /push-legacy is rejected without writing.
+    legacy_batch = {'request_id': str(uuid4()), 'cards': [
+        {'id': -3, 'deck_id': deck_id, 'front_text': 'Offline card', 'back_text': 'Back'}]}
+    for path in ('/api/sync/v2/push', '/api/sync/v2/push-legacy'):
+        rejected = await client.post(path, headers=owner, json=legacy_batch)
+        assert rejected.status_code == 409, rejected.text
+        assert rejected.json()['detail']['code'] == 'legacy_queue_requires_recovery'
+    assert not pool._in_use
+
+    # Create native V2 card with idempotent request_id retry.
+    card_payload = {'request_id': str(uuid4()), 'deck_id': deck_id,
+                    'content_v2': v2_content('Offline card', 'Back')}
+    card_res = await client.post('/api/cards/save', headers=owner, json=card_payload)
+    assert card_res.status_code == 200, card_res.text
+    card_retry = await client.post('/api/cards/save', headers=owner, json=card_payload)
+    assert card_retry.status_code == 200 and card_retry.json() == card_res.json()
+    card_id = card_res.json()['id']
+    card_revision = card_res.json()['revision']
+
+    # Concurrent progress + review batch with receipt deduplication and conflict check.
+    review_request_id = str(uuid4())
+    progress = {'card_id': card_id, 'queue': 'review', 'interval': 7, 'ease_factor': 2.5,
+                'repetitions': 1, 'lapses': 0}
+    review = {'card_id': card_id, 'rating': 2, 'review_time': '2026-11-01T10:00:00Z',
+              'scheduled_interval': 7}
+    review_batch = {'request_id': review_request_id, 'progress': [progress], 'reviews': [review]}
+    limiter = to_thread.current_default_thread_limiter()
+    tokens = limiter.total_tokens
+    limiter.total_tokens = 2
+    try:
+        review_dups = await asyncio.gather(*(push(review_batch) for _ in range(8)))
+    finally:
+        limiter.total_tokens = tokens
+    assert not pool._in_use, 'Sync worker left a PostgreSQL connection checked out'
+    review_receipt = review_dups[0].json()
+    assert all(reply.json() == review_receipt for reply in review_dups)
+    assert review_receipt['review_count'] == 1
+    assert (await push(review_batch)).json() == review_receipt
+    await push({**review_batch, 'reviews': [{**review, 'rating': 0}]}, expected=409)
+    assert not pool._in_use
+
     def verify_original_batch():
-        assert models.TMA_Card.select().where(models.TMA_Card.front_text == 'Offline card').count() == 1
+        assert models.TMA_Card.select().where(models.TMA_Card.deck == deck_id).count() == 1
+        assert models.TMA_Card.get_by_id(card_id).content_v2['card']['data']['prompt'] == 'Offline card'
         assert models.TMAReviewHistory.select().where(models.TMAReviewHistory.card_id == card_id).count() == 1
         assert models.TMA_Deck.get_by_id(deck_id).folder_id == folder_id
 
     await run_db(verify_original_batch)
 
     # Same request ID belongs to a different receipt namespace for each user.
-    assert (await push({'request_id': request_id}, viewer)).json()['review_count'] == 0
+    assert (await push({'request_id': review_request_id}, viewer)).json()['review_count'] == 0
     own, other = await asyncio.gather(pull(owner), pull(viewer))
     assert any(row['id'] == card_id for row in own['cards'])
     assert any(row['card_id'] == card_id and row['interval'] == 7 for row in own['progress'])
     assert all(row['id'] != card_id for row in other['cards'])
     assert all(row['card_id'] != card_id for row in other['progress'])
 
-    legacy = await client.post('/api/sync/push', headers=owner,
-                               json={'cards': [{**batch['cards'][0], 'id': card_id,
-                                                'deck_id': deck_id, 'front_text': 'Legacy edit'}]})
-    assert legacy.status_code == 200, legacy.text
-    legacy_pull = await pull(owner, '/api/sync/pull')
-    assert any(row['id'] == card_id and row['front_text'] == 'Legacy edit' for row in legacy_pull['cards'])
+    edited = await client.patch(f'/api/cards/{card_id}', headers=owner, json={
+        'request_id': str(uuid4()), 'revision': card_revision,
+        'content_v2': v2_content('Native edit', 'Back')})
+    assert edited.status_code == 200, edited.text
+    own_after = await pull(owner)
+    assert any(row['id'] == card_id and row['content_v2']['card']['data']['prompt'] == 'Native edit'
+               for row in own_after['cards'])
 
     grant_id = await run_db(models.TMA_Collaborator.insert(
         target_type='deck', target_id=deck_id, user_id=viewer_id, role='viewer').execute)
-    shared = await pull(viewer, '/api/sync/collab-pull?since=2020-01-01T00:00:00Z')
-    assert any(row['id'] == card_id for row in shared['cards'])
-    assert shared['access_version']
+    collab_status = await pull(viewer, '/api/sync/collab-pull?since=2020-01-01T00:00:00Z')
+    assert collab_status['has_changes'] and collab_status['access_version']
+    shared_pull = await pull(viewer)
+    assert any(row['id'] == card_id for row in shared_pull['cards'])
     shared_review = {'request_id': str(uuid4()), 'reviews': [{**review, 'card_id': card_id}]}
     await push(shared_review, viewer)
     await run_db(models.TMA_Collaborator.delete_by_id, grant_id)
@@ -544,15 +602,23 @@ async def verify_sync(client, pool, headers, viewer_id, disconnect_review):
     await push({**shared_review, 'request_id': str(uuid4())}, viewer, expected=403)
     assert not pool._in_use
 
-    rollback = {**batch, 'request_id': str(uuid4()),
-                'cards': [{**batch['cards'][0], 'front_text': 'Rollback probe'}]}
+    second_card = await client.post('/api/cards/save', headers=owner, json={
+        'request_id': str(uuid4()), 'deck_id': deck_id,
+        'content_v2': v2_content('Second native card', 'Back')})
+    assert second_card.status_code == 200, second_card.text
+    card2_id = second_card.json()['id']
+    rollback = {'request_id': str(uuid4()),
+                'decks': [{'id': -20, 'folder_id': folder_id, 'name': 'Rollback probe'}],
+                'reviews': [{**review, 'card_id': card2_id}]}
 
     def verify_rollback():
-        assert not models.TMA_Card.select().where(models.TMA_Card.front_text == 'Rollback probe').exists()
+        assert not models.TMA_Deck.select().where(models.TMA_Deck.name == 'Rollback probe').exists()
+        assert not models.TMAReviewHistory.select().where(models.TMAReviewHistory.card_id == card2_id).exists()
         assert not models.TMAOfflineBatch.select().where(
             models.TMAOfflineBatch.key.endswith(rollback['request_id'])).exists()
 
-    await push({**rollback, 'reviews': [review, {**review, 'rating': 7}]}, expected=422)
+    await push({**rollback, 'reviews': [{**review, 'card_id': card2_id},
+                                        {**review, 'card_id': card2_id, 'rating': 7}]}, expected=422)
     assert not pool._in_use
     await run_db(verify_rollback)
     disconnect_review.set()
@@ -562,21 +628,23 @@ async def verify_sync(client, pool, headers, viewer_id, disconnect_review):
     await run_db(verify_rollback)
     recovered = (await push(rollback)).json()
     assert (await push(rollback)).json() == recovered
-    recovered_card = recovered['mappings']['cards']['-3']
-    history = models.TMAReviewHistory.select().where(models.TMAReviewHistory.card_id == recovered_card)
+    assert await run_db(models.TMA_Deck.select().where(models.TMA_Deck.name == 'Rollback probe').exists)
+    history = models.TMAReviewHistory.select().where(models.TMAReviewHistory.card_id == card2_id)
     assert await run_db(history.count) == 1
     assert not pool._in_use
-    print('PASS: Sync HTTP receipts, rollback, disconnect recovery, legacy, collaboration and account isolation',
+    print('PASS: Sync HTTP receipts, rollback, disconnect recovery, V2 edit, collaboration and account isolation',
           flush=True)
 
 
 async def verify_knowledge(client, pool, headers, account_ids):
     from api import models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     def seed():
         deck = models.TMA_Deck.create(user_id=account_ids[0], name='Knowledge worker fixture')
-        card = models.TMA_Card.create(deck=deck.id, front_text='Front', back_text='Back')
+        card = models.TMA_Card.create(
+            deck=deck.id, content_v2=v2_content('Front', 'Back'), card_type=None)
         ki = models.TMAKnowledgeItem.create(name='Primary fixture')
         replacement = models.TMAKnowledgeItem.create(name='Replacement fixture')
         mapping = models.TMACardKnowledgeItem.create(card_id=card.id, knowledge_item=ki.id, role='primary')
@@ -652,10 +720,12 @@ async def verify_knowledge(client, pool, headers, account_ids):
 async def verify_communications(client, pool, headers, accounts):
     from api import models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     def seed():
         deck = models.TMA_Deck.create(user_id=accounts[0], name='Shared communication fixture')
-        card = models.TMA_Card.create(deck=deck, front_text='Front', back_text='Back')
+        card = models.TMA_Card.create(
+            deck=deck, content_v2=v2_content('Front', 'Back'), card_type=None)
         grant = models.TMA_Collaborator.create(target_type='deck', target_id=deck.id,
                                               user_id=accounts[1], role='viewer')
         return deck.id, card.id, grant.id
@@ -755,13 +825,14 @@ async def verify_communications(client, pool, headers, accounts):
 async def verify_trash(client, pool, headers, accounts):
     from api import models
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     def seed():
         updated_at = datetime(2026, 11, 1, 12)
         deck = models.TMA_Deck.create(user_id=accounts[0], name='Trash fixture', is_deleted=True,
                                      updated_at=updated_at)
-        card = models.TMA_Card.create(deck=deck.id, front_text='Front', back_text='Back', is_deleted=True,
-                                     updated_at=updated_at)
+        card = models.TMA_Card.create(deck=deck.id, content_v2=v2_content('Front', 'Back'), card_type=None,
+                                     is_deleted=True, updated_at=updated_at)
         models.TMAProgress.create(user_id=accounts[0], card_id=card.id)
         return deck.id, card.id
 
@@ -769,9 +840,9 @@ async def verify_trash(client, pool, headers, accounts):
     restore_deck = f'/deck/{deck}/restore'
     restore_card = f'/card/{card}/restore'
 
-    async def request(method='GET', path='', account=0, expected=200):
+    async def request(method='GET', path='', account=0, body=None, expected=200):
         auth = headers[account] if account is not None else {}
-        response = await client.request(method, '/api/trash' + path, headers=auth)
+        response = await client.request(method, '/api/trash' + path, json=body, headers=auth)
         assert response.status_code == expected, (method, path, response.status_code, response.text)
         if expected < 500:
             assert response.headers['cache-control'] == 'no-cache, no-store, must-revalidate'
@@ -779,14 +850,20 @@ async def verify_trash(client, pool, headers, accounts):
 
     await request(account=None, expected=401)
     assert not pool._in_use
-    assert await request(account=1) == {'decks': [], 'cards': []}
-    await request('POST', restore_card, account=1, expected=404)
-    await request('POST', restore_deck, account=1, expected=404)
-    assert not pool._in_use
+    assert await request(account=1) == {'folders': [], 'decks': [], 'cards': []}
 
     listing = await request()
-    assert listing['decks'][0]['id'] == deck and listing['decks'][0]['cards_count'] == 1
+    assert listing['decks'][0]['id'] == deck and listing['decks'][0]['cards_count'] == 0
     assert listing['cards'][0]['id'] == card and listing['cards'][0]['deck_name'] == 'Trash fixture'
+    assert listing['cards'][0]['deck_deleted'] is True
+    revision = listing['cards'][0]['revision']
+
+    await request('POST', restore_card, account=1,
+                  body={'request_id': str(uuid4()), 'revision': revision}, expected=404)
+    await request('POST', restore_deck, account=1, expected=404)
+    await request('POST', restore_card,
+                  body={'request_id': str(uuid4()), 'revision': revision}, expected=409)
+    assert not pool._in_use
 
     slots = asyncio.Semaphore(2)
 
@@ -807,8 +884,8 @@ async def verify_trash(client, pool, headers, accounts):
     await run_db(reject_deck_change)
     progress = models.TMAProgress.select().where(models.TMAProgress.card_id == card)
     try:
-        # Both operations have already changed the card before reaching the failing deck statement.
-        await request('POST', restore_card, expected=500)
+        # Both operations have already changed or validated before reaching the failing deck statement.
+        await request('POST', restore_deck, expected=500)
         assert not pool._in_use
         assert await request() == listing
         await request('DELETE', '/clear', expected=500)
@@ -818,23 +895,25 @@ async def verify_trash(client, pool, headers, accounts):
     finally:
         await run_db(pool.execute_sql, 'DROP FUNCTION fail_trash_fixture() CASCADE')
 
-    async def restore_and_check(path):
-        assert await request('POST', path) == {'status': 'success'}
-        assert await request() == {'decks': [], 'cards': []}
+    async def restore_and_check(path, body=None, expected_empty=True):
+        restored = await request('POST', path, body=body)
+        assert restored['status'] == 'success'
+        if expected_empty:
+            assert await request() == {'folders': [], 'decks': [], 'cards': []}
         assert await run_db(progress.exists)
         assert not pool._in_use
 
-    await restore_and_check(restore_card)
-    await run_db(models.TMA_Deck.update(is_deleted=True).where(models.TMA_Deck.id == deck).execute)
-    await run_db(models.TMA_Card.update(is_deleted=True).where(models.TMA_Card.id == card).execute)
-    await restore_and_check(restore_deck)
+    # Deck must be restored before an individually deleted card inside it can be restored.
+    await restore_and_check(restore_deck, expected_empty=False)
+    assert (await request())['cards'][0]['id'] == card
+    await restore_and_check(restore_card, {'request_id': str(uuid4()), 'revision': revision})
 
     deleted_deck, deleted_card = await run_db(seed)
     assert await request('DELETE', '/clear', account=1) == {'status': 'success'}
     assert (await request())['decks'][0]['id'] == deleted_deck
     assert await request('DELETE', '/clear') == {'status': 'success'}
     assert not pool._in_use
-    assert await request() == {'decks': [], 'cards': []}
+    assert await request() == {'folders': [], 'decks': [], 'cards': []}
     assert not await run_db(models.TMA_Deck.get_or_none, models.TMA_Deck.id == deleted_deck)
     assert not await run_db(models.TMA_Card.get_or_none, models.TMA_Card.id == deleted_card)
     assert not await run_db(models.TMAProgress.select().where(models.TMAProgress.card_id == deleted_card).exists)
@@ -846,6 +925,7 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
     from api import models
     from api.db_workers import run_db
     from api.routers.lid import MASTER_UID
+    from scripts.tests.native_fixture import content as v2_content
 
     async def request(method, path, payload=None, account=0, expected=200):
         response = await client.request(method, '/api' + path, json=payload,
@@ -868,8 +948,10 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
         for name, count in (('1. Politik', 10), ('2. Geschichte', 10), ('3. Mensch', 10), ('Bayern', 3)):
             deck = models.TMA_Deck.create(folder=folder, user_id=MASTER_UID, name=name)
             for position in range(1, count + 1):
-                models.TMA_Card.create(deck=deck, position=position, front_text='Frage',
-                                       back_text='Вопрос\n\n1. Ответ', image_path='fixture.png')
+                models.TMA_Card.create(
+                    deck=deck, position=position,
+                    content_v2=v2_content('Frage', 'Вопрос\n\n1. Ответ'), card_type=None,
+                    image_path='fixture.png')
 
     await run_db(seed_ticket)
     for index in range(3):
@@ -888,10 +970,10 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
         assert not pool._in_use
 
     with patch.object(pool, '_initialize_connection',
-                      side_effect=[None, RuntimeError('connection initialization failed')]) as initialize:
+                      side_effect=[None, None, RuntimeError('connection initialization failed')]) as initialize:
         failed_checkout = await client.post('/api/feedback/', headers=headers[0],
                                             json={'message': 'Checkout fixture'})
-        assert initialize.call_count == 2  # Real auth checkout, then one handler checkout.
+        assert initialize.call_count == 3  # Auth checkout, generation check checkout, then handler checkout.
     assert failed_checkout.status_code == 500
     assert failed_checkout.json() == {'detail': 'Could not save feedback'}
     assert not pool._in_use
@@ -920,19 +1002,19 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
 
     def seed_folder_card():
         deck = models.TMA_Deck.create(folder=folder, user_id=owner_id, name='Maintenance')
-        card = models.TMA_Card.create(deck=deck, front_text='Before', back_text='Answer')
+        card = models.TMA_Card.create(deck=deck, content_v2=v2_content('Before', 'Answer'), card_type=None)
         return deck.id, card.id
 
     deck, card = await run_db(seed_folder_card)
-    payload = {'cards': [{'number': 1, 'deck_id': deck, 'card_id': card, 'front': 'After',
-                          'back': 'Answer', 'context': '', 'topics': '', 'card_type': 'standard'}]}
+    payload = {'cards': [{'number': 1, 'deck_id': deck, 'card_id': card,
+                          'content_v2': v2_content('After', 'Answer')}]}
     await request('POST', path + '/text-update/preview', payload, account=1, expected=403)
     preview = await request('POST', path + '/text-update/preview', payload)
     apply = {**payload, 'preview_token': preview['preview_token'], 'request_id': str(uuid4())}
     result = await request('POST', path + '/text-update/apply', apply)
     assert result['updated'] == 1
     assert await request('POST', path + '/text-update/apply', apply) == result
-    assert (await run_db(models.TMA_Card.get_by_id, card)).front_text == 'After'
+    assert (await run_db(models.TMA_Card.get_by_id, card)).content_v2['card']['data']['prompt'] == 'After'
     assert not pool._in_use
 
     def reject_folder_delete():
@@ -952,7 +1034,17 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
         await run_db(pool.execute_sql, 'DROP FUNCTION fail_folder_fixture() CASCADE')
 
     assert await request('DELETE', path) == {'status': 'success'}
-    assert (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
+    assert (await run_db(models.TMA_Folder.get_by_id, folder)).is_deleted
+    assert not (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
+    assert not (await run_db(models.TMA_Card.get_by_id, card)).is_deleted
+    active_decks = await request('GET', '/decks')
+    assert all(item['id'] != deck for item in active_decks)
+    await request('GET', f'/decks/{deck}/cards', expected=403)
+    restore_resp = await client.post(f'/api/trash/folder/{folder}/restore', headers=headers[0])
+    assert restore_resp.status_code == 200, (restore_resp.status_code, restore_resp.text)
+    restored_decks = await request('GET', '/decks')
+    assert any(item['id'] == deck for item in restored_decks)
+    assert len(await request('GET', f'/decks/{deck}/cards')) == 1
     assert not pool._in_use
     print('PASS: pooled Feedback, LiD and Folders HTTP, concurrency, authorization and rollback', flush=True)
 
@@ -960,25 +1052,34 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
 async def verify_deck_list_and_json_import(client, pool, headers, accounts):
     from api import models, services
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     name = 'JSON worker fixture'
-    payload = {'name': name, 'cards': [{'front': 'Original', 'back': 'Answer'}]}
+
+    def import_body(deck_name=name, cards_list=None):
+        cards_payload = cards_list if cards_list is not None else [v2_content('Original', 'Answer')['card']]
+        return {
+            'import_id': str(uuid4()),
+            'document': {'schema_version': 2, 'deck': {'name': deck_name}, 'cards': cards_payload},
+        }
+
+    payload = import_body()
     path = '/api/decks'
 
     async def import_json(body, account=0, status=200):
         response = await client.post(path + '/import-json', json=body, headers=headers[account])
         assert response.status_code == status, response.text
         assert not pool._in_use
-        return response.json()
+        return response.json() if status < 500 else None
 
     assert (await client.get(path)).status_code == 401
     assert (await client.post(path + '/import-json', json=payload)).status_code == 401
     deck_id = (await import_json(payload))['deck_id']
 
     def seed():
-        library = models.Deck.create(name=name)
+        library = models.TMA_Deck.create(scope='library', name=name)
         for front in ('Original', 'Library addition'):
-            models.Card.create(deck=library.id, front_text=front, back_text='Answer')
+            models.TMA_Card.create(deck=library.id, content_v2=v2_content(front, 'Answer'), card_type=None)
         models.TMAMedia.create(filename='json-worker.webp', folder='images')
         models.TMA_Deck.update(metadata='{"resources":[{"type":"image","path":"json-worker.webp"}]}').where(
             models.TMA_Deck.id == deck_id).execute()
@@ -1005,28 +1106,37 @@ async def verify_deck_list_and_json_import(client, pool, headers, accounts):
     assert warm.status_code == 200 and any(deck['is_inbox'] for deck in warm.json())
     assert not pool._in_use
 
-    # The second INSERT fails a NOT NULL constraint after a full first batch.
-    invalid = {'name': name, 'cards': [{'front': 'Rollback'}] * 100 + [{'front': None}]}
-    assert await import_json(invalid, status=400) == {'detail': 'Import failed: invalid data or empty deck'}
-
     def persisted_cards():
-        return list(models.TMA_Card.select(models.TMA_Card.front_text, models.TMA_Card.back_text)
-                    .where(models.TMA_Card.deck_id == deck_id).tuples())
+        return [(c.content_v2['card']['data']['prompt'], c.content_v2['card']['data']['answer'])
+                for c in models.TMA_Card.select(models.TMA_Card.content_v2)
+                .where(models.TMA_Card.deck_id == deck_id)]
 
+    # Validation failure and PostgreSQL constraint failure after first insert both roll back cleanly.
+    invalid = import_body(cards_list=[v2_content('Rollback', 'Answer')['card'], {'type': 'standard', 'data': {'prompt': ''}}])
+    await import_json(invalid, status=422)
     assert await run_db(persisted_cards) == [('Original', 'Answer')]
 
     new_name = 'JSON rollback fixture'
     cards_before = await run_db(models.TMA_Card.select().count)
-    assert await import_json({**invalid, 'name': new_name}, status=400) == {
-        'detail': 'Import failed: invalid data or empty deck'}
-    assert not await run_db(models.TMA_Deck.select().where(
-        models.TMA_Deck.user_id == accounts[0], models.TMA_Deck.name == new_name).exists)
-    assert await run_db(models.TMA_Card.select().count) == cards_before
-    assert await import_json({**payload, 'name': new_name}) == {
-        'status': 'success', 'deck_id': await run_db(lambda: models.TMA_Deck.get(
-            user_id=accounts[0], name=new_name).id)}
+    await run_db(pool.execute_sql, """ALTER TABLE tma_card ADD CONSTRAINT json_worker_card_rollback
+        CHECK (content_v2->'card'->'data'->>'prompt' <> 'Rejected rollback')""")
+    try:
+        failing_body = import_body(
+            deck_name=new_name,
+            cards_list=[v2_content('Rollback first', 'Answer')['card'], v2_content('Rejected rollback', 'Answer')['card']],
+        )
+        await import_json(failing_body, status=500)
+        assert not await run_db(models.TMA_Deck.select().where(
+            models.TMA_Deck.user_id == accounts[0], models.TMA_Deck.name == new_name).exists)
+        assert await run_db(models.TMA_Card.select().count) == cards_before
+    finally:
+        await run_db(pool.execute_sql, 'ALTER TABLE tma_card DROP CONSTRAINT json_worker_card_rollback')
 
-    assert (await import_json(payload, account=1))['deck_id'] != deck_id
+    imported_new = await import_json(import_body(deck_name=new_name))
+    saved_id = await run_db(lambda: models.TMA_Deck.get(user_id=accounts[0], name=new_name).id)
+    assert imported_new == {'status': 'success', 'deck_id': saved_id, 'deck_ids': [saved_id]}
+
+    assert (await import_json(import_body(), account=1))['deck_id'] != deck_id
     assert await run_db(persisted_cards) == [('Original', 'Answer')]
 
     def disconnect(_user_id):
@@ -1105,6 +1215,7 @@ async def verify_decks(client, pool, headers, accounts):
 
     from api import models, services
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     async def request(method, path='', *, account=0, body=None, expected=200):
         auth = headers[account] if account is not None else {}
@@ -1125,20 +1236,20 @@ async def verify_decks(client, pool, headers, accounts):
     def seed():
         folder = models.TMA_Folder.create(user_id=accounts[0], name='Deck worker folder')
         for front in ('Copied first', 'Rejected second'):
-            models.TMA_Card.create(deck=deck_id, front_text=front, back_text='Back')
+            models.TMA_Card.create(deck=deck_id, content_v2=v2_content(front, 'Back'), card_type=None)
         return folder.id
 
     folder_id = await run_db(seed)
     destination = {'folder_id': folder_id}
     await request('POST', body={'name': 'Denied', **destination}, account=1, expected=403)
     await request('POST', f"/{other['id']}/move", body=destination, account=1, expected=403)
-    await request('POST', path + '/copy', body={}, account=1, expected=403)
+    await request('POST', path + '/copy', body={'request_id': str(uuid4())}, account=1, expected=403)
     await request('POST', path + '/toggle-learning', account=1, expected=404)
     await run_db(models.TMA_Collaborator.create, target_type='deck', target_id=deck_id,
                  user_id=accounts[1], role='viewer')
     await request('POST', path + '/rename', body={'name': 'Denied'}, account=1, expected=403)
     await request('DELETE', path, account=1, expected=403)
-    await request('POST', path + '/copy', body=destination, account=1, expected=403)
+    await request('POST', path + '/copy', body={'request_id': str(uuid4()), **destination}, account=1, expected=403)
     assert await request('POST', path + '/toggle-learning', account=1) == {
         'status': 'success', 'is_learning': True}
     assert await request('POST', path + '/toggle-learning', body={'is_learning': False}) == {
@@ -1151,10 +1262,10 @@ async def verify_decks(client, pool, headers, accounts):
     await run_db(pool.execute_sql, """CREATE FUNCTION fail_deck_copy_fixture() RETURNS trigger
         LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture copy connection failure'; END $$""")
     await run_db(pool.execute_sql, """CREATE TRIGGER fail_deck_copy_fixture BEFORE INSERT ON tma_card
-        FOR EACH ROW WHEN (NEW.front_text = 'Rejected second')
+        FOR EACH ROW WHEN (NEW.content_v2->'card'->'data'->>'prompt' = 'Rejected second')
         EXECUTE FUNCTION fail_deck_copy_fixture()""")
     try:
-        await request('POST', path + '/copy', body={}, account=1, expected=500)
+        await request('POST', path + '/copy', body={'request_id': str(uuid4())}, account=1, expected=500)
         assert not pool._in_use
 
         def copy_exists():
@@ -1166,14 +1277,15 @@ async def verify_decks(client, pool, headers, accounts):
     finally:
         await run_db(pool.execute_sql, 'DROP FUNCTION fail_deck_copy_fixture() CASCADE')
 
-    copied = await request('POST', path + '/copy', body={}, account=1)
+    copied = await request('POST', path + '/copy', body={'request_id': str(uuid4())}, account=1)
     assert copied['status'] == 'success'
     await request('POST', path + '/pin', account=1, expected=403)
     await request('POST', path + '/metadata', body={}, account=1, expected=403)
     await request('POST', '/reorder', body={'deck_ids': [deck_id, other['id']]}, expected=403)
 
     def seed_progress():
-        card = models.TMA_Card.get(deck=deck_id, front_text='Copied first')
+        card = next(c for c in models.TMA_Card.select().where(models.TMA_Card.deck == deck_id)
+                    if c.content_v2['card']['data']['prompt'] == 'Copied first')
         return [
             models.TMAProgress.create(user_id=user, card_id=card.id, queue='review', interval=5).id
             for user in accounts
@@ -1219,7 +1331,7 @@ async def verify_decks(client, pool, headers, accounts):
         reset_progress = models.TMAProgress.get_by_id(viewer_progress)
         assert (reset_progress.queue, reset_progress.interval) == ('new', 0)
         assert models.TMA_Card.select().where(
-            models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted).count() == 2
+            models.TMA_Card.deck == deck_id, ~models.TMA_Card.is_deleted).count() == 2
         assert models.TMA_Card.select().where(
             models.TMA_Card.deck == copied['id'], ~models.TMA_Card.is_deleted).count() == 2
         assert [models.TMASetting.get(key=f'DECK_LEARNING_{user}_{deck_id}').value
@@ -1240,17 +1352,17 @@ async def verify_deck_text_update(client, pool, headers, accounts):
     from api import models
     from api.db_workers import run_db
     from api.routers import decks
+    from scripts.tests.native_fixture import content as v2_content
 
     def seed():
         deck = models.TMA_Deck.create(user_id=accounts[0], name='Text update worker fixture')
-        card = models.TMA_Card.create(deck=deck, front_text='Original', back_text='Back')
+        card = models.TMA_Card.create(deck=deck, content_v2=v2_content('Original', 'Back'), card_type=None)
         return deck.id, card.id
 
     deck_id, card_id = await run_db(seed)
     path = f'/api/decks/{deck_id}'
-    item = {'number': 1, 'card_id': card_id, 'front': 'Updated', 'back': 'Back',
-            'context': '', 'topics': '', 'card_type': 'standard'}
-    body = {'cards': [item, {**item, 'number': 2, 'card_id': None, 'front': 'New fixture card'}]}
+    item = {'number': 1, 'card_id': card_id, 'content_v2': v2_content('Updated', 'Back')}
+    body = {'cards': [item, {'number': 2, 'card_id': None, 'content_v2': v2_content('New fixture card', 'Back')}]}
 
     async def request(method, suffix, payload=None, account=0, expected=200):
         auth = headers[account] if account is not None else {}
@@ -1273,7 +1385,8 @@ async def verify_deck_text_update(client, pool, headers, accounts):
     grant_id = await run_db(models.TMA_Collaborator.insert(
         target_type='deck', target_id=deck_id, user_id=accounts[1], role='viewer').execute)
     original, proposed = await asyncio.gather(cards(account=1), preview())
-    assert [(card['id'], card['front']) for card in original] == [(card_id, 'Original')]
+    assert [(card['id'], card['content_v2']['card']['data']['prompt']) for card in original] == [
+        (card_id, 'Original')]
     assert proposed['can_apply'] and proposed['updated'] == proposed['new'] == 1
     assert not pool._in_use
     payload = {**body, 'preview_token': proposed['preview_token'],
@@ -1287,7 +1400,7 @@ async def verify_deck_text_update(client, pool, headers, accounts):
     await run_db(pool.execute_sql, """CREATE FUNCTION fail_deck_text_fixture() RETURNS trigger
         LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture connection failure'; END $$""")
     await run_db(pool.execute_sql, """CREATE TRIGGER fail_deck_text_fixture BEFORE INSERT ON tma_card
-        FOR EACH ROW WHEN (NEW.front_text = 'New fixture card')
+        FOR EACH ROW WHEN (NEW.content_v2->'card'->'data'->>'prompt' = 'New fixture card')
         EXECUTE FUNCTION fail_deck_text_fixture()""")
     try:
         with patch.object(decks, 'apply_text_update', wraps=decks.apply_text_update) as attempted:
@@ -1313,7 +1426,8 @@ async def verify_deck_text_update(client, pool, headers, accounts):
     assert first == second == {'status': 'success', 'updated': 1, 'created': 1,
                                'unchanged': 0, 'skipped_new': 0}
     assert not pool._in_use
-    assert [card['front'] for card in await cards()] == ['Updated', 'New fixture card']
+    assert [card['content_v2']['card']['data']['prompt'] for card in await cards()] == [
+        'Updated', 'New fixture card']
     changed = await apply({**payload, 'include_new': False}, expected=409)
     assert changed['detail']['code'] == 'request_changed'
     await run_db(models.TMA_Collaborator.delete_by_id, grant_id)
@@ -1329,13 +1443,16 @@ async def verify_library_deck_routes(client, pool, headers, accounts):
     from peewee import OperationalError
     from api import models, services
     from api.db_workers import run_db
+    from scripts.tests.native_fixture import content as v2_content
 
     def seed_library():
         cat = models.LibraryCategory.create(name='Worker Cat', description='Desc')
-        deck = models.Deck.create(name='Worker Lib Deck', target_language='de', category_id=cat.id)
-        card = models.Card.create(deck=deck, front_text='Worker Front', back_text='Worker Back')
-        deck2 = models.Deck.create(name='Worker Lib Deck 2', target_language='de')
-        models.Card.create(deck=deck2, front_text='Worker Front 2', back_text='Worker Back 2')
+        deck = models.TMA_Deck.create(scope='library', name='Worker Lib Deck', target_language='de', category_id=cat.id)
+        card = models.TMA_Card.create(
+            deck=deck, content_v2=v2_content('Worker Front', 'Worker Back'), card_type=None)
+        deck2 = models.TMA_Deck.create(scope='library', name='Worker Lib Deck 2', target_language='de')
+        models.TMA_Card.create(
+            deck=deck2, content_v2=v2_content('Worker Front 2', 'Worker Back 2'), card_type=None)
         return cat.id, deck.id, card.id, deck2.id
 
     cat_id, lib_deck_id, lib_card_id, lib2_id = await run_db(seed_library)
@@ -1409,12 +1526,14 @@ async def verify_library_deck_routes(client, pool, headers, accounts):
 
     # Seed progress on imported card
     def seed_progress():
-        card = models.TMA_Card.get(deck=tma_deck_id, front_text='Worker Front')
-        return models.TMAProgress.create(user_id=accounts[0], card_id=card.id, queue='review', interval=10).id
+        card = models.TMA_Card.get(models.TMA_Card.deck == tma_deck_id, models.TMA_Card.is_deleted == False)
+        extra = models.TMA_Card.create(
+            deck=tma_deck_id, content_v2=v2_content('Extra local card', 'Extra'), card_type=None)
+        return models.TMAProgress.create(user_id=accounts[0], card_id=card.id, queue='review', interval=10).id, extra.id
 
-    prog_id = await run_db(seed_progress)
+    prog_id, extra_id = await run_db(seed_progress)
 
-    # Re-import merge preserves progress
+    # Re-import merge preserves progress and extra local card
     re_merge = await client.post(import_url + '?mode=merge', headers=headers[0])
     assert re_merge.status_code == 200 and re_merge.json()['deck_id'] == tma_deck_id
     assert not pool._in_use
@@ -1427,11 +1546,12 @@ async def verify_library_deck_routes(client, pool, headers, accounts):
     assert copy_deck_id != tma_deck_id
     assert not pool._in_use
 
-    # Mode replace replaces cards and removes progress
+    # Mode replace soft-deletes non-library cards while retaining progress on matching V2 cards
     rep_res = await client.post(import_url + '?mode=replace', headers=headers[0])
     assert rep_res.status_code == 200 and rep_res.json()['deck_id'] == tma_deck_id
     assert not pool._in_use
-    assert not await run_db(lambda: models.TMAProgress.select().where(models.TMAProgress.id == prog_id).exists())
+    assert await run_db(lambda: models.TMA_Card.get_by_id(extra_id).is_deleted)
+    assert await run_db(lambda: models.TMAProgress.get_by_id(prog_id).interval) == 10
 
     # Trash conflict and force_trash
     await run_db(lambda: models.TMA_Deck.update(is_deleted=True).where(models.TMA_Deck.id == tma_deck_id).execute())
@@ -1448,7 +1568,7 @@ async def verify_library_deck_routes(client, pool, headers, accounts):
     await run_db(pool.execute_sql, """CREATE FUNCTION fail_lib_import_fixture() RETURNS trigger
         LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'fixture lib import failure'; END $$""")
     await run_db(pool.execute_sql, """CREATE TRIGGER fail_lib_import_fixture BEFORE INSERT ON tma_card
-        FOR EACH ROW WHEN (NEW.front_text = 'Worker Front 2')
+        FOR EACH ROW WHEN (NEW.content_v2->'card'->'data'->>'prompt' = 'Worker Front 2')
         EXECUTE FUNCTION fail_lib_import_fixture()""")
     try:
         fail_imp = await client.post(f'/api/decks/external/import/{lib2_id}', headers=headers[0])

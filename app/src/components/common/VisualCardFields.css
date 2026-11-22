@@ -1,4 +1,4 @@
-.creator-form .visual-card-editor-surface {
+.creator-form .card-container.visual-card-editor-surface {
   --visual-card-card-bleed: calc(var(--app-inline-padding, 0px) + var(--creator-inline-padding, 10px) + 1px);
   width: calc(100% + 2 * var(--visual-card-card-bleed));
   margin-inline: calc(-1 * var(--visual-card-card-bleed));
@@ -41,6 +41,22 @@
 .visual-card-layout-block > figure[data-layout-id] { margin-inline: auto; }
 .visual-card-layout-block[data-dragging] { z-index: 1; opacity: .85; }
 
+.visual-card-layout-block-locked {
+  grid-template-columns: minmax(0, 1fr);
+}
+.visual-card-layout-block-locked > [data-layout-id] {
+  grid-area: auto;
+}
+.visual-card-layout-lock-note {
+  margin: 0 0 8px;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: rgba(148, 163, 184, 0.12);
+  border: 1px solid rgba(148, 163, 184, 0.25);
+  color: #cbd5e1;
+  font-size: 0.78rem;
+  line-height: 1.35;
+}
 .visual-card-block-tools {
   grid-area: 1 / 2 / auto / -1;
   justify-self: end;

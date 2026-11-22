@@ -1,5 +1,6 @@
 import { tr } from '../i18n/locale.js';
 import { IS_LOCAL, localStorageKey } from './localMode.js';
+import { IS_STANDALONE, STANDALONE_USER_ID, STANDALONE_SESSION_IDENTITY, getStandaloneProfile } from './standaloneMode.js';
 
 const storage = {
   get: (key) => { try { return localStorage.getItem(localStorageKey(key)); } catch { return null; } },
@@ -27,7 +28,9 @@ export const notifyAuthSession = () => {
   sessionListeners.forEach(listener => listener({ loginRequired }));
 };
 export const getSessionIdentity = (session = getAuthSession()) =>
-  session?.client_session_id || session?.session_id || session?.refresh_token || session?.access_token || null;
+  (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)
+    ? STANDALONE_SESSION_IDENTITY
+    : (session?.client_session_id || session?.session_id || session?.refresh_token || session?.access_token || null);
 
 export const getAuthSession = () => {
   try {
@@ -71,6 +74,7 @@ export const clearAuthSession = ({ preserveProfile = false } = {}) => {
 
 // Compare before clearing: late responses and other tabs cannot log out a newer login.
 export const requireAuthSession = (expectedIdentity = getSessionIdentity()) => {
+  if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return;
   if (expectedIdentity !== getSessionIdentity() || loginRequired) return;
   loginRequired = true;
   retiredIdentity = expectedIdentity;
@@ -86,6 +90,7 @@ export const parseUserId = (value) => {
 };
 
 export const getUserProfile = () => {
+  if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return getStandaloneProfile();
   try {
     const params = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
     const isResetRequested = params?.get('guest') === '1' || params?.get('reset') === '1';
@@ -114,6 +119,7 @@ export const getUserProfile = () => {
 
 // Saved identity selects the offline database; it is never an HTTP credential.
 export const getSavedUserProfile = () => {
+  if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return getStandaloneProfile();
   try {
     const profile = JSON.parse(storage.get(PROFILE_KEY) || 'null');
     if (profile?.user_id) return profile;
@@ -121,7 +127,9 @@ export const getSavedUserProfile = () => {
     return userId ? { user_id: userId, is_guest: true } : null;
   } catch { return null; }
 };
-export const getUserId = () => getAuthSession()?.account_id ?? getSavedUserProfile()?.user_id ?? null;
+export const getUserId = () => ((typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)
+  ? STANDALONE_USER_ID
+  : (getAuthSession()?.account_id ?? getSavedUserProfile()?.user_id ?? null));
 
 export const saveUserProfile = (profile) => {
   if (!profile?.user_id) return;
@@ -137,14 +145,14 @@ export const resetUserSession = () => {
 
 export const cloudStorage = {
   get: (key) => new Promise((resolve) => {
-    if (IS_LOCAL) { resolve(null); return; }
+    if (IS_LOCAL || (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)) { resolve(null); return; }
     try {
       const cloud = window.Telegram?.WebApp?.CloudStorage;
       cloud?.getItem ? cloud.getItem(key, (error, value) => resolve(error ? null : value)) : resolve(null);
     } catch { resolve(null); }
   }),
   set: (key, value) => new Promise((resolve) => {
-    if (IS_LOCAL) { resolve(false); return; }
+    if (IS_LOCAL || (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)) { resolve(false); return; }
     try {
       const cloud = window.Telegram?.WebApp?.CloudStorage;
       cloud?.setItem ? cloud.setItem(key, String(value), (error) => resolve(!error)) : resolve(false);

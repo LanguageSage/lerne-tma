@@ -3,9 +3,10 @@ import { tr } from '../i18n/locale';
 import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { newCardContent } from '../utils/cardDraft';
-import { getAudioUrl } from '../utils/media';
+import { defaultResolveMediaUrl, getAudioUrl } from '../utils/media';
 import api from '../services/api';
 import { getSessionIdentity } from '../utils/auth';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 let activeOpenRequest = null;
 
@@ -46,7 +47,7 @@ export const useCardNavigation = () => {
           if (activeOpenRequest !== token || getSessionIdentity() !== identity) return;
           showToast(error.response?.data?.detail?.code === 'card_requires_migration'
             ? tr('Карточки ещё не перенесены в Structured Cards V2.')
-            : tr('Не удалось загрузить данные с сервера'), 'error');
+            : tr(IS_STANDALONE ? 'Не удалось загрузить локальную карточку' : 'Не удалось загрузить данные с сервера'), 'error');
           return;
         } finally {
           if (activeOpenRequest === token) {
@@ -58,11 +59,11 @@ export const useCardNavigation = () => {
       openEditingCard({
         ...cardToEdit,
         id: cardToEdit.id,
-        image_url: cardToEdit.image_url || (cardToEdit.image_path ? `/api/media/${cardToEdit.image_path}` : ''),
+        image_url: cardToEdit.image_url || (cardToEdit.image_path ? defaultResolveMediaUrl(cardToEdit.image_path, 'images') : ''),
         audio_url: getAudioUrl(cardToEdit.audio_url || cardToEdit.audio_path),
         audio_back_url: getAudioUrl(cardToEdit.audio_back_url || cardToEdit.audio_back_path),
-        video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? `/api/media/${cardToEdit.video_front_path}` : ''),
-        video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? `/api/media/${cardToEdit.video_back_path}` : ''),
+        video_front_url: cardToEdit.video_front_url || (cardToEdit.video_front_path ? defaultResolveMediaUrl(cardToEdit.video_front_path, 'videos') : ''),
+        video_back_url: cardToEdit.video_back_url || (cardToEdit.video_back_path ? defaultResolveMediaUrl(cardToEdit.video_back_path, 'videos') : ''),
         deck_id: cardToEdit.deck_id ?? deckId
       });
     } else {

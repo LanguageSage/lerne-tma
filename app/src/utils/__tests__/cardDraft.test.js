@@ -1,7 +1,28 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { readFileSync } from 'node:fs';
 import { attachDraftImage, cardTypes, changeDraft, changeDraftSource, draftSourceError,
-  newCardContent, parseCardSource, patchGradingPolicy, puzzleDraftTokens, validateStandardDraft } from '../cardDraft.js';
+  newCardContent, parseCardSource, patchGradingPolicy, puzzleDraftTokens } from '../cardDraft.js';
+import { validateNativeV2Content } from '../nativeV2Contract.js';
+
+const standaloneFixtures = new URL('../../../../tests/fixtures/standalone_native_v2_validation.json', import.meta.url);
+
+test('standalone agrees with card-core on shared Native V2 validation cases', () => {
+  for (const { name, valid, card, repeat } of JSON.parse(readFileSync(standaloneFixtures, 'utf8'))) {
+    if (repeat) {
+      const parent = repeat.path.slice(0, -1).reduce((item, key) => item[key], card);
+      parent[repeat.path.at(-1)] = repeat.value.repeat(repeat.count);
+    }
+    const content = { schema_version: 2, card };
+    if (valid) {
+      const original = structuredClone(content);
+      assert.doesNotThrow(() => validateNativeV2Content(content), name);
+      assert.deepEqual(content, original, name);
+    } else {
+      assert.throws(() => validateNativeV2Content(content), name);
+    }
+  }
+});
 
 test('uploads wait for valid JSON and attach once to the corrected card in completion order', () => {
   let draft = { id: 1, content_v2: newCardContent() };
@@ -109,9 +130,9 @@ test('Trainer source preserves manual choices, automatic distractors, and exact 
 
 test('standard draft validation allows empty back while keeping prompt and type guards', () => {
   for (const data of [{ prompt: 'Haus', answer: '' }, { prompt: 'Haus', answer: '   ' }, { prompt: 'Haus' }]) {
-    assert.doesNotThrow(() => validateStandardDraft({ type: 'standard', data, info: [] }));
+    assert.doesNotThrow(() => validateNativeV2Content({ schema_version: 2, card: { type: 'standard', data, info: [] } }));
   }
   for (const data of [{ prompt: '   ', answer: '' }, { prompt: '   ', answer: 'дом' }, { prompt: 'Haus', answer: null }]) {
-    assert.throws(() => validateStandardDraft({ type: 'standard', data, info: [] }));
+    assert.throws(() => validateNativeV2Content({ schema_version: 2, card: { type: 'standard', data, info: [] } }));
   }
 });

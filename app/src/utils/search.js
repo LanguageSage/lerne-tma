@@ -1,3 +1,11 @@
+import { IS_STANDALONE } from './standaloneMode.js';
+
+const SUPPORTED_LANGS = new Set(['de', 'en', 'no']);
+const matchesScopedLang = (itemLang, targetLang) => {
+  const normalized = (itemLang || 'de').toLowerCase();
+  return normalized === targetLang || (IS_STANDALONE && !SUPPORTED_LANGS.has(normalized));
+};
+
 // JSONB compares object keys independently of serialization order.
 export const cardDuplicateKey = content => JSON.stringify(content, (_key, value) =>
   value && !Array.isArray(value) && typeof value === 'object'
@@ -118,7 +126,7 @@ export const getScopedDecks = (decks, folders, activeFolderId, targetLanguage = 
     return decks.filter(d => scopeFolderIds.has(d.folder_id));
   }
 
-  return decks.filter(d => (d.target_language || 'de').toLowerCase() === lang);
+  return decks.filter(d => matchesScopedLang(d.target_language, lang));
 };
 
 /**
@@ -138,7 +146,7 @@ export const getScopedFolders = (folders, activeFolderId, targetLanguage = 'de')
     return folders.filter(f => scopeFolderIds.has(f.id) && f.id !== activeFolderId);
   }
 
-  return folders.filter(f => (f.target_language || 'de').toLowerCase() === lang);
+  return folders.filter(f => matchesScopedLang(f.target_language, lang));
 };
 
 /**

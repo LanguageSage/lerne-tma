@@ -88,7 +88,7 @@ function SortableBlock({ item, block, position, update, onMove, children }) {
   </SortableCardItem>;
 }
 
-export function VisualCardFields({ cardData, update, exercise, dictation, footer, resolveMediaUrl }) {
+export function VisualCardFields({ cardData, update, exercise, dictation, footer, resolveMediaUrl, lockLayout = false }) {
   const card = cardData.content_v2.card;
   const layout = studyLayout(card, { afterAnswer: true });
   const fields = useRef(null);
@@ -123,6 +123,38 @@ export function VisualCardFields({ cardData, update, exercise, dictation, footer
     nextFocus.current = `[data-layout-position="${target}"] .visual-card-drag-handle`;
     update(current => moveLayout(enableLayout(current), id, offset));
   };
+
+  if (lockLayout) {
+    return <div ref={fields} className="visual-card-editor-layout">
+      {dictation && <div className="visual-card-editor-dictation">{dictation}</div>}
+      {Boolean(card.layout?.length) && (
+        <p className="visual-card-layout-lock-note" role="note" data-testid="standalone-layout-lock-note">
+          {tr('Макет карточки сохранён без изменений. Перестановка блоков и визуальное редактирование layout будут доступны позже в редакторе дизайна.')}
+        </p>
+      )}
+      <StructuredCardLayout
+        card={cardData}
+        afterAnswer
+        resolveMediaUrl={resolveMediaUrl}
+        renderItem={(item, element, position) => (
+          <div className="visual-card-layout-block visual-card-layout-block-locked" data-layout-position={position}>
+            {element}
+          </div>
+        )}
+        renderInfoText={(item, value, display) => (
+          <InlineText
+            value={value}
+            display={display}
+            block
+            label={tr('Текст')}
+            onChange={text => update(current => patchInfoBlock(current, item.index, { text }))}
+          />
+        )}
+        exercise={exercise}
+      />
+      {footer}
+    </div>;
+  }
 
   return <div ref={fields} className="visual-card-editor-layout">
     {dictation && <div className="visual-card-editor-dictation">{dictation}</div>}

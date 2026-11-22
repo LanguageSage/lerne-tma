@@ -11,6 +11,7 @@ import { offlineLifecycleLabel, offlineMoveLabel } from '../services/offlineUi';
 import { getPublicShareUrl, executeShare } from '../utils/share';
 import { isTelegram, isNative } from '../utils/platform';
 import { studyContent, studySideText } from '../utils/structuredStudyCard';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 function visibleCard(cardId) {
   const deck = useDeckStore.getState();
@@ -25,6 +26,14 @@ export const useCardEditor = (fetchNextCard) => {
 
   const handleDeleteCard = async (cardId, skipConfirm = false) => {
     if (!skipConfirm && !window.confirm(tr("Удалить эту карточку?"))) return;
+    const identity = getSessionIdentity();
+    const account = getUserId();
+    const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
+    const initialSession = useSessionStore.getState();
+    const initialSessionRevision = initialSession.sessionRevision;
+    const initialEditingVersion = initialSession.editorDraftVersion;
+    const initialDeckId = useDeckStore.getState().currentDeck?.id;
+    const initialView = useUiStore.getState().view;
     setLoading(true);
     try {
       const card = visibleCard(cardId);
@@ -32,17 +41,32 @@ export const useCardEditor = (fetchNextCard) => {
       const { data } = await api.post('/cards/batch-delete', {
         request_id: crypto.randomUUID(), card_ids: [Number(cardId)], revisions: { [cardId]: card.revision },
       });
-      if (!data.is_deleted) return;
+      if (!data.is_deleted || !isCurrent()) return;
       showToast(tr(data.offline_lifecycle ? 'Ожидает синхронизации' : 'Карточка удалена'), 'success');
       
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
       const { currentDeck, deckCards, cardsByDeck, decks } = useDeckStore.getState();
+      const sameDeck = currentDeck?.id === initialDeckId;
+      const sameSession = session.sessionRevision === initialSessionRevision && sameDeck;
+      const wasCurrentCard = sameSession && String(session.card?.id) === String(cardId);
+      const isSameEditor = initialView === 'editor'
+        && sameSession
+        && ui.view === 'editor'
+        && String(session.editingCard?.id) === String(cardId)
+        && session.editorDraftVersion === initialEditingVersion;
 
-      const updatedDeckCards = (deckCards || []).filter(c => String(c.id) !== String(cardId));
-      const targetDeckId = currentDeck?.id;
-      const updatedCardsByDeck = targetDeckId
-        ? { ...cardsByDeck, [targetDeckId]: updatedDeckCards }
+      const updatedDeckCards = sameDeck
+        ? (deckCards || []).filter(c => String(c.id) !== String(cardId))
+        : deckCards;
+      const targetDeckId = sameDeck ? currentDeck?.id : card.deck_id;
+      const updatedCardsByDeck = (targetDeckId && (sameDeck || cardsByDeck[targetDeckId]))
+        ? {
+            ...cardsByDeck,
+            [targetDeckId]: sameDeck
+              ? updatedDeckCards
+              : cardsByDeck[targetDeckId].filter(c => String(c.id) !== String(cardId)),
+          }
         : cardsByDeck;
       const updatedDecks = targetDeckId
         ? (decks || []).map(d => {
@@ -66,23 +90,57 @@ export const useCardEditor = (fetchNextCard) => {
         decks: updatedDecks
       });
 
-      session.removeCardFromSession(cardId);
+      if (sameSession) session.removeCardFromSession(cardId);
       
-      const freshSession = useSessionStore.getState();
-      if (ui.view === 'study' && currentDeck) {
-        if (!freshSession.card) {
-          if (updatedDeckCards.length > 0) {
-            await fetchNextCard(currentDeck.id, true);
-          } else {
-            session.setCard(null);
-          }
+      const targetView = initialView === 'editor' ? (ui.editorSourceView || 'cards') : ui.view;
+      if (isSameEditor) {
+        session.setEditingCard(null);
+        if (window.history.state?.view === 'editor' && window.history.length > 1) {
+          await new Promise(resolve => {
+            let settled = false;
+            const finish = () => {
+              if (settled) return;
+              settled = true;
+              window.removeEventListener('popstate', onPopState);
+              unsubscribe();
+              if (useUiStore.getState().view === 'editor') {
+                useUiStore.getState().setView(targetView);
+              }
+              resolve();
+            };
+            const onPopState = () => queueMicrotask(finish);
+            const unsubscribe = useUiStore.subscribe(state => {
+              if (state.view !== 'editor') finish();
+            });
+            window.addEventListener('popstate', onPopState, { once: true });
+            window.history.back();
+          });
+          if (!isCurrent()) return;
+        } else {
+          ui.setView(targetView);
         }
+      }
+      const latestSession = useSessionStore.getState();
+      const latestUi = useUiStore.getState();
+      const latestDeck = useDeckStore.getState().currentDeck;
+      const shouldFetchNext = wasCurrentCard
+        && latestSession.sessionRevision === initialSessionRevision
+        && latestDeck?.id === initialDeckId
+        && latestUi.view === 'study'
+        && !latestSession.card;
+      if (shouldFetchNext) {
+        await fetchNextCard(latestDeck.id, true);
+        if (!isCurrent()) return;
+      }
+      if (IS_STANDALONE && isCurrent()) {
+        void fetchDecks(true).catch(() => {});
+        if (currentDeck?.id) void fetchDeckCards(currentDeck.id).catch(() => {});
       }
     } catch (err) {
       console.error('Delete Card Error:', err);
-      showToast(err.message || tr("Ошибка при удалении"), 'error');
+      if (isCurrent()) showToast(err.message || tr("Ошибка при удалении"), 'error');
     } finally {
-      setLoading(false);
+      if (isCurrent()) setLoading(false);
     }
   };
 
@@ -92,6 +150,8 @@ export const useCardEditor = (fetchNextCard) => {
     const identity = getSessionIdentity();
     const account = getUserId();
     const isCurrent = () => identity === getSessionIdentity() && account === getUserId();
+    const initialSessionRevision = useSessionStore.getState().sessionRevision;
+    const initialDeckId = useDeckStore.getState().currentDeck?.id;
     setLoading(true);
     try {
       const id = Number(targetCard.id);
@@ -118,7 +178,12 @@ export const useCardEditor = (fetchNextCard) => {
       const session = useSessionStore.getState();
       const ui = useUiStore.getState();
       const { currentDeck, deckCards } = useDeckStore.getState();
-      const updatedDeckCards = currentDeck?.id === target ? deckCards : (deckCards || []).filter(c => c.id !== id);
+      const sameDeck = currentDeck?.id === initialDeckId;
+      const sameSession = session.sessionRevision === initialSessionRevision && sameDeck;
+      const wasCurrentCard = sameSession && String(session.card?.id) === String(id);
+      const updatedDeckCards = (sameDeck && currentDeck?.id !== target)
+        ? (deckCards || []).filter(c => c.id !== id)
+        : deckCards;
       useDeckStore.setState(state => {
         const cardsByDeck = { ...state.cardsByDeck };
         delete cardsByDeck[targetCard.deck_id];
@@ -126,10 +191,12 @@ export const useCardEditor = (fetchNextCard) => {
         return { deckCards: updatedDeckCards, cardsByDeck };
       });
 
-      session.removeCardFromSession(id);
-      if (ui.view === 'study' && currentDeck && !useSessionStore.getState().card && updatedDeckCards.length > 0) {
-        fetchNextCard(currentDeck.id, true).catch(() => {});
+      if (sameSession) session.removeCardFromSession(id);
+      if (wasCurrentCard && ui.view === 'study' && currentDeck && !useSessionStore.getState().card) {
+        await fetchNextCard(currentDeck.id, true);
+        if (!isCurrent()) return false;
       }
+      if (!isCurrent()) return false;
       if (currentDeck && currentDeck.id !== 'duplicates') fetchDeckCards(currentDeck.id).catch(() => {});
       fetchDecks(true).catch(() => {});
       return true;

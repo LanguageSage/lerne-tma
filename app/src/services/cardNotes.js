@@ -1,12 +1,14 @@
 import { networkApi } from './networkApi.js';
 import { prepareLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 // This small outbox belongs to the existing account-scoped Dexie database.
 // UUIDs make resubmission safe; local_revision protects edits made during a request.
 const syncing = new Map();
 const fetched = new WeakMap();
 export async function syncCardNotes(db, userId, cardId) {
+  if (IS_STANDALONE) return;
   const previous = syncing.get(db.name) || Promise.resolve();
   const run = () => flushNotes(db, userId, cardId);
   const next = previous.catch(() => {}).then(() => navigator.locks
@@ -42,6 +44,7 @@ async function flushNotes(db, userId, cardId) {
 }
 
 export async function refreshCardNotes(cardId, deckId = null, force = true) {
+  if (IS_STANDALONE) return;
   const userId = getUserId();
   if (userId == null) return;
   const db = await prepareLocalDb();
@@ -87,6 +90,7 @@ export async function writeCardNote(cardId, row) {
     await db.card_notes.put(value);
     return value;
   });
+  if (IS_STANDALONE) return value;
   // Failure leaves a durable pending row. The caller shows it and offers retry.
   try {
     if (navigator.onLine) await syncCardNotes(db, value.user_id, cardId);

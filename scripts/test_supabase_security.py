@@ -314,22 +314,38 @@ def verify_http(models):
         me = client.get('/api/auth/v2/me', headers=headers)
         check(me.status_code == 200, 'Session profile failed')
         account_id = me.json()['user_id']
+        def v2_standard(prompt, answer='дом'):
+            return {'schema_version': 2, 'card': {'type': 'standard', 'data': {'prompt': prompt, 'answer': answer}}}
+
         deck = models.TMA_Deck.create(user_id=account_id, name='Synthetic')
         response = client.post('/api/cards/save', headers=headers, json={
-            'deck_id': deck.id, 'front': 'Haus', 'back': 'дом', 'auto_generate_audio': False})
-        check(response.status_code == 200, 'Server card creation failed')
+            'deck_id': deck.id, 'request_id': str(uuid4()), 'content_v2': v2_standard('Haus', 'дом')})
+        check(response.status_code == 200, f'Server card creation failed: {response.status_code} {response.text}')
         card_id = response.json()['id']
+        revision = response.json()['revision']
         response = client.post('/api/study/grade', headers=headers, json={
-            'deck_id': deck.id, 'card_id': card_id, 'grade': 2, 'return_next': False})
-        check(response.status_code == 200, 'Progress persistence failed')
+            'deck_id': deck.id, 'card_id': card_id, 'grade': 2, 'is_extended': False,
+            'action_id': str(uuid4()), 'return_next': False})
+        check(response.status_code == 200, f'Progress persistence failed: {response.status_code} {response.text}')
         check(models.TMAProgress.select().count() == 1, 'Progress missing')
-        batch = {'request_id': str(uuid4()), 'cards': [
-            {'id': -1, 'deck_id': deck.id, 'front_text': 'offline', 'back_text': 'synthetic'}]}
+        offline_card = {
+            'deck_id': deck.id, 'request_id': str(uuid4()),
+            'content_v2': v2_standard('offline', 'synthetic')}
+        first_card = client.post('/api/cards/save', headers=headers, json=offline_card)
+        retry_card = client.post('/api/cards/save', headers=headers, json=offline_card)
+        check(first_card.status_code == retry_card.status_code == 200 and first_card.json() == retry_card.json(),
+              'Offline card retry failed')
+        check(models.TMA_Card.select().count() == 2, 'Offline card retry duplicated data')
+        batch = {'request_id': str(uuid4()), 'reviews': [{
+            'card_id': card_id, 'rating': 2, 'is_extended': False,
+            'scheduled_interval': 1, 'review_time': '2026-10-16T12:00:00Z',
+            'action_id': str(uuid4())}]}
         first = client.post('/api/sync/v2/push', headers=headers, json=batch)
         retry = client.post('/api/sync/v2/push', headers=headers, json=batch)
         check(first.status_code == retry.status_code == 200 and first.json() == retry.json(),
-              'Offline batch retry failed')
-        check(models.TMA_Card.select().count() == 2, 'Offline retry duplicated data')
+              f'Offline batch retry failed: {first.status_code} {first.text}')
+        check(models.TMAReviewHistory.select().where(models.TMAReviewHistory.card_id == card_id).count() == 2,
+              'Offline review retry duplicated data')
         check(client.get('/api/sync/v2/pull', headers=headers).status_code == 200, 'Sync pull failed')
         check(client.get('/api/collaborative/check-access', headers=headers,
                          params={'type': 'deck', 'id': deck.id}).status_code == 200, 'Sharing owner lookup failed')
@@ -343,15 +359,20 @@ def verify_http(models):
         added = client.post(f'/api/collaborative/deck/{deck.id}/add', headers=headers,
                             json={'user_identifier': '@security_fixture', 'role': 'viewer'})
         check(added.status_code == 200, 'Adding viewer failed')
-        payload = {'deck_id': deck.id, 'card_id': card_id, 'front': 'viewer forged', 'auto_generate_audio': False}
-        check(client.post('/api/cards/save', headers=other_headers, json=payload).status_code == 403,
-              'Viewer can edit')
+        check(client.patch(f'/api/cards/{card_id}', headers=other_headers, json={
+            'request_id': str(uuid4()), 'revision': revision,
+            'content_v2': v2_standard('viewer forged', 'дом'),
+        }).status_code == 403, 'Viewer can edit')
         changed = client.put(f'/api/collaborative/deck/{deck.id}/role', headers=headers,
                              json={'user_id_to_update': other_id, 'role': 'editor'})
         check(changed.status_code == 200, 'Promoting editor failed')
-        payload['front'] = 'editor allowed'
-        check(client.post('/api/cards/save', headers=other_headers, json=payload).status_code == 200,
-              'Editor cannot edit')
+        edited = client.patch(f'/api/cards/{card_id}', headers=other_headers, json={
+            'request_id': str(uuid4()), 'revision': revision,
+            'content_v2': v2_standard('editor allowed', 'дом'),
+        })
+        check(edited.status_code == 200, f'Editor cannot edit: {edited.status_code} {edited.text}')
+        check(models.TMA_Card.get_by_id(card_id).content_v2['card']['data']['prompt'] == 'editor allowed',
+              'Editor update did not persist')
         item = models.TMAKnowledgeItem.create(name='Synthetic knowledge')
         models.TMACardKnowledgeItem.create(card_id=card_id, knowledge_item=item, role='primary')
         attempt = {'attempts': [{'client_event_id': 'security-attempt', 'card_id': card_id,

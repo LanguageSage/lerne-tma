@@ -5,6 +5,8 @@ import { useSessionStore } from '../store/useSessionStore';
 import { getSessionIdentity } from '../utils/auth';
 import { isNativeStudyCard, studyErrorDetail } from '../utils/structuredStudyCard.js';
 import { useDeckStore } from '../store/useDeckStore';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import { storeLocalMediaFile } from '../pilot/localMediaWriter.js';
 
 export const useMediaUpload = () => {
   const setLoading = useUiStore(state => state.setLoading);
@@ -17,6 +19,13 @@ export const useMediaUpload = () => {
       return null;
     }
 
+    if (IS_STANDALONE) {
+      if (signal?.aborted) return null;
+      const uploaded = await storeLocalMediaFile(file, 'images');
+      if (signal?.aborted) return null;
+      return uploaded;
+    }
+
     const formData = new FormData();
     formData.append('file', file);
     const res = await api.post('/media/upload-image', formData, { signal });
@@ -25,6 +34,9 @@ export const useMediaUpload = () => {
 
   const uploadAudioFile = async (file) => {
     if (!file?.size || file.size > 20 * 1024 * 1024) throw new Error(tr('Выберите MP3 или PCM WAV до 20 МБ.'));
+    if (IS_STANDALONE) {
+      return storeLocalMediaFile(file, 'audio');
+    }
     const digest = await crypto.subtle.digest('SHA-256', await file.arrayBuffer());
     const sha256 = Array.from(new Uint8Array(digest), byte => byte.toString(16).padStart(2, '0')).join('');
     const body = new FormData();
@@ -74,13 +86,27 @@ export const useMediaUpload = () => {
     setLoading(true);
     try {
       const uploaded = await uploadImageFile(file, signal);
-      if (uploaded && !signal.aborted && identity === getSessionIdentity()) {
-        setter(current => current && current.id === cardId && !signal.aborted && identity === getSessionIdentity()
-          ? { ...current, image_path: uploaded.path, image_url: uploaded.url } : current);
+      if (uploaded && !signal?.aborted && identity === getSessionIdentity()) {
+        setter(current => {
+          if (!current || current.id !== cardId || signal?.aborted || identity !== getSessionIdentity()) {
+            return current;
+          }
+          const next = { ...current, image_path: uploaded.path, image_url: uploaded.url };
+          if (IS_STANDALONE && next.content_v2?.card?.image) {
+            const nextCard = { ...next.content_v2.card };
+            delete nextCard.image;
+            const nextEnvelope = { ...next.content_v2, card: nextCard };
+            next.content_v2 = nextEnvelope;
+            if (next.content_v2_source != null) {
+              next.content_v2_source = JSON.stringify(nextEnvelope, null, 2);
+            }
+          }
+          return next;
+        });
         showToast(tr("Картинка добавлена"), "success");
       }
     } catch (err) {
-      if (!signal.aborted && identity === getSessionIdentity()) {
+      if (!signal?.aborted && identity === getSessionIdentity()) {
         showToast(tr("Ошибка загрузки картинки: {{p0}}", { p0: err.response?.data?.detail || err.message }));
       }
     } finally {

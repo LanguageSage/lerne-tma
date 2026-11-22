@@ -37,7 +37,7 @@ export const useDeckStore = create((set, get, store) => ({
       isFetchingDecks: false,
       libraryStatus: 'idle',
       libraryError: null,
-      trashItems: { decks: [], cards: [] },
+      trashItems: { folders: [], decks: [], cards: [] },
       externalDecks: [],
       communityDecks: [],
     });
