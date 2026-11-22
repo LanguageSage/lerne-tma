@@ -20,25 +20,25 @@ logger = logging.getLogger(__name__)
 @db_worker
 def generate_share(type: str, item_id: int, data: dict = Body(None), user_id: int = Depends(get_user_id)):
     """Generates or retrieves a unique share_id for a deck, folder, or card."""
+    from api.services.collaborative_service import get_effective_user_role, is_deck_active, is_folder_chain_active
     if type == "deck":
         prefix = "d_"
         item = TMA_Deck.get_or_none((TMA_Deck.id == item_id) & (TMA_Deck.is_deleted == False))
-        if not item:
+        if not is_deck_active(item):
             raise HTTPException(status_code=404, detail="Deck not found")
     elif type == "folder":
         prefix = "f_"
         item = TMA_Folder.get_or_none((TMA_Folder.id == item_id) & (TMA_Folder.is_deleted == False))
-        if not item:
+        if not item or not is_folder_chain_active(item.id):
             raise HTTPException(status_code=404, detail="Folder not found")
     elif type == "card":
         prefix = "c_"
         item = TMA_Card.get_or_none((TMA_Card.id == item_id) & (TMA_Card.is_deleted == False))
-        if not item:
+        if not item or not is_deck_active(item.deck):
             raise HTTPException(status_code=404, detail="Card not found")
     else:
         raise HTTPException(status_code=400, detail="Invalid item type")
 
-    from api.services.collaborative_service import get_effective_user_role
     target_type = 'deck' if type == 'card' else type
     target_id = item.deck_id if type == 'card' else item.id
     if not get_effective_user_role(user_id, target_type, target_id):
@@ -77,9 +77,10 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
             # selects an arbitrary account for comparison.
             pass
 
+    from api.services.collaborative_service import is_deck_active, is_folder_chain_active
     if clean_id.startswith("d_"):
         deck = TMA_Deck.get_or_none((TMA_Deck.share_id == clean_id) & (TMA_Deck.is_deleted == False))
-        if not deck:
+        if not is_deck_active(deck):
             raise HTTPException(status_code=404, detail="Shared deck not found")
 
         creator = TMAUser.get_or_none(TMAUser.user_id == deck.user_id)
@@ -133,7 +134,7 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
         }
     elif clean_id.startswith("f_"):
         folder = TMA_Folder.get_or_none((TMA_Folder.share_id == clean_id) & (TMA_Folder.is_deleted == False))
-        if not folder:
+        if not folder or not is_folder_chain_active(folder.id):
             raise HTTPException(status_code=404, detail="Shared folder not found")
 
         creator = TMAUser.get_or_none(TMAUser.user_id == folder.user_id)
@@ -195,7 +196,7 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
         }
     elif clean_id.startswith("c_"):
         card = TMA_Card.get_or_none((TMA_Card.share_id == clean_id) & (TMA_Card.is_deleted == False))
-        if not card:
+        if not card or not is_deck_active(card.deck):
             raise HTTPException(status_code=404, detail="Shared card not found")
 
         creator_id = card.creator_id or (card.deck.user_id if card.deck else None)

@@ -1,16 +1,34 @@
 import api from '../../services/api';
 
 export const createTrashSlice = (set, get) => ({
-  trashItems: { decks: [], cards: [] },
+  trashItems: { folders: [], decks: [], cards: [] },
 
   setTrashItems: (items) => set({ trashItems: items }),
 
   fetchTrash: async () => {
     try {
       const res = await api.get('/trash');
-      set({ trashItems: res.data });
+      set({
+        trashItems: {
+          folders: res.data?.folders || [],
+          decks: res.data?.decks || [],
+          cards: res.data?.cards || [],
+        },
+      });
     } catch (err) {
       console.error('Fetch Trash Error:', err);
+    }
+  },
+
+  restoreTrashFolder: async (folderId) => {
+    try {
+      await api.post(`/trash/folder/${folderId}/restore`);
+      const { fetchTrash, fetchDecks } = get();
+      await fetchTrash();
+      await fetchDecks(true);
+    } catch (err) {
+      console.error('Restore Trash Folder Error:', err);
+      throw err;
     }
   },
 
@@ -44,7 +62,7 @@ export const createTrashSlice = (set, get) => ({
   clearTrash: async () => {
     try {
       await api.delete('/trash/clear');
-      set({ trashItems: { decks: [], cards: [] } });
+      set({ trashItems: { folders: [], decks: [], cards: [] } });
       const { fetchDecks } = get();
       await fetchDecks(true);
     } catch (err) {

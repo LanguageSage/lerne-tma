@@ -4,6 +4,12 @@ import { getSessionIdentity, getUserId } from '../utils/auth.js';
 import { prepareLocalDb } from './localDb.js';
 import { keepLocalCard, reconcileCardEditLifecycle, syncService } from './syncService.js';
 import { mergeStudyProgress } from '../utils/structuredStudyCard.js';
+import {
+  buildFolderMap,
+  collectSubtreeFolderIds,
+  isDeckActiveInCache,
+  isOwnedRecord,
+} from './cardOfflineQueue.js';
 import { tr } from '../i18n/locale.js';
 
 export async function handleLocalFirstRequest({
@@ -129,8 +135,11 @@ export async function reconcileOnlineResponse({
     && response.data.content_v2?.schema_version === 2 && response.data.revision;
   const deckMatch = propKey === 'get' && url.match(/^\/decks\/(\d+)\/cards$/);
   const trashRead = propKey === 'get' && url === '/trash';
+  const entityDeleteMatch = propKey === 'delete' ? url.match(/^\/(folders|decks)\/(\d+)$/) : null;
+  const entityRestoreMatch = propKey === 'post' ? url.match(/^\/trash\/(folder|deck)\/(\d+)\/restore$/) : null;
+  const trashClear = propKey === 'delete' && url === '/trash/clear';
 
-  if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || studyCardRead || studyGrade || trashRead || directCreate)
+  if (requestAccount && (isLibraryRead || deckMatch || cardMatch || studyNext || studyCardRead || studyGrade || trashRead || directCreate || entityDeleteMatch || entityRestoreMatch || trashClear)
       && requestIdentity === getSessionIdentity() && requestAccount === getUserId()) {
     try {
       const db = await prepareLocalDb();
@@ -239,9 +248,58 @@ export async function reconcileOnlineResponse({
             assertCurrent();
             return { ...response, data };
           }
+        } else if (entityDeleteMatch || entityRestoreMatch) {
+          const tableName = entityDeleteMatch ? entityDeleteMatch[1] : `${entityRestoreMatch[1]}s`;
+          const targetId = Number(entityDeleteMatch ? entityDeleteMatch[2] : entityRestoreMatch[2]);
+          const nextDeleted = entityDeleteMatch ? 1 : 0;
+          await db.transaction('rw', db[tableName], async () => {
+            const existing = await db[tableName].get(targetId);
+            if (!isCurrent()) throw new axios.CanceledError('Session changed during lifecycle cache update');
+            if (existing && !existing.is_dirty && Boolean(existing.is_deleted) !== Boolean(nextDeleted)) {
+              await db[tableName].put({
+                ...existing,
+                is_deleted: nextDeleted,
+                hard_deleted_locally: false,
+                updated_at: new Date().toISOString(),
+              });
+            }
+          });
+        } else if (trashClear) {
+          await db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
+            if (!isCurrent()) throw new axios.CanceledError('Session changed during trash clear cache update');
+            const [allFolders, allDecks, allCards] = await Promise.all([
+              db.folders.toArray(), db.decks.toArray(), db.cards.toArray(),
+            ]);
+            const childrenByParent = new Map();
+            for (const folder of allFolders) {
+              if (!isOwnedRecord(folder, requestAccount)) continue;
+              const list = childrenByParent.get(folder.parent_id ?? null) || [];
+              list.push(folder);
+              childrenByParent.set(folder.parent_id ?? null, list);
+            }
+            const rootDelFolders = allFolders.filter(f => f.is_deleted && !f.is_dirty && isOwnedRecord(f, requestAccount)).map(f => f.id);
+            const delFolderIds = new Set(collectSubtreeFolderIds(rootDelFolders, childrenByParent, child => !child.is_dirty));
+            const decksById = new Map(allDecks.map(d => [d.id, d]));
+            const delDeckIds = new Set(allDecks.filter(d => isOwnedRecord(d, requestAccount) && !d.is_dirty && (d.is_deleted || delFolderIds.has(d.folder_id))).map(d => d.id));
+            const delCardIds = allCards.filter(c => !c.is_dirty && !c.offline_lifecycle && !c.offline_edit
+              && ((c.is_deleted && isOwnedRecord(decksById.get(c.deck_id), requestAccount)) || delDeckIds.has(c.deck_id))).map(c => c.id);
+            if (delCardIds.length > 0) {
+              await db.cards.bulkDelete(delCardIds);
+              const progressKeys = (await db.progress.where('card_id').anyOf(delCardIds).toArray()).map(p => [p.card_id, p.user_id]);
+              if (progressKeys.length > 0) await db.progress.bulkDelete(progressKeys);
+            }
+            if (delDeckIds.size > 0) await db.decks.bulkDelete([...delDeckIds]);
+            if (delFolderIds.size > 0) await db.folders.bulkDelete([...delFolderIds]);
+          });
         } else if (trashRead && Array.isArray(response.data?.cards)) {
-          const cards = await db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
-            const [lastSync, decks] = await Promise.all([db.syncState.get('lastSync'), db.decks.toArray()]);
+          const cards = await db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+            const [lastSync, decks, allFolders] = await Promise.all([
+              db.syncState.get('lastSync'),
+              db.decks.toArray(),
+              db.folders.toArray(),
+            ]);
+            const folderMap = buildFolderMap(allFolders);
+            const decksById = new Map(decks.map(d => [d.id, d]));
             const ownDecks = new Map(decks.filter(d => d.user_id === requestAccount || d.role === 'owner')
               .map(d => [d.id, d.name]));
             const incoming = new Set();
@@ -260,13 +318,22 @@ export async function reconcileOnlineResponse({
                   && !(lastSync?.readStartedAt > requestStartedAt)) {
                 await db.cards.put({ ...server, is_dirty: 0, offline_read_started_at: requestStartedAt });
               }
-              if (card.is_deleted) visible.push({ ...card, deck_name: server.deck_name });
+              if (card.is_deleted) {
+                visible.push({ ...card, deck_name: server.deck_name, deck_deleted: Boolean(server.deck_deleted) });
+              }
             }
             const pending = await db.cards.filter(card => card.content_v2 && card.is_deleted
               && !incoming.has(card.id) && ownDecks.has(card.deck_id)
               && keepLocalCard(card, requestStartedAt)).toArray();
             assertCurrent();
-            return [...visible, ...pending.map(card => ({ ...card, deck_name: ownDecks.get(card.deck_id) }))];
+            return [...visible, ...pending.map(card => {
+              const parentDeck = decksById.get(card.deck_id);
+              return {
+                ...card,
+                deck_name: ownDecks.get(card.deck_id),
+                deck_deleted: parentDeck ? !isDeckActiveInCache(parentDeck, folderMap) : Boolean(card.deck_deleted),
+              };
+            })];
           });
           assertCurrent();
           return { ...response, data: { ...response.data, cards } };

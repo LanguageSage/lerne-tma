@@ -6,6 +6,7 @@
  * Fast (< 0.1 ms) and zero API cost.
  */
 
+import { getInterfaceLanguage } from '../../i18n/locale.js';
 import { detectAllFeaturesDe } from './rules_de.js';
 import { detectVocabularyLevel } from './vocabulary.js';
 import { calculateResult } from './scorer.js';
@@ -25,7 +26,7 @@ export function classifySentenceFast(phrase, targetLanguage = 'de') {
     return { level: 'A1', confidence: 0.0, source: 'unsupported_lang', ai_used: false };
   }
 
-  const cacheKey = phrase.trim();
+  const cacheKey = `${getInterfaceLanguage()}:${phrase.trim()}`;
   if (CLASSIFIER_CACHE.has(cacheKey)) {
     return CLASSIFIER_CACHE.get(cacheKey);
   }

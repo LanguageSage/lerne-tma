@@ -18,6 +18,16 @@ import {
   pendingCreate,
   unsupported,
   isStandaloneDb,
+  isContentReadOnly,
+  isOwnedRecord,
+  collectSubtreeFolderIds,
+  assertParentActiveForRestore,
+  isCardDeckActiveInCache,
+  buildFolderMap,
+  isFolderActiveInCache,
+  isFolderParentReadyForRestore,
+  isDeckActiveInCache,
+  loadFolderMap,
   requireContentWrite,
   saveNativeCard,
   queueCardMove,
@@ -71,19 +81,24 @@ async function cardView(db, card, userId, reviewContext = 'scheduled', options =
 const isActiveCard = card => card.content_v2 && !card.is_deleted;
 const readActiveDeckCards = async (db, deckId) =>
   (await db.cards.where('deck_id').equals(deckId).toArray()).filter(isActiveCard);
-const readCardProgress = (db, cards, userId) => db.progress.bulkGet(cards.map(card => [card.id, userId]));
+const readCardProgress = (db, cards, userId) =>
+  (cards.length ? db.progress.bulkGet(cards.map(card => [card.id, userId])) : Promise.resolve([]));
 const progressByCard = rows => new Map(rows.filter(Boolean).map(row => [row.card_id, row]));
 
-async function deckCards(db, deckId) {
-  const deck = await db.decks.get(deckId);
-  if (!deck || deck.is_deleted) notFound();
+async function deckCards(db, deckId, folderMap = null) {
+  const [deck, resolvedFolderMap] = folderMap
+    ? [await db.decks.get(deckId), folderMap]
+    : await Promise.all([db.decks.get(deckId), loadFolderMap(db)]);
+  if (!isDeckActiveInCache(deck, resolvedFolderMap)) notFound();
   return ordered(await readActiveDeckCards(db, deckId));
 }
 
-async function readDeckStudyData(db, deckId, userId) {
-  const cards = await deckCards(db, deckId);
-  const progress = progressByCard(await readCardProgress(db, cards, userId));
-  return { cards, progress };
+async function readDeckStudyData(db, deckId, userId, folderMap = null) {
+  return db.transaction('r', db.folders, db.decks, db.cards, db.progress, async () => {
+    const cards = await deckCards(db, deckId, folderMap);
+    const progress = progressByCard(await readCardProgress(db, cards, userId));
+    return { cards, progress };
+  });
 }
 
 async function readCardsByDeck(db, deckIds) {
@@ -100,11 +115,14 @@ const matchesVisibleLanguage = (itemLang, language, standalone) => (
 );
 const RESOURCE_KIND_MAP = { image: 'images', audio: 'audio', video: 'videos', background: 'backgrounds' };
 
-const activeFolders = (db, language) => {
+async function activeFolders(db, language, folderMap = null) {
   const standalone = isStandaloneDb(db);
-  return db.folders.filter(folder => !folder.is_deleted
-    && matchesVisibleLanguage(folder.target_language, language, standalone)).toArray();
-};
+  const allFolders = folderMap ? [...folderMap.values()] : await db.folders.toArray();
+  const resolvedFolderMap = folderMap || buildFolderMap(allFolders);
+  return allFolders.filter(folder => !folder.is_deleted
+    && isFolderActiveInCache(resolvedFolderMap, folder.id)
+    && matchesVisibleLanguage(folder.target_language, language, standalone));
+}
 
 export async function readPulledFolders() {
   const db = getLocalDb();
@@ -116,7 +134,7 @@ export async function readPulledFolders() {
 
 export async function readPulledDeckCards(deckId, userId, expectedTotal, apply) {
   const db = getLocalDb();
-  return db.transaction('r', db.syncState, db.decks, db.cards, db.progress, db.media, async () => {
+  return db.transaction('r', db.syncState, db.folders, db.decks, db.cards, db.progress, db.media, async () => {
     const [checkpoint, completeness] = await db.syncState.bulkGet(['lastSync', `deck-cards:${deckId}`]);
     if (!checkpoint?.readStartedAt || completeness?.complete === false) return;
     const cards = await deckCards(db, deckId);
@@ -218,15 +236,21 @@ export const offlineApi = {
       const language = localStorage.getItem('lerne_target_language') || 'de';
       if (url === '/folders') return result(ordered(await activeFolders(db, language)));
       const standalone = isStandaloneDb(db);
-      const { rawDecks, cardsByDeck, progress } = await db.transaction('r', db.decks, db.cards, db.progress, async () => {
-        const rawDecks = ordered(await db.decks.filter(d => !d.is_deleted
-          && matchesVisibleLanguage(d.target_language, language, standalone)).toArray());
-        const [cardsByDeck, rows] = rawDecks.length ? await Promise.all([
-          readCardsByDeck(db, rawDecks.map(deck => deck.id)),
-          db.progress.where('user_id').equals(userId).toArray(),
-        ]) : [new Map(), []];
-        return { rawDecks, cardsByDeck, progress: progressByCard(rows) };
-      });
+      const { rawDecks, cardsByDeck, progress, folderMap } = await db.transaction(
+        'r', db.folders, db.decks, db.cards, db.progress, async () => {
+          const [folderMap, allDecks] = await Promise.all([
+            loadFolderMap(db),
+            db.decks.toArray(),
+          ]);
+          const rawDecks = ordered(allDecks.filter(d => isDeckActiveInCache(d, folderMap)
+            && matchesVisibleLanguage(d.target_language, language, standalone)));
+          const [cardsByDeck, rows] = rawDecks.length ? await Promise.all([
+            readCardsByDeck(db, rawDecks.map(deck => deck.id)),
+            db.progress.where('user_id').equals(userId).toArray(),
+          ]) : [new Map(), []];
+          return { rawDecks, cardsByDeck, progress: progressByCard(rows), folderMap };
+        },
+      );
       const decks = await Promise.all(rawDecks.map(async (deck) => {
         deck.stats = deckStats(cardsByDeck.get(deck.id) ?? [], progress, userId);
         deck.metadata = jsonObject(deck.metadata);
@@ -246,7 +270,7 @@ export const offlineApi = {
         return deck;
       }));
       if (url === '/decks') return result(decks);
-      const folders = ordered(await activeFolders(db, language));
+      const folders = ordered(await activeFolders(db, language, folderMap));
       return result({ decks, folders, settings: {}, prompts: {}, user_info: getUserProfile() });
     }
     if (m === 'get' && url === '/cards/search') {
@@ -257,8 +281,12 @@ export const offlineApi = {
       const targetLang = params.get('target_language') || localStorage.getItem('lerne_target_language') || 'de';
       const limit = Number(params.get('limit')) || 60;
 
-      const allFolders = await db.folders.filter(f => !f.is_deleted).toArray();
-      const allDecks = await db.decks.filter(d => !d.is_deleted).toArray();
+      const folderMap = await loadFolderMap(db);
+      if (folderId !== null && !isFolderActiveInCache(folderMap, folderId)) {
+        return result({ folders: [], decks: [], cards: [] });
+      }
+      const allFolders = [...folderMap.values()].filter(f => !f.is_deleted && isFolderActiveInCache(folderMap, f.id));
+      const allDecks = (await db.decks.toArray()).filter(d => isDeckActiveInCache(d, folderMap));
 
       const scopedFolders = getScopedFolders(allFolders, folderId, targetLang);
       const scopedDecks = getScopedDecks(allDecks, allFolders, folderId, targetLang);
@@ -310,6 +338,8 @@ export const offlineApi = {
     if (m === 'get' && match) {
       const card = await db.cards.get(Number(match[1]));
       if (!card?.content_v2 || card.is_deleted) notFound();
+      const [deck, folderMap] = await Promise.all([db.decks.get(card.deck_id), loadFolderMap(db)]);
+      if (!isCardDeckActiveInCache(deck, card, folderMap)) notFound();
       return result(await cardView(db, card, userId));
     }
     if (m === 'patch' && match && Number(match[1]) > 0) {
@@ -341,6 +371,8 @@ export const offlineApi = {
       const id = Number(body.card_id);
       const card = await db.cards.get(id);
       if (!card || card.is_deleted) notFound();
+      const [deck, folderMap] = await Promise.all([db.decks.get(card.deck_id), loadFolderMap(db)]);
+      if (!isCardDeckActiveInCache(deck, card, folderMap)) notFound();
       if (card.offline_create_status) pendingCreate();
       if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
       const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
@@ -434,8 +466,8 @@ export const offlineApi = {
       const table = db[match[1]];
       const parentId = body.folder_id || body.parent_id;
       if (parentId) {
-        const parent = await db.folders.get(Number(parentId));
-        if (!parent || parent.is_deleted) notFound();
+        const [parent, folderMap] = await Promise.all([db.folders.get(Number(parentId)), loadFolderMap(db)]);
+        if (!parent || !isFolderActiveInCache(folderMap, parent.id)) notFound();
         await requireContentWrite(db, 'folders', parent);
       }
       const item = { ...body, id: getNextTempId(), user_id: userId, is_deleted: 0,
@@ -470,18 +502,21 @@ export const offlineApi = {
       const id = Number(rawId);
       const table = db[entity];
       return db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
-        const item = await table.get(id);
+        const [item, folderMap] = await Promise.all([table.get(id), loadFolderMap(db)]);
         if (!item) notFound();
         if (entity === 'cards' && action !== 'flag') throw unsupported();
         if (m === 'delete' && !action) {
+          const isOwner = (item.user_id == null || item.user_id === userId) && (!item.role || item.role === 'owner');
+          if (!isOwner && item.role !== 'owner') readOnly();
+          await requireContentWrite(db, entity, item);
+          if (item.is_deleted) return success();
+          const parentId = entity === 'folders' ? item.parent_id : item.folder_id;
+          if (!isFolderActiveInCache(folderMap, parentId)) notFound();
           await change(table, id, { is_deleted: 1 });
-          if (entity === 'folders') {
-            for (const child of await db.folders.filter(f => f.parent_id === id).toArray()) await change(db.folders, child.id, { parent_id: item.parent_id || null });
-            for (const deck of await db.decks.where('folder_id').equals(id).toArray()) await change(db.decks, deck.id, { folder_id: item.parent_id || null });
-          }
           return success();
         }
         if (action === 'reset' && entity === 'decks') {
+          if (!isDeckActiveInCache(item, folderMap)) notFound();
           for (const card of await db.cards.where('deck_id').equals(id).toArray()) {
             const oldProg = await db.progress.get([card.id, userId]) || {};
             await db.progress.put({ ...oldProg, card_id: card.id, user_id: userId, queue: 'new', interval: 0,
@@ -496,6 +531,8 @@ export const offlineApi = {
         if (action === 'flag') {
           if (entity !== 'cards') throw unsupported();
           if (item.offline_create_status) pendingCreate();
+          const deck = await db.decks.get(item.deck_id);
+          if (!isDeckActiveInCache(deck, folderMap)) notFound();
           const prog = await db.progress.get([id, userId]) || initialProgress(item, userId);
           if (!prog.is_dirty) prog.flag_only = true;
           prog.flag = Number(body.flag) || 0;
@@ -504,11 +541,14 @@ export const offlineApi = {
           return success({ id, flag: prog.flag });
         }
         if (action === 'toggle-learning' && entity === 'decks') {
+          if (!isDeckActiveInCache(item, folderMap)) notFound();
           const isLearning = body.is_learning ?? !item.is_learning;
           await db.decks.put({ ...item, is_learning: isLearning, learning_dirty: 1 });
           return success({ is_learning: isLearning });
         }
         await requireContentWrite(db, entity, item);
+        if (entity === 'folders' && !isFolderActiveInCache(folderMap, id)) notFound();
+        if (entity === 'decks' && !isDeckActiveInCache(item, folderMap)) notFound();
         if (action === 'pin') fields = { is_pinned: !item.is_pinned };
         if (action === 'move') {
           const key = entity === 'folders' ? 'parent_id' : 'folder_id';
@@ -535,8 +575,10 @@ export const offlineApi = {
       });
     }
     if (url === '/cards/duplicates' && m === 'get') {
-      const decks = new Map((await db.decks.filter(d => !d.is_deleted
-        && (d.user_id === userId || d.role === 'owner')).toArray()).map(d => [d.id, d]));
+      const folderMap = await loadFolderMap(db);
+      const decks = new Map((await db.decks.toArray())
+        .filter(d => isDeckActiveInCache(d, folderMap) && (d.user_id === userId || d.role === 'owner'))
+        .map(d => [d.id, d]));
       const cards = (await db.cards.filter(c => c.content_v2 && !c.is_deleted && decks.has(c.deck_id)).toArray())
         .sort((a, b) => a.deck_id - b.deck_id || a.position - b.position || a.id - b.id);
       const counts = new Map();
@@ -549,26 +591,90 @@ export const offlineApi = {
 
     }
     if (url === '/trash' && m === 'get') {
-      const decks = await db.decks.toArray();
+      const [allFolders, decks, allCards] = await Promise.all([
+        db.folders.toArray(),
+        db.decks.toArray(),
+        db.cards.toArray(),
+      ]);
+      const folderMap = buildFolderMap(allFolders);
+      const ownFolders = allFolders.filter(f => isOwnedRecord(f, userId));
+      const childrenByParent = new Map();
+      for (const folder of ownFolders) {
+        const list = childrenByParent.get(folder.parent_id ?? null) || [];
+        list.push(folder);
+        childrenByParent.set(folder.parent_id ?? null, list);
+      }
+      const activeDecksByFolder = new Map();
+      for (const deck of decks) {
+        if (!deck.is_deleted && !deck.hard_deleted_locally && isOwnedRecord(deck, userId)) {
+          const list = activeDecksByFolder.get(deck.folder_id ?? null) || [];
+          list.push(deck.id);
+          activeDecksByFolder.set(deck.folder_id ?? null, list);
+        }
+      }
+      const activeCardCounts = new Map();
+      for (const card of allCards) {
+        if (!card.is_deleted && !card.hard_deleted_locally) {
+          activeCardCounts.set(card.deck_id, (activeCardCounts.get(card.deck_id) || 0) + 1);
+        }
+      }
+      const folders = ownFolders
+        .filter(f => !!f.is_deleted && !f.hard_deleted_locally)
+        .sort((a, b) => b.id - a.id)
+        .map(f => {
+          const subtreeIds = collectSubtreeFolderIds([f.id], childrenByParent, child => !child.is_deleted && !child.hard_deleted_locally);
+          const subtreeDeckIds = subtreeIds.flatMap(fid => activeDecksByFolder.get(fid) || []);
+          return {
+            ...f,
+            parent_deleted: f.parent_id != null && !isFolderParentReadyForRestore(folderMap, f.parent_id).ok,
+            decks_count: subtreeDeckIds.length,
+            cards_count: subtreeDeckIds.reduce((sum, did) => sum + (activeCardCounts.get(did) || 0), 0),
+          };
+        });
+      const decksById = new Map(decks.map(d => [d.id, d]));
       const ownDecks = new Map(decks.filter(d => d.user_id === userId || d.role === 'owner').map(d => [d.id, d]));
-      return result({ decks: await db.decks.filter(d => !!d.is_deleted && !d.hard_deleted_locally).toArray(),
-        cards: (await db.cards.filter(c => !!c.is_deleted && !c.hard_deleted_locally
-          && c.content_v2 && (ownDecks.has(c.deck_id) || c.deck_name)).toArray())
-          .map(card => ({ ...card, deck_name: ownDecks.get(card.deck_id)?.name || card.deck_name })) });
+      const deletedDecks = decks
+        .filter(d => !!d.is_deleted && !d.hard_deleted_locally && isOwnedRecord(d, userId))
+        .map(d => ({
+          ...d,
+          parent_deleted: d.folder_id != null && !isFolderParentReadyForRestore(folderMap, d.folder_id).ok,
+          cards_count: activeCardCounts.get(d.id) || 0,
+        }));
+      const deletedCards = allCards
+        .filter(c => !!c.is_deleted && !c.hard_deleted_locally
+          && c.content_v2 && (ownDecks.has(c.deck_id) || c.deck_name))
+        .map(card => {
+          const parentDeck = ownDecks.get(card.deck_id) || decksById.get(card.deck_id);
+          return {
+            ...card,
+            deck_name: parentDeck?.name || card.deck_name,
+            deck_deleted: parentDeck ? !isDeckActiveInCache(parentDeck, folderMap) : Boolean(card.deck_deleted),
+          };
+        });
+      return result({ folders, decks: deletedDecks, cards: deletedCards });
     }
-    match = url.match(/^\/trash\/(deck|card)\/(-?\d+)\/restore$/);
+    match = url.match(/^\/trash\/(folder|deck|card)\/(-?\d+)\/restore$/);
     if (match && m === 'post') {
       if (isStandaloneDb(db)) readOnly();
-      if (match[1] === 'card') {
-        const id = Number(match[2]);
+      const [, kind, rawId] = match;
+      const id = Number(rawId);
+      if (kind === 'card') {
         return queueCardLifecycle(db, id, body, false, userId, isCurrent);
       }
-      await requireContentWrite(db, `${match[1]}s`, await db[`${match[1]}s`].get(Number(match[2])));
-      await change(db[`${match[1]}s`], Number(match[2]), { is_deleted: 0, hard_deleted_locally: false });
-      return success();
+      const table = db[`${kind}s`];
+      return db.transaction('rw', db.folders, db.decks, async () => {
+        const [item, folderMap] = await Promise.all([table.get(id), loadFolderMap(db)]);
+        if (!item) notFound();
+        if (isContentReadOnly(item, db) || !isOwnedRecord(item, userId)) readOnly();
+        assertParentActiveForRestore(folderMap, kind === 'folder' ? item.parent_id : item.folder_id, kind);
+        if (!item.is_deleted && !item.hard_deleted_locally) return success();
+        await change(table, id, { is_deleted: 0, hard_deleted_locally: false });
+        return success();
+      });
     }
     if (url === '/study/stats' && m === 'get') {
-      const active = new Set((await db.decks.filter(d => !d.is_deleted).toArray()).map(d => d.id));
+      const folderMap = await loadFolderMap(db);
+      const active = new Set((await db.decks.toArray()).filter(d => isDeckActiveInCache(d, folderMap)).map(d => d.id));
       const cards = await db.cards.filter(c => !c.is_deleted && active.has(c.deck_id)).toArray();
       const progress = new Map((await db.progress.where('user_id').equals(userId).toArray()).map(p => [p.card_id, p]));
       const stats = { total_cards: cards.length, new_cards: 0, learning_cards: 0, young_cards: 0, mature_cards: 0, leech_cards: 0, retention_rate: null };

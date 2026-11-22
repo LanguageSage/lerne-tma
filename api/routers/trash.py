@@ -19,6 +19,14 @@ def get_trash(user_id: int = Depends(get_user_id)):
     logger.info(f"GET /api/trash - authenticated account: {user_id}")
     return services.trash.get_trash_items(user_id)
 
+@router.post("/folder/{folder_id}/restore")
+@db_worker
+def restore_trash_folder(folder_id: int, user_id: int = Depends(get_user_id)):
+    logger.info(f"POST /api/trash/folder/{folder_id}/restore - authenticated account: {user_id}")
+    if services.trash.restore_folder(folder_id, user_id):
+        return {"status": "success"}
+    raise HTTPException(status_code=404, detail="Folder not found or restore failed")
+
 @router.post("/deck/{deck_id}/restore")
 @db_worker
 def restore_trash_deck(deck_id: int, user_id: int = Depends(get_user_id)):
