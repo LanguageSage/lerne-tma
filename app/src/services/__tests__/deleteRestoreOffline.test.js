@@ -133,12 +133,18 @@ describe('Audit A-01 offline & standalone delete/restore semantics', () => {
     const initRes = await offlineApi.handle('get', '/init', null, { _testDb: db });
     assert.deepEqual(initRes.data.folders, []);
     assert.deepEqual(initRes.data.decks, []);
+    assert.deepEqual((await offlineApi.handle('get', '/decks', null, { _testDb: db })).data, []);
+    assert.deepEqual((await offlineApi.handle('get', '/folders', null, { _testDb: db })).data, []);
     await assert.rejects(() => offlineApi.handle('get', '/decks/10/cards', null, { _testDb: db }));
+    await assert.rejects(() => offlineApi.handle('get', '/decks/10/next', null, { _testDb: db }));
     await assert.rejects(() => offlineApi.handle('get', '/cards/100', null, { _testDb: db }));
     await assert.rejects(() => offlineApi.handle('get', '/study/card/100', null, { _testDb: db }));
     await assert.rejects(() => offlineApi.handle('post', '/study/grade', { card_id: 100, grade: 2 }, { _testDb: db }));
+    assert.equal(await db.progress.count(), 0);
     const searchRes = await offlineApi.handle('get', '/cards/search', { params: { q: 'Haus' } }, { _testDb: db });
     assert.deepEqual(searchRes.data, { folders: [], decks: [], cards: [] });
+    const scopedSearchRes = await offlineApi.handle('get', '/cards/search', { params: { q: 'Haus', folder_id: 2 } }, { _testDb: db });
+    assert.deepEqual(scopedSearchRes.data, { folders: [], decks: [], cards: [] });
     const statsRes = await offlineApi.handle('get', '/study/stats', null, { _testDb: db });
     assert.equal(statsRes.data.total_cards, 0);
 

@@ -62,7 +62,8 @@ const initialProgress = (card, userId) => ({
 });
 
 async function cardView(db, card, userId, reviewContext = 'scheduled', options = {}) {
-  const progress = options.progress ?? (await db.progress.get([card.id, userId])) ?? initialProgress(card, userId);
+  const progress = (Object.hasOwn(options, 'progress') ? options.progress : await db.progress.get([card.id, userId]))
+    ?? initialProgress(card, userId);
   const content = card.content_v2?.card;
   if (!content) notFound();
   return {
@@ -77,13 +78,32 @@ async function cardView(db, card, userId, reviewContext = 'scheduled', options =
   };
 }
 
+const isActiveCard = card => card.content_v2 && !card.is_deleted;
+const readActiveDeckCards = async (db, deckId) =>
+  (await db.cards.where('deck_id').equals(deckId).toArray()).filter(isActiveCard);
+const readCardProgress = (db, cards, userId) =>
+  (cards.length ? db.progress.bulkGet(cards.map(card => [card.id, userId])) : Promise.resolve([]));
+const progressByCard = rows => new Map(rows.filter(Boolean).map(row => [row.card_id, row]));
+
 async function deckCards(db, deckId, folderMap = null) {
-  const [deck, resolvedFolderMap] = await Promise.all([
-    db.decks.get(deckId),
-    folderMap ? Promise.resolve(folderMap) : loadFolderMap(db),
-  ]);
+  const [deck, resolvedFolderMap] = folderMap
+    ? [await db.decks.get(deckId), folderMap]
+    : await Promise.all([db.decks.get(deckId), loadFolderMap(db)]);
   if (!isDeckActiveInCache(deck, resolvedFolderMap)) notFound();
-  return ordered((await db.cards.where('deck_id').equals(deckId).toArray()).filter(c => c.content_v2 && !c.is_deleted));
+  return ordered(await readActiveDeckCards(db, deckId));
+}
+
+async function readDeckStudyData(db, deckId, userId, folderMap = null) {
+  return db.transaction('r', db.folders, db.decks, db.cards, db.progress, async () => {
+    const cards = await deckCards(db, deckId, folderMap);
+    const progress = progressByCard(await readCardProgress(db, cards, userId));
+    return { cards, progress };
+  });
+}
+
+async function readCardsByDeck(db, deckIds) {
+  // Each indexed equality can use IndexedDB getAll in the caller's read transaction.
+  return new Map(await Promise.all(deckIds.map(async id => [id, await readActiveDeckCards(db, id)])));
 }
 
 const STANDALONE_SUPPORTED_LANGUAGES = new Set(['de', 'en', 'no']);
@@ -119,7 +139,7 @@ export async function readPulledDeckCards(deckId, userId, expectedTotal, apply) 
     if (!checkpoint?.readStartedAt || completeness?.complete === false) return;
     const cards = await deckCards(db, deckId);
     if (cards.filter(card => card.id > 0).length < expectedTotal) return;
-    const progress = await db.progress.bulkGet(cards.map(card => [card.id, userId]));
+    const progress = await readCardProgress(db, cards, userId);
     const startedAt = checkpoint.progressReadStartedAt ?? checkpoint.readStartedAt;
     const data = await Promise.all(cards.map((card, index) => cardView(db, card, userId, 'scheduled', {
       progress: progress[index] ?? (card._studyProgressAt >= startedAt ? initialProgress(card, userId) : emptyStudyProgress),
@@ -130,9 +150,7 @@ export async function readPulledDeckCards(deckId, userId, expectedTotal, apply) 
   });
 }
 
-async function deckStats(db, deckId, userId, folderMap = null) {
-  const cards = await deckCards(db, deckId, folderMap);
-  const progress = new Map((await db.progress.where('user_id').equals(userId).toArray()).map(p => [p.card_id, p]));
+function deckStats(cards, progress, userId) {
   const stats = { total: cards.length, new: 0, learning: 0, due: 0 };
   for (const card of cards) {
     const p = progress.get(card.id) || initialProgress(card, userId);
@@ -165,9 +183,8 @@ async function isDeckCacheComplete(db, deckId, activeCount) {
 }
 
 async function nextCard(db, deckId, userId, params) {
-  const cards = await deckCards(db, deckId);
+  const { cards, progress } = await readDeckStudyData(db, deckId, userId);
   const exclude = new Set((params.get('exclude_ids') || '').split(',').map(Number));
-  const progress = new Map((await db.progress.where('user_id').equals(userId).toArray()).map(p => [p.card_id, p]));
   const now = Date.now();
   const candidates = cards.filter(c => !c.offline_create_status && !exclude.has(c.id))
     .map(card => ({ card, p: progress.get(card.id) || initialProgress(card, userId) }));
@@ -182,7 +199,9 @@ async function nextCard(db, deckId, userId, params) {
     if (!(await isDeckCacheComplete(db, deckId, cards.length))) incompleteCache();
     return result({ finished: true });
   }
-  return result({ ...await cardView(db, pool[0].card, userId, context), deck_stats: await deckStats(db, deckId, userId) });
+  const { card, p } = pool[0];
+  return result({ ...await cardView(db, card, userId, context, { progress: p }),
+    deck_stats: deckStats(cards, progress, userId) });
 }
 
 export const offlineApi = {
@@ -215,12 +234,25 @@ export const offlineApi = {
 
     if (m === 'get' && ['/init', '/decks', '/folders'].includes(url)) {
       const language = localStorage.getItem('lerne_target_language') || 'de';
+      if (url === '/folders') return result(ordered(await activeFolders(db, language)));
       const standalone = isStandaloneDb(db);
-      const folderMap = await loadFolderMap(db);
-      const rawDecks = ordered((await db.decks.toArray()).filter(d => isDeckActiveInCache(d, folderMap)
-        && matchesVisibleLanguage(d.target_language, language, standalone)));
+      const { rawDecks, cardsByDeck, progress, folderMap } = await db.transaction(
+        'r', db.folders, db.decks, db.cards, db.progress, async () => {
+          const [folderMap, allDecks] = await Promise.all([
+            loadFolderMap(db),
+            db.decks.toArray(),
+          ]);
+          const rawDecks = ordered(allDecks.filter(d => isDeckActiveInCache(d, folderMap)
+            && matchesVisibleLanguage(d.target_language, language, standalone)));
+          const [cardsByDeck, rows] = rawDecks.length ? await Promise.all([
+            readCardsByDeck(db, rawDecks.map(deck => deck.id)),
+            db.progress.where('user_id').equals(userId).toArray(),
+          ]) : [new Map(), []];
+          return { rawDecks, cardsByDeck, progress: progressByCard(rows), folderMap };
+        },
+      );
       const decks = await Promise.all(rawDecks.map(async (deck) => {
-        deck.stats = await deckStats(db, deck.id, userId, folderMap);
+        deck.stats = deckStats(cardsByDeck.get(deck.id) ?? [], progress, userId);
         deck.metadata = jsonObject(deck.metadata);
         delete deck.metadata.is_learning;
         deck.is_learning = deck.is_learning ?? false;
@@ -237,9 +269,8 @@ export const offlineApi = {
         }
         return deck;
       }));
-      const folders = ordered(await activeFolders(db, language, folderMap));
       if (url === '/decks') return result(decks);
-      if (url === '/folders') return result(folders);
+      const folders = ordered(await activeFolders(db, language, folderMap));
       return result({ decks, folders, settings: {}, prompts: {}, user_info: getUserProfile() });
     }
     if (m === 'get' && url === '/cards/search') {
@@ -263,23 +294,28 @@ export const offlineApi = {
       const matchedFolders = scopedFolders.filter(f => matchFolder(f, q));
       const matchedDecks = scopedDecks.filter(d => matchDeck(d, q));
 
-      const deckIds = new Set(scopedDecks.map(d => d.id));
+      const deckIds = scopedDecks.map(d => d.id);
       const deckNameMap = new Map(scopedDecks.map(d => [d.id, d.name]));
       const deckFolderMap = new Map(scopedDecks.map(d => [d.id, d.folder_id]));
 
       const matchedCards = [];
-      if (deckIds.size > 0 && q.trim()) {
-        const allCards = (await db.cards.filter(c => c.content_v2 && !c.is_deleted && deckIds.has(c.deck_id)).toArray())
-          .sort((a, b) => a.deck_id - b.deck_id || a.position - b.position || a.id - b.id);
-        for (const c of allCards) {
-          if (matchCard(c, q)) {
-            const siblings = allCards.filter(card => card.deck_id === c.deck_id);
-            matchedCards.push({ ...await cardView(db, c, userId),
-              deck_name: deckNameMap.get(c.deck_id) || '', folder_id: deckFolderMap.get(c.deck_id),
-              card_number: siblings.findIndex(card => card.id === c.id) + 1, total_cards: siblings.length,
-            });
-            if (matchedCards.length >= limit) break;
+      if (deckIds.length > 0) {
+        const cardsByDeck = await db.transaction('r', db.cards, () => readCardsByDeck(db, deckIds.sort((a, b) => a - b)));
+        const matches = [];
+        search: for (const siblings of cardsByDeck.values()) {
+          siblings.sort((a, b) => a.position - b.position || a.id - b.id);
+          for (const [index, card] of siblings.entries()) {
+            if (!matchCard(card, q)) continue;
+            matches.push({ card, card_number: index + 1, total_cards: siblings.length });
+            if (matches.length >= limit) break search;
           }
+        }
+        const progress = await readCardProgress(db, matches.map(match => match.card), userId);
+        for (const [index, { card, card_number, total_cards }] of matches.entries()) {
+          matchedCards.push({ ...await cardView(db, card, userId, 'scheduled', { progress: progress[index] }),
+            deck_name: deckNameMap.get(card.deck_id) || '', folder_id: deckFolderMap.get(card.deck_id),
+            card_number, total_cards,
+          });
         }
       }
 
@@ -293,9 +329,10 @@ export const offlineApi = {
     if (m === 'get' && match) {
       const id = Number(match[1]);
       if (match[2] === 'next') return nextCard(db, id, userId, params);
-      const cards = await deckCards(db, id);
+      const { cards, progress } = await readDeckStudyData(db, id, userId);
       const complete = await isDeckCacheComplete(db, id, cards.length);
-      return { ...result(await Promise.all(cards.map(c => cardView(db, c, userId)))), complete };
+      return { ...result(await Promise.all(cards.map(card =>
+        cardView(db, card, userId, 'scheduled', { progress: progress.get(card.id) })))), complete };
     }
     match = url.match(/^\/cards\/(-?\d+)$/);
     if (m === 'get' && match) {
@@ -324,8 +361,9 @@ export const offlineApi = {
     if (m === 'get' && match) {
       const card = await db.cards.get(Number(match[1]));
       if (!card || card.is_deleted) notFound();
-      const folderMap = await loadFolderMap(db);
-      return result({ ...await cardView(db, card, userId), deck_stats: await deckStats(db, card.deck_id, userId, folderMap) });
+      const { cards, progress } = await readDeckStudyData(db, card.deck_id, userId);
+      return result({ ...await cardView(db, card, userId, 'scheduled', { progress: progress.get(card.id) }),
+        deck_stats: deckStats(cards, progress, userId) });
     }
     if (m === 'post' && ['/study/grade', '/study/duplicates/grade'].includes(url)) {
       const allowedGrades = body.is_extended ? [0, 1, 2, 3, 4, 5, 6, 7] : [0, 1, 2, 3];
