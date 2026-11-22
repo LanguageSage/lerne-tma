@@ -327,6 +327,9 @@ rg -n 'TMAOfflineBatch|request_id|mappings|review_count' api/services/offline_sy
 ## Relevant tests
 
 - Offline v2: `scripts/tests/test_offline_sync.py`, `scripts/tests/offline_sandbox.py`.
+- Offline progress reads: `app/src/services/__tests__/offlineProgressReads.test.js`.
+  The local catalog reads account progress once. Study and card lists batch progress
+  by compound card/account key and keep the cached card fallback for missing rows.
 - Background sync: `structured_cards_postgres.py --bin-dir <path> --background-sync-browser` compares the previous and current clients in Chromium on synthetic PostgreSQL and exercises reconnect, delivery, and conflicts.
 - SQL read regressions: `scripts/tests/test_sync_read_queries.py` — реальные pull routes,
   проекции без image_data, batch study lookup, permissions и сохранность неизбранных полей.
