@@ -29,31 +29,93 @@ def get_access_version(user_id: int) -> str | None:
 # Global readonly helpers
 # ---------------------------------------------------------------------------
 
+def filter_active_folder_map(raw_map: Dict[int, Any]) -> Dict[int, Any]:
+    """Keep only folders whose entire parent chain exists, is not deleted, and is acyclic."""
+    cache: Dict[int, bool] = {}
+
+    def active(folder_id: int) -> bool:
+        if folder_id in cache:
+            return cache[folder_id]
+        visiting = set()
+        curr = folder_id
+        trail = []
+        ok = True
+        while curr is not None:
+            if curr in cache:
+                ok = cache[curr]
+                break
+            if curr in visiting:
+                ok = False
+                break
+            folder = raw_map.get(curr)
+            if not folder or getattr(folder, 'is_deleted', False):
+                ok = False
+                break
+            visiting.add(curr)
+            trail.append(curr)
+            curr = getattr(folder, 'parent_id', None)
+        for fid in trail:
+            cache[fid] = ok
+        return ok
+
+    return {fid: folder for fid, folder in raw_map.items() if active(fid)}
+
+
+def is_folder_chain_active(folder_id: Optional[int], folder_map: Optional[Dict[int, Any]] = None) -> bool:
+    """Return True iff folder_id is None or every folder up to root exists and is not deleted."""
+    visited = set()
+    curr = folder_id
+    while curr is not None:
+        if curr in visited:
+            return False
+        visited.add(curr)
+        if folder_map is not None:
+            folder = folder_map.get(curr)
+        else:
+            folder = models.TMA_Folder.select(
+                models.TMA_Folder.id, models.TMA_Folder.parent_id, models.TMA_Folder.is_deleted
+            ).where(models.TMA_Folder.id == curr).first()
+        if not folder or getattr(folder, 'is_deleted', False):
+            return False
+        curr = getattr(folder, 'parent_id', None)
+    return True
+
+
+def is_deck_active(deck, folder_map: Optional[Dict[int, Any]] = None) -> bool:
+    """Return True iff deck exists, is not deleted, and its ancestor folder chain is active."""
+    if not deck or getattr(deck, 'is_deleted', False):
+        return False
+    return is_folder_chain_active(getattr(deck, 'folder_id', None), folder_map=folder_map)
+
+
 def get_folder_access_map() -> Dict[int, Any]:
     """Active hierarchy for request-local access checks, without display fields."""
     folder = models.TMA_Folder
-    return {f.id: f for f in folder.select(
+    raw_map = {f.id: f for f in folder.select(
         folder.id, folder.user_id, folder.parent_id, folder.is_deleted, folder.access_scope
     ).where(folder.is_deleted == False)}
+    return filter_active_folder_map(raw_map)
 
 def _is_globally_readable(folder_id: int, folder_map: Dict[int, Any] = None) -> bool:
-    """Returns True if folder_id or any of its ancestors has access_scope == 'global_readonly'.
-    Uses folder_map when available to avoid extra queries."""
+    """Returns True if folder_id or any of its ancestors has access_scope == 'global_readonly'
+    and the entire ancestor chain is active. Uses folder_map when available."""
     if folder_map is None:
-        all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
-        folder_map = {f.id: f for f in all_folders}
+        folder_map = get_folder_access_map()
 
     current_id = folder_id
     visited = set()
-    while current_id and current_id not in visited:
+    found_global = False
+    while current_id:
+        if current_id in visited:
+            return False
         visited.add(current_id)
         f = folder_map.get(current_id)
         if not f or getattr(f, 'is_deleted', False):
-            break
+            return False
         if getattr(f, 'access_scope', 'private') == 'global_readonly':
-            return True
+            found_global = True
         current_id = getattr(f, 'parent_id', None)
-    return False
+    return found_global
 
 
 def get_global_readonly_folder_ids(folder_map: Dict[int, Any]) -> set:
@@ -84,14 +146,16 @@ def get_global_readonly_root_owners(folder_map: Dict[int, Any]) -> Dict[int, int
 def _published_root_owner(folder_id: int) -> Optional[int]:
     seen = set()
     owner = None
-    while folder_id and folder_id not in seen:
+    while folder_id:
+        if folder_id in seen:
+            return None
         seen.add(folder_id)
         folder = models.TMA_Folder.select(
             models.TMA_Folder.user_id, models.TMA_Folder.parent_id,
             models.TMA_Folder.is_deleted, models.TMA_Folder.access_scope
         ).where(models.TMA_Folder.id == folder_id).first()
         if not folder or folder.is_deleted:
-            break
+            return None
         if folder.access_scope == 'global_readonly':
             owner = folder.user_id
         folder_id = folder.parent_id
@@ -103,7 +167,7 @@ def _published_root_owner(folder_id: int) -> Optional[int]:
 # ---------------------------------------------------------------------------
 
 def admin_bulk_delete_folders(folder_ids: List[int], user_ids: List[int]) -> dict:
-    """Soft-delete selected folders owned by selected users, including contents."""
+    """Soft-delete selected folders owned by selected users without overwriting descendant flags."""
     now = datetime.datetime.now()
     requested_ids = {int(folder_id) for folder_id in folder_ids}
     selected_users = {int(selected_user_id) for selected_user_id in user_ids}
@@ -130,38 +194,23 @@ def admin_bulk_delete_folders(folder_ids: List[int], user_ids: List[int]) -> dic
             stack.extend(children.get(current.id, []))
 
     target_ids = list(target_folders)
+    root_ids = [folder.id for folder in folders]
     with models.tma_db.atomic():
         deck_ids = [row.id for row in models.TMA_Deck.select(models.TMA_Deck.id).where(
             (models.TMA_Deck.folder_id << target_ids) &
             (models.TMA_Deck.user_id << list(selected_users)) &
             (models.TMA_Deck.is_deleted == False)
         )]
-        if deck_ids:
-            models.TMA_Card.update(is_deleted=True, updated_at=now).where(
-                (models.TMA_Card.deck_id << deck_ids) & (models.TMA_Card.is_deleted == False)
-            ).execute()
-            models.TMA_Deck.update(is_deleted=True, updated_at=now).where(
-                models.TMA_Deck.id << deck_ids
-            ).execute()
         models.TMA_Folder.update(is_deleted=True, updated_at=now).where(
-            models.TMA_Folder.id << target_ids
+            models.TMA_Folder.id << root_ids
         ).execute()
-        removed_collaborators = models.TMA_Collaborator.delete().where(
-            (models.TMA_Collaborator.target_type == 'folder') &
-            (models.TMA_Collaborator.target_id << target_ids)
-        ).execute()
-        if deck_ids:
-            removed_collaborators += models.TMA_Collaborator.delete().where(
-                (models.TMA_Collaborator.target_type == 'deck') &
-                (models.TMA_Collaborator.target_id << deck_ids)
-            ).execute()
 
     return {
         "status": "ok",
         "folders_deleted": len(folders),
         "subfolders_deleted": len(target_ids) - len(folders),
         "decks_deleted": len(deck_ids),
-        "collaborators_removed": removed_collaborators,
+        "collaborators_removed": 0,
     }
 
 
@@ -385,7 +434,7 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int, *, d
         deck = deck_obj if deck_obj is not None and deck_obj.id == target_id else models.TMA_Deck.select(
             models.TMA_Deck.user_id, models.TMA_Deck.folder_id, models.TMA_Deck.is_deleted, models.TMA_Deck.scope
         ).where(models.TMA_Deck.id == target_id).first()
-        if not deck or deck.is_deleted or deck.scope != 'personal':
+        if not is_deck_active(deck) or deck.scope != 'personal':
             return None
         root_owner = _published_root_owner(deck.folder_id)
         if root_owner is not None:
@@ -417,7 +466,7 @@ def get_effective_user_role(user_id: int, target_type: str, target_id: int, *, d
             models.TMA_Folder.id, models.TMA_Folder.user_id, models.TMA_Folder.parent_id,
             models.TMA_Folder.is_deleted, models.TMA_Folder.access_scope
         ).where(models.TMA_Folder.id == target_id).first()
-        if not folder or folder.is_deleted:
+        if not folder or folder.is_deleted or not is_folder_chain_active(folder.parent_id):
             return None
         root_owner = _published_root_owner(folder.id)
         if root_owner is not None:
@@ -457,12 +506,13 @@ def _require_can_mutate(user_id: int, target_type: str, target_id: int, *, allow
     if role is None and allow_deleted:
         model = models.TMA_Deck if target_type == 'deck' else models.TMA_Folder
         item = model.get_or_none(model.id == target_id)
-        if item and item.is_deleted and item.user_id == user_id:
+        if item and item.user_id == user_id:
             parent_id = item.folder_id if target_type == 'deck' else item.parent_id
-            # Row ownership must not bypass the published root's maintenance policy.
-            if _published_root_owner(parent_id) is not None:
-                _require_can_mutate(user_id, 'folder', parent_id)
-            return
+            if item.is_deleted or not is_folder_chain_active(parent_id):
+                # Row ownership must not bypass the published root's maintenance policy.
+                if _published_root_owner(parent_id) is not None:
+                    _require_can_mutate(user_id, 'folder', parent_id)
+                return
     if role not in ('owner', 'editor'):
         if role == 'viewer':
             raise HTTPException(
@@ -812,18 +862,22 @@ def remove_all_collaborators(target_type: str, target_id: int, requester_id: int
 
 
 def _get_all_subfolder_ids(folder_id: int, folder_map: Dict[int, Any] = None) -> List[int]:
-    """Recursively collects folder_id and all subfolder IDs using in-memory folder_map when available."""
-    if folder_map is not None:
-        ids = [folder_id]
+    """Recursively collects folder_id and all active subfolder IDs using in-memory folder_map."""
+    if folder_map is None:
+        folder_map = get_folder_access_map()
+    if folder_id not in folder_map:
+        return []
+    ids = [folder_id]
+    seen = {folder_id}
+    queue = [folder_id]
+    while queue:
+        current = queue.pop(0)
         for f in folder_map.values():
-            if getattr(f, 'parent_id', None) == folder_id and not getattr(f, 'is_deleted', False):
-                ids.extend(_get_all_subfolder_ids(f.id, folder_map))
-        return ids
-
-    # Fallback: load all non-deleted folders once
-    all_folders = list(models.TMA_Folder.select().where(models.TMA_Folder.is_deleted == False))
-    f_map = {f.id: f for f in all_folders}
-    return _get_all_subfolder_ids(folder_id, f_map)
+            if getattr(f, 'parent_id', None) == current and not getattr(f, 'is_deleted', False) and f.id not in seen:
+                seen.add(f.id)
+                ids.append(f.id)
+                queue.append(f.id)
+    return ids
 
 
 def get_group_progress(folder_id: int, requester_id: int) -> dict:
@@ -909,11 +963,14 @@ def get_group_progress(folder_id: int, requester_id: int) -> dict:
 
 def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None, *, accessible_folder_ids: set = None) -> set:
     """Returns all deck IDs that user owns or has collaborator access to,
-    including decks in owned/collaborated/global_readonly folders."""
-    owned_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
+    including decks in owned/collaborated/global_readonly folders (excluding deleted subtrees)."""
+    if folder_map is None:
+        folder_map = get_folder_access_map()
+
+    owned_decks = models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.folder_id).where(
         (models.TMA_Deck.user_id == user_id) & (models.TMA_Deck.is_deleted == False)
     )
-    deck_ids = set(d.id for d in owned_decks)
+    deck_ids = set(d.id for d in owned_decks if d.folder_id is None or d.folder_id in folder_map)
 
     collab_decks = list(models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
         (models.TMA_Collaborator.target_type == 'deck') &
@@ -921,11 +978,12 @@ def get_user_accessible_deck_ids(user_id: int, folder_map: Dict[int, Any] = None
     ))
     collab_target_ids = [c.target_id for c in collab_decks]
     if collab_target_ids:
-        valid_decks = models.TMA_Deck.select(models.TMA_Deck.id).where(
+        valid_decks = models.TMA_Deck.select(models.TMA_Deck.id, models.TMA_Deck.folder_id).where(
             (models.TMA_Deck.scope == 'personal') & (models.TMA_Deck.id << collab_target_ids) & (models.TMA_Deck.is_deleted == False)
         )
         for d in valid_decks:
-            deck_ids.add(d.id)
+            if d.folder_id is None or d.folder_id in folder_map:
+                deck_ids.add(d.id)
 
     if accessible_folder_ids is None:
         accessible_folder_ids = get_user_accessible_folder_ids(user_id, folder_map=folder_map)
@@ -944,16 +1002,17 @@ def get_user_accessible_folder_ids(user_id: int, folder_map: Dict[int, Any] = No
     if folder_map is None:
         folder_map = get_folder_access_map()
 
-    # Owned folders
+    # Owned folders (already restricted to active ancestor chains via folder_map)
     owned_folder_ids = set(f.id for f in folder_map.values() if f.user_id == user_id and not getattr(f, 'is_deleted', False))
 
-    # Explicit collaborator folders
-    collab_folder_ids = set(
+    # Explicit collaborator folders (also restricted to active ancestor chains)
+    collab_folder_ids = {
         c.target_id for c in models.TMA_Collaborator.select(models.TMA_Collaborator.target_id).where(
             (models.TMA_Collaborator.target_type == 'folder') &
             (models.TMA_Collaborator.user_id == user_id)
         )
-    )
+        if c.target_id in folder_map
+    }
 
     # Global readonly folders (no TMA_Collaborator row needed)
     global_ids = get_global_readonly_folder_ids(folder_map)

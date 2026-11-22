@@ -5,6 +5,7 @@ import { isLeech } from '../utils/srsEngine.js';
 import { STANDALONE_APPLICATION_ID } from '../utils/standaloneMode.js';
 import { buildOriginKey, getMaterialExportSource } from './materialArchiveIdentity.js';
 import { getStandaloneCardLookup, getStandalonePack } from './standalonePack.js';
+import { buildFolderMap, isDeckActiveInCache } from '../services/cardOfflineQueue.js';
 import { sha256Hex } from './sha256.js';
 
 export const PROGRESS_BACKUP_FORMAT = 'lerne-offline-progress-backup';
@@ -372,6 +373,21 @@ export async function recordBackupExportMeta({ db = null, exportedAt, summary } 
   });
 }
 
+async function loadActiveDecksAndCards(database) {
+  const [rawFolders, rawDecks, rawCards] = await Promise.all([
+    database.folders.toArray(),
+    database.decks.filter(d => !d.is_deleted).toArray(),
+    database.cards.filter(c => !c.is_deleted).toArray(),
+  ]);
+  const folderMap = buildFolderMap(rawFolders);
+  const allDecks = rawDecks.filter(d => isDeckActiveInCache(d, folderMap));
+  const activeDeckIds = new Set(allDecks.map(d => d.id));
+  return {
+    allDecks,
+    allCards: rawCards.filter(c => activeDeckIds.has(c.deck_id)),
+  };
+}
+
 export async function exportProgressBackup({ db = null, userId = null, pack = null, now = new Date(), recordMeta = true } = {}) {
   const resolvedPack = pack || getStandalonePack();
   const database = db || await prepareLocalDb();
@@ -383,11 +399,10 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   const { byId } = getStandaloneCardLookup(resolvedPack);
   const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
 
-  const [rawProgress, deckRows, allDecks, allCards] = await Promise.all([
+  const [rawProgress, deckRows, { allDecks, allCards }] = await Promise.all([
     database.progress.where('user_id').equals(resolvedUserId).toArray(),
     database.decks.bulkGet(resolvedPack.decks.map(d => d.id)),
-    database.decks.filter(d => !d.is_deleted).toArray(),
-    database.cards.filter(c => !c.is_deleted).toArray(),
+    loadActiveDecksAndCards(database),
   ]);
 
   const records = rawProgress
@@ -500,9 +515,9 @@ export async function inspectProgressBackup(rawText, { db = null, userId = null,
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
   const { byId } = getStandaloneCardLookup(resolvedPack);
-  const [progressRows, allCards] = await Promise.all([
+  const [progressRows, { allCards }] = await Promise.all([
     database.progress.where('user_id').equals(resolvedUserId).toArray(),
-    database.cards.filter(c => !c.is_deleted).toArray(),
+    loadActiveDecksAndCards(database),
   ]);
 
   const importedCards = allCards.filter(c => !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key);
@@ -560,11 +575,10 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
   let restoredImportedReviewed = 0;
   let unmatchedImportedRecords = 0;
 
-  await database.transaction('rw', database.progress, database.decks, database.cards, database.syncState, async () => {
-    const [existingProgressRows, allDecks, allCards] = await Promise.all([
+  await database.transaction('rw', database.progress, database.folders, database.decks, database.cards, database.syncState, async () => {
+    const [existingProgressRows, { allDecks, allCards }] = await Promise.all([
       database.progress.where('user_id').equals(resolvedUserId).toArray(),
-      database.decks.filter(d => !d.is_deleted).toArray(),
-      database.cards.filter(c => !c.is_deleted).toArray(),
+      loadActiveDecksAndCards(database),
     ]);
 
     const importedDeckByKey = new Map();
@@ -663,13 +677,14 @@ export async function getStandaloneBackupStatus({ db = null, userId = null, pack
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
   const { byId } = getStandaloneCardLookup(resolvedPack);
-  const [progressRows, allDecks, allCards, lastBackup, lastRestore] = await Promise.all([
+  const [progressRows, activeState, lastBackup, lastRestore] = await Promise.all([
     database.progress.where('user_id').equals(resolvedUserId).toArray(),
-    database.decks.filter(d => !d.is_deleted).toArray(),
-    database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),
+    loadActiveDecksAndCards(database),
     database.syncState.get(LAST_BACKUP_META_KEY),
     database.syncState.get(LAST_RESTORE_META_KEY),
   ]);
+  const allDecks = activeState.allDecks;
+  const allCards = activeState.allCards.filter(c => Boolean(c.content_v2));
 
   const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
   const importedDecks = allDecks.filter(d => !builtInDeckIds.has(d.id) && Boolean(d.standalone_deck_key));

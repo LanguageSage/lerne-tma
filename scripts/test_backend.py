@@ -47,6 +47,7 @@ SUITES = (
     'scripts/tests/test_reclassification.py',
     'scripts/tests/test_library_import.py',
     'scripts/tests/test_offline_sync.py',
+    'scripts/tests/test_delete_restore.py',
     'scripts/tests/test_native_content_updates.py',
     'scripts/tests/test_sync_generation.py',
     'scripts/tests/test_v1_to_v2_converter.py',

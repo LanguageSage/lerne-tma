@@ -306,8 +306,9 @@ def preview_passports(passports, folder_id=None, user_id=None):
 
 def export_deck_content(deck_id: int, user_id: Optional[int] = None) -> Dict[str, Any]:
     """Экспортирует колоду в текстовый формат Lerne."""
+    from .collaborative_service import is_deck_active
     deck = TMA_Deck.get_or_none(TMA_Deck.id == deck_id, TMA_Deck.is_deleted == False)
-    if not deck:
+    if not is_deck_active(deck):
         raise ValueError(f"Колода ID {deck_id} не найдена.")
 
     cards = list(TMA_Card.select().where(TMA_Card.deck_id == deck.id, TMA_Card.is_deleted == False).order_by(TMA_Card.position, TMA_Card.id))
@@ -323,8 +324,9 @@ def export_deck_content(deck_id: int, user_id: Optional[int] = None) -> Dict[str
 
 def export_folder_content(folder_id: int, user_id: Optional[int] = None) -> Dict[str, Any]:
     """Экспортирует папку со всеми входящими колодами в текстовый формат."""
+    from .collaborative_service import is_folder_chain_active
     folder = TMA_Folder.get_or_none(TMA_Folder.id == folder_id, TMA_Folder.is_deleted == False)
-    if not folder:
+    if not folder or not is_folder_chain_active(folder.id):
         raise ValueError(f"Папка ID {folder_id} не найдена.")
 
     decks = list(TMA_Deck.select().where(TMA_Deck.folder_id == folder.id, TMA_Deck.is_deleted == False).order_by(TMA_Deck.id))

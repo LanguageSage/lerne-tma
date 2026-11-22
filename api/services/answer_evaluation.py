@@ -13,6 +13,7 @@ logger = logging.getLogger(__name__)
 
 def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> tuple[dict, GradingPolicy]:
     from api import models
+    from api.services.collaborative_service import is_deck_active
     from api.services.offline_sync import require_access
     from api.services.structured_card_api import require_native
 
@@ -20,7 +21,7 @@ def load_answer_context(card_id: int, user_id: int, feedback_language: str) -> t
     with models.tma_db.connection_context():
         card = models.TMA_Card.get_or_none(
             (models.TMA_Card.id == card_id) & (models.TMA_Card.is_deleted == False))
-        if not card or card.deck.is_deleted:
+        if not card or not is_deck_active(card.deck):
             raise HTTPException(404, 'Card not found')
         require_access(user_id, 'deck', card.deck_id, write=False)
         content = require_native(card)

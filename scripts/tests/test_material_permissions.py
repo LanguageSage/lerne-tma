@@ -489,12 +489,19 @@ class MaterialPermissionTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200, response.text)
 
     def test_private_owner_can_restore_deleted_deck(self):
+        individually_deleted = models.TMA_Card.create(
+            deck=self.deck,
+            position=2,
+            content_v2=self.card.content_v2,
+            card_type=None,
+            is_deleted=True,
+        )
         models.TMA_Deck.update(is_deleted=True).where(models.TMA_Deck.id == self.deck.id).execute()
-        models.TMA_Card.update(is_deleted=True).where(models.TMA_Card.id == self.card.id).execute()
         response = self.call('POST', f'/trash/deck/{self.deck.id}/restore')
         self.assertEqual(response.status_code, 200, response.text)
         self.assertFalse(models.TMA_Deck.get_by_id(self.deck.id).is_deleted)
         self.assertFalse(models.TMA_Card.get_by_id(self.card.id).is_deleted)
+        self.assertTrue(models.TMA_Card.get_by_id(individually_deleted.id).is_deleted)
 
     def test_published_descendant_row_owner_cannot_change_audio(self):
         self.publish()

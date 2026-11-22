@@ -850,16 +850,19 @@ async def verify_trash(client, pool, headers, accounts):
 
     await request(account=None, expected=401)
     assert not pool._in_use
-    assert await request(account=1) == {'decks': [], 'cards': []}
+    assert await request(account=1) == {'folders': [], 'decks': [], 'cards': []}
 
     listing = await request()
-    assert listing['decks'][0]['id'] == deck and listing['decks'][0]['cards_count'] == 1
+    assert listing['decks'][0]['id'] == deck and listing['decks'][0]['cards_count'] == 0
     assert listing['cards'][0]['id'] == card and listing['cards'][0]['deck_name'] == 'Trash fixture'
+    assert listing['cards'][0]['deck_deleted'] is True
     revision = listing['cards'][0]['revision']
 
     await request('POST', restore_card, account=1,
                   body={'request_id': str(uuid4()), 'revision': revision}, expected=404)
     await request('POST', restore_deck, account=1, expected=404)
+    await request('POST', restore_card,
+                  body={'request_id': str(uuid4()), 'revision': revision}, expected=409)
     assert not pool._in_use
 
     slots = asyncio.Semaphore(2)
@@ -881,9 +884,8 @@ async def verify_trash(client, pool, headers, accounts):
     await run_db(reject_deck_change)
     progress = models.TMAProgress.select().where(models.TMAProgress.card_id == card)
     try:
-        # Both operations have already changed the card before reaching the failing deck statement.
-        await request('POST', restore_card,
-                      body={'request_id': str(uuid4()), 'revision': revision}, expected=500)
+        # Both operations have already changed or validated before reaching the failing deck statement.
+        await request('POST', restore_deck, expected=500)
         assert not pool._in_use
         assert await request() == listing
         await request('DELETE', '/clear', expected=500)
@@ -893,24 +895,25 @@ async def verify_trash(client, pool, headers, accounts):
     finally:
         await run_db(pool.execute_sql, 'DROP FUNCTION fail_trash_fixture() CASCADE')
 
-    async def restore_and_check(path, body=None):
+    async def restore_and_check(path, body=None, expected_empty=True):
         restored = await request('POST', path, body=body)
         assert restored['status'] == 'success'
-        assert await request() == {'decks': [], 'cards': []}
+        if expected_empty:
+            assert await request() == {'folders': [], 'decks': [], 'cards': []}
         assert await run_db(progress.exists)
         assert not pool._in_use
 
+    # Deck must be restored before an individually deleted card inside it can be restored.
+    await restore_and_check(restore_deck, expected_empty=False)
+    assert (await request())['cards'][0]['id'] == card
     await restore_and_check(restore_card, {'request_id': str(uuid4()), 'revision': revision})
-    await run_db(models.TMA_Deck.update(is_deleted=True).where(models.TMA_Deck.id == deck).execute)
-    await run_db(models.TMA_Card.update(is_deleted=True).where(models.TMA_Card.id == card).execute)
-    await restore_and_check(restore_deck)
 
     deleted_deck, deleted_card = await run_db(seed)
     assert await request('DELETE', '/clear', account=1) == {'status': 'success'}
     assert (await request())['decks'][0]['id'] == deleted_deck
     assert await request('DELETE', '/clear') == {'status': 'success'}
     assert not pool._in_use
-    assert await request() == {'decks': [], 'cards': []}
+    assert await request() == {'folders': [], 'decks': [], 'cards': []}
     assert not await run_db(models.TMA_Deck.get_or_none, models.TMA_Deck.id == deleted_deck)
     assert not await run_db(models.TMA_Card.get_or_none, models.TMA_Card.id == deleted_card)
     assert not await run_db(models.TMAProgress.select().where(models.TMAProgress.card_id == deleted_card).exists)
@@ -1031,7 +1034,17 @@ async def verify_feedback_lid_folders(client, pool, headers, owner_id):
         await run_db(pool.execute_sql, 'DROP FUNCTION fail_folder_fixture() CASCADE')
 
     assert await request('DELETE', path) == {'status': 'success'}
-    assert (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
+    assert (await run_db(models.TMA_Folder.get_by_id, folder)).is_deleted
+    assert not (await run_db(models.TMA_Deck.get_by_id, deck)).is_deleted
+    assert not (await run_db(models.TMA_Card.get_by_id, card)).is_deleted
+    active_decks = await request('GET', '/decks')
+    assert all(item['id'] != deck for item in active_decks)
+    await request('GET', f'/decks/{deck}/cards', expected=403)
+    restore_resp = await client.post(f'/api/trash/folder/{folder}/restore', headers=headers[0])
+    assert restore_resp.status_code == 200, (restore_resp.status_code, restore_resp.text)
+    restored_decks = await request('GET', '/decks')
+    assert any(item['id'] == deck for item in restored_decks)
+    assert len(await request('GET', f'/decks/{deck}/cards')) == 1
     assert not pool._in_use
     print('PASS: pooled Feedback, LiD and Folders HTTP, concurrency, authorization and rollback', flush=True)
 
@@ -1318,7 +1331,7 @@ async def verify_decks(client, pool, headers, accounts):
         reset_progress = models.TMAProgress.get_by_id(viewer_progress)
         assert (reset_progress.queue, reset_progress.interval) == ('new', 0)
         assert models.TMA_Card.select().where(
-            models.TMA_Card.deck == deck_id, models.TMA_Card.is_deleted).count() == 2
+            models.TMA_Card.deck == deck_id, ~models.TMA_Card.is_deleted).count() == 2
         assert models.TMA_Card.select().where(
             models.TMA_Card.deck == copied['id'], ~models.TMA_Card.is_deleted).count() == 2
         assert [models.TMASetting.get(key=f'DECK_LEARNING_{user}_{deck_id}').value
