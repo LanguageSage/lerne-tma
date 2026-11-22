@@ -54,11 +54,20 @@ const discardRetiredStorage = () => {
 const recordKey = owner => `lerne:personal-design:v2:${owner}`;
 export function isPersonalDesignDocument(doc) {
   return object(doc) && doc.schemaVersion === 2 && Number.isInteger(doc.revision) && doc.revision >= 0
-    && object(doc.config) && (doc.preset === null || object(doc.preset));
+    && object(doc.config) && (doc.preset === null || object(doc.preset))
+    && (!Object.hasOwn(doc, 'enabled') || typeof doc.enabled === 'boolean');
+}
+
+export function isPersonalDesignActive(doc) {
+  return Boolean(isPersonalDesignDocument(doc) && doc.enabled === true);
+}
+
+export function hasSavedPersonalDesign(doc) {
+  return Boolean(isPersonalDesignDocument(doc) && (doc.revision > 0 || Object.hasOwn(doc, 'enabled')));
 }
 
 const emptyDocument = () => ({ schemaVersion: 2, revision: 0,
-  config: normalizeDesignConfig(null), preset: null });
+  config: normalizeDesignConfig(null), preset: null, enabled: false });
 
 export function readPersonalDesignRecord(owner) {
   const raw = read(recordKey(owner));
@@ -91,7 +100,7 @@ export function openPersonalDesignRecord(owner) {
   }
   const document = emptyDocument();
   const record = savePersonalDesignRecord({ version: 1, owner: String(owner), document,
-    backups: {}, pending: true, edited: false, serverSeen: false, base: structuredClone(document) });
+    backups: {}, pending: false, edited: false, serverSeen: false, base: structuredClone(document) });
   discardRetiredStorage();
   return record;
 }
@@ -119,13 +128,21 @@ export function reconcilePersonalDesign(record, settings) {
   if (!next.serverSeen) {
     next.serverSeen = true;
     const target = remote ? structuredClone(remote) : emptyDocument();
-    next.document = next.edited ? { ...target,
-      config: mergeEdits(next.base.config, next.document.config, target.config),
-      preset: mergeEdits(next.base.preset, next.document.preset, target.preset) } : target;
-    next.pending = next.edited || !remote;
+    if (next.edited) {
+      next.document = { ...target,
+        config: mergeEdits(next.base.config, next.document.config, target.config),
+        preset: mergeEdits(next.base.preset, next.document.preset, target.preset),
+        enabled: next.base?.enabled !== next.document?.enabled ? Boolean(next.document?.enabled) : Boolean(target.enabled) };
+      next.pending = true;
+    } else {
+      next.document = target;
+      next.pending = false;
+    }
     next.base = structuredClone(target);
   } else if (remote) {
-    const sameContent = equal(next.document.config, remote.config) && equal(next.document.preset, remote.preset);
+    const sameContent = equal(next.document.config, remote.config)
+      && equal(next.document.preset, remote.preset)
+      && Boolean(next.document.enabled) === Boolean(remote.enabled);
     if (remote.revision < next.document.revision) {
       next.backups.serverRestores ??= [];
       next.backups.serverRestores.push({ document: next.document });
@@ -139,7 +156,8 @@ export function reconcilePersonalDesign(record, settings) {
       next.backups.conflicts.push({ local: next.document, remote: structuredClone(remote) });
       next.document = next.base
         ? { ...remote, config: mergeEdits(next.base.config, next.document.config, remote.config),
-          preset: mergeEdits(next.base.preset, next.document.preset, remote.preset) }
+          preset: mergeEdits(next.base.preset, next.document.preset, remote.preset),
+          enabled: next.base?.enabled !== next.document?.enabled ? Boolean(next.document?.enabled) : Boolean(remote.enabled) }
         : { ...next.document, revision: remote.revision };
     }
   } else if (next.document.revision > 0) {
@@ -153,14 +171,16 @@ export function reconcilePersonalDesign(record, settings) {
   return next;
 }
 
-export function editPersonalDesign(record, config, preset = record.document.preset) {
+export function editPersonalDesign(record, config, preset = record.document.preset, enabled = true) {
   return { ...record, pending: true, edited: true, document: { ...record.document,
-    config: normalizeDesignConfig(config), preset: preset === null ? null : normalizeDesignConfig(preset) } };
+    config: normalizeDesignConfig(config), preset: preset === null ? null : normalizeDesignConfig(preset),
+    enabled: Boolean(enabled) } };
 }
 
 export function acknowledgePersonalDesign(record, sent, remote) {
   if (!isPersonalDesignDocument(remote)) throw new Error('Server did not confirm personal design');
-  if (!equal(sent.config, remote.config) || !equal(sent.preset, remote.preset)) {
+  if (!equal(sent.config, remote.config) || !equal(sent.preset, remote.preset)
+      || Boolean(sent.enabled) !== Boolean(remote.enabled)) {
     throw new Error('Server confirmed a different personal design');
   }
   if (record.document.revision > remote.revision) return record;
@@ -173,18 +193,16 @@ export function acknowledgePersonalDesign(record, sent, remote) {
   return next;
 }
 
-/** Existing product precedence: preview > published > personal. Empty V2 backgrounds
- * inherit personal backgrounds rather than erasing them during normalization.
- */
+/** Precedence: ephemeral in-app preview -> explicitly enabled personal -> global default -> built-in fallback. */
 export function resolveActiveDesign(state) {
-  const personal = state.personalDesignV2?.config;
-  const source = state.isLocalDesignPreviewActive && state.adminDraftDesignV2
-    ? state.adminDraftDesignV2 : state.publishedDesignV2?.config || personal;
-  const config = normalizeDesignConfig(source);
-  for (const side of ['front', 'back']) {
-    if (!config[side].card.background && personal?.[side]?.card?.background) {
-      config[side].card.background = personal[side].card.background;
-    }
+  if (state.designPreviewInApp && state.designEditorDraft) {
+    return normalizeDesignConfig(state.designEditorDraft);
   }
-  return config;
+  if (isPersonalDesignActive(state.personalDesignV2)) {
+    return normalizeDesignConfig(state.personalDesignV2.config);
+  }
+  if (state.publishedDesignV2?.config) {
+    return normalizeDesignConfig(state.publishedDesignV2.config);
+  }
+  return normalizeDesignConfig(null);
 }

@@ -555,6 +555,11 @@ legacyAdapter удалён, новый personal record создаётся неп
 не затрагиваются. Исторические условия cutoff этапов 3–4D отменены этим решением.
 [Реализация и проверки](../../docs/DESIGN_V2_STAGE5_LEGACY_REMOVAL.md).
 
+### Упрощение Design V2: без постоянного черновика (двухслойная модель)
+
+- Убрана зависимость от `ADMIN_DESIGN_DRAFT` и `/admin/design/draft`: в системе остаются только личный дизайн (`USER_SETTINGS_<id>.designV2` с явным флагом `enabled`) и общий дизайн по умолчанию (`GLOBAL_DESIGN_V2`).
+- `resolveActiveDesign` применяет эфемерный `designEditorDraft` (при активном `designPreviewInApp`), затем активный личный дизайн (`enabled === true`), затем `GLOBAL_DESIGN_V2`, затем `DEFAULT_DESIGN_CONFIG_V2`; убрано подмешивание фонов из `personalDesignV2` поверх `GLOBAL_DESIGN_V2` в `CardForm`, `StudyView`, `TrainerView` и секциях предпросмотра.
+
 CI fixtures: `tests/fixtures/`, только вымышленные данные; приватные снимки и артефакты остаются в `local/test-data/`. Политика и воспроизводимость: [TEST_DATA](../../docs/TEST_DATA.md).
 
 ## V2: пакетные copy/move (6B.5c)

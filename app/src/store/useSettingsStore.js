@@ -3,7 +3,8 @@ import { setInterfaceLanguage, normalizeInterfaceLanguage } from '../i18n/locale
 import { storage, getUserId } from '../utils/auth.js';
 import api, { networkApi } from '../services/api.js';
 import { openPersonalDesignRecord, readPersonalDesignRecord, savePersonalDesignRecord,
-  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign } from '../design/personalDesignMigration.js';
+  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign,
+  isPersonalDesignDocument, isPersonalDesignActive } from '../design/personalDesignMigration.js';
 import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '../utils/autoplaySequence.js';
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
@@ -34,59 +35,14 @@ function saveCachedPublishedDesign(doc) {
   } catch { /* quota exceeded — silently ignore */ }
 }
 
-const accountCacheKey = key => `${key}:${getUserId() ?? 'guest'}`;
-const DESIGN_V2_DRAFT_CACHE_KEY = 'lerne:admin-draft:v2';
-const LOCAL_DESIGN_PREVIEW_KEY = 'lerne:local-design-preview';
-
-function loadCachedAdminDraft() {
-  try {
-    const raw = storage.get(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY));
-    if (!raw) return null;
-    return normalizeDesignConfig(JSON.parse(raw));
-  } catch {
-    return null;
-  }
-}
-
-function saveCachedAdminDraft(config) {
-  try {
-    if (config) {
-      storage.set(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY), JSON.stringify(config));
-    } else {
-      storage.remove(accountCacheKey(DESIGN_V2_DRAFT_CACHE_KEY));
-    }
-  } catch { /* quota exceeded — silently ignore */ }
-}
-
-function loadCachedLocalPreviewState() {
-  try {
-    return (storage.get(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY))) === 'true';
-  } catch {
-    return false;
-  }
-}
-
-function saveCachedLocalPreviewState(active) {
-  try {
-    if (active) {
-      storage.set(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY), 'true');
-    } else {
-      storage.set(accountCacheKey(LOCAL_DESIGN_PREVIEW_KEY), 'false');
-    }
-  } catch { /* quota exceeded — silently ignore */ }
-}
-
 // Open the account-scoped V2 document.
 let initialPersonalRecord = null;
 let initialMigrationError = null;
 try { initialPersonalRecord = openPersonalDesignRecord(getUserId()); }
 catch (error) { initialMigrationError = error.message; }
 const initialPublishedDesign = loadCachedPublishedDesign();
-const initialAdminDraft = loadCachedAdminDraft();
-const initialLocalPreviewActive = loadCachedLocalPreviewState();
 const initialActiveDesign = resolveActiveDesign({ personalDesignV2: initialPersonalRecord?.document,
-  publishedDesignV2: initialPublishedDesign, adminDraftDesignV2: initialAdminDraft,
-  isLocalDesignPreviewActive: initialLocalPreviewActive });
+  publishedDesignV2: initialPublishedDesign, designEditorDraft: null, designPreviewInApp: false });
 applyPublishedDesignTokens(initialActiveDesign ?? DEFAULT_DESIGN_CONFIG_V2);
 
 export const AUTOPLAY_STORAGE_MAP = Object.fromEntries(
@@ -132,7 +88,11 @@ export const collectUserSettings = (state) => {
   Object.keys(STUDY_STORAGE_MAP).forEach((k) => {
     if (state[k] !== undefined) settings[k] = state[k];
   });
-  if (state.personalDesignV2) settings.designV2 = state.personalDesignV2;
+  const account = getUserId();
+  const record = account != null ? readPersonalDesignRecord(account) : null;
+  if (state.personalDesignV2 && (record?.edited || state.personalDesignV2.revision > 0 || state.personalDesignV2.enabled === true)) {
+    settings.designV2 = state.personalDesignV2;
+  }
   const nativeLang = storage.get('native_language');
   if (nativeLang) {
     settings.native_language = nativeLang;
@@ -366,11 +326,11 @@ export const useSettingsStore = create((set, get) => {
         const record = openPersonalDesignRecord(getUserId());
         set({ personalDesignV2: record?.document ?? null,
           designAccountId: getUserId(), designMigrationError: null, isAdmin,
-          adminDraftDesignV2: loadCachedAdminDraft(), isLocalDesignPreviewActive: loadCachedLocalPreviewState() });
+          designEditorDraft: null, designEditorBase: null, designPreviewInApp: false, designPreviewDismissed: false });
       } catch (error) {
         set({ personalDesignV2: null,
           designAccountId: getUserId(), designMigrationError: error.message,
-          adminDraftDesignV2: null, isLocalDesignPreviewActive: false, isAdmin: false });
+          designEditorDraft: null, designEditorBase: null, designPreviewInApp: false, designPreviewDismissed: false, isAdmin: false });
       }
     },
 
@@ -497,7 +457,9 @@ export const useSettingsStore = create((set, get) => {
           if (!current()) return false;
           if (result.data?.designMigrationVersion !== 1) throw new Error('Server did not confirm safe design migration');
           const latest = readPersonalDesignRecord(account);
-          const next = savePersonalDesignRecord(acknowledgePersonalDesign(latest, sent, result.data?.settings?.designV2));
+          const next = payload.designV2 !== undefined
+            ? savePersonalDesignRecord(acknowledgePersonalDesign(latest, sent, result.data?.settings?.designV2))
+            : latest;
           clearPendingStudyWrite(account, generation, seqBeforeEval);
           confirmedSettings = {
             account,
@@ -569,15 +531,16 @@ export const useSettingsStore = create((set, get) => {
     })),
 
     // --- Design Config V2 ────────────────────────────────────────────────────
-    // publishedDesignV2: глобальный дизайн, применяется к app root.
-    //   null → дизайн ещё не опубликован → использовать DEFAULT_DESIGN_CONFIG_V2.
-    // adminDraftDesignV2: черновик администратора, изолирован внутри preview (или в локальном превью).
+    // publishedDesignV2: глобальный дизайн по умолчанию, применяется если не выбран личный.
+    // designEditorDraft / designEditorBase / designPreviewInApp: временное состояние редактора в памяти (не пишется в БД/localStorage до явного сохранения).
     publishedDesignV2: initialPublishedDesign,
-    adminDraftDesignV2: initialAdminDraft,
-    isLocalDesignPreviewActive: initialLocalPreviewActive,
+    designEditorDraft: null,
+    designEditorBase: null,
+    designPreviewInApp: false,
+    designPreviewDismissed: false,
 
     /** Применяет опубликованный global design (из /init или /design/global).
-     *  Сохраняет в localStorage-кеш и применяет CSS tokens к app root (если не включён локальный черновик). */
+     *  Сохраняет в localStorage-кеш и обновляет activeDesignConfig (если не включён личный дизайн). */
     setPublishedDesignV2: (serverDoc) => {
       // An explicit empty server document means no published design. Keep the
       // cache only on network failure, not after a confirmed empty response.
@@ -587,119 +550,196 @@ export const useSettingsStore = create((set, get) => {
       set({ publishedDesignV2: doc });
     },
 
-    /** Переключает локальный просмотр черновика только в текущем браузере */
-    toggleLocalDesignPreview: () => {
-      const next = !get().isLocalDesignPreviewActive;
-      saveCachedLocalPreviewState(next);
-      set({ isLocalDesignPreviewActive: next });
+    hasUnsavedDesignChanges: () => {
+      const { designEditorDraft, designEditorBase } = get();
+      if (!designEditorDraft || !designEditorBase) return false;
+      return !sameSettingValue(designEditorDraft, designEditorBase);
+    },
+
+    /** Инициализирует временное состояние редактора в памяти при его открытии. */
+    initDesignEditor: () => {
+      if (get().designEditorDraft) return;
+      const personal = get().personalDesignV2;
+      const source = isPersonalDesignActive(personal)
+        ? personal.config
+        : (get().publishedDesignV2?.config ?? null);
+      const base = normalizeDesignConfig(source);
+      set({
+        designEditorBase: base,
+        designEditorDraft: structuredClone(base),
+        designPreviewInApp: false,
+        designPreviewDismissed: false,
+      });
+    },
+
+    /** Сбрасывает временное состояние редактора и отключает временный предпросмотр. */
+    discardDesignEditor: () => {
+      set({
+        designEditorDraft: null,
+        designEditorBase: null,
+        designPreviewInApp: false,
+        designPreviewDismissed: false,
+      });
+    },
+
+    /** Переключает временный предпросмотр несохранённого дизайна на всём приложении (только в памяти). */
+    toggleDesignPreviewInApp: () => {
+      const next = !get().designPreviewInApp;
+      set({ designPreviewInApp: next, designPreviewDismissed: !next });
       return next;
     },
 
-    /** Единая точка записи черновика: кеш + store; для администратора первая правка
-     *  автоматически включает просмотр «только у меня» на всём приложении. */
-    commitAdminDraft: (config, { autoPreview = true } = {}) => {
-      saveCachedAdminDraft(config);
-      set({ adminDraftDesignV2: config });
-      if (autoPreview && get().isAdmin && !get().isLocalDesignPreviewActive) {
-        saveCachedLocalPreviewState(true);
-        set({ isLocalDesignPreviewActive: true });
-      }
+    /** Обновляет временный черновик в памяти (без записи в localStorage/БД). */
+    commitDesignEditorDraft: (config, { autoPreview = true } = {}) => {
+      const normalized = normalizeDesignConfig(config);
+      const nextPreview = autoPreview && !get().designPreviewDismissed ? true : get().designPreviewInApp;
+      set({ designEditorDraft: normalized, designPreviewInApp: nextPreview });
     },
 
-    /** Обновляет admin draft целиком. */
-    setAdminDraftDesignV2: (config) => get().commitAdminDraft(normalizeDesignConfig(config)),
+    /** Обновляет временный дизайн целиком (например, импорт JSON). */
+    setDesignEditorDraft: (config, options) => get().commitDesignEditorDraft(config, options),
 
-    /** Патчит одно поле в admin draft по dot-path. */
-    patchAdminDraft: (path, value) => {
-      const current = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
-      get().commitAdminDraft(normalizeDesignConfig(patchDesignValue(current, path, value)));
+    /** Патчит одно поле во временном дизайне по dot-path. */
+    patchDesignEditorDraft: (path, value) => {
+      const current = get().designEditorDraft ?? get().designEditorBase ?? resolveActiveDesign(get());
+      get().commitDesignEditorDraft(patchDesignValue(current, path, value));
     },
 
-    /** Копирует из source только перечисленные разделы; возвращает прежний черновик для отмены. */
-    applyDraftSections: (source, sections) => {
-      const previous = get().adminDraftDesignV2 ?? normalizeDesignConfig(get().publishedDesignV2?.config);
+    /** Копирует из source только перечисленные разделы во временное состояние; возвращает прежнее для отмены. */
+    applyDesignEditorSections: (source, sections) => {
+      const previous = get().designEditorDraft ?? get().designEditorBase ?? resolveActiveDesign(get());
       const next = structuredClone(previous);
       const incoming = normalizeDesignConfig(source);
       for (const section of sections) {
         if (section in DEFAULT_DESIGN_CONFIG_V2 && section !== 'schemaVersion') next[section] = structuredClone(incoming[section]);
       }
-      get().commitAdminDraft(normalizeDesignConfig(next));
+      get().commitDesignEditorDraft(next);
       return previous;
     },
 
-    /** Публикует admin draft: отправляет на сервер, при успехе обновляет published. */
-    publishAdminDraftToServer: async () => {
+    /** Сбрасывает конкретную секцию во временном состоянии до defaults. */
+    resetDesignEditorSection: (section) => {
+      const current = get().designEditorDraft ?? get().designEditorBase ?? resolveActiveDesign(get());
+      const targetSection = section === 'general' ? 'global' : section;
+      if (!(targetSection in DEFAULT_DESIGN_CONFIG_V2) || targetSection === 'schemaVersion') return;
+      get().commitDesignEditorDraft({ ...current, [targetSection]: JSON.parse(JSON.stringify(DEFAULT_DESIGN_CONFIG_V2[targetSection])) });
+    },
+
+    /** Сбрасывает несохранённые правки до исходного состояния при открытии редактора. */
+    revertDesignEditorChanges: () => {
+      const base = get().designEditorBase ?? normalizeDesignConfig(get().publishedDesignV2?.config ?? null);
+      set({
+        designEditorDraft: structuredClone(base),
+        designPreviewInApp: false,
+        designPreviewDismissed: false,
+      });
+    },
+
+    /** Единая CAS-операция записи личного дизайна с защитой от гонок и 1 повтором при 409. */
+    _commitPersonalDesignUpdate: async (buildCandidate, resolveEditorConfig, defaultError) => {
       const account = getUserId(), generation = settingsGeneration;
-      const draft = get().adminDraftDesignV2;
-      if (!draft) return { success: false, error: 'No draft to publish' };
-      try {
-        const res = await api.post('/admin/design/publish', { config: normalizeDesignConfig(draft) }, { _expectedUserId: account });
-        if (account !== getUserId() || generation !== settingsGeneration) return { success: false, error: 'Account changed' };
-        if (res.data?.config) {
-          saveCachedLocalPreviewState(false);
-          set({ isLocalDesignPreviewActive: false });
-          get().setPublishedDesignV2(res.data);
-          return { success: true, doc: res.data };
+      if (!account) return { success: false, error: 'Authentication required' };
+      const currentRecord = openPersonalDesignRecord(account);
+      if (!currentRecord) return { success: false, error: 'Personal design unavailable' };
+      if (saveTimer) {
+        clearTimeout(saveTimer);
+        saveTimer = null;
+      }
+      if (settingsWrite?.generation === generation) {
+        await settingsWrite.promise.catch(() => {});
+        if (account !== getUserId() || generation !== settingsGeneration) {
+          return { success: false, error: 'Account changed' };
         }
-        return { success: false, error: 'Invalid server response' };
-      } catch (e) {
-        console.warn('Failed to publish design:', e);
-        return { success: false, error: e?.response?.data?.detail || e.message };
       }
-    },
 
-    /** Сохраняет admin draft на сервер (без публикации). */
-    saveAdminDraftToServer: async () => {
-      const account = getUserId(), generation = settingsGeneration;
-      const draft = get().adminDraftDesignV2;
-      if (!draft) return { success: false, error: 'No draft to save' };
+      const attemptWrite = async (docSource) => {
+        const candidateDoc = buildCandidate(docSource);
+        const seqBeforeEval = studyMutationSeq;
+        const payload = { ...collectUserSettings(get()), designV2: candidateDoc };
+        const result = await networkApi.post('/user/settings', payload, { _expectedUserId: account });
+        if (account !== getUserId() || generation !== settingsGeneration) {
+          return { success: false, error: 'Account changed' };
+        }
+        if (result.data?.designMigrationVersion !== 1 || !isPersonalDesignDocument(result.data?.settings?.designV2)) {
+          return { success: false, error: defaultError };
+        }
+        const confirmed = result.data.settings.designV2;
+        const nextRecord = savePersonalDesignRecord({
+          ...currentRecord,
+          pending: false,
+          edited: false,
+          serverSeen: true,
+          document: structuredClone(confirmed),
+          base: structuredClone(confirmed),
+        });
+        clearPendingStudyWrite(account, generation, seqBeforeEval);
+        confirmedSettings = { account, generation, syncedAt: Date.now(), serverData: result.data.settings };
+        const editorConfig = resolveEditorConfig(confirmed);
+        set({
+          personalDesignV2: nextRecord.document,
+          designMigrationError: null,
+          designEditorBase: editorConfig,
+          designEditorDraft: structuredClone(editorConfig),
+          designPreviewInApp: false,
+          designPreviewDismissed: false,
+        });
+        return { success: true, doc: confirmed };
+      };
+
       try {
-        await api.post('/admin/design/draft', { config: normalizeDesignConfig(draft) }, { _expectedUserId: account });
-        if (account !== getUserId() || generation !== settingsGeneration) return { success: false, error: 'Account changed' };
-        return { success: true };
+        try {
+          return await attemptWrite(openPersonalDesignRecord(account)?.document ?? currentRecord.document);
+        } catch (error) {
+          if (error?.response?.status !== 409) throw error;
+          const fresh = await networkApi.get('/user/settings', { _expectedUserId: account });
+          if (account !== getUserId() || generation !== settingsGeneration) {
+            return { success: false, error: 'Account changed' };
+          }
+          if (fresh.data?._designMigrationVersion !== 1 || (fresh.data?.designV2 && !isPersonalDesignDocument(fresh.data.designV2))) {
+            throw error;
+          }
+          return await attemptWrite(fresh.data?.designV2 ?? currentRecord.document);
+        }
       } catch (e) {
-        console.warn('Failed to save admin draft:', e);
-        return { success: false, error: e?.response?.data?.detail || e.message };
+        return { success: false, error: e?.response?.data?.detail || e.message || defaultError };
       }
     },
 
-    /** Загружает сохранённый на сервере admin draft; возвращает прежний черновик для отмены. */
-    loadAdminDraftFromServer: async () => {
-      const account = getUserId(), generation = settingsGeneration;
-      try {
-        const res = await api.get('/admin/design/draft', { _expectedUserId: account });
-        if (account !== getUserId() || generation !== settingsGeneration) return { success: false, error: 'Account changed' };
-        if (!res.data?.config) return { success: true, found: false };
-        const previous = get().adminDraftDesignV2;
-        get().commitAdminDraft(normalizeDesignConfig(res.data.config));
-        return { success: true, found: true, previous };
-      } catch (e) {
-        console.warn('Failed to load admin draft:', e);
-        return { success: false, error: e?.response?.data?.detail || e.message };
-      }
+    /** Явное ручное сохранение личного дизайна (одна логическая операция с CAS-защитой ревизий).
+     *  Не подтверждает успех и не фиксирует состояние до ответа сервера. */
+    savePersonalDesignToServer: async (configInput = null, presetInput = undefined) => {
+      const config = normalizeDesignConfig(configInput ?? get().designEditorDraft ?? resolveActiveDesign(get()));
+      return get()._commitPersonalDesignUpdate(
+        (docSource) => ({
+          schemaVersion: 2,
+          revision: docSource.revision ?? 0,
+          config,
+          preset: presetInput === undefined
+            ? (docSource.preset ?? null)
+            : (presetInput === null ? null : normalizeDesignConfig(presetInput)),
+          enabled: true,
+        }),
+        (confirmed) => normalizeDesignConfig(confirmed.config),
+        'Server did not confirm personal design',
+      );
     },
 
-    /** Возвращает draft к текущему published design. */
-    revertDraftToPublished: () => {
-      const published = get().publishedDesignV2?.config;
-      get().commitAdminDraft(published ? normalizeDesignConfig(published) : normalizeDesignConfig(null), { autoPreview: false });
-    },
-
-    /** Сбрасывает конкретную секцию в draft до defaults. */
-    resetDraftSection: (section) => {
-      const current = get().adminDraftDesignV2 ?? normalizeDesignConfig(null);
-      if (!(section in DEFAULT_DESIGN_CONFIG_V2)) return;
-      get().commitAdminDraft({ ...current, [section]: JSON.parse(JSON.stringify(DEFAULT_DESIGN_CONFIG_V2[section])) });
-    },
-
-    /** Инициализирует admin draft из опубликованного дизайна (при открытии редактора). */
-    initAdminDraftFromPublished: () => {
-      const published = get().publishedDesignV2?.config;
-      if (!get().adminDraftDesignV2) {
-        const target = published ? normalizeDesignConfig(published) : normalizeDesignConfig(null);
-        saveCachedAdminDraft(target);
-        set({ adminDraftDesignV2: target });
-      }
+    /** Переключает использование личного дизайна (true) или возврат к общему (false), сохраняя личный config/preset. */
+    setPersonalDesignEnabled: async (enabled) => {
+      const targetEnabled = Boolean(enabled);
+      return get()._commitPersonalDesignUpdate(
+        (docSource) => ({
+          schemaVersion: 2,
+          revision: docSource.revision ?? 0,
+          config: normalizeDesignConfig(docSource.config),
+          preset: docSource.preset === null ? null : normalizeDesignConfig(docSource.preset),
+          enabled: targetEnabled,
+        }),
+        (confirmed) => targetEnabled
+          ? normalizeDesignConfig(confirmed.config)
+          : normalizeDesignConfig(get().publishedDesignV2?.config ?? null),
+        'Server did not confirm design mode',
+      );
     },
 
     /** Backend-authoritative setter для isAdmin. Вызывается из /init ответа. */
@@ -785,8 +825,8 @@ export const useSettingsStore = create((set, get) => {
 // Shared runtime selection is also the source of root CSS tokens.
 useSettingsStore.subscribe((state, previous) => {
   if (state.personalDesignV2 !== previous.personalDesignV2 || state.publishedDesignV2 !== previous.publishedDesignV2
-      || state.adminDraftDesignV2 !== previous.adminDraftDesignV2
-      || state.isLocalDesignPreviewActive !== previous.isLocalDesignPreviewActive) {
+      || state.designEditorDraft !== previous.designEditorDraft
+      || state.designPreviewInApp !== previous.designPreviewInApp) {
     const activeDesignConfig = resolveActiveDesign(state);
     useSettingsStore.setState({ activeDesignConfig });
     applyPublishedDesignTokens(activeDesignConfig ?? DEFAULT_DESIGN_CONFIG_V2);

@@ -219,18 +219,30 @@ class PreviewAdminDesignTests(unittest.TestCase):
             self.assertFalse(init_regular.json()['is_admin'])
 
             sample_config = {'schemaVersion': 2, 'global': {'accentColor': '#38bdf8'}}
-            save_draft = client.post('/api/admin/design/draft', json={'config': sample_config}, headers=headers[642478257])
-            self.assertEqual(save_draft.status_code, 200)
-            self.assertEqual(client.get('/api/admin/design/draft', headers=headers[642478257]).json(), {'config': sample_config})
+            personal_doc = {'schemaVersion': 2, 'revision': 0, 'config': sample_config, 'preset': None, 'enabled': True}
+            save_personal = client.post('/api/user/settings', json={'designV2': personal_doc}, headers=headers[642478257])
+            self.assertEqual(save_personal.status_code, 200)
+            self.assertEqual(save_personal.json()['settings']['designV2']['revision'], 1)
+            self.assertTrue(save_personal.json()['settings']['designV2']['enabled'])
+
+            # Retired persistent draft endpoints are removed.
+            self.assertEqual(client.get('/api/admin/design/draft', headers=headers[642478257]).status_code, 404)
+            self.assertEqual(client.post('/api/admin/design/draft', json={'config': sample_config}, headers=headers[642478257]).status_code, 404)
 
             pub = client.post('/api/admin/design/publish', json={'config': sample_config}, headers=headers[642478257])
             self.assertEqual(pub.status_code, 200)
             self.assertEqual(pub.json()['config'], sample_config)
             self.assertEqual(client.get('/api/init', headers=headers[642478257]).json()['global_design_v2']['config'], sample_config)
 
-            self.assertEqual(client.get('/api/admin/design/draft', headers=headers[885574402]).status_code, 403)
-            self.assertEqual(client.post('/api/admin/design/draft', json={'config': sample_config}, headers=headers[885574402]).status_code, 403)
-            self.assertEqual(client.post('/api/admin/design/publish', json={'config': sample_config}, headers=headers[885574402]).status_code, 403)
+            # Regular user can save their own personal design without affecting other users or global default.
+            regular_config = {'schemaVersion': 2, 'global': {'accentColor': '#ff00aa'}}
+            regular_doc = {'schemaVersion': 2, 'revision': 0, 'config': regular_config, 'preset': None, 'enabled': True}
+            regular_personal = client.post('/api/user/settings', json={'designV2': regular_doc}, headers=headers[885574402])
+            self.assertEqual(regular_personal.status_code, 200)
+            self.assertEqual(client.get('/api/user/settings', headers=headers[642478257]).json()['designV2']['config'], sample_config)
+            self.assertEqual(client.get('/api/user/settings', headers=headers[885574402]).json()['designV2']['config'], regular_config)
+            self.assertEqual(client.post('/api/admin/design/publish', json={'config': regular_config}, headers=headers[885574402]).status_code, 403)
+            self.assertEqual(client.get('/api/design/global', headers=headers[885574402]).json()['config'], sample_config)
 
 
 if __name__ == '__main__':

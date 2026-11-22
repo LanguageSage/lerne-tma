@@ -425,6 +425,11 @@ legacyAdapter удалён, новый personal record создаётся неп
 не затрагиваются. Исторические условия cutoff этапов 3–4D отменены этим решением.
 [Реализация и проверки](../../docs/DESIGN_V2_STAGE5_LEGACY_REMOVAL.md).
 
+### Упрощение Design V2: без ADMIN_DESIGN_DRAFT и явный флаг enabled
+
+- Удалены эндпоинты `/admin/design/draft` и постоянный кеш черновика/предпросмотра в localStorage; незавершённые правки в редакторе живут только в памяти до явного сохранения (`savePersonalDesignToServer`, `publishGlobalDesignToServer`) и сбрасываются при переключении аккаунта/выходе с предупреждением.
+- `USER_SETTINGS_<id>.designV2` поддерживает булев флаг `enabled` (валидируется и защищается CAS в `api/services/user_settings.py` наряду с `config`/`preset`). Наличие документа с `enabled: false` не активирует личный дизайн; переключение между личным и общим (`setPersonalDesignEnabled`) сохраняет сохранённые `config`/`preset`. `collectUserSettings` не отправляет пустую/нередактированную заготовку `designV2` (`revision === 0, enabled === false`) вместе с обычными учебными настройками.
+
 ## V2: список, удаление, порядок и поиск (6B.5d)
 
 `offlineApi.queueCardSelection` атомарно пишет пакет удаления/порядка и UUID

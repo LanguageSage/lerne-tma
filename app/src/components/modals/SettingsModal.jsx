@@ -64,25 +64,63 @@ export const SettingsModal = ({ userId }) => {
 
   // Single source of truth: backend-authoritative via useSettingsStore
   const isAdmin = useSettingsStore(s => s.isAdmin);
+  const hasUnsavedDesignChanges = useSettingsStore(s => s.hasUnsavedDesignChanges);
+  const discardDesignEditor = useSettingsStore(s => s.discardDesignEditor);
 
   // Redirect non-admin away from admin-only tabs
   const resolvedTab = accessibleSettingsTab(settingsTab, isAdmin);
   const activeSettingsTab = IS_STANDALONE && ['reminders', 'prompts'].includes(resolvedTab) ? 'profile' : resolvedTab;
 
   const [customBackgrounds] = useState([]);
-  const handleTabChange = setSettingsTab;
+  const [pendingExitAction, setPendingExitAction] = useState(null);
+
+  const requestClose = React.useCallback(() => {
+    if (activeSettingsTab === 'design' && hasUnsavedDesignChanges()) {
+      setPendingExitAction({ type: 'close' });
+      return;
+    }
+    discardDesignEditor();
+    setPendingExitAction(null);
+    setIsSettingsOpen(false);
+  }, [activeSettingsTab, discardDesignEditor, hasUnsavedDesignChanges, setIsSettingsOpen]);
+
+  const handleTabChange = (nextTab) => {
+    if (activeSettingsTab === 'design' && nextTab !== 'design' && hasUnsavedDesignChanges()) {
+      setPendingExitAction({ type: 'tab', tab: nextTab });
+      return;
+    }
+    if (activeSettingsTab === 'design' && nextTab !== 'design') {
+      discardDesignEditor();
+    }
+    setPendingExitAction(null);
+    setSettingsTab(nextTab);
+  };
+
+  const handleConfirmDiscard = () => {
+    const action = pendingExitAction;
+    discardDesignEditor();
+    setPendingExitAction(null);
+    if (action?.type === 'tab') {
+      setSettingsTab(action.tab);
+    } else {
+      setIsSettingsOpen(false);
+    }
+  };
 
   React.useEffect(() => {
     if (isSettingsOpen) {
       const session = useSessionStore.getState();
       if (session.autoplayState === 'playing') session.pauseAutoplayFn?.();
+    } else {
+      setPendingExitAction(null);
+      discardDesignEditor();
     }
-  }, [isSettingsOpen]);
+  }, [isSettingsOpen, discardDesignEditor]);
 
   return (
     <AnimatePresence>
       {isSettingsOpen && (
-        <div className="settings-overlay" onClick={() => setIsSettingsOpen(false)}>
+        <div className="settings-overlay" onClick={requestClose}>
           <motion.div 
             initial={{ opacity: 0, y: 50 }} 
             animate={{ opacity: 1, y: 0 }} 
@@ -94,11 +132,38 @@ export const SettingsModal = ({ userId }) => {
               <h2>{t('settings.title', 'Настройки')}</h2>
               <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                 <HelpButton topic="settings" />
-                <button className="close-btn" aria-label={tr("Закрыть настройки")} title={tr("Закрыть настройки")} onClick={() => setIsSettingsOpen(false)}>
+                <button className="close-btn" aria-label={tr("Закрыть настройки")} title={tr("Закрыть настройки")} onClick={requestClose}>
                   <X size={24} />
                 </button>
               </div>
             </div>
+
+            {pendingExitAction && (
+              <div className="design-unsaved-warning" role="alertdialog" aria-label={tr('Несохранённые изменения дизайна')} style={{
+                margin: '0 0 12px 0',
+                padding: '10px 14px',
+                borderRadius: '12px',
+                background: 'rgba(245, 158, 11, 0.14)',
+                border: '1px solid rgba(251, 191, 36, 0.45)',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: '8px',
+              }}>
+                <span style={{ fontSize: '0.88rem', color: '#fef3c7' }}>
+                  {tr('Есть несохранённые изменения дизайна. Выйти без сохранения?')}
+                </span>
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+                  <button type="button" className="btn btn-secondary btn-tiny" onClick={() => setPendingExitAction(null)}>
+                    {tr('Остаться')}
+                  </button>
+                  <button type="button" className="btn btn-primary btn-tiny" onClick={handleConfirmDiscard}>
+                    {tr('Выйти без сохранения')}
+                  </button>
+                </div>
+              </div>
+            )}
 
             <div className="settings-dropdown-container">
               <label htmlFor="settings-tab-select" className="settings-dropdown-label">{tr("Раздел настроек:")}</label>
@@ -112,7 +177,7 @@ export const SettingsModal = ({ userId }) => {
                 <option value="srs">{tr("🧠 SRS (Интервалы и память)")}</option>
                 {!IS_STANDALONE && <option value="reminders">{tr("🔔 Напоминания бота")}</option>}
                 <option value="general">⚙️ {t('settings.tab_general', 'Общие настройки')}</option>
-                {isAdmin && <option value="design">🎨 {t('settings.tab_design', 'Дизайн (Редактор)')}</option>}
+                <option value="design">🎨 {t('settings.tab_design', 'Дизайн (Редактор)')}</option>
                 <option value="autoplay">▶ {tr("Авто-режим")}</option>
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
                 {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
@@ -126,7 +191,7 @@ export const SettingsModal = ({ userId }) => {
               {activeSettingsTab === 'srs' && <SrsTab />}
               {activeSettingsTab === 'reminders' && <RemindersTab />}
               {activeSettingsTab === 'general' && <GeneralTab userId={userId} />}
-              {activeSettingsTab === 'design' && isAdmin && (
+              {activeSettingsTab === 'design' && (
                 <TabErrorBoundary>
                   <DesignTab 
                     customBackgrounds={customBackgrounds} 

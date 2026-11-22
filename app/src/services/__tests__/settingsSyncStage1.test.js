@@ -419,3 +419,33 @@ test('Task 2 + Task 3: cold init uses /init without GET/POST /user/settings; foc
   assert.equal(recorded.filter((r) => r === 'net:GET /user/settings').length, 1);
   assert.equal(recorded.filter((r) => r === 'net:POST /user/settings').length, 0);
 });
+
+test('saveCurrentSettingsToServer succeeds when user has no personal designV2 and omits designV2 from POST', async () => {
+  saveAuthSession({ account_id: 1, access_token: 'tok-1', refresh_token: 'ref-1', session_id: 'ses-1' });
+  saveUserProfile({ user_id: 1 });
+
+  let serverSettings = { autoplayVersion: 2, autoPlay: false };
+  const postedPayloads = [];
+  netHandler = async (method, url, data) => {
+    assert.equal(url, '/user/settings');
+    if (method === 'GET') return { data: { ...serverSettings, _designMigrationVersion: 1 } };
+    if (method === 'POST') {
+      postedPayloads.push(data);
+      serverSettings = { ...serverSettings, ...data };
+      return { data: { designMigrationVersion: 1, settings: serverSettings } };
+    }
+    throw new Error(`Unexpected ${method}`);
+  };
+
+  useSettingsStore.getState().activateSettingsAccount();
+  useSettingsStore.getState().syncUserSettingsFromServer(serverSettings);
+  useSettingsStore.getState().setAutoPlay(true);
+
+  const saved = await useSettingsStore.getState().saveCurrentSettingsToServer();
+  assert.equal(saved, true);
+  assert.equal(useSettingsStore.getState().designMigrationError, null);
+  assert.equal(postedPayloads.length, 1);
+  assert.equal(Object.hasOwn(postedPayloads[0], 'designV2'), false);
+  assert.equal(postedPayloads[0].autoPlay, true);
+  assert.equal(useSettingsStore.getState().hasPendingSettingsSync(1), false);
+});

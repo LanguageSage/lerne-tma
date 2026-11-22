@@ -7,7 +7,6 @@ import { FONT_OPTIONS } from '../designConstants';
 import { ExerciseRenderer } from '../../../study/ExerciseRenderer.jsx';
 import { StudyCardSpeech } from '../../../study/StudyCardSpeech.jsx';
 import { CardBackground } from '../../../common/CardBackground';
-import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { TypographyControls } from '../controls/TypographyControls';
 import { getMatchRightTypography } from '../../../../utils/cardStyles.js';
 
@@ -48,7 +47,6 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
   const [previewRevision, setPreviewRevision] = useState(0);
   const [subTab, setSubTab] = useState('palette');
   const ex = config?.exercises || {};
-  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
   const isInputPreview = ['freeText', 'editableText', 'speech'].includes(previewType);
 
   return (
@@ -64,7 +62,7 @@ export const ExerciseDesignSection = React.memo(({ config, onChangeField }) => {
           marginBottom: '20px',
           boxShadow: '0 16px 32px -16px rgba(0,0,0,0.65)'
         }}>
-          <CardBackground background={config?.front?.card?.background} styleType={fallbackBackground} cardId={1} />
+          <CardBackground background={config?.front?.card?.background} styleType="" cardId={1} />
           <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Switch preview mode */}
           <label className="exercise-preview-type-select design-editor-select">

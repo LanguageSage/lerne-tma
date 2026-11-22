@@ -79,12 +79,27 @@ class PersonalDesignMigrationTests(unittest.TestCase):
 
     def test_new_account_and_invalid_documents(self):
         for invalid in (None, [], {}, {**design(), 'schemaVersion': 3}, {**design(), 'revision': True},
-                        {**design(), 'revision': -1}, {**design(), 'preset': []}):
+                        {**design(), 'revision': -1}, {**design(), 'preset': []}, {**design(), 'enabled': 1}):
             with self.subTest(invalid=invalid), self.assertRaises(HTTPException):
                 save_user_settings(2, {'designV2': invalid})
         self.assertEqual(read_user_settings(2), {})
         self.assertEqual(models.TMASetting.select().count(), 1)
         self.assertEqual(save_user_settings(2, {'designV2': design()})['designV2']['revision'], 1)
+
+    def test_toggling_enabled_preserves_config_bumps_revision_and_enforces_cas(self):
+        first = save_user_settings(1, {'designV2': {**design(), 'enabled': True}})['designV2']
+        self.assertEqual(first['revision'], 1)
+        self.assertTrue(first['enabled'])
+        disabled = save_user_settings(1, {'designV2': {**first, 'enabled': False}})['designV2']
+        self.assertEqual(disabled['revision'], 2)
+        self.assertFalse(disabled['enabled'])
+        self.assertEqual(disabled['config'], first['config'])
+        with self.assertRaises(HTTPException) as conflict:
+            save_user_settings(1, {'designV2': {**first, 'enabled': True}})
+        self.assertEqual(conflict.exception.status_code, 409)
+        reenabled = save_user_settings(1, {'designV2': {**disabled, 'enabled': True}})['designV2']
+        self.assertEqual(reenabled['revision'], 3)
+        self.assertTrue(reenabled['enabled'])
 
     def test_reverting_v2_is_a_new_revision(self):
         first = save_user_settings(1, {'designV2': design()})['designV2']

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { CardBackground } from '../../../common/CardBackground';
 import { getDesignStylesFromV2 } from '../../../../utils/cardStyles';
-import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { tr } from '../../../../i18n/locale';
 import { TypographyControls } from '../controls/TypographyControls';
 import { SurfaceControls } from '../controls/SurfaceControls';
@@ -12,7 +11,6 @@ import { DesignPreviewScope } from '../DesignPreviewScope';
 export const BackDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('answerText'); // 'answerText' | 'context' | 'card' | 'reference'
   const back = config?.back || {};
-  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
   const textStyles = getDesignStylesFromV2(config);
 
   return (
@@ -30,7 +28,7 @@ export const BackDesignSection = React.memo(({ config, onChangeField }) => {
           minHeight: '140px',
           position: 'relative'
         }}>
-          <CardBackground background={back.card?.background} styleType={fallbackBackground} cardId={1} />
+          <CardBackground background={back.card?.background} styleType="" cardId={1} />
           <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Reference text (original phrase) */}
           <div style={{

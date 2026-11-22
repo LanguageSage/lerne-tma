@@ -5,13 +5,13 @@
  * - designConfigToCssVariables(config) — ЧИСТАЯ функция, не трогает DOM.
  *   Возвращает объект { '--design-var': 'value' }.
  *   Используется для scoped preview через style prop:
- *     <div style={designConfigToCssVariables(adminDraft)}><Preview /></div>
+ *     <div style={designConfigToCssVariables(editorDraft)}><Preview /></div>
  *
  * - applyPublishedDesignTokens(config) — пишет в document.documentElement.
  *   ЕДИНСТВЕННОЕ место в приложении с глобальным setProperty.
- *   Вызывается только при применении published global design.
+ *   Вызывается только при применении активного дизайна.
  *
- * Admin draft НЕ вызывает applyPublishedDesignTokens — только scoped vars.
+ * Scoped preview НЕ вызывает applyPublishedDesignTokens — только scoped vars.
  */
 
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2 } from './designConfig.js';

@@ -58,8 +58,13 @@ def _validate_design(design):
             or type(design.get('revision')) is not int or design['revision'] < 0
             or not isinstance(design.get('config'), dict)
             or 'preset' not in design
-            or design['preset'] is not None and not isinstance(design['preset'], dict)):
+            or (design['preset'] is not None and not isinstance(design['preset'], dict))
+            or ('enabled' in design and type(design['enabled']) is not bool)):
         raise HTTPException(400, 'Invalid personal Design V2 document')
+
+
+def _design_enabled(design):
+    return bool(design.get('enabled') is True) if isinstance(design, dict) else False
 
 
 def save_user_settings(user_id, data):
@@ -88,7 +93,11 @@ def save_user_settings(user_id, data):
             if previous is not None:
                 _validate_design(previous)
             revision = previous['revision'] if previous else 0
-            same = previous and all(incoming[k] == previous[k] for k in ('config', 'preset'))
+            same = (
+                previous
+                and all(incoming[k] == previous[k] for k in ('config', 'preset'))
+                and _design_enabled(incoming) == _design_enabled(previous)
+            )
             if not same and incoming['revision'] != revision:
                 raise HTTPException(409, 'Personal design revision conflict; fetch and retry')
             updates['designV2'] = {**incoming, 'revision': revision if same else revision + 1}

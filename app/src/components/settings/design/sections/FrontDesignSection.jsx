@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { CardBackground } from '../../../common/CardBackground';
 import { getDesignStylesFromV2 } from '../../../../utils/cardStyles';
-import { useSettingsStore } from '../../../../store/useSettingsStore';
 import { tr } from '../../../../i18n/locale';
 import { TypographyControls } from '../controls/TypographyControls';
 import { SurfaceControls } from '../controls/SurfaceControls';
@@ -13,7 +12,6 @@ import { ExerciseInfoBlocks } from '../../../study/ExerciseInfoBlocks';
 export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
   const [subTab, setSubTab] = useState('mainText'); // 'mainText' | 'card' | 'infoBlocks'
   const front = config?.front || {};
-  const fallbackBackground = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
   const textStyles = getDesignStylesFromV2(config);
 
   // Mock content for live preview
@@ -41,7 +39,7 @@ export const FrontDesignSection = React.memo(({ config, onChangeField }) => {
           minHeight: '140px',
           position: 'relative'
         }}>
-          <CardBackground background={front.card?.background} styleType={fallbackBackground} cardId={1} />
+          <CardBackground background={front.card?.background} styleType="" cardId={1} />
           <div style={{ position: 'relative', zIndex: 1 }}>
           {/* Information blocks preview */}
           <ExerciseInfoBlocks content={previewInfoContent} />

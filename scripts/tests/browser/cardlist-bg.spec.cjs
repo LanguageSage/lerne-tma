@@ -9,8 +9,8 @@ const deck = {
 };
 
 const cards = [
-  { id: 1, deck_id: 1, position: 0, queue: 'new', front: 'Hallo Welt', back: 'Привет мир' },
-  { id: 2, deck_id: 1, position: 1, queue: 'new', front: 'Guten Tag', back: 'Добрый день' },
+  { id: 1, deck_id: 1, position: 0, queue: 'new', content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Hallo Welt', answer: 'Привет мир' } } } },
+  { id: 2, deck_id: 1, position: 1, queue: 'new', content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Guten Tag', answer: 'Добрый день' } } } },
 ];
 
 test('Card list background tab allows selecting preset and custom colors and updates the card list and live preview', async ({ page, context }, testInfo) => {
@@ -23,10 +23,20 @@ test('Card list background tab allows selecting preset and custom colors and upd
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
     localStorage.setItem('lerne_last_settings_tab', 'design');
+    localStorage.setItem('lerne_user_id', '1');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Admin', is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test', refresh_token: 'test', account_id: 1, session_id: 's1' }));
   });
 
   await page.route('**/api/**', route => {
-    const { pathname } = new URL(route.request().url());
+    const request = route.request();
+    const { pathname } = new URL(request.url());
+    if (pathname === '/api/sync/v2/status') {
+      return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
+    }
+    if (pathname === '/api/auth/v2/me') {
+      return route.fulfill({ json: { user_id: 1, first_name: 'Admin', is_guest: false } });
+    }
     if (pathname === '/api/init') {
       return route.fulfill({
         json: {
@@ -35,17 +45,22 @@ test('Card list background tab allows selecting preset and custom colors and upd
           folders: [],
           settings: {},
           prompts: {},
-          user_settings: { previewCardBg: 'dark_emerald' },
+          user_settings: {},
           user_info: { user_id: 1, first_name: 'Admin', is_guest: false },
         }
       });
     }
-    if (pathname === '/api/admin/design/draft') {
-      return route.fulfill({ json: { config: null } });
-    }
+    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: cards });
-    if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
-    if (pathname === '/api/user/settings') return route.fulfill({ json: { status: 'success' } });
+    if (pathname === '/api/cards/duplicates' || pathname === '/api/messages' || pathname === '/api/folders') return route.fulfill({ json: [] });
+    if (pathname === '/api/user/settings') {
+      if (request.method() === 'POST') {
+        const body = request.postDataJSON();
+        const savedDesign = body?.designV2 ? { ...body.designV2, revision: (body.designV2.revision || 0) + 1 } : undefined;
+        return route.fulfill({ json: { status: 'success', designMigrationVersion: 1, settings: { ...body, ...(savedDesign ? { designV2: savedDesign } : {}) } } });
+      }
+      return route.fulfill({ json: { _designMigrationVersion: 1 } });
+    }
     if (pathname === '/api/auth/sync') {
       return route.fulfill({ json: { status: 'ok', user: { user_id: 1, first_name: 'Admin', is_guest: false } } });
     }
@@ -91,12 +106,15 @@ test('Card list background tab allows selecting preset and custom colors and upd
   // Take screenshot of the Design modal preview with graphite background
   await page.screenshot({ path: testInfo.outputPath('design-cardlist-graphite.png'), fullPage: true });
 
-  // 7. Close settings modal
+  // 7. Save personal design and close settings modal
+  await page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Мой дизайн сохранён');
   await page.locator('.close-btn').click();
   await expect(page.locator('.settings-modal')).toHaveCount(0);
 
-  // 8. Open the deck
+  // 8. Open the deck and show card list
   await page.locator('#deck-item-1').click();
+  await page.getByRole('button', { name: 'Показать список' }).click();
   await expect(page.getByText('Hallo Welt', { exact: true })).toBeVisible();
 
   // Verify the card items are displayed with graphite background (not green emerald!)
@@ -119,10 +137,20 @@ test('Selecting a custom swatch color updates the card list background', async (
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
     localStorage.setItem('lerne_last_settings_tab', 'design');
+    localStorage.setItem('lerne_user_id', '1');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, first_name: 'Admin', is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test', refresh_token: 'test', account_id: 1, session_id: 's1' }));
   });
 
   await page.route('**/api/**', route => {
-    const { pathname } = new URL(route.request().url());
+    const request = route.request();
+    const { pathname } = new URL(request.url());
+    if (pathname === '/api/sync/v2/status') {
+      return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
+    }
+    if (pathname === '/api/auth/v2/me') {
+      return route.fulfill({ json: { user_id: 1, first_name: 'Admin', is_guest: false } });
+    }
     if (pathname === '/api/init') {
       return route.fulfill({
         json: {
@@ -131,15 +159,22 @@ test('Selecting a custom swatch color updates the card list background', async (
           folders: [],
           settings: {},
           prompts: {},
-          user_settings: { previewCardBg: 'dark_emerald' },
+          user_settings: {},
           user_info: { user_id: 1, first_name: 'Admin', is_guest: false },
         }
       });
     }
-    if (pathname === '/api/admin/design/draft') return route.fulfill({ json: { config: null } });
+    if (pathname === '/api/decks') return route.fulfill({ json: [deck] });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: cards });
-    if (pathname === '/api/cards/duplicates') return route.fulfill({ json: [] });
-    if (pathname === '/api/user/settings') return route.fulfill({ json: { status: 'success' } });
+    if (pathname === '/api/cards/duplicates' || pathname === '/api/messages' || pathname === '/api/folders') return route.fulfill({ json: [] });
+    if (pathname === '/api/user/settings') {
+      if (request.method() === 'POST') {
+        const body = request.postDataJSON();
+        const savedDesign = body?.designV2 ? { ...body.designV2, revision: (body.designV2.revision || 0) + 1 } : undefined;
+        return route.fulfill({ json: { status: 'success', designMigrationVersion: 1, settings: { ...body, ...(savedDesign ? { designV2: savedDesign } : {}) } } });
+      }
+      return route.fulfill({ json: { _designMigrationVersion: 1 } });
+    }
     if (pathname === '/api/auth/sync') {
       return route.fulfill({ json: { status: 'ok', user: { user_id: 1, first_name: 'Admin', is_guest: false } } });
     }
@@ -172,12 +207,15 @@ test('Selecting a custom swatch color updates the card list background', async (
   await expect(swatch).toBeVisible();
   await swatch.click();
 
-  // 6. Close settings modal
+  // 6. Save personal design and close settings modal
+  await page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Мой дизайн сохранён');
   await page.locator('.close-btn').click();
   await expect(page.locator('.settings-modal')).toHaveCount(0);
 
-  // 7. Open deck
+  // 7. Open deck and show card list
   await page.locator('#deck-item-1').click();
+  await page.getByRole('button', { name: 'Показать список' }).click();
   await expect(page.getByText('Hallo Welt', { exact: true })).toBeVisible();
 
   // Verify the card has custom inline background rgb(30, 41, 59) (#1e293b) and does NOT have bg-dark-emerald

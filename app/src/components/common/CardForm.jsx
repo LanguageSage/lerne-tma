@@ -48,7 +48,6 @@ const uploadLayoutImageViaNetworkApi = async (file, signal) => {
 };
 
 export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCreator = false }) => {
-  const personalConfig = useSettingsStore(state => state.personalDesignV2?.config);
   const effectiveConfig = useSettingsStore(state => state.activeDesignConfig);
   const loading = useUiStore(state => state.loading);
   const showToast = useUiStore(state => state.showToast);
@@ -59,8 +58,8 @@ export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCre
   const { uploadCreatorImage, uploadAudioFile } = useMediaUpload();
 
   const mediaDraftKey = isCreator ? creatorDeckId : cardData?.id;
-  const resolvedBgFront = getResolvedStyle(personalConfig?.front?.card?.background, cardData?.id || 0);
-  const resolvedBgBack = getResolvedStyle(personalConfig?.back?.card?.background, cardData?.id || 0);
+  const resolvedBgFront = getResolvedStyle(effectiveConfig?.front?.card?.background, cardData?.id || 0);
+  const resolvedBgBack = getResolvedStyle(effectiveConfig?.back?.card?.background, cardData?.id || 0);
 
   const handleAiGenerate = async (actionType, userRequest = '') => {
     const envelope = cardData?.content_v2;

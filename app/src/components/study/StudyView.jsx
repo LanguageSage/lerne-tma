@@ -60,8 +60,8 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const { uploadStudyImage } = useMediaUpload();
 
   const autoPlay = useSettingsStore(s => s.autoPlay);
-  const cardBgFront = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
-  const cardBgBack = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
+  const cardBgFront = useSettingsStore(s => s.activeDesignConfig?.front?.card?.background);
+  const cardBgBack = useSettingsStore(s => s.activeDesignConfig?.back?.card?.background);
   const studyMode = useSettingsStore(s => s.studyMode);
   const setStudyMode = useSettingsStore(s => s.setStudyMode);
   const randomEnabledModes = useSettingsStore(s => s.randomEnabledModes);

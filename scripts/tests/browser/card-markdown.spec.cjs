@@ -21,11 +21,13 @@ async function setup(page, context) {
   await context.addInitScript(() => {
     for (const [key, value] of Object.entries({ native_language: 'ru', native_language_selected: 'true',
       lerne_has_selected_language: 'true', lerne_target_language: 'de' })) localStorage.setItem(key, value);
+    localStorage.setItem('lerne_user_id', '1');
     localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
-    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-test', refresh_token: 'isolated-test' }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'isolated-test', refresh_token: 'isolated-test', account_id: 1, session_id: 's1' }));
   });
   await page.route('**/api/**', route => {
     const { pathname } = new URL(route.request().url());
+    if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {},
       user_settings: {}, user_info: { user_id: 1, is_guest: false } } });
     if (pathname === '/api/decks/1/cards') return route.fulfill({ json: [card] });
@@ -41,7 +43,7 @@ async function setup(page, context) {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     const { useDeckStore } = await import('/src/store/useDeckStore.js');
     useSettingsStore.setState({ studyMode: 'classic', autoShowAnswer: false, autoPlayAudio: false,
-      autoGenerateCardAudio: false, publishedDesignV2: null, isLocalDesignPreviewActive: false,
+      autoGenerateCardAudio: false, publishedDesignV2: null, designPreviewInApp: false,
       cardFont: 'Georgia', cardFontSize: 1.15, backCardFont: 'Georgia', backCardFontSize: 1.15,
       backTextColor: '#fed7aa', contextFont: 'Georgia', contextFontSize: 1,
       contextTextColor: '#a5f3fc', previewCardLines: 0 });

@@ -11,46 +11,47 @@ import { ExerciseDesignSection } from './design/sections/ExerciseDesignSection';
 import { CardListDesignSection } from './design/sections/CardListDesignSection';
 
 /**
- * DesignTab — главный оркестратор редактора дизайна (Admin-only).
+ * DesignTab — главный оркестратор редактора дизайна.
  *
  * Архитектура:
  * - Разделён на 5 внутренних вкладок: General, Front, Back, Exercise, CardList.
- * - Все изменения записываются в adminDraftDesignV2 (в памяти Zustand).
- * - Live preview изолирован внутри DesignPreviewScope (CSS-переменные только в превью).
- * - Глобальное приложение меняется ТОЛЬКО после явного нажатия «Опубликовать для всех».
+ * - Все изменения записываются только во временное состояние designEditorDraft (в памяти Zustand).
+ * - Live preview изолирован внутри DesignPreviewScope (или временного предпросмотра в памяти).
+ * - Личный дизайн сохраняется в USER_SETTINGS_<id>.designV2 только по кнопке «Сохранить мой дизайн».
+ * - Общий дизайн по умолчанию (GLOBAL_DESIGN_V2) из редактора не изменяется.
  */
 export const DesignTab = () => {
   useInterfaceLocale();
 
   const [activeSection, setActiveSection] = useState('general');
 
-  const adminDraftDesignV2 = useSettingsStore(s => s.adminDraftDesignV2);
-  const publishedDesignV2 = useSettingsStore(s => s.publishedDesignV2);
-  const patchAdminDraft = useSettingsStore(s => s.patchAdminDraft);
-  const resetDraftSection = useSettingsStore(s => s.resetDraftSection);
-  const initAdminDraftFromPublished = useSettingsStore(s => s.initAdminDraftFromPublished);
+  const designEditorDraft = useSettingsStore(s => s.designEditorDraft);
+  const activeDesignConfig = useSettingsStore(s => s.activeDesignConfig);
+  const patchDesignEditorDraft = useSettingsStore(s => s.patchDesignEditorDraft);
+  const resetDesignEditorSection = useSettingsStore(s => s.resetDesignEditorSection);
+  const initDesignEditor = useSettingsStore(s => s.initDesignEditor);
 
-  // Инициализация черновика из опубликованного дизайна при первом открытии
+  // Инициализация временного состояния редактора при открытии
   useEffect(() => {
-    initAdminDraftFromPublished();
-  }, [initAdminDraftFromPublished]);
+    initDesignEditor();
+  }, [initDesignEditor]);
 
   // Текущая рабочая конфигурация для редактора
-  const currentConfig = adminDraftDesignV2
-    ?? (publishedDesignV2?.config ? normalizeDesignConfig(publishedDesignV2.config) : null)
+  const currentConfig = designEditorDraft
+    ?? (activeDesignConfig ? normalizeDesignConfig(activeDesignConfig) : null)
     ?? DEFAULT_DESIGN_CONFIG_V2;
 
   const handleFieldChange = useCallback((dotPath, value) => {
-    patchAdminDraft(dotPath, value);
-  }, [patchAdminDraft]);
+    patchDesignEditorDraft(dotPath, value);
+  }, [patchDesignEditorDraft]);
 
   const handleResetSection = useCallback((sectionId) => {
-    resetDraftSection(sectionId);
-  }, [resetDraftSection]);
+    resetDesignEditorSection(sectionId);
+  }, [resetDesignEditorSection]);
 
   return (
     <div className="design-tab-container" style={{ padding: '4px 0 24px 0' }}>
-      {/* Верхний тулбар: Пресеты, Сохранить черновик, Опубликовать, Копировать/Импорт JSON */}
+      {/* Верхний тулбар: Пресеты, Сохранить личный дизайн, Переключение режимов, Копировать/Экспорт/Импорт JSON */}
       <DesignToolbar
         activeSection={activeSection}
         onResetSection={handleResetSection}

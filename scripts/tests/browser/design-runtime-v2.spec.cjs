@@ -1,6 +1,12 @@
 const { test, expect } = require('./isolated-fixture.cjs');
 const deck = { id: 1, name: 'Design runtime', target_language: 'de', is_learning: true, stats: { total: 1, new: 1 } };
-const card = { id: 41, deck_id: 1, queue: 'new', front: 'Ich lerne jeden Tag Deutsch.', back: 'Каждый день я учу немецкий.', context: 'Ein Beispiel für den Alltag.' };
+const v2Card = (id, type, data, explanation = '') => ({
+  id,
+  deck_id: 1,
+  queue: 'new',
+  content_v2: { schema_version: 2, card: { type, data, ...(explanation ? { explanation } : {}) } },
+});
+const card = v2Card(41, 'standard', { prompt: 'Ich lerne jeden Tag Deutsch.', answer: 'Каждый день я учу немецкий.' }, 'Ein Beispiel für den Alltag.');
 const config = { schemaVersion: 2,
   front: { card: { background: '#123456' }, mainText: { font: 'monospace', size: 1.1, weight: '500', style: 'italic', color: '#bcddee', align: 'right', lineHeight: 1.65, shadow: 'neon' } },
   back: { card: { background: 'linear-gradient(135deg, #102030, #304050)' },
@@ -14,6 +20,9 @@ async function setup(page, context, design = config) {
   await context.addInitScript(() => {
     localStorage.setItem('native_language', 'ru'); localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true'); localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_id', '1');
+    localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test', refresh_token: 'test', account_id: 1, session_id: 's1' }));
     window.recognitionStarts = 0;
     window.SpeechRecognition = class {
       start() { window.recognitionStarts++; window.testRecognition = this; this.onstart?.(); }
@@ -26,6 +35,8 @@ async function setup(page, context, design = config) {
   await page.route('**/api/**', route => {
     const path = new URL(route.request().url()).pathname;
     if (route.request().method() !== 'GET') writes.push(path);
+    if (path === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
+    if (path === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (path === '/api/init') return route.fulfill({ json: { decks: [deck], folders: [], settings: {}, prompts: {}, user_settings: {}, is_admin: true,
       user_info: { user_id: 1, is_guest: false }, ...(design ? { global_design_v2: { config: design, revision: 1 } } : {}) } });
     if (path === '/api/messages' || path === '/api/cards/duplicates') return route.fulfill({ json: [] });
@@ -34,7 +45,7 @@ async function setup(page, context, design = config) {
     return route.fulfill({ json: {} });
   });
   await page.goto('/?user_id=1'); await expect(page.getByText(deck.name, { exact: true }).first()).toBeVisible();
-  await page.evaluate(async ({ deck, card }) => {
+  await page.evaluate(async ({ deck, card, hasFullGlobal }) => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     const { useDeckStore } = await import('/src/store/useDeckStore.js');
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
@@ -43,11 +54,16 @@ async function setup(page, context, design = config) {
       cardBgFront: 'dark_mocha', cardBgBack: 'dark_emerald', contextFont: 'monospace', contextTextColor: '#ffff00',
       studyMode: 'classic', autoPlayAudio: false, autoShowAnswer: false, speechFollowupEnabled: false });
     const { normalizeDesignConfig } = await import('/src/design/designConfig.js');
-    useSettingsStore.getState().setPersonalDesignV2(normalizeDesignConfig({ front: { mainText: { font: 'Georgia', color: '#ff00ff', size: 1.8, weight: '900' }, card: { background: 'dark_mocha' } }, back: { answerText: { font: 'Georgia', color: '#ff00ff', size: 1.8 }, context: { font: 'monospace', color: '#ffff00', size: 1.6 }, card: { background: 'dark_emerald' } } }));
+    const personalCfg = normalizeDesignConfig({ front: { mainText: { font: 'Georgia', color: '#ff00ff', size: 1.8, weight: '900' }, card: { background: 'dark_mocha' } }, back: { answerText: { font: 'Georgia', color: '#ff00ff', size: 1.8 }, context: { font: 'monospace', color: '#ffff00', size: 1.6 }, card: { background: 'dark_emerald' } } });
+    if (hasFullGlobal) {
+      useSettingsStore.setState({ personalDesignV2: { schemaVersion: 2, revision: 1, config: personalCfg, preset: null, enabled: false } });
+    } else {
+      useSettingsStore.getState().setPersonalDesignV2(personalCfg);
+    }
     useDeckStore.setState({ currentDeck: deck, cards: [card], deckCards: [card] });
     useSessionStore.setState({ card, studyHistory: [card], historyIndex: 0, isFlipped: false });
     useUiStore.getState().setView('study');
-  }, { deck, card });
+  }, { deck, card, hasFullGlobal: Boolean(design?.front?.card?.background) });
   return { writes, errors };
 }
 async function setSession(page, patch) {
@@ -89,14 +105,18 @@ for (const width of [320, 375, 430, 768, 1280]) test(`speech V2 typography, tran
 test('all nine card types and reverse mode use physical V2 front/back backgrounds', async ({ page, context }) => {
   await setup(page, context);
   const fixtures = [
-    ['Standard', 'Antwort'], ['@theory\nEin kurzer Überblick.', 'Theorie'],
-    ['Welche Antwort?\nA) Nein\n*B) Ja', 'Ja'], ['@match\nKatze => кошка\nHund => собака', 'Paare'],
-    ['@wordbank\nIch <<1>> Deutsch.\n@options\nlerne | lernst', '1=lerne'],
-    ['@free\nSchreiben Sie einen Satz.', 'Ich lerne.'], ['@edit\nIch lernen.', 'Ich lerne.'],
-    ['Ich [[lerne]] Deutsch.', 'Я учусь.'], ['@puzzle\nIch lerne Deutsch.', 'Я учу немецкий.'],
+    ['standard', { prompt: 'Standard', answer: 'Antwort' }],
+    ['theory', { text: 'Ein kurzer Überblick.', summary: 'Theorie' }],
+    ['quiz', { prompt: 'Welche Antwort?', options: [{ text: 'Nein', correct: false }, { text: 'Ja', correct: true }], back_note: 'Ja' }],
+    ['match', { pairs: [{ left: 'Katze', right: 'кошка' }, { left: 'Hund', right: 'собака' }], back_note: 'Paare' }],
+    ['word_bank', { options: ['lerne', 'lernst'], parts: [{ type: 'text', text: 'Ich ' }, { type: 'gap', option: 0 }, { type: 'text', text: ' Deutsch.' }], back_note: '1=lerne' }],
+    ['free_text', { prompt: 'Schreiben Sie einen Satz.', sample_answer: 'Ich lerne.', accepted_answers: [] }],
+    ['editable_text', { source_text: 'Ich lernen.', correct_text: 'Ich lerne.', accepted_answers: [] }],
+    ['trainer', { parts: [{ type: 'text', text: 'Ich ' }, { type: 'input', answers: ['lerne'] }, { type: 'text', text: ' Deutsch.' }], back_note: 'Я учусь.' }],
+    ['puzzle', { tokens: ['Ich', 'lerne', 'Deutsch.'], translation: 'Я учу немецкий.' }],
   ];
-  for (const [i, [front, back]] of fixtures.entries()) {
-    await setSession(page, { card: { ...card, id: i + 50, front, back }, historyIndex: i + 1, isFlipped: false });
+  for (const [i, [type, data]] of fixtures.entries()) {
+    await setSession(page, { card: v2Card(i + 50, type, data), historyIndex: i + 1, isFlipped: false });
     await expect(page.locator('.study-card-surface .card-front .bg-v2')).toHaveCSS('background-color', 'rgb(18, 52, 86)');
     await setSession(page, { isFlipped: true });
     await expect(page.locator('.study-card-surface .card-back .bg-v2')).toHaveCSS('background-image', 'linear-gradient(135deg, rgb(16, 32, 48), rgb(48, 64, 80))');
@@ -124,7 +144,7 @@ test('editor uses the same backgrounds and V2 answer/context styles without chan
   const back = page.locator('#card-editor-back'), ctx = page.locator('#card-editor-context');
   await expect(back).toHaveCSS('font-family', 'serif'); await expect(back).toHaveCSS('color', 'rgb(204, 238, 170)');
   await expect(back).not.toHaveCSS('text-shadow', 'none'); await expect(ctx).not.toHaveCSS('text-shadow', 'none');
-  await expect(back).toHaveValue(card.back); await expect(ctx).toHaveValue(card.context);
+  await expect(back).toHaveValue(card.content_v2.card.data.answer); await expect(ctx).toHaveValue(card.content_v2.card.explanation);
   await page.setViewportSize({ width: 375, height: 1050 });
   await capture(page, testInfo, 'editor-v2');
   expect(writes.filter(path => /cards\/save|grade|publish/.test(path))).toEqual([]);
@@ -132,7 +152,7 @@ test('editor uses the same backgrounds and V2 answer/context styles without chan
 
 test('semantic Quiz colors also determine V2 text glow', async ({ page, context }) => {
   await setup(page, context);
-  await setSession(page, { card: { ...card, id: 45, front: 'Welche Antwort?\nA) Nein\n*B) Ja' }, historyIndex: 1 });
+  await setSession(page, { card: v2Card(45, 'quiz', { prompt: 'Welche Antwort?', options: [{ text: 'Nein', correct: false }, { text: 'Ja', correct: true }] }), historyIndex: 1 });
   const option = page.locator('.quiz-option-item').first(); await option.click();
   await expect(option).toHaveCSS('color', 'rgb(171, 195, 34)');
   const shadow = await option.locator('span').last().evaluate(element => getComputedStyle(element).textShadow);
@@ -148,7 +168,7 @@ test('scoped front/back/speech previews use the same V2 background and typograph
     const store = useSettingsStore.getState(), draft = normalizeDesignConfig(store.publishedDesignV2.config);
     draft.front.card.background = '#332211'; draft.front.mainText.color = '#abcdef';
     draft.back.answerText.color = '#bbccdd';
-    store.commitAdminDraft(draft, { autoPreview: false });
+    store.commitDesignEditorDraft(draft, { autoPreview: false });
   });
   const tabs = page.locator('.design-section-tabs');
   await tabs.getByRole('button', { name: /Лицевая/ }).click();
@@ -168,7 +188,7 @@ test('scoped front/back/speech previews use the same V2 background and typograph
   const expected = await page.evaluate(async () => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     const { getDesignStylesFromV2 } = await import('/src/utils/cardStyles.js');
-    const color = getDesignStylesFromV2(useSettingsStore.getState().adminDraftDesignV2).contextText.color;
+    const color = getDesignStylesFromV2(useSettingsStore.getState().designEditorDraft).contextText.color;
     const node = document.createElement('span'); node.style.color = color; document.body.append(node);
     const value = getComputedStyle(node).color; node.remove(); return value;
   });
@@ -186,12 +206,12 @@ test('scoped front/back/speech previews use the same V2 background and typograph
 
 test('V2 speech follow-up and a live theme change retain the current review and microphone', async ({ page, context }) => {
   await setup(page, context);
-  await page.evaluate(async card => {
+  await page.evaluate(async puzzleCard => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
     const { useSessionStore } = await import('/src/store/useSessionStore.js');
     useSettingsStore.setState({ speechFollowupEnabled: true });
-    useSessionStore.setState({ card: { ...card, id: 60, front: '@puzzle\nIch lerne Deutsch.' }, historyIndex: 1 });
-  }, card);
+    useSessionStore.setState({ card: puzzleCard, historyIndex: 1 });
+  }, v2Card(60, 'puzzle', { tokens: ['Ich', 'lerne', 'Deutsch.'], translation: '' }));
   for (const word of ['Ich', 'lerne', 'Deutsch.']) await page.locator('.btn-puzzle-chip').filter({ hasText: word }).click();
   await page.locator('.puzzle-check-action').click();
   await expect(page.locator('.speech-followup-intro')).toBeVisible();
@@ -200,8 +220,8 @@ test('V2 speech follow-up and a live theme change retain the current review and 
   expect(starts).toBe(1);
   await page.evaluate(async () => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    useSettingsStore.getState().patchAdminDraft('front.card.background', '#345678');
-    useSettingsStore.getState().patchAdminDraft('front.mainText.font', 'serif');
+    useSettingsStore.getState().patchDesignEditorDraft('front.card.background', '#345678');
+    useSettingsStore.getState().patchDesignEditorDraft('front.mainText.font', 'serif');
   });
   await expect(page.locator('.speak-target-text')).toHaveCSS('font-family', 'serif');
   await expect(page.locator('.study-card-surface .bg-v2')).toHaveCSS('background-color', 'rgb(52, 86, 120)');
@@ -213,11 +233,11 @@ test('changing V2 background preserves text input; reduced motion retains the se
   // The installed Framer hook snapshots the OS preference when it mounts.
   await page.emulateMedia({ reducedMotion: 'reduce' });
   await setup(page, context);
-  await setSession(page, { card: { ...card, id: 61, front: '@free\nBeschreiben Sie Ihren Alltag.' }, historyIndex: 1 });
+  await setSession(page, { card: v2Card(61, 'free_text', { prompt: 'Beschreiben Sie Ihren Alltag.', sample_answer: '', accepted_answers: [] }), historyIndex: 1 });
   const input = page.locator('.free-text-exercise textarea'); await input.fill('Мой несохранённый ответ.');
   await page.evaluate(async () => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    useSettingsStore.getState().patchAdminDraft('front.card.background', 'liquid_morning');
+    useSettingsStore.getState().patchDesignEditorDraft('front.card.background', 'liquid_morning');
   });
   await expect(page.locator('.study-card-surface .bg-liquid-morning')).toHaveCount(1);
   const transforms = await page.locator('.study-card-surface .liquid-blob').evaluateAll(nodes => nodes.map(node => getComputedStyle(node).transform));
@@ -225,7 +245,7 @@ test('changing V2 background preserves text input; reduced motion retains the se
   await expect(input).toHaveValue('Мой несохранённый ответ.');
   await page.evaluate(async () => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    useSettingsStore.getState().toggleLocalDesignPreview();
+    useSettingsStore.getState().toggleDesignPreviewInApp();
   });
   await expect(page.locator('.study-card-surface .bg-v2')).toHaveCSS('background-color', 'rgb(18, 52, 86)');
   await expect(input).toHaveValue('Мой несохранённый ответ.');

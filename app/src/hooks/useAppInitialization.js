@@ -242,6 +242,9 @@ export const useAppInitialization = (checkStartParam) => {
         }
         if (data.settings) setAdminSettings(data.settings);
         if (data.prompts) setUserPrompts(data.prompts);
+        if (Object.hasOwn(data, 'global_design_v2') && !useSettingsStore.getState().publishedDesignV2) {
+          setPublishedDesignV2(data.global_design_v2);
+        }
 
         // Cached profile metadata is display data, never proof of a session.
       }
@@ -338,7 +341,10 @@ export const useAppInitialization = (checkStartParam) => {
       if (res.data.user_settings && Object.keys(res.data.user_settings).length > 0) {
         useSettingsStore.getState().syncUserSettingsFromServer(res.data.user_settings);
       } else {
-        useSettingsStore.getState().saveCurrentSettingsToServer().catch(() => {});
+        useSettingsStore.getState().syncUserSettingsFromServer({});
+        if (useSettingsStore.getState().hasPendingSettingsSync(account)) {
+          useSettingsStore.getState().saveCurrentSettingsToServer().catch(() => {});
+        }
       }
 
       if (res.data.user_info && res.data.user_info.user_id) {
@@ -402,6 +408,13 @@ export const useAppInitialization = (checkStartParam) => {
       if (!isAuthError && err?.response?.status !== 403) {
         try {
           await useDeckStore.getState().fetchDecks(true);
+          if (navigator.onLine) {
+            api.get('/design/global').then((gdRes) => {
+              if (isCurrent() && gdRes?.data && typeof gdRes.data === 'object') {
+                setPublishedDesignV2(gdRes.data);
+              }
+            }).catch(() => {});
+          }
           return;
         } catch { /* preserve the last confirmed library and show retry */ }
       }

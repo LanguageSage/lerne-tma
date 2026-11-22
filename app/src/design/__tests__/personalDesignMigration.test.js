@@ -2,7 +2,8 @@ import { test, beforeEach, afterEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
 import { normalizeDesignConfig } from '../designConfig.js';
 import { openPersonalDesignRecord, readPersonalDesignRecord,
-  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign } from '../personalDesignMigration.js';
+  reconcilePersonalDesign, editPersonalDesign, acknowledgePersonalDesign, resolveActiveDesign,
+  isPersonalDesignActive, hasSavedPersonalDesign } from '../personalDesignMigration.js';
 
 let owner = 1, failKey = null;
 const memory = new Map();
@@ -23,7 +24,13 @@ beforeEach(() => {
   networkApi.get = async () => ({ data: {} });
   networkApi.post = async () => { throw Error('offline'); };
   useSettingsStore.getState().activateSettingsAccount();
-  useSettingsStore.setState({ publishedDesignV2: null, adminDraftDesignV2: null, isLocalDesignPreviewActive: false });
+  useSettingsStore.setState({
+    publishedDesignV2: null,
+    designEditorDraft: null,
+    designEditorBase: null,
+    designPreviewInApp: false,
+    designPreviewDismissed: false,
+  });
 });
 afterEach(() => { failKey = null; useSettingsStore.getState().activateSettingsAccount(); });
 
@@ -41,34 +48,111 @@ test('old local settings are ignored; new accounts start in V2 without source ba
   assert.equal(localStorage.getItem('lerne_user_design'), null);
 });
 
-test('old server settings cannot change V2 or study settings', () => {
+test('old server settings cannot change V2 or study settings, and new empty record stays non-pending', () => {
   const record = openPersonalDesignRecord(1);
   const next = reconcilePersonalDesign(record, { cardFont: 'Georgia', userDesign: { cardFont: 'serif' } });
   assert.deepEqual(next.document.config, normalizeDesignConfig(null));
   assert.deepEqual(next.backups, {});
-  assert.equal(next.pending, true);
+  assert.equal(next.pending, false);
+  assert.equal(isPersonalDesignActive(next.document), false);
 });
 
-test('published V2 wins and empty backgrounds inherit personal V2', () => {
-  const personal = normalizeDesignConfig({ front: { card: { background: 'dark_mocha' } } });
-  const published = normalizeDesignConfig({ front: { mainText: { font: 'Georgia' } } });
-  const active = resolveActiveDesign({ personalDesignV2: { config: personal }, publishedDesignV2: { config: published } });
-  assert.equal(active.front.mainText.font, 'Georgia');
-  assert.equal(active.front.card.background, 'dark_mocha');
-  assert.equal(published.front.card.background, '');
+test('priority order: in-app preview > explicitly enabled personal > global default > built-in fallback', () => {
+  const personal = normalizeDesignConfig({ front: { card: { background: 'dark_mocha' }, mainText: { font: 'Georgia' } } });
+  const published = normalizeDesignConfig({ front: { mainText: { font: 'serif' } } });
+
+  // Auto-created / disabled personal design must NOT override global default
+  const autoDoc = { schemaVersion: 2, revision: 1, config: personal, preset: null };
+  assert.equal(resolveActiveDesign({ personalDesignV2: autoDoc, publishedDesignV2: { config: published } }).front.mainText.font, 'serif');
+  assert.equal(resolveActiveDesign({ personalDesignV2: { ...autoDoc, enabled: false }, publishedDesignV2: { config: published } }).front.mainText.font, 'serif');
+  assert.equal(resolveActiveDesign({ personalDesignV2: { ...autoDoc, enabled: false }, publishedDesignV2: { config: published } }).front.card.background, '');
+
+  // Explicitly enabled personal design wins over global default
+  const activePersonal = resolveActiveDesign({ personalDesignV2: { ...autoDoc, enabled: true }, publishedDesignV2: { config: published } });
+  assert.equal(activePersonal.front.mainText.font, 'Georgia');
+  assert.equal(activePersonal.front.card.background, 'dark_mocha');
+
+  // Built-in fallback applies when neither personal nor global is set
+  assert.equal(resolveActiveDesign({ personalDesignV2: autoDoc, publishedDesignV2: null }).front.mainText.font, 'Comfortaa');
+
+  // Temporary in-app preview overrides during editing
+  const draft = normalizeDesignConfig({ front: { mainText: { font: 'monospace' } } });
+  assert.equal(resolveActiveDesign({
+    personalDesignV2: { ...autoDoc, enabled: true },
+    publishedDesignV2: { config: published },
+    designEditorDraft: draft,
+    designPreviewInApp: true,
+  }).front.mainText.font, 'monospace');
 });
 
-test('an explicitly empty publication clears the stale cache and restores personal design', () => {
+test('an explicitly empty publication clears the stale cache and restores fallback or enabled personal design', () => {
   const store = useSettingsStore.getState();
   const personal = normalizeDesignConfig({ global: { accentColor: '#123456' } });
-  useSettingsStore.setState({ personalDesignV2: { config: personal } });
+  useSettingsStore.setState({ personalDesignV2: { schemaVersion: 2, revision: 1, config: personal, preset: null, enabled: true } });
   store.setPublishedDesignV2(remoteDoc(3, normalizeDesignConfig({ global: { accentColor: '#abcdef' } })));
-  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#abcdef');
+  // Explicitly enabled personal design stays active over published
+  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#123456');
   assert.ok(memory.has('lerne:published-design:v2'));
+  // Disabling personal design switches to published global
+  useSettingsStore.setState({ personalDesignV2: { schemaVersion: 2, revision: 1, config: personal, preset: null, enabled: false } });
+  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#abcdef');
+  // Empty published clears cache and falls back to built-in default
   store.setPublishedDesignV2({});
   assert.equal(useSettingsStore.getState().publishedDesignV2, null);
-  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#123456');
+  assert.equal(useSettingsStore.getState().activeDesignConfig.global.accentColor, '#a78bfa');
   assert.equal(memory.has('lerne:published-design:v2'), false);
+});
+
+test('manual save waits for server confirmation, handles 409 CAS, and switching to global preserves personal config', async () => {
+  const store = useSettingsStore.getState();
+  const custom = normalizeDesignConfig({ front: { mainText: { font: 'Georgia' } }, global: { accentColor: '#224466' } });
+  store.initDesignEditor();
+  store.patchDesignEditorDraft('front.mainText.font', 'Georgia');
+  assert.equal(store.hasUnsavedDesignChanges(), true);
+
+  // Offline / failed save must not confirm or persist personal enabled design
+  const failRes = await store.savePersonalDesignToServer(custom);
+  assert.equal(failRes.success, false);
+  assert.equal(isPersonalDesignActive(useSettingsStore.getState().personalDesignV2), false);
+  assert.equal(useSettingsStore.getState().hasUnsavedDesignChanges(), true);
+
+  // Successful save with 409 conflict recovery confirms and applies personal design
+  let serverDoc = { schemaVersion: 2, revision: 2, config: normalizeDesignConfig(null), preset: null, enabled: false };
+  let conflictOnce = true;
+  networkApi.get = async () => ({ data: { _designMigrationVersion: 1, designV2: serverDoc } });
+  networkApi.post = async (_url, payload) => {
+    if (conflictOnce) {
+      conflictOnce = false;
+      const err = new Error('conflict');
+      err.response = { status: 409 };
+      throw err;
+    }
+    assert.equal(payload.designV2.revision, serverDoc.revision);
+    serverDoc = { ...payload.designV2, revision: serverDoc.revision + 1 };
+    return { data: { designMigrationVersion: 1, settings: { designV2: serverDoc } } };
+  };
+
+  const okRes = await store.savePersonalDesignToServer(custom);
+  assert.equal(okRes.success, true);
+  assert.equal(isPersonalDesignActive(useSettingsStore.getState().personalDesignV2), true);
+  assert.equal(useSettingsStore.getState().personalDesignV2.revision, 3);
+  assert.equal(useSettingsStore.getState().activeDesignConfig.front.mainText.font, 'Georgia');
+  assert.equal(useSettingsStore.getState().hasUnsavedDesignChanges(), false);
+
+  // Switching to global design sets enabled=false while keeping saved config intact
+  store.setPublishedDesignV2(remoteDoc(5, normalizeDesignConfig({ front: { mainText: { font: 'serif' } } })));
+  const useGlobal = await store.setPersonalDesignEnabled(false);
+  assert.equal(useGlobal.success, true);
+  assert.equal(isPersonalDesignActive(useSettingsStore.getState().personalDesignV2), false);
+  assert.equal(hasSavedPersonalDesign(useSettingsStore.getState().personalDesignV2), true);
+  assert.equal(useSettingsStore.getState().personalDesignV2.config.front.mainText.font, 'Georgia');
+  assert.equal(useSettingsStore.getState().activeDesignConfig.front.mainText.font, 'serif');
+
+  // Re-enabling personal design restores saved Georgia config
+  const enablePersonal = await store.setPersonalDesignEnabled(true);
+  assert.equal(enablePersonal.success, true);
+  assert.equal(isPersonalDesignActive(useSettingsStore.getState().personalDesignV2), true);
+  assert.equal(useSettingsStore.getState().activeDesignConfig.front.mainText.font, 'Georgia');
 });
 
 test('offline edit rebases against another device and preserves unrelated fields', () => {

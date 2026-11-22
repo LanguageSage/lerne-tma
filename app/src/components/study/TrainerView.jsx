@@ -30,8 +30,6 @@ export const TrainerView = () => {
   const autoPlay = useSettingsStore(s => s.autoPlay);
   const isAdmin = useSettingsStore(s => s.isAdmin);
   const effectiveConfig = useSettingsStore(s => s.activeDesignConfig);
-  const cardBgFront = useSettingsStore(s => s.personalDesignV2?.config?.front?.card?.background);
-  const cardBgBack = useSettingsStore(s => s.personalDesignV2?.config?.back?.card?.background);
 
   const { playAudio, stopAudio } = useAudio(autoPlay, showToast);
 
@@ -79,8 +77,8 @@ export const TrainerView = () => {
 
   const content = studyContent(currentCard);
 
-  const resolvedBgFront = getResolvedStyle(cardBgFront, currentCard?.id);
-  const resolvedBgBack = getResolvedStyle(cardBgBack, currentCard?.id);
+  const resolvedBgFront = getResolvedStyle(effectiveConfig?.front?.card?.background, currentCard?.id);
+  const resolvedBgBack = getResolvedStyle(effectiveConfig?.back?.card?.background, currentCard?.id);
 
   const formatTimerDisplay = (secs) => {
     const m = Math.floor(secs / 60);

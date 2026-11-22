@@ -285,9 +285,9 @@ class AdminPermissionsTests(unittest.TestCase):
         response = self.client.post('/api/admin/settings', headers=headers, json={'TEST_SETTING': 'ok'})
         self.assertEqual(response.status_code, 200, response.text)
         self.assertEqual(self.client.get('/api/admin/settings', headers=headers).json()['TEST_SETTING'], 'ok')
-        response = self.client.post('/api/admin/design/draft', headers=headers, json={'config': {'test': True}})
+        response = self.client.post('/api/admin/design/publish', headers=headers, json={'config': {'test': True}})
         self.assertEqual(response.status_code, 200, response.text)
-        self.assertEqual(self.client.get('/api/admin/design/draft', headers=headers).json()['config'], {'test': True})
+        self.assertEqual(self.client.get('/api/design/global', headers=headers).json()['config'], {'test': True})
         self.assertEqual(self.client.get('/api/admin/presets', headers=headers).status_code, 200)
 
     def test_regular_user_is_denied_at_every_admin_settings_guard(self):
@@ -299,8 +299,6 @@ class AdminPermissionsTests(unittest.TestCase):
             ('POST', '/admin/community/promote/1', None), ('GET', '/admin/prompts/all', None),
             ('POST', '/admin/prompts/set-global/0', None),
             ('POST', '/admin/design/publish', {'config': {'test': True}}),
-            ('GET', '/admin/design/draft', None),
-            ('POST', '/admin/design/draft', {'config': {'test': True}}),
         ]
         for method, path, payload in routes:
             with self.subTest(path=path, method=method):

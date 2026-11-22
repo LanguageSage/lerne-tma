@@ -2,12 +2,12 @@ import React from 'react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { tr } from '../../i18n/locale';
 
-/** Заметный индикатор: черновик дизайна применён только в этом браузере. */
+/** Заметный индикатор: временный предпросмотр дизайна применён только в этом окне. */
 export const LocalDesignBadge = () => {
-  const active = useSettingsStore(s => s.isLocalDesignPreviewActive);
-  const isAdmin = useSettingsStore(s => s.isAdmin);
-  const toggle = useSettingsStore(s => s.toggleLocalDesignPreview);
-  if (!active || !isAdmin) return null;
+  const active = useSettingsStore(s => s.designPreviewInApp);
+  const hasDraft = useSettingsStore(s => Boolean(s.designEditorDraft));
+  const toggle = useSettingsStore(s => s.toggleDesignPreviewInApp);
+  if (!active || !hasDraft) return null;
   return (
     <div className="local-design-badge" role="status">
       <span>{tr('Дизайн: только у меня')}</span>

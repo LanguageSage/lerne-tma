@@ -1,7 +1,13 @@
 const { test, expect } = require('@playwright/test');
 
-async function setup(page, context, locale = 'ru') {
-  const backend = { published: { config: { schemaVersion: 2, global: { appBg: '#101522' }, front: { mainText: { color: '#ffeedd' } } }, revision: 1 }, draft: null, writes: [], fail: false };
+async function setup(page, context, locale = 'ru', { isAdmin = true, userSettings = {} } = {}) {
+  const backend = {
+    published: { config: { schemaVersion: 2, global: { appBg: '#101522' }, front: { mainText: { color: '#ffeedd' } } }, revision: 1 },
+    userSettings: { 1: structuredClone(userSettings) },
+    writes: [],
+    designWrites: [],
+    fail: false,
+  };
   await page.routeWebSocket('**/*', () => {});
   await page.route('**/*', route => ['127.0.0.1', 'localhost'].includes(new URL(route.request().url()).hostname) ? route.continue() : route.abort());
   await context.addInitScript(locale => {
@@ -9,22 +15,46 @@ async function setup(page, context, locale = 'ru') {
     localStorage.setItem('native_language_selected', 'true');
     localStorage.setItem('lerne_has_selected_language', 'true');
     localStorage.setItem('lerne_target_language', 'de');
+    localStorage.setItem('lerne_user_id', '1');
     localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: 1, is_guest: false }));
-    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test', refresh_token: 'test' }));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ access_token: 'test', refresh_token: 'test', account_id: 1, session_id: 's1' }));
   }, locale);
   await page.route('**/api/**', async route => {
     const request = route.request();
     const pathname = new URL(request.url()).pathname;
-    if (pathname === '/api/init') return route.fulfill({ json: { decks: [], folders: [], settings: {}, prompts: {}, user_settings: {}, user_info: { user_id: 1, is_guest: false }, is_admin: true, global_design_v2: backend.published } });
-    if (pathname === '/api/admin/design/draft') {
-      if (request.method() === 'GET') return route.fulfill({ json: backend.draft ? { config: backend.draft } : {} });
-      backend.writes.push('draft');
+    if (pathname === '/api/sync/v2/status') {
+      return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
+    }
+    if (pathname === '/api/init') {
+      return route.fulfill({
+        json: {
+          decks: [], folders: [], settings: {}, prompts: {},
+          user_settings: backend.userSettings[1] || {},
+          user_info: { user_id: 1, is_guest: false },
+          is_admin: isAdmin,
+          global_design_v2: backend.published,
+        },
+      });
+    }
+    if (pathname === '/api/user/settings') {
+      if (request.method() === 'GET') {
+        return route.fulfill({ json: { ...(backend.userSettings[1] || {}), _designMigrationVersion: 1 } });
+      }
+      backend.writes.push('user_settings');
       if (backend.fail) return route.fulfill({ status: 500, json: { detail: 'Test save failure' } });
-      backend.draft = request.postDataJSON().config;
-      return route.fulfill({ json: { config: backend.draft } });
+      const payload = request.postDataJSON();
+      if (payload.designV2 !== undefined) backend.designWrites.push(payload.designV2);
+      const prev = backend.userSettings[1]?.designV2;
+      const incoming = payload.designV2;
+      const nextDesign = incoming
+        ? { ...incoming, revision: (prev?.revision || 0) + 1 }
+        : prev;
+      backend.userSettings[1] = { ...(backend.userSettings[1] || {}), ...payload, ...(nextDesign ? { designV2: nextDesign } : {}) };
+      return route.fulfill({ json: { status: 'success', designMigrationVersion: 1, settings: backend.userSettings[1] } });
     }
     if (pathname === '/api/admin/design/publish') {
       backend.writes.push('publish');
+      if (!isAdmin) return route.fulfill({ status: 403, json: { detail: 'Only admins can publish global design' } });
       if (backend.fail) return route.fulfill({ status: 500, json: { detail: 'Test publish failure' } });
       backend.published = { config: request.postDataJSON().config, revision: backend.published.revision + 1 };
       return route.fulfill({ json: backend.published });
@@ -50,71 +80,124 @@ const nav = (page, name) => page.locator('.design-editor-nav').getByRole('button
 async function patch(page, path, value) {
   await page.evaluate(async ({path, value}) => {
     const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    useSettingsStore.getState().patchAdminDraft(path, value);
+    useSettingsStore.getState().patchDesignEditorDraft(path, value);
   }, {path, value});
 }
 
-test('JSON, draft persistence, server load, revert and explicit publication keep root isolated', async ({ page, context }) => {
+test('ephemeral edit, unsaved warning, personal save/switch/restore, full user JSON export/import and no global publish UI', async ({ page, context }) => {
   const backend = await setup(page, context);
   await expect(page.getByLabel('Режим фона')).toHaveValue('legacy');
   expect(await rootBg(page)).toBe('#101522');
+  expect(backend.designWrites).toEqual([]);
+
+  // Editing updates preview and in-memory state ONLY (no DB write, no persistent localStorage draft)
   await page.getByLabel('Режим фона').selectOption('linear');
   await page.getByLabel('Оттенок 1', { exact: true }).fill('#223344');
   await page.getByLabel('Количество оттенков').selectOption('2');
   expect(await previewBg(page)).toContain('34, 51, 68');
   expect(await rootBg(page)).toContain('#223344');
   await expect(page.locator('.local-design-badge')).toBeVisible();
-  await page.getByRole('button', { name: 'Сохранить черновик', exact: true }).click();
-  await expect(page.locator('.design-toolbar-status')).toHaveText('Черновик сохранён');
-  expect(backend.draft.global.background.color1).toBe('#223344');
+  expect(backend.designWrites).toEqual([]);
+  expect(await page.evaluate(() => Object.keys(localStorage).filter(k => k.includes('admin-draft')))).toEqual([]);
+
+  // Unsaved warning on close and tab switch: Stay keeps changes, Discard reverts
+  await page.locator('.close-btn').click();
+  await expect(page.locator('.design-unsaved-warning')).toBeVisible();
+  await page.getByRole('button', { name: 'Остаться', exact: true }).click();
+  await expect(page.locator('.design-unsaved-warning')).toHaveCount(0);
+  await page.locator('#settings-tab-select').selectOption('general');
+  await expect(page.locator('.design-unsaved-warning')).toBeVisible();
+  await page.getByRole('button', { name: 'Выйти без сохранения', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Обучение' })).toBeVisible();
+  expect(await rootBg(page)).toBe('#101522');
+
+  // Return to editor, edit, and manually save personal design
+  await page.locator('#settings-tab-select').selectOption('design');
+  await page.getByLabel('Режим фона').selectOption('linear');
+  await page.getByLabel('Оттенок 1', { exact: true }).fill('#223344');
+  await page.getByLabel('Количество оттенков').selectOption('2');
+  await page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Мой дизайн сохранён');
+  expect(backend.userSettings[1].designV2.enabled).toBe(true);
+  expect(backend.userSettings[1].designV2.config.global.background.color1).toBe('#223344');
   expect(backend.published.revision).toBe(1);
+
+  // Reload preserves personal design
   await page.reload();
   await openEditor(page);
   await expect(page.getByLabel('Режим фона')).toHaveValue('linear');
   expect(await rootBg(page)).toContain('#223344');
+
+  // Switch back to global design without deleting saved personal settings, then re-enable personal
+  await page.getByRole('button', { name: 'Использовать общий дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Включён общий дизайн. Ваши личные настройки сохранены.');
+  expect(await rootBg(page)).toBe('#101522');
+  expect(backend.userSettings[1].designV2.enabled).toBe(false);
+  expect(backend.userSettings[1].designV2.config.global.background.color1).toBe('#223344');
+
+  await page.getByRole('button', { name: 'Включить мой дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Включён ваш личный дизайн');
+  expect(await rootBg(page)).toContain('#223344');
+
+  // Global publish button is removed even for admins
+  await expect(page.getByRole('button', { name: 'Установить как дизайн по умолчанию для всех', exact: true })).toHaveCount(0);
+
+  // Export JSON contains user's full actual design (not global #101522 or sparse partial draft), reject broken JSON, import & save personal
   const downloadPromise = page.waitForEvent('download');
   await page.getByRole('button', { name: 'Экспорт JSON', exact: true }).click();
   const download = await downloadPromise;
   const fs = require('node:fs');
   const exported = JSON.parse(fs.readFileSync(await download.path(), 'utf8'));
+  expect(exported.schemaVersion).toBe(2);
+  expect(Object.keys(exported).sort()).toEqual(['back', 'cardList', 'exercises', 'front', 'global', 'schemaVersion']);
   expect(exported.global.background.color1).toBe('#223344');
+  expect(exported.front.mainText.color).toBe('#ffeedd');
   await page.locator('input[type=file]').setInputFiles({ name: 'invalid.json', mimeType: 'application/json', buffer: Buffer.from('{broken') });
-  await expect(page.locator('.design-toolbar-status')).toHaveText('Некорректный JSON: черновик не изменён');
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Некорректный JSON: настройки не изменены');
   await page.locator('input[type=file]').setInputFiles({ name: 'design.json', mimeType: 'application/json', buffer: Buffer.from(JSON.stringify({ ...exported, global: { ...exported.global, background: { ...exported.global.background, color1: '#556677' } } })) });
-  await expect(page.locator('.design-toolbar-status')).toHaveText('JSON импортирован в черновик');
+  await expect(page.locator('.design-toolbar-status')).toHaveText('JSON импортирован в редактор');
   expect(await rootBg(page)).toContain('#556677');
-  await page.getByRole('button', { name: 'Опубликовать для всех', exact: true }).click();
+
+  await page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Мой дизайн сохранён');
+  expect(backend.userSettings[1].designV2.config.global.background.color1).toBe('#556677');
+  expect(backend.published.revision).toBe(1);
   expect(backend.writes).not.toContain('publish');
-  await page.locator('.design-toolbar').getByRole('button', { name: '✕ Нет', exact: true }).click();
-  expect(await rootBg(page)).toContain('#556677');
-  await page.getByRole('button', { name: 'Опубликовать для всех', exact: true }).click();
-  await page.locator('.design-toolbar-publish-confirm').click();
-  await expect(page.getByRole('button', { name: 'Опубликовано!', exact: true })).toBeVisible();
-  expect(await rootBg(page)).toContain('#556677');
-  expect(backend.published.revision).toBe(2);
-  expect(backend.published.config.front.mainText.color).toBe('#ffeedd');
+
+  const download2Promise = page.waitForEvent('download');
+  await page.getByRole('button', { name: 'Экспорт JSON', exact: true }).click();
+  const exportedAfterSave = JSON.parse(fs.readFileSync(await (await download2Promise).path(), 'utf8'));
+  expect(exportedAfterSave.global.background.color1).toBe('#556677');
+
+  // Revert unsaved changes & reset section
   await patch(page, 'global.background.color1', '#abcdef');
-  await page.getByRole('button', { name: 'Вернуть опубликованный', exact: true }).click();
+  await page.getByRole('button', { name: 'Сбросить изменения', exact: true }).click();
   expect(await previewBg(page)).toContain('85, 102, 119');
   await page.getByRole('button', { name: 'Сбросить раздел', exact: true }).click();
-  expect(await rootBg(page)).toContain('#556677');
-  await page.evaluate(async () => {
-    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-    await useSettingsStore.getState().loadAdminDraftFromServer();
-  });
-  expect(await rootBg(page)).toContain('#223344');
-  await expect(page.getByLabel('Режим фона')).toHaveValue('linear');
+  expect(await previewBg(page)).toContain('26, 26, 46');
 });
 
-test('save/publish failures preserve draft and published design', async ({ page, context }) => {
+test('non-admin user can customize personal design without affecting global default', async ({ page, context }) => {
+  const backend = await setup(page, context, 'ru', { isAdmin: false });
+  await expect(page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Установить как дизайн по умолчанию для всех', exact: true })).toHaveCount(0);
+  await page.getByLabel('Режим фона').selectOption('solid');
+  await page.getByLabel('Оттенок 1', { exact: true }).fill('#334455');
+  await page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true }).click();
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Мой дизайн сохранён');
+  expect(await rootBg(page)).toBe('#334455');
+  expect(backend.published.revision).toBe(1);
+  expect(backend.writes).not.toContain('publish');
+});
+
+test('save failure never reports success and preserves unsaved edits', async ({ page, context }) => {
   const backend = await setup(page, context);
   backend.fail = true;
   await page.getByLabel('Режим фона').selectOption('solid');
-  await page.getByRole('button', { name: 'Сохранить черновик', exact: true }).click();
-  await expect(page.locator('.design-toolbar-status')).toHaveText('Test save failure');
-  await page.getByRole('button', { name: 'Опубликовать для всех', exact: true }).click();
-  await page.locator('.design-toolbar-publish-confirm').click();
-  await expect(page.getByRole('alert')).toHaveText('Test publish failure');
+  await page.getByLabel('Оттенок 1', { exact: true }).fill('#334455');
+  await page.getByRole('button', { name: 'Сохранить мой дизайн', exact: true }).click();
+  await expect(page.getByRole('alert')).toHaveText('Test save failure');
+  await expect(page.locator('.design-toolbar-status')).toHaveCount(0);
   expect(backend.published.revision).toBe(1);
   await page.locator('.local-design-badge button').click();
   expect(await rootBg(page)).toBe('#101522');
@@ -276,7 +359,7 @@ test('local preview auto-enables for admin on edit, shows badge, and can be togg
   await expect(page.locator('.local-design-badge')).not.toBeVisible();
   // Toggle back on via toolbar button
   await page.getByRole('button', { name: 'Применить только у меня', exact: true }).click();
-  await expect(page.locator('.design-toolbar-status')).toHaveText('Черновик применён в вашем браузере');
+  await expect(page.locator('.design-toolbar-status')).toHaveText('Предпросмотр применён в этом окне');
   expect(await rootBg(page)).toBe('#334455');
   await expect(page.locator('.local-design-badge')).toBeVisible();
 });

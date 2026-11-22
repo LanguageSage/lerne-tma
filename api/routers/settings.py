@@ -607,7 +607,7 @@ def set_global_default_prompt(prompt_id: int, user_id: int = Depends(get_user_id
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Design Config V2 — Global Published Design & Admin Draft
+# Design Config V2 — Global Published Design
 # ─────────────────────────────────────────────────────────────────────────────
 
 @router.get("/design/global")
@@ -674,52 +674,4 @@ def publish_global_design(data: dict, user_id: int = Depends(get_user_id)):
     except Exception as e:
         logger.error(f"Error publishing global design: {e}")
         raise HTTPException(status_code=500, detail="Failed to publish global design")
-
-
-@router.get("/admin/design/draft")
-@db_worker
-def get_admin_design_draft(user_id: int = Depends(get_user_id)):
-    """Returns the admin's current design draft (not published).
-    Admin-only."""
-    if not is_admin(user_id):
-        raise HTTPException(status_code=403, detail="Only admins can access design draft")
-    import json
-    try:
-        record = models.TMASetting.get_or_none(models.TMASetting.key == "ADMIN_DESIGN_DRAFT")
-        if record and record.value:
-            return json.loads(record.value)
-    except Exception as e:
-        logger.error(f"Error fetching ADMIN_DESIGN_DRAFT: {e}")
-    return {}
-
-
-@router.post("/admin/design/draft")
-@db_worker
-def save_admin_design_draft(data: dict, user_id: int = Depends(get_user_id)):
-    """Saves the admin's design draft (not published to users).
-    Admin-only. Client sends: {"config": {...}}"""
-    if not is_admin(user_id):
-        raise HTTPException(status_code=403, detail="Only admins can save design draft")
-    import json
-    import datetime
-    config = data.get("config")
-    if not config or not isinstance(config, dict):
-        raise HTTPException(status_code=400, detail="config field is required and must be an object")
-    try:
-        value = json.dumps({"config": config}, ensure_ascii=False)
-        record = models.TMASetting.get_or_none(models.TMASetting.key == "ADMIN_DESIGN_DRAFT")
-        if record:
-            record.value = value
-            record.updated_at = datetime.datetime.now()
-            record.save()
-        else:
-            models.TMASetting.create(
-                key="ADMIN_DESIGN_DRAFT",
-                value=value,
-                updated_at=datetime.datetime.now()
-            )
-        return {"status": "ok"}
-    except Exception as e:
-        logger.error(f"Error saving admin design draft: {e}")
-        raise HTTPException(status_code=500, detail="Failed to save design draft")
 
