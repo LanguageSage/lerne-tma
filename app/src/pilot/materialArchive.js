@@ -14,6 +14,7 @@ import {
 import { canonicalJson } from './progressBackup.js';
 import { sha256BytesHex, sha256Hex } from './sha256.js';
 import { OFFLINE_MEDIA_KEY_PREFIX, parseOfflineMediaRef } from './offlineMediaResolver.js';
+import { buildFolderMap, isFolderActiveInCache, isDeckActiveInCache } from '../services/cardOfflineQueue.js';
 
 export { ID_COUNTERS_KEY, IMPORTED_ID_START };
 
@@ -1385,11 +1386,16 @@ function collectMediaRefsForDeckAndCards(deck, cards) {
  */
 export async function getExportableMaterialsTree({ db = null } = {}) {
   const database = db || await prepareLocalDb();
-  const [allFolders, allDecks, allCards] = await Promise.all([
-    database.folders.filter(f => !f.is_deleted).toArray(),
+  const [rawFolders, rawDecks, rawCards] = await Promise.all([
+    database.folders.toArray(),
     database.decks.filter(d => !d.is_deleted).toArray(),
     database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),
   ]);
+  const folderMap = buildFolderMap(rawFolders);
+  const allFolders = rawFolders.filter(f => !f.is_deleted && isFolderActiveInCache(folderMap, f.id));
+  const allDecks = rawDecks.filter(d => isDeckActiveInCache(d, folderMap));
+  const activeDeckIds = new Set(allDecks.map(d => d.id));
+  const allCards = rawCards.filter(c => activeDeckIds.has(c.deck_id));
 
   const cardsByDeck = new Map();
   for (const card of allCards) {
@@ -1502,14 +1508,14 @@ export async function buildMaterialArchiveExport({
   now = new Date(),
 } = {}) {
   const database = db || await prepareLocalDb();
-  const [allFolders, allDecks, allCards, registryRecord, offlineMediaRecords] = await database.transaction(
+  const [rawFolders, rawDecks, rawCards, registryRecord, offlineMediaRecords] = await database.transaction(
     'r',
     database.folders,
     database.decks,
     database.cards,
     database.syncState,
     async () => Promise.all([
-      database.folders.filter(f => !f.is_deleted).toArray(),
+      database.folders.toArray(),
       database.decks.filter(d => !d.is_deleted).toArray(),
       database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),
       database.syncState.get(IMPORT_REGISTRY_KEY),
@@ -1517,8 +1523,12 @@ export async function buildMaterialArchiveExport({
     ])
   );
 
-  const folderMap = new Map(allFolders.map(f => [f.id, f]));
+  const rawFolderMap = buildFolderMap(rawFolders);
+  const allFolders = rawFolders.filter(f => !f.is_deleted && isFolderActiveInCache(rawFolderMap, f.id));
+  const allDecks = rawDecks.filter(d => isDeckActiveInCache(d, rawFolderMap));
+  const folderMap = buildFolderMap(allFolders);
   const deckMap = new Map(allDecks.map(d => [d.id, d]));
+  const allCards = rawCards.filter(c => deckMap.has(c.deck_id));
 
   const requestedFolders = Array.isArray(folderIds) ? folderIds.map(Number) : [];
   const requestedDecks = Array.isArray(deckIds) ? deckIds.map(Number) : [];

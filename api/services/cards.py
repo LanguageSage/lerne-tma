@@ -391,7 +391,12 @@ def format_card_for_study(card: TMA_Card, user_id: int, deck_obj = None, media_e
 
 
 def _native_duplicates(user_id):
-    scope = ((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False) &
+    from .collaborative_service import get_folder_access_map
+    active_folder_ids = list(get_folder_access_map())
+    folder_filter = (
+        TMA_Deck.folder_id.is_null(True) | (TMA_Deck.folder_id << active_folder_ids)
+    ) if active_folder_ids else TMA_Deck.folder_id.is_null(True)
+    scope = ((TMA_Deck.user_id == user_id) & (TMA_Deck.is_deleted == False) & folder_filter &
              (TMA_Card.is_deleted == False) & TMA_Card.content_v2.is_null(False))
     keys = (TMA_Card.select(TMA_Card.content_v2).join(TMA_Deck).where(scope)
             .group_by(TMA_Card.content_v2).having(fn.COUNT(TMA_Card.id) > 1))
@@ -555,7 +560,11 @@ def search_all_in_scope(user_id: int, query: str, folder_id: int = None, target_
     all_decks = get_active_decks(user_id)
 
     if folder_id:
-        f_map = {f.id: getattr(f, 'parent_id', None) for f in TMA_Folder.select(TMA_Folder.id, TMA_Folder.parent).where(TMA_Folder.is_deleted == False)}
+        from .collaborative_service import get_folder_access_map
+        active_map = get_folder_access_map()
+        if int(folder_id) not in active_map:
+            return {"folders": [], "decks": [], "cards": []}
+        f_map = {fid: getattr(f, 'parent_id', None) for fid, f in active_map.items()}
         scope_ids, q_ids = {int(folder_id)}, [int(folder_id)]
         while q_ids:
             curr = q_ids.pop(0)

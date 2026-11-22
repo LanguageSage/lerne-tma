@@ -38,7 +38,7 @@ async function setupEditor(page, context, server) {
     if (pathname === '/api/auth/v2/me') return route.fulfill({ json: { user_id: 1, is_guest: false } });
     if (pathname === '/api/sync/v2/status') return route.fulfill({ json: { server_generation: 'a'.repeat(64), restored: false } });
     if (pathname === '/api/decks') return route.fulfill({ json: decks });
-    if (pathname === '/api/decks/1/cards') return route.fulfill({ json: server.card ? [server.card] : [] });
+    if (pathname === '/api/decks/1/cards') return route.fulfill({ json: server.cards ?? (server.card ? [server.card] : []) });
     if (pathname === '/api/messages' || pathname === '/api/folders') return route.fulfill({ json: [] });
     if (pathname.endsWith('/images/original.webp')) return route.fulfill({ contentType: 'image/svg+xml',
       body: '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 4 2"><rect width="4" height="2" fill="#395772"/></svg>' });
@@ -63,7 +63,7 @@ async function setupEditor(page, context, server) {
     if (pathname === '/api/cards/1' || pathname === '/api/study/card/1') return route.fulfill({ json: server.card });
     if (pathname === '/api/sync/v2/pull') return route.fulfill({ json: {
       status: 'success', card_schema: 2, server_time: new Date().toISOString(),
-      folders: [], decks, cards: server.card ? [server.card] : [], progress: [],
+      folders: [], decks, cards: server.cards ?? (server.card ? [server.card] : []), progress: [],
     } });
     return route.fulfill({ json: {} });
   });
@@ -240,45 +240,207 @@ test('auto CEFR updates the editor draft synchronously and keeps the fallback fo
   }
 });
 
+async function setupOfflineStudy(page, context, { emptyDeckCards = false, historyIndices = [0], offline = true, initialView = 'study' } = {}) {
+  const source = { ...deck, folder_id: null, stats: { total: 2 } };
+  const destination = { ...deck, id: 2, folder_id: null, name: 'Destination', stats: { total: 0 } };
+  const cards = ['Erste Karte', 'Nächste Karte'].map((prompt, index) => ({
+    id: index + 1, deck_id: 1, position: index + 1, revision: 'a'.repeat(64),
+    content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt, answer: '' } } },
+  }));
+  const startupPull = page.waitForResponse(response => response.url().includes('/api/sync/v2/pull') && response.ok());
+  await setupEditor(page, context, { card: cards[0], cards, decks: [source, destination], saves: [] });
+  await startupPull;
+  await page.evaluate(async ({ source, destination, cards, emptyDeckCards, historyIndices, offline, initialView }) => {
+    const { prepareLocalDb } = await import('/src/services/localDb.js');
+    const { useDeckStore } = await import('/src/store/useDeckStore.js');
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    await navigator.locks.request('lerne-offline-sync', () => {});
+    await useDeckStore.getState().getPendingLibraryLoad('decks');
+    const db = await prepareLocalDb();
+    await db.decks.bulkPut([source, destination]);
+    await db.cards.bulkPut(cards);
+    if (offline) Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
+    useSettingsStore.setState({ autoPlay: false });
+    useDeckStore.setState({
+      decks: [source, destination],
+      currentDeck: source,
+      deckCards: emptyDeckCards ? [] : cards,
+    });
+    const session = useSessionStore.getState();
+    session.resetSession();
+    for (const index of historyIndices) session.addToHistory(cards[index]);
+    useUiStore.getState().setView(initialView);
+  }, { source, destination, cards, emptyDeckCards, historyIndices, offline, initialView });
+  return { cards };
+}
+
+async function runCardActionFromModal(page, action) {
+  const dialog = page.getByRole('dialog', { name: 'Управление карточкой' });
+  if (action === 'move') {
+    await dialog.getByRole('button', { name: 'Перенести в другую колоду' }).click();
+    await dialog.getByRole('button', { name: /Destination/ }).click();
+  } else {
+    await dialog.getByRole('button', { name: /Удалить карточку/ }).click();
+  }
+}
+
 for (const action of ['move', 'delete']) {
   test(`Study continues with the next card after ${action} from card actions`, async ({ page, context }) => {
-    const source = { ...deck, folder_id: null, stats: { total: 2 } };
-    const destination = { ...deck, id: 2, folder_id: null, name: 'Destination', stats: { total: 0 } };
-    const cards = ['Erste Karte', 'Nächste Karte'].map((prompt, index) => ({
-      id: index + 1, deck_id: 1, position: index + 1, revision: 'a'.repeat(64),
-      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt, answer: '' } } },
-    }));
-    await setupEditor(page, context, { card: cards[0], decks: [source, destination], saves: [] });
-    await page.evaluate(async ({ source, destination, cards }) => {
-      const { prepareLocalDb } = await import('/src/services/localDb.js');
-      const { useDeckStore } = await import('/src/store/useDeckStore.js');
-      const { useSessionStore } = await import('/src/store/useSessionStore.js');
-      const { useSettingsStore } = await import('/src/store/useSettingsStore.js');
-      const { useUiStore } = await import('/src/store/useUiStore.js');
-      const db = await prepareLocalDb();
-      await db.decks.bulkPut([source, destination]);
-      await db.cards.bulkPut(cards);
-      Object.defineProperty(navigator, 'onLine', { configurable: true, value: false });
-      useSettingsStore.setState({ autoPlay: false });
-      useDeckStore.setState({ decks: [source, destination], currentDeck: source, deckCards: cards });
-      useSessionStore.getState().resetSession();
-      useSessionStore.getState().addToHistory(cards[0]);
-      useUiStore.getState().setView('study');
-    }, { source, destination, cards });
-
+    await setupOfflineStudy(page, context);
     await page.locator('.study-card-actions-button').click();
-    const dialog = page.getByRole('dialog', { name: 'Управление карточкой' });
-    if (action === 'move') {
-      await dialog.getByRole('button', { name: 'Перенести в другую колоду' }).click();
-      await dialog.getByRole('button', { name: /Destination/ }).click();
-    } else {
-      await dialog.getByRole('button', { name: /Удалить карточку/ }).click();
-    }
+    await runCardActionFromModal(page, action);
     await expect.poll(() => page.evaluate(async () =>
       (await import('/src/store/useSessionStore.js')).useSessionStore.getState().card?.id)).toBe(2);
     await expect(page.locator('#tut-study-card')).toContainText('Nächste Karte');
   });
+
+  test(`Study continues without preloaded deckCards and finishes after last ${action}`, async ({ page, context }) => {
+    await setupOfflineStudy(page, context, { emptyDeckCards: true });
+    await page.locator('.study-card-actions-button').click();
+    await runCardActionFromModal(page, action);
+    await expect.poll(() => page.evaluate(async () =>
+      (await import('/src/store/useSessionStore.js')).useSessionStore.getState().card?.id)).toBe(2);
+    await expect(page.locator('#tut-study-card')).toContainText('Nächste Karte');
+
+    await page.locator('.study-card-actions-button').click();
+    await runCardActionFromModal(page, action);
+    await expect.poll(() => page.evaluate(async () => {
+      const s = (await import('/src/store/useSessionStore.js')).useSessionStore.getState();
+      return { id: s.card?.id ?? null, finished: s.isSessionFinished };
+    })).toEqual({ id: null, finished: true });
+    await expect(page.getByRole('heading', { name: 'На сегодня всё выполнено' })).toBeVisible();
+  });
+
+  test(`Study keeps active card when a non-current card undergoes ${action}`, async ({ page, context }) => {
+    const { cards } = await setupOfflineStudy(page, context, { historyIndices: [0, 1] });
+    await page.evaluate(async ({ card }) => {
+      const { useUiStore } = await import('/src/store/useUiStore.js');
+      useUiStore.setState({ actionCard: card, isCardActionModalOpen: true });
+    }, { card: cards[0] });
+    await runCardActionFromModal(page, action);
+    await expect.poll(() => page.evaluate(async () => {
+      const s = (await import('/src/store/useSessionStore.js')).useSessionStore.getState();
+      const d = (await import('/src/store/useDeckStore.js')).useDeckStore.getState();
+      return {
+        cardId: s.card?.id ?? null,
+        finished: s.isSessionFinished,
+        historyIds: s.studyHistory.map(c => c.id),
+        deckCardIds: d.deckCards.map(c => c.id),
+      };
+    })).toEqual({ cardId: 2, finished: false, historyIds: [2], deckCardIds: [2] });
+    await expect(page.locator('#tut-study-card')).toContainText('Nächste Karte');
+  });
 }
+
+test('delayed delete does not close another card editor or a new session', async ({ page, context }) => {
+  const { cards } = await setupOfflineStudy(page, context, { offline: false });
+  let releaseDelete;
+  const deleteGate = new Promise(resolve => { releaseDelete = resolve; });
+  const deleteRequest = page.waitForRequest('**/api/cards/batch-delete');
+  await page.route('**/api/cards/batch-delete', async route => {
+    await deleteGate;
+    await route.fulfill({ json: { status: 'success', card: { ...cards[0], is_deleted: true, revision: 'b'.repeat(64) } } });
+  });
+
+  await page.locator('.study-card-actions-button').click();
+  await runCardActionFromModal(page, 'delete');
+  await deleteRequest;
+
+  await page.evaluate(async ({ nextCard }) => {
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const session = useSessionStore.getState();
+    session.resetSession();
+    session.addToHistory(nextCard);
+    session.openEditingCard(nextCard);
+    useUiStore.setState({ editorSourceView: 'study', view: 'editor' });
+  }, { nextCard: cards[1] });
+  await expect(page.locator('#card-editor-front')).toHaveValue('Nächste Karte');
+
+  const deleteResponse = page.waitForResponse('**/api/cards/batch-delete');
+  releaseDelete();
+  await deleteResponse;
+  await expect.poll(() => page.evaluate(async () =>
+    (await import('/src/store/useUiStore.js')).useUiStore.getState().loading)).toBe(false);
+
+  await expect(page.locator('#card-editor-front')).toHaveValue('Nächste Karte');
+  expect(await page.evaluate(async () => {
+    const s = (await import('/src/store/useSessionStore.js')).useSessionStore.getState();
+    const u = (await import('/src/store/useUiStore.js')).useUiStore.getState();
+    return { view: u.view, editingId: s.editingCard?.id ?? null, studyCardId: s.card?.id ?? null };
+  })).toEqual({ view: 'editor', editingId: 2, studyCardId: 2 });
+});
+
+test('deleting current card from Study editor awaits history back before loading next card', async ({ page, context }) => {
+  const { cards } = await setupOfflineStudy(page, context, { offline: false, initialView: 'cards' });
+  await expect(page.locator('.view-cards')).toBeVisible();
+  await page.evaluate(async () => {
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const ui = useUiStore.getState();
+    ui.setStudySourceView('cards');
+    ui.setView('study');
+  });
+  await expect(page.locator('#tut-study-card')).toBeVisible();
+  await page.evaluate(async ({ card }) => {
+    const { useSessionStore } = await import('/src/store/useSessionStore.js');
+    const { useUiStore } = await import('/src/store/useUiStore.js');
+    const ui = useUiStore.getState();
+    ui.setEditorSourceView('study');
+    useSessionStore.getState().openEditingCard(card);
+    ui.setView('editor');
+    window.history.pushState({ level: 3, view: 'editor', folderId: null, modalOpen: false }, '');
+    const reactUrl = performance.getEntriesByType('resource').find(r => /\/node_modules\/\.vite\/deps\/react\.js/.test(r.name))?.name;
+    const reactDomUrl = performance.getEntriesByType('resource').find(r => /\/node_modules\/\.vite\/deps\/react-dom_client\.js/.test(r.name))?.name;
+    const [reactMod, reactDomMod, { useCardActions }] = await Promise.all([
+      import(reactUrl),
+      import(reactDomUrl),
+      import('/src/hooks/useCardActions.js'),
+    ]);
+    const React = reactMod.default ?? reactMod;
+    const ReactDOM = reactDomMod.default ?? reactDomMod;
+    const host = document.createElement('div');
+    document.body.appendChild(host);
+    function DeleteTrigger() {
+      const { handleDeleteCard } = useCardActions();
+      return React.createElement('button', {
+        type: 'button',
+        'data-testid': 'test-editor-delete-trigger',
+        onClick: () => { void handleDeleteCard(card.id, true); },
+      }, 'Delete');
+    }
+    ReactDOM.createRoot(host).render(React.createElement(DeleteTrigger));
+  }, { card: cards[0] });
+  await expect(page.locator('#card-editor-front')).toHaveValue('Erste Karte');
+
+  await page.route('**/api/cards/batch-delete', route => route.fulfill({
+    json: { status: 'success', card: { ...cards[0], is_deleted: true, revision: 'b'.repeat(64) } },
+  }));
+  let releaseNext;
+  const nextGate = new Promise(resolve => { releaseNext = resolve; });
+  const nextRequested = page.waitForRequest(req => new URL(req.url()).pathname === '/api/decks/1/next');
+  await page.route('**/api/decks/1/next*', async route => {
+    await nextGate;
+    await route.fulfill({ json: cards[1] });
+  });
+
+  await page.getByTestId('test-editor-delete-trigger').click();
+  await expect.poll(() => page.evaluate(async () =>
+    (await import('/src/store/useUiStore.js')).useUiStore.getState().view)).toBe('study');
+  await nextRequested;
+  releaseNext();
+
+  await expect.poll(() => page.evaluate(async () =>
+    (await import('/src/store/useSessionStore.js')).useSessionStore.getState().card?.id)).toBe(2);
+  await expect(page.locator('#tut-study-card')).toContainText('Nächste Karte');
+
+  await page.locator('.view-study .back-btn').press('Enter');
+  await expect.poll(() => page.evaluate(async () => ({
+    view: (await import('/src/store/useUiStore.js')).useUiStore.getState().view,
+    historyView: window.history.state?.view ?? null,
+  }))).toEqual({ view: 'cards', historyView: 'cards' });
+});
 
 test('cover upload attaches to the latest draft after a delayed response', async ({ page, context }) => {
   const card = { id: 1, deck_id: 1, revision: 'cover-fixture', content_v2: { schema_version: 2,

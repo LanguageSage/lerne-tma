@@ -24,6 +24,80 @@ export const isContentReadOnly = (owner, db = null) => isStandaloneDb(db)
   || !owner || owner.role === 'viewer'
   || (owner.is_global_readonly && owner.role !== 'owner' && owner.role !== 'editor');
 
+export const buildFolderMap = (folders = []) => new Map(folders.map(folder => [folder.id, folder]));
+
+export function isFolderActiveInCache(folderMap, folderId) {
+  let currentId = folderId;
+  const visited = new Set();
+  while (currentId != null) {
+    if (visited.has(currentId)) return false;
+    visited.add(currentId);
+    const folder = folderMap.get(currentId);
+    if (!folder) return true; // Shared branch root or partial cache; deleted folders present in map are caught below.
+    if (folder.is_deleted) return false;
+    currentId = folder.parent_id;
+  }
+  return true;
+}
+
+export function isFolderParentReadyForRestore(folderMap, parentId) {
+  if (parentId == null) return { ok: true };
+  const parent = folderMap.get(parentId);
+  if (!parent) return { ok: false, reason: 'missing' };
+  if (!isFolderActiveInCache(folderMap, parentId)) return { ok: false, reason: 'deleted' };
+  return { ok: true };
+}
+
+export function isDeckActiveInCache(deck, folderMap) {
+  return Boolean(deck && !deck.is_deleted && isFolderActiveInCache(folderMap, deck.folder_id));
+}
+
+export const isOwnedRecord = (item, userId) => Boolean(item)
+  && (item.user_id == null || item.user_id === userId)
+  && (!item.role || item.role === 'owner');
+
+export function collectSubtreeFolderIds(rootIds, childrenByParent, includeChild = () => true) {
+  const collected = [];
+  const seen = new Set();
+  const stack = [...rootIds];
+  while (stack.length > 0) {
+    const fid = stack.pop();
+    if (seen.has(fid)) continue;
+    seen.add(fid);
+    collected.push(fid);
+    for (const child of childrenByParent.get(fid) || []) {
+      if (!seen.has(child.id) && includeChild(child)) stack.push(child.id);
+    }
+  }
+  return collected;
+}
+
+export function isCardDeckActiveInCache(deck, card, folderMap) {
+  return deck ? isDeckActiveInCache(deck, folderMap) : !card?.deck_deleted;
+}
+
+export function assertParentActiveForRestore(folderMap, parentId, kind) {
+  const parentReady = isFolderParentReadyForRestore(folderMap, parentId);
+  if (parentReady.ok) return;
+  const msg = parentReady.reason === 'missing'
+    ? (kind === 'folder'
+      ? tr('Нельзя восстановить папку: родительская папка отсутствует.')
+      : tr('Нельзя восстановить колоду: родительская папка отсутствует.'))
+    : (kind === 'folder'
+      ? tr('Нельзя восстановить папку: сначала восстановите родительскую папку.')
+      : tr('Нельзя восстановить колоду: сначала восстановите родительскую папку.'));
+  const err = new Error(msg);
+  err.response = {
+    status: 409,
+    data: { detail: { code: parentReady.reason === 'missing' ? 'parent_folder_missing' : 'parent_folder_deleted', message: msg } },
+  };
+  throw err;
+}
+
+export async function loadFolderMap(db) {
+  return buildFolderMap(await db.folders.toArray());
+}
+
 export async function requireContentWrite(db, entity, item) {
   if (isStandaloneDb(db)) readOnly();
   if (!item) notFound();
@@ -56,7 +130,7 @@ export async function saveNativeCard(db, body, {
   if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
   if (!body.request_id) throw new Error('Missing card create request ID');
 
-  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
     const key = CARD_CREATE_KEY + body.request_id;
     const pending = await db.syncState.get(key);
     if (pending) {
@@ -67,11 +141,15 @@ export async function saveNativeCard(db, body, {
       }
       return result(await db.cards.get(pending.tempId));
     }
-    const deck = body.deck_id == null
+    const folderMap = await loadFolderMap(db);
+    const decks = body.deck_id == null
       ? await db.decks.filter(d => d.id > 0 && d.is_inbox && (d.role === 'owner' || d.user_id === userId)
-          && (!d.target_language || d.target_language === 'de') && !d.is_deleted).first()
+          && (!d.target_language || d.target_language === 'de') && !d.is_deleted).toArray()
+      : null;
+    const deck = body.deck_id == null
+      ? decks.find(d => isDeckActiveInCache(d, folderMap))
       : await db.decks.get(body.deck_id);
-    if (!deck || deck.id <= 0 || deck.is_deleted) {
+    if (!deck || deck.id <= 0 || !isDeckActiveInCache(deck, folderMap)) {
       if (ifAvailable) return null;
       notFound();
     }
@@ -129,7 +207,7 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
   if (!ids?.length || new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
   if (!Number.isSafeInteger(targetId) || targetId <= 0) notFound();
   if (!body.request_id) throw new Error('Missing card transfer request ID');
-  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
     // Keep the existing single-move key readable by previous builds.
     const key = CARD_MOVE_KEY + (!copy && ids.length === 1 ? ids[0] : body.request_id);
     const previous = await db.syncState.get(key);
@@ -138,14 +216,14 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
       const cards = await db.cards.bulkGet(previous.localIds || [previous.cardId]);
       return result(!copy && ids.length === 1 ? cards[0] : { cards, offline_transfer: true });
     }
-    const [cards, target] = await Promise.all([db.cards.bulkGet(ids), db.decks.get(targetId)]);
-    if (!target || target.is_deleted) notFound();
+    const [cards, target, folderMap] = await Promise.all([db.cards.bulkGet(ids), db.decks.get(targetId), loadFolderMap(db)]);
+    if (!isDeckActiveInCache(target, folderMap)) notFound();
     if (isContentReadOnly(target)) readOnly();
     const sources = [];
     for (const card of cards) {
       assertCardReadyForBatch(card, body.revisions?.[card?.id]);
       const source = await db.decks.get(card.deck_id);
-      if (!source || source.id <= 0 || source.is_deleted) notFound();
+      if (!source || source.id <= 0 || !isDeckActiveInCache(source, folderMap)) notFound();
       if (!copy && isContentReadOnly(source)) readOnly();
       sources.push(source.id);
     }
@@ -176,7 +254,7 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
 export async function queueCardLifecycle(db, id, payload, deleting, userId, isCurrent) {
   if (isStandaloneDb(db)) readOnly();
   if (!Number.isSafeInteger(id) || id <= 0) pendingCreate();
-  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
     const card = await db.cards.get(id);
     if (!card?.content_v2) notFound();
     if (card.offline_lifecycle) pendingLifecycle();
@@ -191,12 +269,22 @@ export async function queueCardLifecycle(db, id, payload, deleting, userId, isCu
         || Boolean(card.is_deleted) === deleting) {
       throw new Error(tr('Исходная ревизия карточки недоступна.'));
     }
-    const deck = await db.decks.get(card.deck_id);
+    const [deck, folderMap] = await Promise.all([db.decks.get(card.deck_id), loadFolderMap(db)]);
     if (deleting) {
-      if (!deck || deck.is_deleted) notFound();
+      if (!isDeckActiveInCache(deck, folderMap)) notFound();
       if (isContentReadOnly(deck)) readOnly();
-    } else if (deck && deck.user_id !== userId && deck.role !== 'owner') {
-      readOnly();
+    } else {
+      if (deck && deck.user_id !== userId && deck.role !== 'owner') {
+        readOnly();
+      }
+      if (deck) {
+        if (deck.is_deleted) throw new Error(tr('Сначала восстановите родительскую колоду.'));
+        if (!isFolderActiveInCache(folderMap, deck.folder_id)) {
+          throw new Error(tr('Сначала восстановите родительскую папку.'));
+        }
+      } else if (card.deck_deleted) {
+        throw new Error(tr('Сначала восстановите родительскую колоду.'));
+      }
     }
     const local = { ...card, is_deleted: deleting, offline_lifecycle: deleting ? 'delete' : 'restore' };
     await db.cards.put(local);
@@ -211,18 +299,18 @@ export async function queueCardSelection(db, payload, action, isCurrent) {
   const ids = payload.card_ids;
   if (!payload.request_id || !ids?.length || new Set(ids).size !== ids.length
       || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
-  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
     const key = CARD_LIFECYCLE_KEY + payload.request_id;
     const pending = await db.syncState.get(key);
     if (pending) {
       if (pending.action !== action || JSON.stringify(pending.payload) !== JSON.stringify(payload)) throw new Error('Card selection request changed');
       return result({ cards: await db.cards.bulkGet(ids), offline_lifecycle: action });
     }
-    const cards = await db.cards.bulkGet(ids);
+    const [cards, folderMap] = await Promise.all([db.cards.bulkGet(ids), loadFolderMap(db)]);
     for (const card of cards) {
       assertCardReadyForBatch(card, payload.revisions?.[card?.id]);
       const deck = await db.decks.get(card.deck_id);
-      if (!deck || deck.is_deleted) notFound();
+      if (!isDeckActiveInCache(deck, folderMap)) notFound();
       if (isContentReadOnly(deck)) readOnly();
     }
     if (action === 'reorder' && new Set(cards.map(card => card.deck_id)).size !== 1) throw new Error('Reordering requires one deck');
@@ -239,9 +327,9 @@ export async function queueCardSelection(db, payload, action, isCurrent) {
 export async function saveNativeEdit(db, id, body, expectedConflict) {
   if (isStandaloneDb(db)) readOnly();
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
-  return db.transaction('rw', db.cards, db.decks, db.syncState, async () => {
+  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
     const key = CARD_EDIT_KEY + id;
-    const current = await db.cards.get(id);
+    const [current, folderMap] = await Promise.all([db.cards.get(id), loadFolderMap(db)]);
     if (!current?.content_v2) notFound();
     if (current.offline_move) pendingMove();
     if (current.offline_lifecycle) pendingLifecycle();
@@ -261,7 +349,11 @@ export async function saveNativeEdit(db, id, body, expectedConflict) {
         || (sent && (current.offline_edit?.requestId !== sent.request_id || body.revision !== current.revision))) {
       throw new Error(tr('Состояние правки изменилось. Откройте карточку заново.'));
     }
-    if (!conflict) await requireContentWrite(db, 'cards', current);
+    if (!conflict) {
+      const parentDeck = await db.decks.get(current.deck_id);
+      if (!isDeckActiveInCache(parentDeck, folderMap)) notFound();
+      await requireContentWrite(db, 'cards', current);
+    }
     const replace = !operation || (current.offline_edit?.status === 'error' && current.offline_edit.httpStatus === 422);
     const payload = replace && sent ? { ...body, revision: sent.revision } : body;
     const tombstone = current.is_deleted && (current.offline_edit ? current.offline_edit.server : current);
