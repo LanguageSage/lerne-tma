@@ -1,6 +1,5 @@
 apply plugin: 'com.android.application'
 
-def isOfflinePilot = (project.findProperty('lerneOfflinePilot') ?: 'false').toString().toBoolean()
 def pilotVersionCodeProp = project.findProperty('lernePilotVersionCode')
 def pilotVersionNameProp = project.findProperty('lernePilotVersionName')
 
@@ -8,12 +7,12 @@ android {
     namespace = "com.lerne.app"
     compileSdk = rootProject.ext.compileSdkVersion
     defaultConfig {
-        applicationId isOfflinePilot ? "com.lerne.offlinepilot" : "com.lerne.app"
+        applicationId "com.lerne.offlinepilot"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode isOfflinePilot && pilotVersionCodeProp ? pilotVersionCodeProp.toString().toInteger() : 1
-        versionName isOfflinePilot && pilotVersionNameProp ? pilotVersionNameProp.toString() : (isOfflinePilot ? "1.0.0-offline-pilot" : "1.0")
-        manifestPlaceholders = [appName: isOfflinePilot ? "Lerne Offline Pilot" : "Lerne"]
+        versionCode pilotVersionCodeProp ? pilotVersionCodeProp.toString().toInteger() : 1
+        versionName pilotVersionNameProp ? pilotVersionNameProp.toString() : "1.0.0-offline-pilot"
+        manifestPlaceholders = [appName: "Lerne Offline Pilot"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
@@ -27,10 +26,31 @@ android {
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
-    if (isOfflinePilot) {
-        sourceSets.debug.manifest.srcFile 'src/offline/AndroidManifest.xml'
-        sourceSets.release.manifest.srcFile 'src/offline/AndroidManifest.xml'
+}
+
+def verifyStandaloneAndroidWebBundle = tasks.register('verifyStandaloneAndroidWebBundle') {
+    doLast {
+        def indexFile = file('src/main/assets/public/index.html')
+        if (!indexFile.isFile()) {
+            throw new GradleException(
+                "Missing synced Android Offline Pilot web bundle at ${indexFile}. " +
+                "Run Vite build with VITE_LERNE_STANDALONE=1 and 'npx cap sync android' first."
+            )
+        }
+        def html = indexFile.getText('UTF-8')
+        if (!html.contains('name="lerne-android-mode" content="offline-pilot"') || html.contains('telegram.org')) {
+            throw new GradleException(
+                "Android APK builds only support Offline Pilot (VITE_LERNE_STANDALONE=1). " +
+                "Legacy Standard Android builds have been removed; rebuild web assets with VITE_LERNE_STANDALONE=1 and run 'npx cap sync android'."
+            )
+        }
     }
+}
+
+tasks.matching {
+    it.name in ['packageDebug', 'packageRelease', 'assembleDebug', 'assembleRelease', 'bundleDebug', 'bundleRelease']
+}.configureEach {
+    dependsOn(verifyStandaloneAndroidWebBundle)
 }
 
 repositories {

@@ -48,7 +48,8 @@ const localPlugin = {
 const standalonePlugin = {
   name: 'lerne-standalone-offline',
   transformIndexHtml: html => html.replace(/<link[^>]+https:\/\/fonts\.[^>]+>/g, '')
-    .replace(/<script src="https:\/\/telegram\.org[^>]+><\/script>/g, ''),
+    .replace(/<script src="https:\/\/telegram\.org[^>]+><\/script>/g, '')
+    .replace('</head>', '    <meta name="lerne-android-mode" content="offline-pilot" />\n  </head>'),
   transform(code, id) {
     if (id.endsWith('.css')) return code.replace(/@import url\(['"]https?:[^;]+;/g, '');
   },
