@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<full-backup-content>
+    <exclude domain="root" path="app_webview" />
+    <exclude domain="file" path="lerne-offline-media" />
+    <exclude domain="sharedpref" path="." />
+</full-backup-content>

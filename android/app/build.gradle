@@ -1,7 +1,55 @@
 apply plugin: 'com.android.application'
 
+def versionPropsFile = file('../version.properties')
+def versionProps = new Properties()
+if (versionPropsFile.isFile()) {
+    versionPropsFile.withInputStream { stream ->
+        versionProps.load(stream)
+    }
+}
+
+def defaultVersionCode = (versionProps.getProperty('VERSION_CODE') ?: '1').trim().toInteger()
+def defaultVersionName = (versionProps.getProperty('VERSION_NAME') ?: '1.0.0-offline-pilot').trim()
+
 def pilotVersionCodeProp = project.findProperty('lernePilotVersionCode')
 def pilotVersionNameProp = project.findProperty('lernePilotVersionName')
+
+def resolvedVersionCode = (pilotVersionCodeProp != null && pilotVersionCodeProp.toString().trim())
+    ? pilotVersionCodeProp.toString().trim().toInteger()
+    : defaultVersionCode
+def resolvedVersionName = (pilotVersionNameProp != null && pilotVersionNameProp.toString().trim())
+    ? pilotVersionNameProp.toString().trim()
+    : defaultVersionName
+
+def readSigningSetting = { String propName, String envName, boolean trimValue ->
+    def propVal = project.findProperty(propName)
+    if (propVal != null) {
+        def text = propVal.toString()
+        if (trimValue ? !text.trim().isEmpty() : !text.isEmpty()) {
+            return trimValue ? text.trim() : text
+        }
+    }
+    def envVal = System.getenv(envName)
+    if (envVal != null) {
+        if (trimValue ? !envVal.trim().isEmpty() : !envVal.isEmpty()) {
+            return trimValue ? envVal.trim() : envVal
+        }
+    }
+    return null
+}
+
+def releaseKeystorePath = readSigningSetting('LERNE_KEYSTORE_PATH', 'LERNE_KEYSTORE_PATH', true)
+def releaseStorePass = readSigningSetting('LERNE_KEYSTORE_STORE_PASS', 'LERNE_KEYSTORE_STORE_PASS', false)
+def releaseKeyAlias = readSigningSetting('LERNE_KEYSTORE_ALIAS', 'LERNE_KEYSTORE_ALIAS', true)
+def releaseKeyPass = readSigningSetting('LERNE_KEYSTORE_KEY_PASS', 'LERNE_KEYSTORE_KEY_PASS', false) ?: releaseStorePass
+def releaseKeystoreFile = releaseKeystorePath ? file(releaseKeystorePath) : null
+def hasReleaseSigningConfig = Boolean.valueOf(
+    releaseKeystoreFile != null &&
+    releaseKeystoreFile.isFile() &&
+    releaseStorePass != null &&
+    releaseKeyAlias != null &&
+    releaseKeyPass != null
+)
 
 android {
     namespace = "com.lerne.app"
@@ -10,8 +58,8 @@ android {
         applicationId "com.lerne.offlinepilot"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
-        versionCode pilotVersionCodeProp ? pilotVersionCodeProp.toString().toInteger() : 1
-        versionName pilotVersionNameProp ? pilotVersionNameProp.toString() : "1.0.0-offline-pilot"
+        versionCode resolvedVersionCode
+        versionName resolvedVersionName
         manifestPlaceholders = [appName: "Lerne Offline Pilot"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
         aaptOptions {
@@ -20,12 +68,53 @@ android {
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
         }
     }
+    signingConfigs {
+        release {
+            if (hasReleaseSigningConfig) {
+                storeFile releaseKeystoreFile
+                storePassword releaseStorePass
+                keyAlias releaseKeyAlias
+                keyPassword releaseKeyPass
+            }
+        }
+    }
     buildTypes {
         release {
+            if (hasReleaseSigningConfig) {
+                signingConfig signingConfigs.release
+            }
             minifyEnabled false
             proguardFiles getDefaultProguardFile('proguard-android.txt'), 'proguard-rules.pro'
         }
     }
+}
+
+def verifyReleaseSigningConfig = tasks.register('verifyReleaseSigningConfig') {
+    doLast {
+        def missing = []
+        if (!releaseKeystorePath) missing << 'LERNE_KEYSTORE_PATH'
+        if (!releaseStorePass) missing << 'LERNE_KEYSTORE_STORE_PASS'
+        if (!releaseKeyAlias) missing << 'LERNE_KEYSTORE_ALIAS'
+        if (!missing.isEmpty()) {
+            throw new GradleException(
+                "Release signing is required for release APK/AAB builds (fail-closed). " +
+                "Missing required Gradle property or environment variable(s): ${missing.join(', ')}. " +
+                "Set LERNE_KEYSTORE_PATH, LERNE_KEYSTORE_STORE_PASS, LERNE_KEYSTORE_ALIAS " +
+                "(and optional LERNE_KEYSTORE_KEY_PASS)."
+            )
+        }
+        if (releaseKeystoreFile == null || !releaseKeystoreFile.isFile()) {
+            throw new GradleException(
+                "Release keystore file does not exist: ${releaseKeystorePath}"
+            )
+        }
+    }
+}
+
+tasks.matching {
+    it.name in ['preReleaseBuild', 'packageRelease', 'assembleRelease', 'bundleRelease', 'packageReleaseBundle', 'signReleaseBundle']
+}.configureEach {
+    dependsOn(verifyReleaseSigningConfig)
 }
 
 def verifyStandaloneAndroidWebBundle = tasks.register('verifyStandaloneAndroidWebBundle') {

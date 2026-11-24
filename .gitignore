@@ -216,6 +216,12 @@ playwright-report/
 
 
 
+# Keystore & signing secrets
+*.keystore
+*.jks
+*.p12
+keystore.properties
+
 # Code in local/ is versioned; accidental runtime artifacts or worktrees are not.
 /local/*/
 !/local/compose.yaml

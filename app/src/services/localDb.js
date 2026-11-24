@@ -6,13 +6,47 @@ import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js'
 
 const databases = new Map();
 const preparations = new Map();
+const blockedListeners = new Set();
+const versionChangedDatabases = new WeakSet();
+const MAX_PREPARE_RETRIES = 3;
+
+function isDatabaseClosed(database) {
+  if (!database) return true;
+  if (database.hasBeenClosed?.()) return true;
+  return database._state?.dbOpenError?.name === 'DatabaseClosedError';
+}
+
+function evictDatabase(userId, database) {
+  const key = userId != null ? String(userId) : null;
+  if (key !== null && databases.get(key) === database) {
+    databases.delete(key);
+  }
+  const prep = preparations.get(database.name);
+  if (prep && prep.database === database) {
+    preparations.delete(database.name);
+  }
+}
+
+export const onLocalDbBlocked = (listener) => {
+  if (typeof listener !== 'function') return () => {};
+  blockedListeners.add(listener);
+  return () => {
+    blockedListeners.delete(listener);
+  };
+};
 
 export const getLocalDb = () => {
   const userId = String(getUserId());
-  if (databases.has(userId)) return databases.get(userId);
+  const existing = databases.get(userId);
+  if (existing) {
+    if (!isDatabaseClosed(existing)) {
+      return existing;
+    }
+    evictDatabase(userId, existing);
+  }
   const prefix = IS_STANDALONE ? STANDALONE_DB_PREFIX : (IS_LOCAL ? 'LerneTestDB' : 'LerneLocalDB');
   const database = new Dexie(`${prefix}_${userId}`);
-  configureDatabase(database);
+  configureDatabase(database, userId);
   databases.set(userId, database);
   return database;
 };
@@ -21,34 +55,65 @@ export const closeLocalDb = (userId) => {
   const targetId = userId != null ? String(userId) : String(getUserId());
   if (databases.has(targetId)) {
     const database = databases.get(targetId);
+    evictDatabase(targetId, database);
     try {
       database.close();
     } catch { /* ignore */ }
-    databases.delete(targetId);
-    preparations.delete(database.name);
   }
 };
 
 export const resetAllDatabases = () => {
-  for (const [, database] of databases.entries()) {
+  const entries = Array.from(databases.entries());
+  databases.clear();
+  preparations.clear();
+  for (const [, database] of entries) {
     try {
       database.close();
     } catch { /* ignore */ }
   }
-  databases.clear();
-  preparations.clear();
 };
 
-export async function prepareLocalDb() {
+export async function prepareLocalDb(attempt = 0) {
   const database = getLocalDb();
-  if (!preparations.has(database.name)) {
+  let entry = preparations.get(database.name);
+  if (!entry || entry.database !== database) {
     const userId = getUserId();
-    preparations.set(database.name, migrateLegacy(database, userId).catch(error => {
-      preparations.delete(database.name);
+    entry = { database, promise: null };
+    entry.promise = (async () => {
+      if (!database.isOpen()) {
+        await database.open();
+      }
+      await migrateLegacy(database, userId);
+    })().catch((error) => {
+      if (preparations.get(database.name) === entry) {
+        preparations.delete(database.name);
+      }
+      if (isDatabaseClosed(database)) {
+        evictDatabase(String(userId), database);
+      }
       throw error;
-    }));
+    });
+    preparations.set(database.name, entry);
   }
-  await preparations.get(database.name);
+  try {
+    await entry.promise;
+  } catch (error) {
+    if (
+      error?.name === 'DatabaseClosedError'
+      && versionChangedDatabases.has(database)
+      && attempt < MAX_PREPARE_RETRIES
+    ) {
+      return prepareLocalDb(attempt + 1);
+    }
+    throw error;
+  }
+  if (isDatabaseClosed(database) || !database.isOpen()) {
+    evictDatabase(String(getUserId()), database);
+    if (versionChangedDatabases.has(database) && attempt < MAX_PREPARE_RETRIES) {
+      return prepareLocalDb(attempt + 1);
+    }
+    throw new Dexie.DatabaseClosedError();
+  }
   return database;
 }
 
@@ -96,7 +161,33 @@ export const db = new Proxy({}, {
   },
 });
 
-function configureDatabase(db) {
+function configureDatabase(db, userId = null) {
+  db.on('versionchange', (event) => {
+    console.warn(`[localDb] Version change detected for "${db.name}"; closing connection cleanly.`, event);
+    versionChangedDatabases.add(db);
+    evictDatabase(userId, db);
+    try {
+      db.close();
+    } catch { /* ignore */ }
+    return false;
+  });
+
+  db.on('blocked', (event) => {
+    console.warn(`[localDb] Database "${db.name}" blocked by another open connection.`, event);
+    for (const listener of blockedListeners) {
+      try {
+        Promise.resolve(listener({ database: db, name: db.name, event })).catch((error) => {
+          console.warn('[localDb] Blocked listener failed:', error);
+        });
+      } catch (error) {
+        console.warn('[localDb] Blocked listener threw:', error);
+      }
+    }
+  });
+
+  db.on('close', () => {
+    evictDatabase(userId, db);
+  });
 
 // Define database schema
 // Note: We only index fields we intend to query on (filter / sort).

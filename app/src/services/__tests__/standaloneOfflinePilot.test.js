@@ -645,5 +645,44 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     const rootPkg = JSON.parse(read('package.json'));
     assert.match(rootPkg.scripts['build:android'], /VITE_LERNE_STANDALONE/);
     assert.match(rootPkg.scripts['build:android'], /cap sync android/);
+
+    const versionProps = read('android/version.properties');
+    assert.match(versionProps, /^VERSION_CODE=\d+/m);
+    assert.match(versionProps, /^VERSION_NAME=1\.0\.0-offline-pilot/m);
+
+    assert.match(buildGradle, /\.\.\/version\.properties/);
+    assert.match(buildGradle, /signingConfigs\s*\{/);
+    assert.match(buildGradle, /LERNE_KEYSTORE_PATH/);
+    assert.match(buildGradle, /LERNE_KEYSTORE_STORE_PASS/);
+    assert.match(buildGradle, /LERNE_KEYSTORE_ALIAS/);
+    assert.match(buildGradle, /LERNE_KEYSTORE_KEY_PASS/);
+    assert.match(buildGradle, /signingConfig\s+signingConfigs\.release/);
+    assert.match(buildGradle, /verifyReleaseSigningConfig/);
+    assert.match(buildGradle, /packageRelease.*assembleRelease.*bundleRelease/);
+
+    assert.match(manifest, /android:allowBackup="false"/);
+    assert.equal(manifest.includes('android:allowBackup="true"'), false);
+    assert.match(manifest, /android:dataExtractionRules="@xml\/data_extraction_rules"/);
+    assert.match(manifest, /android:fullBackupContent="@xml\/backup_rules"/);
+
+    const dataExtractionRules = read('android/app/src/main/res/xml/data_extraction_rules.xml');
+    assert.match(dataExtractionRules, /<cloud-backup>/);
+    assert.match(dataExtractionRules, /<device-transfer>/);
+    assert.match(dataExtractionRules, /app_webview/);
+    assert.match(dataExtractionRules, /lerne-offline-media/);
+
+    const backupRules = read('android/app/src/main/res/xml/backup_rules.xml');
+    assert.match(backupRules, /<full-backup-content>/);
+    assert.match(backupRules, /app_webview/);
+    assert.match(backupRules, /lerne-offline-media/);
+
+    const rootGitignoreLines = new Set(read('.gitignore').split(/\r?\n/).map(line => line.trim()));
+    for (const pattern of ['*.keystore', '*.jks', '*.p12', 'keystore.properties']) {
+      assert.equal(rootGitignoreLines.has(pattern), true, `Missing ${pattern} in root .gitignore`);
+    }
+
+    const androidGitignoreLines = new Set(read('android/.gitignore').split(/\r?\n/).map(line => line.trim()));
+    assert.equal(androidGitignoreLines.has('*.jks'), true);
+    assert.equal(androidGitignoreLines.has('*.keystore'), true);
   });
 });
