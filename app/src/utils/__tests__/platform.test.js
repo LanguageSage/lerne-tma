@@ -1,6 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { openExternalLink, prepareExternalLink } from '../platform.js';
+import {
+  getPlatform,
+  isCapacitor,
+  isTelegram,
+  isWeb,
+  openExternalLink,
+  prepareExternalLink,
+  setupBackButton,
+} from '../platform.js';
 
 const url = 'https://t.me/fixture_bot?start=auth_fixture';
 const authOptions = { allowPopup: false, sameTabFallback: true };
@@ -77,4 +85,66 @@ test('restricted navigation reports failure so the manual link remains usable', 
   const { opened } = browser(t, { location: { assign() { throw new Error('Restricted'); } } });
   assert.equal(await openExternalLink(url, null, authOptions), false);
   assert.deepEqual(opened, []);
+});
+
+test('platform detection distinguishes web, telegram, and capacitor native contexts', t => {
+  browser(t);
+  assert.equal(getPlatform(), 'web');
+  assert.equal(isWeb(), true);
+  assert.equal(isTelegram(), false);
+  assert.equal(isCapacitor(), false);
+
+  browser(t, { Telegram: { WebApp: { initData: 'synthetic-init-data' } } });
+  assert.equal(getPlatform(), 'telegram');
+  assert.equal(isTelegram(), true);
+  assert.equal(isWeb(), false);
+  assert.equal(isCapacitor(), false);
+
+  browser(t, { Capacitor: { isNativePlatform: () => true } });
+  assert.equal(getPlatform(), 'capacitor');
+  assert.equal(isCapacitor(), true);
+  assert.equal(isWeb(), false);
+  assert.equal(isTelegram(), false);
+});
+
+test('setupBackButton binds and cleans up Telegram WebApp and Capacitor hardware back listeners', async t => {
+  const events = [];
+  let backHandler = null;
+  let removedNative = false;
+  let capCallback = null;
+  browser(t, {
+    Telegram: {
+      WebApp: {
+        initData: 'synthetic',
+        BackButton: {
+          show: () => events.push('tg:show'),
+          onClick: fn => { backHandler = fn; events.push('tg:on'); },
+          offClick: fn => { if (fn === backHandler) events.push('tg:off'); },
+        },
+      },
+    },
+    Capacitor: {
+      isNativePlatform: () => true,
+      Plugins: {
+        App: {
+          addListener: async (name, fn) => {
+            events.push(`cap:${name}`);
+            capCallback = fn;
+            return { remove: () => { removedNative = true; } };
+          },
+        },
+      },
+    },
+  });
+
+  let clicks = 0;
+  const cleanup = setupBackButton(() => { clicks += 1; });
+  backHandler();
+  capCallback();
+  assert.equal(clicks, 2);
+
+  cleanup();
+  await Promise.resolve();
+  assert.deepEqual(events, ['tg:show', 'tg:on', 'cap:backButton', 'tg:off']);
+  assert.equal(removedNative, true);
 });

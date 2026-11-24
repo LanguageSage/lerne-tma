@@ -1,6 +1,6 @@
 {
-  "appId": "com.lerne.app",
-  "appName": "Lerne",
+  "appId": "com.lerne.offlinepilot",
+  "appName": "Lerne Offline Pilot",
   "webDir": "app/dist",
   "server": {
     "androidScheme": "https"

@@ -14,7 +14,7 @@ const getApiBaseUrl = () => {
   // Web build running on Vercel
   if (hostname.endsWith('vercel.app')) return '/api';
 
-  // Android APK (Capacitor / WebView on https://localhost), standalone, or custom host
+  // Fallback API base URL for custom web hosts (Android Offline Pilot blocks networkApi)
   return 'https://tma-amber.vercel.app/api';
 };
 

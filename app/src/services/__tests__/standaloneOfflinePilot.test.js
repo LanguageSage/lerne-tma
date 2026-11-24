@@ -1,5 +1,8 @@
 import test, { describe, beforeEach, mock } from 'node:test';
 import assert from 'node:assert/strict';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { registerHooks } from 'node:module';
@@ -599,5 +602,50 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     const upgradeApplied = await applyProgressBackup(upgradeInspect.backup, { db: upgradeDb, userId: STANDALONE_USER_ID, pack: v2Pack });
     assert.equal(upgradeApplied.restoredRecords, 1);
     upgradeDb.close();
+  });
+
+  test('Android build configuration locks Offline Pilot as the sole APK target without Standard mode', () => {
+    const repoRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../..');
+    const read = rel => fs.readFileSync(path.join(repoRoot, rel), 'utf8');
+
+    const capConfig = JSON.parse(read('capacitor.config.json'));
+    assert.equal(capConfig.appId, 'com.lerne.offlinepilot');
+    assert.equal(capConfig.appName, 'Lerne Offline Pilot');
+    assert.equal(capConfig.webDir, 'app/dist');
+    assert.equal(capConfig.server?.androidScheme, 'https');
+
+    const buildGradle = read('android/app/build.gradle');
+    assert.match(buildGradle, /applicationId\s+"com\.lerne\.offlinepilot"/);
+    assert.match(buildGradle, /namespace\s*=\s*"com\.lerne\.app"/);
+    assert.match(buildGradle, /lernePilotVersionCode/);
+    assert.match(buildGradle, /lernePilotVersionName/);
+    assert.match(buildGradle, /verifyStandaloneAndroidWebBundle/);
+    assert.equal(buildGradle.includes('lerneOfflinePilot'), false);
+    assert.equal(buildGradle.includes('isOfflinePilot'), false);
+    assert.equal(/applicationId\s+[^\n]*com\.lerne\.app/.test(buildGradle), false);
+
+    const manifest = read('android/app/src/main/AndroidManifest.xml');
+    assert.match(manifest, /android\.permission\.INTERNET"\s+tools:node="remove"/);
+    assert.match(manifest, /android:name="\.MainActivity"/);
+    assert.match(manifest, /\$\{applicationId\}\.fileprovider/);
+    assert.equal(fs.existsSync(path.join(repoRoot, 'android/app/src/offline/AndroidManifest.xml')), false);
+
+    const stringsXml = read('android/app/src/main/res/values/strings.xml');
+    assert.match(stringsXml, /<string name="app_name">Lerne Offline Pilot<\/string>/);
+    assert.match(stringsXml, /<string name="package_name">com\.lerne\.offlinepilot<\/string>/);
+    assert.match(stringsXml, /<string name="custom_url_scheme">com\.lerne\.offlinepilot<\/string>/);
+
+    const mainActivity = read('android/app/src/main/java/com/lerne/app/MainActivity.java');
+    assert.match(mainActivity, /registerPlugin\(OfflineBackupFilePlugin\.class\)/);
+    assert.match(mainActivity, /registerPlugin\(OfflineMaterialArchivePlugin\.class\)/);
+
+    const androidWorkflow = read('.github/workflows/android.yml');
+    assert.match(androidWorkflow, /VITE_LERNE_STANDALONE:\s*'1'/);
+    assert.equal(androidWorkflow.includes('build_mode'), false);
+    assert.equal(androidWorkflow.includes('Build Standard Android'), false);
+
+    const rootPkg = JSON.parse(read('package.json'));
+    assert.match(rootPkg.scripts['build:android'], /VITE_LERNE_STANDALONE/);
+    assert.match(rootPkg.scripts['build:android'], /cap sync android/);
   });
 });
