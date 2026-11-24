@@ -639,10 +639,8 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.match(mainActivity, /registerPlugin\(OfflineBackupFilePlugin\.class\)/);
     assert.match(mainActivity, /registerPlugin\(OfflineMaterialArchivePlugin\.class\)/);
 
-    const androidWorkflow = read('.github/workflows/android.yml');
-    assert.match(androidWorkflow, /VITE_LERNE_STANDALONE:\s*'1'/);
-    assert.equal(androidWorkflow.includes('build_mode'), false);
-    assert.equal(androidWorkflow.includes('Build Standard Android'), false);
+    assert.equal(fs.existsSync(path.join(repoRoot, '.github/workflows/android.yml')), false);
+    assert.equal(fs.existsSync(path.join(repoRoot, '.github/workflows/checks.yml')), true);
 
     const rootPkg = JSON.parse(read('package.json'));
     assert.match(rootPkg.scripts['build:android'], /VITE_LERNE_STANDALONE/);
