@@ -1,7 +1,7 @@
 import { Image as ImageIcon, RefreshCw, RotateCw, Volume2, X } from 'lucide-react';
 import { tr } from '../../i18n/locale';
 import { parseDeckMetadata } from '../../utils/deckUtils';
-import { defaultResolveMediaUrl } from '../../utils/media';
+import { useMediaResolvers } from '../../card-ui/MediaResolverContext.jsx';
 import { CardAudioAttachments } from './CardAudioAttachments';
 import { FlagPicker } from './FlagPicker';
 
@@ -69,18 +69,20 @@ export function CardCoverPreview({
   deck,
   onEdit,
   onClear,
-  resolveMediaUrl = defaultResolveMediaUrl,
+  resolveMediaUrl,
   hideHeightSlider = false,
 }) {
+  const { resolveMediaUrl: contextResolveMediaUrl } = useMediaResolvers();
   if (!cardData.image_url && !cardData.image_path) return null;
 
+  const resolveUrl = resolveMediaUrl || contextResolveMediaUrl;
   const currentH = cardData.draftImageHeight ?? (parseDeckMetadata(deck ?? cardData)?.imageHeight || 220);
 
   return (
     <>
       <div className="image-preview-box" style={{ margin: '10px', position: 'relative', zIndex: 3 }}>
         <img
-          src={cardData.image_url || resolveMediaUrl(cardData.image_path, 'images')}
+          src={cardData.image_url || resolveUrl(cardData.image_path, 'images')}
           alt=""
           style={{
             display: 'block',

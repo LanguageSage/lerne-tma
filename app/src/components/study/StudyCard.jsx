@@ -16,6 +16,8 @@ import { useKaraokeSync } from '../../hooks/useKaraokeSync';
 import { stopGlobalAudio } from '../../hooks/useAudio.js';
 import { evaluateFreeTextAnswer } from '../../services/answerEvaluationService.js';
 import { mediaURL } from '../../services/apiConfig.js';
+import { getAudioUrl } from '../../utils/media';
+import { isPlatformAssetUrl } from '../../utils/platform';
 import { getPhysicalSideAudioSource, getStudyRolePhysicalSide, PEDAGOGICAL_ROLE } from '../../utils/studyCardRoles.js';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { CardActionButton } from '../modals/CardActionModal';
@@ -309,6 +311,9 @@ export const StudyCard = React.memo(({
       showImageResizeHandle
       deckResources={deckResources}
       resolveMediaUrl={mediaURL}
+      resolveAudioUrl={getAudioUrl}
+      isLocalAssetUrl={isPlatformAssetUrl}
+      allowDictation={!IS_STANDALONE}
       audioControls={{
         ...audioControls,
         playAudio: audioControls?.playAudio || playAudio,

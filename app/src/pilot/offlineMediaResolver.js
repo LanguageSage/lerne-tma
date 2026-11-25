@@ -1,14 +1,13 @@
+import { isPlatformAssetUrl } from '../utils/platform.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 export const OFFLINE_MEDIA_KEY_PREFIX = 'offline-media:';
 export const MEDIA_FOLDERS = new Set(['images', 'audio', 'videos', 'backgrounds']);
 export const CANONICAL_ASSET_NAME_RE = /^archive_[a-f0-9]{64}\.[a-z0-9]{2,4}$/;
 
+let localMediaEnabled = false;
 let nativeMediaRoot = null;
-let nativeFileSrcConverter = (filePath) => {
-  const cap = globalThis?.Capacitor;
-  return typeof cap?.convertFileSrc === 'function' ? cap.convertFileSrc(filePath) : filePath;
-};
+let nativeFileSrcConverter = (filePath) => filePath;
 const webBlobUrls = new Map();
 const knownOfflineMediaKeys = new Set();
 
@@ -21,9 +20,13 @@ function normalizeKind(kind) {
   return MEDIA_FOLDERS.has(kind) ? kind : 'images';
 }
 
+export function setLocalMediaEnabled(enabled) {
+  localMediaEnabled = Boolean(enabled);
+}
+
 export function isOfflineMediaUrl(value) {
   if (typeof value !== 'string') return false;
-  return /^(blob:|data:)/.test(value) || value.includes('/_capacitor_file_/');
+  return /^(blob:|data:)/.test(value) || isPlatformAssetUrl(value);
 }
 
 export function parseOfflineMediaRef(rawPath, defaultKind = 'images') {
@@ -104,7 +107,21 @@ export function getWebBlobUrl(canonicalUrl) {
 }
 
 export function setWebBlobUrl(canonicalUrl, blobUrl) {
-  webBlobUrls.set(canonicalUrl, blobUrl);
+  const previous = webBlobUrls.get(canonicalUrl);
+  if (previous && previous !== blobUrl && previous.startsWith('blob:')) {
+    try {
+      if (typeof URL?.revokeObjectURL === 'function') {
+        URL.revokeObjectURL(previous);
+      }
+    } catch {
+      // Ignore cleanup errors.
+    }
+  }
+  if (blobUrl) {
+    webBlobUrls.set(canonicalUrl, blobUrl);
+  } else {
+    webBlobUrls.delete(canonicalUrl);
+  }
 }
 
 export function hasKnownOfflineMediaKey(relativePath) {
@@ -115,8 +132,9 @@ export function addKnownOfflineMediaKey(relativePath) {
   if (relativePath) knownOfflineMediaKeys.add(relativePath);
 }
 
-export function resolveOfflineMediaUrlSync(rawPath, defaultKind = 'images') {
-  if (!IS_STANDALONE || typeof rawPath !== 'string' || !rawPath.trim()) return null;
+export function resolveOfflineMediaUrlSync(rawPath, defaultKind = 'images', options = {}) {
+  const enabled = IS_STANDALONE || localMediaEnabled || Boolean(nativeMediaRoot) || Boolean(options?.forceLocal);
+  if (!enabled || typeof rawPath !== 'string' || !rawPath.trim()) return null;
   const trimmed = rawPath.trim();
   if (isOfflineMediaUrl(trimmed)) return trimmed;
 
@@ -133,7 +151,7 @@ export function resolveOfflineMediaUrlSync(rawPath, defaultKind = 'images') {
   return webBlobUrls.get(ref.canonicalUrl) || null;
 }
 
-export function clearOfflineMediaCache() {
+export function clearOfflineMediaCache({ keepNativeConfig = false } = {}) {
   for (const url of webBlobUrls.values()) {
     try {
       if (typeof URL?.revokeObjectURL === 'function' && url.startsWith('blob:')) {
@@ -144,6 +162,12 @@ export function clearOfflineMediaCache() {
     }
   }
   webBlobUrls.clear();
-  knownOfflineMediaKeys.clear();
-  nativeMediaRoot = null;
+  if (!keepNativeConfig || !nativeMediaRoot) {
+    knownOfflineMediaKeys.clear();
+  }
+  if (!keepNativeConfig) {
+    nativeMediaRoot = null;
+    nativeFileSrcConverter = (filePath) => filePath;
+    localMediaEnabled = false;
+  }
 }

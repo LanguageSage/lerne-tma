@@ -12,6 +12,7 @@ import { StudyCardPuzzle } from './StudyCardPuzzle.jsx';
 import { StudyCardWordBank } from './StudyCardWordBank.jsx';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
 import { StructuredCardLayout } from './StructuredCardLayout.jsx';
+import { MediaResolverProvider } from '../../card-ui/MediaResolverContext.jsx';
 
 /**
  * Universal ExerciseRenderer for all interactive exercise types:
@@ -44,6 +45,9 @@ export const ExerciseRenderer = React.memo(({
   evaluateAnswer = null,
   isAdmin = false,
   resolveMediaUrl,
+  resolveAudioUrl,
+  isLocalAssetUrl,
+  allowDictation = true,
   onBeforeDictation = null,
 }) => {
   const effectiveDesign = designConfig ?? DEFAULT_DESIGN_CONFIG_V2;
@@ -68,152 +72,168 @@ export const ExerciseRenderer = React.memo(({
         afterAnswer={previewAfterAnswer || layoutAnswerRevealed(savedState)} />
     : <><ExerciseInfoBlocks blocks={studyInfoBlocks(structured)} />{exercise}</>;
 
-  if (!detectedType) {
-    return fallback ? withInformation(fallback) : null;
-  }
-
-  switch (detectedType) {
-    case 'word_bank':
-      if (!data) return fallback;
-      return withInformation(
-        <StudyCardWordBank
-          key={reviewKey || exerciseCard.id}
-          card={exerciseCard}
-          wordBankData={data}
-          renderAudioPlayer={renderAudioPlayer}
-          designConfig={effectiveDesign}
-          onTrainerAnswer={onTrainerAnswer}
-          savedState={savedState}
-          onSaveState={onSaveState}
-          footerActionTarget={footerActionTarget}
-        />
-      );
-
-    case 'match':
-      if (!data) return fallback;
-      return withInformation(
-        <StudyCardMatch
-          key={reviewKey || exerciseCard.id}
-          card={exerciseCard}
-          matchData={data}
-          designConfig={effectiveDesign}
-          onFlip={onFlip}
-          onTrainerAnswer={onTrainerAnswer}
-          onNextCard={onNextCard}
-          renderAudioPlayer={renderAudioPlayer}
-          isPureTrainerMode={isPureTrainerMode}
-          savedState={savedState}
-          onSaveState={onSaveState}
-        />
-      );
-
-    case 'free_text':
-      if (!data) return fallback;
-      return withInformation(
-        <StudyCardFreeText
-          assessmentMode={assessmentMode}
-          key={reviewKey || exerciseCard.id}
-          reviewKey={reviewKey}
-          card={exerciseCard}
-          freeTextData={data}
-          supportHistoryUnknown={supportHistoryUnknown}
-          designConfig={effectiveDesign}
-          onFlip={onFlip}
-          onTrainerAnswer={onTrainerAnswer}
-          onNextCard={onNextCard}
-          renderAudioPlayer={renderAudioPlayer}
-          isPureTrainerMode={isPureTrainerMode}
-          savedState={savedState}
-          onSaveState={onSaveState}
-          evaluateAnswer={evaluateAnswer}
-          isAdmin={isAdmin}
-          onBeforeDictation={onBeforeDictation}
-        />
-      );
-
-    case 'editable_text':
-      if (!data) return fallback;
-      return withInformation(
-        <StudyCardFreeText
-          assessmentMode={assessmentMode}
-          key={reviewKey || exerciseCard.id}
-          reviewKey={reviewKey}
-          card={exerciseCard}
-          editableTextData={data}
-          designConfig={effectiveDesign}
-          onTrainerAnswer={onTrainerAnswer}
-          onNextCard={onNextCard}
-          renderAudioPlayer={renderAudioPlayer}
-          isPureTrainerMode={isPureTrainerMode}
-          savedState={savedState}
-          onSaveState={onSaveState}
-          evaluateAnswer={evaluateAnswer}
-          isAdmin={isAdmin}
-          onBeforeDictation={onBeforeDictation}
-        />
-      );
-
-    case 'quiz':
-      if (!data) return fallback;
-      return withInformation(
-        <StudyCardQuiz
-          key={reviewKey || exerciseCard.id}
-          card={exerciseCard}
-          quizData={data}
-          designConfig={effectiveDesign}
-          onTrainerAnswer={onTrainerAnswer}
-          renderAudioPlayer={renderAudioPlayer}
-          savedState={savedState}
-          onSaveState={onSaveState}
-        />
-      );
-
-    case 'trainer':
-      if (!data) return fallback;
-      return withInformation(
-        <StudyCardTrainer
-          assessmentMode={assessmentMode}
-          supportHistoryUnknown={supportHistoryUnknown}
-          key={reviewKey || exerciseCard.id}
-          card={exerciseCard}
-          clozeData={data}
-          backNote={structured ? (structured.data.back_note ?? '') : undefined}
-          designConfig={effectiveDesign}
-          isFlipped={isFlipped}
-          onFlip={onFlip}
-          playAudio={playAudio}
-          onTrainerAnswer={onTrainerAnswer}
-          onNextCard={onNextCard}
-          renderAudioPlayer={renderAudioPlayer}
-          isPureTrainerMode={isPureTrainerMode}
-          savedState={savedState}
-          onSaveState={onSaveState}
-          footerActionTarget={footerActionTarget}
-        />
-      );
-
-    case 'puzzle':
-      return withInformation(
-        <StudyCardPuzzle
-          key={reviewKey || exerciseCard.id}
-          card={exerciseCard}
-          designConfig={effectiveDesign}
-          isFlipped={isFlipped}
-          onFlip={onFlip}
-          tokens={structured?.data.tokens}
-          translation={structured ? (structured.data.translation ?? '') : undefined}
-          loading={false}
-          playAudio={playAudio}
-          renderAudioPlayer={renderAudioPlayer}
-          onTrainerAnswer={onTrainerAnswer}
-          onNextCard={onNextCard}
-          isPureTrainerMode={isPureTrainerMode}
-          savedState={savedState}
-          onSaveState={onSaveState}
-        />
-      );
-
-    default:
+  const renderExercise = () => {
+    if (!detectedType) {
       return fallback ? withInformation(fallback) : null;
-  }
+    }
+
+    switch (detectedType) {
+      case 'word_bank':
+        if (!data) return fallback;
+        return withInformation(
+          <StudyCardWordBank
+            key={reviewKey || exerciseCard.id}
+            card={exerciseCard}
+            wordBankData={data}
+            renderAudioPlayer={renderAudioPlayer}
+            designConfig={effectiveDesign}
+            onTrainerAnswer={onTrainerAnswer}
+            savedState={savedState}
+            onSaveState={onSaveState}
+            footerActionTarget={footerActionTarget}
+          />
+        );
+
+      case 'match':
+        if (!data) return fallback;
+        return withInformation(
+          <StudyCardMatch
+            key={reviewKey || exerciseCard.id}
+            card={exerciseCard}
+            matchData={data}
+            designConfig={effectiveDesign}
+            onFlip={onFlip}
+            onTrainerAnswer={onTrainerAnswer}
+            onNextCard={onNextCard}
+            renderAudioPlayer={renderAudioPlayer}
+            isPureTrainerMode={isPureTrainerMode}
+            savedState={savedState}
+            onSaveState={onSaveState}
+          />
+        );
+
+      case 'free_text':
+        if (!data) return fallback;
+        return withInformation(
+          <StudyCardFreeText
+            assessmentMode={assessmentMode}
+            key={reviewKey || exerciseCard.id}
+            reviewKey={reviewKey}
+            card={exerciseCard}
+            freeTextData={data}
+            supportHistoryUnknown={supportHistoryUnknown}
+            designConfig={effectiveDesign}
+            onFlip={onFlip}
+            onTrainerAnswer={onTrainerAnswer}
+            onNextCard={onNextCard}
+            renderAudioPlayer={renderAudioPlayer}
+            isPureTrainerMode={isPureTrainerMode}
+            savedState={savedState}
+            onSaveState={onSaveState}
+            evaluateAnswer={evaluateAnswer}
+            isAdmin={isAdmin}
+            allowDictation={allowDictation}
+            onBeforeDictation={onBeforeDictation}
+          />
+        );
+
+      case 'editable_text':
+        if (!data) return fallback;
+        return withInformation(
+          <StudyCardFreeText
+            assessmentMode={assessmentMode}
+            key={reviewKey || exerciseCard.id}
+            reviewKey={reviewKey}
+            card={exerciseCard}
+            editableTextData={data}
+            designConfig={effectiveDesign}
+            onTrainerAnswer={onTrainerAnswer}
+            onNextCard={onNextCard}
+            renderAudioPlayer={renderAudioPlayer}
+            isPureTrainerMode={isPureTrainerMode}
+            savedState={savedState}
+            onSaveState={onSaveState}
+            evaluateAnswer={evaluateAnswer}
+            isAdmin={isAdmin}
+            allowDictation={allowDictation}
+            onBeforeDictation={onBeforeDictation}
+          />
+        );
+
+      case 'quiz':
+        if (!data) return fallback;
+        return withInformation(
+          <StudyCardQuiz
+            key={reviewKey || exerciseCard.id}
+            card={exerciseCard}
+            quizData={data}
+            designConfig={effectiveDesign}
+            onTrainerAnswer={onTrainerAnswer}
+            renderAudioPlayer={renderAudioPlayer}
+            savedState={savedState}
+            onSaveState={onSaveState}
+          />
+        );
+
+      case 'trainer':
+        if (!data) return fallback;
+        return withInformation(
+          <StudyCardTrainer
+            assessmentMode={assessmentMode}
+            supportHistoryUnknown={supportHistoryUnknown}
+            key={reviewKey || exerciseCard.id}
+            card={exerciseCard}
+            clozeData={data}
+            backNote={structured ? (structured.data.back_note ?? '') : undefined}
+            designConfig={effectiveDesign}
+            isFlipped={isFlipped}
+            onFlip={onFlip}
+            playAudio={playAudio}
+            onTrainerAnswer={onTrainerAnswer}
+            onNextCard={onNextCard}
+            renderAudioPlayer={renderAudioPlayer}
+            isPureTrainerMode={isPureTrainerMode}
+            savedState={savedState}
+            onSaveState={onSaveState}
+            footerActionTarget={footerActionTarget}
+          />
+        );
+
+      case 'puzzle':
+        return withInformation(
+          <StudyCardPuzzle
+            key={reviewKey || exerciseCard.id}
+            card={exerciseCard}
+            designConfig={effectiveDesign}
+            isFlipped={isFlipped}
+            onFlip={onFlip}
+            tokens={structured?.data.tokens}
+            translation={structured ? (structured.data.translation ?? '') : undefined}
+            loading={false}
+            playAudio={playAudio}
+            renderAudioPlayer={renderAudioPlayer}
+            onTrainerAnswer={onTrainerAnswer}
+            onNextCard={onNextCard}
+            isPureTrainerMode={isPureTrainerMode}
+            savedState={savedState}
+            onSaveState={onSaveState}
+          />
+        );
+
+      default:
+        return fallback ? withInformation(fallback) : null;
+    }
+  };
+
+  const rendered = renderExercise();
+  if (!rendered) return null;
+  return (
+    <MediaResolverProvider
+      resolveMediaUrl={resolveMediaUrl}
+      resolveAudioUrl={resolveAudioUrl}
+      isLocalAssetUrl={isLocalAssetUrl}
+    >
+      {rendered}
+    </MediaResolverProvider>
+  );
 });

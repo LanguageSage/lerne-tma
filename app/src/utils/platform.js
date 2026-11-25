@@ -21,6 +21,15 @@ export const isCapacitor = () => getPlatform() === 'capacitor';
 export const isNative = () => isCapacitor();
 export const isWeb = () => getPlatform() === 'web';
 
+export const isPlatformAssetUrl = (value) => (
+  typeof value === 'string' && (
+    value.includes('/_capacitor_file_/')
+    || value.startsWith('tauri://')
+    || /^https?:\/\/asset\.localhost(?:\/|$)/i.test(value)
+    || value.startsWith('asset://')
+  )
+);
+
 /**
  * Trigger platform-appropriate haptic feedback
  * @param {'light'|'medium'|'heavy'|'success'|'error'|'warning'|'selection'} type 

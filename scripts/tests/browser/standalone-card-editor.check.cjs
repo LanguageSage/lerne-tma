@@ -266,8 +266,10 @@ async function run() {
   fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
   const tempWorkDir = fs.mkdtempSync(path.join(os.tmpdir(), 'lerne-e2e-editor-'));
   const pngPath = path.join(tempWorkDir, 'cover.png');
+  const layoutPngPath = path.join(tempWorkDir, 'layout.png');
   const wavPath = path.join(tempWorkDir, 'clip.wav');
   fs.writeFileSync(pngPath, makePngBuffer(32, 32));
+  fs.writeFileSync(layoutPngPath, makePngBuffer(24, 24));
   fs.writeFileSync(wavPath, makeWavBuffer(800));
   const hasAdminPython = fs.existsSync(ADMIN_PYTHON);
   const importZipPath = hasAdminPython ? generateSyntheticZipWithAdminPython(tempWorkDir) : null;
@@ -344,8 +346,8 @@ async function run() {
     assert.equal(await page.locator('.btn-ai-generate').count(), 0, 'AI generate buttons must be hidden');
     assert.equal(await page.locator('.btn-audio').count(), 0, 'TTS generate button must be hidden');
     assert.equal(await page.getByRole('button', { name: 'Диктовать', exact: true }).count(), 0, 'Dictation must be hidden');
-    assert.equal(await page.locator('.visual-card-layout-insert').count(), 0, 'Layout insert buttons must be hidden');
-    assert.equal(await page.locator('.visual-card-layout-block > .visual-card-drag-handle').count(), 0, 'Layout drag handles must be hidden');
+    assert.ok(await page.locator('.visual-card-layout-insert').count() > 0, 'Option B layout insert buttons must be visible');
+    assert.ok(await page.locator('.visual-card-layout-block > .visual-card-drag-handle').count() > 0, 'Option B layout drag handles must be visible');
 
     await page.locator('#card-editor-front').fill('Temp Unsaved Draft');
     page.once('dialog', d => d.dismiss());
@@ -488,7 +490,7 @@ async function run() {
     await page.locator('.view-study .back-btn').first().click({ force: true });
     await page.locator('#tut-fab-add').waitFor({ state: 'visible' });
 
-    // 4. Layout-lock test: inject a layout-carrying card into A2, open in CardEditor, verify UI lock + layout preservation
+    // 4. Option B unlocked layout test: inject a layout-carrying card into A2, add block + upload PNG layout image, verify study & persistence
     const layoutImageRel = standardCreated.image_path.replace('/api/media/', '');
     const originalLayout = [
       { id: 'img_0', type: 'image', path: layoutImageRel, caption: 'Закреплённое фото' },
@@ -536,14 +538,24 @@ async function run() {
     await page.getByRole('button', { name: /Редактировать/ }).click();
     await page.locator('.view-editor').waitFor({ state: 'visible' });
 
-    await page.getByTestId('standalone-layout-lock-note').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('.visual-card-layout-insert').count(), 0);
+    assert.equal(await page.getByTestId('standalone-layout-lock-note').count(), 0);
+    assert.equal(await page.getByTestId('standalone-layout-images-locked').count(), 0);
+    assert.ok(await page.locator('.visual-card-layout-insert').count() > 0);
+    assert.ok(await page.locator('.visual-card-layout-block > .visual-card-drag-handle').count() > 0);
+
+    // Insert a new info block via Option B visual layout editor
+    await page.locator('.visual-card-layout-insert').last().click();
+    await page.locator('.visual-card-layout-block').nth(3).locator('textarea').first().fill('Добавленный блок E4');
+
+    // Upload a new PNG layout image via .card-layout-editor input[type="file"] (zero network requests)
     await page.getByText('Изображения', { exact: true }).click();
-    await page.getByTestId('standalone-layout-images-locked').waitFor({ state: 'visible' });
-    const imagesText = await page.getByTestId('standalone-layout-images-locked').innerText();
-    assert.ok(imagesText.includes('Закреплённое фото'));
-    assert.equal(await page.getByTestId('standalone-layout-images-locked').locator('input[type="file"]').count(), 0);
-    await assertZeroOverflowAcrossViewports(page, '03-editor-layout-locked');
+    await page.locator('.card-layout-editor input[type="file"]').waitFor({ state: 'visible' });
+    await page.locator('.card-layout-editor input[type="file"]').setInputFiles(layoutPngPath);
+    await page.waitForFunction(() => {
+      const imgs = [...document.querySelectorAll('.visual-card-editor-layout .structured-card-layout img')];
+      return imgs.length >= 2 && imgs.every(img => img.complete && img.naturalWidth > 0 && img.src.startsWith('blob:'));
+    });
+    await assertZeroOverflowAcrossViewports(page, '03-editor-layout-unlocked');
 
     await page.locator('#card-editor-front').fill('Layout Card Edited');
     await saveCurrentCardForm(page);
@@ -551,7 +563,25 @@ async function run() {
     const afterLayoutEdit = await readIndexedDbState(page);
     const editedLayoutCard = afterLayoutEdit.cards.find(c => c.id === 1500001);
     assert.equal(editedLayoutCard.content_v2.card.data.prompt, 'Layout Card Edited');
-    assert.deepEqual(editedLayoutCard.content_v2.card.layout, originalLayout, 'Existing layout must remain intact');
+    assert.equal(editedLayoutCard.content_v2.card.info.length, 2);
+    assert.equal(editedLayoutCard.content_v2.card.info[1].text, 'Добавленный блок E4');
+    const layoutImagesAfterEdit = editedLayoutCard.content_v2.card.layout.filter(item => item.type === 'image');
+    assert.equal(layoutImagesAfterEdit.length, 2);
+    assert.match(layoutImagesAfterEdit[1].path, /^images\/archive_[a-f0-9]{64}\.png$/);
+
+    // Reload and verify layout image renders in StudyView with naturalWidth > 0
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).click();
+    await page.locator('.deck-intro-btn-list').click();
+    const editedLayoutStudyRow = page.locator('.card-item').filter({ hasText: 'Layout Card Edited' }).first();
+    await editedLayoutStudyRow.scrollIntoViewIfNeeded();
+    await editedLayoutStudyRow.click();
+    await page.waitForFunction(() => {
+      const imgs = [...document.querySelectorAll('#tut-study-card .structured-card-layout img')];
+      return imgs.length >= 2 && imgs.every(img => img.complete && img.naturalWidth > 0 && img.src.startsWith('blob:'));
+    });
+    await page.locator('.view-study .back-btn').first().click({ force: true });
+    await page.locator('#tut-fab-add').waitFor({ state: 'visible' });
 
     const editedLayoutRow = page.locator('.card-item').filter({ hasText: 'Layout Card Edited' }).first();
     await editedLayoutRow.locator('.card-item-actions-trigger').click();

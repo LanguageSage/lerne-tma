@@ -27,8 +27,11 @@ export const mediaURL = (path, kind = 'images') => {
   }
   if (isOfflineMediaUrl(path)) return path;
   if (IS_STANDALONE) return resolveOfflineMediaUrlSync(path, kind);
+  const localUrl = resolveOfflineMediaUrlSync(path, kind);
+  if (localUrl) return localUrl;
   if (/^https?:/.test(path)) return path;
-  const base = new URL(API_BASE_URL, window.location.origin);
+  const origin = typeof window !== 'undefined' && window.location?.origin ? window.location.origin : 'https://localhost';
+  const base = new URL(API_BASE_URL, origin);
   const relative = path.startsWith('/api/media/')
     ? path : `${base.pathname.replace(/\/$/, '')}/media/${kind}/${path.split(/[\\/]/).pop()}`;
   return new URL(relative, base).href;

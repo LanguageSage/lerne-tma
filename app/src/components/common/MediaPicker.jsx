@@ -4,7 +4,28 @@ import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Upload, Camera, Search, ClipboardPaste, X } from 'lucide-react';
 import { ImageEditorModal } from './ImageEditorModal';
-import { IS_STANDALONE } from '../../utils/standaloneMode.js';
+
+function dataUrlToImageFile(dataUrl) {
+  const match = /^data:(image\/[a-z0-9.+-]+)(?:;([^,]*))?,(.*)$/i.exec(dataUrl);
+  if (!match) return null;
+  const mime = match[1].toLowerCase();
+  const meta = (match[2] || '').toLowerCase();
+  const payload = match[3] || '';
+  const isBase64 = meta.split(';').includes('base64');
+  let bytes;
+  if (isBase64) {
+    const binary = atob(payload.replace(/\s+/g, ''));
+    bytes = new Uint8Array(binary.length);
+    for (let i = 0; i < binary.length; i += 1) {
+      bytes[i] = binary.charCodeAt(i);
+    }
+  } else {
+    bytes = new TextEncoder().encode(decodeURIComponent(payload));
+  }
+  const rawExt = mime.split('/')[1]?.split('+')[0] || 'png';
+  const ext = rawExt === 'jpeg' ? 'jpg' : rawExt;
+  return new File([bytes], `pasted_${Date.now()}.${ext}`, { type: mime });
+}
 
 export const MediaPicker = ({ 
   isOpen, 
@@ -13,6 +34,8 @@ export const MediaPicker = ({
   searchQuery = '', 
   loading = false,
   onNotify = null,
+  allowRemoteImageSearch = false,
+  onFetchRemoteImage = null,
 }) => {
   useInterfaceLocale();
   const showToast = onNotify || (() => {});
@@ -119,21 +142,32 @@ export const MediaPicker = ({
       }
       if (navigator.clipboard?.readText) {
         const text = (await navigator.clipboard.readText() || '').trim();
-        if (IS_STANDALONE && /^https?:\/\//i.test(text)) {
-          showToast(tr("Загрузка изображений по ссылке недоступна автономно. Выберите файл или вставьте картинку."), 'info');
-          return;
-        }
-        if ((!IS_STANDALONE && /^https?:\/\/.*\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(text)) || /^data:image\//i.test(text)) {
+        if (/^data:image\//i.test(text)) {
           try {
-            const res = await fetch(text);
-            const blob = await res.blob();
-            if (blob.type.startsWith('image/')) {
-              const file = new File([blob], `pasted_${Date.now()}.png`, { type: blob.type });
+            const file = dataUrlToImageFile(text);
+            if (file) {
               handleSelectFile(file);
               return;
             }
           } catch {
             // Ignored
+          }
+        }
+        if (/^https?:\/\//i.test(text)) {
+          if (typeof onFetchRemoteImage !== 'function') {
+            showToast(tr("Загрузка изображений по ссылке недоступна автономно. Выберите файл или вставьте картинку."), 'info');
+            return;
+          }
+          if (/^https?:\/\/.*\.(png|jpe?g|webp|gif|svg)(\?.*)?$/i.test(text)) {
+            try {
+              const file = await onFetchRemoteImage(text);
+              if (file) {
+                handleSelectFile(file);
+                return;
+              }
+            } catch {
+              // Ignored
+            }
           }
         }
       }
@@ -226,7 +260,7 @@ export const MediaPicker = ({
                   <ClipboardPaste size={24} color="#fbbf24" />
                   <span>{tr("Из буфера")}</span>
                 </button>
-                {!IS_STANDALONE && (
+                {allowRemoteImageSearch && (
                   <a
                     href={googleImageUrl}
                     target="_blank"

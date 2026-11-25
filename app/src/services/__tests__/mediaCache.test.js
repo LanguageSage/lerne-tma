@@ -6,7 +6,8 @@ import Dexie from 'dexie';
 mock.module('../apiConfig.js', { namedExports: {
   mediaURL: (path, kind) => path ? (/^(https?:|blob:|data:)/.test(path) ? path : `https://fixture.invalid/${kind}/${path}`) : null,
 } });
-const { localMediaURL, cardMediaView } = await import('../mediaCache.js');
+const { localMediaURL, cardMediaView, clearMediaCache } = await import('../mediaCache.js');
+const { prepareLocalDb, closeLocalDb, resetAllDatabases } = await import('../localDb.js');
 let online = true;
 Object.defineProperty(navigator, 'onLine', { get: () => online, configurable: true });
 const database = () => {
@@ -117,4 +118,71 @@ test('oversized and failed downloads do not become available offline', async () 
     assert.equal(reads, 0);
     assert.equal(await db.media.count(), 0);
   } finally { await db.delete(); }
+});
+
+test('clearMediaCache revokes objectUrls per database and closeLocalDb triggers automatic cleanup', async () => {
+  const dbA = database();
+  const dbB = database();
+  const revoked = [];
+  const origRevoke = URL.revokeObjectURL;
+  URL.revokeObjectURL = (url) => {
+    revoked.push(url);
+    return origRevoke.call(URL, url);
+  };
+  online = false;
+
+  try {
+    const urlA = 'https://fixture.invalid/images/a.webp';
+    const urlB = 'https://fixture.invalid/images/b.webp';
+    await dbA.media.put({ url: urlA, blob: new Blob(['a'], { type: 'image/webp' }) });
+    await dbB.media.put({ url: urlB, blob: new Blob(['b'], { type: 'image/webp' }) });
+
+    const blobA1 = await localMediaURL(dbA, urlA, 'images');
+    const blobB1 = await localMediaURL(dbB, urlB, 'images');
+    assert.match(blobA1, /^blob:/);
+    assert.match(blobB1, /^blob:/);
+    assert.equal(await localMediaURL(dbA, urlA, 'images'), blobA1);
+
+    clearMediaCache(dbA.name);
+    assert.deepEqual(revoked, [blobA1]);
+
+    const blobA2 = await localMediaURL(dbA, urlA, 'images');
+    assert.notEqual(blobA2, blobA1);
+    assert.equal(await localMediaURL(dbB, urlB, 'images'), blobB1);
+
+    // Verify closeLocalDb / resetAllDatabases triggers onLocalDbClose -> clearMediaCache
+    const mem = new Map([['lerne_user_id', '777']]);
+    const prevStorage = globalThis.localStorage;
+    globalThis.localStorage = {
+      getItem: k => (mem.has(k) ? mem.get(k) : null),
+      setItem: (k, v) => mem.set(k, String(v)),
+      removeItem: k => mem.delete(k),
+      clear: () => mem.clear(),
+    };
+    try {
+      const local = await prepareLocalDb();
+      const localUrl = 'https://fixture.invalid/images/local.webp';
+      await local.media.put({ url: localUrl, blob: new Blob(['local'], { type: 'image/webp' }) });
+      const localBlob = await localMediaURL(local, localUrl, 'images');
+      assert.match(localBlob, /^blob:/);
+
+      closeLocalDb(777);
+      assert.equal(revoked.includes(localBlob), true);
+
+      // Reopen via getLocalDb/prepareLocalDb, create another object URL, and verify resetAllDatabases revokes it
+      const reopened = await prepareLocalDb();
+      const localBlob2 = await localMediaURL(reopened, localUrl, 'images');
+      assert.notEqual(localBlob2, localBlob);
+      resetAllDatabases();
+      assert.equal(revoked.includes(localBlob2), true);
+      await reopened.delete();
+    } finally {
+      globalThis.localStorage = prevStorage;
+    }
+  } finally {
+    clearMediaCache();
+    URL.revokeObjectURL = origRevoke;
+    await dbA.delete();
+    await dbB.delete();
+  }
 });

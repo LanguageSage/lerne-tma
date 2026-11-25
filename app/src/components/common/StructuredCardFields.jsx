@@ -6,19 +6,6 @@ import { cardTypes, newCardContent, promptField, cardWriteError } from '../../ut
 import { patchInfoBlock, patchLayoutItem } from '../../utils/cardLayout';
 import './StructuredCardFields.css';
 
-async function defaultUploadLayoutImage(file, signal) {
-  const form = new FormData();
-  form.append('file', file);
-  const res = await fetch('/api/media/upload-image', { method: 'POST', body: form, signal });
-  const payload = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(payload?.detail?.message || payload?.detail || `HTTP ${res.status}`);
-    err.response = { data: payload };
-    throw err;
-  }
-  return payload;
-}
-
 function CardImages({ card, update, attachImage, uploadLayoutImage }) {
   const [path, setPath] = useState('');
   const [error, setError] = useState('');
@@ -26,6 +13,7 @@ function CardImages({ card, update, attachImage, uploadLayoutImage }) {
   const uploadRequest = useRef(null);
   useEffect(() => () => { uploadRequest.current?.abort(); uploadRequest.current = null; }, []);
   const imagePath = /^images\/[A-Za-z0-9_-][A-Za-z0-9_.-]*$/;
+  const canUploadFile = typeof uploadLayoutImage === 'function';
   const attach = value => {
     if (!imagePath.test(value)) { setError(tr('Укажите путь images/имя-файла.')); return; }
     attachImage(value);
@@ -39,8 +27,13 @@ function CardImages({ card, update, attachImage, uploadLayoutImage }) {
     uploadRequest.current = request;
     setUploading(true); setError('');
     try {
-      const uploaded = await (uploadLayoutImage || defaultUploadLayoutImage)(file, request.signal);
-      const uploadedPath = typeof uploaded === 'string' ? uploaded : uploaded?.path;
+      if (!canUploadFile) {
+        throw new Error(tr('Загрузка изображений недоступна в текущем режиме.'));
+      }
+      const uploaded = await uploadLayoutImage(file, request.signal);
+      const uploadedPath = typeof uploaded === 'string'
+        ? uploaded
+        : (uploaded?.relativePath || uploaded?.path);
       if (!request.signal.aborted && uploadedPath) attach(uploadedPath);
     } catch (failure) { if (!request.signal.aborted) setError(cardWriteError(failure)); }
     finally { if (uploadRequest.current === request) { uploadRequest.current = null; setUploading(false); } }
@@ -56,9 +49,11 @@ function CardImages({ card, update, attachImage, uploadLayoutImage }) {
       <input className="form-input" value={path} placeholder="images/example.webp" onChange={event => setPath(event.target.value)} />
     </label>
     <button type="button" className="btn-secondary" onClick={() => attach(path)} disabled={!path || uploading}>{tr('Добавить изображение')}</button>
-    <label className="card-form-text-field">{uploading ? tr('Загрузка...') : tr('Загрузить изображение из файла')}
-      <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={upload} />
-    </label>
+    {canUploadFile && (
+      <label className="card-form-text-field">{uploading ? tr('Загрузка...') : tr('Загрузить изображение из файла')}
+        <input type="file" accept="image/png,image/jpeg,image/webp,image/gif" disabled={uploading} onChange={upload} />
+      </label>
+    )}
     {error && <p role="alert">{error}</p>}
   </fieldset>;
 }

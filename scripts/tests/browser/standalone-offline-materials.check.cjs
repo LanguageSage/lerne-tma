@@ -176,16 +176,103 @@ with zipfile.ZipFile(valid_zip) as zin, zipfile.ZipFile(missing_zip, 'w', compre
   return { validZip, missingMediaZip };
 }
 
+function makePngBuffer(width = 32, height = 32) {
+  const zlib = require('node:zlib');
+  const crcTable = new Uint32Array(256);
+  for (let n = 0; n < 256; n += 1) {
+    let c = n;
+    for (let k = 0; k < 8; k += 1) {
+      c = (c & 1) ? (0xedb88320 ^ (c >>> 1)) : (c >>> 1);
+    }
+    crcTable[n] = c >>> 0;
+  }
+  const crc32 = (buf) => {
+    let c = 0xffffffff;
+    for (let i = 0; i < buf.length; i += 1) {
+      c = crcTable[(c ^ buf[i]) & 0xff] ^ (c >>> 8);
+    }
+    return (c ^ 0xffffffff) >>> 0;
+  };
+  const chunk = (type, data) => {
+    const typeBuf = Buffer.from(type, 'ascii');
+    const lenBuf = Buffer.alloc(4);
+    lenBuf.writeUInt32BE(data.length, 0);
+    const crcBuf = Buffer.alloc(4);
+    crcBuf.writeUInt32BE(crc32(Buffer.concat([typeBuf, data])), 0);
+    return Buffer.concat([lenBuf, typeBuf, data, crcBuf]);
+  };
+  const sig = Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]);
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr[8] = 8;
+  ihdr[9] = 2;
+  const rowSize = 1 + width * 3;
+  const raw = Buffer.alloc(rowSize * height);
+  for (let y = 0; y < height; y += 1) {
+    raw[y * rowSize] = 0;
+    for (let x = 0; x < width; x += 1) {
+      const idx = y * rowSize + 1 + x * 3;
+      raw[idx] = 240;
+      raw[idx + 1] = 140;
+      raw[idx + 2] = 40;
+    }
+  }
+  return Buffer.concat([
+    sig,
+    chunk('IHDR', ihdr),
+    chunk('IDAT', zlib.deflateSync(raw)),
+    chunk('IEND', Buffer.alloc(0)),
+  ]);
+}
+
+function makeWavBuffer(sampleCount = 1600) {
+  const dataSize = sampleCount * 2;
+  const buf = Buffer.alloc(44 + dataSize);
+  buf.write('RIFF', 0, 'ascii');
+  buf.writeUInt32LE(36 + dataSize, 4);
+  buf.write('WAVE', 8, 'ascii');
+  buf.write('fmt ', 12, 'ascii');
+  buf.writeUInt32LE(16, 16);
+  buf.writeUInt16LE(1, 20);
+  buf.writeUInt16LE(1, 22);
+  buf.writeUInt32LE(8000, 24);
+  buf.writeUInt32LE(16000, 28);
+  buf.writeUInt16LE(2, 32);
+  buf.writeUInt16LE(16, 34);
+  buf.write('data', 36, 'ascii');
+  buf.writeUInt32LE(dataSize, 40);
+  for (let i = 0; i < sampleCount; i += 1) {
+    buf.writeInt16LE(Math.round(Math.sin(i * 0.25) * 8000), 44 + i * 2);
+  }
+  return buf;
+}
+
+function makeMp4HeaderBuffer() {
+  const buf = Buffer.alloc(40);
+  buf.writeUInt32BE(24, 0);
+  buf.write('ftyp', 4, 'ascii');
+  buf.write('isom', 8, 'ascii');
+  buf.writeUInt32BE(512, 12);
+  buf.write('isom', 16, 'ascii');
+  buf.write('mp41', 20, 'ascii');
+  buf.writeUInt32BE(16, 24);
+  buf.write('free', 28, 'ascii');
+  return buf;
+}
+
 function verifyZipWithAdminPython(zipPath) {
   const script = `
-import sys
+import json, sys
 sys.path.insert(0, r'C:\\121\\Lerne_projekt\\lerne-admin\\src')
 import os; os.environ.setdefault('LERNE_ADMIN_ALLOW_LOCAL', '1')
 from lerne_admin.services import material_archive as admin_archive
 doc, blobs = admin_archive.read_archive(sys.argv[1])
-print({'folders': len(doc['content']['folder']), 'decks': len(doc['content']['deck']), 'cards': len(doc['content']['card']), 'media': len(blobs)})
+deck_meta = json.loads(doc['content']['deck'][0]['values']['metadata'])
+resource_types = sorted(r.get('type') for r in deck_meta.get('resources', []))
+print(json.dumps({'folders': len(doc['content']['folder']), 'decks': len(doc['content']['deck']), 'cards': len(doc['content']['card']), 'media': len(blobs), 'resource_types': resource_types}))
 `;
-  return execFileSync(ADMIN_PYTHON, ['-c', script, zipPath], { encoding: 'utf8' });
+  return JSON.parse(execFileSync(ADMIN_PYTHON, ['-c', script, zipPath], { encoding: 'utf8' }).trim());
 }
 
 async function readIndexedDbState(page) {
@@ -486,6 +573,137 @@ async function run() {
     const restoredDb = await readIndexedDbState(page);
     assert.equal(restoredDb.progress.length, 2, 'Imported card SRS progress must restore across wipe + re-import');
 
+    // 10b. DeckMediaModal local resource upload (image + audio + video), DeckResources playback, reload persistence, and ZIP export
+    const deckPngPath = path.join(tempWorkDir, 'deck-cover.png');
+    const deckWavPath = path.join(tempWorkDir, 'deck-extra.wav');
+    const deckMp4Path = path.join(tempWorkDir, 'deck-clip.mp4');
+    fs.writeFileSync(deckPngPath, makePngBuffer(32, 32));
+    fs.writeFileSync(deckWavPath, makeWavBuffer(1600));
+    fs.writeFileSync(deckMp4Path, makeMp4HeaderBuffer());
+
+    await page.getByText('Kurs Offline E2E', { exact: true }).click();
+    await page.getByText('Einheit 1', { exact: true }).click();
+    await page.getByRole('heading', { name: 'Medien & Schreiben' }).click();
+    await page.locator('.deck-intro-btn-list').waitFor({ state: 'visible' });
+    await page.locator('.deck-intro-btn-list').click();
+    await page.locator('.view-cards .header-action-btn[aria-expanded]').waitFor({ state: 'visible' });
+
+    await page.locator('.view-cards .header-action-btn[aria-expanded]').click();
+    await page.locator('.deck-dropdown-menu .dropdown-item').first().click();
+    await page.locator('.settings-modal input[type="file"][accept="audio/*"]').waitFor({ state: 'attached' });
+
+    // Upload image (via ImageEditorModal)
+    await page.locator('.settings-modal input[type="file"][accept="image/*"]').setInputFiles(deckPngPath);
+    await page.locator('.image-editor-actions .btn-primary').waitFor({ state: 'visible' });
+    await page.waitForTimeout(250);
+    await page.locator('.image-editor-actions .btn-primary').click();
+    await page.locator('.image-editor-actions').waitFor({ state: 'hidden' });
+
+    // Upload audio & video
+    await page.locator('.settings-modal input[type="file"][accept="audio/*"]').setInputFiles(deckWavPath);
+    await page.waitForFunction(async () => {
+      const dbs = await indexedDB.databases();
+      const meta = dbs.find(d => d.name && d.name.startsWith('LerneStandaloneDB_'));
+      if (!meta) return false;
+      return new Promise((resolve) => {
+        const req = indexedDB.open(meta.name);
+        req.onsuccess = () => {
+          const db = req.result;
+          const getAll = db.transaction(['decks'], 'readonly').objectStore('decks').getAll();
+          getAll.onsuccess = () => {
+            db.close();
+            const deck = getAll.result.find(d => d.name === 'Medien & Schreiben');
+            const m = typeof deck?.metadata === 'string' ? JSON.parse(deck.metadata) : deck?.metadata;
+            const types = (m?.resources || []).map(r => r.type);
+            resolve(types.includes('image') && types.filter(t => t === 'audio').length === 2);
+          };
+        };
+      });
+    });
+
+    await page.locator('.settings-modal input[type="file"][accept="video/*"]').setInputFiles(deckMp4Path);
+    await page.waitForFunction(async () => {
+      const dbs = await indexedDB.databases();
+      const meta = dbs.find(d => d.name && d.name.startsWith('LerneStandaloneDB_'));
+      if (!meta) return false;
+      return new Promise((resolve) => {
+        const req = indexedDB.open(meta.name);
+        req.onsuccess = () => {
+          const db = req.result;
+          const getAll = db.transaction(['decks'], 'readonly').objectStore('decks').getAll();
+          getAll.onsuccess = () => {
+            db.close();
+            const deck = getAll.result.find(d => d.name === 'Medien & Schreiben');
+            const m = typeof deck?.metadata === 'string' ? JSON.parse(deck.metadata) : deck?.metadata;
+            const types = (m?.resources || []).map(r => r.type);
+            resolve(types.includes('image') && types.includes('video') && types.filter(t => t === 'audio').length === 2);
+          };
+        };
+      });
+    });
+
+    await page.locator('.settings-modal .modal-footer-actions .btn-primary').click();
+    await page.locator('.settings-modal').waitFor({ state: 'hidden' });
+
+    // Verify DeckResources rendering & audio metadata/playback
+    await page.waitForFunction(() => {
+      const img = document.querySelector('.deck-images-gallery img');
+      const audios = [...document.querySelectorAll('.deck-audio-player audio')];
+      const video = document.querySelector('.view-cards video');
+      return Boolean(
+        img && img.complete && img.naturalWidth > 0 && img.src.startsWith('blob:')
+        && audios.length === 2 && audios.every(a => a.src.startsWith('blob:'))
+        && video && video.src.startsWith('blob:')
+      );
+    });
+    const deckAudioMeta = await page.evaluate(async () => {
+      const audios = [...document.querySelectorAll('.deck-audio-player audio')];
+      return Promise.all(audios.map(el => {
+        if (el.readyState >= 1) return Promise.resolve({ readyState: el.readyState, duration: el.duration });
+        return new Promise((resolve, reject) => {
+          el.addEventListener('loadedmetadata', () => resolve({ readyState: el.readyState, duration: el.duration }), { once: true });
+          el.addEventListener('error', () => reject(new Error('Deck audio element failed to load')), { once: true });
+          el.load();
+        });
+      }));
+    });
+    assert.equal(deckAudioMeta.length, 2);
+    assert.equal(deckAudioMeta.every(a => a.readyState >= 1 && a.duration > 0), true);
+    await page.screenshot({ path: path.join(EVIDENCE_DIR, '06-deck-resources-375.png'), fullPage: true });
+
+    // Reload and verify DeckResources persist across Force Stop simulation
+    await page.reload({ waitUntil: 'networkidle' });
+    await page.getByText('Kurs Offline E2E', { exact: true }).click();
+    await page.getByText('Einheit 1', { exact: true }).click();
+    await page.getByRole('heading', { name: 'Medien & Schreiben' }).click();
+    await page.locator('.deck-intro-btn-list').click();
+    await page.waitForFunction(() => {
+      const img = document.querySelector('.deck-images-gallery img');
+      const audios = [...document.querySelectorAll('.deck-audio-player audio')];
+      const video = document.querySelector('.view-cards video');
+      return Boolean(
+        img && img.complete && img.naturalWidth > 0 && img.src.startsWith('blob:')
+        && audios.length === 2 && audios.every(a => a.src.startsWith('blob:'))
+        && video && video.src.startsWith('blob:')
+      );
+    });
+
+    // Verify canonical /api/media/... paths stored in IndexedDB (never ephemeral blob: URLs)
+    const dbAfterDeckMedia = await readIndexedDbState(page);
+    const updatedDeckRow = dbAfterDeckMedia.decks.find(d => d.name === 'Medien & Schreiben');
+    const storedMeta = typeof updatedDeckRow.metadata === 'string'
+      ? JSON.parse(updatedDeckRow.metadata)
+      : updatedDeckRow.metadata;
+    for (const res of storedMeta.resources) {
+      assert.match(res.path, /^\/api\/media\/(images|audio|videos)\/archive_[a-f0-9]{64}\./);
+      assert.equal(res.url, res.path);
+    }
+
+    await page.locator('.view-cards .back-btn').click({ force: true });
+    await page.locator('.deck-intro-back-btn').click();
+    await page.locator('.header-top-left .back-btn').click({ force: true });
+    await page.locator('.header-top-left .back-btn').click({ force: true });
+
     // 11. Selective Material Export -> Validate ZIP directly with Admin Python
     await page.locator('[data-testid="standalone-open-materials-btn"]').click();
     const folderCheckbox = page.locator('[data-testid^="standalone-export-folder-"]').first();
@@ -497,7 +715,12 @@ async function run() {
     ]);
     const exportedZipPath = path.join(tempWorkDir, zipDl.suggestedFilename());
     await zipDl.saveAs(exportedZipPath);
-    const pythonValidationOut = verifyZipWithAdminPython(exportedZipPath).trim();
+    const pythonValidationOut = verifyZipWithAdminPython(exportedZipPath);
+    assert.equal(pythonValidationOut.folders, 2);
+    assert.equal(pythonValidationOut.decks, 1);
+    assert.equal(pythonValidationOut.cards, 2);
+    assert.equal(pythonValidationOut.media, 7);
+    assert.deepEqual(pythonValidationOut.resource_types, ['audio', 'audio', 'image', 'video']);
 
     assert.deepEqual(forbiddenRequests, [], `Forbidden network requests: ${JSON.stringify(forbiddenRequests)}`);
     assert.deepEqual(pageErrors, [], `Uncaught page errors: ${JSON.stringify(pageErrors)}`);

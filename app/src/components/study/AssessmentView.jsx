@@ -7,6 +7,9 @@ import { useSettingsStore } from '../../store/useSettingsStore.js';
 import { ExerciseRenderer } from './ExerciseRenderer.jsx';
 import { evaluateFreeTextAnswer } from '../../services/answerEvaluationService.js';
 import { mediaURL } from '../../services/apiConfig.js';
+import { getAudioUrl } from '../../utils/media.js';
+import { isPlatformAssetUrl } from '../../utils/platform.js';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { stopGlobalAudio } from '../../hooks/useAudio.js';
 import { assessmentSummary, recordAssessmentResult } from '../../utils/assessment.js';
 import { saveAssessment } from '../../services/assessmentService.js';
@@ -96,6 +99,9 @@ export function AssessmentView() {
         isAdmin={settings.isAdmin}
         evaluateAnswer={evaluateFreeTextAnswer}
         resolveMediaUrl={mediaURL}
+        resolveAudioUrl={getAudioUrl}
+        isLocalAssetUrl={isPlatformAssetUrl}
+        allowDictation={!IS_STANDALONE}
         onBeforeDictation={stopGlobalAudio}
         styles={settings} onTrainerAnswer={save} />
         : <p role="alert">{tr('Механика задания не поддерживается в экзамене. Вернитесь к колоде.')}</p>}

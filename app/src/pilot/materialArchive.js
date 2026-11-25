@@ -1512,6 +1512,7 @@ export async function buildMaterialArchiveExport({
   selectAll = false,
   readAssetBytes = null,
   inspectNativeAssets = null,
+  recoverNativeAsset = null,
   now = new Date(),
 } = {}) {
   const database = db || await prepareLocalDb();
@@ -1650,7 +1651,8 @@ export async function buildMaterialArchiveExport({
         if (res.path) addRef(res.path, res.type);
       }
     }
-    addInlineRefs(metaCopy);
+    const { resources: _resources, ...otherMeta } = metaCopy;
+    addInlineRefs(otherMeta);
 
     const author = isLibrary
       ? null
@@ -1746,8 +1748,35 @@ export async function buildMaterialArchiveExport({
         replacements.set(rawUri, `archive://${entry.sha256}`);
       }
     } else if (typeof inspectNativeAssets === 'function') {
+      const repairedMeta = [];
       for (const [rawUri, parsed] of rawRefs.entries()) {
-        const meta = offlineMetaByRelPath.get(parsed.relativePath);
+        let meta = offlineMetaByRelPath.get(parsed.relativePath);
+        if (!meta && typeof recoverNativeAsset === 'function') {
+          const recovered = await recoverNativeAsset(parsed);
+          if (
+            recovered?.exists
+            && recovered?.valid
+            && recovered.sha256
+            && recovered.size > 0
+            && recovered.mime
+            && recovered.path
+            && (!recovered.folder || recovered.folder === parsed.folder)
+            && (!recovered.filename || recovered.filename === parsed.filename)
+          ) {
+            meta = {
+              key: `${OFFLINE_MEDIA_KEY_PREFIX}${parsed.relativePath}`,
+              sha256: recovered.sha256,
+              folder: parsed.folder,
+              filename: parsed.filename,
+              mime: recovered.mime,
+              size: recovered.size,
+              path: recovered.path,
+              updated_at: new Date().toISOString(),
+            };
+            offlineMetaByRelPath.set(parsed.relativePath, meta);
+            repairedMeta.push(meta);
+          }
+        }
         if (!meta) {
           failArchive(`Отсутствуют метаданные локального медиафайла: ${parsed.relativePath}`);
         }
@@ -1778,6 +1807,9 @@ export async function buildMaterialArchiveExport({
       if (verification?.missing?.length > 0 || verification?.corrupted?.length > 0) {
         const problem = verification.missing?.[0] || verification.corrupted?.[0] || 'media';
         failArchive(`Невозможно экспортировать архив: отсутствует или повреждён файл ${problem}.`);
+      }
+      if (repairedMeta.length > 0 && database?.syncState) {
+        await database.syncState.bulkPut(repairedMeta);
       }
     } else {
       failArchive('Недоступно чтение локальных медиафайлов для экспорта.');

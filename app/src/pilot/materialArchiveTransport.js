@@ -237,6 +237,9 @@ export async function exportSelectedMaterialsZip({
       deckIds,
       selectAll,
       inspectNativeAssets: (assets) => plugin.inspectExistingMedia({ assets }),
+      recoverNativeAsset: typeof plugin?.statMediaAsset === 'function'
+        ? (ref) => plugin.statMediaAsset({ folder: ref.folder, filename: ref.filename })
+        : null,
       now,
     });
     const res = await plugin.exportArchiveZip({

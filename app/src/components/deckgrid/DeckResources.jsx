@@ -1,5 +1,6 @@
 import { Crop, ExternalLink } from 'lucide-react';
 import { tr } from '../../i18n/locale';
+import { mediaURL } from '../../services/apiConfig';
 import { getResourceSrc } from '../../utils/deckUtils';
 import DeckAudioPlayer from '../common/DeckAudioPlayer';
 
@@ -23,7 +24,7 @@ export function DeckResources({ deckResources, imageHeight, startResizeDrag, han
             WebkitOverflowScrolling: 'touch'
           }}>
             {deckImages.map((img, idx) => {
-              const imgSrc = getResourceSrc(img, 'images');
+              const imgSrc = getResourceSrc(img, 'images', mediaURL);
               const resourceIndex = deckResources.findIndex(r => r === img || (r.type === 'image' && (r.url === img.url || r.path === img.path)));
               return (
                 <div key={idx} style={{ flex: '0 0 100%', maxWidth: '100%', scrollSnapAlign: 'start' }}>
@@ -168,7 +169,7 @@ export function DeckResources({ deckResources, imageHeight, startResizeDrag, han
               )}
 
         {deckAudios.map((aud, idx) => (
-          <DeckAudioPlayer key={idx} url={aud.url} title={aud.title} />
+          <DeckAudioPlayer key={idx} url={getResourceSrc(aud, 'audio', mediaURL)} title={aud.title} />
         ))}
 
         {deckVideos.map((vid, idx) => (
@@ -180,7 +181,7 @@ export function DeckResources({ deckResources, imageHeight, startResizeDrag, han
             background: '#000'
           }}>
             <video 
-              src={vid.url} 
+              src={getResourceSrc(vid, 'videos', mediaURL)} 
               controls 
               playsInline
               style={{ width: '100%', maxHeight: '200px', display: 'block', objectFit: 'contain' }} 

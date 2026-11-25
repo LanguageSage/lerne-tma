@@ -2,8 +2,7 @@ import React from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import { tr } from '../../i18n/locale';
-import { IS_STANDALONE } from '../../utils/standaloneMode.js';
-import { resolveOfflineMediaUrlSync } from '../../pilot/offlineMediaResolver.js';
+import { MediaResolverProvider, useMediaResolvers } from '../../card-ui/MediaResolverContext.jsx';
 import './MarkdownRenderer.css';
 
 function MarkdownTable({ children }) {
@@ -17,10 +16,11 @@ function MarkdownTable({ children }) {
 
 function MarkdownImage({ src, alt, ...props }) {
   const [failedSrc, setFailedSrc] = React.useState(null);
-  const resolvedSrc = IS_STANDALONE ? resolveOfflineMediaUrlSync(src, 'images') : src;
+  const { resolveMediaUrl } = useMediaResolvers();
+  const resolvedSrc = src ? resolveMediaUrl(src, 'images') : null;
   const failed = Boolean(resolvedSrc && failedSrc === resolvedSrc);
 
-  if (IS_STANDALONE && (!resolvedSrc || failed)) {
+  if (!src || !resolvedSrc || failed) {
     return (
       <span role="img" aria-label={alt || tr('Изображение недоступно офлайн')} style={{ color: '#94a3b8', fontSize: '0.85em' }}>
         [{alt || tr('Изображение недоступно офлайн')}]
@@ -44,7 +44,7 @@ const remarkPlugins = [remarkGfm];
 const PLAIN_TEXT_MARKDOWN_RE = /[*_`~#[\]!|>\\+-]|\n|^\s*\d+\./;
 
 /** Present authored Markdown from Theory, answers or context. */
-export function MarkdownRenderer({ children, className = '', style }) {
+export function MarkdownRenderer({ children, className = '', style, resolveMediaUrl }) {
   if (typeof children === 'string' && !PLAIN_TEXT_MARKDOWN_RE.test(children) && !children.includes('http') && !children.includes('&')) {
     return (
       <div className={`card-markdown ${className}`} style={style}>
@@ -52,11 +52,14 @@ export function MarkdownRenderer({ children, className = '', style }) {
       </div>
     );
   }
-  return (
+  const content = (
     <div className={`card-markdown ${className}`} style={style}>
       <ReactMarkdown remarkPlugins={remarkPlugins} components={components} skipHtml>
         {children || ''}
       </ReactMarkdown>
     </div>
   );
+  return resolveMediaUrl
+    ? <MediaResolverProvider resolveMediaUrl={resolveMediaUrl}>{content}</MediaResolverProvider>
+    : content;
 }

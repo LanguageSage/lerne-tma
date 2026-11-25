@@ -5,7 +5,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, Image as ImageIcon, Volume2, Video, Link2, Trash2, Edit2, Plus, Globe } from 'lucide-react';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useUiStore } from '../../store/useUiStore';
-import { useMediaUpload } from '../../hooks/useMediaUpload';
+import { fetchRemoteImageFile, useMediaUpload } from '../../hooks/useMediaUpload';
+import { mediaURL } from '../../services/apiConfig';
+import { getResourceSrc } from '../../utils/deckUtils';
+import { IS_STANDALONE } from '../../utils/standaloneMode';
 import { MediaPicker } from '../common/MediaPicker';
 import { ImageEditorModal } from '../common/ImageEditorModal';
 
@@ -276,7 +279,7 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
 
                               <button
                                 onClick={() => {
-                                  const src = res.url || (res.path ? `/api/media/${res.path}` : '');
+                                  const src = getResourceSrc(res, 'images', mediaURL);
                                   setEditingImageSrc(src);
                                   setTargetResourceIndex(idx);
                                 }}
@@ -533,6 +536,8 @@ export const DeckMediaModal = ({ isOpen, onClose }) => {
         onImageUpload={(file) => handleSaveDeckImage(file)}
         searchQuery={currentDeck?.name || ''}
         loading={loading}
+        allowRemoteImageSearch={!IS_STANDALONE}
+        onFetchRemoteImage={IS_STANDALONE ? null : fetchRemoteImageFile}
       />
 
       <ImageEditorModal

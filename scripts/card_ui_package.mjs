@@ -25,6 +25,9 @@ export const FORBIDDEN_PATH_PREFIXES = [
   'services/offlineUi',
   'utils/auth',
   'utils/navigation',
+  'utils/standaloneMode',
+  'utils/localMode',
+  'pilot/',
   'hooks/useAudio',
   'hooks/useSpeechRecognition.js',
   'i18n/i18nContext',
@@ -123,6 +126,12 @@ export function collectSharedCardUiGraph() {
     }
 
     const content = fs.readFileSync(real, 'utf8');
+    if (/\bfetch\s*\(/.test(content)) {
+      jsViolations.push(`Forbidden fetch() call in ${relFromSrc}`);
+    }
+    if (relFromSrc !== 'utils/platform.js' && content.includes('/_capacitor_file_/')) {
+      jsViolations.push(`Forbidden Capacitor asset URL literal "/_capacitor_file_/" in ${relFromSrc}`);
+    }
     for (const spec of extractJsSpecifiers(content)) {
       if (!spec.startsWith('.')) {
         const pkgName = spec.startsWith('@') ? spec.split('/').slice(0, 2).join('/') : spec.split('/')[0];

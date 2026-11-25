@@ -10,6 +10,8 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAudio, stopGlobalAudio } from '../../hooks/useAudio';
 import { evaluateFreeTextAnswer } from '../../services/answerEvaluationService';
 import { mediaURL } from '../../services/apiConfig';
+import { getAudioUrl } from '../../utils/media';
+import { isPlatformAssetUrl } from '../../utils/platform';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 
@@ -290,6 +292,9 @@ export const TrainerView = () => {
                     isAdmin={isAdmin}
                     evaluateAnswer={IS_STANDALONE ? null : evaluateFreeTextAnswer}
                     resolveMediaUrl={mediaURL}
+                    resolveAudioUrl={getAudioUrl}
+                    isLocalAssetUrl={isPlatformAssetUrl}
+                    allowDictation={!IS_STANDALONE}
                     onBeforeDictation={stopGlobalAudio}
                     studyMode="trainer"
                     isPureTrainerMode={true}
@@ -343,7 +348,7 @@ export const TrainerView = () => {
                       {studyExerciseType(content) ? tr("Ответ / объяснение") : tr("Перевод")}
                     </div>
                     <div style={{ fontSize: '1.1rem', fontWeight: 600, color: '#4ade80', whiteSpace: 'pre-wrap', ...backCardStyle }}>
-                      <MarkdownRenderer>{studySideText(content, 'back')}</MarkdownRenderer>
+                      <MarkdownRenderer resolveMediaUrl={mediaURL}>{studySideText(content, 'back')}</MarkdownRenderer>
                     </div>
                   </div>
 
@@ -363,7 +368,7 @@ export const TrainerView = () => {
                       whiteSpace: 'pre-wrap',
                       ...contextStyle
                     }}>
-                      <MarkdownRenderer>{content.explanation}</MarkdownRenderer>
+                      <MarkdownRenderer resolveMediaUrl={mediaURL}>{content.explanation}</MarkdownRenderer>
                     </div>
                   )}
 

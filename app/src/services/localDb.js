@@ -1,14 +1,33 @@
 import Dexie from 'dexie';
-import { Capacitor } from '@capacitor/core';
 import { getUserId } from '../utils/auth.js';
 import { IS_LOCAL } from '../utils/localMode.js';
+import { isNative } from '../utils/platform.js';
 import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js';
 
 const databases = new Map();
 const preparations = new Map();
 const blockedListeners = new Set();
+const closeListeners = new Set();
 const versionChangedDatabases = new WeakSet();
 const MAX_PREPARE_RETRIES = 3;
+
+function notifyLocalDbClose(payload) {
+  for (const listener of closeListeners) {
+    try {
+      listener(payload);
+    } catch (error) {
+      console.warn('[localDb] Close listener failed:', error);
+    }
+  }
+}
+
+export const onLocalDbClose = (listener) => {
+  if (typeof listener !== 'function') return () => {};
+  closeListeners.add(listener);
+  return () => {
+    closeListeners.delete(listener);
+  };
+};
 
 function isDatabaseClosed(database) {
   if (!database) return true;
@@ -25,6 +44,7 @@ function evictDatabase(userId, database) {
   if (prep && prep.database === database) {
     preparations.delete(database.name);
   }
+  notifyLocalDbClose({ databaseName: database?.name || null, resetAll: false });
 }
 
 export const onLocalDbBlocked = (listener) => {
@@ -71,6 +91,7 @@ export const resetAllDatabases = () => {
       database.close();
     } catch { /* ignore */ }
   }
+  notifyLocalDbClose({ databaseName: null, resetAll: true });
 };
 
 export async function prepareLocalDb(attempt = 0) {
@@ -233,7 +254,7 @@ export const getNextTempId = () => {
 
 // Check if app is in offline-first mode
 export const isOfflineMode = () => {
-  return IS_STANDALONE || Capacitor.isNativePlatform() || localStorage.getItem('offline_mode') === 'true'
+  return IS_STANDALONE || isNative() || localStorage.getItem('offline_mode') === 'true'
     || (import.meta.env.DEV && new URLSearchParams(window.location.search).get('offline') === '1');
 };
 

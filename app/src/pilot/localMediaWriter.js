@@ -21,13 +21,17 @@ function uint8ToBase64(bytes) {
 }
 
 export async function storeLocalMediaFile(file, folder, { db = null } = {}) {
-  if (!['images', 'audio'].includes(folder)) {
+  if (!['images', 'audio', 'videos'].includes(folder)) {
     throw new Error(tr('Неподдерживаемый тип локального медиа.'));
   }
   if (!file || typeof file.arrayBuffer !== 'function' || !file.size || file.size > MAX_ASSET_BYTES) {
-    throw new Error(folder === 'audio'
-      ? tr('Выберите MP3 или PCM WAV до 20 МБ.')
-      : tr('Выберите изображение до 20 МБ.'));
+    if (folder === 'audio') {
+      throw new Error(tr('Выберите MP3 или PCM WAV до 20 МБ.'));
+    }
+    if (folder === 'videos') {
+      throw new Error(tr('Выберите MP4 или WebM видео до 20 МБ.'));
+    }
+    throw new Error(tr('Выберите изображение до 20 МБ.'));
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer());

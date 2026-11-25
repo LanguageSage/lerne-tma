@@ -7,7 +7,6 @@ import { playSuccessSound, playErrorSound } from '../../utils/audioSynth.js';
 import { triggerHaptic } from '../../utils/platform.js';
 import { useFreeTextEvaluation } from '../../hooks/useFreeTextEvaluation.js';
 import { useSpeechRecognitionCore } from '../../hooks/useSpeechRecognitionCore.js';
-import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { assessmentFreeTextEvidence } from '../../utils/assessment.js';
 import { freeTextTaskSupport } from '../../utils/supportEvidence.js';
@@ -43,6 +42,7 @@ export const StudyCardFreeText = React.memo(({
   supportHistoryUnknown = false,
   evaluateAnswer = null,
   isAdmin = false,
+  allowDictation = true,
   onBeforeDictation = null,
 }) => {
   useInterfaceLocale();
@@ -188,7 +188,7 @@ export const StudyCardFreeText = React.memo(({
           <RotateCcw size={16} aria-hidden="true" />{tr('Сбросить изменения')}
         </button>
       </EditableTextField> : <div className="free-text-input-wrapper">{answerInput}</div>}
-      {!IS_STANDALONE && !isEditable && !isCompleted && !isExhausted && <button type="button"
+      {allowDictation && !isEditable && !isCompleted && !isExhausted && <button type="button"
         className="btn btn-secondary free-text-action free-text-dictate" aria-pressed={isListening}
         disabled={loading || isStopping}
         onClick={() => {

@@ -44,6 +44,7 @@ import { useCardSelectMode } from '../../hooks/useCardSelectMode';
 import { useCardDnd } from '../../hooks/useCardDnd';
 import { useDeckImageResize } from '../../hooks/useDeckImageResize';
 import { useDeckNoteCardIds } from '../../hooks/useCardNotes';
+import { mediaURL } from '../../services/apiConfig';
 
 
 export const CardList = ({ startStudy, startStudyCard }) => {
@@ -591,7 +592,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                     </div>
                     {activeAnswer && (
                       <div className="back-min" style={{ ...backTypographyStyle, marginTop: '4px' }}>
-                        <MarkdownRenderer>{activeAnswer}</MarkdownRenderer>
+                        <MarkdownRenderer resolveMediaUrl={mediaURL}>{activeAnswer}</MarkdownRenderer>
                       </div>
                     )}
                   </div>

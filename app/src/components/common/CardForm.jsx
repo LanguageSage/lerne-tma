@@ -3,8 +3,10 @@ import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useAiActions } from '../../hooks/useAiActions';
 import { useAudio } from '../../hooks/useAudio';
-import { useMediaUpload } from '../../hooks/useMediaUpload';
-import { networkApi } from '../../services/api';
+import { fetchRemoteImageFile, useMediaUpload } from '../../hooks/useMediaUpload';
+import { mediaURL } from '../../services/apiConfig';
+import { getAudioUrl } from '../../utils/media';
+import { isPlatformAssetUrl } from '../../utils/platform';
 import { getSessionIdentity } from '../../utils/auth';
 import { findCardDeck } from '../../utils/deckUtils';
 import { getResolvedStyle } from '../../utils/style';
@@ -40,13 +42,6 @@ function CardDeckField({ deckId, setCardData, disabled }) {
   );
 }
 
-const uploadLayoutImageViaNetworkApi = async (file, signal) => {
-  const form = new FormData();
-  form.append('file', file);
-  const response = await networkApi.post('/media/upload-image', form, { signal });
-  return response.data;
-};
-
 export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCreator = false }) => {
   const effectiveConfig = useSettingsStore(state => state.activeDesignConfig);
   const loading = useUiStore(state => state.loading);
@@ -55,7 +50,7 @@ export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCre
   const cardDeck = useDeckStore(state => findCardDeck(state, cardData?.deck_id));
   const { runAiGenerator, stopAiGeneration, generateAudioInternal } = useAiActions();
   const { playAudio } = useAudio();
-  const { uploadCreatorImage, uploadAudioFile } = useMediaUpload();
+  const { uploadCreatorImage, uploadLayoutImageFile, uploadAudioFile } = useMediaUpload();
 
   const mediaDraftKey = isCreator ? creatorDeckId : cardData?.id;
   const resolvedBgFront = getResolvedStyle(effectiveConfig?.front?.card?.background, cardData?.id || 0);
@@ -84,7 +79,7 @@ export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCre
       resolvedBgFront={resolvedBgFront}
       resolvedBgBack={resolvedBgBack}
       enableDictation={!IS_STANDALONE && isCreator}
-      lockLayout={IS_STANDALONE}
+      lockLayout={false}
       allowOfflineAudioUpload={IS_STANDALONE}
       hideCoverHeightSlider={IS_STANDALONE}
       topSlot={
@@ -93,9 +88,14 @@ export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCre
         ) : null
       }
       onUploadCoverImage={uploadCreatorImage}
-      onUploadLayoutImage={IS_STANDALONE ? null : uploadLayoutImageViaNetworkApi}
+      onUploadLayoutImage={uploadLayoutImageFile}
       onUploadAudio={uploadAudioFile}
       getSessionIdentity={getSessionIdentity}
+      resolveMediaUrl={mediaURL}
+      resolveAudioUrl={getAudioUrl}
+      isLocalAssetUrl={isPlatformAssetUrl}
+      allowRemoteImageSearch={!IS_STANDALONE}
+      onFetchRemoteImage={IS_STANDALONE ? null : fetchRemoteImageFile}
       onGenerateAudio={IS_STANDALONE ? null : (() => generateAudioInternal(cardData, setCardData, playAudio))}
       onAiGenerate={IS_STANDALONE ? null : handleAiGenerate}
       onStopGeneration={IS_STANDALONE ? null : stopAiGeneration}

@@ -34,6 +34,7 @@ import { CardLevelBadge } from '../common/CardLevelBadge';
 import { getFlagStyle } from '../../constants/cardFlags';
 import { navigateUp } from '../../utils/navigation';
 import api from '../../services/api';
+import { mediaURL } from '../../services/apiConfig';
 import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { canEditContainer, isBundledSeedDeck } from '../../utils/deckUtils';
 
@@ -510,7 +511,7 @@ export const DeckGrid = ({
                             </div>
                             {answer && (
                               <div className="back-min">
-                                <MarkdownRenderer>{answer}</MarkdownRenderer>
+                                <MarkdownRenderer resolveMediaUrl={mediaURL}>{answer}</MarkdownRenderer>
                               </div>
                             )}
                           </div>

@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import { RefreshCw, ImageOff } from 'lucide-react';
+import { useMediaResolvers } from '../../card-ui/MediaResolverContext.jsx';
 
 /**
  * Resilient Image component for study cards.
@@ -20,6 +21,7 @@ export const StudyCardImage = React.memo(({
   showResizeHandle = true,
 }) => {
   useInterfaceLocale();
+  const { isLocalAssetUrl } = useMediaResolvers();
   const [loadStatus, setLoadStatus] = useState('loading'); // 'loading' | 'loaded' | 'error'
   const [retryCount, setRetryCount] = useState(0);
   const [retryTimestamp, setRetryTimestamp] = useState(null);
@@ -78,7 +80,8 @@ export const StudyCardImage = React.memo(({
 
   if (!src) return null;
 
-  const effectiveSrc = retryTimestamp && !/^(blob:|data:)/.test(src) && !src.includes('/_capacitor_file_/')
+  const isLocal = isLocalAssetUrl(src);
+  const effectiveSrc = retryTimestamp && !isLocal
     ? `${src}${src.includes('?') ? '&' : '?'}_retry=${retryCount}&_t=${retryTimestamp}`
     : src;
 
@@ -144,7 +147,7 @@ export const StudyCardImage = React.memo(({
           >
             <ImageOff size={28} style={{ color: 'rgba(239, 68, 68, 0.7)' }} />
             <span style={{ fontSize: '0.8rem', color: 'rgba(255, 255, 255, 0.8)', maxWidth: '240px' }}>
-              {tr(navigator.onLine ? 'Не удалось загрузить изображение' : 'Изображение недоступно без сети')}
+              {tr((isLocal || navigator.onLine) ? 'Не удалось загрузить изображение' : 'Изображение недоступно без сети')}
             </span>
             <button
               type="button"

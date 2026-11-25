@@ -31,9 +31,13 @@ import java.nio.ByteOrder;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.Comparator;
 import java.util.Enumeration;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -162,6 +166,73 @@ public class OfflineMaterialArchivePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void listMediaAssets(PluginCall call) {
+        String filterFolder = call.getString("folder", null);
+        ioExecutor.execute(() -> {
+            try {
+                File mediaRoot = ensureMediaRoot();
+                MediaScanResult scan = scanMediaRoot(mediaRoot, filterFolder);
+                JSONArray assets = new JSONArray();
+                for (ScannedMediaAsset asset : scan.assets) {
+                    JSONObject item = new JSONObject();
+                    item.put("folder", asset.folder);
+                    item.put("filename", asset.filename);
+                    item.put("relativePath", asset.relativePath);
+                    item.put("sha256", asset.sha256);
+                    item.put("size", asset.size);
+                    item.put("mime", asset.mime);
+                    item.put("path", asset.path);
+                    assets.put(item);
+                }
+                JSONArray invalid = new JSONArray();
+                for (InvalidMediaAsset bad : scan.invalid) {
+                    JSONObject item = new JSONObject();
+                    item.put("relativePath", bad.relativePath);
+                    item.put("reason", bad.reason);
+                    invalid.put(item);
+                }
+                JSObject res = new JSObject();
+                res.put("mediaRoot", mediaRoot.getAbsolutePath());
+                res.put("assets", assets);
+                res.put("invalid", invalid);
+                call.resolve(res);
+            } catch (Exception ex) {
+                call.reject("Failed to list offline media files: " + ex.getMessage(), ex);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void statMediaAsset(PluginCall call) {
+        String folder = call.getString("folder", "");
+        String filename = call.getString("filename", "");
+        ioExecutor.execute(() -> {
+            try {
+                File mediaRoot = ensureMediaRoot();
+                MediaStatResult stat = statSingleMediaAsset(mediaRoot, folder, filename);
+                JSObject res = new JSObject();
+                res.put("exists", stat.exists);
+                res.put("valid", stat.valid);
+                if (stat.valid) {
+                    res.put("folder", stat.folder);
+                    res.put("filename", stat.filename);
+                    res.put("relativePath", stat.relativePath);
+                    res.put("sha256", stat.sha256);
+                    res.put("size", stat.size);
+                    res.put("mime", stat.mime);
+                    res.put("path", stat.path);
+                } else if (stat.exists) {
+                    res.put("relativePath", stat.relativePath);
+                    res.put("reason", stat.reason);
+                }
+                call.resolve(res);
+            } catch (Exception ex) {
+                call.reject("Failed to inspect offline media file: " + ex.getMessage(), ex);
+            }
+        });
+    }
+
+    @PluginMethod
     public void pickArchiveForImport(PluginCall call) {
         Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -277,7 +348,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         long expectedSize = call.getData() != null ? call.getData().optLong("size", -1L) : -1L;
         String dataBase64 = call.getString("dataBase64", "");
 
-        if (!"images".equals(folder) && !"audio".equals(folder)) {
+        if (!"images".equals(folder) && !"audio".equals(folder) && !"videos".equals(folder)) {
             call.reject("Unsupported local media folder");
             return;
         }
@@ -337,6 +408,14 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                 File mediaRoot = ensureMediaRoot();
                 File target = resolveSafeMediaTarget(mediaRoot, folder, filename);
                 byte[] head = Arrays.copyOf(bytes, Math.min(bytes.length, 8192));
+
+                if ("videos".equals(folder)) {
+                    String[] extMime = detectVideoExtAndMime(head, bytes.length);
+                    if (extMime == null || !filename.endsWith(extMime[0])) {
+                        call.reject("Неподдерживаемое видео: ожидается MP4 или WebM.");
+                        return;
+                    }
+                }
 
                 if (target.exists()) {
                     if (!target.isFile() || target.length() != expectedSize || !expectedSha.equals(sha256File(target))) {
@@ -562,7 +641,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         return dir;
     }
 
-    private File resolveSafeMediaTarget(File mediaRoot, String folder, String filename) throws IOException {
+    static File resolveSafeMediaTarget(File mediaRoot, String folder, String filename) throws IOException {
         if (!MEDIA_FOLDERS.contains(folder)) {
             throw new IOException("Unknown media category: " + folder);
         }
@@ -577,6 +656,223 @@ public class OfflineMaterialArchivePlugin extends Plugin {
             throw new IOException("Media path escapes storage root");
         }
         return target;
+    }
+
+    static final class ScannedMediaAsset {
+        final String folder;
+        final String filename;
+        final String relativePath;
+        final String sha256;
+        final long size;
+        final String mime;
+        final String path;
+
+        ScannedMediaAsset(String folder, String filename, String relativePath, String sha256, long size, String mime, String path) {
+            this.folder = folder;
+            this.filename = filename;
+            this.relativePath = relativePath;
+            this.sha256 = sha256;
+            this.size = size;
+            this.mime = mime;
+            this.path = path;
+        }
+    }
+
+    static final class InvalidMediaAsset {
+        final String relativePath;
+        final String reason;
+
+        InvalidMediaAsset(String relativePath, String reason) {
+            this.relativePath = relativePath;
+            this.reason = reason;
+        }
+    }
+
+    static final class MediaScanResult {
+        final List<ScannedMediaAsset> assets;
+        final List<InvalidMediaAsset> invalid;
+
+        MediaScanResult(List<ScannedMediaAsset> assets, List<InvalidMediaAsset> invalid) {
+            this.assets = assets;
+            this.invalid = invalid;
+        }
+    }
+
+    static final class MediaStatResult {
+        final boolean exists;
+        final boolean valid;
+        final String folder;
+        final String filename;
+        final String relativePath;
+        final String sha256;
+        final long size;
+        final String mime;
+        final String path;
+        final String reason;
+
+        private MediaStatResult(
+            boolean exists,
+            boolean valid,
+            String folder,
+            String filename,
+            String relativePath,
+            String sha256,
+            long size,
+            String mime,
+            String path,
+            String reason
+        ) {
+            this.exists = exists;
+            this.valid = valid;
+            this.folder = folder;
+            this.filename = filename;
+            this.relativePath = relativePath;
+            this.sha256 = sha256;
+            this.size = size;
+            this.mime = mime;
+            this.path = path;
+            this.reason = reason;
+        }
+
+        static MediaStatResult missing(String folder, String filename, String relativePath) {
+            return new MediaStatResult(false, false, folder, filename, relativePath, null, 0L, null, null, null);
+        }
+
+        static MediaStatResult invalid(String folder, String filename, String relativePath, String reason) {
+            return new MediaStatResult(true, false, folder, filename, relativePath, null, 0L, null, null, reason);
+        }
+
+        static MediaStatResult valid(
+            String folder,
+            String filename,
+            String relativePath,
+            String sha256,
+            long size,
+            String mime,
+            String path
+        ) {
+            return new MediaStatResult(true, true, folder, filename, relativePath, sha256, size, mime, path, null);
+        }
+    }
+
+    static MediaScanResult scanMediaRoot(File mediaRoot, String filterFolder) throws IOException {
+        if (mediaRoot == null) {
+            throw new IOException("Media root is required");
+        }
+        List<String> foldersToScan;
+        if (filterFolder != null && !filterFolder.isEmpty()) {
+            if (!MEDIA_FOLDERS.contains(filterFolder)) {
+                throw new IOException("Unknown media category: " + filterFolder);
+            }
+            foldersToScan = Collections.singletonList(filterFolder);
+        } else {
+            foldersToScan = Arrays.asList("images", "audio", "videos", "backgrounds");
+        }
+
+        List<ScannedMediaAsset> validAssets = new ArrayList<>();
+        List<InvalidMediaAsset> invalidAssets = new ArrayList<>();
+
+        for (String folder : foldersToScan) {
+            File folderDir = new File(mediaRoot, folder);
+            if (!folderDir.isDirectory()) {
+                continue;
+            }
+            File[] files = folderDir.listFiles();
+            if (files == null) {
+                continue;
+            }
+            Arrays.sort(files, Comparator.comparing(File::getName));
+            for (File file : files) {
+                if (!file.isFile()) {
+                    continue;
+                }
+                String name = file.getName();
+                if (PARTIAL_MEDIA.matcher(name).matches() || name.endsWith(".partial")) {
+                    continue;
+                }
+                if (!ASSET_FILENAME_PATTERN.matcher(name).matches()) {
+                    continue;
+                }
+                MediaStatResult stat = statSingleMediaAsset(mediaRoot, folder, name);
+                if (stat.valid) {
+                    validAssets.add(new ScannedMediaAsset(
+                        stat.folder,
+                        stat.filename,
+                        stat.relativePath,
+                        stat.sha256,
+                        stat.size,
+                        stat.mime,
+                        stat.path
+                    ));
+                } else if (stat.exists) {
+                    invalidAssets.add(new InvalidMediaAsset(stat.relativePath, stat.reason));
+                }
+            }
+        }
+
+        return new MediaScanResult(validAssets, invalidAssets);
+    }
+
+    static MediaStatResult statSingleMediaAsset(File mediaRoot, String folder, String filename) throws IOException {
+        if (mediaRoot == null) {
+            throw new IOException("Media root is required");
+        }
+        File target = resolveSafeMediaTarget(mediaRoot, folder, filename);
+        String relativePath = folder + "/" + filename;
+        if (!target.isFile()) {
+            return MediaStatResult.missing(folder, filename, relativePath);
+        }
+        long size = target.length();
+        if (size <= 0 || size > MAX_ASSET_BYTES) {
+            return MediaStatResult.invalid(folder, filename, relativePath, "Invalid asset size");
+        }
+        String expectedSha = filename.substring(8, 72);
+        String ext = filename.substring(72);
+        String actualSha = sha256File(target);
+        if (!expectedSha.equals(actualSha)) {
+            return MediaStatResult.invalid(folder, filename, relativePath, "SHA-256 mismatch");
+        }
+        String[] extMime = detectAssetExtAndMime(folder, target, size);
+        if (extMime == null || !ext.equals(extMime[0])) {
+            return MediaStatResult.invalid(folder, filename, relativePath, "Unsupported or mismatched media signature");
+        }
+        return MediaStatResult.valid(
+            folder,
+            filename,
+            relativePath,
+            expectedSha,
+            size,
+            extMime[1],
+            "media/" + expectedSha + ext
+        );
+    }
+
+    private static byte[] readHeadBytes(File file, int maxLen) throws IOException {
+        int cap = (int) Math.min(file.length(), maxLen);
+        byte[] buf = new byte[cap];
+        int offset = 0;
+        try (InputStream in = new BufferedInputStream(new FileInputStream(file))) {
+            while (offset < cap) {
+                int read = in.read(buf, offset, cap - offset);
+                if (read == -1) break;
+                offset += read;
+            }
+        }
+        return offset == cap ? buf : Arrays.copyOf(buf, offset);
+    }
+
+    private static String[] detectAssetExtAndMime(String folder, File file, long size) throws IOException {
+        byte[] head = readHeadBytes(file, 8192);
+        if ("images".equals(folder) || "backgrounds".equals(folder)) {
+            return imageExtAndMime(head);
+        }
+        if ("audio".equals(folder)) {
+            return detectAudioExtAndMime(head, size, file);
+        }
+        if ("videos".equals(folder)) {
+            return detectVideoExtAndMime(head, size);
+        }
+        return null;
     }
 
     private void copyUriToBoundedFile(Uri uri, File destination, long maxBytes) throws IOException {

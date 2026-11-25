@@ -470,7 +470,7 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     await assertZeroCloudQueue(db);
   });
 
-  test('edits preserve SRS & unchanged layout, reject layout mutations, prune receipts, and delete cleanly', async () => {
+  test('edits preserve SRS, support Option B card.layout mutations & normalization, reject invalid layout paths, prune receipts, and delete cleanly', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     const deckId = pack.decks[0].id;
@@ -492,45 +492,52 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     };
     await db.progress.put(srsProgress);
 
-    const cardWithLayoutId = IMPORTED_ID_START + 50;
-    const originalLayout = [
-      { id: 'info_0', type: 'info', index: 0, visibility: 'before_answer' },
-      { id: 'ex_0', type: 'exercise' },
-    ];
-    await db.cards.put({
-      id: cardWithLayoutId,
+    const layoutSha = 'c'.repeat(64);
+    const layoutImageRel = `images/archive_${layoutSha}.png`;
+    const createdWithLayout = await offlineApi.handle('post', '/cards/save', {
       deck_id: deckId,
-      position: 500,
-      target_language: 'de',
-      revision: 1,
-      is_deleted: 0,
-      is_dirty: 0,
+      request_id: 'req-create-with-layout',
       content_v2: {
         schema_version: 2,
         card: {
           type: 'standard',
-          data: { prompt: 'Alt', answer: 'старый' },
+          data: { prompt: 'New Layout Card', answer: 'Новый макет' },
           info: [{ type: 'task', text: 'Читайте' }],
-          layout: originalLayout,
+          layout: [
+            { id: 'img_0', type: 'image', path: `/api/media/${layoutImageRel}`, alt: 'Alt', caption: 'Cap', visibility: 'before_answer' },
+            { id: 'info_0', type: 'info', index: 0, visibility: 'before_answer' },
+            { id: 'ex_0', type: 'exercise' },
+          ],
         },
       },
-    });
+    }, cfg);
+    assert.equal(createdWithLayout.data.content_v2.card.layout[0].path, layoutImageRel);
 
-    await assert.rejects(
-      offlineApi.handle('post', '/cards/save', {
-        deck_id: deckId,
-        request_id: 'req-create-with-layout',
-        content_v2: {
-          schema_version: 2,
-          card: {
-            type: 'standard',
-            data: { prompt: 'New', answer: 'Ans' },
-            layout: [{ id: 'ex', type: 'exercise' }],
+    for (const invalidPath of [
+      'https://evil.com/photo.png',
+      'blob:https://localhost/fake-blob',
+      '../secret.png',
+      `audio/archive_${layoutSha}.wav`,
+    ]) {
+      await assert.rejects(
+        offlineApi.handle('post', '/cards/save', {
+          deck_id: deckId,
+          request_id: `req-bad-layout-${invalidPath}`,
+          content_v2: {
+            schema_version: 2,
+            card: {
+              type: 'standard',
+              data: { prompt: 'Bad', answer: 'Плохо' },
+              layout: [
+                { id: 'img_bad', type: 'image', path: invalidPath },
+                { id: 'ex_0', type: 'exercise' },
+              ],
+            },
           },
-        },
-      }, cfg),
-      /layout|макета/i
-    );
+        }, cfg),
+        /Некорректная локальная ссылка медиа/i
+      );
+    }
 
     const editBeforeCount = await db.cards.count();
     const editSeedRes = await offlineApi.handle('patch', `/cards/${seedCard.id}`, {
@@ -551,56 +558,66 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     assert.equal(progressAfter.next_review, srsProgress.next_review);
     assert.equal(progressAfter.flag, 4);
 
-    const editLayoutValid = await offlineApi.handle('patch', `/cards/${cardWithLayoutId}`, {
-      request_id: 'req-edit-layout-keep',
+    const cardWithLayoutId = createdWithLayout.data.id;
+    const reorderedLayout = [
+      { id: 'ex_0', type: 'exercise' },
+      { id: 'info_0', type: 'info', index: 0, visibility: 'before_answer' },
+      { id: 'info_1', type: 'info', index: 1, visibility: 'after_answer' },
+      { id: 'img_0', type: 'image', path: `/api/media/${layoutImageRel}`, alt: 'Alt 2', caption: 'Cap 2', visibility: 'before_answer' },
+    ];
+    const editLayoutReordered = await offlineApi.handle('patch', `/cards/${cardWithLayoutId}`, {
+      request_id: 'req-edit-layout-reordered',
       revision: 1,
       content_v2: {
         schema_version: 2,
         card: {
           type: 'standard',
           data: { prompt: 'Neu', answer: 'новый' },
-          info: [{ type: 'task', text: 'Новый текст блока' }],
-          layout: structuredClone(originalLayout),
+          info: [
+            { type: 'task', text: 'Новый текст блока' },
+            { type: 'example', text: 'Доп. пример' },
+          ],
+          layout: reorderedLayout,
         },
       },
     }, cfg);
-    assert.deepEqual(editLayoutValid.data.content_v2.card.layout, originalLayout);
+    assert.equal(editLayoutReordered.data.revision, 2);
+    assert.equal(editLayoutReordered.data.content_v2.card.layout.length, 4);
+    assert.equal(editLayoutReordered.data.content_v2.card.layout[3].path, layoutImageRel);
 
     await assert.rejects(
       offlineApi.handle('patch', `/cards/${cardWithLayoutId}`, {
-        request_id: 'req-edit-layout-reordered',
+        request_id: 'req-edit-layout-bad-path',
         revision: 2,
         content_v2: {
           schema_version: 2,
           card: {
             type: 'standard',
             data: { prompt: 'Neu', answer: 'новый' },
-            info: [{ type: 'task', text: 'Новый текст блока' }],
             layout: [
+              { id: 'img_bad', type: 'image', path: 'https://evil.com/leak.png' },
               { id: 'ex_0', type: 'exercise' },
-              { id: 'info_0', type: 'info', index: 0, visibility: 'before_answer' },
             ],
           },
         },
       }, cfg),
-      /layout|макета/i
+      /Некорректная локальная ссылка медиа/i
     );
 
-    await assert.rejects(
-      offlineApi.handle('patch', `/cards/${cardWithLayoutId}`, {
-        request_id: 'req-edit-layout-removed',
-        revision: 2,
-        content_v2: {
-          schema_version: 2,
-          card: {
-            type: 'standard',
-            data: { prompt: 'Neu', answer: 'новый' },
-            info: [{ type: 'task', text: 'Новый текст блока' }],
-          },
+    const editLayoutRemoved = await offlineApi.handle('patch', `/cards/${cardWithLayoutId}`, {
+      request_id: 'req-edit-layout-removed',
+      revision: 2,
+      content_v2: {
+        schema_version: 2,
+        card: {
+          type: 'standard',
+          data: { prompt: 'Neu', answer: 'новый' },
+          info: [{ type: 'task', text: 'Новый текст блока' }],
         },
-      }, cfg),
-      /layout|макета/i
-    );
+      },
+    }, cfg);
+    assert.equal(editLayoutRemoved.data.revision, 3);
+    assert.equal(editLayoutRemoved.data.content_v2.card.layout, undefined);
 
     const createdList = [];
     for (let i = 0; i < 70; i += 1) {
@@ -761,10 +778,24 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
       /.+/
     );
 
+    const layoutImgFile = new Blob([makePngBytes(5, 5, 10, 200, 100)], { type: 'image/png' });
+    const storedLayoutImg = await storeLocalMediaFile(layoutImgFile, 'images', { db });
+    assert.match(storedLayoutImg.relativePath, /^images\/archive_[a-f0-9]{64}\.png$/);
+
     const authoredRes = await offlineApi.handle('post', '/cards/save', {
       deck_id: importedDeck.id,
       request_id: 'req-authored-with-media',
-      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Authored Media', answer: 'С медиа' } } },
+      content_v2: {
+        schema_version: 2,
+        card: {
+          type: 'standard',
+          data: { prompt: 'Authored Media', answer: 'С медиа' },
+          layout: [
+            { id: 'layout_img_1', type: 'image', path: storedLayoutImg.relativePath, caption: 'Layout PNG', visibility: 'before_answer' },
+            { id: 'ex_0', type: 'exercise' },
+          ],
+        },
+      },
       image_path: storedImg.path,
       audio_path: storedAudio.path,
     }, { _testDb: db });
@@ -791,6 +822,14 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     const mediaCard = importedCardsFresh.find(c => c.content_v2.card.data.prompt === 'Authored Media');
     assert.ok(mediaCard.image_path);
     assert.ok(mediaCard.audio_path);
+    assert.equal(mediaCard.content_v2.card.layout?.[0]?.type, 'image');
+    assert.equal(mediaCard.content_v2.card.layout?.[0]?.path, storedLayoutImg.relativePath);
+    const resolvedLayoutImgBytes = await readWebMediaAssetBytes(
+      freshDb,
+      'images',
+      storedLayoutImg.relativePath.split('/').pop(),
+    );
+    assert.ok(resolvedLayoutImgBytes.byteLength > 0);
     const resolvedBlobBytes = await readWebMediaAssetBytes(
       freshDb,
       'audio',

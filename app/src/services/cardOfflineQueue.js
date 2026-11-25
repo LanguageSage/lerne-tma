@@ -101,6 +101,16 @@ function normalizeMediaForStorage(body, envelope) {
       normalized.card.image = parsedCardImage.relativePath;
     }
   }
+  if (Array.isArray(normalized.card.layout)) {
+    for (const item of normalized.card.layout) {
+      if (item?.type === 'image' && item.path != null) {
+        const parsedLayoutImage = normalizeStandaloneMediaPath(item.path, 'image_path');
+        if (parsedLayoutImage) {
+          item.path = parsedLayoutImage.relativePath;
+        }
+      }
+    }
+  }
   return { normalized, mediaPatch };
 }
 
@@ -282,14 +292,12 @@ export async function saveNativeCard(db, body, options = {}, userId = null) {
     if (!body?.request_id || typeof body.request_id !== 'string') {
       throw new Error('Missing card create request ID');
     }
-    validateNativeV2Content(body.content_v2, { writable: true });
-    assertArchiveSafeMetadata(body.content_v2.card.metadata);
-    // Stage 3 (E4) will unlock card.layout creation alongside local layout image persistence.
-    if (body.content_v2.card.layout != null) {
-      throw new Error(tr('Изменение макета (layout) карточки пока недоступно без редактора дизайна. Редактируйте содержимое карточки без изменения layout.'));
+    if (!body?.content_v2 || typeof body.content_v2 !== 'object' || !body.content_v2.card || typeof body.content_v2.card !== 'object') {
+      validateNativeV2Content(body?.content_v2, { writable: true });
     }
-
     const { normalized: normalizedContent, mediaPatch } = normalizeMediaForStorage(body, body.content_v2);
+    validateNativeV2Content(normalizedContent, { writable: true });
+    assertArchiveSafeMetadata(normalizedContent.card.metadata);
     const fingerprint = canonicalCompareValue({
       op: 'create',
       deck_id: Number(body.deck_id),
@@ -933,13 +941,15 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
     if (!body?.request_id || typeof body.request_id !== 'string') {
       throw new Error('Missing card edit request ID');
     }
-    validateNativeV2Content(body.content_v2, { writable: true });
-    assertArchiveSafeMetadata(body.content_v2.card.metadata);
-
+    if (!body?.content_v2 || typeof body.content_v2 !== 'object' || !body.content_v2.card || typeof body.content_v2.card !== 'object') {
+      validateNativeV2Content(body?.content_v2, { writable: true });
+    }
     const flag = expectedConflictOrOptions && typeof expectedConflictOrOptions === 'object'
       ? (expectedConflictOrOptions.flag ?? expectedConflictOrOptions.standaloneFlag)
       : undefined;
     const { normalized: normalizedContent, mediaPatch } = normalizeMediaForStorage(body, body.content_v2);
+    validateNativeV2Content(normalizedContent, { writable: true });
+    assertArchiveSafeMetadata(normalizedContent.card.metadata);
     const fingerprint = canonicalCompareValue({
       op: 'update',
       cardId,
@@ -972,13 +982,6 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
 
       const [deck, folderMap] = await Promise.all([db.decks.get(current.deck_id), loadFolderMap(db)]);
       if (!isDeckActiveInCache(deck, folderMap)) notFound();
-
-      // Stage 3 (E4) will unlock card.layout mutations alongside local layout image persistence.
-      const currentLayout = current.content_v2.card.layout ?? null;
-      const nextLayout = normalizedContent.card.layout ?? null;
-      if (canonicalCompareValue(currentLayout) !== canonicalCompareValue(nextLayout)) {
-        throw new Error(tr('Изменение макета (layout) карточки пока недоступно без редактора дизайна. Сохраните исходный layout или редактируйте содержимое карточки.'));
-      }
 
       const updated = stripOfflineQueueFields({
         ...current,

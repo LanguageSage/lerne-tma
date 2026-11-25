@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { tr } from '../../i18n/locale';
-import { getAudioUrl } from '../../utils/media';
+import { useMediaResolvers } from '../../card-ui/MediaResolverContext.jsx';
 
 export function CardAudioAttachments({
   cardData,
@@ -10,8 +10,10 @@ export function CardAudioAttachments({
   uploadAudioFile,
   allowOfflineUpload = false,
   getSessionIdentity,
-  resolveAudioUrl = getAudioUrl,
+  resolveAudioUrl,
 }) {
+  const { resolveAudioUrl: contextResolveAudioUrl } = useMediaResolvers();
+  const resolveAudio = resolveAudioUrl || contextResolveAudioUrl;
   const resolveIdentity = getSessionIdentity || (() => 'default');
   const [selection, setSelection] = useState(null);
   const [preview, setPreview] = useState('');
@@ -71,7 +73,7 @@ export function CardAudioAttachments({
     <p>{tr(allowOfflineUpload ? 'Готовое аудио: MP3 или PCM WAV, до 20 МБ. Файл сохраняется локально на устройстве.' : 'Готовое аудио: MP3 или PCM WAV, до 20 МБ. Загрузка доступна при подключении к сети.')}</p>
     {['front', 'back'].map(side => {
       const path = cardData[side === 'front' ? 'audio_path' : 'audio_back_path'];
-      const previewUrl = cardData[side === 'front' ? 'audio_url' : 'audio_back_url'] || resolveAudioUrl(path);
+      const previewUrl = cardData[side === 'front' ? 'audio_url' : 'audio_back_url'] || resolveAudio(path);
       const label = side === 'front' ? tr('Аудио для вопроса') : tr('Аудио для ответа');
       return <fieldset key={side} disabled={disabled || busy}>
         <legend>{label}</legend>

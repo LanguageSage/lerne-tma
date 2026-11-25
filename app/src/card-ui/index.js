@@ -26,6 +26,6 @@ export {
   draftSourceError,
   newCardContent,
 } from '../utils/cardDraft.js';
-export { defaultResolveMediaUrl, getAudioUrl, cleanMedia } from '../utils/media.js';
+export { defaultResolveMediaUrl, defaultResolveAudioUrl as getAudioUrl, cleanMedia } from './MediaResolverContext.jsx';
 export { getFlagStyle } from '../constants/cardFlags.js';
 export { t, tr, getInterfaceLanguage, setInterfaceLanguage } from '../i18n/locale.js';

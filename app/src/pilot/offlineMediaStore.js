@@ -1,6 +1,11 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
 import Dexie from 'dexie';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import {
+  convertNativeFileSrc,
+  getNativePlugin,
+  isNativePlatform,
+  isNativePluginAvailable,
+} from './nativeBridge.js';
 import { sha256BytesHex } from './sha256.js';
 import {
   CANONICAL_ASSET_NAME_RE,
@@ -13,6 +18,7 @@ import {
   isOfflineMediaUrl,
   parseOfflineMediaRef,
   resolveOfflineMediaUrlSync,
+  setLocalMediaEnabled,
   setNativeMediaConfig,
   setWebBlobUrl,
 } from './offlineMediaResolver.js';
@@ -27,18 +33,103 @@ export {
   resolveOfflineMediaUrlSync,
 };
 
-const OfflineMaterialArchive = registerPlugin('OfflineMaterialArchive');
+const CANONICAL_WEB_MEDIA_URL_RE = /^\/api\/media\/(images|audio|videos|backgrounds)\/(archive_[a-f0-9]{64}\.[a-z0-9]{2,4})$/;
+const MAX_LOCAL_MEDIA_BYTES = 20 * 1024 * 1024;
+
+function detectLocalMediaExtAndMime(bytes, folder) {
+  if (!(bytes instanceof Uint8Array) || bytes.length === 0 || bytes.length > MAX_LOCAL_MEDIA_BYTES) {
+    return null;
+  }
+  if (folder === 'images' || folder === 'backgrounds') {
+    if (
+      bytes.length >= 24
+      && bytes[0] === 0x89 && bytes[1] === 0x50 && bytes[2] === 0x4e && bytes[3] === 0x47
+      && bytes[4] === 0x0d && bytes[5] === 0x0a && bytes[6] === 0x1a && bytes[7] === 0x0a
+    ) {
+      return { ext: '.png', mime: 'image/png' };
+    }
+    if (bytes.length >= 4 && bytes[0] === 0xff && bytes[1] === 0xd8 && bytes[2] === 0xff) {
+      return { ext: '.jpg', mime: 'image/jpeg' };
+    }
+    if (
+      bytes.length >= 14
+      && bytes[0] === 0x47 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x38
+      && (bytes[4] === 0x37 || bytes[4] === 0x39) && bytes[5] === 0x61
+    ) {
+      return { ext: '.gif', mime: 'image/gif' };
+    }
+    if (
+      bytes.length >= 20
+      && bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x45 && bytes[10] === 0x42 && bytes[11] === 0x50
+    ) {
+      return { ext: '.webp', mime: 'image/webp' };
+    }
+    return null;
+  }
+  if (folder === 'audio') {
+    if (bytes.length < 128) return null;
+    if (
+      bytes[0] === 0x52 && bytes[1] === 0x49 && bytes[2] === 0x46 && bytes[3] === 0x46
+      && bytes[8] === 0x57 && bytes[9] === 0x41 && bytes[10] === 0x56 && bytes[11] === 0x45
+    ) {
+      return { ext: '.wav', mime: 'audio/wav' };
+    }
+    if (bytes[0] === 0x4f && bytes[1] === 0x67 && bytes[2] === 0x67 && bytes[3] === 0x53) {
+      return { ext: '.ogg', mime: 'audio/ogg' };
+    }
+    if (bytes[0] === 0x66 && bytes[1] === 0x4c && bytes[2] === 0x61 && bytes[3] === 0x43) {
+      return { ext: '.flac', mime: 'audio/flac' };
+    }
+    if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+      return { ext: '.m4a', mime: 'audio/mp4' };
+    }
+    if (
+      (bytes[0] === 0x49 && bytes[1] === 0x44 && bytes[2] === 0x33)
+      || (bytes[0] === 0xff && (bytes[1] & 0xe0) === 0xe0)
+    ) {
+      return { ext: '.mp3', mime: 'audio/mpeg' };
+    }
+    return null;
+  }
+  if (folder === 'videos') {
+    if (bytes.length < 32) return null;
+    if (bytes[4] === 0x66 && bytes[5] === 0x74 && bytes[6] === 0x79 && bytes[7] === 0x70) {
+      return { ext: '.mp4', mime: 'video/mp4' };
+    }
+    if (bytes[0] === 0x1a && bytes[1] === 0x45 && bytes[2] === 0xdf && bytes[3] === 0xa3) {
+      return { ext: '.webm', mime: 'video/webm' };
+    }
+    return null;
+  }
+  return null;
+}
+
+function verifyLocalMediaBlobBytes(bytes, folder, filename) {
+  const info = detectLocalMediaExtAndMime(bytes, folder);
+  if (!info || !filename.endsWith(info.ext)) return null;
+  const sha256 = sha256BytesHex(bytes);
+  if (filename !== `archive_${sha256}${info.ext}`) return null;
+  return {
+    sha256,
+    folder,
+    filename,
+    mime: info.mime,
+    size: bytes.length,
+    path: `media/${sha256}${info.ext}`,
+  };
+}
+
+function isLocalMediaRuntime(options = {}) {
+  return Boolean(IS_STANDALONE || isNativePlatform() || options?.forceLocal);
+}
 
 export function isNativeOfflineMediaAvailable() {
-  try {
-    return Boolean(Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('OfflineMaterialArchive'));
-  } catch {
-    return false;
-  }
+  return isNativePluginAvailable('OfflineMaterialArchive');
 }
 
 export function getOfflineMaterialArchivePlugin() {
-  return OfflineMaterialArchive;
+  return getNativePlugin('OfflineMaterialArchive');
 }
 
 export function registerNativeMediaFiles(assets) {
@@ -50,40 +141,151 @@ export function registerNativeMediaFiles(assets) {
   }
 }
 
-export async function initOfflineMediaStore(database) {
-  if (!IS_STANDALONE) return { mode: 'disabled' };
+export async function initOfflineMediaStore(database, options = {}) {
+  if (!isLocalMediaRuntime(options)) return { mode: 'disabled' };
+  setLocalMediaEnabled(true);
+
+  let diskAssets = [];
+  let invalidAssets = [];
 
   if (isNativeOfflineMediaAvailable()) {
-    const res = await OfflineMaterialArchive.getMediaRoot();
-    setNativeMediaConfig(res?.mediaRoot || null, filePath => Capacitor.convertFileSrc(filePath));
+    const plugin = getOfflineMaterialArchivePlugin();
+    let mediaRoot = null;
+    if (typeof plugin?.listMediaAssets === 'function') {
+      const scan = await plugin.listMediaAssets();
+      if (scan) {
+        mediaRoot = scan.mediaRoot || null;
+        diskAssets = Array.isArray(scan.assets) ? scan.assets : [];
+        invalidAssets = Array.isArray(scan.invalid) ? scan.invalid : [];
+      } else if (typeof plugin?.getMediaRoot === 'function') {
+        const res = await plugin.getMediaRoot();
+        mediaRoot = res?.mediaRoot || null;
+      }
+    } else if (typeof plugin?.getMediaRoot === 'function') {
+      const res = await plugin.getMediaRoot();
+      mediaRoot = res?.mediaRoot || null;
+    }
+    setNativeMediaConfig(mediaRoot, convertNativeFileSrc);
+    registerNativeMediaFiles(diskAssets);
   }
 
   const nativeRoot = getNativeMediaRoot();
+  let reconciledCount = 0;
 
   if (database?.syncState) {
     const records = await database.syncState.where('key').startsWith(OFFLINE_MEDIA_KEY_PREFIX).toArray();
+    const existingByKey = new Map();
     for (const record of records) {
+      if (record?.key) existingByKey.set(record.key, record);
       if (record?.folder && record?.filename) {
         addKnownOfflineMediaKey(`${record.folder}/${record.filename}`);
       }
     }
 
-    if (!nativeRoot && database.media && typeof URL?.createObjectURL === 'function') {
-      const canonicalUrls = records
-        .filter(r => r?.folder && r?.filename)
-        .map(r => `/api/media/${r.folder}/${r.filename}`);
-      if (canonicalUrls.length > 0) {
-        const mediaEntries = await database.media.bulkGet(canonicalUrls);
-        mediaEntries.forEach((entry, index) => {
-          const canonicalUrl = canonicalUrls[index];
-          if (entry?.blob && !getWebBlobUrl(canonicalUrl)) {
+    const nowIso = new Date().toISOString();
+
+    if (nativeRoot && diskAssets.length > 0) {
+      const repaired = [];
+      for (const asset of diskAssets) {
+        if (!asset?.folder || !asset?.filename || !asset?.sha256 || !asset?.size || !asset?.mime || !asset?.path) {
+          continue;
+        }
+        const relativePath = `${asset.folder}/${asset.filename}`;
+        const key = `${OFFLINE_MEDIA_KEY_PREFIX}${relativePath}`;
+        const existing = existingByKey.get(key);
+        if (
+          !existing
+          || existing.sha256 !== asset.sha256
+          || existing.size !== asset.size
+          || existing.mime !== asset.mime
+          || existing.path !== asset.path
+        ) {
+          const metaRecord = {
+            key,
+            sha256: asset.sha256,
+            folder: asset.folder,
+            filename: asset.filename,
+            mime: asset.mime,
+            size: asset.size,
+            path: asset.path,
+            updated_at: nowIso,
+          };
+          repaired.push(metaRecord);
+          existingByKey.set(key, metaRecord);
+        }
+      }
+      if (repaired.length > 0) {
+        await database.syncState.bulkPut(repaired);
+        reconciledCount = repaired.length;
+      }
+    }
+
+    if (!nativeRoot && database.media) {
+      const allMediaRows = await database.media.toArray();
+      const mediaByUrl = new Map();
+      const repaired = [];
+
+      for (const row of allMediaRows) {
+        if (!row?.url || !row?.blob) continue;
+        mediaByUrl.set(row.url, row.blob);
+        const match = row.url.match(CANONICAL_WEB_MEDIA_URL_RE);
+        if (!match) continue;
+        const folder = match[1];
+        const filename = match[2];
+        const relativePath = `${folder}/${filename}`;
+        const key = `${OFFLINE_MEDIA_KEY_PREFIX}${relativePath}`;
+        const existing = existingByKey.get(key);
+        const needsRepair = (
+          !existing
+          || !existing.sha256
+          || !existing.size
+          || !existing.mime
+          || !existing.path
+          || existing.size !== row.blob.size
+        );
+        if (!needsRepair || typeof row.blob.arrayBuffer !== 'function') continue;
+
+        try {
+          const bytes = new Uint8Array(await row.blob.arrayBuffer());
+          const entry = verifyLocalMediaBlobBytes(bytes, folder, filename);
+          if (entry) {
+            const metaRecord = {
+              key,
+              sha256: entry.sha256,
+              folder: entry.folder,
+              filename: entry.filename,
+              mime: entry.mime,
+              size: entry.size,
+              path: entry.path,
+              updated_at: nowIso,
+            };
+            repaired.push(metaRecord);
+            existingByKey.set(key, metaRecord);
+            addKnownOfflineMediaKey(relativePath);
+          }
+        } catch {
+          // Leave invalid rows untouched without deleting user data.
+        }
+      }
+
+      if (repaired.length > 0) {
+        await database.syncState.bulkPut(repaired);
+        reconciledCount = repaired.length;
+      }
+
+      if (typeof URL?.createObjectURL === 'function') {
+        for (const record of existingByKey.values()) {
+          if (!record?.folder || !record?.filename) continue;
+          const canonicalUrl = `/api/media/${record.folder}/${record.filename}`;
+          const blob = mediaByUrl.get(canonicalUrl);
+          if (blob && !getWebBlobUrl(canonicalUrl)) {
             try {
-              setWebBlobUrl(canonicalUrl, URL.createObjectURL(entry.blob));
+              setWebBlobUrl(canonicalUrl, URL.createObjectURL(blob));
             } catch {
               // Ignore object URL errors in non-DOM test runtimes.
             }
           }
-        });
+        }
       }
     }
   }
@@ -91,13 +293,22 @@ export async function initOfflineMediaStore(database) {
   return {
     mode: nativeRoot ? 'native' : 'web',
     nativeMediaRoot: nativeRoot,
+    reconciledCount,
+    invalidCount: invalidAssets.length,
   };
 }
 
-export async function resolveOfflineMediaUrlAsync(database, rawPath, defaultKind = 'images') {
-  if (!IS_STANDALONE || typeof rawPath !== 'string' || !rawPath.trim()) return null;
-  const syncResolved = resolveOfflineMediaUrlSync(rawPath, defaultKind);
+export async function resolveOfflineMediaUrlAsync(database, rawPath, defaultKind = 'images', options = {}) {
+  if (!isLocalMediaRuntime(options) || typeof rawPath !== 'string' || !rawPath.trim()) return null;
+  const syncResolved = resolveOfflineMediaUrlSync(rawPath, defaultKind, { forceLocal: true });
   if (syncResolved) return syncResolved;
+
+  if (isNativeOfflineMediaAvailable() && !getNativeMediaRoot()) {
+    const openDatabase = database && (!database.isOpen || database.isOpen()) ? database : null;
+    await initOfflineMediaStore(openDatabase, options);
+    const nativeResolved = resolveOfflineMediaUrlSync(rawPath, defaultKind, { forceLocal: true });
+    if (nativeResolved) return nativeResolved;
+  }
 
   const ref = parseOfflineMediaRef(rawPath, defaultKind);
   if (!ref || getNativeMediaRoot() || !database?.media) return null;

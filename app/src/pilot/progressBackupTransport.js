@@ -1,13 +1,9 @@
-import { Capacitor, registerPlugin } from '@capacitor/core';
+import { getNativePlugin, isNativePluginAvailable } from './nativeBridge.js';
 
-const OfflineBackupFile = registerPlugin('OfflineBackupFile');
+const OfflineBackupFile = getNativePlugin('OfflineBackupFile');
 
 export function isNativeBackupPickerAvailable() {
-  try {
-    return Boolean(Capacitor.isNativePlatform() && Capacitor.isPluginAvailable('OfflineBackupFile'));
-  } catch {
-    return false;
-  }
+  return isNativePluginAvailable('OfflineBackupFile');
 }
 
 /**

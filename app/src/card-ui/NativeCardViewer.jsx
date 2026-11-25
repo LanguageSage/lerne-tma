@@ -8,7 +8,7 @@ import { designConfigToCssVariables } from '../design/designTokens.js';
 import { getDesignStylesFromV2, getHarmonizedOptionStyles } from '../utils/cardStyles.js';
 import { getFlagStyle } from '../constants/cardFlags.js';
 import { stripMarkdown } from '../utils/text.js';
-import { defaultResolveMediaUrl, getAudioUrl } from '../utils/media.js';
+import { MediaResolverProvider, defaultResolveMediaUrl, defaultResolveAudioUrl, useMediaResolvers } from './MediaResolverContext.jsx';
 import { canRevealFreeTextAnswer } from '../utils/freeTextEvaluationState.js';
 import { getPhysicalSideAudioSource, getStudyRolePhysicalSide, PEDAGOGICAL_ROLE } from '../utils/studyCardRoles.js';
 import { studyContent, studyExerciseType, studyInfoBlocks, studyQuiz, studySideText } from '../utils/structuredStudyCard.js';
@@ -26,11 +26,12 @@ import './CardUiScoped.css';
 
 const CardVideo = ({ src }) => {
   const [status, setStatus] = useState('loading');
+  const { isLocalAssetUrl } = useMediaResolvers();
   return (
     <div className="video-container-card">
       {status === 'loading' && <p role="status">{tr('Загрузка видео...')}</p>}
       {status === 'error' && (
-        <p role="status">{tr(navigator.onLine ? 'Не удалось загрузить видео' : 'Видео недоступно без сети')}</p>
+        <p role="status">{tr((isLocalAssetUrl(src) || navigator.onLine) ? 'Не удалось загрузить видео' : 'Видео недоступно без сети')}</p>
       )}
       <video
         src={src}
@@ -83,7 +84,9 @@ export const NativeCardViewer = React.memo(({
   showImageResizeHandle = false,
   deckResources = [],
   resolveMediaUrl = defaultResolveMediaUrl,
-  resolveAudioUrl = getAudioUrl,
+  resolveAudioUrl = defaultResolveAudioUrl,
+  isLocalAssetUrl = null,
+  allowDictation = true,
   audioControls: providedAudioControls = null,
   frontAudioPlayerProps = {},
   backFrontAudioPlayerProps = {},
@@ -292,6 +295,7 @@ export const NativeCardViewer = React.memo(({
                 evaluateAnswer={evaluateAnswer}
                 isAdmin={isAdmin}
                 resolveMediaUrl={resolveMediaUrl}
+                allowDictation={allowDictation}
                 onBeforeDictation={onBeforeDictation}
               />
             )}
@@ -493,8 +497,14 @@ export const NativeCardViewer = React.memo(({
   );
 
   return (
-    <div className={`lerne-card-ui-root ${rootClassName}`.trim()} style={designVariables}>
-      {animated ? <AnimatePresence mode="sync" initial={false}>{surfaceContent}</AnimatePresence> : surfaceContent}
-    </div>
+    <MediaResolverProvider
+      resolveMediaUrl={resolveMediaUrl}
+      resolveAudioUrl={resolveAudioUrl}
+      isLocalAssetUrl={isLocalAssetUrl}
+    >
+      <div className={`lerne-card-ui-root ${rootClassName}`.trim()} style={designVariables}>
+        {animated ? <AnimatePresence mode="sync" initial={false}>{surfaceContent}</AnimatePresence> : surfaceContent}
+      </div>
+    </MediaResolverProvider>
   );
 });

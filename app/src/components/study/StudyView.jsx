@@ -12,7 +12,7 @@ import { useSessionStore } from '../../store/useSessionStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { getTtsVoiceForLang } from '../../constants/languageConstants';
 import { useCardActions } from '../../hooks/useCardActions';
-import { useMediaUpload } from '../../hooks/useMediaUpload';
+import { fetchRemoteImageFile, useMediaUpload } from '../../hooks/useMediaUpload';
 import { useAudio } from '../../hooks/useAudio';
 import { useAutoplay } from '../../hooks/useAutoplay';
 import { useCardNavigation } from '../../hooks/useCardNavigation';
@@ -23,7 +23,7 @@ import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
-import { parseDeckMetadata, canAuthorDeckCards } from '../../utils/deckUtils';
+import { getResourceSrc, parseDeckMetadata, canAuthorDeckCards } from '../../utils/deckUtils';
 import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
 import { isNativeStudyCard, studyContent, studyExplanation, studySideText } from '../../utils/structuredStudyCard.js';
@@ -624,7 +624,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
               ? parseDeckMetadata(currentDeck) : null);
             const deckAudio = metadata?.resources?.find(r => r.type === 'audio');
             if (deckAudio) {
-              return <DeckAudioPlayer url={deckAudio.url || getAudioUrl(deckAudio.path)} title={deckAudio.title} variant="compact" />;
+              return <DeckAudioPlayer url={getResourceSrc(deckAudio, 'audio', getAudioUrl)} title={deckAudio.title} variant="compact" />;
             }
             return null;
           })()}
@@ -709,6 +709,9 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
             onImageUpload={(file) => uploadStudyImage(file, card)}
             searchQuery={studySideText(studyContent(card))}
             loading={loading}
+            onNotify={showToast}
+            allowRemoteImageSearch={!IS_STANDALONE}
+            onFetchRemoteImage={IS_STANDALONE ? null : fetchRemoteImageFile}
           />
         )}
 

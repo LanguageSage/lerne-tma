@@ -8,6 +8,7 @@ import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, 
 import { writeCardNote } from './cardNotes.js';
 import { isBundledSeedDeck } from '../utils/deckUtils.js';
 import { buildOriginKey, getMaterialExportSourceInTx } from '../pilot/materialArchiveIdentity.js';
+import { isOfflineMediaUrl, parseOfflineMediaRef } from '../pilot/offlineMediaResolver.js';
 import {
   result,
   notFound,
@@ -118,6 +119,48 @@ const matchesVisibleLanguage = (itemLang, language, standalone) => (
   || (standalone && !STANDALONE_SUPPORTED_LANGUAGES.has(itemLang))
 );
 const RESOURCE_KIND_MAP = { image: 'images', audio: 'audio', video: 'videos', background: 'backgrounds' };
+
+function normalizeDeckMetadataForStorage(rawMetadata) {
+  const metadata = { ...(jsonObject(rawMetadata, {}) || {}) };
+  delete metadata.is_learning;
+  if (!Array.isArray(metadata.resources)) {
+    return metadata;
+  }
+  metadata.resources = metadata.resources.map((res) => {
+    if (!res || typeof res !== 'object') {
+      throw new Error(tr('Некорректный ресурс в метаданных колоды.'));
+    }
+    if (res.type === 'link') {
+      return { ...res };
+    }
+    const expectedFolder = RESOURCE_KIND_MAP[res.type];
+    if (!expectedFolder) {
+      return { ...res };
+    }
+    const candidates = [res.path, res.url].filter(v => typeof v === 'string' && v.trim());
+    let parsed = null;
+    for (const candidate of candidates) {
+      if (isOfflineMediaUrl(candidate)) continue;
+      const candidateParsed = parseOfflineMediaRef(candidate, expectedFolder);
+      if (candidateParsed && candidateParsed.folder === expectedFolder) {
+        parsed = candidateParsed;
+        break;
+      }
+    }
+    if (!parsed) {
+      if (candidates.some(isOfflineMediaUrl) || candidates.length > 0) {
+        throw new Error(tr('Ресурс колоды должен ссылаться на сохранённый локальный медиафайл.'));
+      }
+      throw new Error(tr('Отсутствует путь к локальному медиафайлу ресурса.'));
+    }
+    return {
+      ...res,
+      path: parsed.canonicalUrl,
+      url: parsed.canonicalUrl,
+    };
+  });
+  return metadata;
+}
 
 async function activeFolders(db, language, folderMap = null) {
   const standalone = isStandaloneDb(db);
@@ -271,11 +314,17 @@ export const offlineApi = {
         if (standalone && Array.isArray(deck.metadata?.resources) && deck.metadata.resources.length > 0) {
           const resolvedResources = await Promise.all(deck.metadata.resources.map(async (res) => {
             if (!res || typeof res !== 'object') return res;
-            const raw = res.url || res.path;
+            if (res.type === 'link') return res;
+            const raw = res.path || res.url;
             if (!raw) return res;
             const folder = RESOURCE_KIND_MAP[res.type] || 'images';
             const resolvedUrl = await localMediaURL(db, raw, folder, false);
-            return resolvedUrl ? { ...res, url: resolvedUrl } : { ...res, url: '' };
+            const durablePath = res.path || (isOfflineMediaUrl(raw) ? undefined : raw);
+            return {
+              ...res,
+              ...(durablePath ? { path: durablePath } : {}),
+              url: resolvedUrl || '',
+            };
           }));
           deck.metadata = { ...deck.metadata, resources: resolvedResources };
         }
@@ -623,8 +672,13 @@ export const offlineApi = {
           fields = { [key]: target };
         }
         if (action === 'metadata') {
-          const metadata = { ...body };
-          if (entity === 'decks') delete metadata.is_learning;
+          let metadata = { ...body };
+          if (entity === 'decks') {
+            delete metadata.is_learning;
+            if (isStandaloneDb(db)) {
+              metadata = normalizeDeckMetadataForStorage(metadata);
+            }
+          }
           fields = { metadata };
         }
         if (fields) return success(await change(table, id, fields));

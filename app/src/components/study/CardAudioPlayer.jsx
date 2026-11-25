@@ -3,7 +3,7 @@ import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState } from 'react';
 import { createPortal } from 'react-dom';
 import { Play, Pause, Square, Volume2, RefreshCw, Mic2, Settings } from 'lucide-react';
-import { getAudioUrl } from '../../utils/media';
+import { useMediaResolvers } from '../../card-ui/MediaResolverContext.jsx';
 import './CardAudioPlayer.css';
 import { StudyControlsBlock } from './StudyControlsBlock';
 
@@ -52,6 +52,7 @@ export const CardAudioPlayer = React.memo(({
   inline = false,
 }) => {
   useInterfaceLocale();
+  const { resolveAudioUrl: contextResolveAudioUrl, isLocalAssetUrl } = useMediaResolvers();
   const [localCollapsed, setLocalCollapsed] = useState(false);
   const isCollapsed = collapsed ?? localCollapsed;
   const setIsCollapsed = onCollapsedChange ?? setLocalCollapsed;
@@ -61,7 +62,7 @@ export const CardAudioPlayer = React.memo(({
 
   const resolveAudioUrl = (url) => {
     if (!url) return '';
-    return resolveAudioUrlProp ? resolveAudioUrlProp(url) : getAudioUrl(url);
+    return resolveAudioUrlProp ? resolveAudioUrlProp(url) : contextResolveAudioUrl(url);
   };
 
   const rawUrl = (voicePicker?.previewUrl) || audioUrl;
@@ -190,7 +191,7 @@ export const CardAudioPlayer = React.memo(({
         style={style}
       >
       {voicePicker?.generateError && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{navigator.onLine ? voicePicker.generateError : tr('Для создания озвучки нужно подключение к сети')}</p>}
-      {playbackError === effectiveUrl && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{tr(navigator.onLine
+      {playbackError === effectiveUrl && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{tr((isLocalAssetUrl(effectiveUrl) || navigator.onLine)
         ? 'Не удалось воспроизвести аудио. Повторите попытку.' : 'Аудио недоступно без сети')}</p>}
       <div className={`card-audio-player-bar floating-expanded ${isThisActive ? 'active' : ''}`}>
         {/* Top Header Row with Voice Picker & Collapse toggle */}

@@ -8,6 +8,17 @@ import { useDeckStore } from '../store/useDeckStore';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { storeLocalMediaFile } from '../pilot/localMediaWriter.js';
 
+export const fetchRemoteImageFile = async (url) => {
+  if (IS_STANDALONE || typeof url !== 'string') return null;
+  const trimmed = url.trim();
+  if (!/^https?:\/\//i.test(trimmed)) return null;
+  const res = await fetch(trimmed);
+  if (!res.ok) return null;
+  const blob = await res.blob();
+  if (!blob.type?.startsWith('image/')) return null;
+  return new File([blob], `pasted_${Date.now()}.png`, { type: blob.type });
+};
+
 export const useMediaUpload = () => {
   const setLoading = useUiStore(state => state.setLoading);
   const showToast = useUiStore(state => state.showToast);
@@ -30,6 +41,32 @@ export const useMediaUpload = () => {
     formData.append('file', file);
     const res = await api.post('/media/upload-image', formData, { signal });
     return res.data;
+  };
+
+  const uploadLayoutImageFile = async (file, signal) => {
+    const uploaded = await uploadImageFile(file, signal);
+    if (!uploaded) return null;
+    if (IS_STANDALONE) {
+      return {
+        ...uploaded,
+        path: uploaded.relativePath,
+        url: uploaded.url,
+      };
+    }
+    return uploaded;
+  };
+
+  const uploadVideoFile = async (file) => {
+    if (!file?.size || file.size > 20 * 1024 * 1024) {
+      throw new Error(tr('Выберите MP4 или WebM видео до 20 МБ.'));
+    }
+    if (IS_STANDALONE) {
+      return storeLocalMediaFile(file, 'videos');
+    }
+    const formData = new FormData();
+    formData.append('file', file);
+    const { data } = await api.post('/media/upload-video', formData);
+    return data;
   };
 
   const uploadAudioFile = async (file) => {
@@ -92,7 +129,7 @@ export const useMediaUpload = () => {
             return current;
           }
           const next = { ...current, image_path: uploaded.path, image_url: uploaded.url };
-          if (IS_STANDALONE && next.content_v2?.card?.image) {
+          if (next.content_v2?.card?.image) {
             const nextCard = { ...next.content_v2.card };
             delete nextCard.image;
             const nextEnvelope = { ...next.content_v2, card: nextCard };
@@ -138,19 +175,16 @@ export const useMediaUpload = () => {
     if (!file || !deckId) return null;
     setLoading(true);
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-
-      let res;
+      let data = null;
       if (type === 'image') {
-        res = await api.post('/media/upload-image', formData);
+        data = await uploadImageFile(file);
       } else if (type === 'audio') {
-        res = { data: await uploadAudioFile(file) };
+        data = await uploadAudioFile(file);
       } else if (type === 'video') {
-        res = await api.post('/media/upload-video', formData);
+        data = await uploadVideoFile(file);
       }
 
-      if (res && res.data) {
+      if (data) {
         const store = useDeckStore.getState();
         const currentDeck = store.currentDeck;
         
@@ -166,8 +200,8 @@ export const useMediaUpload = () => {
 
         const newResource = {
           type,
-          path: res.data.path,
-          url: res.data.url,
+          path: data.path,
+          url: IS_STANDALONE ? data.path : (data.url || data.path),
           title: file.name || (type === 'image' ? tr("Картинка") : type === 'audio' ? tr("Аудио") : tr("Видео"))
         };
 
@@ -205,10 +239,14 @@ export const useMediaUpload = () => {
   };
 
   return {
+    uploadImageFile,
+    uploadLayoutImageFile,
     uploadAudioFile,
+    uploadVideoFile,
     uploadStudyImage,
     uploadCreatorImage,
     uploadCustomBackground,
-    uploadDeckResource
+    uploadDeckResource,
+    fetchRemoteImageFile,
   };
 };

@@ -1,16 +1,57 @@
 import { mediaURL } from './apiConfig.js';
+import * as localDb from './localDb.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
-import { isOfflineMediaUrl, resolveOfflineMediaUrlAsync } from '../pilot/offlineMediaStore.js';
+import {
+  clearOfflineMediaCache,
+  isOfflineMediaUrl,
+  resolveOfflineMediaUrlAsync,
+} from '../pilot/offlineMediaStore.js';
 
 const objectUrls = new Map();
 const pending = new Set();
 const MAX_FILE_BYTES = 15 * 1024 * 1024;
 const MAX_CACHE_BYTES = 150 * 1024 * 1024;
 
+function revokeMediaObjectUrl(url) {
+  if (typeof url === 'string' && url.startsWith('blob:') && typeof URL?.revokeObjectURL === 'function') {
+    try {
+      URL.revokeObjectURL(url);
+    } catch {
+      // Ignore cleanup errors.
+    }
+  }
+}
+
+export function clearMediaCache(databaseName = null) {
+  const prefix = databaseName ? `${databaseName}:` : null;
+  for (const [key, url] of objectUrls.entries()) {
+    if (!prefix || key.startsWith(prefix)) {
+      revokeMediaObjectUrl(url);
+      objectUrls.delete(key);
+    }
+  }
+  if (!databaseName) {
+    pending.clear();
+    clearOfflineMediaCache();
+  } else {
+    for (const key of pending) {
+      if (key.startsWith(prefix)) {
+        pending.delete(key);
+      }
+    }
+    if (IS_STANDALONE) {
+      clearOfflineMediaCache({ keepNativeConfig: true });
+    }
+  }
+}
+
+localDb.onLocalDbClose?.(({ databaseName, resetAll }) => {
+  clearMediaCache(resetAll ? null : databaseName);
+});
+
 export async function localMediaURL(database, path, kind, prefetch = true) {
   if (IS_STANDALONE) {
-    const offline = await resolveOfflineMediaUrlAsync(database, path, kind);
-    if (offline) return offline;
+    return resolveOfflineMediaUrlAsync(database, path, kind);
   }
   const url = mediaURL(path, kind);
   if (!url || isOfflineMediaUrl(url)) return url;
@@ -24,12 +65,12 @@ export async function localMediaURL(database, path, kind, prefetch = true) {
       // Fallback to network URL if blob is unreadable
     }
   }
-  if (!IS_STANDALONE && prefetch && navigator.onLine && !pending.has(key) && pending.size < 4) {
+  if (prefetch && navigator.onLine && !pending.has(key) && pending.size < 4) {
     pending.add(key);
     cacheMedia(database, url).catch(error => console.warn('Media cache:', error.message))
       .finally(() => pending.delete(key));
   }
-  return IS_STANDALONE ? null : url;
+  return url;
 }
 
 async function cacheMedia(database, url) {

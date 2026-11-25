@@ -78,10 +78,22 @@ mock.module('@capacitor/core', {
       pickArchiveForImport: (...args) => nativeArchive.pickArchiveForImport(...args),
       commitImportMedia: (...args) => nativeArchive.commitImportMedia(...args),
       cancelImport: (...args) => nativeArchive.cancelImport(...args),
+      listMediaAssets: (...args) => nativeArchive?.listMediaAssets?.(...args),
+      getMediaRoot: (...args) => nativeArchive?.getMediaRoot?.(...args),
+      statMediaAsset: (...args) => nativeArchive?.statMediaAsset?.(...args),
+      inspectExistingMedia: (...args) => nativeArchive?.inspectExistingMedia?.(...args),
+      storeMediaAsset: (...args) => nativeArchive?.storeMediaAsset?.(...args),
     } : capacitor.registerPlugin(name),
   },
 });
-const { isOfflineMediaUrl, resolveOfflineMediaUrlSync, clearOfflineMediaCache: clearResolverCache } = await import('../../pilot/offlineMediaResolver.js');
+const {
+  isOfflineMediaUrl,
+  resolveOfflineMediaUrlSync,
+  setWebBlobUrl,
+  getWebBlobUrl,
+  getNativeMediaRoot,
+  clearOfflineMediaCache: clearResolverCache,
+} = await import('../../pilot/offlineMediaResolver.js');
 
 mock.module('../apiConfig.js', {
   namedExports: {
@@ -117,6 +129,7 @@ const {
   resolveOfflineMediaUrlAsync,
   readWebMediaAssetBytes,
 } = await import('../../pilot/offlineMediaStore.js');
+const { storeLocalMediaFile } = await import('../../pilot/localMediaWriter.js');
 const { ensureStandaloneSeed, validateStandalonePack } = await import('../../pilot/standaloneSeed.js');
 const { getStandalonePack } = await import('../../pilot/standalonePack.js');
 const {
@@ -127,7 +140,8 @@ const {
   applyProgressBackup,
 } = await import('../../pilot/progressBackup.js');
 const { offlineApi } = await import('../offlineApi.js');
-const { cardMediaView } = await import('../mediaCache.js');
+const { cardMediaView, clearMediaCache } = await import('../mediaCache.js');
+const { prepareLocalDb, closeLocalDb, resetAllDatabases } = await import('../localDb.js');
 const { calculateCardReview } = await import('../../utils/srsEngine.js');
 
 const STANDALONE_USER_ID = 900001;
@@ -242,6 +256,20 @@ function makeMp3Bytes() {
     buf[i + 2] = 0x90;
     buf[i + 3] = 0x00;
   }
+  return buf;
+}
+
+function makeMp4Bytes(size = 64) {
+  const buf = new Uint8Array(size);
+  buf[3] = 0x20;
+  buf[4] = 0x66; // f
+  buf[5] = 0x74; // t
+  buf[6] = 0x79; // y
+  buf[7] = 0x70; // p
+  buf[8] = 0x69; // i
+  buf[9] = 0x73; // s
+  buf[10] = 0x6f; // o
+  buf[11] = 0x6d; // m
   return buf;
 }
 
@@ -1215,5 +1243,345 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal((await db.decks.get(coursDeck.id)).is_learning, true);
     assert.equal((await db.decks.get(userDeck.id)).is_learning, true);
     assert.equal((await db.progress.get([userCard.id, STANDALONE_USER_ID])).repetitions, 1);
+  });
+
+  test('9. Native listMediaAssets and Web media reconciliation restore missing syncState without deleting missing-file rows', async () => {
+    const pngAsset = assetRecord(makePngBytes(3, 3), 'images', '.png', 'image/png');
+    const mp4Asset = assetRecord(makeMp4Bytes(), 'videos', '.mp4', 'video/mp4');
+    const missingKey = `offline-media:audio/archive_${'0'.repeat(64)}.wav`;
+    await db.syncState.put({
+      key: missingKey,
+      folder: 'audio',
+      filename: `archive_${'0'.repeat(64)}.wav`,
+      sha256: '0'.repeat(64),
+      size: 128,
+      mime: 'audio/wav',
+      path: `media/${'0'.repeat(64)}.wav`,
+    });
+
+    nativeArchive = {
+      pickArchiveForImport: async () => ({ cancelled: true }),
+      commitImportMedia: async () => ({ storedCount: 0, reusedCount: 0 }),
+      cancelImport: async () => ({ cancelled: true }),
+      listMediaAssets: async () => ({
+        mediaRoot: '/data/user/0/com.lerne.offlinepilot/files/lerne-offline-media',
+        assets: [
+          {
+            folder: pngAsset.folder,
+            filename: pngAsset.filename,
+            relativePath: `${pngAsset.folder}/${pngAsset.filename}`,
+            sha256: pngAsset.sha256,
+            size: pngAsset.size,
+            mime: pngAsset.mime,
+            path: pngAsset.path,
+          },
+          {
+            folder: mp4Asset.folder,
+            filename: mp4Asset.filename,
+            relativePath: `${mp4Asset.folder}/${mp4Asset.filename}`,
+            sha256: mp4Asset.sha256,
+            size: mp4Asset.size,
+            mime: mp4Asset.mime,
+            path: mp4Asset.path,
+          },
+        ],
+        invalid: [{ relativePath: 'images/corrupt.png', reason: 'SHA-256 mismatch' }],
+      }),
+    };
+
+    try {
+      const nativeRes = await initOfflineMediaStore(db);
+      assert.equal(nativeRes.mode, 'native');
+      assert.equal(nativeRes.reconciledCount, 2);
+      assert.equal(nativeRes.invalidCount, 1);
+
+      const restoredPng = await db.syncState.get(`offline-media:${pngAsset.folder}/${pngAsset.filename}`);
+      const restoredMp4 = await db.syncState.get(`offline-media:${mp4Asset.folder}/${mp4Asset.filename}`);
+      assert.equal(restoredPng?.sha256, pngAsset.sha256);
+      assert.equal(restoredMp4?.mime, 'video/mp4');
+      assert.ok(await db.syncState.get(missingKey), 'Missing-file syncState row must be preserved for fail-closed export');
+
+      const resolvedVideo = resolveOfflineMediaUrlSync(`/api/media/videos/${mp4Asset.filename}`, 'videos');
+      assert.ok(resolvedVideo?.includes(mp4Asset.filename));
+    } finally {
+      nativeArchive = null;
+      clearResolverCache();
+      clearOfflineMediaCache();
+    }
+
+    // Web Dexie reconciliation: restores valid media blob without syncState, ignores corrupt blob without deleting
+    const webDb = createStandaloneTestDb(`LerneStandaloneDB_web_reconcile_${dbCounter}`);
+    await webDb.open();
+    try {
+      const validUrl = `/api/media/${pngAsset.folder}/${pngAsset.filename}`;
+      const corruptUrl = `/api/media/images/archive_${'f'.repeat(64)}.png`;
+      await webDb.media.put({ url: validUrl, blob: new Blob([pngAsset.bytes], { type: 'image/png' }) });
+      await webDb.media.put({ url: corruptUrl, blob: new Blob([new Uint8Array([1, 2, 3])], { type: 'image/png' }) });
+
+      const webRes = await initOfflineMediaStore(webDb);
+      assert.equal(webRes.mode, 'web');
+      assert.equal(webRes.reconciledCount, 1);
+
+      const repairedRow = await webDb.syncState.get(`offline-media:${pngAsset.folder}/${pngAsset.filename}`);
+      assert.equal(repairedRow?.sha256, pngAsset.sha256);
+      assert.equal(await webDb.syncState.get(`offline-media:images/archive_${'f'.repeat(64)}.png`), undefined);
+      assert.ok(await webDb.media.get(corruptUrl), 'Corrupt media row must not be auto-deleted');
+      assert.ok(resolveOfflineMediaUrlSync(validUrl, 'images')?.startsWith('blob:'));
+
+      // setWebBlobUrl revokes overwritten blob URLs
+      const revoked = [];
+      const origRevoke = URL.revokeObjectURL;
+      URL.revokeObjectURL = (u) => {
+        revoked.push(u);
+        return origRevoke.call(URL, u);
+      };
+      try {
+        const firstBlob = URL.createObjectURL(new Blob(['one']));
+        const secondBlob = URL.createObjectURL(new Blob(['two']));
+        setWebBlobUrl('/api/media/images/overwrite.png', firstBlob);
+        setWebBlobUrl('/api/media/images/overwrite.png', secondBlob);
+        assert.deepEqual(revoked, [firstBlob]);
+      } finally {
+        URL.revokeObjectURL = origRevoke;
+      }
+    } finally {
+      await webDb.delete();
+    }
+  });
+
+  test('10. Export recovers missing offline-media metadata via recoverNativeAsset and fails closed if missing or corrupted', async () => {
+    const v4 = buildRichCourseFixture();
+    await confirmArchiveImport(
+      await inspectArchiveWebBytes(await buildArchiveZipFromDoc(v4.document, v4.mediaAssets), 'recover.zip', { db, userId: STANDALONE_USER_ID }),
+      { db, userId: STANDALONE_USER_ID },
+    );
+
+    const pngAsset = v4.mediaAssets[0];
+    const missingMetaKey = `offline-media:${pngAsset.folder}/${pngAsset.filename}`;
+    await db.syncState.delete(missingMetaKey);
+    assert.equal(await db.syncState.get(missingMetaKey), undefined);
+
+    const tree = await getExportableMaterialsTree({ db });
+    const folderId = tree.rootFolders[0].id;
+
+    // 10a. Corrupted file on disk -> fail closed and do NOT persist metadata
+    await assert.rejects(() => buildMaterialArchiveExport({
+      db,
+      folderIds: [folderId],
+      inspectNativeAssets: async () => ({ missing: [], corrupted: [], verifiedCount: 4 }),
+      recoverNativeAsset: async (ref) => ref.filename === pngAsset.filename
+        ? { exists: true, valid: false, reason: 'SHA-256 mismatch' }
+        : { exists: false, valid: false },
+    }), /Отсутствуют метаданные/);
+    assert.equal(await db.syncState.get(missingMetaKey), undefined);
+
+    // 10b. Missing file on disk -> fail closed
+    await assert.rejects(() => buildMaterialArchiveExport({
+      db,
+      folderIds: [folderId],
+      inspectNativeAssets: async () => ({ missing: [], corrupted: [], verifiedCount: 4 }),
+      recoverNativeAsset: async () => ({ exists: false, valid: false }),
+    }), /Отсутствуют метаданные/);
+
+    // 10c. Valid file on disk -> self-heals syncState and succeeds
+    const exported = await buildMaterialArchiveExport({
+      db,
+      folderIds: [folderId],
+      inspectNativeAssets: async () => ({ missing: [], corrupted: [], verifiedCount: 4 }),
+      recoverNativeAsset: async (ref) => {
+        const asset = v4.mediaAssets.find(a => a.folder === ref.folder && a.filename === ref.filename);
+        return asset
+          ? {
+            exists: true,
+            valid: true,
+            folder: asset.folder,
+            filename: asset.filename,
+            sha256: asset.sha256,
+            size: asset.size,
+            mime: asset.mime,
+            path: asset.path,
+          }
+          : { exists: false, valid: false };
+      },
+    });
+    assert.equal(exported.assets.length, 4);
+    const healed = await db.syncState.get(missingMetaKey);
+    assert.equal(healed?.sha256, pngAsset.sha256);
+    assert.equal(healed?.size, pngAsset.size);
+  });
+
+  test('11. Deck metadata resources reject ephemeral URLs, normalize to canonical refs, support videos, and round-trip ZIP', async () => {
+    memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
+    const cfg = { _testDb: db };
+    const deck = (await offlineApi.handle('post', '/decks', { name: 'Media Resources Deck', target_language: 'de' }, cfg)).data;
+
+    const pngBytes = makePngBytes(4, 4);
+    const wavBytes = makeWavBytes(400);
+    const mp4Bytes = makeMp4Bytes();
+
+    const makeFileObj = (bytes, name, type) => {
+      const blob = new Blob([bytes], { type });
+      blob.name = name;
+      return blob;
+    };
+
+    const imgStored = await storeLocalMediaFile(makeFileObj(pngBytes, 'cover.png', 'image/png'), 'images', { db });
+    const audStored = await storeLocalMediaFile(makeFileObj(wavBytes, 'track.wav', 'audio/wav'), 'audio', { db });
+    const vidStored = await storeLocalMediaFile(makeFileObj(mp4Bytes, 'clip.mp4', 'video/mp4'), 'videos', { db });
+
+    assert.match(imgStored.path, /^\/api\/media\/images\/archive_[a-f0-9]{64}\.png$/);
+    assert.match(audStored.path, /^\/api\/media\/audio\/archive_[a-f0-9]{64}\.wav$/);
+    assert.match(vidStored.path, /^\/api\/media\/videos\/archive_[a-f0-9]{64}\.mp4$/);
+    assert.equal(vidStored.mime, 'video/mp4');
+
+    // Ephemeral blob:/_capacitor_file_ URL without valid canonical path must fail closed
+    await assert.rejects(() => offlineApi.handle('post', `/decks/${deck.id}/metadata`, {
+      resources: [{ type: 'image', url: 'blob:https://localhost/ephemeral-only', title: 'Broken' }],
+    }, cfg), /локальный медиафайл/i);
+
+    await assert.rejects(() => offlineApi.handle('post', `/decks/${deck.id}/metadata`, {
+      resources: [{ type: 'video', path: imgStored.path, url: imgStored.path, title: 'Wrong folder' }],
+    }, cfg), /локальный медиафайл/i);
+
+    // Saving metadata with resolved UI URLs alongside canonical paths must strip ephemeral URLs in Dexie
+    await offlineApi.handle('post', `/decks/${deck.id}/metadata`, {
+      imageHeight: 260,
+      resources: [
+        { type: 'image', path: imgStored.path, url: 'blob:https://localhost/ui-temp-img', title: 'Cover', show_in_cards: true },
+        { type: 'audio', path: audStored.path, url: '/_capacitor_file_/data/user/0/app/files/audio.wav', title: 'Track' },
+        { type: 'video', path: vidStored.path, url: vidStored.url, title: 'Clip' },
+        { type: 'link', url: 'https://example.com/grammar', title: 'Notes' },
+      ],
+    }, cfg);
+
+    const savedDeck = await db.decks.get(deck.id);
+    assert.equal(savedDeck.metadata.resources.length, 4);
+    assert.equal(savedDeck.metadata.resources[0].path, imgStored.path);
+    assert.equal(savedDeck.metadata.resources[0].url, imgStored.path);
+    assert.equal(savedDeck.metadata.resources[1].path, audStored.path);
+    assert.equal(savedDeck.metadata.resources[1].url, audStored.path);
+    assert.equal(savedDeck.metadata.resources[2].path, vidStored.path);
+    assert.equal(savedDeck.metadata.resources[2].url, vidStored.path);
+    assert.equal(savedDeck.metadata.resources[3].url, 'https://example.com/grammar');
+
+    // GET /init returns resolved blob URLs for display while keeping durable canonical path
+    const initRes = await offlineApi.handle('get', '/init', {}, cfg);
+    const apiDeck = initRes.data.decks.find(d => d.id === deck.id);
+    assert.ok(apiDeck.metadata.resources[0].url.startsWith('blob:'));
+    assert.equal(apiDeck.metadata.resources[0].path, imgStored.path);
+    assert.ok(apiDeck.metadata.resources[2].url.startsWith('blob:'));
+    assert.equal(apiDeck.metadata.resources[2].path, vidStored.path);
+
+    // Add a card so deck exports cleanly and verify full image/audio/video ZIP roundtrip
+    await offlineApi.handle('post', '/cards/save', {
+      deck_id: deck.id,
+      request_id: 'media-deck-card-1',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Video', answer: 'Видео' } } },
+    }, cfg);
+
+    const exported = await buildWebArchiveZipBytes({ db, deckIds: [deck.id] });
+    assert.equal(exported.document.assets.length, 3);
+
+    const cleanDb = createStandaloneTestDb(`LerneStandaloneDB_media_rt_${dbCounter}`);
+    await cleanDb.open();
+    try {
+      await initOfflineMediaStore(cleanDb);
+      const inspected = await inspectArchiveWebBytes(exported.zipBytes, exported.fileName, { db: cleanDb, userId: STANDALONE_USER_ID });
+      assert.equal(inspected.ok, true, inspected.error);
+      await confirmArchiveImport(inspected, { db: cleanDb, userId: STANDALONE_USER_ID });
+
+      const importedDeck = (await cleanDb.decks.toArray()).find(d => d.name === 'Media Resources Deck');
+      assert.equal(importedDeck.metadata.resources.length, 4);
+      assert.equal(importedDeck.metadata.resources[2].path, vidStored.path);
+      assert.deepEqual(await readWebMediaAssetBytes(cleanDb, 'videos', vidStored.relativePath.split('/')[1]), mp4Bytes);
+    } finally {
+      await cleanDb.delete();
+    }
+  });
+
+  test('12. closeLocalDb / clearMediaCache(db.name) revokes blob URLs without wiping native media config and resolveOfflineMediaUrlAsync lazily re-inits if reset', async () => {
+    const pngAsset = assetRecord(makePngBytes(3, 3), 'images', '.png', 'image/png');
+    const canonicalImgUrl = `/api/media/${pngAsset.folder}/${pngAsset.filename}`;
+    const mediaRoot = '/data/user/0/com.lerne.offlinepilot/files/lerne-offline-media';
+    let listCalls = 0;
+
+    nativeArchive = {
+      pickArchiveForImport: async () => ({ cancelled: true }),
+      commitImportMedia: async () => ({ storedCount: 0, reusedCount: 0 }),
+      cancelImport: async () => ({ cancelled: true }),
+      listMediaAssets: async () => {
+        listCalls += 1;
+        return {
+          mediaRoot,
+          assets: [{
+            folder: pngAsset.folder,
+            filename: pngAsset.filename,
+            relativePath: `${pngAsset.folder}/${pngAsset.filename}`,
+            sha256: pngAsset.sha256,
+            size: pngAsset.size,
+            mime: pngAsset.mime,
+            path: pngAsset.path,
+          }],
+          invalid: [],
+        };
+      },
+    };
+
+    const revoked = [];
+    const origRevoke = URL.revokeObjectURL;
+    URL.revokeObjectURL = (url) => {
+      revoked.push(url);
+      return origRevoke.call(URL, url);
+    };
+
+    let localDb = null;
+    let reopenedDb = null;
+    try {
+      localDb = await prepareLocalDb();
+      await initOfflineMediaStore(localDb);
+      assert.equal(listCalls, 1);
+      assert.equal(getNativeMediaRoot(), mediaRoot);
+
+      const staleBlobUrl = URL.createObjectURL(new Blob(['stale-web-blob']));
+      setWebBlobUrl('/api/media/images/stale.png', staleBlobUrl);
+      assert.equal(getWebBlobUrl('/api/media/images/stale.png'), staleBlobUrl);
+
+      // Simulate closeLocalDb -> onLocalDbClose -> clearMediaCache(localDb.name)
+      closeLocalDb(STANDALONE_USER_ID);
+      assert.equal(revoked.includes(staleBlobUrl), true);
+      assert.equal(getWebBlobUrl('/api/media/images/stale.png'), null);
+      assert.equal(getNativeMediaRoot(), mediaRoot);
+
+      reopenedDb = await prepareLocalDb();
+      assert.notEqual(reopenedDb, localDb);
+      assert.ok(resolveOfflineMediaUrlSync(canonicalImgUrl, 'images')?.includes(pngAsset.filename));
+      const resolvedAfterClose = await resolveOfflineMediaUrlAsync(reopenedDb, canonicalImgUrl, 'images');
+      assert.ok(resolvedAfterClose?.includes(pngAsset.filename));
+      assert.equal(listCalls, 1, 'Native config preserved across single-DB close without extra IPC');
+
+      // Direct clearMediaCache(db.name) also revokes webBlobUrls while keeping nativeMediaRoot
+      const staleBlobUrl2 = URL.createObjectURL(new Blob(['stale-web-blob-2']));
+      setWebBlobUrl('/api/media/images/stale2.png', staleBlobUrl2);
+      clearMediaCache(reopenedDb.name);
+      assert.equal(revoked.includes(staleBlobUrl2), true);
+      assert.equal(getWebBlobUrl('/api/media/images/stale2.png'), null);
+      assert.equal(getNativeMediaRoot(), mediaRoot);
+
+      // Full reset clears nativeMediaRoot -> resolveOfflineMediaUrlAsync lazily re-initializes native store
+      clearOfflineMediaCache();
+      assert.equal(getNativeMediaRoot(), null);
+      const lazyResolved = await resolveOfflineMediaUrlAsync(reopenedDb, canonicalImgUrl, 'images');
+      assert.ok(lazyResolved?.includes(pngAsset.filename));
+      assert.equal(getNativeMediaRoot(), mediaRoot);
+      assert.equal(listCalls, 2);
+    } finally {
+      resetAllDatabases();
+      nativeArchive = null;
+      clearResolverCache();
+      clearOfflineMediaCache();
+      URL.revokeObjectURL = origRevoke;
+      if (reopenedDb) await reopenedDb.delete().catch(() => {});
+      if (localDb && localDb !== reopenedDb) await localDb.delete().catch(() => {});
+    }
   });
 });

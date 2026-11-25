@@ -11,6 +11,7 @@ import { getFlagStyle } from '../../constants/cardFlags';
 import { studyContent, studySideText } from '../../utils/structuredStudyCard.js';
 import { stripMarkdown } from '../../utils/text';
 import { MarkdownRenderer } from '../common/MarkdownRenderer';
+import { mediaURL } from '../../services/apiConfig';
 import { offlineEditLabel, offlineLifecycleLabel, offlineMoveLabel } from '../../services/offlineUi';
 
 export const DraggableCardItem = React.memo(({
@@ -125,7 +126,7 @@ export const DraggableCardItem = React.memo(({
             className={`back-min ${isExpanded ? 'expanded' : ''}`}
             style={{ ...backTypographyStyle, ...clampStyle }}
           >
-            <MarkdownRenderer>{answer}</MarkdownRenderer>
+            <MarkdownRenderer resolveMediaUrl={mediaURL}>{answer}</MarkdownRenderer>
           </div>
         )}
 

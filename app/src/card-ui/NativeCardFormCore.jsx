@@ -6,7 +6,7 @@ import { designConfigToCssVariables } from '../design/designTokens.js';
 import { getDesignStylesFromV2 } from '../utils/cardStyles.js';
 import { attachDraftImage, changeDraft, changeDraftSource, draftSourceError } from '../utils/cardDraft.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
-import { defaultResolveMediaUrl, getAudioUrl } from '../utils/media.js';
+import { MediaResolverProvider, defaultResolveMediaUrl, defaultResolveAudioUrl } from './MediaResolverContext.jsx';
 import { getFlagStyle } from '../constants/cardFlags.js';
 import { getResolvedStyle } from '../utils/style.js';
 import { CardBackground } from '../components/common/CardBackground.jsx';
@@ -71,7 +71,10 @@ export const NativeCardFormCore = ({
   onUploadAudio = null,
   getSessionIdentity = null,
   resolveMediaUrl = defaultResolveMediaUrl,
-  resolveAudioUrl = getAudioUrl,
+  resolveAudioUrl = defaultResolveAudioUrl,
+  isLocalAssetUrl = null,
+  allowRemoteImageSearch = false,
+  onFetchRemoteImage = null,
   onGenerateAudio = null,
   onAiGenerate = null,
   onStopGeneration = null,
@@ -139,7 +142,12 @@ export const NativeCardFormCore = ({
   const existingImageSrc = cardData.image_url || (cardData.image_path ? resolveMediaUrl(cardData.image_path, 'images') : '');
 
   return (
-    <div className={`lerne-card-ui-root ${rootClassName}`.trim()} style={designVariables}>
+    <MediaResolverProvider
+      resolveMediaUrl={resolveMediaUrl}
+      resolveAudioUrl={resolveAudioUrl}
+      isLocalAssetUrl={isLocalAssetUrl}
+    >
+      <div className={`lerne-card-ui-root ${rootClassName}`.trim()} style={designVariables}>
       <div
         className={`creator-form glass${composed ? ' visual-card-form' : ''}`}
         data-card-type={content.type}
@@ -292,6 +300,8 @@ export const NativeCardFormCore = ({
             searchQuery={frontText || ''}
             loading={loading}
             onNotify={onNotify}
+            allowRemoteImageSearch={allowRemoteImageSearch}
+            onFetchRemoteImage={onFetchRemoteImage}
           />
 
           <ImageEditorModal
@@ -307,6 +317,7 @@ export const NativeCardFormCore = ({
         </div>
       </div>
     </div>
+    </MediaResolverProvider>
   );
 
   function clearCover() {
@@ -314,7 +325,7 @@ export const NativeCardFormCore = ({
     setCardData(current => {
       if (!current) return current;
       const next = { ...current, image_path: '', image_url: '', draftImageHeight: undefined };
-      if (lockLayout && next.content_v2?.card?.image) {
+      if (next.content_v2?.card?.image) {
         const nextCard = { ...next.content_v2.card };
         delete nextCard.image;
         const nextEnvelope = { ...next.content_v2, card: nextCard };

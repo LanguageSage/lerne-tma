@@ -165,14 +165,17 @@ export const getSortedFolderAndDeckTree = (foldersList = [], decksList = [], exp
   return result;
 };
 
-export const getResourceSrc = (item, mediaType = 'images') => {
+export const getResourceSrc = (item, mediaType = 'images', resolver = null) => {
   if (!item) return '';
-  if (item.url) return item.url;
-  if (item.path) {
-    const cleanPath = item.path.replace(/^(images|audio|videos)\//, '');
-    return `/api/media/${mediaType}/${cleanPath}`;
+  const candidate = item.url || item.path;
+  if (!candidate) return '';
+  if (typeof resolver === 'function') {
+    return resolver(candidate, mediaType) || '';
   }
-  return '';
+  if (item.url) return item.url;
+  if (item.path.startsWith('/api/media/')) return item.path;
+  const cleanPath = item.path.replace(/^(images|audio|videos|backgrounds)\//, '');
+  return `/api/media/${mediaType}/${cleanPath}`;
 };
 
 /**
