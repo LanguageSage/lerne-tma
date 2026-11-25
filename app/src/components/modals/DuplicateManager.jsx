@@ -13,6 +13,7 @@ import { stripMarkdown } from '../../utils/text';
 import { cardDuplicateKey } from '../../utils/search';
 import { studyContent, studySideText } from '../../utils/structuredStudyCard';
 import { navigateUp } from '../../utils/navigation';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const DuplicateManager = () => {
   useInterfaceLocale();
@@ -20,6 +21,10 @@ export const DuplicateManager = () => {
   const { duplicateCards, fetchDuplicates, setCurrentDeck, lastDuplicateCardId, setLastDuplicateCardId } = useDeckStore();
   const { openEditor } = useCardNavigation();
   const { handleDeleteCard, handleShareCard, fetchNextCard } = useCardActions();
+
+  useEffect(() => {
+    void fetchDuplicates();
+  }, [fetchDuplicates]);
 
   useEffect(() => {
     if (lastDuplicateCardId) {
@@ -75,7 +80,7 @@ export const DuplicateManager = () => {
     e.stopPropagation();
     if (window.confirm(tr("Вы уверены, что хотите удалить этот дубликат?"))) {
       await handleDeleteCard(cardId, true);
-      fetchDuplicates();
+      await fetchDuplicates();
     }
   };
 
@@ -143,9 +148,11 @@ export const DuplicateManager = () => {
                         <strong style={{ color: '#e2e8f0' }}>{card.deck_name}</strong>
                       </div>
                       <div className="item-actions" style={{ display: 'flex', gap: 8 }}>
-                        <button onClick={(e) => { e.stopPropagation(); handleShareCard(card); }} style={{ background: 'none', border: 'none', color: '#94a3b8', padding: 4 }}><Share2 size={16} /></button>
-                        <button onClick={(e) => onEdit(e, card)} style={{ background: 'none', border: 'none', color: '#818cf8', padding: 4 }}><Edit2 size={16} /></button>
-                        <button onClick={(e) => onDelete(e, card.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: 4 }}><Trash2 size={16} /></button>
+                        {!IS_STANDALONE && (
+                          <button aria-label={tr("Поделиться")} onClick={(e) => { e.stopPropagation(); handleShareCard(card); }} style={{ background: 'none', border: 'none', color: '#94a3b8', padding: 4 }}><Share2 size={16} /></button>
+                        )}
+                        <button aria-label={tr("Редактировать")} onClick={(e) => onEdit(e, card)} style={{ background: 'none', border: 'none', color: '#818cf8', padding: 4 }}><Edit2 size={16} /></button>
+                        <button aria-label={tr("Удалить")} onClick={(e) => onDelete(e, card.id)} style={{ background: 'none', border: 'none', color: '#ef4444', padding: 4 }}><Trash2 size={16} /></button>
                       </div>
                     </div>
                     <div style={{ fontSize: '0.9rem', color: '#fff' }}>{stripMarkdown(studyContent(card) ? studySideText(studyContent(card), 'back') : card.back)}</div>

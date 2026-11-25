@@ -108,13 +108,16 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
       const allDecksPresent = existingDecks.every(deck => (
         deck
         && !deck.is_deleted
+        && deck.is_builtin === true
         && deck.role === 'viewer'
         && deck.is_owner === false
         && deck.is_global_readonly === true
       ));
       const allCardsPresent = existingCards.every(card => (
         card
-        && (card.standalone_local_edit || (!card.is_deleted && card.content_v2?.schema_version === nativeV2Version))
+        && (card.standalone_local_edit
+          || card.hard_deleted_locally
+          || (!card.is_deleted && card.content_v2?.schema_version === nativeV2Version))
       ));
       const allCacheComplete = cacheMarkers.every(marker => marker?.complete === true);
 
@@ -163,6 +166,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
             role: 'viewer',
             is_owner: false,
             is_global_readonly: true,
+            is_builtin: true,
             is_pinned: false,
             is_learning: false,
             is_deleted: 0,
@@ -174,6 +178,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
         } else {
           const needsDeckUpgrade = resolvedPack.packVersion > (existingManifest?.pack_version ?? 0)
             || existing.is_deleted
+            || existing.is_builtin !== true
             || existing.name !== deckEntry.document.deck.name
             || existing.role !== 'viewer'
             || existing.is_owner !== false
@@ -189,6 +194,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
               role: 'viewer',
               is_owner: false,
               is_global_readonly: true,
+              is_builtin: true,
               is_learning: Boolean(existing.is_learning),
               is_deleted: 0,
               is_dirty: 0,
@@ -228,7 +234,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
             created_at: nowIso,
             updated_at: nowIso,
           });
-        } else if (!existing.standalone_local_edit && (resolvedPack.packVersion > (existing.revision ?? 0) || existing.is_deleted)) {
+        } else if (!existing.standalone_local_edit && !existing.hard_deleted_locally && (resolvedPack.packVersion > (existing.revision ?? 0) || existing.is_deleted)) {
           updatedCards += 1;
           cardsToPut.push({
             ...existing,

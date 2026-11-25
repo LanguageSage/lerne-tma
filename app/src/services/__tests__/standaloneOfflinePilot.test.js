@@ -54,6 +54,8 @@ const {
   applyProgressBackup,
 } = await import('../../pilot/progressBackup.js');
 const { offlineApi, STANDALONE_MAX_GRADE_RECEIPTS } = await import('../offlineApi.js');
+const { isStandaloneDb } = await import('../cardOfflineQueue.js');
+const { ensureStandaloneA2Ownership, STANDALONE_A2_OWNERSHIP_MIGRATION_KEY } = await import('../../pilot/standaloneBootstrap.js');
 const { calculateCardReview } = await import('../../utils/srsEngine.js');
 
 function createTestDexie(name) {
@@ -341,7 +343,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(updatedDeck.is_learning, true);
   });
 
-  test('standalone DB rejects content writes while allowing SRS grades, flags, learning toggle, and progress reset', async () => {
+  test('standalone DB unlocks user folder/deck CRUD and card batch ops while keeping bundled seed decks readonly and zero cloud queues', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
@@ -351,14 +353,9 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     const cfg = { _testDb: db };
     const READ_ONLY_ERR = /только для чтения|лише для перегляду|read-?only/i;
 
-    await assert.rejects(
-      offlineApi.handle('post', '/decks', { name: 'Blocked Deck' }, cfg),
-      READ_ONLY_ERR
-    );
-    await assert.rejects(
-      offlineApi.handle('post', '/folders', { name: 'Blocked Folder' }, cfg),
-      READ_ONLY_ERR
-    );
+    // Bundled seed decks remain structurally readonly
+    const seededDeck = await db.decks.get(deckId);
+    assert.equal(seededDeck.is_builtin, true);
     await assert.rejects(
       offlineApi.handle('post', `/decks/${deckId}/rename`, { name: 'Renamed' }, cfg),
       READ_ONLY_ERR
@@ -379,6 +376,27 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
       offlineApi.handle('post', '/decks/reorder', { deck_ids: [9102, 9101, 9103] }, cfg),
       READ_ONLY_ERR
     );
+
+    // User folders & decks succeed with positive ID > 1_000_000, owner rights, and is_dirty: 0
+    const createdFolder = (await offlineApi.handle('post', '/folders', { name: 'My Folder', target_language: 'de' }, cfg)).data;
+    assert.ok(createdFolder.id > 1_000_000);
+    assert.equal(createdFolder.is_dirty, 0);
+    assert.equal(createdFolder.role, 'owner');
+    assert.equal(createdFolder.is_owner, true);
+    assert.equal(createdFolder.is_global_readonly, false);
+    assert.equal(createdFolder.is_builtin, false);
+    assert.ok(createdFolder.standalone_origin_key);
+
+    const createdDeck = (await offlineApi.handle('post', '/decks', { name: 'My Deck', folder_id: createdFolder.id, target_language: 'de' }, cfg)).data;
+    assert.ok(createdDeck.id > 1_000_000);
+    assert.equal(createdDeck.folder_id, createdFolder.id);
+    assert.equal(createdDeck.is_dirty, 0);
+    assert.equal(createdDeck.role, 'owner');
+    assert.equal(createdDeck.is_owner, true);
+    assert.equal(createdDeck.is_global_readonly, false);
+    assert.equal(createdDeck.is_builtin, false);
+    assert.ok(createdDeck.standalone_origin_key);
+    assert.ok(createdDeck.standalone_deck_key);
 
     const created = await offlineApi.handle('post', '/cards/save', {
       deck_id: deckId,
@@ -404,40 +422,43 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     }, cfg);
     assert.equal(singleDeleted.data.is_deleted, 1);
 
-    await assert.rejects(
-      offlineApi.handle('post', '/cards/batch-move', {
-        card_ids: [cardId],
-        target_deck_id: 9102,
-        revisions: { [cardId]: 1 },
-        request_id: 'req-move-blocked',
-      }, cfg),
-      READ_ONLY_ERR
-    );
-    await assert.rejects(
-      offlineApi.handle('post', '/cards/batch-copy', {
-        card_ids: [cardId],
-        target_deck_id: 9102,
-        revisions: { [cardId]: 1 },
-        request_id: 'req-copy-blocked',
-      }, cfg),
-      READ_ONLY_ERR
-    );
-    await assert.rejects(
-      offlineApi.handle('post', '/cards/batch-delete', {
-        card_ids: [cardId, pack.cards[1].id],
-        revisions: { [cardId]: 1, [pack.cards[1].id]: 1 },
-        request_id: 'req-del-multi-blocked',
-      }, cfg),
-      READ_ONLY_ERR
-    );
-    await assert.rejects(
-      offlineApi.handle('post', '/cards/reorder', {
-        card_ids: [cardId, pack.cards[1].id],
-        revisions: { [cardId]: 1, [pack.cards[1].id]: 1 },
-        request_id: 'req-reorder-blocked',
-      }, cfg),
-      READ_ONLY_ERR
-    );
+    // Card batch-move, batch-copy, multi batch-delete, and cards/reorder all succeed with is_dirty: 0
+    const moved = (await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [cardId],
+      target_deck_id: 9102,
+      revisions: { [cardId]: 2 },
+      request_id: 'req-move-allowed',
+    }, cfg)).data;
+    assert.equal(moved.deck_id, 9102);
+    assert.equal(moved.is_dirty, 0);
+
+    const copied = (await offlineApi.handle('post', '/cards/batch-copy', {
+      card_ids: [cardId],
+      target_deck_id: deckId,
+      revisions: { [cardId]: moved.revision },
+      request_id: 'req-copy-allowed',
+    }, cfg)).data;
+    assert.equal(copied.count, 1);
+    assert.ok(copied.cards[0].id > 1_000_000);
+    assert.equal(copied.cards[0].is_dirty, 0);
+
+    const card2 = await db.cards.get(pack.cards[1].id);
+    const card3 = await db.cards.get(pack.cards[2].id);
+    const reordered = (await offlineApi.handle('post', '/cards/reorder', {
+      card_ids: [card3.id, card2.id],
+      revisions: { [card3.id]: card3.revision, [card2.id]: card2.revision },
+      request_id: 'req-reorder-allowed',
+    }, cfg)).data;
+    assert.equal(reordered.cards.length, 2);
+    assert.ok(reordered.cards.every(c => c.is_dirty === 0));
+
+    const multiDeleted = (await offlineApi.handle('post', '/cards/batch-delete', {
+      card_ids: [card2.id, card3.id],
+      revisions: { [card2.id]: (await db.cards.get(card2.id)).revision, [card3.id]: (await db.cards.get(card3.id)).revision },
+      request_id: 'req-del-multi-allowed',
+    }, cfg)).data;
+    assert.equal(multiDeleted.cards.length, 2);
+    assert.ok(multiDeleted.cards.every(c => c.is_deleted === 1 && c.is_dirty === 0));
 
     const graded = await offlineApi.handle('post', '/study/grade', {
       card_id: cardId,
@@ -447,17 +468,25 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
       return_next: false,
     }, cfg);
     assert.equal(graded.data.graded_progress.repetitions, 1);
+    assert.equal((await db.progress.get([cardId, STANDALONE_USER_ID])).is_dirty, 0);
 
     const flagged = await offlineApi.handle('post', `/cards/${cardId}/flag`, { flag: 3 }, cfg);
     assert.equal(flagged.data.flag, 3);
+    assert.equal((await db.progress.get([cardId, STANDALONE_USER_ID])).is_dirty, 0);
 
     const toggled = await offlineApi.handle('post', `/decks/${deckId}/toggle-learning`, { is_learning: true }, cfg);
     assert.equal(toggled.data.is_learning, true);
+    assert.equal((await db.decks.get(deckId)).learning_dirty, 0);
 
     await offlineApi.handle('post', `/decks/${deckId}/reset`, {}, cfg);
-    const resetProgress = await db.progress.get([cardId, STANDALONE_USER_ID]);
+    const resetProgress = await db.progress.get([copied.cards[0].id, STANDALONE_USER_ID]);
     assert.equal(resetProgress.repetitions, 0);
     assert.equal(resetProgress.queue, 'new');
+    assert.equal(resetProgress.is_dirty, 0);
+
+    for (const prefix of ['card-create-v2:', 'card-edit-v2:', 'card-move-v2:', 'card-lifecycle-v2:', 'review:']) {
+      assert.equal(await db.syncState.where('key').startsWith(prefix).count(), 0, `Unexpected cloud outbox key ${prefix}`);
+    }
   });
 
   test('standalone study grades keep bounded grade: receipts, zero review: keys, and idempotent duplicate protection', async () => {
@@ -684,5 +713,273 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     const androidGitignoreLines = new Set(read('android/.gitignore').split(/\r?\n/).map(line => line.trim()));
     assert.equal(androidGitignoreLines.has('*.jks'), true);
     assert.equal(androidGitignoreLines.has('*.keystore'), true);
+  });
+
+  test('standalone folder/deck/trash/clear lifecycle & seed card non-resurrection after trash clear', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
+    const cfg = { _testDb: db };
+
+    // 1. Folder + subfolder + deck + card full lifecycle
+    const rootFolder = (await offlineApi.handle('post', '/folders', { name: 'Root F', target_language: 'de' }, cfg)).data;
+    const subFolder = (await offlineApi.handle('post', '/folders', { name: 'Sub F', parent_id: rootFolder.id, target_language: 'de' }, cfg)).data;
+    const otherFolder = (await offlineApi.handle('post', '/folders', { name: 'Other F', target_language: 'de' }, cfg)).data;
+    const userDeck = (await offlineApi.handle('post', '/decks', { name: 'Local Deck', folder_id: subFolder.id, target_language: 'de' }, cfg)).data;
+    const otherDeck = (await offlineApi.handle('post', '/decks', { name: 'Other Deck', folder_id: null, target_language: 'de' }, cfg)).data;
+
+    await offlineApi.handle('post', `/folders/${subFolder.id}/rename`, { name: 'Sub F Renamed' }, cfg);
+    await offlineApi.handle('post', `/folders/${subFolder.id}/color`, { color: '#10b981' }, cfg);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/rename`, { name: 'Local Deck Renamed' }, cfg);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/color`, { color: '#ec4899' }, cfg);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/pin`, {}, cfg);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/move`, { folder_id: rootFolder.id }, cfg);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/move`, { folder_id: subFolder.id }, cfg);
+    await offlineApi.handle('post', '/folders/reorder', { folder_ids: [otherFolder.id, rootFolder.id] }, cfg);
+    await offlineApi.handle('post', '/decks/reorder', { deck_ids: [otherDeck.id, userDeck.id] }, cfg);
+
+    assert.equal((await db.folders.get(subFolder.id)).name, 'Sub F Renamed');
+    assert.equal((await db.folders.get(subFolder.id)).color, '#10b981');
+    assert.equal((await db.decks.get(userDeck.id)).name, 'Local Deck Renamed');
+    assert.equal((await db.decks.get(userDeck.id)).is_pinned, true);
+    assert.equal((await db.decks.get(userDeck.id)).is_dirty, 0);
+
+    const userCard = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: userDeck.id,
+      request_id: 'lifecycle-card-1',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'LifecycleWort', answer: 'Слово' } } },
+    }, cfg)).data;
+
+    // Delete rootFolder -> hides entire subtree across all read endpoints
+    await offlineApi.handle('delete', `/folders/${rootFolder.id}`, null, cfg);
+    const initAfterDel = (await offlineApi.handle('get', '/init', null, cfg)).data;
+    assert.equal(initAfterDel.folders.some(f => f.id === rootFolder.id || f.id === subFolder.id), false);
+    assert.equal(initAfterDel.decks.some(d => d.id === userDeck.id), false);
+    assert.equal((await offlineApi.handle('get', '/decks', null, cfg)).data.some(d => d.id === userDeck.id), false);
+    assert.equal((await offlineApi.handle('get', '/folders', null, cfg)).data.some(f => f.id === rootFolder.id), false);
+    assert.deepEqual((await offlineApi.handle('get', '/cards/search?q=LifecycleWort', null, cfg)).data.cards, []);
+    const statsAfterDel = (await offlineApi.handle('get', '/study/stats', null, cfg)).data;
+    assert.equal(statsAfterDel.total_cards, pack.cards.length);
+
+    // Pre-delete userDeck while root is active? Restore rootFolder first, then delete userDeck, then delete rootFolder to test parent_deleted
+    await offlineApi.handle('post', `/trash/folder/${rootFolder.id}/restore`, null, cfg);
+    await offlineApi.handle('delete', `/decks/${userDeck.id}`, null, cfg);
+    await offlineApi.handle('delete', `/folders/${rootFolder.id}`, null, cfg);
+    const trashData = (await offlineApi.handle('get', '/trash', null, cfg)).data;
+    assert.equal(trashData.folders.find(f => f.id === rootFolder.id).parent_deleted, false);
+    assert.equal(trashData.decks.find(d => d.id === userDeck.id).parent_deleted, true);
+    await assert.rejects(
+      () => offlineApi.handle('post', `/trash/deck/${userDeck.id}/restore`, null, cfg),
+      err => err?.response?.status === 409 && err?.response?.data?.detail?.code === 'parent_folder_deleted',
+    );
+
+    // Restore folder & deck -> visible again -> delete again -> DELETE /trash/clear -> hard-deleted
+    await offlineApi.handle('post', `/trash/folder/${rootFolder.id}/restore`, null, cfg);
+    await offlineApi.handle('post', `/trash/deck/${userDeck.id}/restore`, null, cfg);
+    assert.equal((await offlineApi.handle('get', '/decks', null, cfg)).data.some(d => d.id === userDeck.id), true);
+
+    await offlineApi.handle('delete', `/folders/${rootFolder.id}`, null, cfg);
+    await offlineApi.handle('delete', '/trash/clear', null, cfg);
+    assert.equal(await db.folders.get(rootFolder.id), undefined);
+    assert.equal(await db.folders.get(subFolder.id), undefined);
+    assert.equal(await db.decks.get(userDeck.id), undefined);
+    assert.equal(await db.cards.get(userCard.id), undefined);
+    assert.equal(await db.syncState.get(`deck-cards:${userDeck.id}`), undefined);
+
+    // 2. Seed card trash clear -> hard_deleted_locally tombstone prevents ensureStandaloneSeed resurrection
+    const seedCard = pack.cards[0];
+    await offlineApi.handle('post', '/study/grade', {
+      card_id: seedCard.id, grade: 2, action_id: 'grade-seed-before-clear', return_next: false,
+    }, cfg);
+    await offlineApi.handle('post', '/cards/batch-delete', {
+      card_ids: [seedCard.id],
+      revisions: { [seedCard.id]: 1 },
+      request_id: 'del-seed-card-for-clear',
+    }, cfg);
+    assert.equal((await offlineApi.handle('get', '/trash', null, cfg)).data.cards.some(c => c.id === seedCard.id), true);
+
+    await offlineApi.handle('delete', '/trash/clear', null, cfg);
+    const clearedSeedCard = await db.cards.get(seedCard.id);
+    assert.equal(clearedSeedCard.is_deleted, 1);
+    assert.equal(clearedSeedCard.hard_deleted_locally, true);
+    assert.equal(clearedSeedCard.standalone_local_edit, true);
+    assert.equal(clearedSeedCard.is_dirty, 0);
+    assert.equal(await db.progress.get([seedCard.id, STANDALONE_USER_ID]), undefined);
+
+    // Simulate APK seed upgrade -> seedCard stays deleted and is NOT resurrected
+    const v2Specs = pack.decks.map(d => ({
+      id: d.id,
+      slug: d.slug,
+      targetLanguage: d.targetLanguage,
+      color: d.color,
+      position: d.position,
+      cardIdBase: d.id === 9101 ? 910100 : d.id === 9102 ? 910200 : 910300,
+      document: structuredClone(d.document),
+    }));
+    v2Specs[0].document.cards[0].explanation = 'Should not resurrect';
+    const v2Pack = buildStandalonePack({ packVersion: 2, deckSpecs: v2Specs });
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack: v2Pack });
+    const afterSeedUpgrade = await db.cards.get(seedCard.id);
+    assert.equal(afterSeedUpgrade.is_deleted, 1);
+    assert.equal(afterSeedUpgrade.hard_deleted_locally, true);
+
+    for (const prefix of ['card-create-v2:', 'card-edit-v2:', 'card-move-v2:', 'card-lifecycle-v2:', 'review:']) {
+      assert.equal(await db.syncState.where('key').startsWith(prefix).count(), 0);
+    }
+  });
+
+  test('Option A2 one-time ownership migration upgrades legacy imported folders/decks while preserving seed readonly', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+
+    // Simulate legacy pre-A2 imported folder and deck stored as viewer / is_global_readonly
+    await db.folders.put({
+      id: 1000010,
+      user_id: STANDALONE_USER_ID,
+      parent_id: null,
+      name: 'Legacy Imported Folder',
+      role: 'viewer',
+      is_owner: false,
+      is_global_readonly: true,
+      standalone_origin_key: 'archive:Supabase:' + 'a'.repeat(64) + ':folder:1',
+    });
+    await db.decks.put({
+      id: 1000020,
+      user_id: STANDALONE_USER_ID,
+      folder_id: 1000010,
+      name: 'Legacy Imported Deck',
+      role: 'viewer',
+      is_owner: false,
+      is_global_readonly: true,
+      standalone_origin_key: 'archive:Supabase:' + 'a'.repeat(64) + ':deck:1',
+      standalone_deck_key: 'archive:Supabase:' + 'a'.repeat(64) + ':deck:1',
+    });
+
+    const first = await ensureStandaloneA2Ownership(db);
+    assert.equal(first.migrated, true);
+    assert.equal(first.migratedFolders, 1);
+    assert.equal(first.migratedDecks, 1);
+    assert.equal((await db.syncState.get(STANDALONE_A2_OWNERSHIP_MIGRATION_KEY))?.completed, true);
+
+    const upgradedFolder = await db.folders.get(1000010);
+    assert.equal(upgradedFolder.role, 'owner');
+    assert.equal(upgradedFolder.is_owner, true);
+    assert.equal(upgradedFolder.is_global_readonly, false);
+    assert.equal(upgradedFolder.is_builtin, false);
+
+    const upgradedDeck = await db.decks.get(1000020);
+    assert.equal(upgradedDeck.role, 'owner');
+    assert.equal(upgradedDeck.is_owner, true);
+    assert.equal(upgradedDeck.is_global_readonly, false);
+    assert.equal(upgradedDeck.is_builtin, false);
+
+    // Seed decks remain structurally readonly
+    const seedDeck = await db.decks.get(9101);
+    assert.equal(seedDeck.role, 'viewer');
+    assert.equal(seedDeck.is_global_readonly, true);
+    assert.equal(seedDeck.is_builtin, true);
+
+    // Idempotent on second run
+    const second = await ensureStandaloneA2Ownership(db);
+    assert.equal(second.migrated, false);
+  });
+
+  test('Web non-standalone DB preserves negative temp IDs, is_dirty: 1, and cloud outbox keys', async () => {
+    const webUserId = 777;
+    memStorage.set('lerne_user_id', String(webUserId));
+    const webDb = createTestDexie(`LerneLocalDB_Regression_${dbCounter}`);
+    await webDb.open();
+    assert.equal(isStandaloneDb(webDb), false);
+
+    const cfg = { _testDb: webDb };
+    const createdFolder = (await offlineApi.handle('post', '/folders', { name: 'Web Folder', target_language: 'de' }, cfg)).data;
+    const createdDeck = (await offlineApi.handle('post', '/decks', { name: 'Web Deck', folder_id: createdFolder.id, target_language: 'de' }, cfg)).data;
+    assert.ok(createdFolder.id < 0);
+    assert.equal(createdFolder.is_dirty, 1);
+    assert.ok(createdDeck.id < 0);
+    assert.equal(createdDeck.is_dirty, 1);
+
+    // Seed a positive synced deck + card for Web offline card queue mutations
+    await webDb.decks.put({ id: 50, user_id: webUserId, folder_id: null, name: 'Synced Deck', role: 'owner', is_deleted: 0, is_dirty: 0 });
+    await webDb.decks.put({ id: 51, user_id: webUserId, folder_id: null, name: 'Target Deck', role: 'owner', is_deleted: 0, is_dirty: 0 });
+    await webDb.cards.put({
+      id: 500,
+      deck_id: 50,
+      position: 0,
+      revision: 1,
+      is_deleted: 0,
+      is_dirty: 0,
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'WebPrompt', answer: 'WebAns' } } },
+    });
+    await webDb.cards.put({
+      id: 501,
+      deck_id: 50,
+      position: 1,
+      revision: 1,
+      is_deleted: 0,
+      is_dirty: 0,
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'WebPrompt2', answer: 'WebAns2' } } },
+    });
+
+    const createdCard = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: 50,
+      request_id: 'web-create-1',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'NewWeb', answer: 'Ans' } } },
+    }, cfg)).data;
+    assert.ok(createdCard.id < 0);
+    assert.equal(createdCard.offline_create_status, 'pending');
+    assert.ok(await webDb.syncState.get('card-create-v2:web-create-1'));
+
+    const editedCard = (await offlineApi.handle('patch', '/cards/500', {
+      request_id: 'web-edit-1',
+      revision: 1,
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'EditedWeb', answer: 'Ans' } } },
+    }, { _testDb: webDb, offlineCardEdit: true })).data;
+    assert.equal(editedCard.offline_edit?.status, 'pending');
+    assert.ok(await webDb.syncState.get('card-edit-v2:500'));
+
+    await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [501],
+      target_deck_id: 51,
+      revisions: { 501: 1 },
+      request_id: 'web-move-1',
+    }, cfg);
+    assert.ok(await webDb.syncState.get('card-move-v2:501'));
+
+    await webDb.cards.put({
+      id: 502,
+      deck_id: 50,
+      position: 2,
+      revision: 1,
+      is_deleted: 0,
+      is_dirty: 0,
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'WebDel', answer: 'Ans' } } },
+    });
+    await offlineApi.handle('post', '/cards/batch-delete', {
+      card_ids: [502],
+      revisions: { 502: 1 },
+      request_id: 'web-del-1',
+    }, cfg);
+    assert.ok(await webDb.syncState.get('card-lifecycle-v2:502'));
+
+    await offlineApi.handle('post', '/study/grade', {
+      card_id: 502,
+      grade: 2,
+      action_id: 'web-grade-1',
+      return_next: false,
+    }, { _testDb: webDb }).catch(() => {});
+    // Grade on active card 500
+    await offlineApi.handle('post', '/study/grade', {
+      card_id: 500,
+      grade: 2,
+      action_id: 'web-grade-active',
+      return_next: false,
+    }, cfg);
+    assert.ok(await webDb.syncState.get('grade:web-grade-active'));
+    assert.ok(await webDb.syncState.get('review:web-grade-active'));
+    assert.equal((await webDb.progress.get([500, webUserId])).is_dirty, 1);
+
+    await assert.rejects(() => offlineApi.handle('delete', '/trash/clear', null, cfg), err => err?.code === 'OFFLINE_UNSUPPORTED');
+    await webDb.delete();
   });
 });

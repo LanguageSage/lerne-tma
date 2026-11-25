@@ -19,11 +19,10 @@ import { useUiStore } from '../../store/useUiStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import { navigateUp } from '../../utils/navigation';
-import { parseDeckMetadata, getDeckPedagogy } from '../../utils/deckUtils';
+import { parseDeckMetadata, getDeckPedagogy, isBundledSeedDeck } from '../../utils/deckUtils';
 import { computeDeckSrsStats } from '../../utils/sessionStats';
 import { CourseProgressPlaceholder } from './CourseProgressPlaceholder';
 import { DeckIntroEditModal } from './DeckIntroEditModal';
-import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import './DeckIntro.css';
 
 const CEFR_LEVELS = new Set(['A1', 'A2', 'B1', 'B2', 'C1', 'C2']);
@@ -67,7 +66,7 @@ export const DeckIntro = ({ startStudy, previewData = null }) => {
 
   // Check editing permissions
   const canEdit = useMemo(() => {
-    if (IS_STANDALONE || previewData || !currentDeck) return false;
+    if (previewData || !currentDeck || isBundledSeedDeck(currentDeck)) return false;
     if (isAdmin) return true;
     if (currentDeck.role === 'owner' || currentDeck.role === 'editor') return true;
     if (currentDeck.is_global_readonly) return false;

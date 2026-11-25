@@ -569,6 +569,7 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
     throw new Error('Cannot restore progress without active user ID');
   }
 
+  const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
   const bundledCardIds = new Set(resolvedPack.cards.map(c => c.id));
   const nowIso = new Date().toISOString();
   let restoredImportedRecords = 0;
@@ -583,7 +584,7 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
 
     const importedDeckByKey = new Map();
     for (const deck of allDecks) {
-      if (deck.standalone_source && deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
+      if (!builtInDeckIds.has(deck.id) && deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
     }
 
     const importedCardByKey = new Map();

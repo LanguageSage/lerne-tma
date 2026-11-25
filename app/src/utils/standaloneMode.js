@@ -11,6 +11,7 @@ export const STANDALONE_APPLICATION_ID = 'com.lerne.offlinepilot';
 export const STANDALONE_USER_ID = 900001;
 export const STANDALONE_SESSION_IDENTITY = 'standalone-offline-pilot';
 export const STANDALONE_DB_PREFIX = 'LerneStandaloneDB';
+export { STANDALONE_SEED_DECK_IDS } from './deckUtils.js';
 export const STANDALONE_PROFILE_NAME_KEY = 'lerne_standalone_profile_name';
 
 export function getStandaloneProfileName() {

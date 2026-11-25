@@ -10,7 +10,7 @@ import { getUserId } from '../../utils/auth';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useCardActions } from '../../hooks/useCardActions';
 import { FlagPicker } from '../common/FlagPicker';
-import { getSortedFolderAndDeckTree } from '../../utils/deckUtils';
+import { getSortedFolderAndDeckTree, canAuthorDeckCards } from '../../utils/deckUtils';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { useCardNotes } from '../../hooks/useCardNotes';
 import { StudyCardInfo } from '../study/StudyCardInfo';
@@ -43,8 +43,7 @@ export const CardActionModal = ({
 
   const targetDeckId = card?.deck_id != null ? card.deck_id : currentDeck?.id;
   const actionDeck = decks?.find(d => String(d.id) === String(targetDeckId)) || currentDeck;
-  const canEditContent = actionDeck?.role === 'owner' || actionDeck?.role === 'editor' || (actionDeck && !actionDeck.role && !actionDeck.is_global_readonly);
-  const canAuthorCard = IS_STANDALONE ? Boolean(actionDeck) : canEditContent;
+  const canAuthorCard = canAuthorDeckCards(actionDeck, IS_STANDALONE);
   const isCurrentDeck = currentDeck && String(currentDeck.id) === String(targetDeckId);
   const cardsList = React.useMemo(() => {
     return (isCurrentDeck && deckCards && deckCards.length > 0)
@@ -216,7 +215,7 @@ export const CardActionModal = ({
             {mode === 'main' && (
               <div className="action-grid" style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
 
-                {!IS_STANDALONE && canEditContent && <button
+                {canAuthorCard && <button
                   className="action-menu-item"
                   onClick={() => setMode('move')}
                 >
@@ -229,7 +228,7 @@ export const CardActionModal = ({
                   </div>
                 </button>}
 
-                {!IS_STANDALONE && canEditContent && <button
+                {canAuthorCard && <button
                   className="action-menu-item"
                   onClick={() => setMode('copy')}
                 >
@@ -270,7 +269,7 @@ export const CardActionModal = ({
                   </button>
                 )}
 
-                {!IS_STANDALONE && canEditContent && <button
+                {canAuthorCard && <button
                   className="action-menu-item"
                   onClick={() => setMode('position')}
                 >
@@ -304,7 +303,7 @@ export const CardActionModal = ({
                   </div>
                   <div className="action-menu-text">
                     <strong style={{ color: '#ef4444' }}>{tr("Удалить карточку")}</strong>
-                    <span>{IS_STANDALONE ? tr('Карточка будет удалена с этого устройства') : tr(card.content_v2 ? 'Карточку можно восстановить из корзины' : 'Это действие нельзя отменить')}</span>
+                    <span>{tr(card.content_v2 || IS_STANDALONE ? 'Карточку можно восстановить из корзины' : 'Это действие нельзя отменить')}</span>
                   </div>
                 </button>}
                 {!IS_STANDALONE && <button type="button" className="action-menu-item" aria-label={tr('Мои заметки')} onClick={() => setMode('notes')}>

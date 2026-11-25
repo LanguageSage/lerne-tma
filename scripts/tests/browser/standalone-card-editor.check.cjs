@@ -325,13 +325,13 @@ async function run() {
     await page.locator('.deck-intro-btn-list').click();
     await page.locator('#tut-fab-add').waitFor({ state: 'visible' });
 
-    // Verify CardActionModal shows ONLY offline authoring + flag + info
+    // Verify CardActionModal shows offline authoring + move/copy/position + flag + info
     await page.locator('.card-item-actions-trigger').first().click();
     await page.getByRole('button', { name: /Редактировать/ }).waitFor({ state: 'visible' });
     await page.getByRole('button', { name: /Удалить карточку/ }).waitFor({ state: 'visible' });
-    assert.equal(await page.getByText('Переместить', { exact: true }).count(), 0);
-    assert.equal(await page.getByText('Копировать', { exact: true }).count(), 0);
-    assert.equal(await page.getByText('Позиция в списке', { exact: true }).count(), 0);
+    await page.getByRole('button', { name: /Переместить/ }).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: /Копировать/ }).waitFor({ state: 'visible' });
+    await page.getByRole('button', { name: /Позиция в списке/ }).waitFor({ state: 'visible' });
     assert.equal(await page.getByText('Поделиться', { exact: true }).count(), 0);
     assert.equal(await page.getByText('Мои заметки', { exact: true }).count(), 0);
     assert.equal(await page.getByText('Предложить улучшение', { exact: true }).count(), 0);

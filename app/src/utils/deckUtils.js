@@ -2,6 +2,7 @@
  * Shared deck and folder utility functions.
  * Replaces duplicated metadata parsing and folder tree sorting across components.
  */
+export const STANDALONE_SEED_DECK_IDS = new Set([9101, 9102, 9103]);
 
 export const parseDeckMetadata = (deck) => {
   if (!deck) return { resources: [] };
@@ -13,6 +14,34 @@ export const parseDeckMetadata = (deck) => {
     return { resources: [] };
   }
 };
+
+export const isBundledSeedDeck = (deck) => Boolean(
+  deck && (
+    deck.is_builtin === true
+    || (!deck.standalone_source
+      && STANDALONE_SEED_DECK_IDS.has(Number(deck.id))
+      && (Boolean(parseDeckMetadata(deck)?.standalone_slug) || deck.is_global_readonly === true))
+  )
+);
+
+export const isBundledSeedCard = (card) => Boolean(
+  card
+  && Number(card.id) > 0
+  && Number(card.id) < 1_000_000
+  && !card.standalone_source
+  && typeof card.standalone_card_key === 'string'
+  && card.standalone_card_key.includes(':')
+);
+
+export const canEditContainer = (item, isStandalone = false) => {
+  if (!item) return Boolean(isStandalone);
+  if (isBundledSeedDeck(item)) return false;
+  return item.role === 'owner' || item.role === 'editor' || (!item.role && !item.is_global_readonly);
+};
+
+export const canAuthorDeckCards = (deck, isStandalone = false) => (
+  Boolean(deck) && (isStandalone || canEditContainer(deck, false))
+);
 
 export const findCardDeck = ({ currentDeck, decks }, deckId) => {
   if (!deckId || deckId === 'duplicates') return currentDeck;

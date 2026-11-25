@@ -5,6 +5,7 @@ import { useUiStore } from '../../store/useUiStore';
 import { useDeckStore } from '../../store/useDeckStore';
 import { getSortedFolderTree } from '../../utils/deckUtils';
 import { reclassifyDeck } from '../../services/reclassificationService.js';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMedia }) => {
   const setView = useUiStore(s => s.setView);
@@ -202,7 +203,7 @@ export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMe
             </button>
           )}
 
-          {canEditContent && !currentDeck?.is_inbox && (
+          {!IS_STANDALONE && canEditContent && !currentDeck?.is_inbox && (
             <button className="dropdown-item" onClick={() => {
               setIsDeckMenuOpen(false);
               useUiStore.getState().setCollaboratorsTarget({ type: 'deck', id: currentDeck.id, name: currentDeck.name });
@@ -212,13 +213,13 @@ export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMe
             </button>
           )}
 
-          {canEditContent && !currentDeck?.is_inbox && (
+          {!IS_STANDALONE && canEditContent && !currentDeck?.is_inbox && (
             <button className="dropdown-item" onClick={handleShare}>
               <span>{tr("🔗 Поделиться")}</span>
             </button>
           )}
 
-          {canEditContent && !currentDeck?.is_inbox && (
+          {!IS_STANDALONE && canEditContent && !currentDeck?.is_inbox && (
             <button className="dropdown-item" onClick={handleSync}>
               <span>🔄 {currentDeck?.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
             </button>
@@ -264,47 +265,51 @@ export const DeckActionsMenu = ({ currentDeck, canEditContent, folders, onOpenMe
                 </div>
               )}
 
-              <button
-                className={`dropdown-item ${isCopyMenuOpen ? 'active' : ''}`}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  setIsCopyMenuOpen(prev => !prev);
-                }}
-              >
-                <span>{tr("📋 Скопировать в")}</span>
-                <ChevronRight
-                  size={14}
-                  style={{
-                    marginLeft: 'auto',
-                    transform: isCopyMenuOpen ? 'rotate(90deg)' : 'none',
-                    transition: 'transform 0.2s'
-                  }}
-                />
-              </button>
-              {isCopyMenuOpen && (
-                <div className="dropdown-sub-menu">
+              {!IS_STANDALONE && (
+                <>
                   <button
-                    className={`dropdown-sub-item ${currentDeck?.folder_id === null ? 'current' : ''}`}
-                    onClick={(e) => handleCopyToFolder(e, null)}
+                    className={`dropdown-item ${isCopyMenuOpen ? 'active' : ''}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setIsCopyMenuOpen(prev => !prev);
+                    }}
                   >
-                    <span>{tr("Без папки (Главная)")}</span>
+                    <span>{tr("📋 Скопировать в")}</span>
+                    <ChevronRight
+                      size={14}
+                      style={{
+                        marginLeft: 'auto',
+                        transform: isCopyMenuOpen ? 'rotate(90deg)' : 'none',
+                        transition: 'transform 0.2s'
+                      }}
+                    />
                   </button>
-                  {getSortedFolderTree(folders || []).map(f => (
-                    <button
-                      key={f.id}
-                      className={`dropdown-sub-item ${currentDeck?.folder_id === f.id ? 'current' : ''}`}
-                      onClick={(e) => handleCopyToFolder(e, f.id)}
-                      style={{ paddingLeft: `${12 + f.depth * 14}px` }}
-                    >
-                      <span>{f.name}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
+                  {isCopyMenuOpen && (
+                    <div className="dropdown-sub-menu">
+                      <button
+                        className={`dropdown-sub-item ${currentDeck?.folder_id === null ? 'current' : ''}`}
+                        onClick={(e) => handleCopyToFolder(e, null)}
+                      >
+                        <span>{tr("Без папки (Главная)")}</span>
+                      </button>
+                      {getSortedFolderTree(folders || []).map(f => (
+                        <button
+                          key={f.id}
+                          className={`dropdown-sub-item ${currentDeck?.folder_id === f.id ? 'current' : ''}`}
+                          onClick={(e) => handleCopyToFolder(e, f.id)}
+                          style={{ paddingLeft: `${12 + f.depth * 14}px` }}
+                        >
+                          <span>{f.name}</span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
 
-              <button className="dropdown-item" onClick={handleReclassifyDeck}>
-                <span>{tr("✨ Обновить CEFR-уровни")}</span>
-              </button>
+                  <button className="dropdown-item" onClick={handleReclassifyDeck}>
+                    <span>{tr("✨ Обновить CEFR-уровни")}</span>
+                  </button>
+                </>
+              )}
               <button className="dropdown-item danger" onClick={handleDelete}>
                 <span>{tr("🗑️ Удалить колоду")}</span>
               </button>

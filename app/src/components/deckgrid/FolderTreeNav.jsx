@@ -10,7 +10,8 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useAuthStore } from '../../store/useAuthStore';
 import api from '../../services/api';
 import { renderFlag } from './FlagIcons';
-import { getSortedFolderTree, getDescendantFolderIds, getFolderContentStats } from '../../utils/deckUtils';
+import { getSortedFolderTree, getDescendantFolderIds, getFolderContentStats, canEditContainer } from '../../utils/deckUtils';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const FolderCardItem = React.memo(({
   folder,
@@ -146,7 +147,7 @@ export const FolderCardItem = React.memo(({
   };
 
   const folderLang = folder.target_language || useLanguageStore.getState().activeLanguage || 'de';
-  const canEditFolder = folder.role === 'owner' || folder.role === 'editor';
+  const canEditFolder = canEditContainer(folder, IS_STANDALONE);
 
   const {
     attributes,
@@ -274,7 +275,7 @@ export const FolderCardItem = React.memo(({
             </span>
           )}
 
-          {folder.is_shared && (
+          {!IS_STANDALONE && folder.is_shared && (
             <div 
               title={tr("Совместный доступ")}
               onClick={(e) => {
@@ -302,7 +303,7 @@ export const FolderCardItem = React.memo(({
         </div>
 
         <div className="deck-footer-actions-right">
-          {(canEditFolder || isAdmin) && (
+          {(canEditFolder || (!IS_STANDALONE && isAdmin)) && (
             <button 
               className={`card-item-actions-trigger ${isMenuOpen ? 'active' : ''}`}
               onClick={toggleMenu}
@@ -316,23 +317,27 @@ export const FolderCardItem = React.memo(({
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
 
-            {isAdmin && (
+            {!IS_STANDALONE && isAdmin && (
               <button className="dropdown-item" onClick={handleTogglePublish} style={{ color: '#8b5cf6', fontWeight: 600 }}>
                 <span>{folder.is_global_readonly ? '🔐 Скрыть из общего доступа' : '🌍 Опубликовать глобально'}</span>
               </button>
             )}
             {canEditFolder && <>
-            <button className="dropdown-item" onClick={(e) => {
-              e.stopPropagation();
-              setIsMenuOpen(false);
-              useUiStore.getState().setCollaboratorsTarget({ type: 'folder', id: folder.id, name: folder.name });
-              useUiStore.getState().setIsCollaboratorsModalOpen(true);
-            }}>
-              <span>{tr("👥 Совместный доступ")}</span>
-            </button>
-            <button className="dropdown-item" onClick={handleShare}>
-              <span>{tr("🔗 Поделиться содержимым")}</span>
-            </button>
+            {!IS_STANDALONE && (
+              <>
+                <button className="dropdown-item" onClick={(e) => {
+                  e.stopPropagation();
+                  setIsMenuOpen(false);
+                  useUiStore.getState().setCollaboratorsTarget({ type: 'folder', id: folder.id, name: folder.name });
+                  useUiStore.getState().setIsCollaboratorsModalOpen(true);
+                }}>
+                  <span>{tr("👥 Совместный доступ")}</span>
+                </button>
+                <button className="dropdown-item" onClick={handleShare}>
+                  <span>{tr("🔗 Поделиться содержимым")}</span>
+                </button>
+              </>
+            )}
             <button className="dropdown-item" onClick={handleRename}>
               <span>{tr("✍️ Переименовать")}</span>
             </button>

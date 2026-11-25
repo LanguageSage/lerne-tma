@@ -6,9 +6,8 @@ import { keepLocalCard, reconcileCardEditLifecycle, syncService } from './syncSe
 import { mergeStudyProgress } from '../utils/structuredStudyCard.js';
 import {
   buildFolderMap,
-  collectSubtreeFolderIds,
+  clearTrashInDb,
   isDeckActiveInCache,
-  isOwnedRecord,
 } from './cardOfflineQueue.js';
 import { tr } from '../i18n/locale.js';
 
@@ -265,31 +264,12 @@ export async function reconcileOnlineResponse({
             }
           });
         } else if (trashClear) {
-          await db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
-            if (!isCurrent()) throw new axios.CanceledError('Session changed during trash clear cache update');
-            const [allFolders, allDecks, allCards] = await Promise.all([
-              db.folders.toArray(), db.decks.toArray(), db.cards.toArray(),
-            ]);
-            const childrenByParent = new Map();
-            for (const folder of allFolders) {
-              if (!isOwnedRecord(folder, requestAccount)) continue;
-              const list = childrenByParent.get(folder.parent_id ?? null) || [];
-              list.push(folder);
-              childrenByParent.set(folder.parent_id ?? null, list);
-            }
-            const rootDelFolders = allFolders.filter(f => f.is_deleted && !f.is_dirty && isOwnedRecord(f, requestAccount)).map(f => f.id);
-            const delFolderIds = new Set(collectSubtreeFolderIds(rootDelFolders, childrenByParent, child => !child.is_dirty));
-            const decksById = new Map(allDecks.map(d => [d.id, d]));
-            const delDeckIds = new Set(allDecks.filter(d => isOwnedRecord(d, requestAccount) && !d.is_dirty && (d.is_deleted || delFolderIds.has(d.folder_id))).map(d => d.id));
-            const delCardIds = allCards.filter(c => !c.is_dirty && !c.offline_lifecycle && !c.offline_edit
-              && ((c.is_deleted && isOwnedRecord(decksById.get(c.deck_id), requestAccount)) || delDeckIds.has(c.deck_id))).map(c => c.id);
-            if (delCardIds.length > 0) {
-              await db.cards.bulkDelete(delCardIds);
-              const progressKeys = (await db.progress.where('card_id').anyOf(delCardIds).toArray()).map(p => [p.card_id, p.user_id]);
-              if (progressKeys.length > 0) await db.progress.bulkDelete(progressKeys);
-            }
-            if (delDeckIds.size > 0) await db.decks.bulkDelete([...delDeckIds]);
-            if (delFolderIds.size > 0) await db.folders.bulkDelete([...delFolderIds]);
+          await clearTrashInDb(db, requestAccount, {
+            isCurrent: () => {
+              if (!isCurrent()) throw new axios.CanceledError('Session changed during trash clear cache update');
+              return true;
+            },
+            localOnly: false,
           });
         } else if (trashRead && Array.isArray(response.data?.cards)) {
           const cards = await db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {

@@ -8,6 +8,7 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { SearchBar } from '../common/SearchBar';
 import { matchesSearchQuery } from '../../utils/search';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const DeckModals = () => {
   useInterfaceLocale();
@@ -258,10 +259,12 @@ export const DeckModals = () => {
                   setDeckModalMode('create_folder');
                 }} style={{ background: '#4f46e5' }}>
                   <Folder size={20} />{' '}{tr("Создать папку")}{' '}</button>
-                <button className="btn-secondary btn-full choice-btn" onClick={handleFetchExternal} disabled={isImportLoading}>
-                  {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
-                  {isImportLoading ? tr(" Загрузка...") : tr(" Из Библиотеки")}
-                </button>
+                {!IS_STANDALONE && (
+                  <button className="btn-secondary btn-full choice-btn" onClick={handleFetchExternal} disabled={isImportLoading}>
+                    {isImportLoading ? <RefreshCw size={20} className="spin" /> : <Layers size={20} />} 
+                    {isImportLoading ? tr(" Загрузка...") : tr(" Из Библиотеки")}
+                  </button>
+                )}
               </div>
             )}
 

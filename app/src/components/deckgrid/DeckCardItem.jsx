@@ -11,8 +11,9 @@ import { useDeckStore } from '../../store/useDeckStore';
 import { hasFreshDeckCards } from '../../store/slices/createDeckSlice.js';
 import { useSessionStore } from '../../store/useSessionStore';
 import { renderFlag } from './FlagIcons';
-import { getSortedFolderTree } from '../../utils/deckUtils';
+import { getSortedFolderTree, canEditContainer } from '../../utils/deckUtils';
 import { reclassifyDeck } from '../../services/reclassificationService.js';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 export const DeckCardItem = React.memo(({
   deck,
@@ -35,7 +36,7 @@ export const DeckCardItem = React.memo(({
   const [isCopyMenuOpen, setIsCopyMenuOpen] = useState(false);
   const [isTogglingLearning, setIsTogglingLearning] = useState(false);
   const [menuPlacement, setMenuPlacement] = useState('bottom');
-  const canEditDeck = deck.role === 'owner' || deck.role === 'editor' || (!deck.role && !deck.is_global_readonly);
+  const canEditDeck = canEditContainer(deck, IS_STANDALONE);
   const menuRef = useRef(null);
 
   const toggleMenu = (e) => {
@@ -403,7 +404,7 @@ export const DeckCardItem = React.memo(({
             );
           })()}
 
-          {deck.is_shared && (
+          {!IS_STANDALONE && deck.is_shared && (
             <div 
               title={tr("Совместный доступ")}
               onClick={(e) => {
@@ -437,7 +438,7 @@ export const DeckCardItem = React.memo(({
             title={tr("Опции колоды")}
           >
             <MoreHorizontal size={18} />
-            {deck.has_updates && !deck.is_inbox && canEditDeck && (
+            {!IS_STANDALONE && deck.has_updates && !deck.is_inbox && canEditDeck && (
               <span className="menu-update-indicator" />
             )}
           </button>
@@ -445,7 +446,7 @@ export const DeckCardItem = React.memo(({
 
         {isMenuOpen && (
           <div className={`deck-dropdown-menu glass placement-${menuPlacement}`} ref={menuRef} onClick={(e) => e.stopPropagation()}>
-            {!deck.is_inbox && canEditDeck && (
+            {!IS_STANDALONE && !deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={(e) => {
                 e.stopPropagation();
                 setIsMenuOpen(false);
@@ -466,14 +467,14 @@ export const DeckCardItem = React.memo(({
               </button>
             )}
 
-            {!deck.is_inbox && canEditDeck && (
+            {!IS_STANDALONE && !deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={handleShare}>
                 <span>{tr("🔗 Поделиться")}</span>
               </button>
             )}
 
 
-            {!deck.is_inbox && canEditDeck && (
+            {!IS_STANDALONE && !deck.is_inbox && canEditDeck && (
               <button className="dropdown-item" onClick={handleSync}>
                 <span>🔄 {deck.has_updates ? tr("❗️ Обновить") : tr("Обновить")}</span>
               </button>
@@ -525,47 +526,51 @@ export const DeckCardItem = React.memo(({
                   </div>
                 )}
 
-                <button 
-                  className={`dropdown-item ${isCopyMenuOpen ? 'active' : ''}`} 
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    setIsCopyMenuOpen(!isCopyMenuOpen);
-                  }}
-                >
-                  <span>{tr("📋 Скопировать в")}</span>
-                  <ChevronRight 
-                    size={14} 
-                    style={{ 
-                      marginLeft: 'auto', 
-                      transform: isCopyMenuOpen ? 'rotate(90deg)' : 'none',
-                      transition: 'transform 0.2s' 
-                    }} 
-                  />
-                </button>
-                {isCopyMenuOpen && (
-                  <div className="dropdown-sub-menu">
+                {!IS_STANDALONE && (
+                  <>
                     <button 
-                      className={`dropdown-sub-item ${deck.folder_id === null ? 'current' : ''}`}
-                      onClick={(e) => handleCopyToFolder(e, null)}
+                      className={`dropdown-item ${isCopyMenuOpen ? 'active' : ''}`} 
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setIsCopyMenuOpen(!isCopyMenuOpen);
+                      }}
                     >
-                      <span>{tr("Без папки (Главная)")}</span>
+                      <span>{tr("📋 Скопировать в")}</span>
+                      <ChevronRight 
+                        size={14} 
+                        style={{ 
+                          marginLeft: 'auto', 
+                          transform: isCopyMenuOpen ? 'rotate(90deg)' : 'none',
+                          transition: 'transform 0.2s' 
+                        }} 
+                      />
                     </button>
-                    {getSortedFolderTree(folders || []).map(f => (
-                      <button 
-                        key={f.id}
-                        className={`dropdown-sub-item ${deck.folder_id === f.id ? 'current' : ''}`}
-                        onClick={(e) => handleCopyToFolder(e, f.id)}
-                        style={{ paddingLeft: `${12 + f.depth * 14}px` }}
-                      >
-                        <span>{f.name}</span>
-                      </button>
-                    ))}
-                  </div>
-                )}
+                    {isCopyMenuOpen && (
+                      <div className="dropdown-sub-menu">
+                        <button 
+                          className={`dropdown-sub-item ${deck.folder_id === null ? 'current' : ''}`}
+                          onClick={(e) => handleCopyToFolder(e, null)}
+                        >
+                          <span>{tr("Без папки (Главная)")}</span>
+                        </button>
+                        {getSortedFolderTree(folders || []).map(f => (
+                          <button 
+                            key={f.id}
+                            className={`dropdown-sub-item ${deck.folder_id === f.id ? 'current' : ''}`}
+                            onClick={(e) => handleCopyToFolder(e, f.id)}
+                            style={{ paddingLeft: `${12 + f.depth * 14}px` }}
+                          >
+                            <span>{f.name}</span>
+                          </button>
+                        ))}
+                      </div>
+                    )}
 
-                <button className="dropdown-item" onClick={handleReclassifyDeck}>
-                  <span>{tr("✨ Обновить CEFR-уровни")}</span>
-                </button>
+                    <button className="dropdown-item" onClick={handleReclassifyDeck}>
+                      <span>{tr("✨ Обновить CEFR-уровни")}</span>
+                    </button>
+                  </>
+                )}
                 <button className="dropdown-item danger" onClick={handleDelete}>
                   <span>{tr("🗑️ Удалить колоду")}</span>
                 </button>

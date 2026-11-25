@@ -23,7 +23,7 @@ import { getNextThemeDeck, isLastThemeDeck } from '../../utils/studyFlow';
 import { useStudyNavigation } from '../../hooks/useStudyNavigation';
 import { StudyError } from './StudyError';
 import { getAudioUrl } from '../../utils/media';
-import { parseDeckMetadata } from '../../utils/deckUtils';
+import { parseDeckMetadata, canAuthorDeckCards } from '../../utils/deckUtils';
 import { getUserId } from '../../utils/auth';
 import { writeCardNote } from '../../services/cardNotes.js';
 import { isNativeStudyCard, studyContent, studyExplanation, studySideText } from '../../utils/structuredStudyCard.js';
@@ -466,8 +466,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
   const questionDeckId = card?.deck_id ?? currentDeck?.id;
   const questionDeck = String(currentDeck?.id) === String(questionDeckId)
     ? currentDeck : decks.find(deck => String(deck.id) === String(questionDeckId));
-  const canEditQuestionCard = Boolean(questionDeck && (questionDeck.role === 'owner'
-    || questionDeck.role === 'editor' || (!questionDeck.role && !questionDeck.is_global_readonly)));
+  const canEditQuestionCard = canAuthorDeckCards(questionDeck, IS_STANDALONE);
 
   const handleSaveExplanation = async () => {
     const pending = aiExplanation;

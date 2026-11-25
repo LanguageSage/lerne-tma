@@ -6,11 +6,8 @@ import { cardMediaView, localMediaURL } from './mediaCache';
 import { emptyStudyProgress } from '../utils/structuredStudyCard.js';
 import { cardDuplicateKey, matchFolder, matchDeck, matchCard, getScopedFolders, getScopedDecks } from '../utils/search';
 import { writeCardNote } from './cardNotes.js';
-import {
-  createStandaloneCard,
-  updateStandaloneCard,
-  deleteStandaloneCard,
-} from '../pilot/standaloneCardStorage.js';
+import { isBundledSeedDeck } from '../utils/deckUtils.js';
+import { buildOriginKey, getMaterialExportSourceInTx } from '../pilot/materialArchiveIdentity.js';
 import {
   result,
   notFound,
@@ -29,6 +26,8 @@ import {
   isDeckActiveInCache,
   loadFolderMap,
   requireContentWrite,
+  allocatePositiveLocalId,
+  clearTrashInDb,
   saveNativeCard,
   queueCardMove,
   queueCardLifecycle,
@@ -46,6 +45,11 @@ export const dirtyFields = previous => ({
   ...(previous && !previous.is_dirty && Object.hasOwn(previous, 'updated_at')
     ? { sync_base: { updated_at: previous.updated_at } } : {}),
 });
+const localDirtyFields = (db, previous) => (
+  isStandaloneDb(db)
+    ? { is_dirty: 0, updated_at: new Date().toISOString() }
+    : dirtyFields(previous)
+);
 const ordered = (items) => items.sort((a, b) => (a.position || 0) - (b.position || 0) || a.id - b.id);
 const jsonObject = (value, fallback = {}) => {
   if (typeof value !== 'string') return value ?? fallback;
@@ -222,12 +226,20 @@ export const offlineApi = {
     const m = method.toLowerCase();
     const body = data || {};
     const change = async (table, id, fields) => {
-      if (isStandaloneDb(db)) readOnly();
+      const standalone = isStandaloneDb(db);
       const item = await table.get(id);
       if (!item) notFound();
       const owner = table.name === 'cards' ? await db.decks.get(item.deck_id) : item;
-      if (owner?.role === 'viewer') throw new Error(tr("У вас доступ только для чтения"));
-      const updated = { ...item, ...fields, ...dirtyFields(item) };
+      if (standalone ? isContentReadOnly(owner) : owner?.role === 'viewer') readOnly();
+      const nowIso = new Date().toISOString();
+      const updated = {
+        ...item,
+        ...fields,
+        ...localDirtyFields(db, item),
+        ...(standalone && (table.name === 'folders' || table.name === 'decks')
+          ? { standalone_local_edit: true, standalone_local_edited_at: nowIso }
+          : {}),
+      };
       await table.put(updated);
       return updated;
     };
@@ -344,14 +356,14 @@ export const offlineApi = {
     }
     if (m === 'patch' && match && Number(match[1]) > 0) {
       if (isStandaloneDb(db)) {
-        const updated = await updateStandaloneCard(
+        const updated = await saveNativeEdit(
           db,
           Number(match[1]),
           body,
           { flag: config.standaloneFlag },
           userId,
         );
-        return result(await cardView(db, updated, userId, 'scheduled', { prefetch: false }));
+        return result(await cardView(db, updated.data, userId, 'scheduled', { prefetch: false }));
       }
       if (config.offlineCardEdit) {
         return saveNativeEdit(db, Number(match[1]), body, config.offlineEditConflict);
@@ -389,7 +401,7 @@ export const offlineApi = {
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
         // UUID reviews own native server SRS; a later label edit may outlive their ack.
         const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context),
-          ...(card.content_v2 && { flag_only: true }), ...dirtyFields(progress) };
+          ...(card.content_v2 && { flag_only: true }), ...localDirtyFields(db, progress) };
         await db.progress.put(updated);
         gradedProgress = { id, ...Object.fromEntries(['queue', 'interval', 'ease_factor', 'repetitions',
           'step_index', 'lapses', 'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
@@ -439,13 +451,8 @@ export const offlineApi = {
     }
     if (m === 'post' && url === '/cards/save') {
       if (isStandaloneDb(db)) {
-        const created = await createStandaloneCard(
-          db,
-          body,
-          { flag: config.offlineCreateFlag },
-          userId,
-        );
-        return result(await cardView(db, created, userId, 'scheduled', { prefetch: false }));
+        const created = await saveNativeCard(db, body, config, userId);
+        return result(await cardView(db, created.data, userId, 'scheduled', { prefetch: false }));
       }
       return saveNativeCard(db, body, config, userId);
     }
@@ -453,17 +460,70 @@ export const offlineApi = {
     if (m === 'post' && url === '/cards/batch-copy') return queueCardMove(db, body, isCurrent, true);
     if (m === 'post' && url === '/cards/batch-delete') {
       const cardIds = (body.card_ids || []).map(Number);
-      if (isStandaloneDb(db)) {
-        if (cardIds.length !== 1) readOnly();
-        return result(await deleteStandaloneCard(db, cardIds[0], body));
-      }
       return cardIds.length === 1 ? queueCardLifecycle(db, cardIds[0], body, true, userId, isCurrent)
         : queueCardSelection(db, body, 'delete', isCurrent);
     }
     match = url.match(/^\/(decks|folders)$/);
     if (m === 'post' && match) {
-      if (isStandaloneDb(db)) readOnly();
-      const table = db[match[1]];
+      const kind = match[1];
+      const table = db[kind];
+      if (isStandaloneDb(db)) {
+        const parentIdRaw = kind === 'decks' ? body.folder_id : body.parent_id;
+        const parentId = parentIdRaw == null ? null : Number(parentIdRaw);
+        const created = await db.transaction('rw', db.folders, db.decks, db.syncState, async () => {
+          const folderMap = await loadFolderMap(db);
+          if (parentId != null) {
+            const parent = folderMap.get(parentId);
+            if (!parent || !isFolderActiveInCache(folderMap, parent.id)) notFound();
+            await requireContentWrite(db, 'folders', parent);
+          }
+          const singular = kind.slice(0, -1);
+          const [id, exportSource, siblings] = await Promise.all([
+            allocatePositiveLocalId(db, kind, singular),
+            getMaterialExportSourceInTx(db),
+            table.filter(row => !row.is_deleted && (kind === 'decks' ? row.folder_id : row.parent_id) === parentId).toArray(),
+          ]);
+          const position = siblings.reduce(
+            (max, row) => Math.max(max, Number.isInteger(row.position) ? row.position : -1),
+            -1,
+          ) + 1;
+          const nowIso = new Date().toISOString();
+          const originKey = buildOriginKey(exportSource, singular, id);
+          const item = {
+            ...body,
+            id,
+            user_id: userId,
+            ...(kind === 'decks' ? { folder_id: parentId } : { parent_id: parentId }),
+            is_deleted: 0,
+            is_dirty: 0,
+            position,
+            role: 'owner',
+            is_owner: true,
+            is_global_readonly: false,
+            is_builtin: false,
+            standalone_origin_key: originKey,
+            ...(kind === 'decks' ? { standalone_deck_key: originKey } : {}),
+            standalone_local_created: true,
+            standalone_local_edit: true,
+            standalone_local_edited_at: nowIso,
+            created_at: nowIso,
+            updated_at: nowIso,
+          };
+          if (kind === 'decks') {
+            item.metadata = { resources: [], deck_type: body.deck_type || 'standard' };
+            item.is_pinned = Boolean(body.is_pinned);
+            item.is_learning = Boolean(body.is_learning);
+          } else {
+            item.color = body.color || '#ffd043';
+          }
+          await table.put(item);
+          if (kind === 'decks') {
+            await db.syncState.put({ key: `deck-cards:${id}`, complete: true, fetched_at: Date.now() });
+          }
+          return item;
+        });
+        return success(created);
+      }
       const parentId = body.folder_id || body.parent_id;
       if (parentId) {
         const [parent, folderMap] = await Promise.all([db.folders.get(Number(parentId)), loadFolderMap(db)]);
@@ -472,33 +532,30 @@ export const offlineApi = {
       }
       const item = { ...body, id: getNextTempId(), user_id: userId, is_deleted: 0,
         position: 0, role: 'owner', is_owner: true, created_at: new Date().toISOString(), ...dirtyFields() };
-      if (match[1] === 'decks') item.metadata = { resources: [], deck_type: body.deck_type || 'standard' };
+      if (kind === 'decks') item.metadata = { resources: [], deck_type: body.deck_type || 'standard' };
       await table.put(item);
       return success(item);
     }
-    if (m === 'post' && url === '/cards/reorder' && body.revisions) return queueCardSelection(db, body, 'reorder', isCurrent);
+    if (m === 'post' && url === '/cards/reorder' && (isStandaloneDb(db) || body.revisions)) {
+      return queueCardSelection(db, body, 'reorder', isCurrent);
+    }
     match = url.match(/^\/(decks|folders)\/reorder$/);
     if (m === 'post' && match) {
-      if (isStandaloneDb(db)) readOnly();
-      const table = db[match[1]];
-      const ids = body[`${match[1].slice(0, -1)}_ids`] || [];
+      const entity = match[1];
+      const table = db[entity];
+      const ids = (body[`${entity.slice(0, -1)}_ids`] || []).map(Number);
       await db.transaction('rw', table, db.decks, async () => {
         for (const id of ids) {
-          const card = await table.get(Number(id));
-          await requireContentWrite(db, match[1], card);
+          const item = await table.get(id);
+          await requireContentWrite(db, entity, item);
         }
-        for (const [position, id] of ids.entries()) await change(table, Number(id), { position });
+        for (const [position, id] of ids.entries()) await change(table, id, { position });
       });
       return success();
     }
     match = url.match(/^\/(cards|decks|folders)\/(-?\d+)(?:\/(rename|color|move|pin|flag|metadata|toggle-learning|reset))?$/);
     if (match && (m === 'post' || m === 'delete')) {
       const [, entity, rawId, action] = match;
-      const allowedInStandalone = m === 'post' && (
-        (entity === 'cards' && action === 'flag')
-        || (entity === 'decks' && (action === 'toggle-learning' || action === 'reset'))
-      );
-      if (isStandaloneDb(db) && !allowedInStandalone) readOnly();
       const id = Number(rawId);
       const table = db[entity];
       return db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
@@ -521,7 +578,7 @@ export const offlineApi = {
             const oldProg = await db.progress.get([card.id, userId]) || {};
             await db.progress.put({ ...oldProg, card_id: card.id, user_id: userId, queue: 'new', interval: 0,
               ease_factor: 2.5, repetitions: 0, lapses: 0, step_index: 0, next_review: null, last_reviewed: null,
-              flag_only: false, ...dirtyFields(oldProg) });
+              flag_only: false, ...localDirtyFields(db, oldProg) });
           }
           return success();
         }
@@ -536,14 +593,14 @@ export const offlineApi = {
           const prog = await db.progress.get([id, userId]) || initialProgress(item, userId);
           if (!prog.is_dirty) prog.flag_only = true;
           prog.flag = Number(body.flag) || 0;
-          Object.assign(prog, dirtyFields(prog));
+          Object.assign(prog, localDirtyFields(db, prog));
           await db.progress.put(prog);
           return success({ id, flag: prog.flag });
         }
         if (action === 'toggle-learning' && entity === 'decks') {
           if (!isDeckActiveInCache(item, folderMap)) notFound();
           const isLearning = body.is_learning ?? !item.is_learning;
-          await db.decks.put({ ...item, is_learning: isLearning, learning_dirty: 1 });
+          await db.decks.put({ ...item, is_learning: isLearning, learning_dirty: isStandaloneDb(db) ? 0 : 1 });
           return success({ is_learning: isLearning });
         }
         await requireContentWrite(db, entity, item);
@@ -632,7 +689,12 @@ export const offlineApi = {
           };
         });
       const decksById = new Map(decks.map(d => [d.id, d]));
-      const ownDecks = new Map(decks.filter(d => d.user_id === userId || d.role === 'owner').map(d => [d.id, d]));
+      const standalone = isStandaloneDb(db);
+      const ownDecks = new Map(
+        decks
+          .filter(d => d.user_id === userId || d.role === 'owner' || (standalone && isBundledSeedDeck(d)))
+          .map(d => [d.id, d]),
+      );
       const deletedDecks = decks
         .filter(d => !!d.is_deleted && !d.hard_deleted_locally && isOwnedRecord(d, userId))
         .map(d => ({
@@ -655,7 +717,6 @@ export const offlineApi = {
     }
     match = url.match(/^\/trash\/(folder|deck|card)\/(-?\d+)\/restore$/);
     if (match && m === 'post') {
-      if (isStandaloneDb(db)) readOnly();
       const [, kind, rawId] = match;
       const id = Number(rawId);
       if (kind === 'card') {
@@ -665,12 +726,17 @@ export const offlineApi = {
       return db.transaction('rw', db.folders, db.decks, async () => {
         const [item, folderMap] = await Promise.all([table.get(id), loadFolderMap(db)]);
         if (!item) notFound();
-        if (isContentReadOnly(item, db) || !isOwnedRecord(item, userId)) readOnly();
+        if (isContentReadOnly(item) || !isOwnedRecord(item, userId)) readOnly();
         assertParentActiveForRestore(folderMap, kind === 'folder' ? item.parent_id : item.folder_id, kind);
         if (!item.is_deleted && !item.hard_deleted_locally) return success();
         await change(table, id, { is_deleted: 0, hard_deleted_locally: false });
         return success();
       });
+    }
+    if (url === '/trash/clear' && m === 'delete') {
+      if (!isStandaloneDb(db)) throw unsupported();
+      await clearTrashInDb(db, userId, { isCurrent, localOnly: true });
+      return success();
     }
     if (url === '/study/stats' && m === 'get') {
       const folderMap = await loadFolderMap(db);

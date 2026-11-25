@@ -62,7 +62,7 @@ async function readIndexedDbState(page) {
       req.onerror = () => reject(req.error);
       req.onsuccess = () => {
         const db = req.result;
-        const storeNames = ['decks', 'cards', 'progress', 'syncState'].filter(n => db.objectStoreNames.contains(n));
+        const storeNames = ['folders', 'decks', 'cards', 'progress', 'syncState'].filter(n => db.objectStoreNames.contains(n));
         const tx = db.transaction(storeNames, 'readonly');
         const out = { found: true, dbName: standaloneDbMeta.name };
         let remaining = storeNames.length;
@@ -297,6 +297,203 @@ async function checkWrittenCards(page) {
   assert.equal(await countWrittenProgress(), 2);
 }
 
+async function checkLocalAuthoringAndTrash(page) {
+  await page.evaluate(() => localStorage.setItem('native_language', 'ru'));
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)', exact: true }).waitFor({ state: 'visible' });
+
+  // 1. Seed deck 9101 remains structurally readonly in UI
+  assert.equal(await page.locator('#deck-item-9101 .pin-deck-btn').count(), 0, 'Seed deck must not show Pin button');
+  assert.equal(await page.locator('#deck-item-9101 .deck-drag-handle-bottom').count(), 0, 'Seed deck must not show DragHandle');
+  await page.locator('#deck-item-9101 .card-item-actions-trigger').click();
+  const seedMenu = page.locator('#deck-item-9101 .deck-dropdown-menu');
+  await seedMenu.waitFor({ state: 'visible' });
+  assert.equal(await seedMenu.getByText('Переименовать', { exact: false }).count(), 0);
+  assert.equal(await seedMenu.getByText('Переместить в', { exact: false }).count(), 0);
+  assert.equal(await seedMenu.getByText('Удалить колоду', { exact: false }).count(), 0);
+  assert.equal(await seedMenu.getByText('Совместный доступ', { exact: false }).count(), 0);
+  assert.equal(await seedMenu.getByText('Поделиться', { exact: false }).count(), 0);
+  assert.equal(await seedMenu.getByText('Скопировать в', { exact: false }).count(), 0);
+  assert.equal(await seedMenu.getByText('Обновить CEFR-уровни', { exact: false }).count(), 0);
+  await page.locator('#deck-item-9101 .card-item-actions-trigger').click();
+
+  // 2. Create folder via #tut-add-deck (and verify "Из Библиотеки" is absent)
+  await page.locator('#tut-add-deck').click();
+  const addModal = page.locator('.settings-modal');
+  await addModal.getByRole('button', { name: /Создать колоду/ }).waitFor({ state: 'visible' });
+  await addModal.getByRole('button', { name: /Создать папку/ }).waitFor({ state: 'visible' });
+  assert.equal(await addModal.getByText('Из Библиотеки', { exact: false }).count(), 0, 'Online library import must be hidden offline');
+  await addModal.getByRole('button', { name: /Создать папку/ }).click();
+  await addModal.locator('input[placeholder="Введите название..."]').fill('E3 Test Folder');
+  await addModal.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('heading', { name: 'E3 Test Folder', exact: true }).waitFor({ state: 'visible' });
+
+  // 3. Rename folder & verify online-only menu items are hidden
+  const dbAfterFolder = await readIndexedDbState(page);
+  const createdFolder = dbAfterFolder.folders.find(f => f.name === 'E3 Test Folder' && !f.is_deleted);
+  assert.ok(createdFolder && createdFolder.id > 1_000_000, 'Created folder must have positive local ID > 1_000_000');
+  assert.equal(createdFolder.is_dirty, 0);
+  assert.equal(createdFolder.role, 'owner');
+
+  await page.locator(`#folder-item-${createdFolder.id} .card-item-actions-trigger`).click();
+  const folderMenu = page.locator(`#folder-item-${createdFolder.id} .deck-dropdown-menu`);
+  await folderMenu.waitFor({ state: 'visible' });
+  assert.equal(await folderMenu.getByText('Совместный доступ', { exact: false }).count(), 0);
+  assert.equal(await folderMenu.getByText('Поделиться содержимым', { exact: false }).count(), 0);
+  assert.equal(await folderMenu.getByText('Опубликовать глобально', { exact: false }).count(), 0);
+  page.once('dialog', d => d.accept('E3 Renamed Folder'));
+  await folderMenu.getByRole('button', { name: /Переименовать/ }).click();
+  await page.getByRole('heading', { name: 'E3 Renamed Folder', exact: true }).waitFor({ state: 'visible' });
+
+  // 4. Create deck, verify online-only menu hiding, rename & move into folder
+  await page.locator('#tut-add-deck').click();
+  await addModal.getByRole('button', { name: /Создать колоду/ }).click();
+  await addModal.locator('input[placeholder="Введите название..."]').fill('E3 Test Deck');
+  await addModal.getByRole('button', { name: 'Создать', exact: true }).click();
+  await page.getByRole('heading', { name: 'E3 Test Deck', exact: true }).waitFor({ state: 'visible' });
+
+  const dbAfterDeck = await readIndexedDbState(page);
+  const createdDeck = dbAfterDeck.decks.find(d => d.name === 'E3 Test Deck' && !d.is_deleted);
+  assert.ok(createdDeck && createdDeck.id > 1_000_000, 'Created deck must have positive local ID > 1_000_000');
+  assert.equal(createdDeck.is_dirty, 0);
+  assert.equal(createdDeck.role, 'owner');
+
+  await page.locator(`#deck-item-${createdDeck.id} .card-item-actions-trigger`).click();
+  const deckMenu = page.locator(`#deck-item-${createdDeck.id} .deck-dropdown-menu`);
+  await deckMenu.waitFor({ state: 'visible' });
+  assert.equal(await deckMenu.getByText('Совместный доступ', { exact: false }).count(), 0);
+  assert.equal(await deckMenu.getByText('Поделиться', { exact: false }).count(), 0);
+  assert.equal(await deckMenu.getByText('Обновить', { exact: false }).count(), 0);
+  assert.equal(await deckMenu.getByText('Скопировать в', { exact: false }).count(), 0);
+  assert.equal(await deckMenu.getByText('Обновить CEFR-уровни', { exact: false }).count(), 0);
+  await deckMenu.getByRole('button', { name: /Переименовать/ }).click();
+
+  const renameModal = page.locator('.settings-modal');
+  await renameModal.waitFor({ state: 'visible' });
+  await renameModal.locator('input[placeholder="Введите название..."]').fill('E3 Renamed Deck');
+  await renameModal.locator('select').selectOption(String(createdFolder.id));
+  await renameModal.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await renameModal.waitFor({ state: 'hidden' });
+
+  await page.getByRole('heading', { name: 'E3 Renamed Folder', exact: true }).click();
+  await page.getByRole('heading', { name: 'E3 Renamed Deck', exact: true }).waitFor({ state: 'visible' });
+
+  // 5. DeckIntro edit enabled on user deck + CardList position reorder + batch copy
+  await page.getByRole('heading', { name: 'E3 Renamed Deck', exact: true }).click();
+  await page.locator('.deck-intro-edit-btn').waitFor({ state: 'visible' });
+  await page.locator('.deck-intro-edit-btn').click();
+  await page.locator('input[placeholder="Например: Склонение прилагательных"]').fill('E3 Topic');
+  await page.getByRole('button', { name: 'Сохранить', exact: true }).click();
+  await page.locator('.deck-intro-topic-badge', { hasText: 'E3 Topic' }).waitFor({ state: 'visible' });
+
+  await page.locator('.deck-intro-btn-list').click();
+  await page.locator('#tut-fab-add').waitFor({ state: 'visible' });
+  assert.equal(await page.locator('button[title="Пакетная генерация карточек"]').count(), 0, 'AI BatchModal trigger must be hidden offline');
+
+  for (const [front, back] of [['E3 Card One', 'Один'], ['E3 Card Two', 'Два']]) {
+    await page.locator('#tut-fab-add').click();
+    await page.locator('#card-editor-front').fill(front);
+    await page.locator('#card-editor-back').fill(back);
+    await page.locator('.btn-save-action').first().click();
+    await page.locator('.view-creator').waitFor({ state: 'hidden' });
+  }
+
+  // Reorder via CardActionModal -> Позиция в списке
+  const firstCardRow = page.locator('.card-item').filter({ hasText: 'E3 Card One' }).first();
+  await firstCardRow.locator('.card-item-actions-trigger').click();
+  await page.getByRole('button', { name: /Позиция в списке/ }).click();
+  await page.getByRole('button', { name: /В конец/ }).click();
+  await page.getByRole('button', { name: 'Применить', exact: true }).click();
+  await page.locator('.card-action-modal').waitFor({ state: 'hidden' });
+  await expect.poll(async () => page.locator('.card-item .front-min').allInnerTexts()).toEqual(['E3 Card Two', 'E3 Card One']);
+
+  // Batch copy via Selection Mode + FloatingBatchDock
+  await page.locator('button[title="Выбрать несколько карточек"]').click();
+  await page.locator('.batch-actions-bar').waitFor({ state: 'visible' });
+  await page.locator('.card-item').filter({ hasText: 'E3 Card Two' }).first().click();
+  await page.locator('.batch-action-btn.copy-btn').click();
+  await page.locator('.settings-modal .deck-selector-list').getByRole('button', { name: /Schreiben offline/ }).click();
+  await page.locator('.settings-modal').getByRole('button', { name: 'Копировать (1)', exact: true }).click();
+  await page.locator('.batch-actions-bar').waitFor({ state: 'hidden' });
+
+  const dbAfterCopy = await readIndexedDbState(page);
+  const targetDeck = dbAfterCopy.decks.find(d => d.name === 'Schreiben offline');
+  const copiedCards = dbAfterCopy.cards.filter(c => c.deck_id === targetDeck.id && !c.is_deleted);
+  assert.ok(copiedCards.some(c => c.content_v2?.card?.data?.prompt === 'E3 Card Two'), 'Batch copy must duplicate card into target deck');
+
+  // 6. Delete deck + delete folder -> Trash parent_deleted guard -> Restore -> Reload persistence
+  await page.locator('.view-cards .back-btn').click({ force: true });
+  await page.locator('.deck-intro-back-btn').click();
+  await page.locator(`#deck-item-${createdDeck.id} .card-item-actions-trigger`).click();
+  page.once('dialog', d => d.accept());
+  await page.locator(`#deck-item-${createdDeck.id} .deck-dropdown-menu`).getByRole('button', { name: /Удалить колоду/ }).click();
+  await page.getByRole('heading', { name: 'E3 Renamed Deck', exact: true }).waitFor({ state: 'hidden' });
+  await page.getByRole('heading', { name: 'Эта папка пуста', exact: true }).waitFor({ state: 'visible' });
+
+  await page.locator('.header-top-left .back-btn').click({ force: true });
+  await page.locator(`#folder-item-${createdFolder.id} .card-item-actions-trigger`).click();
+  page.once('dialog', d => d.accept());
+  await page.locator(`#folder-item-${createdFolder.id} .deck-dropdown-menu`).getByRole('button', { name: /Удалить папку/ }).click();
+  await page.getByRole('heading', { name: 'E3 Renamed Folder', exact: true }).waitFor({ state: 'hidden' });
+
+  await page.locator('.bottom-tools-toggle').click();
+  await page.locator('.bottom-tools-item.trash-item').click();
+  await page.locator('.trash-container').waitFor({ state: 'visible' });
+
+  // Deck restore must be blocked until parent folder is restored
+  await page.getByText('Сначала восстановите родительскую папку.', { exact: true }).waitFor({ state: 'visible' });
+  const deckTrashBtn = page.locator('.trash-card').filter({ hasText: 'E3 Renamed Deck' }).locator('.trash-restore-btn');
+  assert.equal(await deckTrashBtn.isDisabled(), true, 'Deck restore must be disabled when parent folder is deleted');
+
+  // Restore folder first, then deck
+  await page.locator('.trash-tab').filter({ hasText: 'Папки' }).click();
+  await page.locator('.trash-card').filter({ hasText: 'E3 Renamed Folder' }).locator('.trash-restore-btn').click();
+  await page.locator('.trash-card').filter({ hasText: 'E3 Renamed Folder' }).waitFor({ state: 'hidden' });
+
+  await page.locator('.trash-tab').filter({ hasText: 'Колоды' }).click();
+  await expect.poll(async () => deckTrashBtn.isDisabled()).toBe(false);
+  await deckTrashBtn.click();
+  await page.locator('.trash-card').filter({ hasText: 'E3 Renamed Deck' }).waitFor({ state: 'hidden' });
+
+  await page.locator('.trash-back-btn').click({ force: true });
+  await page.reload({ waitUntil: 'networkidle' });
+  await page.getByRole('heading', { name: 'E3 Renamed Folder', exact: true }).waitFor({ state: 'visible' });
+  await page.getByRole('heading', { name: 'E3 Renamed Folder', exact: true }).click();
+  await page.getByRole('heading', { name: 'E3 Renamed Deck', exact: true }).waitFor({ state: 'visible' });
+
+  // 7. DuplicateManager in IS_STANDALONE: verify visibility, duplicate rendering, and Share2 absence
+  await page.locator('.header-top-left .back-btn').click({ force: true });
+  await page.locator('.bottom-tools-toggle').waitFor({ state: 'visible' });
+  await page.locator('.bottom-tools-toggle .tools-badge-total').waitFor({ state: 'visible' });
+  await page.locator('.bottom-tools-toggle').click();
+  const dupToolsItem = page.locator('.bottom-tools-item.duplicate-item');
+  await dupToolsItem.waitFor({ state: 'visible' });
+  await dupToolsItem.click();
+  await page.locator('.view-duplicates').waitFor({ state: 'visible' });
+  await page.locator('.view-duplicates .group-header').filter({ hasText: 'E3 Card Two' }).waitFor({ state: 'visible' });
+  assert.equal(await page.locator('.view-duplicates .duplicate-item').count(), 2, 'DuplicateManager must list both copies of E3 Card Two');
+  assert.equal(
+    await page.locator('.view-duplicates svg.lucide-share2, .view-duplicates svg.lucide-share-2, .view-duplicates button[aria-label="Поделиться"]').count(),
+    0,
+    'Share2 button must be hidden in standalone DuplicateManager'
+  );
+  assert.equal(
+    await page.locator('.view-duplicates .duplicate-item .item-actions button').count(),
+    4,
+    'Only Edit and Delete buttons (2 per card x 2 cards) should render in standalone DuplicateManager'
+  );
+  await page.locator('.view-duplicates .back-btn').click({ force: true });
+  await page.locator('.view-decks').waitFor({ state: 'visible' });
+
+  const finalDb = await readIndexedDbState(page);
+  assert.equal(finalDb.folders.every(f => f.is_dirty === 0), true, 'All standalone folders must stay is_dirty === 0');
+  assert.equal(finalDb.decks.every(d => d.is_dirty === 0), true, 'All standalone decks must stay is_dirty === 0');
+  assert.equal(finalDb.cards.every(c => c.is_dirty === 0), true, 'All standalone cards must stay is_dirty === 0');
+  for (const prefix of ['card-create-v2:', 'card-edit-v2:', 'card-move-v2:', 'card-lifecycle-v2:', 'review:']) {
+    assert.equal(finalDb.syncState.some(s => s.key.startsWith(prefix)), false, `Forbidden cloud key: ${prefix}`);
+  }
+}
+
 async function run() {
   if (!fs.existsSync(path.join(DIST_DIR, 'index.html'))) {
     throw new Error(`Standalone app/dist missing at ${DIST_DIR}`);
@@ -355,7 +552,7 @@ async function run() {
     assert.equal(await page.locator('.guest-banner').count(), 0, 'GuestBanner must not show in standalone mode');
     assert.equal(await page.locator('.language-modal-overlay').count(), 0, 'LanguageWelcomeModal must not block cold boot');
     assert.equal(await page.locator('.auth-modal, [data-testid="auth-required-modal"]').count(), 0, 'Auth modal must not open');
-    assert.equal(await page.locator('#tut-add-deck').count(), 0, 'Create deck/folder button must be hidden in standalone read-only mode');
+    assert.equal(await page.locator('#tut-add-deck').count(), 1, 'Create deck/folder button must be visible in standalone mode');
 
     const overflowHome = await page.evaluate(() => document.documentElement.scrollWidth > window.innerWidth);
     assert.equal(overflowHome, false, 'Home decks screen must not overflow horizontally at 375px');
@@ -574,6 +771,7 @@ async function run() {
     }
 
     await checkWrittenCards(page);
+    await checkLocalAuthoringAndTrash(page);
     assert.deepEqual(forbiddenRequests, [], `Forbidden network/API requests detected: ${JSON.stringify(forbiddenRequests)}`);
     assert.deepEqual(pageErrors, [], `Uncaught page errors detected: ${JSON.stringify(pageErrors)}`);
     assert.deepEqual(consoleErrors, [], `Console errors detected: ${JSON.stringify(consoleErrors)}`);

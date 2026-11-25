@@ -1128,21 +1128,24 @@ export async function applyMaterialArchiveImport({
       if (existing) updatedFolders += 1;
       else importedFolders += 1;
 
+      const localEdit = Boolean(existing?.standalone_local_edit);
       const parentId = row.values.parent_id == null ? null : idMap.folder.get(row.values.parent_id);
       foldersToPut.push({
         ...(existing || {}),
         id: localId,
         user_id: resolvedUserId,
-        parent_id: parentId ?? null,
-        name: row.values.name,
-        color: row.values.color || existing?.color || '#ffd043',
+        parent_id: localEdit ? (existing.parent_id ?? null) : (parentId ?? null),
+        name: localEdit ? existing.name : row.values.name,
+        color: localEdit ? (existing.color || '#ffd043') : (row.values.color || existing?.color || '#ffd043'),
         target_language: row.values.target_language || existing?.target_language || 'de',
-        position: row.values.position ?? 0,
-        role: 'viewer',
-        is_owner: false,
-        is_global_readonly: true,
+        position: localEdit ? (existing.position ?? 0) : (row.values.position ?? 0),
+        role: 'owner',
+        is_owner: true,
+        is_global_readonly: false,
+        is_builtin: false,
         is_shared: false,
-        is_deleted: 0,
+        is_deleted: localEdit ? (existing.is_deleted ?? 0) : 0,
+        hard_deleted_locally: localEdit ? Boolean(existing.hard_deleted_locally) : false,
         is_dirty: 0,
         standalone_origin_key: existing?.standalone_origin_key || originKey,
         standalone_source: existing?.standalone_source || document.source,
@@ -1181,23 +1184,27 @@ export async function applyMaterialArchiveImport({
       deckLanguages.set(localId, targetLang);
       if (ownExport && existing?.standalone_slug) continue;
 
+      const localEdit = Boolean(existing?.standalone_local_edit);
+      const importedFolderId = row.values.scope === 'library' ? null : mappedFolderId;
       decksToPut.push({
         ...(existing || {}),
         id: localId,
         user_id: resolvedUserId,
-        folder_id: row.values.scope === 'library' ? null : mappedFolderId,
-        name: row.values.name,
+        folder_id: localEdit ? (existing.folder_id ?? null) : importedFolderId,
+        name: localEdit ? existing.name : row.values.name,
         level: row.values.level ?? null,
         topic: row.values.topic ?? null,
         target_language: targetLang,
-        color: existing?.color || parsedMetadata?.color || '#6366f1',
-        position: row.values.position ?? 0,
-        role: 'viewer',
-        is_owner: false,
-        is_global_readonly: true,
+        color: localEdit ? (existing.color || parsedMetadata?.color || '#6366f1') : (existing?.color || parsedMetadata?.color || '#6366f1'),
+        position: localEdit ? (existing.position ?? 0) : (row.values.position ?? 0),
+        role: 'owner',
+        is_owner: true,
+        is_global_readonly: false,
+        is_builtin: false,
         is_pinned: Boolean(existing?.is_pinned),
         is_learning: Boolean(existing?.is_learning),
-        is_deleted: 0,
+        is_deleted: localEdit ? (existing.is_deleted ?? 0) : 0,
+        hard_deleted_locally: localEdit ? Boolean(existing.hard_deleted_locally) : false,
         is_dirty: 0,
         metadata: parsedMetadata,
         standalone_origin_key: existing?.standalone_origin_key || originKey,

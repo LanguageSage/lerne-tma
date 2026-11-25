@@ -61,12 +61,11 @@ mock.module('../apiConfig.js', {
 const { offlineApi } = await import('../offlineApi.js');
 const { isFolderActiveInCache, isFolderParentReadyForRestore, isDeckActiveInCache, buildFolderMap } = await import('../cardOfflineQueue.js');
 const { getExportableMaterialsTree, buildMaterialArchiveExport } = await import('../../pilot/materialArchive.js');
-const { createStandaloneCard, updateStandaloneCard, deleteStandaloneCard } = await import('../../pilot/standaloneCardStorage.js');
 
 let dbSeq = 0;
-function createTestDb() {
+function createTestDb(prefix = 'LerneDeleteRestoreTest') {
   dbSeq += 1;
-  const db = new Dexie(`LerneDeleteRestoreTest_${dbSeq}`);
+  const db = new Dexie(`${prefix}_${dbSeq}`);
   db.version(5).stores({
     folders: 'id, user_id, name, is_deleted, is_dirty',
     decks: 'id, user_id, folder_id, name, is_deleted, is_dirty',
@@ -211,7 +210,7 @@ describe('Audit A-01 offline & standalone delete/restore semantics', () => {
 
   test('standalone material archive & card storage hide/block decks inside deleted folders', async () => {
     activeUserId = 101;
-    const db = createTestDb();
+    const db = createTestDb('LerneStandaloneDB_DeleteRestoreTest');
     await db.open();
 
     await db.folders.bulkPut([
@@ -234,9 +233,9 @@ describe('Audit A-01 offline & standalone delete/restore semantics', () => {
     assert.equal(tree.totals.cards, 1);
 
     await assert.rejects(() => buildMaterialArchiveExport({ db, deckIds: [500] }));
-    await assert.rejects(() => createStandaloneCard(db, { deck_id: 500, request_id: 'req-c', content_v2: contentV2('A', 'B') }, {}, 101));
-    await assert.rejects(() => updateStandaloneCard(db, 5000, { revision: 1, request_id: 'req-u', content_v2: contentV2('A', 'B') }, {}, 101));
-    await assert.rejects(() => deleteStandaloneCard(db, 5000, { request_id: 'req-d' }));
+    await assert.rejects(() => offlineApi.handle('post', '/cards/save', { deck_id: 500, request_id: 'req-c', content_v2: contentV2('A', 'B') }, { _testDb: db }));
+    await assert.rejects(() => offlineApi.handle('patch', '/cards/5000', { revision: 1, request_id: 'req-u', content_v2: contentV2('A', 'B') }, { _testDb: db }));
+    await assert.rejects(() => offlineApi.handle('post', '/cards/batch-delete', { card_ids: [5000], request_id: 'req-d' }, { _testDb: db }));
     await db.close();
   });
 });

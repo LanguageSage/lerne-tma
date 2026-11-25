@@ -42,6 +42,7 @@ mock.module('../../utils/standaloneMode.js', {
     STANDALONE_USER_ID: 900001,
     STANDALONE_SESSION_IDENTITY: 'standalone-offline-pilot',
     STANDALONE_DB_PREFIX: 'LerneStandaloneDB',
+    STANDALONE_SEED_DECK_IDS: new Set([9101, 9102, 9103]),
     STANDALONE_PROFILE_NAME_KEY: 'lerne_standalone_profile_name',
     getStandaloneProfileName: () => memStorage.get('lerne_standalone_profile_name') || 'Offline Pilot',
     saveStandaloneProfileName: (name) => {
@@ -78,7 +79,7 @@ const { buildZipArchive, computeCrc32 } = await import('../../pilot/zipCodec.js'
 const { validateNativeV2Content } = await import('../../utils/nativeV2Contract.js');
 const {
   STANDALONE_MAX_CARD_OP_RECEIPTS,
-} = await import('../../pilot/standaloneCardStorage.js');
+} = await import('../cardOfflineQueue.js');
 const { ID_COUNTERS_KEY, IMPORTED_ID_START } = await import('../../pilot/materialArchiveIdentity.js');
 const { storeLocalMediaFile } = await import('../../pilot/localMediaWriter.js');
 const {
@@ -861,5 +862,158 @@ describe('standalone card authoring, media, re-import protection, and ZIP export
     await assertZeroCloudQueue(backupDb);
     freshDb.close();
     backupDb.close();
+  });
+
+  test('supports batch-move, batch-copy with on_duplicate modes, multi-delete, card restore, and reorder in standalone', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    const cfg = { _testDb: db };
+
+    const deckA = (await offlineApi.handle('post', '/decks', { name: 'Deck A', target_language: 'de' }, cfg)).data;
+    const deckB = (await offlineApi.handle('post', '/decks', { name: 'Deck B', target_language: 'de' }, cfg)).data;
+    assert.ok(deckA.id > IMPORTED_ID_START);
+    assert.ok(deckB.id > IMPORTED_ID_START);
+
+    const c1 = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: deckA.id,
+      request_id: 'batch-c1',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Wort 1', answer: 'Слово 1' } } },
+    }, cfg)).data;
+    const c2 = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: deckA.id,
+      request_id: 'batch-c2',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Wort 2', answer: 'Слово 2' } } },
+    }, cfg)).data;
+    const c3 = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: deckA.id,
+      request_id: 'batch-c3',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Wort 3', answer: 'Слово 3' } } },
+    }, cfg)).data;
+
+    // Duplicate of c1 in deckB with different field order to test canonical duplicate detection
+    const dupTarget = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: deckB.id,
+      request_id: 'batch-dup-target',
+      content_v2: { schema_version: 2, card: { data: { answer: 'Слово 1', prompt: 'Wort 1' }, type: 'standard' } },
+    }, cfg)).data;
+
+    // Grade c1 & c2 to verify SRS preservation on move vs non-transfer on copy
+    await offlineApi.handle('post', '/study/grade', {
+      card_id: c1.id, grade: 2, action_id: 'grade-batch-c1', return_next: false,
+    }, cfg);
+    await offlineApi.handle('post', '/study/grade', {
+      card_id: c2.id, grade: 3, action_id: 'grade-batch-c2', return_next: false,
+    }, cfg);
+
+    // 1. batch-copy with on_duplicate: 'skip' -> skips c1 duplicate, copies c2 with new ID > 1_000_000
+    const copySkip = (await offlineApi.handle('post', '/cards/batch-copy', {
+      card_ids: [c1.id, c2.id],
+      target_deck_id: deckB.id,
+      revisions: { [c1.id]: c1.revision, [c2.id]: c2.revision },
+      on_duplicate: 'skip',
+      request_id: 'req-copy-skip',
+    }, cfg)).data;
+    assert.equal(copySkip.count, 1);
+    assert.equal(copySkip.skipped, 1);
+    assert.equal(copySkip.cards.length, 1);
+    const copiedC2 = copySkip.cards[0];
+    assert.ok(copiedC2.id > IMPORTED_ID_START);
+    assert.notEqual(copiedC2.id, c2.id);
+    assert.equal(copiedC2.deck_id, deckB.id);
+    assert.equal(copiedC2.is_dirty, 0);
+    // Source c2 retains its SRS progress; copied card starts fresh
+    assert.equal((await db.progress.get([c2.id, STANDALONE_USER_ID])).repetitions, 1);
+    assert.equal(await db.progress.get([copiedC2.id, STANDALONE_USER_ID]), undefined);
+
+    // Idempotent replay of batch-copy
+    const copySkipReplay = (await offlineApi.handle('post', '/cards/batch-copy', {
+      card_ids: [c1.id, c2.id],
+      target_deck_id: deckB.id,
+      revisions: { [c1.id]: c1.revision, [c2.id]: c2.revision },
+      on_duplicate: 'skip',
+      request_id: 'req-copy-skip',
+    }, cfg)).data;
+    assert.equal(copySkipReplay.cards[0].id, copiedC2.id);
+
+    // 2. batch-copy with on_duplicate: 'keep' -> creates another copy even though duplicate exists
+    const copyKeep = (await offlineApi.handle('post', '/cards/batch-copy', {
+      card_ids: [c1.id],
+      target_deck_id: deckB.id,
+      revisions: { [c1.id]: c1.revision },
+      on_duplicate: 'keep',
+      request_id: 'req-copy-keep',
+    }, cfg)).data;
+    assert.equal(copyKeep.count, 1);
+    assert.equal(copyKeep.skipped, 0);
+    assert.notEqual(copyKeep.cards[0].id, dupTarget.id);
+
+    // 3. Single batch-move with on_duplicate: 'skip' -> leaves card in deckA
+    const moveSingleSkip = (await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [c1.id],
+      target_deck_id: deckB.id,
+      revisions: { [c1.id]: c1.revision },
+      on_duplicate: 'skip',
+      request_id: 'req-move-single-skip',
+    }, cfg)).data;
+    assert.equal(moveSingleSkip.deck_id, deckA.id);
+
+    // 4. Single batch-move with on_duplicate: 'overwrite' -> updates dupTarget and soft-deletes c1
+    const moveOverwrite = (await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [c1.id],
+      target_deck_id: deckB.id,
+      revisions: { [c1.id]: c1.revision },
+      on_duplicate: 'overwrite',
+      request_id: 'req-move-overwrite',
+    }, cfg)).data;
+    assert.equal(moveOverwrite.id, dupTarget.id);
+    assert.equal(moveOverwrite.deck_id, deckB.id);
+    assert.equal(moveOverwrite.revision, dupTarget.revision + 1);
+    assert.equal((await db.cards.get(c1.id)).is_deleted, 1);
+
+    // 5. Move c2 & c3 to deckB with on_duplicate: 'keep' -> preserves c2 ID and SRS progress
+    const multiMove = (await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [c2.id, c3.id],
+      target_deck_id: deckB.id,
+      revisions: { [c2.id]: c2.revision, [c3.id]: c3.revision },
+      on_duplicate: 'keep',
+      request_id: 'req-move-multi',
+    }, cfg)).data;
+    assert.equal(multiMove.count, 2);
+    assert.equal((await db.cards.get(c2.id)).deck_id, deckB.id);
+    assert.equal((await db.progress.get([c2.id, STANDALONE_USER_ID])).repetitions, 1);
+
+    // 6. Reorder cards in deckB
+    const deckBCardsBefore = (await offlineApi.handle('get', `/decks/${deckB.id}/cards`, null, cfg)).data;
+    const reversedIds = [...deckBCardsBefore].reverse().map(c => c.id);
+    const reordered = (await offlineApi.handle('post', '/cards/reorder', {
+      card_ids: reversedIds,
+      revisions: Object.fromEntries(deckBCardsBefore.map(c => [c.id, c.revision])),
+      request_id: 'req-reorder-deckB',
+    }, cfg)).data;
+    assert.equal(reordered.cards.length, reversedIds.length);
+    const deckBCardsAfter = (await offlineApi.handle('get', `/decks/${deckB.id}/cards`, null, cfg)).data;
+    assert.deepEqual(deckBCardsAfter.map(c => c.id), reversedIds);
+
+    // 7. Multi-delete + single restore via /trash/card/:id/restore
+    const multiDeleted = (await offlineApi.handle('post', '/cards/batch-delete', {
+      card_ids: [c2.id, c3.id],
+      revisions: { [c2.id]: (await db.cards.get(c2.id)).revision, [c3.id]: (await db.cards.get(c3.id)).revision },
+      request_id: 'req-multi-delete-1',
+    }, cfg)).data;
+    assert.equal(multiDeleted.cards.length, 2);
+    assert.ok(multiDeleted.cards.every(c => c.is_deleted === 1 && c.is_dirty === 0));
+
+    const trashBeforeRestore = (await offlineApi.handle('get', '/trash', null, cfg)).data;
+    assert.ok(trashBeforeRestore.cards.some(c => c.id === c2.id));
+    assert.ok(trashBeforeRestore.cards.some(c => c.id === c3.id));
+
+    const restoredC2 = (await offlineApi.handle('post', `/trash/card/${c2.id}/restore`, {
+      revision: (await db.cards.get(c2.id)).revision,
+      request_id: 'req-restore-c2',
+    }, cfg)).data;
+    assert.equal(restoredC2.is_deleted, 0);
+    assert.equal(restoredC2.is_dirty, 0);
+
+    await assertZeroCloudQueue(db);
   });
 });

@@ -35,9 +35,10 @@ import { getFlagStyle } from '../../constants/cardFlags';
 import { navigateUp } from '../../utils/navigation';
 import api from '../../services/api';
 import { IS_STANDALONE } from '../../utils/standaloneMode.js';
+import { canEditContainer, isBundledSeedDeck } from '../../utils/deckUtils';
 
 function needsFolderPresenceLookup(folder, folders) {
-  if (!folder || folder.id <= 0 || folder.presence_enabled != null) return false;
+  if (IS_STANDALONE || !folder || folder.id <= 0 || folder.presence_enabled != null) return false;
   if (folder.is_global_readonly) return true;
   if (folder.is_shared || folder.user_id == null) return false;
 
@@ -89,6 +90,7 @@ export const DeckGrid = ({
   const setDeckCards = useDeckStore(s => s.setDeckCards);
   const togglePinDeck = useDeckStore(s => s.togglePinDeck);
   const duplicateCards = useDeckStore(s => s.duplicateCards);
+  const fetchDuplicates = useDeckStore(s => s.fetchDuplicates);
   const isFetchingDecks = useDeckStore(s => s.isFetchingDecks);
   const libraryStatus = useDeckStore(s => s.libraryStatus);
   const libraryError = useDeckStore(s => s.libraryError);
@@ -117,6 +119,11 @@ export const DeckGrid = ({
       window.removeEventListener('online', refresh);
     };
   }, [lookupFolderPresence, activeFolderId, hasInitialized, isFetchingDecks, fetchFolders]);
+
+  React.useEffect(() => {
+    if (!IS_STANDALONE || view !== 'decks' || activeFolderId !== null || !hasInitialized) return;
+    void fetchDuplicates();
+  }, [view, activeFolderId, hasInitialized, decks, fetchDuplicates]);
 
   const isSearchActive = Boolean(deckSearchQuery.trim());
 
@@ -238,8 +245,12 @@ export const DeckGrid = ({
       const newIndex = filteredDecks.findIndex(d => d.id === over.id);
       if (oldIndex !== -1 && newIndex !== -1) {
         const newOrder = arrayMove(filteredDecks, oldIndex, newIndex);
-        const orderedIds = newOrder.map(d => d.id);
-        useDeckStore.getState().reorderDecks(orderedIds);
+        const orderedIds = newOrder
+          .filter(d => !isBundledSeedDeck(d))
+          .map(d => d.id);
+        if (orderedIds.length > 0) {
+          useDeckStore.getState().reorderDecks(orderedIds);
+        }
       }
     }
   };
@@ -268,7 +279,7 @@ export const DeckGrid = ({
     return trail;
   };
 
-  const canCreateContent = !IS_STANDALONE && (!activeFolder || activeFolder.role === 'owner' || activeFolder.role === 'editor');
+  const canCreateContent = !activeFolder || canEditContainer(activeFolder, IS_STANDALONE);
   const activeFolderColor = activeFolder ? (activeFolder.color || '#ffd043') : null;
   const isInitialLoading = !hasInitialized || loading || (libraryStatus === 'idle' && Boolean(userProfile?.user_id))
     || (isFetchingDecks && currentFolders.length === 0 && currentDecks.length === 0);
@@ -393,7 +404,7 @@ export const DeckGrid = ({
               <h3>{t('decks.loading', 'Идет загрузка колод...')}</h3>
               <p>{tr("Пожалуйста, подождите немного.")}</p>
             </div>
-          ) : (libraryStatus === 'error' || ((libraryError || libraryStatus === 'cached') && currentFolders.length === 0 && currentDecks.length === 0)) ? (
+          ) : (libraryStatus === 'error' || (!IS_STANDALONE && (libraryError || libraryStatus === 'cached') && currentFolders.length === 0 && currentDecks.length === 0)) ? (
             <div className="empty-decks-state glass" role="alert">
               <RefreshCw size={48} opacity={0.5} />
               <h3>{!userProfile?.user_id || libraryError?.status === 401
@@ -566,10 +577,10 @@ export const DeckGrid = ({
                 <button className="btn btn-primary" onClick={() => setIsAuthModalOpen(true, tr('Вход в аккаунт'))}>{tr('Войти в аккаунт')}</button>
               </> : <>
                 <h3>{tr("У вас пока нет колод")}</h3>
-                {!IS_STANDALONE && <>
-                  <p>{tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
-                  <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
-                </>}
+                <p>{IS_STANDALONE
+                  ? tr("Нажмите \"+\", чтобы создать свою первую колоду или папку.")
+                  : tr("Нажмите \"+\", чтобы создать свою или импортировать из библиотеки.")}</p>
+                <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду")}</button>
               </>}
             </div>
           ) : isFolderEmpty ? (
@@ -583,19 +594,15 @@ export const DeckGrid = ({
                   <>
                     <FolderOpen size={48} opacity={0.3} style={{ color: '#818cf8', marginBottom: 12, display: 'inline-block' }} />
                     <h3>{tr("Эта папка пуста")}</h3>
-                    {!IS_STANDALONE && <>
-                      <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>{tr("Создайте здесь новую колоду или подпапку!")}{' '}</p>
-                      <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить элемент")}</button>
-                    </>}
+                    <p style={{ maxWidth: 300, margin: '8px auto 16px', fontSize: '0.85rem', color: '#94a3b8' }}>{tr("Создайте здесь новую колоду или подпапку!")}{' '}</p>
+                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить элемент")}</button>
                   </>
                 ) : (
                   <>
                     <Layers size={48} opacity={0.3} style={{ marginBottom: 12, display: 'inline-block' }} />
                     <h3>{tr("У вас пока нет колод на языке:")}{' '}{langInfo.name} {langInfo.flag}</h3>
-                    {!IS_STANDALONE && <>
-                      <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>{tr("Нажмите \"+\", чтобы создать свою первую колоду для изучения")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языка.")}{' '}</p>
-                      <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду (")}{langInfo.code.toUpperCase()})</button>
-                    </>}
+                    <p style={{ maxWidth: 360, margin: '8px auto 16px', fontSize: '0.9rem', color: '#94a3b8' }}>{tr("Нажмите \"+\", чтобы создать свою первую колоду для изучения")}{' '}{langInfo.label.toLowerCase()}{' '}{tr("языка.")}{' '}</p>
+                    <button className="btn btn-primary" onClick={() => setIsNewDeckModalOpen(true)}>{tr("Добавить первую колоду (")}{langInfo.code.toUpperCase()})</button>
                   </>
                 )}
               </div>
@@ -706,7 +713,7 @@ export const DeckGrid = ({
         </div>
 
         {/* Collapsible dropdown menu at the very bottom for advanced tools */}
-        {!IS_STANDALONE && activeFolderId === null && (
+        {activeFolderId === null && (
           <div className="bottom-tools-container">
             <button 
               className={`bottom-tools-toggle ${isToolsOpen ? 'active' : ''}`}

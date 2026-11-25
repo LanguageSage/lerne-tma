@@ -43,6 +43,7 @@ mock.module('../../utils/standaloneMode.js', {
     STANDALONE_USER_ID: 900001,
     STANDALONE_SESSION_IDENTITY: 'standalone-offline-pilot',
     STANDALONE_DB_PREFIX: 'LerneStandaloneDB',
+    STANDALONE_SEED_DECK_IDS: new Set([9101, 9102, 9103]),
     STANDALONE_PROFILE_NAME_KEY: 'lerne_standalone_profile_name',
     getStandaloneProfileName: () => memStorage.get('lerne_standalone_profile_name') || 'Offline Pilot',
     saveStandaloneProfileName: (name) => {
@@ -101,6 +102,7 @@ const {
   getExportableMaterialsTree,
   buildMaterialArchiveExport,
   MAX_ARCHIVE_BYTES,
+  IMPORTED_ID_START,
   parseJsonStrictNoDuplicates,
 } = await import('../../pilot/materialArchive.js');
 const {
@@ -677,14 +679,18 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
 
     for (const f of folders) {
       assert.ok(f.id > 1000000);
-      assert.equal(f.role, 'viewer');
-      assert.equal(f.is_global_readonly, true);
+      assert.equal(f.role, 'owner');
+      assert.equal(f.is_owner, true);
+      assert.equal(f.is_global_readonly, false);
+      assert.equal(f.is_builtin, false);
       assert.match(f.standalone_origin_key, /^archive:Supabase:[a-f0-9]{64}:folder:\d+$/);
     }
     for (const d of decks) {
       assert.ok(d.id > 1000000);
-      assert.equal(d.role, 'viewer');
-      assert.equal(d.is_global_readonly, true);
+      assert.equal(d.role, 'owner');
+      assert.equal(d.is_owner, true);
+      assert.equal(d.is_global_readonly, false);
+      assert.equal(d.is_builtin, false);
       const complete = await db.syncState.get(`deck-cards:${d.id}`);
       assert.equal(complete?.complete, true);
     }
@@ -1112,5 +1118,102 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal(restoredMixed.restoredImportedRecords, 2);
     assert.equal(restoredMixed.unmatchedImportedRecords, 0);
     await cleanDb.delete();
+  });
+
+  test('8. Option A2 ZIP re-import preserves local folder/deck edits & trash, and full-v2 restores user-created decks', async () => {
+    const pack = getStandalonePack();
+    await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
+    memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
+    const cfg = { _testDb: db };
+
+    const v4a = buildRichCourseFixture({ source: `Supabase:${'f'.repeat(64)}`, updatedExplanation: 'V1 note' });
+    await confirmArchiveImport(
+      await inspectArchiveWebBytes(await buildArchiveZipFromDoc(v4a.document, v4a.mediaAssets), 'a2-v1.zip', { db, userId: STANDALONE_USER_ID }),
+      { db, userId: STANDALONE_USER_ID },
+    );
+
+    const rootFolder = (await db.folders.toArray()).find(f => f.name === 'Français Root');
+    const moduleFolder = (await db.folders.toArray()).find(f => f.name === 'Module 1');
+    const coursDeck = (await db.decks.toArray()).find(d => d.name === 'Cours Complet');
+    const libDeck = (await db.decks.toArray()).find(d => d.name === 'Library Grammaire');
+
+    // User renames, recolors, moves, pins, and trashes imported containers via offlineApi
+    await offlineApi.handle('post', `/folders/${rootFolder.id}/rename`, { name: 'My Custom Root' }, cfg);
+    await offlineApi.handle('post', `/folders/${rootFolder.id}/color`, { color: '#ef4444' }, cfg);
+    await offlineApi.handle('post', `/decks/${coursDeck.id}/rename`, { name: 'My Cours' }, cfg);
+    await offlineApi.handle('post', `/decks/${coursDeck.id}/move`, { folder_id: rootFolder.id }, cfg);
+    await offlineApi.handle('post', `/decks/${coursDeck.id}/pin`, {}, cfg);
+    await offlineApi.handle('post', `/decks/${coursDeck.id}/toggle-learning`, { is_learning: true }, cfg);
+    await offlineApi.handle('delete', `/decks/${libDeck.id}`, null, cfg);
+    await offlineApi.handle('delete', `/folders/${moduleFolder.id}`, null, cfg);
+
+    // Re-import updated ZIP from the same source -> must NOT revert local edits or resurrect trashed items
+    const v4b = buildRichCourseFixture({
+      source: `Supabase:${'f'.repeat(64)}`,
+      updatedExplanation: 'V2 note from teacher',
+      includeExtraCard: true,
+    });
+    await confirmArchiveImport(
+      await inspectArchiveWebBytes(await buildArchiveZipFromDoc(v4b.document, v4b.mediaAssets), 'a2-v2.zip', { db, userId: STANDALONE_USER_ID }),
+      { db, userId: STANDALONE_USER_ID },
+    );
+
+    const foldersAfter = await db.folders.toArray();
+    const decksAfter = await db.decks.toArray();
+    assert.equal(foldersAfter.length, 2, 'Origin key matching must prevent duplicate folders');
+    assert.equal(decksAfter.filter(d => d.standalone_source === v4b.document.source).length, 2, 'Origin key matching must prevent duplicate decks');
+
+    const rootAfter = await db.folders.get(rootFolder.id);
+    assert.equal(rootAfter.name, 'My Custom Root');
+    assert.equal(rootAfter.color, '#ef4444');
+    assert.equal(rootAfter.standalone_local_edit, true);
+
+    const moduleAfter = await db.folders.get(moduleFolder.id);
+    assert.equal(moduleAfter.is_deleted, 1);
+
+    const coursAfter = await db.decks.get(coursDeck.id);
+    assert.equal(coursAfter.name, 'My Cours');
+    assert.equal(coursAfter.folder_id, rootFolder.id);
+    assert.equal(coursAfter.is_pinned, true);
+    assert.equal(coursAfter.is_learning, true);
+    assert.equal(coursAfter.role, 'owner');
+    assert.equal(coursAfter.is_global_readonly, false);
+    // Unedited card in coursDeck still receives updated explanation + new card added
+    const coursCards = await db.cards.where('deck_id').equals(coursDeck.id).toArray();
+    assert.equal(coursCards.length, 9);
+    assert.equal(coursCards.find(c => c.standalone_source_id === 201).content_v2.card.explanation, 'V2 note from teacher');
+
+    const libAfter = await db.decks.get(libDeck.id);
+    assert.equal(libAfter.is_deleted, 1);
+
+    // User-created local deck + card -> full-v2 progressBackup restores is_learning + SRS for both ZIP & user-created decks
+    const userDeck = (await offlineApi.handle('post', '/decks', { name: 'User Deck', target_language: 'de' }, cfg)).data;
+    assert.ok(userDeck.id > IMPORTED_ID_START);
+    assert.ok(userDeck.standalone_deck_key);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/toggle-learning`, { is_learning: true }, cfg);
+    const userCard = (await offlineApi.handle('post', '/cards/save', {
+      deck_id: userDeck.id,
+      request_id: 'user-card-backup-1',
+      content_v2: { schema_version: 2, card: { type: 'standard', data: { prompt: 'Eigen', answer: 'Свой' } } },
+    }, cfg)).data;
+    await offlineApi.handle('post', '/study/grade', {
+      card_id: userCard.id, grade: 2, action_id: 'grade-user-backup-1', return_next: false,
+    }, cfg);
+
+    const backup = await exportProgressBackup({ db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(backup.backup.integrity.scope, PROGRESS_BACKUP_INTEGRITY_SCOPE_V2);
+
+    // Clear learning toggles & progress, then apply backup
+    await offlineApi.handle('post', `/decks/${coursDeck.id}/toggle-learning`, { is_learning: false }, cfg);
+    await offlineApi.handle('post', `/decks/${userDeck.id}/toggle-learning`, { is_learning: false }, cfg);
+    await db.progress.clear();
+
+    const inspectedBackup = await inspectProgressBackup(backup.json, { db, userId: STANDALONE_USER_ID, pack });
+    assert.equal(inspectedBackup.ok, true);
+    await applyProgressBackup(inspectedBackup.backup, { db, userId: STANDALONE_USER_ID, pack });
+
+    assert.equal((await db.decks.get(coursDeck.id)).is_learning, true);
+    assert.equal((await db.decks.get(userDeck.id)).is_learning, true);
+    assert.equal((await db.progress.get([userCard.id, STANDALONE_USER_ID])).repetitions, 1);
   });
 });

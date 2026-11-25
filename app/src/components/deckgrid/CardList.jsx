@@ -36,7 +36,7 @@ import { useTranslation } from '../../i18n/i18nContext';
 import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { SearchBar } from '../common/SearchBar';
 import { matchCard, matchesSearchQuery } from '../../utils/search';
-import { parseDeckMetadata } from '../../utils/deckUtils';
+import { parseDeckMetadata, canEditContainer, canAuthorDeckCards } from '../../utils/deckUtils';
 import { DraggableCardItem } from './DraggableCardItem';
 import { ListDndContext } from './ListDndContext';
 import { FloatingBatchDock } from './FloatingBatchDock';
@@ -72,7 +72,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     () => getDesignTextStyle(effectiveCardListConfig.backText),
     [effectiveCardListConfig.backText]
   );
-  const noteCardIds = useDeckNoteCardIds(view === 'cards');
+  const noteCardIds = useDeckNoteCardIds(!IS_STANDALONE && view === 'cards');
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [isSearchOpen, setIsSearchOpen] = React.useState(false);
@@ -169,7 +169,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
   const { uploadDeckResource } = useMediaUpload();
   const { openCreator, openEditor } = useCardNavigation();
   const isDeckViewActive = ['cards', 'study', 'trainer', 'editor'].includes(view);
-  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck, isDeckViewActive);
+  const { collaborators, onlineCount, isShared } = useCollaborativePresence('deck', currentDeck, !IS_STANDALONE && isDeckViewActive);
 
 
 
@@ -295,8 +295,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
     );
   }
 
-  const canEditContent = currentDeck.role === 'owner' || currentDeck.role === 'editor' || (!currentDeck.role && !currentDeck.is_global_readonly);
-  const canAuthorCards = IS_STANDALONE ? true : canEditContent;
+  const canEditContent = canEditContainer(currentDeck, false);
+  const canAuthorCards = canAuthorDeckCards(currentDeck, IS_STANDALONE);
 
   return (
     <div className={`view-cards ${isSelectMode ? 'has-batch-selection' : ''}`}>
@@ -313,7 +313,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
 
           <div className="header-actions">
             <UserProfileBadge />
-            {canEditContent && <button 
+            {!IS_STANDALONE && canEditContent && <button 
               className="header-action-btn" 
               onClick={() => setIsBatchModalOpen(true)} 
               title={tr("Пакетная генерация карточек")}
@@ -343,7 +343,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
             </button>
 
             {/* Selection Mode Toggle Button */}
-            {canEditContent && <button
+            {canAuthorCards && <button
               className={`header-action-btn ${isSelectMode ? 'active' : ''}`}
               onClick={toggleSelectMode}
               title={isSelectMode ? tr("Выйти из режима выбора") : tr("Выбрать несколько карточек")}
@@ -541,8 +541,8 @@ export const CardList = ({ startStudy, startStudyCard }) => {
           ) : (
             <ListDndContext
               key={currentDeck.id}
-              onDragStart={canEditContent ? handleDragStart : undefined}
-              onDragEnd={canEditContent ? handleDragEnd : undefined}
+              onDragStart={canAuthorCards ? handleDragStart : undefined}
+              onDragEnd={canAuthorCards ? handleDragEnd : undefined}
               onDragCancel={handleDragCancel}
             >
               <SortableContext
@@ -556,7 +556,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
                       c={c} 
                       index={searchQuery.trim() ? getOriginalIndex(c.id) : idx}
                       currentDeck={currentDeck} 
-                      canEditContent={canEditContent}
+                      canEditContent={canAuthorCards}
                       isReorderPending={isReorderPending}
                       startStudyCard={startStudyCard}
                       openEditor={openEditor}
@@ -608,7 +608,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
         )}
 
         {/* Floating Batch Actions Dock */}
-        {canEditContent && <FloatingBatchDock
+        {canAuthorCards && <FloatingBatchDock
           selectMode={{ ...selectMode, filteredCards }}
           handleBatchDeleteCards={handleBatchDeleteCards}
         />}
