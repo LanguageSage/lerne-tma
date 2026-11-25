@@ -14,6 +14,10 @@ if (local && standalone) throw new Error('LOCAL and STANDALONE cannot be enabled
 const preview = local && process.env.LERNE_V2_PREVIEW === '1';
 const localPort = preview ? 5174 : 5173;
 const localApiPort = preview ? 8002 : 8001;
+const rawStandalonePort = Number.parseInt(process.env.LERNE_STANDALONE_PORT || '', 10);
+const standalonePort = Number.isInteger(rawStandalonePort) && rawStandalonePort > 0 && rawStandalonePort <= 65535
+  ? rawStandalonePort
+  : 5175;
 const localNonce = local ? randomBytes(16).toString('base64') : undefined;
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const localRoot = process.env.LERNE_DATA_ROOT || path.resolve(projectRoot, '../data');
@@ -69,14 +73,14 @@ export default defineConfig(({ command }) => {
   plugins: [react(), ...(local ? [localPlugin] : []), ...(standalone ? [standalonePlugin] : [])],
   server: {
     hmr: process.env.LERNE_ISOLATED_CHECKS === '1' ? false : undefined,
-    host: local ? '127.0.0.1' : true,
-    port: local ? localPort : 5173,
-    strictPort: local,
-    allowedHosts: local ? ['localhost', '127.0.0.1'] : true,
+    host: (local || standalone) ? '127.0.0.1' : true,
+    port: local ? localPort : standalone ? standalonePort : 5173,
+    strictPort: local || standalone,
+    allowedHosts: (local || standalone) ? ['localhost', '127.0.0.1'] : true,
     headers: local ? {
       'Content-Security-Policy': `default-src 'self' blob: data:; script-src 'self' 'nonce-${localNonce}'; style-src 'self' 'unsafe-inline'; connect-src 'self' ws://127.0.0.1:${localPort} ws://localhost:${localPort}; object-src 'none'; frame-src 'none'; form-action 'self'; base-uri 'self'`,
     } : {},
-    proxy: {
+    proxy: standalone ? {} : {
       '/api': {
         target: local ? `http://127.0.0.1:${localApiPort}` : process.env.LERNE_ISOLATED_CHECKS === '1'
           ? 'http://127.0.0.1:1'
@@ -97,6 +101,14 @@ export default defineConfig(({ command }) => {
       }
     }
   },
+  ...(standalone ? {
+    preview: {
+      host: '127.0.0.1',
+      port: standalonePort,
+      strictPort: true,
+      allowedHosts: ['localhost', '127.0.0.1'],
+    },
+  } : {}),
   build: {
     chunkSizeWarningLimit: 1000,
     rollupOptions: {
