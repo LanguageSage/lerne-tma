@@ -18,6 +18,7 @@ const boolean = value => typeof value === 'boolean';
 
 export const standaloneTaskKey = card => card.standalone_card_key || `bundled:${card.id}`;
 export const isKnowledgeKey = value => boundedText(value) && RULE_CODE.test(value);
+export const isKnowledgeKeyForLanguage = (key, language) => isKnowledgeKey(key) && key.startsWith(`${language}.`);
 export const isKnowledgeActionId = value => typeof value === 'string' && ACTION_ID.test(value);
 export const knowledgeGradeFingerprint = (card, rating, extended, context) => (
   sha256Hex(JSON.stringify([standaloneTaskKey(card), rating, extended, context]))

@@ -918,6 +918,34 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     }
   });
 
+  test('D02 cross-language move drops current bindings, preserves history and exports a valid ZIP', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const first = document.content.deck[0];
+    const rule_code = 'fr.syntax.order';
+    first.values.metadata = JSON.stringify({ ...JSON.parse(first.values.metadata), knowledge: {
+      version: 1,
+      items: [{ rule_code, name: 'Ordre', kind: 'skill', language: 'fr', revision: 1 }],
+      mappings: [{ card_id: 201, rule_code, role: 'primary' }],
+    } });
+    await confirmArchiveImport(await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+      'knowledge.zip', { db, userId: STANDALONE_USER_ID }), { db, userId: STANDALONE_USER_ID });
+    const card = await db.cards.filter(row => row.standalone_source_id === 201).first();
+    const destination = await db.decks.filter(row => row.standalone_source_id === 102).first();
+    await db.decks.update(destination.id, { target_language: 'en' });
+    await db.knowledge_attempt_outbox.add({ client_event_id: 'before-move', card_id: card.id, knowledge_item_id: rule_code });
+    await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [card.id], target_deck_id: destination.id, revisions: { [card.id]: card.revision }, request_id: 'cross-language',
+    }, { _testDb: db });
+    const archive = await buildMaterialArchiveExport({
+      db, selectAll: true,
+      readAssetBytes: (folder, filename) => mediaAssets.find(asset => asset.folder === folder && asset.filename === filename)?.bytes,
+    });
+    assert.ok(validateMaterialArchiveDocument(archive.document).document);
+    assert.equal((await db.cards.get(card.id)).target_language, 'en');
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
+    assert.equal((await db.knowledge_attempt_outbox.get('before-move')).knowledge_item_id, rule_code);
+  });
+
   test('5. Corrupt/tampered archives, validation violations & commit failures leave zero partial writes', async () => {
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack: getStandalonePack() });
     const beforeDeckCount = await db.decks.count();

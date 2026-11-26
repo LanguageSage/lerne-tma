@@ -537,6 +537,38 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     );
   });
 
+  test('D01 preserves an unresolved observation across remap and removal until historical binding is proven', async () => {
+    const userId = STANDALONE_USER_ID;
+    const pack = getStandalonePack();
+    const quiz = pack.cards.find(entry => entry.card.type === 'quiz');
+    const original = { card_id: quiz.id, role: 'primary', knowledge_item_id: 'de.test.original' };
+    memStorage.set('lerne_user_id', String(userId));
+    await ensureStandaloneSeed({ db, userId, pack });
+    await db.card_knowledge_items.add(original);
+    const lookup = mock.method(db.card_knowledge_items, 'where', () => { throw new Error('Injected mapping read failure'); });
+    try {
+      for (const action_id of ['remap', 'unmap']) {
+        await offlineApi.handle('post', '/study/grade', { card_id: quiz.id, grade: 2, action_id, return_next: false }, { _testDb: db });
+      }
+    } finally {
+      lookup.mock.restore();
+    }
+    await db.card_knowledge_items.delete([quiz.id, original.knowledge_item_id]);
+    await db.card_knowledge_items.add({ ...original, knowledge_item_id: 'de.test.changed' });
+    assert.equal(await recoverLocalKnowledgeAttempts(db, userId), 2);
+    assert.equal(await db.knowledge_attempt_outbox.count(), 0);
+    await db.card_knowledge_items.delete([quiz.id, 'de.test.changed']);
+    assert.equal(await recoverLocalKnowledgeAttempts(db, userId), 2);
+
+    const pending = (await db.syncState.get('grade:remap')).knowledge_pending.observation;
+    const profile = (await offlineApi.handle('get', '/knowledge/profile', null, { _testDb: db })).data;
+    assert.deepEqual(profile.unresolved_attempts.map(item => item.event_id), ['remap', 'unmap']);
+    const historical = new Map([['remap', { ...original, task_key: pending.task_key, example_fingerprint: pending.example_fingerprint }]]);
+    assert.equal(await recoverLocalKnowledgeAttempts(db, userId, historical), 1);
+    assert.equal((await db.knowledge_attempt_outbox.get('remap')).knowledge_item_id, original.knowledge_item_id);
+    assert.ok((await db.syncState.get('grade:unmap')).knowledge_pending.observation);
+  });
+
   test('graded local evidence is atomic, recoverable after reopen, and survives a portable backup', async () => {
     const pack = getStandalonePack();
     const userId = STANDALONE_USER_ID;

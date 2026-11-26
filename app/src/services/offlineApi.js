@@ -492,12 +492,13 @@ export const offlineApi = {
                 return raw && { ...raw, client_event_id: actionId, grade_fingerprint: gradeFingerprint };
               };
               let event;
+              const language = current?.target_language || deck?.target_language || 'de';
               try {
-                event = await resolveStudyKnowledgeAttempt(db, id, observe);
+                event = await resolveStudyKnowledgeAttempt(db, id, language, observe);
                 if (event) await writeLocalKnowledgeAttempt(db, userId, id, event);
               } catch (error) {
                 const observation = event ? null : observe();
-                if (event || observation) pendingKnowledge = { card_id: id, event, observation };
+                if (event || observation) pendingKnowledge = { card_id: id, event, observation, language };
                 throw error;
               }
             }

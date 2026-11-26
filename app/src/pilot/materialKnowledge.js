@@ -1,4 +1,4 @@
-import { isKnowledgeKey } from '../utils/knowledgeEvidence.js';
+import { isKnowledgeKey, isKnowledgeKeyForLanguage } from '../utils/knowledgeEvidence.js';
 const KINDS = ['language', 'domain', 'topic', 'skill'];
 const ABILITIES = ['theory', 'recognition', 'understanding', 'guided_application',
   'reproduction', 'application', 'retention'];
@@ -153,12 +153,13 @@ export async function applyMaterialKnowledge(database, knowledge, importedCards)
 
 export function exportMaterialKnowledge(decks, cards, links, rows, exportId) {
   const cardsById = new Map(cards.map(card => [card.id, card]));
+  const languages = new Map(decks.map(deck => [deck.id, deck.target_language || 'de']));
   const catalog = new Map(rows.map(({ id, ...item }) => [id, item]));
   const sections = new Map(decks.filter(deck => deck.standalone_knowledge_version === 1)
     .map(deck => [deck.id, { items: new Map(), mappings: [] }]));
   for (const { card_id, knowledge_item_id, role, complexity, ability, example_key } of links) {
     const card = cardsById.get(card_id);
-    if (!card || !isKnowledgeKey(knowledge_item_id)) continue;
+    if (!card || !isKnowledgeKeyForLanguage(knowledge_item_id, languages.get(card.deck_id))) continue;
     if (!sections.has(card.deck_id)) sections.set(card.deck_id, { items: new Map(), mappings: [] });
     const section = sections.get(card.deck_id);
     section.mappings.push({ card_id: exportId(card), rule_code: knowledge_item_id, role, complexity, ability, example_key });

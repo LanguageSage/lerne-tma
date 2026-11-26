@@ -1,5 +1,5 @@
 import { cardDuplicateKey } from '../utils/search.js';
-import { isKnowledgeKey, isPortableKnowledgeAttempt, studyKnowledgeObservation } from '../utils/knowledgeEvidence.js';
+import { isKnowledgeKeyForLanguage, isPortableKnowledgeAttempt } from '../utils/knowledgeEvidence.js';
 import { getCardKnowledgeMappings } from './knowledgeDbService.js';
 import { projectKnowledgeMastery } from '../utils/knowledgeMastery.js';
 import { isDeckActiveInCache, loadFolderMap } from './cardOfflineQueue.js';
@@ -10,12 +10,16 @@ export function portableLocalAttempt(row) {
   return event;
 }
 
-export async function resolveStudyKnowledgeAttempt(database, cardId, observe) {
+export async function resolveStudyKnowledgeAttempt(database, cardId, language, observe) {
   const mappings = await getCardKnowledgeMappings(cardId, database);
-  const primary = mappings.find(link => link.role === 'primary' && isKnowledgeKey(link.knowledge_item_id));
+  const primary = mappings.find(link => link.role === 'primary' && isKnowledgeKeyForLanguage(link.knowledge_item_id, language));
   if (!primary) return null;
   const observation = observe();
   if (!observation) return null;
+  return bindKnowledgeObservation(observation, primary);
+}
+
+function bindKnowledgeObservation(observation, primary) {
   return {
     ...observation,
     knowledge_item_id: primary.knowledge_item_id,
@@ -52,33 +56,38 @@ export function pendingKnowledgeReceipts(database) {
   return database.syncState.where('key').startsWith('grade:').filter(receipt => receipt.knowledge_pending).toArray();
 }
 
-export async function recoverLocalKnowledgeAttempts(database, userId) {
+/** Historical bindings are trusted point-in-time records keyed by action ID. */
+export async function recoverLocalKnowledgeAttempts(database, userId, historicalBindings = new Map()) {
   const receipts = await pendingKnowledgeReceipts(database);
   let remaining = 0;
-  for (const { key } of receipts) {
+  for (const { key: receiptKey, knowledge_pending: pending } of receipts) {
+    const historical = historicalBindings.get(pending.observation?.client_event_id);
+    if (!pending.event && !historical) {
+      remaining += 1;
+      continue;
+    }
     try {
-      await database.transaction('rw', database.syncState, database.cards, database.card_knowledge_items,
+      await database.transaction('rw', database.syncState,
         database.knowledge_attempt_outbox, async () => {
-          const receipt = await database.syncState.get(key);
+          const receipt = await database.syncState.get(receiptKey);
           if (!receipt?.knowledge_pending) return;
           const { knowledge_pending: pending, ...resolved } = receipt;
           const { card_id: cardId, observation } = pending;
           let event = pending.event;
           if (!event) {
-            const card = await database.cards.get(cardId);
-            const current = studyKnowledgeObservation(card, observation.evaluation_data.rating,
-              observation.evaluation_data.extended, null, observation.event_time);
-            if (current?.task_key !== observation.task_key || current.example_fingerprint !== observation.example_fingerprint) {
-              throw new Error('Could not resolve Knowledge mapping for changed material');
+            if (!historical || historical.role !== 'primary' || historical.card_id !== cardId
+              || historical.task_key !== observation.task_key || historical.example_fingerprint !== observation.example_fingerprint
+              || (pending.language && !isKnowledgeKeyForLanguage(historical.knowledge_item_id, pending.language))) {
+              throw new Error('Historical Knowledge binding does not match the observation');
             }
-            event = await resolveStudyKnowledgeAttempt(database, cardId, () => observation);
+            event = bindKnowledgeObservation(observation, historical);
           }
-          if (event) await writeLocalKnowledgeAttempt(database, userId, cardId, event);
+          await writeLocalKnowledgeAttempt(database, userId, cardId, event);
           await database.syncState.put(resolved);
         });
     } catch (error) {
       remaining += 1;
-      console.error('[Knowledge] Local grade evidence still pending', key, error);
+      console.error('[Knowledge] Local grade evidence still pending', receiptKey, error);
     }
   }
   return remaining;
@@ -120,6 +129,10 @@ export async function readLocalKnowledgeProfile(database, userId, now = new Date
         ...profile,
         catalog: catalog.filter(item => item.id === item.rule_code),
         pending_attempts: pending.length,
+        unresolved_attempts: pending.filter(row => !row.knowledge_pending.event).map(({ knowledge_pending: { observation } }) => ({
+          event_id: observation.client_event_id, task_key: observation.task_key,
+          checked_at: observation.event_time, reason: 'historical_binding_required',
+        })),
         weaknesses: weak.map(({ skill, dimension }) => ({
           skill_key: skill.skill_key, name: skill.name, ability: dimension.ability, confidence: dimension.confidence,
           last_checked_at: dimension.last_checked_at,
