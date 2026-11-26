@@ -1,12 +1,11 @@
 import { cardDuplicateKey } from './search.js';
 import { studyContent } from './structuredStudyCard.js';
+import { isTrainerAnswerMode, TASK_SUPPORT_FIELDS } from './supportEvidence.js';
 import { sha256Hex } from '../pilot/sha256.js';
 
 const ACTION_ID = /^[a-zA-Z0-9:_-]{1,128}$/;
 const RULE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?(?:\.[a-z0-9_][a-z0-9_-]*)+$/;
 const SUPPORT_FIELDS = ['hint_count', 'translation_view_count', 'answer_reveal_count', 'other_help_count'];
-const TASK_SUPPORT_FIELDS = ['answer_options_present', 'sentence_frame_present', 'source_text_present',
-  'source_vocabulary_present', 'authored_example_present'];
 const EXERCISE_COUNTERS = { attemptCount: 'attempt_count', mistakeCount: 'mistake_count' };
 const EXERCISE_FLAGS = { isCorrect: 'correct', completed: 'completed', isFirstTry: 'first_try_correct' };
 const GRADING_TEXT_FIELDS = ['final_verdict', 'final_evaluator', 'final_target_relevance'];
@@ -58,6 +57,7 @@ export function normalizeStudyExerciseEvidence(exercise) {
     ...pick(exercise?.supportEvidence, ['answer_attempt_count'], count),
   };
   const taskSupport = pick(exercise?.taskSupport, TASK_SUPPORT_FIELDS, value => value === null || boolean(value));
+  if (isTrainerAnswerMode(exercise.trainerAnswerMode)) taskSupport.trainer_answer_mode = exercise.trainerAnswerMode;
   if (count(exercise?.gradingSummary?.interaction_count)) {
     exerciseData.interaction_count = exercise.gradingSummary.interaction_count;
   }
@@ -114,9 +114,10 @@ const validSupport = value => sameObject(value, {
   ...Object.fromEntries(SUPPORT_FIELDS.map(key => [key, validSupportValue])),
   tracking_complete: boolean, capture_point: isCapturePoint, answer_attempt_count: count,
 });
-const validTaskSupport = value => sameObject(value, Object.fromEntries(
-  TASK_SUPPORT_FIELDS.map(key => [key, candidate => candidate === null || boolean(candidate)]),
-));
+const validTaskSupport = value => sameObject(value, {
+  ...Object.fromEntries(TASK_SUPPORT_FIELDS.map(key => [key, candidate => candidate === null || boolean(candidate)])),
+  trainer_answer_mode: isTrainerAnswerMode,
+});
 const validGrading = value => sameObject(value, {
   ...Object.fromEntries(GRADING_TEXT_FIELDS.map(key => [key, boundedText])),
   ...Object.fromEntries(GRADING_LIST_FIELDS.map(key => [key,

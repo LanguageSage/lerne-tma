@@ -100,7 +100,10 @@ export function studyTrainer(data) {
     gaps.push(gap);
     return gap;
   });
-  return { parts, gaps };
+  const hasInput = gaps.some(gap => gap.mode === 'input');
+  const hasChoice = gaps.some(gap => gap.mode === 'choice');
+  const answerMode = hasChoice ? (hasInput ? 'mixed' : 'choice') : (hasInput ? 'input' : undefined);
+  return { parts, gaps, answerMode };
 }
 
 export function studyQuiz(data) {

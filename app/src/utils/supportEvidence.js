@@ -1,6 +1,9 @@
 import { studyContent } from './structuredStudyCard.js';
 
 const counters = ['hint_count', 'translation_view_count', 'answer_reveal_count', 'other_help_count'];
+export const TASK_SUPPORT_FIELDS = Object.freeze(['answer_options_present', 'sentence_frame_present', 'source_text_present',
+  'source_vocabulary_present', 'authored_example_present']);
+export const isTrainerAnswerMode = value => ['choice', 'input', 'mixed'].includes(value);
 
 /** Counts are observations within declared sources, never a judgement of independence. */
 export function createSupportSession(initial, observed = []) {

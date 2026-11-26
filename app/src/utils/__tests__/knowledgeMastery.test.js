@@ -1,10 +1,14 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { projectKnowledgeMastery } from '../knowledgeMastery.js';
+import { studyTrainer } from '../structuredStudyCard.js';
 
 const key = 'de.syntax.prepositions';
 const now = '2026-11-26T12:00:00Z';
 const skills = [{ rule_code: key, name: 'Prepositions', kind: 'skill', prerequisite_keys: ['de.syntax.case'] }];
+const zeroHelp = { tracking_complete: true, hint_count: 0, translation_view_count: 0, answer_reveal_count: 0, other_help_count: 0 };
+const noScaffold = { answer_options_present: false, sentence_frame_present: false, source_text_present: false,
+  source_vocabulary_present: false, authored_example_present: false };
 
 function attempt(id, { type = 'quiz', right = true, mistakes = 0, task = String(id), content = task,
   authoredExample, ability, support, scaffold, evaluator = 'rules', source = 'study', relevance, time = now } = {}) {
@@ -60,14 +64,16 @@ test('recent independent rechecks can improve an assessment while aging lowers c
 });
 
 test('recognition, actual assistance, self-rating and independent written application remain distinct', () => {
-  const zeroHelp = { tracking_complete: true, hint_count: 0, translation_view_count: 0, answer_reveal_count: 0, other_help_count: 0 };
   const recognition = [attempt(1), attempt(2), attempt(3)];
   const applications = [4, 5].map(id => attempt(id, {
     type: 'free_text', ability: 'application', evaluator: 'rules', source: 'diagnostic', relevance: 'primary', right: false, support: zeroHelp,
+    scaffold: noScaffold,
   }));
   assert.equal(dimension([...recognition, ...applications]).status, 'mastered');
   assert.equal(dimension([...recognition, ...applications], 'application').status, 'weak');
-  const free = [6, 7, 8].map(id => attempt(id, { type: 'free_text', ability: 'application', evaluator: 'local', support: zeroHelp }));
+  const free = [6, 7, 8].map(id => attempt(id, {
+    type: 'free_text', ability: 'application', evaluator: 'local', support: zeroHelp, scaffold: noScaffold,
+  }));
   assert.equal(dimension(free, 'application').status, 'mastered');
   const assisted = [6, 7, 8].map(id => attempt(id,
     { type: 'free_text', ability: 'application', evaluator: 'local', support: { ...zeroHelp, hint_count: 1 } }));
@@ -86,6 +92,46 @@ test('recognition, actual assistance, self-rating and independent written applic
   delete rating.evaluation_data.exercise;
   assert.equal(dimension([rating], 'self_rating').status, 'insufficient_evidence');
   assert.equal(dimension([rating]).status, 'not_checked');
+});
+
+test('D07 scores Trainer by observed answer mode and requires explicit absence of Free Text scaffolding', () => {
+  const fallback = studyTrainer({ parts: [{ type: 'choice', distractors: 'auto', options: [{ text: 'Zwetschgenbaum', correct: true }] }] });
+  assert.equal(fallback.gaps[0].mode, 'input');
+  assert.equal(fallback.answerMode, 'input');
+  const input = attempt(1, { type: 'trainer', ability: 'recognition', scaffold: { answer_options_present: false } });
+  assert.equal(dimension([input], 'guided_application').event_count, 1);
+  assert.equal(dimension([input], 'recognition').event_count, 0);
+  const observedInput = attempt(2, { type: 'trainer', ability: 'recognition',
+    scaffold: { answer_options_present: true, trainer_answer_mode: fallback.answerMode } });
+  const observedChoice = attempt(3, { type: 'trainer', ability: 'guided_application',
+    scaffold: { answer_options_present: true, trainer_answer_mode: 'choice' } });
+  assert.equal(dimension([observedInput], 'guided_application').independent_examples, 1);
+  assert.equal(dimension([observedChoice], 'recognition').independent_examples, 1);
+  const unclearMode = attempt(4, { type: 'trainer', ability: 'recognition', scaffold: { answer_options_present: true } });
+  assert.equal(dimension([unclearMode], 'guided_application').independent_examples, 0);
+  for (const scaffold of [undefined, {}, { ...noScaffold, sentence_frame_present: null }, { ...noScaffold, source_text_present: true }]) {
+    const free = [6, 7, 8].map(id => attempt(id, { type: 'free_text', ability: 'application', evaluator: 'local', support: zeroHelp, scaffold }));
+    assert.equal(dimension(free, 'application').status, 'not_checked');
+    assert.equal(dimension(free, 'reproduction').status, 'partially_mastered');
+  }
+});
+
+test('D08 includes exact percentage boundaries and leaves the adjacent scores on their correct sides', () => {
+  const score = (correct, total) => dimension(Array.from({ length: total }, (_, i) => attempt(i, { right: i < correct })));
+  assert.equal(score(4, 5).status, 'mastered');
+  assert.equal(score(399, 500).status, 'partially_mastered');
+  assert.equal(score(400, 500).proficiency, 0.8);
+  assert.equal(score(401, 500).status, 'mastered');
+  assert.equal(score(549, 1000).status, 'weak');
+  assert.equal(score(550, 1000).proficiency, 0.55);
+  assert.equal(score(550, 1000).status, 'weak');
+  assert.equal(score(551, 1000).status, 'partially_mastered');
+  assert.equal(score(1, 2).status, 'partially_mastered');
+  const attempts = [1, 2, 3].map(id => attempt(id));
+  const freshnessBoundary = Date.parse(now) + 90 * 86_400_000;
+  for (const [offset, expected] of [[-1, 'mastered'], [0, 'mastered'], [1, 'needs_recheck']]) {
+    assert.equal(dimension(attempts, 'recognition', freshnessBoundary + offset).status, expected);
+  }
 });
 
 test('revealed solutions and untrusted grading do not add objective evidence', () => {

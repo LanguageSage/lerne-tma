@@ -1,3 +1,5 @@
+import { isTrainerAnswerMode, TASK_SUPPORT_FIELDS } from './supportEvidence.js';
+
 export const KNOWLEDGE_CALCULATION_VERSION = 'offline-mastery-v1';
 export const KNOWLEDGE_MASTERY_POLICY = Object.freeze({
   minExamples: 2,
@@ -16,6 +18,8 @@ export const KNOWLEDGE_MASTERY_POLICY = Object.freeze({
 });
 
 const DAY_MS = 86_400_000;
+// Policy inputs use at most three decimal places. Integer units preserve exact threshold comparisons.
+const EVIDENCE_SCALE = 1000;
 const CHECKED_RULE_TYPES = new Set(['quiz', 'match', 'trainer', 'puzzle', 'word_bank', 'editable_text']);
 const REVEALS = ['answer_reveal_count'];
 const HELP = ['hint_count', 'translation_view_count', 'other_help_count'];
@@ -35,8 +39,8 @@ function interpret(event) {
   const revealed = REVEALS.some(field => support?.[field] > 0);
   const helped = HELP.some(field => support?.[field] > 0);
   const completeSupport = support?.tracking_complete === true && [...HELP, ...REVEALS].every(field => support[field] === 0);
-  const suppliedScaffold = Object.values(taskSupport ?? {}).some(value => value === true);
-  const independent = completeSupport && !suppliedScaffold;
+  const noScaffold = TASK_SUPPORT_FIELDS.every(field => taskSupport?.[field] === false);
+  const independent = completeSupport && noScaffold;
   let ability;
   let verified;
 
@@ -48,10 +52,14 @@ function interpret(event) {
       verified = typeof exercise.correct === 'boolean';
     }
   } else {
-    const choice = type === 'quiz' || type === 'match'
-      || (type === 'trainer' && (event.ability === 'recognition' || taskSupport?.answer_options_present === true));
+    // Older observations can establish input when no options were present. Visible options alone may be authored clues.
+    const observation = taskSupport?.trainer_answer_mode;
+    const trainerMode = isTrainerAnswerMode(observation) ? observation
+      : taskSupport?.answer_options_present === false ? 'input' : null;
+    const choice = type === 'quiz' || type === 'match' || (type === 'trainer' && trainerMode === 'choice');
     ability = choice ? 'recognition' : 'guided_application';
-    verified = CHECKED_RULE_TYPES.has(type) && grading?.final_evaluator === 'rules' && typeof exercise.correct === 'boolean';
+    verified = CHECKED_RULE_TYPES.has(type) && grading?.final_evaluator === 'rules' && typeof exercise.correct === 'boolean'
+      && (type !== 'trainer' || trainerMode !== null);
   }
 
   if (revealed || !verified) return { ability, score: null, weight: 0, reason: revealed ? 'answer_revealed' : 'unverified' };
@@ -95,16 +103,23 @@ function exampleRepresentatives(observations) {
 
 function evaluateDimension(ability, observations, nowMs) {
   const representatives = exampleRepresentatives(observations);
-  const evidenceMass = representatives.reduce((sum, observation) => sum + observation.weight, 0);
-  const proficiency = evidenceMass
-    ? representatives.reduce((sum, observation) => sum + observation.score * observation.weight, 0) / evidenceMass : null;
+  let weightUnits = 0;
+  let earnedUnits = 0;
+  for (const observation of representatives) {
+    const weight = Math.round(observation.weight * EVIDENCE_SCALE);
+    weightUnits += weight;
+    earnedUnits += weight * Math.round(observation.score * EVIDENCE_SCALE);
+  }
+  const proficiency = weightUnits ? earnedUnits / (weightUnits * EVIDENCE_SCALE) : null;
   const confirmed = representatives.filter(observation => observation.confirms);
   const errors = representatives.filter(observation => observation.error);
   const relevant = ability === 'self_rating' ? [] : representatives;
   const statusBeforeRecency = observations.length === 0 ? 'not_checked'
     : relevant.length < policy.minExamples ? 'insufficient_evidence'
-      : confirmed.length >= policy.minConfirmedExamples && proficiency >= policy.masteryThreshold ? 'mastered'
-        : errors.length >= policy.minErrorExamples && proficiency <= policy.weaknessThreshold ? 'weak'
+      : confirmed.length >= policy.minConfirmedExamples
+        && earnedUnits >= weightUnits * Math.round(policy.masteryThreshold * EVIDENCE_SCALE) ? 'mastered'
+        : errors.length >= policy.minErrorExamples
+          && earnedUnits <= weightUnits * Math.round(policy.weaknessThreshold * EVIDENCE_SCALE) ? 'weak'
           : 'partially_mastered';
   const lastEvidence = representatives.reduce((last, item) => Math.max(last, item.time), -Infinity);
   const lastConfirmation = confirmed.reduce((last, item) => Math.max(last, item.time), -Infinity);
@@ -113,7 +128,7 @@ function evaluateDimension(ability, observations, nowMs) {
   const status = stale && ['mastered', 'weak'].includes(statusBeforeRecency) ? 'needs_recheck' : statusBeforeRecency;
   return {
     ability, status, status_before_recency: statusBeforeRecency, proficiency,
-    confidence: Math.min(1, evidenceMass / policy.minConfirmedExamples) * (stale ? policy.staleConfidenceFactor : 1),
+    confidence: Math.min(1, weightUnits / (EVIDENCE_SCALE * policy.minConfirmedExamples)) * (stale ? policy.staleConfidenceFactor : 1),
     event_count: observations.length,
     independent_examples: representatives.length,
     last_checked_at: observations.at(-1)?.event.event_time ?? null,

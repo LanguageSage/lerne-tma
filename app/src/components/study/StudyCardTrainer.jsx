@@ -251,7 +251,10 @@ export const StudyCardTrainer = React.memo(({
     if (submission.evidence) {
       playSuccessSound();
       triggerHaptic('success');
-      if (!assessmentMode) onTrainerAnswer?.(card.id, submission.evidence);
+      if (!assessmentMode) onTrainerAnswer?.(card.id, {
+        ...submission.evidence,
+        trainerAnswerMode: clozeData.answerMode,
+      });
     } else {
       playErrorSound();
       triggerHaptic('error');

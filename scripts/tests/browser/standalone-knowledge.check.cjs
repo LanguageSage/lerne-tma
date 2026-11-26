@@ -144,6 +144,7 @@ async function run() {
     assert.equal(weakness.skill_key, targetSkill);
     assert.equal(weakness.evidence.length, 2);
     assert.ok(weakness.evidence.every(event => event.evaluation_data.exercise.mistake_count === 1));
+    assert.ok(weakness.evidence.every(event => event.evaluation_data.task_support.trainer_answer_mode === 'input'));
     assert.deepEqual(new Set(weakness.related_materials.map(item => item.deck_name)), new Set(Object.values(pilotDecks)));
     assert.equal(weakness.prerequisites_to_check[0].skill_key, 'de.relativsaetze.dative');
 
