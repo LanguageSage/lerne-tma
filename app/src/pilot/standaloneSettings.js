@@ -1,5 +1,5 @@
 import { storage } from '../utils/auth.js';
-import { isNativePlatform } from './nativeBridge.js';
+import { isNativePlatform, isNativePluginAvailable } from './nativeBridge.js';
 
 export const STANDALONE_SETTINGS_KEYS = {
   aiProvider: 'lerne_standalone_ai_provider',
@@ -35,11 +35,15 @@ export function readStandaloneAiModels() {
 
 export function readStandaloneTtsProvider() {
   const val = String(storage.get(STANDALONE_SETTINGS_KEYS.ttsProvider) || '').trim().toLowerCase();
-  if (['gemini', 'android_system', 'azure'].includes(val)) {
-    if (val === 'android_system' && !isNativePlatform()) return 'gemini';
+  if (['piper', 'gemini', 'android_system', 'azure'].includes(val)) {
+    if (val === 'android_system' && !isNativePluginAvailable('AndroidSystemTts')) return 'gemini';
+    if (val === 'piper' && !isNativePluginAvailable('AndroidPiperTts')) return 'gemini';
     return val;
   }
-  return isNativePlatform() ? 'android_system' : 'gemini';
+  if (isNativePlatform() && isNativePluginAvailable('AndroidSystemTts')) {
+    return 'android_system';
+  }
+  return 'gemini';
 }
 
 export function readStandaloneGeminiTtsModel() {

@@ -13,6 +13,7 @@ import {
   getVoicesForStandaloneProvider,
 } from '../pilot/tts/registry.js';
 import { androidSystemTtsProvider } from '../pilot/tts/androidSystemTtsProvider.js';
+import { piperTtsProvider } from '../pilot/tts/piperTtsProvider.js';
 
 /**
  * useVoicePicker — manages per-card voice selection and on-demand audio preview generation.
@@ -46,6 +47,20 @@ export const useVoicePicker = (
   const standaloneTtsProvider = useSettingsStore((s) => s.standaloneTtsProvider);
   const standaloneAndroidTtsEngine = useSettingsStore((s) => s.standaloneAndroidTtsEngine);
   const [androidVoices, setAndroidVoices] = useState([]);
+  const [piperVoices, setPiperVoices] = useState([]);
+
+  useEffect(() => {
+    if (!IS_STANDALONE || standaloneTtsProvider !== 'piper' || !piperTtsProvider.isSupported()) {
+      return;
+    }
+    let canceled = false;
+    piperTtsProvider.listVoices()
+      .then((res) => {
+        if (!canceled) setPiperVoices(Array.isArray(res?.voices) ? res.voices : []);
+      })
+      .catch(() => {});
+    return () => { canceled = true; };
+  }, [standaloneTtsProvider]);
 
   useEffect(() => {
     if (!IS_STANDALONE || standaloneTtsProvider !== 'android_system' || !androidSystemTtsProvider.isSupported()) {
@@ -61,10 +76,10 @@ export const useVoicePicker = (
   }, [standaloneTtsProvider, standaloneAndroidTtsEngine]);
 
   const voices = IS_STANDALONE
-    ? getVoicesForStandaloneProvider(standaloneTtsProvider, code, androidVoices)
+    ? getVoicesForStandaloneProvider(standaloneTtsProvider, code, androidVoices, piperVoices)
     : (VOICES_BY_LANG[code] || []);
   const defaultVoice = IS_STANDALONE
-    ? (ttsVoices?.[code] || getDefaultStandaloneVoice(standaloneTtsProvider, code))
+    ? (ttsVoices?.[code] || getDefaultStandaloneVoice(standaloneTtsProvider, code, piperVoices))
     : getTtsVoiceForLang(code, adminSettings, ttsVoices);
 
   const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || defaultVoice);
@@ -131,7 +146,8 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
-      const isOfflineAndroidLocal = !navigator.onLine && !String(voice).startsWith('android_system:');
+      const isOfflineLocalVoice = String(voice).startsWith('android_system:') || String(voice).startsWith('piper:');
+      const isOfflineAndroidLocal = !navigator.onLine && !isOfflineLocalVoice;
       const msg = isOfflineAndroidLocal ? tr("Для создания озвучки нужно подключение к сети")
         : err?.response?.data?.detail || err.message || tr("Ошибка генерации");
       if (requestGenRef.current === reqGen) {
@@ -262,7 +278,8 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
-      const isOfflineAndroidLocal = !navigator.onLine && !String(voice).startsWith('android_system:');
+      const isOfflineLocalVoice = String(voice).startsWith('android_system:') || String(voice).startsWith('piper:');
+      const isOfflineAndroidLocal = !navigator.onLine && !isOfflineLocalVoice;
       const msg = isOfflineAndroidLocal ? tr("Для создания озвучки нужно подключение к сети")
         : err?.response?.data?.detail || err.message || tr("Ошибка генерации и сохранения");
       if (requestGenRef.current === reqGen) {

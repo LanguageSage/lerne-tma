@@ -3,12 +3,14 @@
     <cloud-backup>
         <exclude domain="root" path="app_webview" />
         <exclude domain="file" path="lerne-offline-media" />
+        <exclude domain="file" path="lerne-piper" />
         <exclude domain="file" path="lerne-secure-vault" />
         <exclude domain="sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
         <exclude domain="root" path="app_webview" />
         <exclude domain="file" path="lerne-offline-media" />
+        <exclude domain="file" path="lerne-piper" />
         <exclude domain="file" path="lerne-secure-vault" />
         <exclude domain="sharedpref" path="." />
     </device-transfer>

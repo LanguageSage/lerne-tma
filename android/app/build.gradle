@@ -1,4 +1,45 @@
+import java.security.MessageDigest
+
 apply plugin: 'com.android.application'
+
+def rawAbisProp = (project.findProperty('lerneAbis') ?: System.getenv('LERNE_ANDROID_ABIS') ?: 'arm64-v8a').toString()
+def resolvedAbis = rawAbisProp.split(',').collect { it.trim() }.findAll { !it.isEmpty() }
+if (resolvedAbis.isEmpty()) {
+    resolvedAbis = ['arm64-v8a']
+}
+def allowedAbis = ['arm64-v8a', 'x86_64', 'armeabi-v7a', 'x86'] as Set
+resolvedAbis.each { abi ->
+    if (!allowedAbis.contains(abi)) {
+        throw new GradleException("Unsupported Android ABI '${abi}' in lerneAbis/LERNE_ANDROID_ABIS. Allowed: ${allowedAbis.join(', ')}")
+    }
+}
+
+def resolvePiperLibsDir = { ->
+    def explicit = project.findProperty('lernePiperLibsDir') ?: System.getenv('LERNE_PIPER_LIBS_DIR')
+    if (explicit != null && !explicit.toString().trim().isEmpty()) {
+        return file(explicit.toString().trim())
+    }
+    def localLibs = file('libs')
+    if (new File(localLibs, 'sherpa-onnx-2.0.3.aar').isFile()) {
+        return localLibs
+    }
+    File cursor = rootProject.projectDir
+    for (int depth = 0; depth < 6 && cursor != null; depth++) {
+        File candidate = new File(cursor, 'data/tts/piper/android-libs')
+        if (candidate.isDirectory()) {
+            return candidate
+        }
+        cursor = cursor.parentFile
+    }
+    return localLibs
+}
+def piperLibsDir = resolvePiperLibsDir()
+def sherpaOnnxAar = new File(piperLibsDir, 'sherpa-onnx-2.0.3.aar')
+def piperPhonemizeAar = new File(piperLibsDir, 'piper-phonemize-1.6.1.aar')
+def expectedAarSha256 = [
+    (sherpaOnnxAar): '4c766e2e74c9d33d595338c21fe3b305c73ba45d47e96a235675c33142a2ec50',
+    (piperPhonemizeAar): 'e8cf1b31c85a199f3258144bc5c4c23b1ce942c3e5ed7fea7dd0d4227980e285',
+]
 
 def versionPropsFile = file('../version.properties')
 def versionProps = new Properties()
@@ -62,10 +103,14 @@ android {
         versionName resolvedVersionName
         manifestPlaceholders = [appName: "Lerne Offline Pilot"]
         testInstrumentationRunner "androidx.test.runner.AndroidJUnitRunner"
+        ndk {
+            abiFilters.addAll(resolvedAbis)
+        }
         aaptOptions {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            noCompress 'onnx'
         }
     }
     signingConfigs {
@@ -148,8 +193,45 @@ repositories {
     }
 }
 
+def verifyPiperNativeLibs = tasks.register('verifyPiperNativeLibs') {
+    doLast {
+        expectedAarSha256.each { File aarFile, String expectedHex ->
+            if (!aarFile.isFile()) {
+                throw new GradleException(
+                    "Missing required Piper Android library: ${aarFile}. " +
+                    "Place verified AARs in data/tts/piper/android-libs or pass -PlernePiperLibsDir=<dir>."
+                )
+            }
+            MessageDigest digest = MessageDigest.getInstance('SHA-256')
+            aarFile.withInputStream { stream ->
+                byte[] buf = new byte[65536]
+                int read
+                while ((read = stream.read(buf)) != -1) {
+                    digest.update(buf, 0, read)
+                }
+            }
+            String actualHex = digest.digest().encodeHex().toString().toLowerCase()
+            if (actualHex != expectedHex) {
+                throw new GradleException(
+                    "SHA-256 mismatch for ${aarFile.name}: expected ${expectedHex}, got ${actualHex}"
+                )
+            }
+        }
+    }
+}
+
+tasks.matching {
+    it.name in ['packageDebug', 'packageRelease', 'assembleDebug', 'assembleRelease', 'bundleDebug', 'bundleRelease']
+}.configureEach {
+    dependsOn(verifyPiperNativeLibs)
+}
+
 dependencies {
     implementation fileTree(include: ['*.jar'], dir: 'libs')
+    if (sherpaOnnxAar.isFile() && piperPhonemizeAar.isFile()) {
+        implementation files(sherpaOnnxAar, piperPhonemizeAar)
+    }
+    implementation "org.jetbrains.kotlin:kotlin-stdlib:2.0.21"
     implementation "androidx.appcompat:appcompat:$androidxAppCompatVersion"
     implementation "androidx.coordinatorlayout:coordinatorlayout:$androidxCoordinatorLayoutVersion"
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"

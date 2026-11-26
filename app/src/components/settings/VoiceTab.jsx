@@ -18,6 +18,7 @@ import {
   listStandaloneTtsProviders,
 } from '../../pilot/tts/registry.js';
 import { androidSystemTtsProvider } from '../../pilot/tts/androidSystemTtsProvider.js';
+import { piperTtsProvider } from '../../pilot/tts/piperTtsProvider.js';
 import { deleteVaultKey, getVaultKeyStatus, setVaultKey } from '../../pilot/secretVault.js';
 
 export const VoiceTab = () => {
@@ -54,6 +55,7 @@ export const VoiceTab = () => {
   const [vaultSlots, setVaultSlots] = useState({});
   const [azureKeyInput, setAzureKeyInput] = useState('');
   const [androidCatalog, setAndroidCatalog] = useState({ engines: [], voices: [], activeEngine: '' });
+  const [piperCatalog, setPiperCatalog] = useState({ available: false, loadedModelId: '', voices: [] });
   const [previewLoading, setPreviewLoading] = useState(false);
   const previewAudioRef = useRef(null);
 
@@ -74,6 +76,19 @@ export const VoiceTab = () => {
 
   useEffect(() => {
     refreshVault();
+  }, [standaloneTtsProvider]);
+
+  useEffect(() => {
+    if (!IS_STANDALONE || standaloneTtsProvider !== 'piper' || !piperTtsProvider.isSupported()) {
+      return;
+    }
+    let canceled = false;
+    piperTtsProvider.listVoices()
+      .then((res) => {
+        if (!canceled) setPiperCatalog(res);
+      })
+      .catch(() => {});
+    return () => { canceled = true; };
   }, [standaloneTtsProvider]);
 
   useEffect(() => {
@@ -105,14 +120,14 @@ export const VoiceTab = () => {
 
   const currentPrefix = getVoiceFilterPrefix(activeLanguage);
   const filteredVoices = IS_STANDALONE
-    ? getVoicesForStandaloneProvider(standaloneTtsProvider, activeLanguage, androidCatalog.voices)
+    ? getVoicesForStandaloneProvider(standaloneTtsProvider, activeLanguage, androidCatalog.voices, piperCatalog.voices)
     : VOICE_OPTIONS.filter(opt => opt.value.startsWith(currentPrefix));
   const ruVoices = IS_STANDALONE
-    ? getVoicesForStandaloneProvider(standaloneTtsProvider, 'ru', androidCatalog.voices)
+    ? getVoicesForStandaloneProvider(standaloneTtsProvider, 'ru', androidCatalog.voices, piperCatalog.voices)
     : VOICE_OPTIONS.filter(opt => opt.value.startsWith('ru'));
 
   const selectedTargetVoice = IS_STANDALONE
-    ? (ttsVoices?.[activeLanguage] || getDefaultStandaloneVoice(standaloneTtsProvider, activeLanguage))
+    ? (ttsVoices?.[activeLanguage] || getDefaultStandaloneVoice(standaloneTtsProvider, activeLanguage, piperCatalog.voices))
     : (getTtsVoiceForLang(activeLanguage, adminSettings, ttsVoices) || (filteredVoices[0]?.value || ''));
 
   const handleStandalonePreview = async () => {
@@ -169,11 +184,14 @@ export const VoiceTab = () => {
               value={standaloneTtsProvider}
               onChange={(e) => {
                 const next = e.target.value;
+                if (standaloneTtsProvider === 'piper' && next !== 'piper') {
+                  piperTtsProvider.releaseEngine();
+                }
                 setStandaloneTtsProvider(next);
                 for (const langItem of SUPPORTED_TARGET_LANGUAGES) {
-                  setTtsVoice(langItem.code, getDefaultStandaloneVoice(next, langItem.code));
+                  setTtsVoice(langItem.code, getDefaultStandaloneVoice(next, langItem.code, piperCatalog.voices));
                 }
-                setTtsVoice('ru', getDefaultStandaloneVoice(next, 'ru'));
+                setTtsVoice('ru', getDefaultStandaloneVoice(next, 'ru', piperCatalog.voices));
               }}
             >
               {listStandaloneTtsProviders().map((p) => (
@@ -181,6 +199,14 @@ export const VoiceTab = () => {
               ))}
             </select>
           </div>
+
+          {standaloneTtsProvider === 'piper' && (
+            <p style={{ marginTop: '6px', marginBottom: '10px', fontSize: '0.78rem', color: piperCatalog.available ? '#34d399' : '#fbbf24' }}>
+              {piperCatalog.available
+                ? `${tr('Локальный нейросетевой движок Piper готов (офлайн, установлено моделей:')} ${piperCatalog.voices.length}).`
+                : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
+            </p>
+          )}
 
           {standaloneTtsProvider === 'gemini' && (
             <div className="form-group">
@@ -366,7 +392,7 @@ export const VoiceTab = () => {
           <label>{tr("Голос")}</label>
           <select
             id="voice-ru-select"
-            value={IS_STANDALONE ? (ttsVoices?.ru || getDefaultStandaloneVoice(standaloneTtsProvider, 'ru')) : getTtsVoiceForLang('ru', adminSettings, ttsVoices)}
+            value={IS_STANDALONE ? (ttsVoices?.ru || getDefaultStandaloneVoice(standaloneTtsProvider, 'ru', piperCatalog.voices)) : getTtsVoiceForLang('ru', adminSettings, ttsVoices)}
             onChange={e => setTtsVoice('ru', e.target.value)}
           >
             {ruVoices.map(opt => (

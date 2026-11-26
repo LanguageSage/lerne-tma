@@ -10,6 +10,7 @@ public class MainActivity extends BridgeActivity {
         registerPlugin(OfflineMaterialArchivePlugin.class);
         registerPlugin(SecureNetworkVaultPlugin.class);
         registerPlugin(AndroidSystemTtsPlugin.class);
+        registerPlugin(AndroidPiperTtsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }
