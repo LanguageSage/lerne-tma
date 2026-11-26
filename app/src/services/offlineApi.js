@@ -9,6 +9,8 @@ import { writeCardNote } from './cardNotes.js';
 import { isBundledSeedDeck } from '../utils/deckUtils.js';
 import { buildOriginKey, getMaterialExportSourceInTx } from '../pilot/materialArchiveIdentity.js';
 import { isOfflineMediaUrl, parseOfflineMediaRef } from '../pilot/offlineMediaResolver.js';
+import { isKnowledgeActionId, knowledgeGradeFingerprint, studyKnowledgeObservation } from '../utils/knowledgeEvidence.js';
+import { resolveStudyKnowledgeAttempt, writeLocalKnowledgeAttempt } from './localKnowledgeService.js';
 import {
   result,
   notFound,
@@ -438,9 +440,22 @@ export const offlineApi = {
       if (body.review_context && !['scheduled', 'forced'].includes(body.review_context)) throw new Error(tr('Некорректный контекст повторения'));
       const context = body.learn_more || body.review_context === 'forced' ? 'forced' : 'scheduled';
       const actionId = body.action_id || crypto.randomUUID();
+      const standalone = isStandaloneDb(db);
+      if (standalone && !isKnowledgeActionId(actionId)) throw new Error('Invalid grade action ID');
+      const extended = Boolean(body.is_extended);
+      const gradeFingerprint = standalone ? knowledgeGradeFingerprint(card, body.grade, extended, context) : null;
+      const fingerprint = JSON.stringify([id, body.grade, extended, context]);
+      const progressView = updated => ({
+        id, ...Object.fromEntries(['queue', 'interval', 'ease_factor', 'repetitions', 'step_index', 'lapses',
+          'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
+        intervals: getNextIntervals(updated, context), is_leech: isLeech(updated.lapses || 0),
+      });
       let gradedProgress;
-      await db.transaction('rw', db.progress, db.syncState, async () => {
-        const fingerprint = JSON.stringify([id, body.grade, Boolean(body.is_extended), context]);
+      let pendingKnowledge;
+      const saveGrade = async (deferred = null) => db.transaction('rw', [
+        db.progress, db.syncState,
+        ...(standalone ? [db.knowledge_attempt_outbox, ...(deferred ? [] : [db.cards, db.card_knowledge_items])] : []),
+      ], async () => {
         const receipt = await db.syncState.get(`grade:${actionId}`);
         if (receipt) {
           if (receipt.fingerprint !== fingerprint) throw new Error('Grade action already used with different data');
@@ -448,15 +463,42 @@ export const offlineApi = {
           return;
         }
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
+        const existingEvent = standalone ? await db.knowledge_attempt_outbox.get(actionId) : null;
+        if (existingEvent) {
+          if (existingEvent.grade_fingerprint !== gradeFingerprint || existingEvent.user_id !== String(userId)) {
+            throw new Error('Grade action already used with different data');
+          }
+          gradedProgress = progressView(progress);
+          return;
+        }
         // UUID reviews own native server SRS; a later label edit may outlive their ack.
-        const updated = { ...calculateCardReview(progress, body.grade, Boolean(body.is_extended), context),
+        const updated = { ...calculateCardReview(progress, body.grade, extended, context),
           ...(card.content_v2 && { flag_only: true }), ...localDirtyFields(db, progress) };
         await db.progress.put(updated);
-        gradedProgress = { id, ...Object.fromEntries(['queue', 'interval', 'ease_factor', 'repetitions',
-          'step_index', 'lapses', 'flag', 'next_review', 'last_reviewed'].map(field => [field, updated[field]])),
-          intervals: getNextIntervals(updated, context), is_leech: isLeech(updated.lapses || 0) };
+        gradedProgress = progressView(updated);
         // Same transaction as progress; every grade survives reload and batch retry.
-        if (isStandaloneDb(db)) {
+        if (standalone) {
+          if (!deferred && import.meta.env?.VITE_KNOWLEDGE_LAYER_ENABLED !== 'false') {
+            const { cardRevision, exerciseEvidence } = config.knowledgeStudy ?? {};
+            const current = await db.cards.get(id);
+            if (cardRevision != null && cardRevision !== current?.revision) {
+              console.warn('[Knowledge] Result refers to an older revision of card', id);
+            } else {
+              const observe = () => {
+                const raw = studyKnowledgeObservation(current, body.grade, extended, exerciseEvidence, updated.last_reviewed);
+                return raw && { ...raw, client_event_id: actionId, grade_fingerprint: gradeFingerprint };
+              };
+              let event;
+              try {
+                event = await resolveStudyKnowledgeAttempt(db, id, observe);
+                if (event) await writeLocalKnowledgeAttempt(db, userId, id, event);
+              } catch (error) {
+                const observation = event ? null : observe();
+                if (event || observation) pendingKnowledge = { card_id: id, event, observation };
+                throw error;
+              }
+            }
+          }
           standaloneGradeSeq += 1;
           await db.syncState.put({
             key: `grade:${actionId}`,
@@ -464,9 +506,10 @@ export const offlineApi = {
             graded_progress: gradedProgress,
             created_at: Date.now(),
             seq: standaloneGradeSeq,
+            ...(deferred && { knowledge_pending: deferred }),
           });
           await db.syncState.where('key').startsWith('review:').delete();
-          const receipts = await db.syncState.where('key').startsWith('grade:').toArray();
+          const receipts = await db.syncState.where('key').startsWith('grade:').filter(row => !row.knowledge_pending).toArray();
           if (receipts.length > STANDALONE_MAX_GRADE_RECEIPTS) {
             receipts.sort((a, b) => (a.created_at || 0) - (b.created_at || 0)
               || (a.seq || 0) - (b.seq || 0)
@@ -487,6 +530,13 @@ export const offlineApi = {
             review_time: updated.last_reviewed, scheduled_interval: updated.interval });
         }
       });
+      try {
+        await saveGrade();
+      } catch (error) {
+        if (!pendingKnowledge) throw error;
+        console.error('[Knowledge] Deferring local grade evidence', actionId, error);
+        await saveGrade(pendingKnowledge);
+      }
       const extra = body.include_progress && gradedProgress ? { graded_progress: gradedProgress } : {};
       if (body.return_next === false) return result({ status: 'success', ...extra });
       const exclude = [...new Set([...(body.exclude_ids || []), id])];

@@ -1,4 +1,4 @@
-const RULE_CODE = /^[a-z]{2,3}(?:-[a-z0-9]{2,8})?(?:\.[a-z0-9_][a-z0-9_-]*)+$/;
+import { isKnowledgeKey } from '../utils/knowledgeEvidence.js';
 const KINDS = ['language', 'domain', 'topic', 'skill'];
 const ABILITIES = ['theory', 'recognition', 'understanding', 'guided_application',
   'reproduction', 'application', 'retention'];
@@ -7,7 +7,6 @@ const mappingFields = ['card_id', 'rule_code', 'role', 'complexity', 'ability', 
 
 const validFields = (value, fields) => value && Object.getPrototypeOf(value) === Object.prototype
   && Object.keys(value).every(key => fields.includes(key));
-export const isKnowledgeKey = value => typeof value === 'string' && value.length <= 128 && RULE_CODE.test(value);
 const label = (value, length) => typeof value === 'string' && value.trim() === value && value.length > 0 && value.length <= length;
 const integer = (value, min, max) => Number.isSafeInteger(value) && value >= min && value <= max;
 const fail = message => { throw new Error(`Knowledge: ${message}`); };

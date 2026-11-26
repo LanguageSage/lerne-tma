@@ -269,13 +269,17 @@ export const useStudySession = () => {
       if (!localNext) await Promise.all(previousGrades);
       if (getUserId() !== userId) throw new Error(tr('Пользователь изменился до отправки оценки'));
       const endpoint = currentDeck.id === 'duplicates' ? '/study/duplicates/grade' : '/study/grade';
-      const res = await api.post(endpoint, payload);
+      const res = await api.post(endpoint, payload, IS_STANDALONE
+        ? { knowledgeStudy: { exerciseEvidence, cardRevision: card.revision } }
+        : undefined);
       if (res.data?.error) throw new Error(res.data.error);
       if (!(res.data?.finished === true || res.data?.id || res.data?.status === 'success')) {
         throw new Error(tr('Сохранение оценки не подтверждено'));
       }
       if (getUserId() !== userId || getSessionIdentity() !== identity) return;
-      captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
+      if (!IS_STANDALONE) {
+        captureStudyKnowledgeAttempt({ userId, card, grade, isExtended: Boolean(isExtended), eventTime, exerciseEvidence });
+      }
       if (res.data.graded_progress?.id === card.id) {
         const patch = {
           ...freshCard(res.data.graded_progress, payload.review_context),

@@ -57,6 +57,7 @@ const { offlineApi, STANDALONE_MAX_GRADE_RECEIPTS } = await import('../offlineAp
 const { isStandaloneDb } = await import('../cardOfflineQueue.js');
 const { ensureStandaloneA2Ownership, STANDALONE_A2_OWNERSHIP_MIGRATION_KEY } = await import('../../pilot/standaloneBootstrap.js');
 const { calculateCardReview } = await import('../../utils/srsEngine.js');
+const { recoverLocalKnowledgeAttempts, readLocalKnowledgeAttempts } = await import('../localKnowledgeService.js');
 
 function createTestDexie(name) {
   const db = new Dexie(name);
@@ -534,6 +535,96 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
       }, { _testDb: db }),
       /Grade action already used with different data/
     );
+  });
+
+  test('graded local evidence is atomic, recoverable after reopen, and survives a portable backup', async () => {
+    const pack = getStandalonePack();
+    const userId = STANDALONE_USER_ID;
+    const skill = 'de.test.syntax';
+    const quiz = pack.cards.find(entry => entry.card.type === 'quiz');
+    const theory = pack.cards.find(entry => entry.card.type === 'theory');
+    const unmarked = pack.cards.find(entry => entry.card.type === 'standard');
+    memStorage.set('lerne_user_id', String(userId));
+    await ensureStandaloneSeed({ db, userId, pack });
+    await db.card_knowledge_items.bulkAdd([
+      { card_id: quiz.id, role: 'primary', knowledge_item_id: skill, complexity: 2, ability: 'recognition' },
+      { card_id: quiz.id, role: 'secondary', knowledge_item_id: 'de.test.vocabulary' },
+      { card_id: theory.id, role: 'primary', knowledge_item_id: skill },
+    ]);
+    const exerciseEvidence = {
+      isCorrect: true, completed: true, isFirstTry: true, attemptCount: 1, mistakeCount: 0,
+      supportEvidence: { hint_count: 0, other_help_count: null, translation_view_count: 1, tracking_complete: false },
+      gradingSummary: { final_evaluator: 'rules', final_verdict: 'correct' },
+    };
+    const submit = (actionId, cardId = quiz.id, grade = 2) => offlineApi.handle('post', '/study/grade',
+      { card_id: cardId, action_id: actionId, grade, return_next: false }, { _testDb: db, knowledgeStudy: { exerciseEvidence } });
+
+    const failReceipt = (_key, receipt) => {
+      if (receipt.key === 'grade:rollback') throw new Error('Injected grade rollback');
+    };
+    db.syncState.hook('creating', failReceipt);
+    await assert.rejects(() => submit('rollback'), /Injected grade rollback/);
+    db.syncState.hook('creating').unsubscribe(failReceipt);
+    assert.equal(await db.progress.get([quiz.id, userId]), undefined);
+    assert.equal((await readLocalKnowledgeAttempts(db, userId)).length, 0);
+
+    await submit('theory', theory.id);
+    await submit('unmarked', unmarked.id);
+    await Promise.all([submit('graded'), submit('graded')]);
+    assert.equal((await readLocalKnowledgeAttempts(db, userId)).length, 1);
+    const first = await db.knowledge_attempt_outbox.get('graded');
+    assert.equal(first.knowledge_item_id, skill);
+    assert.equal(first.evaluation_data.support.hint_count, 0);
+    assert.equal(first.evaluation_data.support.other_help_count, null);
+    assert.equal(first.evaluation_data.support.translation_view_count, 1);
+    assert.equal(Object.hasOwn(first.evaluation_data.support, 'answer_reveal_count'), false);
+    assert.equal(Object.hasOwn(first.evaluation_data.exercise, 'duration_ms'), false);
+    const progress = await db.progress.get([quiz.id, userId]);
+    await db.syncState.delete('grade:graded');
+    await submit('graded');
+    assert.deepEqual(await db.progress.get([quiz.id, userId]), progress);
+    await assert.rejects(() => submit('graded', quiz.id, 0), /different data/);
+
+    const failEvent = (_key, attempt) => {
+      if (attempt.client_event_id === 'recovery') throw new Error('Injected evidence write failure');
+    };
+    db.knowledge_attempt_outbox.hook('creating', failEvent);
+    await submit('recovery');
+    const saved = await db.progress.get([quiz.id, userId]);
+    assert.ok((await db.syncState.get('grade:recovery')).knowledge_pending);
+    assert.equal(await db.knowledge_attempt_outbox.get('recovery'), undefined);
+    await assert.rejects(() => exportProgressBackup({ db, userId, pack }), /pending recovery/);
+    await submit('recovery');
+    assert.deepEqual(await db.progress.get([quiz.id, userId]), saved);
+    const name = db.name;
+    db.close();
+    db = createTestDexie(name);
+    await db.open();
+    assert.equal(await recoverLocalKnowledgeAttempts(db, userId), 0);
+    assert.equal(await recoverLocalKnowledgeAttempts(db, userId), 0);
+    assert.equal((await readLocalKnowledgeAttempts(db, userId)).length, 2);
+    assert.deepEqual(await db.progress.get([quiz.id, userId]), saved);
+
+    const { backup, json } = await exportProgressBackup({ db, userId, pack });
+    assert.equal(backup.integrity.scope, 'full-v3');
+    assert.equal(backup.knowledge_attempts.length, 2);
+    assert.equal(Object.hasOwn(backup.knowledge_attempts[0], 'card_id'), false);
+    const cleaned = createTestDexie('LerneStandaloneDB_KnowledgeRestore');
+    try {
+      await ensureStandaloneSeed({ db: cleaned, userId, pack });
+      const tampered = JSON.parse(json);
+      tampered.knowledge_attempts[0].evaluation_data.rating = 0;
+      assert.equal((await inspectProgressBackup(JSON.stringify(tampered), { db: cleaned, userId, pack })).code, 'INTEGRITY_MISMATCH');
+      const inspection = await inspectProgressBackup(json, { db: cleaned, userId, pack });
+      assert.equal(inspection.ok, true);
+      assert.equal((await applyProgressBackup(inspection.backup, { db: cleaned, userId, pack })).restoredKnowledgeAttempts, 2);
+      assert.equal((await applyProgressBackup(inspection.backup, { db: cleaned, userId, pack })).restoredKnowledgeAttempts, 0);
+      const roundtrip = await exportProgressBackup({ db: cleaned, userId, pack });
+      assert.deepEqual(roundtrip.backup.knowledge_attempts, backup.knowledge_attempts);
+      assert.equal((await cleaned.progress.get([quiz.id, userId])).last_reviewed, saved.last_reviewed);
+    } finally {
+      await cleaned.delete();
+    }
   });
 
   test('backup integrity covers metadata and maintains compatibility with legacy core-v1 backups and pack upgrades', async () => {

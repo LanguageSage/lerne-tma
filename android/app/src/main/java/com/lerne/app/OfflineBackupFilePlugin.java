@@ -28,7 +28,7 @@ import java.nio.charset.StandardCharsets;
 @CapacitorPlugin(name = "OfflineBackupFile")
 public class OfflineBackupFilePlugin extends Plugin {
 
-    private static final int MAX_BACKUP_BYTES = 5 * 1024 * 1024;
+    private static final int MAX_BACKUP_BYTES = 32 * 1024 * 1024;
     private static final String DEFAULT_FILE_NAME = "lerne-offline-progress.json";
 
     @PluginMethod
@@ -36,6 +36,10 @@ public class OfflineBackupFilePlugin extends Plugin {
         String content = call.getString("content");
         if (content == null || content.isEmpty()) {
             call.reject("Backup content must not be empty");
+            return;
+        }
+        if (content.length() > MAX_BACKUP_BYTES || content.getBytes(StandardCharsets.UTF_8).length > MAX_BACKUP_BYTES) {
+            call.reject("Backup exceeds the 32 MB file limit");
             return;
         }
         String fileName = call.getString("fileName", DEFAULT_FILE_NAME);
@@ -136,7 +140,7 @@ public class OfflineBackupFilePlugin extends Plugin {
             while ((read = in.read(chunk)) != -1) {
                 total += read;
                 if (total > MAX_BACKUP_BYTES) {
-                    call.reject("Selected file exceeds 5 MB backup limit");
+                    call.reject("Selected file exceeds the 32 MB file limit");
                     return;
                 }
                 buffer.write(chunk, 0, read);
