@@ -104,7 +104,8 @@ export function readMaterialKnowledge(content, metadataByDeck) {
   for (const { id, values } of sections) {
     const section = metadataByDeck.get(id).knowledge;
     if (!validFields(section, ['version', 'items', 'mappings']) || section.version !== 1
-      || !Array.isArray(section.items) || !Array.isArray(section.mappings)) fail('invalid material section');
+      || !Array.isArray(section.items)
+      || (Object.hasOwn(section, 'mappings') && !Array.isArray(section.mappings))) fail('invalid material section');
     const definitions = new Map();
     const language = values.target_language || 'de';
     for (const raw of section.items) {
@@ -116,6 +117,7 @@ export function readMaterialKnowledge(content, metadataByDeck) {
       items.set(item.rule_code, item);
     }
     validateCatalog(definitions);
+    if (!Object.hasOwn(section, 'mappings')) continue;
     const cardIds = cardsByDeck.get(id);
     const links = readLinks(section.mappings, cardIds, language, definitions);
     for (const cardId of cardIds) linksByCard.set(cardId, links.get(cardId) ?? []);

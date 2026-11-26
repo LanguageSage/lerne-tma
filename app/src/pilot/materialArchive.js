@@ -1186,7 +1186,7 @@ export async function applyMaterialArchiveImport({
         parsedMetadata.resources = [];
       }
       delete parsedMetadata.is_learning;
-      const hasKnowledge = Object.hasOwn(parsedMetadata, 'knowledge');
+      const hasKnowledgeMappings = Array.isArray(parsedMetadata.knowledge?.mappings);
       delete parsedMetadata.knowledge;
 
       const targetLang = row.values.target_language || 'de';
@@ -1216,7 +1216,7 @@ export async function applyMaterialArchiveImport({
         hard_deleted_locally: localEdit ? Boolean(existing.hard_deleted_locally) : false,
         is_dirty: 0,
         metadata: parsedMetadata,
-        ...(hasKnowledge && { standalone_knowledge_version: 1 }),
+        ...(hasKnowledgeMappings && { standalone_knowledge_version: 1 }),
         standalone_origin_key: existing?.standalone_origin_key || originKey,
         standalone_deck_key: existing?.standalone_deck_key || originKey,
         standalone_source: existing?.standalone_source || document.source,

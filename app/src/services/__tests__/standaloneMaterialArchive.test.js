@@ -958,8 +958,12 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       first.values.metadata = JSON.stringify({ ...originalMetadata,
         ...(mappings && { knowledge: { version: 1, items: [item], mappings } }) });
     };
-    const apply = async () => confirmArchiveImport(await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
-      'knowledge.zip', { db, userId: STANDALONE_USER_ID }), { db, userId: STANDALONE_USER_ID });
+    const apply = async () => {
+      const pending = await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+        'knowledge.zip', { db, userId: STANDALONE_USER_ID });
+      assert.equal(pending.ok, true, pending.error);
+      return confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID });
+    };
     const mapping = skill => [{ card_id: 201, rule_code: skill.rule_code, role: 'primary' }];
     metadata(oldSkill, mapping(oldSkill));
     await apply();
@@ -971,6 +975,10 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     await edit(card.content_v2, card.revision);
     metadata(newSkill, null);
     await apply();
+    assert.ok(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]));
+    first.values.metadata = JSON.stringify({ ...originalMetadata, knowledge: { version: 1, items: [newSkill] } });
+    await apply();
+    assert.ok(await db.knowledge_items.get(newSkill.rule_code));
     assert.ok(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]));
     metadata(newSkill, mapping(newSkill));
     await apply();
