@@ -136,6 +136,7 @@ const { getStandalonePack } = await import('../../pilot/standalonePack.js');
 const {
   PROGRESS_BACKUP_INTEGRITY_SCOPE,
   PROGRESS_BACKUP_INTEGRITY_SCOPE_V2,
+  computeBackupHash,
   exportProgressBackup,
   inspectProgressBackup,
   applyProgressBackup,
@@ -1222,6 +1223,53 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       folderIds: [tree.rootFolders[0].id],
       readAssetBytes: (folder, filename) => readWebMediaAssetBytes(db, folder, filename),
     }), /Отсутствует/i);
+  });
+
+  test('D04 Knowledge and SRS share material aliases and refuse ambiguous restore matches', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const userId = STANDALONE_USER_ID;
+    const pack = getStandalonePack();
+    const rule_code = 'fr.test.restore';
+    const first = document.content.deck[0];
+    first.values.metadata = JSON.stringify({ ...JSON.parse(first.values.metadata), knowledge: {
+      version: 1, items: [{ rule_code, name: 'Restore', kind: 'skill', language: 'fr', revision: 1 }],
+      mappings: [{ card_id: 201, rule_code, role: 'primary' }],
+    } });
+    await confirmArchiveImport(await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+      'source.zip', { db, userId }), { db, userId });
+    const card = await db.cards.filter(row => row.standalone_source_id === 201).first();
+    await offlineApi.handle('post', '/study/grade', { card_id: card.id, action_id: 'restorable', grade: 2, return_next: false }, { _testDb: db });
+    await db.decks.update(card.deck_id, { standalone_local_edit: true });
+    const archive = await buildMaterialArchiveExport({ db, deckIds: [card.deck_id],
+      readAssetBytes: (folder, filename) => mediaAssets.find(asset => asset.folder === folder && asset.filename === filename)?.bytes,
+    });
+    assert.notEqual(archive.document.source, document.source);
+    const { backup } = await exportProgressBackup({ db, userId, pack });
+    assert.equal(backup.integrity.scope, 'full-v3');
+    const legacy = structuredClone(backup);
+    delete legacy.knowledge_attempts[0].material_key;
+    legacy.integrity.payload_hash = computeBackupHash(legacy);
+    const fresh = createStandaloneTestDb('LerneStandaloneDB_KnowledgeAliases');
+    try {
+      await applyProgressBackup(backup, { db: fresh, userId, pack });
+      assert.equal((await fresh.knowledge_attempt_outbox.get('restorable')).card_id, null);
+      const assets = archive.assets.map(asset => ({ ...asset, bytes: archive.blobsBySha.get(asset.sha256) }));
+      const inspected = await inspectArchiveWebBytes(await buildArchiveZipFromDoc(archive.document, assets),
+        'new-source.zip', { db: fresh, userId });
+      await confirmArchiveImport(inspected, { db: fresh, userId });
+      const target = await fresh.cards.filter(row => row.standalone_source_id === card.id).first();
+      assert.notEqual(target.standalone_card_key, card.standalone_card_key);
+      await fresh.cards.add({ ...target, id: target.id + 100, standalone_card_key: card.standalone_card_key });
+      assert.equal((await applyProgressBackup(backup, { db: fresh, userId, pack })).unmatchedImportedRecords, 1);
+      assert.equal((await fresh.knowledge_attempt_outbox.get('restorable')).card_id, null);
+      assert.equal(await fresh.progress.count(), 0);
+      await fresh.cards.delete(target.id + 100);
+      await applyProgressBackup(legacy, { db: fresh, userId, pack });
+      assert.equal((await fresh.knowledge_attempt_outbox.get('restorable')).card_id, target.id);
+      assert.ok(await fresh.progress.get([target.id, userId]));
+    } finally {
+      await fresh.delete();
+    }
   });
 
   test('7. Progress backup emits full-v1 without imported progress and full-v2 across different local IDs', async () => {

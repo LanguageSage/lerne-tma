@@ -9,7 +9,8 @@ import { writeCardNote } from './cardNotes.js';
 import { isBundledSeedDeck } from '../utils/deckUtils.js';
 import { buildOriginKey, getMaterialExportSourceInTx } from '../pilot/materialArchiveIdentity.js';
 import { isOfflineMediaUrl, parseOfflineMediaRef } from '../pilot/offlineMediaResolver.js';
-import { isKnowledgeActionId, knowledgeGradeFingerprint, studyKnowledgeObservation } from '../utils/knowledgeEvidence.js';
+import { isKnowledgeActionId, knowledgeGradeFingerprint, matchesLegacyStudyEvidence, normalizeStudyExerciseEvidence,
+  standaloneTaskKey, studyKnowledgeObservation } from '../utils/knowledgeEvidence.js';
 import { readLocalKnowledgeProfile, resolveStudyKnowledgeAttempt, writeLocalKnowledgeAttempt } from './localKnowledgeService.js';
 import {
   result,
@@ -446,7 +447,10 @@ export const offlineApi = {
       const standalone = isStandaloneDb(db);
       if (standalone && !isKnowledgeActionId(actionId)) throw new Error('Invalid grade action ID');
       const extended = Boolean(body.is_extended);
-      const gradeFingerprint = standalone ? knowledgeGradeFingerprint(card, body.grade, extended, context) : null;
+      const { cardRevision, exerciseEvidence } = config?.knowledgeStudy ?? {};
+      const taskKey = standalone ? standaloneTaskKey(card) : null;
+      const evidence = standalone ? normalizeStudyExerciseEvidence(exerciseEvidence) : null;
+      const gradeFingerprint = standalone ? knowledgeGradeFingerprint(taskKey, body.grade, extended, context, evidence) : null;
       const fingerprint = JSON.stringify([id, body.grade, extended, context]);
       const progressView = updated => ({
         id, ...Object.fromEntries(['queue', 'interval', 'ease_factor', 'repetitions', 'step_index', 'lapses',
@@ -460,17 +464,29 @@ export const offlineApi = {
         ...(standalone ? [db.knowledge_attempt_outbox, ...(deferred ? [] : [db.cards, db.card_knowledge_items])] : []),
       ], async () => {
         const receipt = await db.syncState.get(`grade:${actionId}`);
+        if (receipt && (receipt.fingerprint !== fingerprint
+          || (receipt.grade_fingerprint && receipt.grade_fingerprint !== gradeFingerprint))) {
+          throw new Error('Grade action already used with different data');
+        }
+        const existingEvent = standalone && !receipt?.grade_fingerprint
+          ? (receipt?.knowledge_pending?.event ?? receipt?.knowledge_pending?.observation
+            ?? await db.knowledge_attempt_outbox.get(actionId)) : null;
+        if (existingEvent) {
+          const legacy = existingEvent.grade_fingerprint_version !== 2;
+          const sameTask = existingEvent.task_key === taskKey || (existingEvent.card_id ?? receipt?.knowledge_pending?.card_id) === id;
+          const sameOwner = existingEvent.user_id === undefined || existingEvent.user_id === String(userId);
+          const replayFingerprint = knowledgeGradeFingerprint(existingEvent.task_key, body.grade, extended, context, legacy ? undefined : evidence);
+          if (!sameTask || !sameOwner || existingEvent.grade_fingerprint !== replayFingerprint
+            || (legacy && !matchesLegacyStudyEvidence(existingEvent.evaluation_data, evidence))) {
+            throw new Error('Grade action already used with different data');
+          }
+        }
         if (receipt) {
-          if (receipt.fingerprint !== fingerprint) throw new Error('Grade action already used with different data');
           gradedProgress = receipt.graded_progress;
           return;
         }
         const progress = await db.progress.get([id, userId]) || initialProgress(card, userId);
-        const existingEvent = standalone ? await db.knowledge_attempt_outbox.get(actionId) : null;
         if (existingEvent) {
-          if (existingEvent.grade_fingerprint !== gradeFingerprint || existingEvent.user_id !== String(userId)) {
-            throw new Error('Grade action already used with different data');
-          }
           gradedProgress = progressView(progress);
           return;
         }
@@ -482,14 +498,13 @@ export const offlineApi = {
         // Same transaction as progress; every grade survives reload and batch retry.
         if (standalone) {
           if (!deferred && import.meta.env?.VITE_KNOWLEDGE_LAYER_ENABLED !== 'false') {
-            const { cardRevision, exerciseEvidence } = config.knowledgeStudy ?? {};
             const current = await db.cards.get(id);
             if (cardRevision != null && cardRevision !== current?.revision) {
               console.warn('[Knowledge] Result refers to an older revision of card', id);
             } else {
               const observe = () => {
                 const raw = studyKnowledgeObservation(current, body.grade, extended, exerciseEvidence, updated.last_reviewed);
-                return raw && { ...raw, client_event_id: actionId, grade_fingerprint: gradeFingerprint };
+                return raw && { ...raw, client_event_id: actionId, grade_fingerprint: gradeFingerprint, grade_fingerprint_version: 2 };
               };
               let event;
               const language = current?.target_language || deck?.target_language || 'de';
@@ -507,6 +522,7 @@ export const offlineApi = {
           await db.syncState.put({
             key: `grade:${actionId}`,
             fingerprint,
+            grade_fingerprint: gradeFingerprint,
             graded_progress: gradedProgress,
             created_at: Date.now(),
             seq: standaloneGradeSeq,

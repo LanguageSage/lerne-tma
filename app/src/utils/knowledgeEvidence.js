@@ -9,6 +9,9 @@ const TASK_SUPPORT_FIELDS = ['answer_options_present', 'sentence_frame_present',
   'source_vocabulary_present', 'authored_example_present'];
 const EXERCISE_COUNTERS = { attemptCount: 'attempt_count', mistakeCount: 'mistake_count' };
 const EXERCISE_FLAGS = { isCorrect: 'correct', completed: 'completed', isFirstTry: 'first_try_correct' };
+const GRADING_TEXT_FIELDS = ['final_verdict', 'final_evaluator', 'final_target_relevance'];
+const GRADING_LIST_FIELDS = ['error_codes_seen', 'error_types_seen', 'incorrect_parts', 'minor_errors'];
+const isCapturePoint = value => ['exercise_completion', 'first_assessment_result'].includes(value);
 const count = value => Number.isSafeInteger(value) && value >= 0;
 const boundedText = (value, limit = 128) => typeof value === 'string' && value.length > 0 && value.length <= limit;
 const pick = (input, keys, valid) => Object.fromEntries(
@@ -20,9 +23,11 @@ export const standaloneTaskKey = card => card.standalone_card_key || `bundled:${
 export const isKnowledgeKey = value => boundedText(value) && RULE_CODE.test(value);
 export const isKnowledgeKeyForLanguage = (key, language) => isKnowledgeKey(key) && key.startsWith(`${language}.`);
 export const isKnowledgeActionId = value => typeof value === 'string' && ACTION_ID.test(value);
-export const knowledgeGradeFingerprint = (card, rating, extended, context) => (
-  sha256Hex(JSON.stringify([standaloneTaskKey(card), rating, extended, context]))
-);
+export function knowledgeGradeFingerprint(taskKey, rating, extended, context, evidence) {
+  const fields = [taskKey, rating, extended, context];
+  if (evidence !== undefined) fields.push(evidence);
+  return sha256Hex(cardDuplicateKey(fields));
+}
 
 export function knowledgeTaskSignature(content, includeInfo = false) {
   if (!content) return null;
@@ -32,9 +37,8 @@ export function knowledgeTaskSignature(content, includeInfo = false) {
   });
 }
 
-export function studyKnowledgeObservation(card, rating, extended, exercise, eventTime) {
-  const content = studyContent(card);
-  if (!content || content.type === 'theory') return null;
+export function normalizeStudyExerciseEvidence(exercise) {
+  if (exercise == null) return {};
   const exerciseData = {};
   for (const [key, field] of Object.entries(EXERCISE_COUNTERS)) {
     if (count(exercise?.[key])) exerciseData[field] = exercise[key];
@@ -42,18 +46,50 @@ export function studyKnowledgeObservation(card, rating, extended, exercise, even
   for (const [key, field] of Object.entries(EXERCISE_FLAGS)) {
     if (boolean(exercise?.[key])) exerciseData[field] = exercise[key];
   }
-  const grading = pick(exercise?.gradingSummary,
-    ['final_verdict', 'final_evaluator', 'final_target_relevance'], boundedText);
-  const codes = exercise?.gradingSummary?.error_codes_seen;
-  if (Array.isArray(codes)) grading.error_codes_seen = codes.filter(code => boundedText(code)).slice(0, 32);
+  const grading = pick(exercise.gradingSummary, GRADING_TEXT_FIELDS, boundedText);
+  for (const field of GRADING_LIST_FIELDS) {
+    const list = exercise.gradingSummary?.[field];
+    if (Array.isArray(list)) grading[field] = list.filter(value => boundedText(value, 256));
+  }
   const support = {
     ...pick(exercise?.supportEvidence, SUPPORT_FIELDS, value => value === null || count(value)),
     ...pick(exercise?.supportEvidence, ['tracking_complete'], boolean),
+    ...pick(exercise?.supportEvidence, ['capture_point'], isCapturePoint),
+    ...pick(exercise?.supportEvidence, ['answer_attempt_count'], count),
   };
   const taskSupport = pick(exercise?.taskSupport, TASK_SUPPORT_FIELDS, value => value === null || boolean(value));
   if (count(exercise?.gradingSummary?.interaction_count)) {
     exerciseData.interaction_count = exercise.gradingSummary.interaction_count;
   }
+  return {
+    ...(Object.keys(exerciseData).length && { exercise: exerciseData }),
+    ...(Object.keys(grading).length && { grading }),
+    ...(Object.keys(support).length && { support }),
+    ...(Object.keys(taskSupport).length && { task_support: taskSupport }),
+  };
+}
+
+export function matchesLegacyStudyEvidence(stored, incoming) {
+  const legacyShape = data => {
+    const grading = pick(data.grading, GRADING_TEXT_FIELDS, boundedText);
+    if (Array.isArray(data.grading?.error_codes_seen)) {
+      grading.error_codes_seen = data.grading.error_codes_seen.filter(value => boundedText(value)).slice(0, 32);
+    }
+    const support = pick(data.support, [...SUPPORT_FIELDS, 'tracking_complete'], value => value !== undefined);
+    const taskSupport = pick(data.task_support, TASK_SUPPORT_FIELDS, value => value !== undefined);
+    return {
+      exercise: data.exercise,
+      ...(Object.keys(grading).length && { grading }),
+      ...(Object.keys(support).length && { support }),
+      ...(Object.keys(taskSupport).length && { task_support: taskSupport }),
+    };
+  };
+  return cardDuplicateKey(legacyShape(stored)) === cardDuplicateKey(legacyShape(incoming));
+}
+
+export function studyKnowledgeObservation(card, rating, extended, exercise, eventTime) {
+  const content = studyContent(card);
+  if (!content || content.type === 'theory') return null;
   return {
     event_time: eventTime,
     task_key: standaloneTaskKey(card),
@@ -61,10 +97,7 @@ export function studyKnowledgeObservation(card, rating, extended, exercise, even
     card_type: content.type,
     evaluation_data: {
       schema_version: 1, source: 'study', rating, extended,
-      ...(Object.keys(exerciseData).length && { exercise: exerciseData }),
-      ...(Object.keys(grading).length && { grading }),
-      ...(Object.keys(support).length && { support }),
-      ...(Object.keys(taskSupport).length && { task_support: taskSupport }),
+      ...normalizeStudyExerciseEvidence(exercise),
     },
   };
 }
@@ -78,14 +111,17 @@ const validExercise = value => sameObject(value, {
 });
 const validSupportValue = value => value === null || count(value);
 const validSupport = value => sameObject(value, {
-  ...Object.fromEntries(SUPPORT_FIELDS.map(key => [key, validSupportValue])), tracking_complete: boolean,
+  ...Object.fromEntries(SUPPORT_FIELDS.map(key => [key, validSupportValue])),
+  tracking_complete: boolean, capture_point: isCapturePoint, answer_attempt_count: count,
 });
 const validTaskSupport = value => sameObject(value, Object.fromEntries(
   TASK_SUPPORT_FIELDS.map(key => [key, candidate => candidate === null || boolean(candidate)]),
 ));
 const validGrading = value => sameObject(value, {
-  final_verdict: boundedText, final_evaluator: boundedText, final_target_relevance: boundedText,
-  error_codes_seen: codes => Array.isArray(codes) && codes.length <= 32 && codes.every(code => boundedText(code)),
+  ...Object.fromEntries(GRADING_TEXT_FIELDS.map(key => [key, boundedText])),
+  ...Object.fromEntries(GRADING_LIST_FIELDS.map(key => [key,
+    items => Array.isArray(items) && items.every(item => boundedText(item, 256)),
+  ])),
 });
 const validEvaluation = value => sameObject(value, {
   schema_version: version => version === 1,
@@ -108,6 +144,7 @@ export function isPortableKnowledgeAttempt(event) {
     ability: optionalText, example_key: optionalText,
     complexity: value => value === null || (count(value) && value >= 1 && value <= 5),
     grade_fingerprint: value => typeof value === 'string' && /^[a-f0-9]{64}$/.test(value),
+    grade_fingerprint_version: value => value === 2,
     evaluation_data: validEvaluation,
   }) && ['client_event_id', 'event_time', 'knowledge_item_id', 'task_key', 'example_fingerprint',
     'evaluation_data', 'card_type'].every(key => Object.hasOwn(event, key));

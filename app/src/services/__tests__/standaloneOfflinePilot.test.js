@@ -58,6 +58,8 @@ const { isStandaloneDb } = await import('../cardOfflineQueue.js');
 const { ensureStandaloneA2Ownership, STANDALONE_A2_OWNERSHIP_MIGRATION_KEY } = await import('../../pilot/standaloneBootstrap.js');
 const { calculateCardReview } = await import('../../utils/srsEngine.js');
 const { recoverLocalKnowledgeAttempts, readLocalKnowledgeAttempts } = await import('../localKnowledgeService.js');
+const { createExerciseEvaluationSession, createExerciseEvaluation } = await import('../../utils/exerciseEvaluation.js');
+const { sha256Hex } = await import('../../pilot/sha256.js');
 
 function createTestDexie(name) {
   const db = new Dexie(name);
@@ -656,6 +658,69 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
       assert.equal((await cleaned.progress.get([quiz.id, userId])).last_reviewed, saved.last_reviewed);
     } finally {
       await cleaned.delete();
+    }
+  });
+
+  test('D05 binds a grade ID to its evidence before and after receipt pruning and supports legacy records', async () => {
+    const userId = STANDALONE_USER_ID;
+    const pack = getStandalonePack();
+    const quiz = pack.cards.find(entry => entry.card.type === 'quiz');
+    memStorage.set('lerne_user_id', String(userId));
+    await ensureStandaloneSeed({ db, userId, pack });
+    await db.card_knowledge_items.add({ card_id: quiz.id, role: 'primary', knowledge_item_id: 'de.test.quiz' });
+    const submit = (action_id, mistakeCount) => offlineApi.handle('post', '/study/grade',
+      { card_id: quiz.id, action_id, grade: 2, return_next: false },
+      { _testDb: db, knowledgeStudy: { exerciseEvidence: { isCorrect: true, attemptCount: 1, mistakeCount } } });
+    await submit('same-evidence', 0);
+    const progress = await db.progress.get([quiz.id, userId]);
+    await submit('same-evidence', 0);
+    await assert.rejects(() => submit('same-evidence', 1), /different data/);
+    await db.syncState.delete('grade:same-evidence');
+    await submit('same-evidence', 0);
+    await assert.rejects(() => submit('same-evidence', 1), /different data/);
+    assert.deepEqual(await db.progress.get([quiz.id, userId]), progress);
+
+    const event = await db.knowledge_attempt_outbox.get('same-evidence');
+    const legacy = { ...event, client_event_id: 'legacy', grade_fingerprint: sha256Hex(JSON.stringify([quiz.cardKey, 2, false, 'scheduled'])) };
+    delete legacy.grade_fingerprint_version;
+    await db.knowledge_attempt_outbox.add(legacy);
+    await db.syncState.add({ key: 'grade:legacy', fingerprint: JSON.stringify([quiz.id, 2, false, 'scheduled']), graded_progress: progress });
+    await submit('legacy', 0);
+    await assert.rejects(() => submit('legacy', 1), /different data/);
+    await db.syncState.delete('grade:legacy');
+    await submit('legacy', 0);
+    await assert.rejects(() => submit('legacy', 1), /different data/);
+  });
+
+  test('D09 preserves structured evaluator details through capture and backup restore', async () => {
+    const userId = STANDALONE_USER_ID;
+    const pack = getStandalonePack();
+    const trainer = pack.cards.find(entry => entry.card.type === 'trainer');
+    memStorage.set('lerne_user_id', String(userId));
+    await ensureStandaloneSeed({ db, userId, pack });
+    await db.card_knowledge_items.add({ card_id: trainer.id, role: 'primary', knowledge_item_id: 'de.test.trainer' });
+    const evaluator = createExerciseEvaluationSession({}, { trackSupport: true, taskSupport: { answer_options_present: false } });
+    evaluator.check(createExerciseEvaluation([{ id: 'gap-1', status: 'incorrect', errorType: 'grammar', errorCode: 'exercise.case' }]));
+    evaluator.recordSupport('hint_count');
+    evaluator.check(createExerciseEvaluation([{ id: 'gap-1', status: 'correct' }]));
+    await offlineApi.handle('post', '/study/grade', { card_id: trainer.id, action_id: 'structured-evidence', grade: 2, return_next: false },
+      { _testDb: db, knowledgeStudy: { exerciseEvidence: evaluator.evidence() } });
+    const event = await db.knowledge_attempt_outbox.get('structured-evidence');
+    assert.deepEqual(event.evaluation_data.grading.incorrect_parts, ['gap-1']);
+    assert.deepEqual(event.evaluation_data.grading.error_types_seen, ['grammar']);
+    assert.equal(event.evaluation_data.support.capture_point, 'exercise_completion');
+    assert.equal(event.evaluation_data.support.answer_attempt_count, 2);
+    assert.equal(event.evaluation_data.support.hint_count, 1);
+    assert.equal(event.evaluation_data.support.answer_reveal_count, null);
+    const { backup } = await exportProgressBackup({ db, userId, pack });
+    const fresh = createTestDexie('LerneStandaloneDB_AllRawEvidence');
+    try {
+      await ensureStandaloneSeed({ db: fresh, userId, pack });
+      await applyProgressBackup(backup, { db: fresh, userId, pack });
+      const restored = await fresh.knowledge_attempt_outbox.get(event.client_event_id);
+      assert.deepEqual(restored.evaluation_data, event.evaluation_data);
+    } finally {
+      await fresh.delete();
     }
   });
 

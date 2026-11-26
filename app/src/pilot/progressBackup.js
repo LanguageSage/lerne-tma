@@ -27,6 +27,30 @@ const validMaterialKey = (key, kind) => key === undefined || (
   && key.includes(`:${kind}:`)
 );
 
+function isBackupKnowledgeAttempt(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const { material_key, ...event } = value;
+  return validMaterialKey(material_key, 'card') && isPortableKnowledgeAttempt(event);
+}
+
+function matchBackupCard(cards) {
+  const candidates = new Map();
+  for (const card of cards) {
+    const key = standaloneTaskKey(card);
+    candidates.set(key, candidates.has(key) ? null : card);
+  }
+  return (...keys) => {
+    let match;
+    for (const key of keys) {
+      if (!candidates.has(key)) continue;
+      const candidate = candidates.get(key);
+      if (!candidate || (match && match.id !== candidate.id)) return null;
+      match = candidate;
+    }
+    return match ?? null;
+  };
+}
+
 export function canonicalJson(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
     return JSON.stringify(value);
@@ -246,7 +270,7 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
       error: tr('Контрольная сумма файла не совпадает: файл повреждён или был изменён.'),
     };
   }
-  if (hasKnowledge && (parsed.knowledge_attempts.some(event => !isPortableKnowledgeAttempt(event))
+  if (hasKnowledge && (parsed.knowledge_attempts.some(event => !isBackupKnowledgeAttempt(event))
     || new Set(parsed.knowledge_attempts.map(event => event.client_event_id)).size !== parsed.knowledge_attempts.length)) {
     return { ok: false, code: 'INVALID_KNOWLEDGE_ATTEMPT', error: tr('Структура файла резервной копии повреждена.') };
   }
@@ -427,9 +451,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     ]),
   );
   if (pending.length) throw new Error('Knowledge evidence is pending recovery. Backup was not created.');
-  const knowledgeAttempts = knowledgeRows.map(portableLocalAttempt)
-    .sort((a, b) => a.client_event_id.localeCompare(b.client_event_id));
-  const hasKnowledge = knowledgeAttempts.length > 0;
+  const hasKnowledge = knowledgeRows.length > 0;
 
   const records = rawProgress
     .filter(row => byId.has(row.card_id))
@@ -456,6 +478,12 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   const exportSource = (importedDecks.length > 0 || importedCards.length > 0)
     ? await getMaterialExportSource(database)
     : null;
+  const materialKeyForCard = cardId => exportSource && importedCardById.has(cardId)
+    ? buildOriginKey(exportSource, 'card', cardId) : undefined;
+  const knowledgeAttempts = knowledgeRows.map(row => {
+    const materialKey = materialKeyForCard(row.card_id);
+    return { ...portableLocalAttempt(row), ...(materialKey && { material_key: materialKey }) };
+  }).sort((a, b) => a.client_event_id.localeCompare(b.client_event_id));
 
   const importedRecords = rawProgress
     .filter(row => importedCardById.has(row.card_id))
@@ -464,7 +492,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
       const deck = importedDeckById.get(card.deck_id);
       return serializeProgressRecord(row, card.standalone_card_key, {
         deck_key: deck?.standalone_deck_key || '',
-        material_key: exportSource ? buildOriginKey(exportSource, 'card', card.id) : undefined,
+        material_key: materialKeyForCard(card.id),
       });
     })
     .sort((a, b) => a.card_key.localeCompare(b.card_key));
@@ -551,14 +579,12 @@ export async function inspectProgressBackup(rawText, { db = null, userId = null,
 
   const importedCards = allCards.filter(c => !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key);
   const importedCardById = new Map(importedCards.map(c => [c.id, c]));
-  const importedCardByKey = new Map(importedCards.map(c => [c.standalone_card_key, c]));
+  const resolveCard = matchBackupCard(importedCards);
 
   const currentRows = progressRows.filter(row => byId.has(row.card_id) || importedCardById.has(row.card_id));
   const parsed = validation.backup;
   const importedRecords = Array.isArray(parsed.imported_records) ? parsed.imported_records : [];
-  const matchedImported = importedRecords.filter(rec => (
-    importedCardByKey.has(rec.card_key) || importedCardByKey.has(rec.material_key)
-  ));
+  const matchedImported = importedRecords.filter(rec => resolveCard(rec.card_key, rec.material_key));
   const unmatchedImported = importedRecords.length - matchedImported.length;
 
   return {
@@ -618,20 +644,14 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
       if (!builtInDeckIds.has(deck.id) && deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
     }
 
-    const importedCardByKey = new Map();
-    for (const card of allCards) {
-      if (!bundledCardIds.has(card.id) && card.standalone_card_key) {
-        importedCardByKey.set(card.standalone_card_key, card);
-      }
-    }
-
+    const resolveCard = matchBackupCard(allCards);
     const importedDecksPrefs = Array.isArray(backup.imported_deck_preferences) ? backup.imported_deck_preferences : [];
     const importedRecords = Array.isArray(backup.imported_records) ? backup.imported_records : [];
 
     const matchedImportedPairs = [];
     const targetCardIdsToReplace = new Set(bundledCardIds);
     for (const rec of importedRecords) {
-      const localCard = importedCardByKey.get(rec.card_key) || importedCardByKey.get(rec.material_key);
+      const localCard = resolveCard(rec.card_key, rec.material_key);
       if (localCard) {
         if (targetCardIdsToReplace.has(localCard.id)) throw new Error('Несколько записей SRS указывают на одну карточку.');
         targetCardIdsToReplace.add(localCard.id);
@@ -685,10 +705,10 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
     }
 
     if (backup.knowledge_attempts?.length) {
-      const cardsByTaskKey = new Map(allCards.map(card => [standaloneTaskKey(card), card.id]));
-      for (const event of backup.knowledge_attempts) {
-        const cardId = cardsByTaskKey.get(event.task_key);
-        if (await writeLocalKnowledgeAttempt(database, resolvedUserId, cardId, event)) restoredKnowledgeAttempts += 1;
+      const materialKeys = new Map(importedRecords.map(record => [record.card_key, record.material_key]));
+      for (const { material_key, ...event } of backup.knowledge_attempts) {
+        const card = resolveCard(event.task_key, material_key, materialKeys.get(event.task_key));
+        if (await writeLocalKnowledgeAttempt(database, resolvedUserId, card?.id, event)) restoredKnowledgeAttempts += 1;
       }
     }
     await database.syncState.where('key').startsWith('grade:').filter(receipt => !receipt.knowledge_pending).delete();
