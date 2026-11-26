@@ -24,11 +24,17 @@ export const knowledgeGradeFingerprint = (card, rating, extended, context) => (
   sha256Hex(JSON.stringify([standaloneTaskKey(card), rating, extended, context]))
 );
 
+export function knowledgeTaskSignature(content, includeInfo = false) {
+  if (!content) return null;
+  const { back_note: _note, ...data } = content.data ?? {};
+  return cardDuplicateKey({ type: content.type, task: content.task ?? null, data,
+    ...(includeInfo && { info: content.info ?? [] }),
+  });
+}
+
 export function studyKnowledgeObservation(card, rating, extended, exercise, eventTime) {
   const content = studyContent(card);
   if (!content || content.type === 'theory') return null;
-  const data = { ...content.data };
-  delete data.back_note;
   const exerciseData = {};
   for (const [key, field] of Object.entries(EXERCISE_COUNTERS)) {
     if (count(exercise?.[key])) exerciseData[field] = exercise[key];
@@ -51,7 +57,7 @@ export function studyKnowledgeObservation(card, rating, extended, exercise, even
   return {
     event_time: eventTime,
     task_key: standaloneTaskKey(card),
-    example_fingerprint: sha256Hex(cardDuplicateKey({ type: content.type, task: content.task ?? null, data })),
+    example_fingerprint: sha256Hex(knowledgeTaskSignature(content)),
     card_type: content.type,
     evaluation_data: {
       schema_version: 1, source: 'study', rating, extended,

@@ -160,6 +160,9 @@ export async function confirmArchiveImport(pendingImport, { db = null, userId = 
   const result = await applyMaterialArchiveImport({
     inspection: pendingImport.inspection,
     commitMedia,
+    rollbackMedia: pendingImport.channel === 'native' ? protectedPaths => getOfflineMaterialArchivePlugin().rollbackImportMedia({
+      stagingId: pendingImport.stagingId, protectedPaths,
+    }) : undefined,
     mediaInTransaction: pendingImport.channel !== 'native',
     db: database,
     userId,

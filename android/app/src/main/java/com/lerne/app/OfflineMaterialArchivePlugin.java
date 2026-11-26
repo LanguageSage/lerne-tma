@@ -87,6 +87,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
 
     private final ExecutorService ioExecutor = Executors.newSingleThreadExecutor();
     private final Map<String, File> pendingExports = new ConcurrentHashMap<>();
+    // Confined to ioExecutor. Only files created by this staging operation may be removed.
+    private final Map<String, Set<File>> pendingImports = new ConcurrentHashMap<>();
 
     @Override
     protected void handleOnDestroy() {
@@ -310,7 +312,13 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                     return;
                 }
                 File mediaRoot = ensureMediaRoot();
-                JSObject outcome = extractAndVerifyAssets(stagedZip, mediaRoot, assets);
+                Set<File> created = new HashSet<>();
+                JSObject outcome;
+                try {
+                    outcome = extractAndVerifyAssets(stagedZip, mediaRoot, assets, created);
+                } finally {
+                    if (!created.isEmpty()) pendingImports.computeIfAbsent(stagingId, id -> new HashSet<>()).addAll(created);
+                }
                 outcome.put("mediaRoot", mediaRoot.getAbsolutePath());
                 call.resolve(outcome);
             } catch (Exception ex) {
@@ -320,10 +328,42 @@ public class OfflineMaterialArchivePlugin extends Plugin {
     }
 
     @PluginMethod
+    public void rollbackImportMedia(PluginCall call) {
+        String stagingId = call.getString("stagingId");
+        JSArray protectedPaths = call.getArray("protectedPaths");
+        if (stagingId == null || !STAGING_ID_PATTERN.matcher(stagingId).matches()
+            || protectedPaths == null || protectedPaths.length() > MAX_ASSETS) {
+            call.reject("Invalid archive rollback request");
+            return;
+        }
+        ioExecutor.execute(() -> {
+            try {
+                Set<File> created = pendingImports.get(stagingId);
+                if (created != null) {
+                    Set<String> retained = new HashSet<>();
+                    for (int i = 0; i < protectedPaths.length(); i++) retained.add(protectedPaths.getString(i));
+                    for (File file : new ArrayList<>(created)) {
+                        String path = file.getParentFile().getName() + "/" + file.getName();
+                        if (!retained.contains(path) && file.exists() && !file.delete()) {
+                            throw new IOException("Unable to roll back archive media: " + path);
+                        }
+                        created.remove(file);
+                    }
+                    pendingImports.remove(stagingId);
+                }
+                call.resolve();
+            } catch (IOException | JSONException error) {
+                call.reject(error.getMessage(), error);
+            }
+        });
+    }
+
+    @PluginMethod
     public void cancelImport(PluginCall call) {
         String stagingId = call.getString("stagingId");
         ioExecutor.execute(() -> {
             if (stagingId != null && STAGING_ID_PATTERN.matcher(stagingId).matches()) {
+                pendingImports.remove(stagingId);
                 try {
                     File stagingDir = ensureStagingDir();
                     File stagedZip = new File(stagingDir, "import-" + stagingId + ".zip");
@@ -429,6 +469,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                             return;
                         }
                     }
+                    // A separate authoring operation has reused the file.
+                    for (Set<File> created : pendingImports.values()) created.remove(target);
                     JSObject res = new JSObject();
                     res.put("stored", false);
                     res.put("reused", true);
@@ -1094,7 +1136,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         throw new IOException("Неподдерживаемый или повреждённый медиафайл в архиве: " + entry.getName());
     }
 
-    private JSObject extractAndVerifyAssets(File stagedZip, File mediaRoot, JSArray assets) throws IOException, JSONException {
+    private JSObject extractAndVerifyAssets(File stagedZip, File mediaRoot, JSArray assets, Set<File> created)
+        throws IOException, JSONException {
         try (ZipFile zip = new ZipFile(stagedZip)) {
             int count = assets.length();
             File[] targets = new File[count];
@@ -1172,6 +1215,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                         }
                         reusedCount += 1;
                     } else {
+                        created.add(target);
                         storedCount += 1;
                     }
                 } finally {

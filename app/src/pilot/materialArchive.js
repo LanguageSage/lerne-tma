@@ -1,6 +1,8 @@
+import Dexie from 'dexie';
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
+import { knowledgeTaskSignature } from '../utils/knowledgeEvidence.js';
 import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
 import { assertArchiveSafeMetadata } from './materialMetadataPolicy.js';
 import { applyMaterialKnowledge, exportMaterialKnowledge, readMaterialKnowledge } from './materialKnowledge.js';
@@ -1028,12 +1030,13 @@ export async function inspectMaterialArchiveForImport({
 }
 
 /**
- * Commit validated archive media first, then atomically write folders/decks/cards into Dexie.
+ * Validate and stage material changes, then commit media before publishing Dexie changes.
  * Never touches user SRS progress in db.progress.
  */
 export async function applyMaterialArchiveImport({
   inspection,
   commitMedia,
+  rollbackMedia,
   mediaInTransaction = false,
   db = null,
   userId = null,
@@ -1051,7 +1054,6 @@ export async function applyMaterialArchiveImport({
   if (document.assets.length > 0 && typeof commitMedia !== 'function') {
     failArchive('Не настроен обработчик сохранения медиафайлов.');
   }
-  if (document.assets.length > 0 && !mediaInTransaction) await commitMedia(document.assets);
 
   const assetBySha = new Map(document.assets.map(entry => [entry.sha256, entry]));
   const nowIso = new Date().toISOString();
@@ -1060,7 +1062,8 @@ export async function applyMaterialArchiveImport({
   const tables = [database.folders, database.decks, database.cards, database.syncState];
   if (knowledge) tables.push(database.knowledge_items, database.card_knowledge_items);
   if (mediaInTransaction && document.assets.length > 0) tables.push(database.media);
-  return database.transaction('rw', tables, async () => {
+  let nativeMediaStarted = false;
+  const imported = database.transaction('rw', tables, async () => {
     const [existingFolders, existingDecks, existingCards, countersRecord, registryRecord, exportSource] = await Promise.all([
       database.folders.toArray(),
       database.decks.toArray(),
@@ -1243,17 +1246,23 @@ export async function applyMaterialArchiveImport({
       const localId = existing?.id || nextId('card');
       origins[originKey] = localId;
 
+      const protectsContent = existing?.standalone_local_edit || (ownExport && existing?.standalone_card_key && !existing.standalone_source);
+      const localDeckId = idMap.deck.get(row.values.deck_id);
+      const { content_v2: archivedContent, ...fields } = row.values;
+      const links = knowledge?.linksByCard.get(row.id);
+      if (links && (!protectsContent
+        || ((deckLanguages.get(localDeckId) || 'de') === (existing.target_language || 'de')
+          && (!links.length || knowledgeTaskSignature(existing.content_v2?.card, true)
+            === knowledgeTaskSignature(restoreCardMedia(archivedContent, assetBySha).card, true))))) {
+        knowledgeCardIds.set(row.id, localId);
+      }
       if (existing?.standalone_local_edit) {
         protectedCards += 1;
         continue;
       }
       if (existing) updatedCards += 1;
       else importedCards += 1;
-      if (ownExport && existing?.standalone_card_key && !existing.standalone_source) continue;
-      if (knowledge?.linksByCard.has(row.id)) knowledgeCardIds.set(row.id, localId);
-
-      const localDeckId = idMap.deck.get(row.values.deck_id);
-      const { content_v2: archivedContent, ...fields } = row.values;
+      if (protectsContent) continue;
       const valuesCopy = { ...fields };
       for (const { owner, key } of iterTextLocations(valuesCopy)) {
         owner[key] = restoreInlineMedia(owner[key], assetBySha);
@@ -1304,7 +1313,6 @@ export async function applyMaterialArchiveImport({
     }
 
     if (knowledge) await applyMaterialKnowledge(database, knowledge, knowledgeCardIds);
-    if (mediaInTransaction && document.assets.length > 0) await commitMedia(document.assets);
     if (foldersToPut.length > 0) await database.folders.bulkPut(foldersToPut);
     if (decksToPut.length > 0) await database.decks.bulkPut(decksToPut);
     if (cardsToPut.length > 0) await database.cards.bulkPut(cardsToPut);
@@ -1341,6 +1349,15 @@ export async function applyMaterialArchiveImport({
       },
     ]);
 
+    if (document.assets.length) {
+      if (mediaInTransaction) {
+        await commitMedia(document.assets);
+      } else {
+        nativeMediaStarted = true;
+        await Dexie.waitFor(commitMedia(document.assets), 300_000);
+      }
+    }
+
     return {
       importedFolders,
       updatedFolders,
@@ -1353,6 +1370,23 @@ export async function applyMaterialArchiveImport({
       languages: inspection.preview.languages,
       preservedProgressCount: inspection.preview.preservedProgressCount,
     };
+  });
+  return imported.catch(async error => {
+    if (nativeMediaStarted && rollbackMedia) {
+      await database.transaction('r', database.syncState, database.cards, database.decks, async () => {
+        const keys = document.assets.map(asset => `${asset.folder}/${asset.filename}`);
+        const [records, cards, decks] = await Promise.all([
+          database.syncState.bulkGet(keys.map(key => OFFLINE_MEDIA_KEY_PREFIX + key)),
+          database.cards.toArray(), database.decks.toArray(),
+        ]);
+        const protectedKeys = new Set(keys.filter((_, index) => records[index]));
+        const protect = refs => { for (const ref of refs.values()) protectedKeys.add(ref.relativePath); };
+        protect(collectMediaRefsForDeckAndCards({}, cards));
+        for (const deck of decks) protect(collectMediaRefsForDeckAndCards(deck, []));
+        await Dexie.waitFor(rollbackMedia(keys.filter(key => protectedKeys.has(key))));
+      });
+    }
+    throw error;
   });
 }
 

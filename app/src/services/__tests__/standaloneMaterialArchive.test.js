@@ -77,6 +77,7 @@ mock.module('@capacitor/core', {
     registerPlugin: name => name === 'OfflineMaterialArchive' ? {
       pickArchiveForImport: (...args) => nativeArchive.pickArchiveForImport(...args),
       commitImportMedia: (...args) => nativeArchive.commitImportMedia(...args),
+      rollbackImportMedia: (...args) => nativeArchive.rollbackImportMedia(...args),
       cancelImport: (...args) => nativeArchive.cancelImport(...args),
       listMediaAssets: (...args) => nativeArchive?.listMediaAssets?.(...args),
       getMediaRoot: (...args) => nativeArchive?.getMediaRoot?.(...args),
@@ -944,6 +945,110 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal((await db.cards.get(card.id)).target_language, 'en');
     assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
     assert.equal((await db.knowledge_attempt_outbox.get('before-move')).knowledge_item_id, rule_code);
+  });
+
+  test('D03 material import updates or removes mappings after audio edits without relabelling changed tasks', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const first = document.content.deck[0];
+    const originalMetadata = JSON.parse(first.values.metadata);
+    const oldSkill = { rule_code: 'fr.test.original', name: 'Original', kind: 'skill', language: 'fr', revision: 1 };
+    const newSkill = { ...oldSkill, rule_code: 'fr.test.updated', name: 'Updated' };
+    const metadata = (item, mappings) => {
+      first.values.metadata = JSON.stringify({ ...originalMetadata,
+        ...(mappings && { knowledge: { version: 1, items: [item], mappings } }) });
+    };
+    const apply = async () => confirmArchiveImport(await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+      'knowledge.zip', { db, userId: STANDALONE_USER_ID }), { db, userId: STANDALONE_USER_ID });
+    const mapping = skill => [{ card_id: 201, rule_code: skill.rule_code, role: 'primary' }];
+    metadata(oldSkill, mapping(oldSkill));
+    await apply();
+    const card = await db.cards.filter(row => row.standalone_source_id === 201).first();
+    const audio = 'audio/archive_' + 'a'.repeat(64) + '.mp3';
+    const edit = async (content, revision) => offlineApi.handle('patch', `/cards/${card.id}`, {
+      revision, request_id: `edit-${revision}`, content_v2: content, audio_path: audio,
+    }, { _testDb: db });
+    await edit(card.content_v2, card.revision);
+    metadata(newSkill, null);
+    await apply();
+    assert.ok(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]));
+    metadata(newSkill, mapping(newSkill));
+    await apply();
+    assert.ok(await db.card_knowledge_items.get([card.id, newSkill.rule_code]));
+    assert.equal(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]), undefined);
+    assert.ok((await db.cards.get(card.id)).audio_path.endsWith(audio));
+
+    metadata(newSkill, []);
+    await apply();
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
+    metadata(newSkill, mapping(newSkill));
+    await apply();
+    const current = await db.cards.get(card.id);
+    const changed = structuredClone(current.content_v2);
+    changed.card.data.prompt = 'Un exercice différent';
+    await edit(changed, current.revision);
+    await apply();
+    assert.equal((await db.cards.get(card.id)).content_v2.card.data.prompt, changed.card.data.prompt);
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
+  });
+
+  test('D06 native import rejects catalog conflicts and failed Dexie writes before committing media', async () => {
+    const fixture = buildRichCourseFixture();
+    const deck = fixture.document.content.deck[0];
+    const skill = { rule_code: 'fr.test.conflict', name: 'Original', kind: 'skill', language: 'fr', revision: 1 };
+    await db.knowledge_items.put({ id: skill.rule_code, ...skill, parent_key: null, prerequisite_keys: [], cefr_level: null });
+    deck.values.metadata = JSON.stringify({ ...JSON.parse(deck.values.metadata), knowledge: {
+      version: 1, items: [{ ...skill, name: 'Conflict' }], mappings: [],
+    } });
+    const entries = fixture.mediaAssets.map(({ folder, filename, sha256, size, mime, path }) => ({
+      sha256, size, mime, path, ext: filename.slice(filename.lastIndexOf('.')),
+      detectedKind: folder === 'audio' ? 'audio' : 'image',
+    }));
+    let writes = 0;
+    nativeArchive = {
+      pickArchiveForImport: async () => {
+        const manifestJson = JSON.stringify(fixture.document);
+        return { stagingId: 'from-java', manifestJson, manifestSha256: sha256Hex(manifestJson), zipEntries: entries };
+      },
+      commitImportMedia: async () => { writes += 1; },
+      cancelImport: async () => {},
+    };
+    try {
+      const pending = await pickArchiveForImportNative({ db });
+      assert.equal(pending.ok, true, pending.error);
+      await assert.rejects(() => confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID }), /conflicting definition/);
+      assert.equal(writes, 0);
+      await db.knowledge_items.delete(skill.rule_code);
+      const fail = () => { throw new Error('Injected card write failure'); };
+      db.cards.hook('creating', fail);
+      try {
+        await assert.rejects(() => confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID }), /Injected card write failure/);
+        assert.equal(writes, 0);
+        assert.equal(await db.cards.count(), 0);
+      } finally {
+        db.cards.hook('creating').unsubscribe(fail);
+      }
+
+      const paths = fixture.mediaAssets.map(asset => `${asset.folder}/${asset.filename}`);
+      const disk = new Set([paths[0]]);
+      const created = new Set(paths.slice(1));
+      await db.cards.add({ id: 99, deck_id: 100, image_path: `/api/media/${paths[1]}` });
+      nativeArchive.commitImportMedia = async () => {
+        for (const path of created) disk.add(path);
+        Dexie.currentTransaction.abort();
+      };
+      nativeArchive.rollbackImportMedia = async ({ stagingId, protectedPaths }) => {
+        assert.equal(stagingId, 'from-java');
+        assert.deepEqual(protectedPaths, [paths[1]]);
+        for (const path of created) if (!protectedPaths.includes(path)) disk.delete(path);
+      };
+      await assert.rejects(() => confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID }),
+        { name: /^(AbortError|InvalidStateError)$/ });
+      assert.deepEqual(disk, new Set(paths.slice(0, 2)));
+      assert.deepEqual(await db.cards.toCollection().primaryKeys(), [99]);
+      assert.equal(await db.knowledge_items.count(), 0);
+    } finally {
+      nativeArchive = null;
+    }
   });
 
   test('5. Corrupt/tampered archives, validation violations & commit failures leave zero partial writes', async () => {

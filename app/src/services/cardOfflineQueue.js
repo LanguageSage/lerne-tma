@@ -6,7 +6,7 @@ import { isBundledSeedDeck, isBundledSeedCard } from '../utils/deckUtils.js';
 import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
 import { cardDuplicateKey } from '../utils/search.js';
-import { isKnowledgeKeyForLanguage } from '../utils/knowledgeEvidence.js';
+import { isKnowledgeKeyForLanguage, knowledgeTaskSignature } from '../utils/knowledgeEvidence.js';
 import { assertArchiveSafeMetadata } from '../pilot/materialMetadataPolicy.js';
 import {
   buildOriginKey,
@@ -968,7 +968,8 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
     const nowIso = new Date().toISOString();
     const resolvedUserId = userId ?? getUserId();
 
-    const updatedCard = await db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState, async () => {
+    const updatedCard = await db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState,
+      db.card_knowledge_items, async () => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -1010,6 +1011,9 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
       }
 
       await db.cards.put(updated);
+      if (knowledgeTaskSignature(current.content_v2.card, true) !== knowledgeTaskSignature(normalizedContent.card, true)) {
+        await db.card_knowledge_items.where('card_id').equals(cardId).delete();
+      }
 
       if (flag !== undefined && resolvedUserId != null) {
         const normalizedFlag = Number(flag) || 0;
