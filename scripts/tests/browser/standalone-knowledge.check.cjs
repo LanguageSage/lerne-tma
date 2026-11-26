@@ -109,7 +109,11 @@ async function run() {
   process.env.VITE_LERNE_LOCAL = '0';
   const app = path.join(root, 'app');
   const { createServer } = await import(pathToFileURL(require.resolve('vite', { paths: [app] })).href);
-  const server = await createServer({ root: app, envFile: false, server: { host: '127.0.0.1', port: 0 } });
+  const server = await createServer({
+    root: app, envFile: false,
+    cacheDir: path.join(root, 'local', 'test-data', 'knowledge-pilot-vite'),
+    server: { host: '127.0.0.1', port: 0 },
+  });
   await server.listen();
   const origin = new URL(server.resolvedUrls.local[0]).origin;
   const forbidden = [];
