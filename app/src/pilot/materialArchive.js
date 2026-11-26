@@ -3,6 +3,7 @@ import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
 import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
 import { assertArchiveSafeMetadata } from './materialMetadataPolicy.js';
+import { applyMaterialKnowledge, exportMaterialKnowledge, readMaterialKnowledge } from './materialKnowledge.js';
 import { getStandaloneProfileName, STANDALONE_USER_ID } from '../utils/standaloneMode.js';
 import {
   buildOriginKey,
@@ -847,6 +848,7 @@ export function validateMaterialArchiveDocument(rawDocument) {
   return {
     document,
     originalVersion,
+    knowledge: readMaterialKnowledge(content, deckMetadataById),
     summary: {
       counts: {
         folder: content.folder.length,
@@ -882,7 +884,7 @@ export async function inspectMaterialArchiveForImport({
   }
 
   const rawDocument = parseJsonStrictNoDuplicates(manifestJson);
-  const { document, originalVersion, summary } = validateMaterialArchiveDocument(rawDocument);
+  const { document, originalVersion, summary, knowledge } = validateMaterialArchiveDocument(rawDocument);
 
   const expectedZipNames = new Set(['manifest.json', 'manifest.sha256', ...document.assets.map(a => a.path)]);
   if (!(verifiedZipEntries instanceof Map) || verifiedZipEntries.size !== expectedZipNames.size) {
@@ -998,6 +1000,7 @@ export async function inspectMaterialArchiveForImport({
     fileName,
     document,
     originalVersion,
+    knowledge,
     preview: {
       fileName,
       source: document.source,
@@ -1039,7 +1042,7 @@ export async function applyMaterialArchiveImport({
   if (!inspection?.document) {
     failArchive('Отсутствуют проверенные данные архива для импорта.');
   }
-  const { document } = inspection;
+  const { document, knowledge } = inspection;
   const database = db || await prepareLocalDb();
   const resolvedUserId = userId ?? getUserId();
   if (resolvedUserId == null) {
@@ -1055,6 +1058,7 @@ export async function applyMaterialArchiveImport({
   const nowMs = Date.now();
 
   const tables = [database.folders, database.decks, database.cards, database.syncState];
+  if (knowledge) tables.push(database.knowledge_items, database.card_knowledge_items);
   if (mediaInTransaction && document.assets.length > 0) tables.push(database.media);
   return database.transaction('rw', tables, async () => {
     const [existingFolders, existingDecks, existingCards, countersRecord, registryRecord, exportSource] = await Promise.all([
@@ -1179,6 +1183,8 @@ export async function applyMaterialArchiveImport({
         parsedMetadata.resources = [];
       }
       delete parsedMetadata.is_learning;
+      const hasKnowledge = Object.hasOwn(parsedMetadata, 'knowledge');
+      delete parsedMetadata.knowledge;
 
       const targetLang = row.values.target_language || 'de';
       deckLanguages.set(localId, targetLang);
@@ -1207,6 +1213,7 @@ export async function applyMaterialArchiveImport({
         hard_deleted_locally: localEdit ? Boolean(existing.hard_deleted_locally) : false,
         is_dirty: 0,
         metadata: parsedMetadata,
+        ...(hasKnowledge && { standalone_knowledge_version: 1 }),
         standalone_origin_key: existing?.standalone_origin_key || originKey,
         standalone_deck_key: existing?.standalone_deck_key || originKey,
         standalone_source: existing?.standalone_source || document.source,
@@ -1229,6 +1236,7 @@ export async function applyMaterialArchiveImport({
     let importedCards = 0;
     let updatedCards = 0;
     let protectedCards = 0;
+    const knowledgeCardIds = new Map();
     for (const row of document.content.card) {
       const originKey = buildOriginKey(document.source, 'card', row.id);
       const existing = matchExisting(originKey, row.id, cardByOrigin, existingCardsById);
@@ -1242,6 +1250,7 @@ export async function applyMaterialArchiveImport({
       if (existing) updatedCards += 1;
       else importedCards += 1;
       if (ownExport && existing?.standalone_card_key && !existing.standalone_source) continue;
+      if (knowledge?.linksByCard.has(row.id)) knowledgeCardIds.set(row.id, localId);
 
       const localDeckId = idMap.deck.get(row.values.deck_id);
       const { content_v2: archivedContent, ...fields } = row.values;
@@ -1294,6 +1303,7 @@ export async function applyMaterialArchiveImport({
       });
     }
 
+    if (knowledge) await applyMaterialKnowledge(database, knowledge, knowledgeCardIds);
     if (mediaInTransaction && document.assets.length > 0) await commitMedia(document.assets);
     if (foldersToPut.length > 0) await database.folders.bulkPut(foldersToPut);
     if (decksToPut.length > 0) await database.decks.bulkPut(decksToPut);
@@ -1516,18 +1526,22 @@ export async function buildMaterialArchiveExport({
   now = new Date(),
 } = {}) {
   const database = db || await prepareLocalDb();
-  const [rawFolders, rawDecks, rawCards, registryRecord, offlineMediaRecords] = await database.transaction(
+  const [rawFolders, rawDecks, rawCards, registryRecord, offlineMediaRecords, knowledgeLinks, knowledgeItems] = await database.transaction(
     'r',
     database.folders,
     database.decks,
     database.cards,
     database.syncState,
+    database.card_knowledge_items,
+    database.knowledge_items,
     async () => Promise.all([
       database.folders.toArray(),
       database.decks.filter(d => !d.is_deleted).toArray(),
       database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),
       database.syncState.get(IMPORT_REGISTRY_KEY),
       database.syncState.where('key').startsWith(OFFLINE_MEDIA_KEY_PREFIX).toArray(),
+      database.card_knowledge_items.toArray(),
+      database.knowledge_items.toArray(),
     ])
   );
 
@@ -1604,6 +1618,7 @@ export async function buildMaterialArchiveExport({
   const preserveSource = !hasLocalAuthoring && sourceCandidates.size === 1 && SOURCE_IDENTITY_RE.test(singleSource || '');
   const source = preserveSource ? singleSource : await getMaterialExportSource(database);
   const exportId = row => preserveSource ? row.standalone_source_id : row.id;
+  const knowledgeByDeck = exportMaterialKnowledge(selectedDecks, selectedCards, knowledgeLinks, knowledgeItems, exportId);
   const exportedFolderId = id => folderMap.has(id) && selectedFolderIds.has(id) ? exportId(folderMap.get(id)) : null;
   const rawRefs = new Map();
   const addRef = (rawPath, role) => {
@@ -1643,6 +1658,7 @@ export async function buildMaterialArchiveExport({
     const metaCopy = isPlainObject(deck.metadata) ? structuredClone(deck.metadata) : {};
     delete metaCopy.is_learning;
     delete metaCopy.learning_dirty;
+    if (knowledgeByDeck.has(deck.id)) metaCopy.knowledge = knowledgeByDeck.get(deck.id);
 
     for (const res of Array.isArray(metaCopy.resources) ? metaCopy.resources : []) {
       if (!isPlainObject(res)) failArchive('Некорректный ресурс в метаданных колоды.');
