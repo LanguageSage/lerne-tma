@@ -1,6 +1,8 @@
 import { cardDuplicateKey } from '../utils/search.js';
 import { isKnowledgeKey, isPortableKnowledgeAttempt, studyKnowledgeObservation } from '../utils/knowledgeEvidence.js';
 import { getCardKnowledgeMappings } from './knowledgeDbService.js';
+import { projectKnowledgeMastery } from '../utils/knowledgeMastery.js';
+import { isDeckActiveInCache, loadFolderMap } from './cardOfflineQueue.js';
 
 const LOCAL = 'local';
 export function portableLocalAttempt(row) {
@@ -80,4 +82,58 @@ export async function recoverLocalKnowledgeAttempts(database, userId) {
     }
   }
   return remaining;
+}
+
+export async function readLocalKnowledgeProfile(database, userId, now = new Date()) {
+  return database.transaction('r', database.knowledge_items, database.knowledge_attempt_outbox, database.syncState,
+    database.card_knowledge_items, database.cards, database.decks, database.folders, async () => {
+      const [catalog, attempts, pending] = await Promise.all([
+        database.knowledge_items.toArray(), readLocalKnowledgeAttempts(database, userId), pendingKnowledgeReceipts(database),
+      ]);
+      const profile = projectKnowledgeMastery({ skills: catalog, attempts, now });
+      const byKey = new Map(profile.skills.map(skill => [skill.skill_key, skill]));
+      const weak = profile.skills.flatMap(skill => skill.dimensions.filter(dimension => dimension.status === 'weak')
+        .map(dimension => ({ skill, dimension })));
+      const materials = new Map();
+      if (weak.length) {
+        const mappings = await database.card_knowledge_items.where('knowledge_item_id')
+          .anyOf([...new Set(weak.map(({ skill }) => skill.skill_key))]).toArray();
+        const cardIds = [...new Set(mappings.map(link => link.card_id))];
+        const rows = await database.cards.bulkGet(cardIds);
+        const cards = new Map(rows.filter(card => card && !card.is_deleted).map(card => [card.id, card]));
+        const [deckRows, folders] = await Promise.all([
+          database.decks.bulkGet([...new Set([...cards.values()].map(card => card.deck_id))]),
+          loadFolderMap(database),
+        ]);
+        const decks = new Map(deckRows.filter(deck => deck && isDeckActiveInCache(deck, folders)).map(deck => [deck.id, deck]));
+        for (const link of mappings) {
+          const card = cards.get(link.card_id);
+          const deck = decks.get(card?.deck_id);
+          if (!deck) continue;
+          const group = materials.get(link.knowledge_item_id) ?? [];
+          group.push({ card_id: card.id, deck_id: deck.id, deck_name: deck.name, role: link.role, ability: link.ability });
+          materials.set(link.knowledge_item_id, group);
+        }
+      }
+      const rawById = new Map(attempts.map(row => [row.client_event_id, row]));
+      return {
+        ...profile,
+        catalog: catalog.filter(item => item.id === item.rule_code),
+        pending_attempts: pending.length,
+        weaknesses: weak.map(({ skill, dimension }) => ({
+          skill_key: skill.skill_key, name: skill.name, ability: dimension.ability, confidence: dimension.confidence,
+          last_checked_at: dimension.last_checked_at,
+          evidence: dimension.evidence.filter(item => item.error).map(item => {
+            const raw = rawById.get(item.event_id);
+            return { ...item, card_id: raw.card_id, evaluation_data: raw.evaluation_data };
+          }),
+          prerequisites_to_check: skill.prerequisite_keys.map(key => {
+            const prerequisite = byKey.get(key);
+            return { skill_key: key, name: prerequisite?.name ?? key,
+              status: prerequisite?.dimensions.find(item => item.ability === dimension.ability)?.status ?? 'not_checked' };
+          }).filter(item => item.status !== 'mastered'),
+          related_materials: materials.get(skill.skill_key) ?? [],
+        })),
+      };
+    });
 }

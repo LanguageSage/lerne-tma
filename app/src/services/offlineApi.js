@@ -10,7 +10,7 @@ import { isBundledSeedDeck } from '../utils/deckUtils.js';
 import { buildOriginKey, getMaterialExportSourceInTx } from '../pilot/materialArchiveIdentity.js';
 import { isOfflineMediaUrl, parseOfflineMediaRef } from '../pilot/offlineMediaResolver.js';
 import { isKnowledgeActionId, knowledgeGradeFingerprint, studyKnowledgeObservation } from '../utils/knowledgeEvidence.js';
-import { resolveStudyKnowledgeAttempt, writeLocalKnowledgeAttempt } from './localKnowledgeService.js';
+import { readLocalKnowledgeProfile, resolveStudyKnowledgeAttempt, writeLocalKnowledgeAttempt } from './localKnowledgeService.js';
 import {
   result,
   notFound,
@@ -270,6 +270,9 @@ export const offlineApi = {
     for (const [key, value] of Object.entries((method === 'get' ? data : config)?.params || {})) params.set(key, value);
     const m = method.toLowerCase();
     const body = data || {};
+    if (m === 'get' && url === '/knowledge/profile' && isStandaloneDb(db)) {
+      return result(await readLocalKnowledgeProfile(db, userId));
+    }
     const change = async (table, id, fields) => {
       const standalone = isStandaloneDb(db);
       const item = await table.get(id);

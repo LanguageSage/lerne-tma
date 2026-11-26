@@ -41,6 +41,7 @@ const api = new Proxy(axiosInstance, {
             url.startsWith('/folders') ||
             url.startsWith('/cards') ||
             url.startsWith('/study') ||
+            (propKey === 'get' && url === '/knowledge/profile') ||
             url.startsWith('/trash') ||
             url.startsWith('/init') ||
             url.startsWith('/card-notes');
