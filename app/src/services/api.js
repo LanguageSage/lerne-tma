@@ -7,6 +7,7 @@ import { syncService } from './syncService.js';
 import { handleLocalFirstRequest, tryLocalFirstNativeCreate, reconcileOnlineResponse } from './apiCacheSync.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
+import { standaloneAiTtsApi } from '../pilot/standaloneAiTtsApi.js';
 
 // Проксируем методы Axios для поддержки офлайн-режима и автоматического фоллбека
 const api = new Proxy(axiosInstance, {
@@ -29,6 +30,12 @@ const api = new Proxy(axiosInstance, {
           return response;
         };
         if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
+          if (standaloneAiTtsApi.supports(propKey, url)) {
+            assertCurrent();
+            const response = await standaloneAiTtsApi.handle(url, ...args);
+            assertCurrent();
+            return response;
+          }
           const isStandaloneOfflineEndpoint =
             url.startsWith('/decks') ||
             url.startsWith('/folders') ||

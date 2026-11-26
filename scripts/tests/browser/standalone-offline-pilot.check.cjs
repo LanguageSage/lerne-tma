@@ -388,7 +388,7 @@ async function checkLocalAuthoringAndTrash(page) {
 
   await page.locator('.deck-intro-btn-list').click();
   await page.locator('#tut-fab-add').waitFor({ state: 'visible' });
-  assert.equal(await page.locator('button[title="Пакетная генерация карточек"]').count(), 0, 'AI BatchModal trigger must be hidden offline');
+  assert.equal(await page.locator('button[title="Пакетная генерация карточек"]').count(), 1, 'AI BatchModal trigger must be available on authored decks in Standalone');
 
   for (const [front, back] of [['E3 Card One', 'Один'], ['E3 Card Two', 'Два']]) {
     await page.locator('#tut-fab-add').click();

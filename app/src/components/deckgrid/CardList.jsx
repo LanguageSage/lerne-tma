@@ -314,7 +314,7 @@ export const CardList = ({ startStudy, startStudyCard }) => {
 
           <div className="header-actions">
             <UserProfileBadge />
-            {!IS_STANDALONE && canEditContent && <button 
+            {(IS_STANDALONE ? canAuthorCards : canEditContent) && <button 
               className="header-action-btn" 
               onClick={() => setIsBatchModalOpen(true)} 
               title={tr("Пакетная генерация карточек")}

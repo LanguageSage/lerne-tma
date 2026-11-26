@@ -654,7 +654,10 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(/applicationId\s+[^\n]*com\.lerne\.app/.test(buildGradle), false);
 
     const manifest = read('android/app/src/main/AndroidManifest.xml');
-    assert.match(manifest, /android\.permission\.INTERNET"\s+tools:node="remove"/);
+    assert.match(manifest, /<uses-permission\s+android:name="android\.permission\.INTERNET"\s*\/>/);
+    assert.equal(manifest.includes('tools:node="remove"'), false);
+    assert.match(manifest, /android:usesCleartextTraffic="false"/);
+    assert.match(manifest, /android:networkSecurityConfig="@xml\/network_security_config"/);
     assert.match(manifest, /android:name="\.MainActivity"/);
     assert.match(manifest, /\$\{applicationId\}\.fileprovider/);
     assert.equal(fs.existsSync(path.join(repoRoot, 'android/app/src/offline/AndroidManifest.xml')), false);
@@ -667,6 +670,8 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     const mainActivity = read('android/app/src/main/java/com/lerne/app/MainActivity.java');
     assert.match(mainActivity, /registerPlugin\(OfflineBackupFilePlugin\.class\)/);
     assert.match(mainActivity, /registerPlugin\(OfflineMaterialArchivePlugin\.class\)/);
+    assert.match(mainActivity, /registerPlugin\(SecureNetworkVaultPlugin\.class\)/);
+    assert.match(mainActivity, /registerPlugin\(AndroidSystemTtsPlugin\.class\)/);
 
     assert.equal(fs.existsSync(path.join(repoRoot, '.github/workflows/android.yml')), false);
     assert.equal(fs.existsSync(path.join(repoRoot, '.github/workflows/checks.yml')), true);
@@ -677,7 +682,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
 
     const versionProps = read('android/version.properties');
     assert.match(versionProps, /^VERSION_CODE=\d+/m);
-    assert.match(versionProps, /^VERSION_NAME=1\.0\.0-offline-pilot/m);
+    assert.match(versionProps, /^VERSION_NAME=1\.\d+\.\d+-offline-pilot/m);
 
     assert.match(buildGradle, /\.\.\/version\.properties/);
     assert.match(buildGradle, /signingConfigs\s*\{/);

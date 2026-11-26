@@ -9,6 +9,7 @@ import { useSettingsStore } from '../store/useSettingsStore';
 import { useLanguageStore } from '../store/useLanguageStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { getTtsVoiceForLang } from '../constants/languageConstants';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
 
 export const useAiActions = () => {
@@ -33,7 +34,7 @@ export const useAiActions = () => {
     setLoading(false);
   };
 
-  const generateAudioInternal = async (targetData = null, setter = null, playAudioFn = null) => {
+  const generateAudioInternal = async (targetData = null, setter = null, playAudioFn = null, signal = undefined) => {
     const session = useSessionStore.getState();
     const data = targetData || session.editingCard;
     if (!studyContent(data)) return;
@@ -55,8 +56,11 @@ export const useAiActions = () => {
         structured: true,
         lang: langToSpeak,
         voice: voice,
-        rate: rate
-      });
+        rate: rate,
+        persist: true,
+      }, ...(signal ? [{ signal }] : []));
+
+      if (signal?.aborted) return;
 
       if (res.data?.url || res.data?.path) {
         const update = {
@@ -64,18 +68,24 @@ export const useAiActions = () => {
           audio_url: res.data.url
         };
 
+        let applied = true;
         if (setter) {
-          setter(prev => ({ ...prev, ...update }));
+          applied = setter(prev => ({ ...prev, ...update })) !== false;
         } else {
           session.setEditingCard({ ...session.editingCard, ...update });
         }
 
-        showToast(tr("Озвучка обновлена"), "success");
-        if (playAudioFn) playAudioFn(res.data.url);
+        if (applied) {
+          showToast(tr("Озвучка обновлена"), "success");
+          if (playAudioFn) playAudioFn(res.data.url);
+        }
       } else {
         showToast(tr("Аудио не сгенерировано"), "error");
       }
     } catch (err) {
+      if (err?.name === 'CanceledError' || err?.name === 'AbortError' || axios.isCancel(err)) {
+        return;
+      }
       console.error(err);
       showToast(tr("Аудио не сгенерировано: {{p0}}", { p0: err.response?.data?.detail || err.message }), "error");
     }
@@ -97,8 +107,8 @@ export const useAiActions = () => {
     abortControllerRef.current = new AbortController();
 
     setLoading(true);
-    // Quiz content/transport retry belongs to the server (two calls total).
-    const maxRetries = actionType === 'quiz_analysis' ? 1 : 2;
+    // Quiz content/transport retry belongs to the server; standalone external APIs never retry/fallback automatically.
+    const maxRetries = IS_STANDALONE || actionType === 'quiz_analysis' ? 1 : 2;
     let attempt = 0;
     let lastError = null;
 

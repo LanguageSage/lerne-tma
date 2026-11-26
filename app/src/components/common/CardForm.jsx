@@ -1,3 +1,4 @@
+import { useEffect, useRef } from 'react';
 import { useDeckStore } from '../../store/useDeckStore';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
@@ -52,16 +53,71 @@ export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCre
   const { playAudio } = useAudio();
   const { uploadCreatorImage, uploadLayoutImageFile, uploadAudioFile } = useMediaUpload();
 
+  const latestDraftRef = useRef(cardData);
+  const audioAbortRef = useRef(null);
+
+  useEffect(() => {
+    latestDraftRef.current = cardData;
+  }, [cardData]);
+
+  useEffect(() => () => {
+    audioAbortRef.current?.abort();
+  }, []);
+
   const mediaDraftKey = isCreator ? creatorDeckId : cardData?.id;
   const resolvedBgFront = getResolvedStyle(effectiveConfig?.front?.card?.background, cardData?.id || 0);
   const resolvedBgBack = getResolvedStyle(effectiveConfig?.back?.card?.background, cardData?.id || 0);
 
+  const isSameDraft = (candidate, snap) => (
+    Boolean(candidate)
+    && (candidate.id ?? null) === snap.id
+    && (candidate.revision ?? null) === snap.revision
+    && JSON.stringify(candidate.content_v2 ?? null) === snap.contentJson
+  );
+
   const handleAiGenerate = async (actionType, userRequest = '') => {
+    const snap = {
+      id: cardData?.id ?? null,
+      revision: cardData?.revision ?? null,
+      contentJson: JSON.stringify(cardData?.content_v2 ?? null),
+    };
     const envelope = cardData?.content_v2;
     const result = await runAiGenerator(envelope, true, actionType, userRequest);
     if (result?.content_v2) {
-      setCardData(current => ({ ...current, content_v2: result.content_v2, content_v2_source: null }));
+      if (!isSameDraft(latestDraftRef.current, snap)) {
+        showToast(tr('Черновик изменён во время генерации ИИ — устаревший ответ отклонён'), 'info');
+        return;
+      }
+      setCardData(current => (
+        isSameDraft(current, snap)
+          ? { ...current, content_v2: result.content_v2, content_v2_source: null }
+          : current
+      ));
     }
+  };
+
+  const handleGenerateAudio = () => {
+    const snap = {
+      id: cardData?.id ?? null,
+      revision: cardData?.revision ?? null,
+      contentJson: JSON.stringify(cardData?.content_v2 ?? null),
+    };
+    if (audioAbortRef.current) audioAbortRef.current.abort();
+    const ctrl = new AbortController();
+    audioAbortRef.current = ctrl;
+    const guardedSetter = (updater) => {
+      if (!isSameDraft(latestDraftRef.current, snap)) {
+        showToast(tr('Карточка изменена во время синтеза аудио — результат не применён'), 'info');
+        return false;
+      }
+      setCardData(current => (
+        isSameDraft(current, snap)
+          ? (typeof updater === 'function' ? updater(current) : updater)
+          : current
+      ));
+      return true;
+    };
+    return generateAudioInternal(cardData, guardedSetter, playAudio, ctrl.signal);
   };
 
   return (
@@ -96,9 +152,9 @@ export const CardForm = ({ cardData, setCardData, onSave, onCancel = null, isCre
       isLocalAssetUrl={isPlatformAssetUrl}
       allowRemoteImageSearch={!IS_STANDALONE}
       onFetchRemoteImage={IS_STANDALONE ? null : fetchRemoteImageFile}
-      onGenerateAudio={IS_STANDALONE ? null : (() => generateAudioInternal(cardData, setCardData, playAudio))}
-      onAiGenerate={IS_STANDALONE ? null : handleAiGenerate}
-      onStopGeneration={IS_STANDALONE ? null : stopAiGeneration}
+      onGenerateAudio={handleGenerateAudio}
+      onAiGenerate={handleAiGenerate}
+      onStopGeneration={stopAiGeneration}
       onNotify={showToast}
     />
   );

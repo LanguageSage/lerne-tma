@@ -343,8 +343,8 @@ async function run() {
     // 2. Dirty-draft Cancel guard check & standalone editor UI hygiene
     await page.locator('#tut-fab-add').click();
     await page.locator('.view-creator').waitFor({ state: 'visible' });
-    assert.equal(await page.locator('.btn-ai-generate').count(), 0, 'AI generate buttons must be hidden');
-    assert.equal(await page.locator('.btn-audio').count(), 0, 'TTS generate button must be hidden');
+    assert.ok(await page.locator('.btn-ai-generate').count() > 0, 'AI generate buttons must be visible in Standalone');
+    assert.ok(await page.locator('.btn-audio').count() > 0, 'TTS generate button must be visible in Standalone');
     assert.equal(await page.getByRole('button', { name: 'Диктовать', exact: true }).count(), 0, 'Dictation must be hidden');
     assert.ok(await page.locator('.visual-card-layout-insert').count() > 0, 'Option B layout insert buttons must be visible');
     assert.ok(await page.locator('.visual-card-layout-block > .visual-card-drag-handle').count() > 0, 'Option B layout drag handles must be visible');

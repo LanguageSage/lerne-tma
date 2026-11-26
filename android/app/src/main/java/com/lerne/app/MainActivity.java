@@ -8,6 +8,8 @@ public class MainActivity extends BridgeActivity {
     public void onCreate(Bundle savedInstanceState) {
         registerPlugin(OfflineBackupFilePlugin.class);
         registerPlugin(OfflineMaterialArchivePlugin.class);
+        registerPlugin(SecureNetworkVaultPlugin.class);
+        registerPlugin(AndroidSystemTtsPlugin.class);
         super.onCreate(savedInstanceState);
     }
 }

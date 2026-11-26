@@ -266,14 +266,14 @@ export const StudyCard = React.memo(({
 
   const frontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: (IS_STANDALONE || isBackPrompt) ? null : frontVoicePicker,
+    voicePicker: isBackPrompt ? null : frontVoicePicker,
     cardText: isBackPrompt ? '' : frontText,
     cardId: isBackPrompt ? null : card?.id,
   };
 
   const backFrontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: (IS_STANDALONE || isReverse) ? null : frontVoicePicker,
+    voicePicker: isReverse ? null : frontVoicePicker,
     cardText: isReverse ? '' : frontText,
     cardId: isReverse ? null : card?.id,
   };
@@ -284,9 +284,9 @@ export const StudyCard = React.memo(({
   };
 
   const hasExistingFrontAudio = Boolean(getPhysicalSideAudioSource(card, promptPhysicalSide));
-  const showFrontAudio = Boolean(hasExistingFrontAudio || (!IS_STANDALONE && !isBackPrompt && frontText));
+  const showFrontAudio = Boolean(hasExistingFrontAudio || (!isBackPrompt && frontText));
   const hasExistingBackFrontAudio = Boolean(getPhysicalSideAudioSource(card, isReverse ? 'back' : 'front'));
-  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!IS_STANDALONE && !isReverse && frontText));
+  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!isReverse && frontText));
 
   return (
     <NativeCardViewer

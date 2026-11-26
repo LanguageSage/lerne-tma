@@ -13,6 +13,7 @@ import { GeneralTab } from '../settings/GeneralTab';
 import { DesignTab } from '../settings/DesignTab';
 import { VoiceTab } from '../settings/VoiceTab';
 import { AITab } from '../settings/AITab';
+import { StandaloneAiTab } from '../settings/StandaloneAiTab';
 import { PromptsTab } from '../settings/PromptsTab';
 import { ProfileTab } from '../settings/ProfileTab';
 import { RemindersTab } from '../settings/RemindersTab';
@@ -68,7 +69,7 @@ export const SettingsModal = ({ userId }) => {
   const discardDesignEditor = useSettingsStore(s => s.discardDesignEditor);
 
   // Redirect non-admin away from admin-only tabs
-  const resolvedTab = accessibleSettingsTab(settingsTab, isAdmin);
+  const resolvedTab = accessibleSettingsTab(settingsTab, isAdmin, IS_STANDALONE);
   const activeSettingsTab = IS_STANDALONE && ['reminders', 'prompts'].includes(resolvedTab) ? 'profile' : resolvedTab;
 
   const [customBackgrounds] = useState([]);
@@ -180,7 +181,7 @@ export const SettingsModal = ({ userId }) => {
                 <option value="design">🎨 {t('settings.tab_design', 'Дизайн (Редактор)')}</option>
                 <option value="autoplay">▶ {tr("Авто-режим")}</option>
                 <option value="voice">🗣 {t('settings.tab_voice', 'Озвучка')}</option>
-                {isAdmin && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
+                {(isAdmin || IS_STANDALONE) && <option value="ai">🤖 {t('settings.tab_models', 'Провайдеры ИИ')}</option>}
                 {!IS_STANDALONE && <option value="prompts">📝 {t('settings.tab_prompts', 'Промпты ИИ')}</option>}
                 {isAdmin && <option value="diagnostics">🧪 Knowledge Diagnostics · Debug</option>}
               </select>
@@ -201,7 +202,7 @@ export const SettingsModal = ({ userId }) => {
               )}
               {activeSettingsTab === 'autoplay' && <AutoplaySettingsTab />}
               {activeSettingsTab === 'voice' && <VoiceTab />}
-              {activeSettingsTab === 'ai' && isAdmin && <AITab />}
+              {activeSettingsTab === 'ai' && (IS_STANDALONE ? <StandaloneAiTab /> : (isAdmin && <AITab />))}
               {activeSettingsTab === 'prompts' && <PromptsTab />}
               {activeSettingsTab === 'diagnostics' && isAdmin && <KnowledgeDiagnostics />}
             </div>

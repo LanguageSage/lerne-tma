@@ -9,6 +9,16 @@ import { AUTOPLAY_DEFAULTS, AUTOPLAY_VERSION, normalizeAutoplaySettings } from '
 import { normalizeDesignConfig, DEFAULT_DESIGN_CONFIG_V2, patchDesignValue } from '../design/designConfig.js';
 import { applyPublishedDesignTokens } from '../design/designTokens.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import {
+  DEFAULT_STANDALONE_GEMINI_TTS_MODEL,
+  STANDALONE_SETTINGS_KEYS,
+  readStandaloneAiModels,
+  readStandaloneAiProvider,
+  readStandaloneAndroidTtsEngine,
+  readStandaloneAzureRegion,
+  readStandaloneGeminiTtsModel,
+  readStandaloneTtsProvider,
+} from '../pilot/standaloneSettings.js';
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
 const DESIGN_V2_CACHE_KEY = 'lerne:published-design:v2';
@@ -199,6 +209,12 @@ const getInitialStudyState = () => ({
   showLessonCompletion: storage.get('lerne_show_lesson_completion') !== 'false',
   showCompletionCelebration: storage.get('lerne_show_completion_celebration') !== 'false',
   isAdmin: false,
+  standaloneAiProvider: readStandaloneAiProvider(),
+  standaloneAiModels: readStandaloneAiModels(),
+  standaloneTtsProvider: readStandaloneTtsProvider(),
+  standaloneGeminiTtsModel: readStandaloneGeminiTtsModel(),
+  standaloneAzureRegion: readStandaloneAzureRegion(),
+  standaloneAndroidTtsEngine: readStandaloneAndroidTtsEngine(),
 });
 
 export const useSettingsStore = create((set, get) => {
@@ -306,6 +322,37 @@ export const useSettingsStore = create((set, get) => {
       storage.set('lerne_srs_extended_grades', value);
       set({ srsExtendedGrades: Boolean(value) });
       debouncedSaveSettings(get);
+    },
+    setStandaloneAiProvider: (provider) => {
+      const clean = String(provider || 'gemini').trim().toLowerCase();
+      storage.set(STANDALONE_SETTINGS_KEYS.aiProvider, clean);
+      set({ standaloneAiProvider: clean });
+    },
+    setStandaloneAiModel: (provider, model) => {
+      const prov = String(provider || 'gemini').trim().toLowerCase();
+      const nextModels = { ...get().standaloneAiModels, [prov]: String(model || '').trim() };
+      storage.set(STANDALONE_SETTINGS_KEYS.aiModels, JSON.stringify(nextModels));
+      set({ standaloneAiModels: nextModels });
+    },
+    setStandaloneTtsProvider: (provider) => {
+      const clean = String(provider || 'gemini').trim().toLowerCase();
+      storage.set(STANDALONE_SETTINGS_KEYS.ttsProvider, clean);
+      set({ standaloneTtsProvider: clean });
+    },
+    setStandaloneGeminiTtsModel: (model) => {
+      const clean = String(model || DEFAULT_STANDALONE_GEMINI_TTS_MODEL).trim();
+      storage.set(STANDALONE_SETTINGS_KEYS.geminiTtsModel, clean);
+      set({ standaloneGeminiTtsModel: clean });
+    },
+    setStandaloneAzureRegion: (region) => {
+      const clean = String(region || '').trim().toLowerCase();
+      storage.set(STANDALONE_SETTINGS_KEYS.azureRegion, clean);
+      set({ standaloneAzureRegion: clean });
+    },
+    setStandaloneAndroidTtsEngine: (engine) => {
+      const clean = String(engine || '').trim();
+      storage.set(STANDALONE_SETTINGS_KEYS.androidTtsEngine, clean);
+      set({ standaloneAndroidTtsEngine: clean });
     },
 
     // --- Design Settings & Setters ---

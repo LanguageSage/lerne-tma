@@ -17,6 +17,7 @@ import { cardWriteError } from '../../utils/cardDraft';
 import { networkApi } from '../../services/api';
 import api from '../../services/api';
 import { normalizeBatchAiResult } from '../../utils/batchAiResult';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 
 
 export const BatchCardModal = () => {
@@ -24,11 +25,12 @@ export const BatchCardModal = () => {
   const { isBatchModalOpen, setIsBatchModalOpen, showToast } = useUiStore();
   const { currentDeck } = useDeckStore();
   const processingRef = useRef(false);
+  const batchAbortRef = useRef(null);
   const activeLanguage = useLanguageStore(state => state.activeLanguage);
   const targetLanguage = currentDeck?.target_language || activeLanguage || 'de';
   const pendingImport = usePendingImport(currentDeck?.id);
 
-  const [activeTab, setActiveTab] = useState('import'); // 'import' | 'ai'
+  const [activeTab, setActiveTab] = useState(IS_STANDALONE ? 'ai' : 'import'); // 'import' | 'ai'
   const [rawText, setRawText] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
   const [processingMode, setProcessingMode] = useState(''); // 'ai' | 'direct'
@@ -38,6 +40,10 @@ export const BatchCardModal = () => {
 
   useEffect(() => {
     if (!isBatchModalOpen || !currentDeck?.id) return;
+    if (IS_STANDALONE) {
+      setActiveTab('ai');
+      return;
+    }
     const pending = pendingImport.last();
     if (pending) {
       setRawText(text => text || pending.rawText);
@@ -94,6 +100,7 @@ BACK:
 
   // Auto-switch to import tab if user pastes text with exercises or batch markers
   useEffect(() => {
+    if (IS_STANDALONE) return;
     if (rawText && (
       hasCardSeparatorLine(rawText) ||
       rawText.includes('FRONT:') ||
@@ -110,8 +117,16 @@ BACK:
     }
   }, [rawText]);
 
+  const handleStopBatch = () => {
+    if (batchAbortRef.current) {
+      batchAbortRef.current.abort();
+      batchAbortRef.current = null;
+    }
+  };
+
   const handleClose = () => {
     if (isProcessing) return;
+    handleStopBatch();
     setRawText('');
     setIsProcessing(false);
     setProcessingMode('');
@@ -123,7 +138,7 @@ BACK:
 
   const [preview, setPreview] = useState(null);
   useEffect(() => {
-    if (!isBatchModalOpen || activeTab !== 'import' || !rawText.trim()) return;
+    if (IS_STANDALONE || !isBatchModalOpen || activeTab !== 'import' || !rawText.trim()) return;
     const controller = new AbortController();
     const timer = setTimeout(async () => {
       try {
@@ -188,9 +203,11 @@ BACK:
         pendingImport.add(attempt);
       }
       setImportOutcome('in_progress');
+      if (batchAbortRef.current) batchAbortRef.current.abort();
+      batchAbortRef.current = new AbortController();
       const res = await api.post(`/ai/${mode === 'enrich' ? 'enrich' : 'generate'}-batch`, {
         ...attempt.request, import_id: attempt.import_id
-      });
+      }, { signal: batchAbortRef.current.signal });
       const { cards, failedCount } = normalizeBatchAiResult(res.data, !!attempt.request.deck_id);
       setGeneratedCards(cards);
       setImportOutcome(null);
@@ -202,8 +219,14 @@ BACK:
         showToast(tr("Успешно добавлено {{p0}} карточек!", { p0: cards.length }), 'success');
       }
     } catch (err) {
-      // A response may have been lost after commit, including a client parse error.
-      const unknown = !err.response || err.code === 'ECONNABORTED' || err.response.status >= 500;
+      if (err?.name === 'AbortError' || err?.name === 'CanceledError') {
+        if (attempt) pendingImport.remove(attempt.import_id);
+        setImportOutcome(null);
+        showToast(tr('Пакетная генерация остановлена'), 'info');
+        return;
+      }
+      // A response may have been lost after commit, including a client parse error (not applicable to standalone client requests).
+      const unknown = !IS_STANDALONE && (!err.response || err.code === 'ECONNABORTED' || err.response.status >= 500);
       if (unknown) {
         setImportOutcome('unknown');
         if (err.response?.data?.detail && !err.customTimeoutMsg) {
@@ -217,6 +240,7 @@ BACK:
         showToast(tr("Ошибка генерации ИИ: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
       }
     } finally {
+      batchAbortRef.current = null;
       processingRef.current = false;
       setIsProcessing(false);
       setProcessingMode('');
@@ -280,6 +304,7 @@ BACK:
         showToast(tr("Ошибка импорта: {{p0}}", { p0: err.response?.data?.detail || err.message }), 'error');
       }
     } finally {
+      batchAbortRef.current = null;
       processingRef.current = false;
       setIsProcessing(false);
       setProcessingMode('');
@@ -343,7 +368,7 @@ BACK:
           </div>
 
           {/* Mode Switcher Tabs */}
-          {!generatedCards && (
+          {!generatedCards && !IS_STANDALONE && (
             <div style={{
               display: 'flex',
               background: 'rgba(255, 255, 255, 0.06)',
@@ -622,12 +647,21 @@ BACK:
           <div style={{ marginTop: 16, display: 'flex', flexWrap: 'wrap', gap: 10, justifyContent: 'flex-end', flexShrink: 0 }}>
             {!generatedCards ? (
               <>
-                <button
-                  className="btn btn-secondary"
-                  onClick={handleClose}
-                  disabled={isProcessing}
-                  style={{ padding: '10px 18px', borderRadius: 12 }}
-                >{tr("Отмена")}{' '}</button>
+                {IS_STANDALONE && isProcessing ? (
+                  <button
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={handleStopBatch}
+                    style={{ padding: '10px 18px', borderRadius: 12 }}
+                  >{tr("Остановить")}{' '}</button>
+                ) : (
+                  <button
+                    className="btn btn-secondary"
+                    onClick={handleClose}
+                    disabled={isProcessing}
+                    style={{ padding: '10px 18px', borderRadius: 12 }}
+                  >{tr("Отмена")}{' '}</button>
+                )}
 
                 {activeTab === 'import' ? (
                   <>

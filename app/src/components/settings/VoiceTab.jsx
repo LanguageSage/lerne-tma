@@ -1,13 +1,24 @@
 import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
+import { Volume2, KeyRound, Trash2, Loader2 } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
 import { VOICE_OPTIONS } from '../../constants/settingsConstants';
-import { getTtsVoiceForLang } from '../../constants/languageConstants';
+import { SUPPORTED_TARGET_LANGUAGES, getTtsVoiceForLang } from '../../constants/languageConstants';
 import { renderFlag } from '../deckgrid/FlagIcons';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
+import api from '../../services/api';
+import {
+  GEMINI_TTS_MODELS,
+  getDefaultStandaloneVoice,
+  getVoicesForStandaloneProvider,
+  listStandaloneTtsProviders,
+} from '../../pilot/tts/registry.js';
+import { androidSystemTtsProvider } from '../../pilot/tts/androidSystemTtsProvider.js';
+import { deleteVaultKey, getVaultKeyStatus, setVaultKey } from '../../pilot/secretVault.js';
 
 export const VoiceTab = () => {
   useInterfaceLocale();
@@ -28,9 +39,55 @@ export const VoiceTab = () => {
     speechMatchThreshold,
     setSpeechMatchThreshold,
     saveCurrentSettingsToServer,
+    standaloneTtsProvider,
+    setStandaloneTtsProvider,
+    standaloneGeminiTtsModel,
+    setStandaloneGeminiTtsModel,
+    standaloneAzureRegion,
+    setStandaloneAzureRegion,
+    standaloneAndroidTtsEngine,
+    setStandaloneAndroidTtsEngine,
   } = useSettingsStore();
   const { showToast } = useUiStore();
   const { activeLanguage, getLanguageInfo } = useLanguageStore();
+
+  const [vaultSlots, setVaultSlots] = useState({});
+  const [azureKeyInput, setAzureKeyInput] = useState('');
+  const [androidCatalog, setAndroidCatalog] = useState({ engines: [], voices: [], activeEngine: '' });
+  const [previewLoading, setPreviewLoading] = useState(false);
+  const previewAudioRef = useRef(null);
+
+  useEffect(() => () => {
+    try {
+      previewAudioRef.current?.pause();
+    } catch { /* ignore */ }
+    previewAudioRef.current = null;
+  }, []);
+
+  const refreshVault = async () => {
+    if (!IS_STANDALONE) return;
+    try {
+      const st = await getVaultKeyStatus();
+      setVaultSlots(st?.slots || {});
+    } catch { /* ignore */ }
+  };
+
+  useEffect(() => {
+    refreshVault();
+  }, [standaloneTtsProvider]);
+
+  useEffect(() => {
+    if (!IS_STANDALONE || standaloneTtsProvider !== 'android_system' || !androidSystemTtsProvider.isSupported()) {
+      return;
+    }
+    let canceled = false;
+    androidSystemTtsProvider.listEnginesAndVoices(standaloneAndroidTtsEngine)
+      .then((res) => {
+        if (!canceled) setAndroidCatalog(res);
+      })
+      .catch(() => {});
+    return () => { canceled = true; };
+  }, [standaloneTtsProvider, standaloneAndroidTtsEngine]);
 
   const langInfo = getLanguageInfo();
 
@@ -47,7 +104,49 @@ export const VoiceTab = () => {
   };
 
   const currentPrefix = getVoiceFilterPrefix(activeLanguage);
-  const filteredVoices = VOICE_OPTIONS.filter(opt => opt.value.startsWith(currentPrefix));
+  const filteredVoices = IS_STANDALONE
+    ? getVoicesForStandaloneProvider(standaloneTtsProvider, activeLanguage, androidCatalog.voices)
+    : VOICE_OPTIONS.filter(opt => opt.value.startsWith(currentPrefix));
+  const ruVoices = IS_STANDALONE
+    ? getVoicesForStandaloneProvider(standaloneTtsProvider, 'ru', androidCatalog.voices)
+    : VOICE_OPTIONS.filter(opt => opt.value.startsWith('ru'));
+
+  const selectedTargetVoice = IS_STANDALONE
+    ? (ttsVoices?.[activeLanguage] || getDefaultStandaloneVoice(standaloneTtsProvider, activeLanguage))
+    : (getTtsVoiceForLang(activeLanguage, adminSettings, ttsVoices) || (filteredVoices[0]?.value || ''));
+
+  const handleStandalonePreview = async () => {
+    try {
+      previewAudioRef.current?.pause();
+    } catch { /* ignore */ }
+    previewAudioRef.current = null;
+    setPreviewLoading(true);
+    try {
+      const sample = activeLanguage === 'en'
+        ? 'Hello, I am learning languages offline.'
+        : activeLanguage === 'no'
+          ? 'Hei, jeg lærer norsk offline.'
+          : 'Hallo! Ich lerne Deutsch offline.';
+      const res = await api.post('/media/generate-audio', {
+        text: sample,
+        lang: activeLanguage,
+        voice: selectedTargetVoice,
+        rate: `${ttsSpeed >= 0 ? '+' : ''}${ttsSpeed}%`,
+        persist: false,
+      });
+      if (res.data?.url) {
+        const audio = new Audio(res.data.url);
+        previewAudioRef.current = audio;
+        await audio.play().catch(() => {});
+        showToast(tr('Предпрослушивание готово'), 'success');
+      }
+    } catch (err) {
+      showToast(err?.message || tr('Ошибка предпрослушивания'), 'error');
+    } finally {
+      setPreviewLoading(false);
+    }
+  };
+
   const saveAdminSettings = async () => {
     const saved = await saveCurrentSettingsToServer();
     showToast(
@@ -58,7 +157,140 @@ export const VoiceTab = () => {
 
   return (
     <motion.div key="voice" initial={{ opacity: 0, x: 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -10 }} className="settings-section">
-      <h3>{tr("Синтез речи (Edge TTS)")}</h3>
+      <h3>{IS_STANDALONE ? tr("Синтез речи (TTS)") : tr("Синтез речи (Edge TTS)")}</h3>
+
+      {IS_STANDALONE && (
+        <div style={{ marginTop: '15px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(56, 189, 248, 0.2)' }}>
+          <h4 style={{ marginBottom: '12px', color: '#38bdf8', fontSize: '1rem' }}>{tr("Провайдер озвучки")}</h4>
+          <div className="form-group">
+            <label htmlFor="standalone-tts-provider-select">{tr("Активный движок TTS")}</label>
+            <select
+              id="standalone-tts-provider-select"
+              value={standaloneTtsProvider}
+              onChange={(e) => {
+                const next = e.target.value;
+                setStandaloneTtsProvider(next);
+                for (const langItem of SUPPORTED_TARGET_LANGUAGES) {
+                  setTtsVoice(langItem.code, getDefaultStandaloneVoice(next, langItem.code));
+                }
+                setTtsVoice('ru', getDefaultStandaloneVoice(next, 'ru'));
+              }}
+            >
+              {listStandaloneTtsProviders().map((p) => (
+                <option key={p.id} value={p.id}>{p.label}</option>
+              ))}
+            </select>
+          </div>
+
+          {standaloneTtsProvider === 'gemini' && (
+            <div className="form-group">
+              <label htmlFor="standalone-gemini-tts-model-select">{tr("Модель Gemini TTS")}</label>
+              <select
+                id="standalone-gemini-tts-model-select"
+                value={standaloneGeminiTtsModel}
+                onChange={(e) => setStandaloneGeminiTtsModel(e.target.value)}
+              >
+                {GEMINI_TTS_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+              </select>
+              <p style={{ marginTop: '6px', fontSize: '0.78rem', color: vaultSlots.gemini ? '#34d399' : '#fbbf24' }}>
+                {vaultSlots.gemini
+                  ? tr('Ключ Gemini настроен (используется общий ключ с ИИ-генерацией).')
+                  : tr('Укажите API-ключ Gemini во вкладке «Провайдеры ИИ» — он общий для ИИ и Gemini TTS.')}
+              </p>
+            </div>
+          )}
+
+          {standaloneTtsProvider === 'android_system' && (
+            <div className="form-group">
+              <label htmlFor="standalone-android-tts-engine-select">{tr("Системный TTS-движок Android")}</label>
+              <select
+                id="standalone-android-tts-engine-select"
+                value={standaloneAndroidTtsEngine}
+                onChange={(e) => setStandaloneAndroidTtsEngine(e.target.value)}
+              >
+                <option value="">{tr("По умолчанию системы")}</option>
+                {androidCatalog.engines.map((eng) => (
+                  <option key={eng.name} value={eng.name}>{eng.label || eng.name}</option>
+                ))}
+              </select>
+            </div>
+          )}
+
+          {standaloneTtsProvider === 'azure' && (
+            <div className="form-group">
+              <label htmlFor="standalone-azure-region-input">{tr("Регион Azure Speech")}</label>
+              <input
+                id="standalone-azure-region-input"
+                type="text"
+                className="form-input"
+                value={standaloneAzureRegion}
+                onChange={(e) => setStandaloneAzureRegion(e.target.value)}
+                placeholder="germanywestcentral"
+              />
+              <div style={{ display: 'flex', gap: '8px', marginTop: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <input
+                  id="standalone-azure-key-input"
+                  type="password"
+                  autoComplete="off"
+                  className="form-input"
+                  style={{ flex: '1 1 200px' }}
+                  value={azureKeyInput}
+                  onChange={(e) => setAzureKeyInput(e.target.value)}
+                  placeholder={vaultSlots.azure_tts ? tr('Azure ключ задан (введите для замены)') : tr('Ключ Azure Speech')}
+                />
+                <button
+                  type="button"
+                  className="btn btn-primary btn-small"
+                  onClick={async () => {
+                    if (!azureKeyInput.trim()) return;
+                    try {
+                      await setVaultKey('azure_tts', azureKeyInput.trim());
+                      setAzureKeyInput('');
+                      await refreshVault();
+                      showToast(tr('Ключ Azure сохранён'), 'success');
+                    } catch (err) {
+                      showToast(err?.message || tr('Не удалось сохранить ключ Azure'), 'error');
+                    }
+                  }}
+                >
+                  <KeyRound size={14} /> {tr('Сохранить')}
+                </button>
+                {vaultSlots.azure_tts && (
+                  <button
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    onClick={async () => {
+                      try {
+                        await deleteVaultKey('azure_tts');
+                        await refreshVault();
+                        showToast(tr('Ключ Azure удалён'), 'info');
+                      } catch (err) {
+                        showToast(err?.message || tr('Не удалось удалить ключ Azure'), 'error');
+                      }
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                )}
+              </div>
+            </div>
+          )}
+
+          <button
+            id="standalone-tts-preview-btn"
+            type="button"
+            className="btn btn-secondary btn-small"
+            disabled={previewLoading}
+            onClick={handleStandalonePreview}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+          >
+            {previewLoading ? <Loader2 size={14} className="spin" /> : <Volume2 size={14} />}
+            {tr("Прослушать голос")}
+          </button>
+        </div>
+      )}
 
       <div style={{ marginTop: '15px', padding: '15px', background: 'rgba(255, 255, 255, 0.03)', borderRadius: '16px', border: '1px solid rgba(255, 255, 255, 0.05)' }}>
         <h4 style={{ marginBottom: '12px', color: '#c084fc', fontSize: '1rem' }}>{tr("Поведение аудиоплеера")}</h4>
@@ -93,20 +325,15 @@ export const VoiceTab = () => {
         </h4>
         <div className="form-group">
           <label>{tr("Голос (")}{langInfo.name})</label>
-          {(() => {
-            const selectedVal = getTtsVoiceForLang(activeLanguage, adminSettings, ttsVoices)
-              || (filteredVoices[0]?.value || '');
-            return (
-              <select 
-                value={selectedVal} 
-                onChange={e => setTtsVoice(activeLanguage, e.target.value)}
-              >
-                {filteredVoices.map(opt => (
-                  <option key={opt.value} value={opt.value}>{opt.label}</option>
-                ))}
-              </select>
-            );
-          })()}
+          <select
+            id="voice-target-select"
+            value={selectedTargetVoice}
+            onChange={e => setTtsVoice(activeLanguage, e.target.value)}
+          >
+            {filteredVoices.map(opt => (
+              <option key={opt.value} value={opt.value}>{opt.label}</option>
+            ))}
+          </select>
         </div>
         <div className="form-group">
           <div className="label-with-value">
@@ -138,10 +365,11 @@ export const VoiceTab = () => {
         <div className="form-group">
           <label>{tr("Голос")}</label>
           <select
-            value={getTtsVoiceForLang('ru', adminSettings, ttsVoices)}
+            id="voice-ru-select"
+            value={IS_STANDALONE ? (ttsVoices?.ru || getDefaultStandaloneVoice(standaloneTtsProvider, 'ru')) : getTtsVoiceForLang('ru', adminSettings, ttsVoices)}
             onChange={e => setTtsVoice('ru', e.target.value)}
           >
-            {VOICE_OPTIONS.filter(opt => opt.value.startsWith('ru')).map(opt => (
+            {ruVoices.map(opt => (
               <option key={opt.value} value={opt.value}>{opt.label}</option>
             ))}
           </select>

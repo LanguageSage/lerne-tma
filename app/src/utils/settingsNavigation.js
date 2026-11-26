@@ -1,7 +1,7 @@
 export const SETTINGS_TABS = ['profile', 'srs', 'reminders', 'general', 'design', 'voice', 'autoplay', 'ai', 'prompts', 'diagnostics'];
 
-export const accessibleSettingsTab = (tab, isAdmin) =>
-  !isAdmin && ['ai', 'diagnostics'].includes(tab) ? 'general' : tab;
+export const accessibleSettingsTab = (tab, isAdmin, isStandalone = false) =>
+  !isAdmin && ((tab === 'ai' && !isStandalone) || tab === 'diagnostics') ? 'general' : tab;
 
 export const readLastSettingsTab = () => {
   try {

@@ -6,6 +6,11 @@ test('admin can open diagnostics', () => {
   assert.equal(accessibleSettingsTab('diagnostics', true), 'diagnostics');
 });
 
+test('standalone can open ai settings while diagnostics stays blocked', () => {
+  assert.equal(accessibleSettingsTab('ai', false, true), 'ai');
+  assert.equal(accessibleSettingsTab('diagnostics', false, true), 'general');
+});
+
 test('non-admin cannot open diagnostics, including a saved tab', () => {
   const previous = globalThis.localStorage;
   globalThis.localStorage = { getItem: () => 'diagnostics' };

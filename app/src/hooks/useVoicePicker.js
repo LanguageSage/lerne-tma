@@ -7,6 +7,12 @@ import { useUiStore } from '../store/useUiStore';
 import { useSessionStore } from '../store/useSessionStore';
 import { useDeckStore } from '../store/useDeckStore';
 import { useLidStore } from '../store/useLidStore';
+import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import {
+  getDefaultStandaloneVoice,
+  getVoicesForStandaloneProvider,
+} from '../pilot/tts/registry.js';
+import { androidSystemTtsProvider } from '../pilot/tts/androidSystemTtsProvider.js';
 
 /**
  * useVoicePicker — manages per-card voice selection and on-demand audio preview generation.
@@ -37,9 +43,29 @@ export const useVoicePicker = (
   const code = rawCode.split('-')[0] || 'de';
   const adminSettings = useSettingsStore((s) => s.adminSettings);
   const ttsVoices = useSettingsStore((s) => s.ttsVoices);
-  const defaultVoice = getTtsVoiceForLang(code, adminSettings, ttsVoices);
+  const standaloneTtsProvider = useSettingsStore((s) => s.standaloneTtsProvider);
+  const standaloneAndroidTtsEngine = useSettingsStore((s) => s.standaloneAndroidTtsEngine);
+  const [androidVoices, setAndroidVoices] = useState([]);
 
-  const voices = VOICES_BY_LANG[code] || [];
+  useEffect(() => {
+    if (!IS_STANDALONE || standaloneTtsProvider !== 'android_system' || !androidSystemTtsProvider.isSupported()) {
+      return;
+    }
+    let canceled = false;
+    androidSystemTtsProvider.listEnginesAndVoices(standaloneAndroidTtsEngine)
+      .then((res) => {
+        if (!canceled) setAndroidVoices(Array.isArray(res?.voices) ? res.voices : []);
+      })
+      .catch(() => {});
+    return () => { canceled = true; };
+  }, [standaloneTtsProvider, standaloneAndroidTtsEngine]);
+
+  const voices = IS_STANDALONE
+    ? getVoicesForStandaloneProvider(standaloneTtsProvider, code, androidVoices)
+    : (VOICES_BY_LANG[code] || []);
+  const defaultVoice = IS_STANDALONE
+    ? (ttsVoices?.[code] || getDefaultStandaloneVoice(standaloneTtsProvider, code))
+    : getTtsVoiceForLang(code, adminSettings, ttsVoices);
 
   const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || defaultVoice);
   const [previewUrl, setPreviewUrl] = useState(null);
@@ -51,11 +77,13 @@ export const useVoicePicker = (
   const cacheRef = useRef(new Map());
   // Ref to pending cardText for auto-generate
   const cardTextRef = useRef('');
+  const requestGenRef = useRef(0);
 
   const isDefaultVoice = selectedVoice === defaultVoice;
 
   // Audio settings are the shared source of truth for the picker and Auto mode.
   useEffect(() => {
+    requestGenRef.current += 1;
     setSelectedVoiceState(defaultVoice);
     setPreviewUrl(null);
     setWordBoundaries(null);
@@ -65,11 +93,14 @@ export const useVoicePicker = (
     const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice) return null;
 
+    const reqGen = requestGenRef.current;
     const cacheKey = `${voice}|${text.trim()}`;
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
-      setPreviewUrl(cached.url);
-      setWordBoundaries(cached.boundaries || null);
+      if (requestGenRef.current === reqGen) {
+        setPreviewUrl(cached.url);
+        setWordBoundaries(cached.boundaries || null);
+      }
       return cached.url;
     }
 
@@ -93,18 +124,25 @@ export const useVoicePicker = (
 
       if (url) {
         cacheRef.current.set(cacheKey, { url, boundaries });
-        setPreviewUrl(url);
-        setWordBoundaries(boundaries);
+        if (requestGenRef.current === reqGen) {
+          setPreviewUrl(url);
+          setWordBoundaries(boundaries);
+        }
       }
       return url || null;
     } catch (err) {
-      const msg = !navigator.onLine ? tr("Для создания озвучки нужно подключение к сети")
+      const isOfflineAndroidLocal = !navigator.onLine && !String(voice).startsWith('android_system:');
+      const msg = isOfflineAndroidLocal ? tr("Для создания озвучки нужно подключение к сети")
         : err?.response?.data?.detail || err.message || tr("Ошибка генерации");
-      setGenerateError(msg);
+      if (requestGenRef.current === reqGen) {
+        setGenerateError(msg);
+      }
       console.error('[useVoicePicker] generate failed:', msg);
       return null;
     } finally {
-      setIsGenerating(false);
+      if (requestGenRef.current === reqGen) {
+        setIsGenerating(false);
+      }
     }
   }, [code, selectedVoice, defaultVoice, structured]);
 
@@ -128,11 +166,15 @@ export const useVoicePicker = (
 
   // Update the text ref whenever cardText changes (used by auto-generate)
   const setCardText = useCallback((text) => {
-    if (cardTextRef.current !== text) setGenerateError(null);
+    if (cardTextRef.current !== text) {
+      requestGenRef.current += 1;
+      setGenerateError(null);
+    }
     cardTextRef.current = text;
   }, []);
 
   const resetToDefault = useCallback(() => {
+    requestGenRef.current += 1;
     setSelectedVoiceState(sessionVoice || defaultVoice);
     setPreviewUrl(null);
     setWordBoundaries(null);
@@ -150,6 +192,7 @@ export const useVoicePicker = (
     const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice || !cardId) return null;
 
+    const reqGen = requestGenRef.current;
     setIsGenerating(true);
     setGenerateError(null);
 
@@ -212,18 +255,25 @@ export const useVoicePicker = (
         if (!options.silent) {
           useUiStore.getState().showToast(tr("Озвучка обновлена"), 'success');
         }
-        setPreviewUrl(url);
-        setWordBoundaries(boundaries);
+        if (requestGenRef.current === reqGen) {
+          setPreviewUrl(url);
+          setWordBoundaries(boundaries);
+        }
       }
       return url || null;
     } catch (err) {
-      const msg = !navigator.onLine ? tr("Для создания озвучки нужно подключение к сети")
+      const isOfflineAndroidLocal = !navigator.onLine && !String(voice).startsWith('android_system:');
+      const msg = isOfflineAndroidLocal ? tr("Для создания озвучки нужно подключение к сети")
         : err?.response?.data?.detail || err.message || tr("Ошибка генерации и сохранения");
-      setGenerateError(msg);
+      if (requestGenRef.current === reqGen) {
+        setGenerateError(msg);
+      }
       console.error('[useVoicePicker] generateAndSaveToCard failed:', msg);
       return null;
     } finally {
-      setIsGenerating(false);
+      if (requestGenRef.current === reqGen) {
+        setIsGenerating(false);
+      }
     }
   }, [code, selectedVoice, defaultVoice]);
 
