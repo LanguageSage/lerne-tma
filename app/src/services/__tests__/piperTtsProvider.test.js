@@ -98,6 +98,96 @@ const fakeAndroidPiperPlugin = {
   async releaseEngine() {
     pluginCalls.push({ method: 'releaseEngine' });
   },
+  async pickAndImportModelZip() {
+    pluginCalls.push({ method: 'pickAndImportModelZip' });
+    if (fakeAndroidPiperPlugin._cancelNextImport) {
+      fakeAndroidPiperPlugin._cancelNextImport = false;
+      return { cancelled: true };
+    }
+    const imported = {
+      id: 'de_DE-miro-high',
+      displayName: 'Miro (High, ♂)',
+      lang: 'de_DE',
+      gender: 'male',
+      sampleRate: 22050,
+      sizeMb: 60.6,
+      bundled: false,
+      commercialSafe: false,
+    };
+    return {
+      cancelled: false,
+      available: true,
+      canRestoreBundled: false,
+      imported,
+      voices: [
+        {
+          id: 'de_DE-thorsten-high',
+          displayName: 'Thorsten (High, ♂)',
+          lang: 'de_DE',
+          gender: 'male',
+          sampleRate: 22050,
+          sizeMb: 108.6,
+          bundled: true,
+          commercialSafe: true,
+        },
+        imported,
+      ],
+    };
+  },
+  async cancelModelImport() {
+    pluginCalls.push({ method: 'cancelModelImport' });
+    return { cancelled: true };
+  },
+  async deleteModel(payload) {
+    pluginCalls.push({ method: 'deleteModel', payload });
+    return {
+      deletedModelId: payload.modelId,
+      available: true,
+      canRestoreBundled: true,
+      voices: [
+        {
+          id: 'de_DE-thorsten-high',
+          displayName: 'Thorsten (High, ♂)',
+          lang: 'de_DE',
+          gender: 'male',
+          sampleRate: 22050,
+          sizeMb: 108.6,
+          bundled: true,
+          commercialSafe: true,
+        },
+      ],
+    };
+  },
+  async restoreBundledModels() {
+    pluginCalls.push({ method: 'restoreBundledModels' });
+    return {
+      restoredCount: 1,
+      available: true,
+      canRestoreBundled: false,
+      voices: [
+        {
+          id: 'de_DE-thorsten-high',
+          displayName: 'Thorsten (High, ♂)',
+          lang: 'de_DE',
+          gender: 'male',
+          sampleRate: 22050,
+          sizeMb: 108.6,
+          bundled: true,
+          commercialSafe: true,
+        },
+        {
+          id: 'de_DE-kerstin-medium',
+          displayName: 'Kerstin (Medium, ♀)',
+          lang: 'de_DE',
+          gender: 'female',
+          sampleRate: 22050,
+          sizeMb: 60.3,
+          bundled: true,
+          commercialSafe: true,
+        },
+      ],
+    };
+  },
 };
 
 mock.module('../../pilot/nativeBridge.js', {
@@ -143,6 +233,7 @@ const {
   getVoicesForStandaloneProvider,
   listStandaloneTtsProviders,
   parseStandaloneVoiceSpec,
+  resolveValidStandaloneVoice,
 } = await import('../../pilot/tts/registry.js');
 const { STANDALONE_SETTINGS_KEYS, readStandaloneTtsProvider } = await import('../../pilot/standaloneSettings.js');
 const { clearPreviewAudioCache } = await import('../../pilot/tts/ttsService.js');
@@ -160,6 +251,8 @@ describe('Android Piper Neural TTS Provider Integration', () => {
   });
 
   test('lists Piper alongside Android System, Gemini, and Azure and prevents cross-language German fallback for Russian', async () => {
+    assert.equal(readStandaloneTtsProvider(), 'piper');
+    memStorage.set(STANDALONE_SETTINGS_KEYS.ttsProvider, 'android_system');
     assert.equal(readStandaloneTtsProvider(), 'android_system');
     memStorage.set(STANDALONE_SETTINGS_KEYS.ttsProvider, 'piper');
     assert.equal(readStandaloneTtsProvider(), 'piper');
@@ -249,5 +342,40 @@ describe('Android Piper Neural TTS Provider Integration', () => {
 
     await piperTtsProvider.releaseEngine();
     assert.equal(pluginCalls.some((c) => c.method === 'releaseEngine'), true);
+  });
+
+  test('supports SAF local ZIP model import, cancellation, deletion, and restoring bundled models', async () => {
+    fakeAndroidPiperPlugin._cancelNextImport = true;
+    const cancelledRes = await piperTtsProvider.importModelFromPicker();
+    assert.equal(cancelledRes.cancelled, true);
+
+    const importRes = await piperTtsProvider.importModelFromPicker();
+    assert.equal(importRes.cancelled, false);
+    assert.equal(importRes.imported.id, 'de_DE-miro-high');
+    assert.match(importRes.imported.label, /импортирован.*NC/);
+    // Commercial-safe Thorsten remains auto-default ahead of NC Miro
+    assert.equal(getDefaultStandaloneVoice('piper', 'de', importRes.catalog.voices), 'piper:de_DE-thorsten-high');
+
+    await piperTtsProvider.cancelModelImport();
+    assert.equal(pluginCalls.some((c) => c.method === 'cancelModelImport'), true);
+
+    const delRes = await piperTtsProvider.deleteModel('de_DE-kerstin-medium');
+    assert.equal(delRes.deletedModelId, 'de_DE-kerstin-medium');
+    assert.equal(delRes.catalog.canRestoreBundled, true);
+
+    const restoreRes = await piperTtsProvider.restoreBundledModels();
+    assert.equal(restoreRes.restoredCount, 1);
+    assert.equal(restoreRes.catalog.canRestoreBundled, false);
+    assert.equal(restoreRes.catalog.voices.length, 2);
+
+    // Foreign-provider or uninstalled voice specs never hijack active Piper provider
+    assert.equal(
+      resolveValidStandaloneVoice('piper', 'de', 'gemini:Puck', [], restoreRes.catalog.voices),
+      'piper:de_DE-thorsten-high',
+    );
+    assert.equal(
+      resolveValidStandaloneVoice('piper', 'de', 'piper:de_DE-deleted-model', [], restoreRes.catalog.voices),
+      'piper:de_DE-thorsten-high',
+    );
   });
 });

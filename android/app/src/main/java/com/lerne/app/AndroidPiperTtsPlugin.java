@@ -1,13 +1,23 @@
 package com.lerne.app;
 
+import android.app.Activity;
+import android.content.Intent;
+import android.database.Cursor;
+import android.net.Uri;
+import android.os.StatFs;
+import android.provider.OpenableColumns;
 import android.util.Base64;
+import androidx.activity.result.ActivityResult;
 import com.getcapacitor.JSArray;
 import com.getcapacitor.JSObject;
 import com.getcapacitor.Plugin;
 import com.getcapacitor.PluginCall;
 import com.getcapacitor.PluginMethod;
+import com.getcapacitor.annotation.ActivityCallback;
 import com.getcapacitor.annotation.CapacitorPlugin;
 import com.lerne.app.piper.EspeakPiperPhonemizer;
+import com.lerne.app.piper.PiperArchiveImporter;
+import com.lerne.app.piper.PiperBundledModelsInstaller;
 import com.lerne.app.piper.PiperModelSupport;
 import com.lerne.app.piper.PiperPhonemizer;
 import com.lerne.app.piper.PiperSynthOutput;
@@ -16,6 +26,7 @@ import com.lerne.app.piper.PiperVoiceDescriptor;
 import com.lerne.app.piper.SherpaOnnxPiperEngine;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.util.Collections;
 import java.util.List;
 import java.util.Locale;
@@ -32,7 +43,8 @@ import org.json.JSONObject;
 
 /**
  * Native Capacitor offline neural TTS plugin backed by replaceable PiperPhonemizer + PiperTtsEngine.
- * Runs all initialization, model loading, synthesis, and teardown release off the main UI thread.
+ * Runs all initialization, bundled voice sync, SAF ZIP import/delete, model loading, synthesis,
+ * and teardown release off the main UI thread.
  */
 @CapacitorPlugin(name = "AndroidPiperTts")
 public class AndroidPiperTtsPlugin extends Plugin {
@@ -42,23 +54,29 @@ public class AndroidPiperTtsPlugin extends Plugin {
 
     private final ExecutorService piperExecutor = Executors.newSingleThreadExecutor();
     private final AtomicBoolean shuttingDown = new AtomicBoolean(false);
+    private final AtomicBoolean bundledModelsSynced = new AtomicBoolean(false);
+    private final AtomicBoolean importInProgress = new AtomicBoolean(false);
+    private final AtomicBoolean activeImportCancelled = new AtomicBoolean(false);
     private final AtomicLong generationSeq = new AtomicLong(0L);
     private final AtomicLong cancelledAllThroughSeq = new AtomicLong(0L);
     private final Set<String> cancelledRequestIds = Collections.newSetFromMap(new ConcurrentHashMap<>());
 
     private PiperPhonemizer phonemizer;
     private PiperTtsEngine ttsEngine;
+    private PiperBundledModelsInstaller.AssetSource bundledAssetSource;
 
     @Override
     public void load() {
         super.load();
         phonemizer = new EspeakPiperPhonemizer(getContext());
         ttsEngine = new SherpaOnnxPiperEngine();
+        bundledAssetSource = new PiperBundledModelsInstaller.AndroidAssetSource(getContext().getAssets());
     }
 
     @Override
     protected void handleOnDestroy() {
         shuttingDown.set(true);
+        activeImportCancelled.set(true);
         cancelledAllThroughSeq.set(generationSeq.get());
         final PiperTtsEngine engineToRelease = ttsEngine;
         final PiperPhonemizer phonemizerToClose = phonemizer;
@@ -82,18 +100,8 @@ public class AndroidPiperTtsPlugin extends Plugin {
     public void listVoices(PluginCall call) {
         submitBackground(call, () -> {
             try {
-                File modelsDir = ensureModelsRootDir();
-                List<PiperVoiceDescriptor> voices = PiperModelSupport.discoverInstalledVoices(modelsDir);
-                JSArray voicesArr = new JSArray();
-                for (PiperVoiceDescriptor v : voices) {
-                    voicesArr.put(descriptorToJson(v));
-                }
-                JSObject res = new JSObject();
-                res.put("available", !voices.isEmpty());
-                res.put("loadedModelId", ttsEngine != null ? ttsEngine.getLoadedModelId() : "");
-                res.put("modelsDir", modelsDir.getAbsolutePath());
-                res.put("voices", voicesArr);
-                call.resolve(res);
+                File modelsDir = ensureModelsReady();
+                call.resolve(buildCatalogResponse(modelsDir));
             } catch (Exception ex) {
                 call.reject("Piper voice catalog unavailable: " + ex.getMessage(), ex);
             }
@@ -123,7 +131,7 @@ public class AndroidPiperTtsPlugin extends Plugin {
                     call.reject("TTS synthesis cancelled");
                     return;
                 }
-                File modelsDir = ensureModelsRootDir();
+                File modelsDir = ensureModelsReady();
                 List<PiperVoiceDescriptor> installed = PiperModelSupport.discoverInstalledVoices(modelsDir);
                 if (installed.isEmpty()) {
                     call.reject("Локальные голосовые модели Piper не установлены на устройстве.");
@@ -166,6 +174,203 @@ public class AndroidPiperTtsPlugin extends Plugin {
                 if (requestId != null) {
                     cancelledRequestIds.remove(requestId);
                 }
+            }
+        });
+    }
+
+    @PluginMethod
+    public void pickAndImportModelZip(PluginCall call) {
+        if (!importInProgress.compareAndSet(false, true)) {
+            call.reject("Импорт голосовой модели уже выполняется");
+            return;
+        }
+        activeImportCancelled.set(false);
+
+        Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+        intent.addCategory(Intent.CATEGORY_OPENABLE);
+        intent.setType("*/*");
+        intent.putExtra(Intent.EXTRA_MIME_TYPES, new String[] {
+            "application/zip",
+            "application/x-zip-compressed",
+            "application/octet-stream"
+        });
+
+        Activity activity = getActivity();
+        if (activity == null) {
+            importInProgress.set(false);
+            call.reject("Активность Android недоступна");
+            return;
+        }
+        activity.runOnUiThread(() -> {
+            try {
+                startActivityForResult(call, intent, "handlePickModelZipResult");
+            } catch (RuntimeException ex) {
+                importInProgress.set(false);
+                call.reject("Системный диалог выбора файла недоступен на этом устройстве", ex);
+            }
+        });
+    }
+
+    @ActivityCallback
+    private void handlePickModelZipResult(PluginCall call, ActivityResult result) {
+        if (call == null) {
+            importInProgress.set(false);
+            return;
+        }
+        if (result.getResultCode() != Activity.RESULT_OK
+            || result.getData() == null
+            || result.getData().getData() == null) {
+            importInProgress.set(false);
+            JSObject cancelled = new JSObject();
+            cancelled.put("cancelled", true);
+            call.resolve(cancelled);
+            return;
+        }
+
+        final Uri uri = result.getData().getData();
+        try {
+            piperExecutor.execute(() -> {
+                try {
+                    long compressedBytes = queryOpenableSize(uri);
+                    if (compressedBytes > PiperArchiveImporter.MAX_ARCHIVE_COMPRESSED_BYTES) {
+                        call.reject("Размер архива голосовой модели превышает лимит 350 МБ");
+                        return;
+                    }
+                    File modelsDir = ensureModelsReady();
+                    long freeBytes = queryAvailableDiskBytes(modelsDir);
+
+                    PiperVoiceDescriptor imported;
+                    try (InputStream stream = getContext().getContentResolver().openInputStream(uri)) {
+                        if (stream == null) {
+                            call.reject("Не удалось открыть выбранный файл модели");
+                            return;
+                        }
+                        imported = PiperArchiveImporter.importFromZipStream(
+                            stream,
+                            modelsDir,
+                            freeBytes,
+                            () -> shuttingDown.get() || activeImportCancelled.get(),
+                            modelId -> {
+                                if (ttsEngine != null) {
+                                    ttsEngine.releaseModelIfLoaded(modelId);
+                                }
+                            }
+                        );
+                    }
+
+                    JSObject res = buildCatalogResponse(modelsDir);
+                    res.put("cancelled", false);
+                    res.put("imported", descriptorToJson(imported));
+                    call.resolve(res);
+                } catch (Exception ex) {
+                    if (activeImportCancelled.get()) {
+                        JSObject cancelled = new JSObject();
+                        cancelled.put("cancelled", true);
+                        call.resolve(cancelled);
+                    } else {
+                        call.reject(ex.getMessage() != null ? ex.getMessage() : "Ошибка импорта голосовой модели", ex);
+                    }
+                } finally {
+                    importInProgress.set(false);
+                    activeImportCancelled.set(false);
+                }
+            });
+        } catch (RejectedExecutionException ex) {
+            importInProgress.set(false);
+            call.reject("Piper TTS plugin is shutting down", ex);
+        }
+    }
+
+    @PluginMethod
+    public void cancelModelImport(PluginCall call) {
+        activeImportCancelled.set(true);
+        JSObject res = new JSObject();
+        res.put("cancelled", true);
+        call.resolve(res);
+    }
+
+    @PluginMethod
+    public void deleteModel(PluginCall call) {
+        final String rawModelId = call.getString("modelId", "");
+        final String modelId;
+        try {
+            modelId = PiperModelSupport.validateModelId(rawModelId);
+        } catch (IllegalArgumentException ex) {
+            call.reject("Некорректный идентификатор модели Piper: " + rawModelId);
+            return;
+        }
+        if (ttsEngine != null && modelId.equals(ttsEngine.getLoadedModelId())) {
+            cancelledAllThroughSeq.set(generationSeq.get());
+        }
+
+        submitBackground(call, () -> {
+            try {
+                File modelsDir = ensureModelsReady();
+                File targetDir = new File(modelsDir, modelId);
+                if (!targetDir.isDirectory()) {
+                    call.reject("Голосовая модель не найдена: " + modelId);
+                    return;
+                }
+
+                File bundledMarker = new File(targetDir, ".bundled");
+                boolean wasBundled = bundledMarker.isFile()
+                    || PiperBundledModelsInstaller.isModelBundledInAssets(bundledAssetSource, modelId);
+                String bundledSha = "";
+                if (bundledMarker.isFile()) {
+                    try {
+                        bundledSha = PiperModelSupport.readUtf8File(bundledMarker).trim();
+                    } catch (IOException ignored) {
+                        bundledSha = "deleted";
+                    }
+                } else if (wasBundled) {
+                    bundledSha = "deleted";
+                }
+
+                if (ttsEngine != null) {
+                    ttsEngine.releaseModelIfLoaded(modelId);
+                }
+
+                PiperModelSupport.deleteRecursively(targetDir);
+                if (targetDir.exists()) {
+                    call.reject("Не удалось удалить файлы модели " + modelId);
+                    return;
+                }
+
+                if (wasBundled) {
+                    PiperBundledModelsInstaller.recordBundledDeletionTombstone(modelsDir, modelId, bundledSha);
+                }
+                PiperModelSupport.invalidateDescriptorCache();
+
+                JSObject res = buildCatalogResponse(modelsDir);
+                res.put("deletedModelId", modelId);
+                call.resolve(res);
+            } catch (Exception ex) {
+                call.reject("Ошибка удаления голосовой модели: " + ex.getMessage(), ex);
+            }
+        });
+    }
+
+    @PluginMethod
+    public void restoreBundledModels(PluginCall call) {
+        submitBackground(call, () -> {
+            try {
+                File modelsDir = ensureModelsRootDir();
+                PiperBundledModelsInstaller.InstallSummary summary =
+                    PiperBundledModelsInstaller.restoreBundledModels(
+                        bundledAssetSource,
+                        modelsDir,
+                        id -> {
+                            if (ttsEngine != null) {
+                                ttsEngine.releaseModelIfLoaded(id);
+                            }
+                        }
+                    );
+                bundledModelsSynced.set(true);
+                JSObject res = buildCatalogResponse(modelsDir);
+                res.put("restoredCount", summary.extractedIds.size());
+                call.resolve(res);
+            } catch (Exception ex) {
+                call.reject("Не удалось восстановить встроенные голосовые модели: " + ex.getMessage(), ex);
             }
         });
     }
@@ -221,12 +426,80 @@ public class AndroidPiperTtsPlugin extends Plugin {
         }
     }
 
+    private File ensureModelsReady() throws IOException {
+        File root = ensureModelsRootDir();
+        if (bundledModelsSynced.compareAndSet(false, true)) {
+            try {
+                PiperBundledModelsInstaller.ensureBundledModelsInstalled(
+                    bundledAssetSource,
+                    root,
+                    id -> {
+                        if (ttsEngine != null) {
+                            ttsEngine.releaseModelIfLoaded(id);
+                        }
+                    }
+                );
+            } catch (IOException ex) {
+                bundledModelsSynced.set(false);
+                throw ex;
+            }
+        }
+        return root;
+    }
+
     private File ensureModelsRootDir() throws IOException {
         File root = new File(new File(getContext().getFilesDir(), PIPER_ROOT_DIR), MODELS_SUBDIR);
         if (!root.exists() && !root.mkdirs()) {
             throw new IOException("Cannot create Piper models directory");
         }
         return root;
+    }
+
+    private JSObject buildCatalogResponse(File modelsDir) {
+        List<PiperVoiceDescriptor> voices = PiperModelSupport.discoverInstalledVoices(modelsDir);
+        JSArray voicesArr = new JSArray();
+        for (PiperVoiceDescriptor v : voices) {
+            voicesArr.put(descriptorToJson(v));
+        }
+        JSObject res = new JSObject();
+        res.put("available", !voices.isEmpty());
+        res.put("loadedModelId", ttsEngine != null ? ttsEngine.getLoadedModelId() : "");
+        res.put("modelsDir", modelsDir.getAbsolutePath());
+        res.put(
+            "canRestoreBundled",
+            PiperBundledModelsInstaller.hasRestorableDeletedBundledModels(bundledAssetSource, modelsDir)
+        );
+        res.put("voices", voicesArr);
+        return res;
+    }
+
+    private long queryOpenableSize(Uri uri) {
+        try (Cursor cursor = getContext().getContentResolver().query(
+            uri,
+            new String[] { OpenableColumns.SIZE },
+            null,
+            null,
+            null
+        )) {
+            if (cursor != null && cursor.moveToFirst()) {
+                int idx = cursor.getColumnIndex(OpenableColumns.SIZE);
+                if (idx >= 0 && !cursor.isNull(idx)) {
+                    return cursor.getLong(idx);
+                }
+            }
+        } catch (Exception ignored) {
+            // Size column may be omitted by certain SAF providers; streaming limit still protects extraction.
+        }
+        return -1L;
+    }
+
+    private static long queryAvailableDiskBytes(File dir) {
+        try {
+            StatFs statFs = new StatFs(dir.getAbsolutePath());
+            return statFs.getAvailableBytes();
+        } catch (Exception ignored) {
+            return -1L;
+        }
     }
 
     static PiperVoiceDescriptor selectVoice(

@@ -2,8 +2,8 @@ import { prepareLocalDb } from '../../services/localDb.js';
 import { studySideText } from '../../utils/structuredStudyCard.js';
 import { storeLocalMediaFile } from '../localMediaWriter.js';
 import { inspectMediaBytes } from '../materialArchive.js';
-import { readStandaloneTtsRate, readStandaloneTtsVoices } from '../standaloneSettings.js';
-import { getStandaloneTtsProvider, parseStandaloneVoiceSpec } from './registry.js';
+import { readStandaloneTtsProvider, readStandaloneTtsRate, readStandaloneTtsVoices } from '../standaloneSettings.js';
+import { getStandaloneTtsProvider, isVoiceSpecCompatibleWithProvider, parseStandaloneVoiceSpec } from './registry.js';
 import { prepareTtsText } from './wavUtil.js';
 
 const MAX_PREVIEW_CACHE = 24;
@@ -58,8 +58,11 @@ export async function synthesizeStandaloneAudio({
   }
   const voicesByLang = readStandaloneTtsVoices();
   const code = String(lang || 'de').toLowerCase().replace('_', '-').split('-')[0] || 'de';
-  const effectiveVoiceSpec = voice || voicesByLang[code] || '';
-  const { providerId, voice: resolvedVoice, model, engine } = parseStandaloneVoiceSpec(effectiveVoiceSpec);
+  const activeProvider = readStandaloneTtsProvider();
+  const storedLangVoice = voicesByLang[code] || '';
+  const effectiveVoiceSpec = voice
+    || (isVoiceSpecCompatibleWithProvider(storedLangVoice, activeProvider) ? storedLangVoice : '');
+  const { providerId, voice: resolvedVoice, model, engine } = parseStandaloneVoiceSpec(effectiveVoiceSpec, activeProvider);
   const effectiveRate = rate || readStandaloneTtsRate('front');
   const provider = getStandaloneTtsProvider(providerId);
 

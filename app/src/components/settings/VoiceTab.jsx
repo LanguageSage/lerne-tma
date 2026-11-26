@@ -2,7 +2,7 @@ import { tr } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useEffect, useRef, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Volume2, KeyRound, Trash2, Loader2 } from 'lucide-react';
+import { Volume2, KeyRound, Trash2, Loader2, FolderPlus, RotateCcw, Check } from 'lucide-react';
 import { useSettingsStore } from '../../store/useSettingsStore';
 import { useUiStore } from '../../store/useUiStore';
 import { useLanguageStore } from '../../store/useLanguageStore';
@@ -15,10 +15,13 @@ import {
   GEMINI_TTS_MODELS,
   getDefaultStandaloneVoice,
   getVoicesForStandaloneProvider,
+  isVoiceSpecCompatibleWithProvider,
   listStandaloneTtsProviders,
+  resolveValidStandaloneVoice,
 } from '../../pilot/tts/registry.js';
 import { androidSystemTtsProvider } from '../../pilot/tts/androidSystemTtsProvider.js';
 import { piperTtsProvider } from '../../pilot/tts/piperTtsProvider.js';
+import { clearPreviewAudioCache } from '../../pilot/tts/ttsService.js';
 import { deleteVaultKey, getVaultKeyStatus, setVaultKey } from '../../pilot/secretVault.js';
 
 export const VoiceTab = () => {
@@ -55,8 +58,16 @@ export const VoiceTab = () => {
   const [vaultSlots, setVaultSlots] = useState({});
   const [azureKeyInput, setAzureKeyInput] = useState('');
   const [androidCatalog, setAndroidCatalog] = useState({ engines: [], voices: [], activeEngine: '' });
-  const [piperCatalog, setPiperCatalog] = useState({ available: false, loadedModelId: '', voices: [] });
+  const [piperCatalog, setPiperCatalog] = useState({
+    available: false,
+    loadedModelId: '',
+    canRestoreBundled: false,
+    voices: [],
+  });
+  const [piperActionBusy, setPiperActionBusy] = useState('');
+  const [piperImportCancelling, setPiperImportCancelling] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
+  const [previewingVoiceId, setPreviewingVoiceId] = useState('');
   const previewAudioRef = useRef(null);
 
   useEffect(() => () => {
@@ -85,11 +96,25 @@ export const VoiceTab = () => {
     let canceled = false;
     piperTtsProvider.listVoices()
       .then((res) => {
-        if (!canceled) setPiperCatalog(res);
+        if (canceled) return;
+        setPiperCatalog(res);
+        const currentVoices = useSettingsStore.getState().ttsVoices || {};
+        const allLangCodes = [...SUPPORTED_TARGET_LANGUAGES.map((l) => l.code), 'ru'];
+        for (const langCode of allLangCodes) {
+          const cur = currentVoices[langCode] || '';
+          const resolved = resolveValidStandaloneVoice('piper', langCode, cur, [], res.voices);
+          if (!cur || !isVoiceSpecCompatibleWithProvider(cur, 'piper') || cur !== resolved) {
+            setTtsVoice(langCode, resolved);
+          }
+        }
       })
-      .catch(() => {});
+      .catch((err) => {
+        if (!canceled) {
+          showToast(err?.message || tr('Не удалось загрузить каталог моделей Piper'), 'error');
+        }
+      });
     return () => { canceled = true; };
-  }, [standaloneTtsProvider]);
+  }, [standaloneTtsProvider]); // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     if (!IS_STANDALONE || standaloneTtsProvider !== 'android_system' || !androidSystemTtsProvider.isSupported()) {
@@ -127,25 +152,40 @@ export const VoiceTab = () => {
     : VOICE_OPTIONS.filter(opt => opt.value.startsWith('ru'));
 
   const selectedTargetVoice = IS_STANDALONE
-    ? (ttsVoices?.[activeLanguage] || getDefaultStandaloneVoice(standaloneTtsProvider, activeLanguage, piperCatalog.voices))
+    ? resolveValidStandaloneVoice(
+      standaloneTtsProvider,
+      activeLanguage,
+      ttsVoices?.[activeLanguage],
+      androidCatalog.voices,
+      piperCatalog.voices,
+    )
     : (getTtsVoiceForLang(activeLanguage, adminSettings, ttsVoices) || (filteredVoices[0]?.value || ''));
 
-  const handleStandalonePreview = async () => {
+  const getSampleTextForLang = (langCode) => {
+    const base = String(langCode || activeLanguage || 'de').toLowerCase().replace('_', '-').split('-')[0];
+    if (base === 'en') return 'Hello, I am learning languages offline.';
+    if (base === 'no' || base === 'nb') return 'Hei, jeg lærer norsk offline.';
+    if (base === 'ru') return 'Привет! Я изучаю языки полностью автономно.';
+    if (base === 'uk') return 'Привіт! Я вивчаю мови офлайн.';
+    return 'Hallo! Ich lerne Deutsch offline.';
+  };
+
+  const handleStandalonePreview = async (overrideVoice = null, overrideLang = null) => {
     try {
       previewAudioRef.current?.pause();
     } catch { /* ignore */ }
     previewAudioRef.current = null;
+    const targetLang = overrideLang
+      ? String(overrideLang).toLowerCase().replace('_', '-').split('-')[0]
+      : activeLanguage;
+    const targetVoice = overrideVoice || selectedTargetVoice;
     setPreviewLoading(true);
+    setPreviewingVoiceId(overrideVoice || '__active__');
     try {
-      const sample = activeLanguage === 'en'
-        ? 'Hello, I am learning languages offline.'
-        : activeLanguage === 'no'
-          ? 'Hei, jeg lærer norsk offline.'
-          : 'Hallo! Ich lerne Deutsch offline.';
       const res = await api.post('/media/generate-audio', {
-        text: sample,
-        lang: activeLanguage,
-        voice: selectedTargetVoice,
+        text: getSampleTextForLang(targetLang),
+        lang: targetLang,
+        voice: targetVoice,
         rate: `${ttsSpeed >= 0 ? '+' : ''}${ttsSpeed}%`,
         persist: false,
       });
@@ -159,6 +199,89 @@ export const VoiceTab = () => {
       showToast(err?.message || tr('Ошибка предпрослушивания'), 'error');
     } finally {
       setPreviewLoading(false);
+      setPreviewingVoiceId('');
+    }
+  };
+
+  const handleImportPiperVoice = async () => {
+    setPiperActionBusy('import');
+    setPiperImportCancelling(false);
+    try {
+      const res = await piperTtsProvider.importModelFromPicker();
+      if (res?.cancelled) {
+        showToast(tr('Импорт модели отменён'), 'info');
+        return;
+      }
+      clearPreviewAudioCache();
+      if (res?.catalog) {
+        setPiperCatalog(res.catalog);
+      }
+      if (res?.imported?.id) {
+        const langBase = String(res.imported.lang || 'de').toLowerCase().replace('_', '-').split('-')[0] || 'de';
+        const normalizedLang = langBase === 'nb' ? 'no' : langBase;
+        setTtsVoice(normalizedLang, `piper:${res.imported.id}`);
+        showToast(`${tr('Голосовая модель установлена:')} ${res.imported.displayName || res.imported.id}`, 'success');
+      }
+    } catch (err) {
+      showToast(err?.message || tr('Ошибка импорта голосовой модели'), 'error');
+    } finally {
+      setPiperActionBusy('');
+      setPiperImportCancelling(false);
+    }
+  };
+
+  const handleDeletePiperVoice = async (voiceItem) => {
+    if (!voiceItem?.id) return;
+    if (typeof window !== 'undefined' && typeof window.confirm === 'function') {
+      const confirmed = window.confirm(
+        `${tr('Удалить голосовую модель с устройства:')} ${voiceItem.displayName || voiceItem.id}?`
+      );
+      if (!confirmed) return;
+    }
+    setPiperActionBusy(`delete:${voiceItem.id}`);
+    try {
+      const { catalog } = await piperTtsProvider.deleteModel(voiceItem.id);
+      clearPreviewAudioCache();
+      setPiperCatalog(catalog);
+      const allLangCodes = [...SUPPORTED_TARGET_LANGUAGES.map((l) => l.code), 'ru'];
+      const currentVoices = useSettingsStore.getState().ttsVoices || {};
+      for (const codeItem of allLangCodes) {
+        const saved = String(currentVoices[codeItem] || '');
+        if (saved === `piper:${voiceItem.id}` || saved.startsWith(`piper:${voiceItem.id}:`)) {
+          setTtsVoice(codeItem, getDefaultStandaloneVoice('piper', codeItem, catalog.voices));
+        }
+      }
+      showToast(`${tr('Модель удалена:')} ${voiceItem.displayName || voiceItem.id}`, 'info');
+    } catch (err) {
+      showToast(err?.message || tr('Не удалось удалить голосовую модель'), 'error');
+    } finally {
+      setPiperActionBusy('');
+    }
+  };
+
+  const handleRestoreBundledPiperVoices = async () => {
+    setPiperActionBusy('restore');
+    try {
+      const { restoredCount, catalog } = await piperTtsProvider.restoreBundledModels();
+      clearPreviewAudioCache();
+      setPiperCatalog(catalog);
+      if (restoredCount > 0) {
+        const allLangCodes = [...SUPPORTED_TARGET_LANGUAGES.map((l) => l.code), 'ru'];
+        const currentVoices = useSettingsStore.getState().ttsVoices || {};
+        for (const codeItem of allLangCodes) {
+          const cur = currentVoices[codeItem] || '';
+          if (!cur || cur === 'piper::default') {
+            setTtsVoice(codeItem, getDefaultStandaloneVoice('piper', codeItem, catalog.voices));
+          }
+        }
+        showToast(`${tr('Восстановлено встроенных моделей:')} ${restoredCount}`, 'success');
+      } else {
+        showToast(tr('Все встроенные модели уже установлены'), 'info');
+      }
+    } catch (err) {
+      showToast(err?.message || tr('Не удалось восстановить встроенные модели'), 'error');
+    } finally {
+      setPiperActionBusy('');
     }
   };
 
@@ -201,11 +324,162 @@ export const VoiceTab = () => {
           </div>
 
           {standaloneTtsProvider === 'piper' && (
-            <p style={{ marginTop: '6px', marginBottom: '10px', fontSize: '0.78rem', color: piperCatalog.available ? '#34d399' : '#fbbf24' }}>
-              {piperCatalog.available
-                ? `${tr('Локальный нейросетевой движок Piper готов (офлайн, установлено моделей:')} ${piperCatalog.voices.length}).`
-                : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
-            </p>
+            <div style={{ marginTop: '8px', marginBottom: '12px' }}>
+              <p style={{ marginBottom: '10px', fontSize: '0.78rem', color: piperCatalog.available ? '#34d399' : '#fbbf24' }}>
+                {piperCatalog.available
+                  ? `${tr('Локальный нейросетевой движок Piper готов (офлайн, установлено моделей:')} ${piperCatalog.voices.length}).`
+                  : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
+              </p>
+
+              {piperCatalog.voices.length > 0 && (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', marginBottom: '10px' }}>
+                  {piperCatalog.voices.map((v) => {
+                    const langBase = String(v.lang || 'de').toLowerCase().replace('_', '-').split('-')[0] || 'de';
+                    const normalizedLang = langBase === 'nb' ? 'no' : langBase;
+                    const currentVoiceForModelLang = resolveValidStandaloneVoice(
+                      'piper',
+                      normalizedLang,
+                      ttsVoices?.[normalizedLang],
+                      [],
+                      piperCatalog.voices,
+                    );
+                    const isDefaultForLang = currentVoiceForModelLang === `piper:${v.id}`;
+                    const isDeleting = piperActionBusy === `delete:${v.id}`;
+                    const isPreviewingThis = previewLoading && previewingVoiceId === `piper:${v.id}`;
+
+                    return (
+                      <div
+                        key={v.id}
+                        data-testid={`piper-model-row-${v.id}`}
+                        style={{
+                          padding: '10px 12px',
+                          borderRadius: '12px',
+                          background: isDefaultForLang ? 'rgba(56, 189, 248, 0.08)' : 'rgba(15, 23, 42, 0.45)',
+                          border: isDefaultForLang ? '1px solid rgba(56, 189, 248, 0.35)' : '1px solid rgba(255, 255, 255, 0.07)',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          gap: '8px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '8px', flexWrap: 'wrap' }}>
+                          <div>
+                            <div style={{ fontWeight: 600, fontSize: '0.86rem', color: '#f8fafc' }}>
+                              {v.displayName || v.id}
+                            </div>
+                            <div style={{ fontSize: '0.73rem', color: '#94a3b8', marginTop: '2px' }}>
+                              {[
+                                v.lang || 'de_DE',
+                                v.sampleRate ? `${Number((v.sampleRate / 1000).toFixed(2))} кГц` : '',
+                                v.sizeMb ? `${v.sizeMb} МБ` : '',
+                                v.license || '',
+                              ].filter(Boolean).join(' · ')}
+                            </div>
+                          </div>
+                          <div style={{ display: 'flex', gap: '5px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(16, 185, 129, 0.16)', color: '#34d399', border: '1px solid rgba(16, 185, 129, 0.3)' }}>
+                              {tr('Офлайн')}
+                            </span>
+                            <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(148, 163, 184, 0.14)', color: '#cbd5e1' }}>
+                              {v.bundled ? tr('встроен') : tr('импортирован')}
+                            </span>
+                            {v.commercialSafe === false && (
+                              <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
+                                NC
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                          <button
+                            type="button"
+                            className={isDefaultForLang ? 'btn btn-primary btn-small' : 'btn btn-secondary btn-small'}
+                            disabled={Boolean(piperActionBusy)}
+                            onClick={() => {
+                              setTtsVoice(normalizedLang, `piper:${v.id}`);
+                              showToast(`${tr('Выбран голос по умолчанию:')} ${v.displayName || v.id}`, 'success');
+                            }}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '6px 12px', minHeight: '34px' }}
+                          >
+                            {isDefaultForLang && <Check size={13} />}
+                            {isDefaultForLang ? tr('По умолчанию') : tr('Выбрать')}
+                          </button>
+
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-small"
+                            disabled={previewLoading || Boolean(piperActionBusy)}
+                            onClick={() => handleStandalonePreview(`piper:${v.id}`, v.lang)}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '6px 12px', minHeight: '34px' }}
+                          >
+                            {isPreviewingThis ? <Loader2 size={13} className="spin" /> : <Volume2 size={13} />}
+                            {tr('Пример')}
+                          </button>
+
+                          {piperTtsProvider.canManageModels() && (
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-small"
+                              disabled={Boolean(piperActionBusy)}
+                              onClick={() => handleDeletePiperVoice(v)}
+                              title={tr('Удалить голосовую модель с устройства')}
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '6px 12px', minHeight: '34px', marginLeft: 'auto', color: '#fca5a5' }}
+                            >
+                              {isDeleting ? <Loader2 size={13} className="spin" /> : <Trash2 size={13} />}
+                              {tr('Удалить')}
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {piperTtsProvider.canManageModels() && (
+                <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <button
+                    id="piper-import-model-btn"
+                    type="button"
+                    className="btn btn-secondary btn-small"
+                    disabled={Boolean(piperActionBusy)}
+                    onClick={handleImportPiperVoice}
+                    style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                  >
+                    {piperActionBusy === 'import' ? <Loader2 size={14} className="spin" /> : <FolderPlus size={14} />}
+                    {piperActionBusy === 'import' ? tr('Импорт модели...') : tr('Импортировать модель (.zip)')}
+                  </button>
+
+                  {piperActionBusy === 'import' && (
+                    <button
+                      id="piper-cancel-import-btn"
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      disabled={piperImportCancelling}
+                      onClick={() => {
+                        setPiperImportCancelling(true);
+                        piperTtsProvider.cancelModelImport();
+                      }}
+                    >
+                      {piperImportCancelling ? tr('Отмена...') : tr('Отменить')}
+                    </button>
+                  )}
+
+                  {piperCatalog.canRestoreBundled && !piperActionBusy && (
+                    <button
+                      id="piper-restore-bundled-btn"
+                      type="button"
+                      className="btn btn-secondary btn-small"
+                      onClick={handleRestoreBundledPiperVoices}
+                      style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
+                    >
+                      <RotateCcw size={14} />
+                      {tr('Восстановить встроенные')}
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
           )}
 
           {standaloneTtsProvider === 'gemini' && (
@@ -309,7 +583,7 @@ export const VoiceTab = () => {
             type="button"
             className="btn btn-secondary btn-small"
             disabled={previewLoading}
-            onClick={handleStandalonePreview}
+            onClick={() => handleStandalonePreview()}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '6px' }}
           >
             {previewLoading ? <Loader2 size={14} className="spin" /> : <Volume2 size={14} />}
@@ -392,7 +666,17 @@ export const VoiceTab = () => {
           <label>{tr("Голос")}</label>
           <select
             id="voice-ru-select"
-            value={IS_STANDALONE ? (ttsVoices?.ru || getDefaultStandaloneVoice(standaloneTtsProvider, 'ru', piperCatalog.voices)) : getTtsVoiceForLang('ru', adminSettings, ttsVoices)}
+            value={
+              IS_STANDALONE
+                ? resolveValidStandaloneVoice(
+                  standaloneTtsProvider,
+                  'ru',
+                  ttsVoices?.ru,
+                  androidCatalog.voices,
+                  piperCatalog.voices,
+                )
+                : getTtsVoiceForLang('ru', adminSettings, ttsVoices)
+            }
             onChange={e => setTtsVoice('ru', e.target.value)}
           >
             {ruVoices.map(opt => (

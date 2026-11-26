@@ -41,6 +41,8 @@ def expectedAarSha256 = [
     (piperPhonemizeAar): 'e8cf1b31c85a199f3258144bc5c4c23b1ce942c3e5ed7fea7dd0d4227980e285',
 ]
 
+def piperAssetsDirProp = (project.findProperty('lernePiperAssetsDir') ?: System.getenv('LERNE_PIPER_ASSETS_DIR') ?: '').toString().trim()
+
 def versionPropsFile = file('../version.properties')
 def versionProps = new Properties()
 if (versionPropsFile.isFile()) {
@@ -111,6 +113,17 @@ android {
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
             noCompress 'onnx'
+        }
+    }
+    sourceSets {
+        main {
+            if (!piperAssetsDirProp.isEmpty()) {
+                def extraAssetsDir = file(piperAssetsDirProp)
+                if (!extraAssetsDir.isDirectory()) {
+                    throw new GradleException("Bundled Piper assets directory not found: ${extraAssetsDir}")
+                }
+                assets.srcDirs += extraAssetsDir
+            }
         }
     }
     signingConfigs {
@@ -237,6 +250,7 @@ dependencies {
     implementation "androidx.core:core-splashscreen:$coreSplashScreenVersion"
     implementation project(':capacitor-android')
     testImplementation "junit:junit:$junitVersion"
+    testImplementation "org.json:json:20240303"
     androidTestImplementation "androidx.test.ext:junit:$androidxJunitVersion"
     androidTestImplementation "androidx.test.espresso:espresso-core:$androidxEspressoCoreVersion"
     implementation project(':capacitor-cordova-android-plugins')

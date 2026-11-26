@@ -40,6 +40,9 @@ export function readStandaloneTtsProvider() {
     if (val === 'piper' && !isNativePluginAvailable('AndroidPiperTts')) return 'gemini';
     return val;
   }
+  if (isNativePlatform() && isNativePluginAvailable('AndroidPiperTts')) {
+    return 'piper';
+  }
   if (isNativePlatform() && isNativePluginAvailable('AndroidSystemTts')) {
     return 'android_system';
   }

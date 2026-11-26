@@ -820,15 +820,20 @@ public final class PiperModelSupport {
         boolean commercialSafe = true;
 
         StringBuilder joined = new StringBuilder();
-        for (File f : new File[] {
-            new File(modelDir, "MODEL_CARD"),
-            new File(modelDir, "LICENSE")
-        }) {
-            if (f.isFile() && f.length() <= 65536) {
-                try {
-                    joined.append(readUtf8File(f)).append('\n');
-                } catch (IOException ignored) {
-                    // Best-effort metadata read.
+        File[] children = modelDir.listFiles();
+        if (children != null) {
+            for (File f : children) {
+                if (!f.isFile() || f.length() > 65536) continue;
+                String lname = f.getName().toLowerCase(Locale.ROOT);
+                if (lname.startsWith("model_card")
+                    || lname.startsWith("license")
+                    || lname.startsWith("copying")
+                    || lname.startsWith("readme")) {
+                    try {
+                        joined.append(readUtf8File(f)).append('\n');
+                    } catch (IOException ignored) {
+                        // Best-effort metadata read.
+                    }
                 }
             }
         }

@@ -1,3 +1,4 @@
+import { tr } from '../../i18n/locale.js';
 import { VOICES_BY_LANG, DEFAULT_TTS_VOICES } from '../../constants/languageConstants.js';
 import { readStandaloneGeminiTtsModel, readStandaloneTtsProvider } from '../standaloneSettings.js';
 import { androidSystemTtsProvider } from './androidSystemTtsProvider.js';
@@ -84,7 +85,7 @@ export function getVoicesForStandaloneProvider(providerId, lang = 'de', androidV
     const langPrefix = code === 'no' ? 'nb' : code;
     const matching = (piperVoices || []).filter((v) => String(v.lang || '').toLowerCase().startsWith(langPrefix));
     return [
-      { value: 'piper::default', label: 'Автовыбор (установленная модель по языку)' },
+      { value: 'piper::default', label: tr('Автовыбор (установленная модель по языку)') },
       ...matching.map((v) => ({
         value: `piper:${v.id}`,
         label: v.label || v.displayName || v.id,
@@ -133,4 +134,43 @@ export function getDefaultStandaloneVoice(providerId, lang = 'de', piperVoices =
     return 'android_system::default';
   }
   return 'gemini:Kore';
+}
+
+export function isVoiceSpecCompatibleWithProvider(rawVoice, providerId) {
+  const raw = String(rawVoice || '').trim();
+  if (!raw) return false;
+  if (providerId === 'piper') return raw.startsWith('piper:');
+  if (providerId === 'gemini') return raw.startsWith('gemini:');
+  if (providerId === 'azure') return raw.startsWith('azure:');
+  if (providerId === 'android_system') return raw.startsWith('android_system:');
+  return false;
+}
+
+export function resolveValidStandaloneVoice(providerId, lang = 'de', savedVoice = '', androidVoices = [], piperVoices = []) {
+  const fallback = getDefaultStandaloneVoice(providerId, lang, piperVoices);
+  const raw = String(savedVoice || '').trim();
+  if (!raw || !isVoiceSpecCompatibleWithProvider(raw, providerId)) {
+    return fallback;
+  }
+  if (providerId === 'piper') {
+    if (raw === 'piper::default') {
+      return fallback;
+    }
+    const rest = raw.slice('piper:'.length).replace(/^:/, '').trim();
+    const modelId = rest.includes(':') ? rest.split(':', 1)[0].trim() : rest;
+    if (Array.isArray(piperVoices) && piperVoices.length > 0) {
+      const code = String(lang || 'de').toLowerCase().replace('_', '-').split('-')[0] || 'de';
+      const langPrefix = code === 'no' ? 'nb' : code;
+      const found = piperVoices.find((v) => v.id === modelId && String(v.lang || '').toLowerCase().startsWith(langPrefix));
+      if (!found) {
+        return fallback;
+      }
+      return `piper:${found.id}`;
+    }
+  }
+  const options = getVoicesForStandaloneProvider(providerId, lang, androidVoices, piperVoices);
+  if (options.some((opt) => opt.value === raw)) {
+    return raw;
+  }
+  return fallback;
 }
