@@ -96,6 +96,7 @@ export const NativeCardViewer = React.memo(({
   isAdmin = false,
   onBeforeDictation = null,
   onTrainerAnswer,
+  includeTrainerAnswerMode = false,
   onNextCard,
   requiredActionContent = null,
   frontSpeechContent = null,
@@ -279,6 +280,7 @@ export const NativeCardViewer = React.memo(({
                 onFlip={onFlip}
                 playAudio={audioControls?.playAudio}
                 onTrainerAnswer={onTrainerAnswer}
+                includeTrainerAnswerMode={includeTrainerAnswerMode}
                 onNextCard={onNextCard}
                 renderAudioPlayer={() => renderAudioPlayer(
                   promptPhysicalSide === 'back' ? 'back' : 'front',

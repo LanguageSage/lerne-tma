@@ -12,7 +12,6 @@ import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { trainerTaskSupport } from '../../utils/supportEvidence.js';
 import { trainerWords } from '../../utils/structuredStudyCard.js';
-import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { assessmentTrainerEvidence } from '../../utils/assessment.js';
 import { AnswerVictoryAnimation } from './AnswerVictoryAnimation.jsx';
 import './StudyCardTrainer.css';
@@ -112,6 +111,7 @@ export const StudyCardTrainer = React.memo(({
   footerActionTarget,
   assessmentMode = false,
   supportHistoryUnknown = false,
+  includeTrainerAnswerMode = false,
 }) => {
   useInterfaceLocale();
   const [selectedOptions, setSelectedOptions] = useState(savedState?.selectedOptions || {}); // { gapId: chosenOption }
@@ -252,7 +252,7 @@ export const StudyCardTrainer = React.memo(({
     if (submission.evidence) {
       playSuccessSound();
       triggerHaptic('success');
-      if (!assessmentMode) onTrainerAnswer?.(card.id, IS_STANDALONE ? {
+      if (!assessmentMode) onTrainerAnswer?.(card.id, includeTrainerAnswerMode ? {
         ...submission.evidence,
         trainerAnswerMode: clozeData.answerMode,
       } : submission.evidence);

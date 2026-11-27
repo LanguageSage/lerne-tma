@@ -49,6 +49,7 @@ export const ExerciseRenderer = React.memo(({
   isLocalAssetUrl,
   allowDictation = true,
   onBeforeDictation = null,
+  includeTrainerAnswerMode = false,
 }) => {
   const effectiveDesign = designConfig ?? DEFAULT_DESIGN_CONFIG_V2;
   const exerciseCard = card;
@@ -91,6 +92,7 @@ export const ExerciseRenderer = React.memo(({
             savedState={savedState}
             onSaveState={onSaveState}
             footerActionTarget={footerActionTarget}
+            includeTrainerAnswerMode={includeTrainerAnswerMode}
           />
         );
 
@@ -196,6 +198,7 @@ export const ExerciseRenderer = React.memo(({
             savedState={savedState}
             onSaveState={onSaveState}
             footerActionTarget={footerActionTarget}
+            includeTrainerAnswerMode={includeTrainerAnswerMode}
           />
         );
 

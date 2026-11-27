@@ -2,10 +2,10 @@
   "name": "lerne-card-core",
   "version": "0.3.0",
   "source_repository": "LanguageSage/lerne-tma",
-  "source_revision": "c27592104c03f26633e3b7e19c1485aeead3fe26",
+  "source_revision": "83737c97671947d5140c2e45937ea88fdd250646",
   "source_version": "0.3.0",
   "newline": "LF",
-  "source_state": "Unpublished release candidate: implicit Trainer Choice, required Puzzle translation for authored content.",
+  "source_state": "Release 0.3.0: implicit Trainer Choice, required Puzzle translation for authored content.",
   "source_files": {
     "api/card_core/lerne_card_core/__init__.py": "8af641846c12c180f835dae6ab83aebdd3eecfce0e4f3b6af245b2a15587778d",
     "api/card_core/lerne_card_core/answer_contract.py": "27ca85fa6fc0775d5de09a51b3632e22fbd5f2623e7d1d48cdde5175e311c91a",

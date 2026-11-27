@@ -390,6 +390,7 @@ export const StudyCard = React.memo(({
       isAdmin={isAdmin}
       onBeforeDictation={stopGlobalAudio}
       onTrainerAnswer={onTrainerAnswer}
+      includeTrainerAnswerMode={IS_STANDALONE}
       onNextCard={onNextCard}
       requiredActionContent={requiredActionContent}
       frontSpeechContent={(
