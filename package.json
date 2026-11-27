@@ -17,6 +17,7 @@
     "build:android": "node -e \"const {execSync}=require('node:child_process');const env={...process.env,VITE_LERNE_STANDALONE:'1'};execSync('npm --prefix app run build',{stdio:'inherit',env});execSync('npx cap sync android',{stdio:'inherit',env});\""
   },
   "dependencies": {
+    "@capacitor-community/sqlite": "^8.1.1",
     "@capacitor/android": "^8.5.0",
     "@capacitor/cli": "^8.5.0",
     "@capacitor/core": "^8.5.0"

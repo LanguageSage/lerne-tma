@@ -21,6 +21,7 @@ SUITES = (
     'scripts/tests/test_admin_contract.py',
     'scripts/tests/test_card_core_package.py',
     'scripts/tests/test_card_core_release.py',
+    'scripts/tests/test_sqlite_schema.py',
     'scripts/tests/test_shared_card_regressions.py',
     'scripts/tests/test_author_service.py',
     'scripts/tests/test_author_cli.py',

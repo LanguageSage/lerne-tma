@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "lerne-sqlite-schema"
+version = "0.1.0"
+description = "Canonical SQLite schema, migration runner, and media contract shared by Lerne Admin and Android"
+requires-python = ">=3.10"
+dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["lerne_sqlite_schema*"]
+
+[tool.setuptools.package-data]
+lerne_sqlite_schema = ["schema_manifest.json", "migrations/*.sql"]
