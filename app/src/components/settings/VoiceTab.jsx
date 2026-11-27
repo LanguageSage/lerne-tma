@@ -62,7 +62,6 @@ export const VoiceTab = () => {
   const [androidCatalog, setAndroidCatalog] = useState({ engines: [], voices: [], activeEngine: '' });
   const [piperCatalog, setPiperCatalog] = useState({
     available: false,
-    runnerAvailable: true,
     loadedModelId: '',
     canRestoreBundled: false,
     voices: [],
@@ -338,9 +337,7 @@ export const VoiceTab = () => {
                   ? tr('Проверка установленных голосовых моделей Piper…')
                   : piperCatalog.available
                     ? `${tr('Локальный нейросетевой движок Piper готов (офлайн, установлено моделей:')} ${piperCatalog.voices.length}).`
-                    : (piperCatalog.voices.length > 0 && piperCatalog.runnerAvailable === false)
-                      ? tr('Голосовые модели Piper найдены, но исполняемый файл Piper CLI недоступен.')
-                      : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
+                    : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
               </p>
 
               {piperCatalog.voices.length > 0 && (
@@ -392,7 +389,7 @@ export const VoiceTab = () => {
                               {tr('Офлайн')}
                             </span>
                             <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(148, 163, 184, 0.14)', color: '#cbd5e1' }}>
-                              {v.bundled ? tr('встроен') : (piperTtsProvider.canManageModels() ? tr('импортирован') : tr('локальный'))}
+                              {v.bundled ? tr('встроен') : tr('импортирован')}
                             </span>
                             {v.commercialSafe === false && (
                               <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
@@ -428,7 +425,7 @@ export const VoiceTab = () => {
                             {tr('Пример')}
                           </button>
 
-                          {piperTtsProvider.canManageModels() && (
+                          {piperTtsProvider.isSupported() && (
                             <button
                               type="button"
                               className="btn btn-secondary btn-small"
@@ -448,7 +445,7 @@ export const VoiceTab = () => {
                 </div>
               )}
 
-              {piperTtsProvider.canManageModels() && (
+              {piperTtsProvider.isSupported() && (
                 <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', alignItems: 'center' }}>
                   <button
                     id="piper-import-model-btn"

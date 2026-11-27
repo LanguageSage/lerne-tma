@@ -1,70 +1,12 @@
 const assert = require('node:assert/strict');
-const { spawn, spawnSync } = require('node:child_process');
-const fs = require('node:fs');
-const http = require('node:http');
-const net = require('node:net');
 const path = require('node:path');
+const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
 
 const WORKTREE_ROOT = path.resolve(__dirname, '../../..');
-const LAUNCHER_BAT = path.join(WORKTREE_ROOT, 'run_standalone.bat');
-const TEMP_DATA_DIR = path.join(WORKTREE_ROOT, 'local', 'test-data', 'standalone-ai-tts-e2e');
-
-function getFreePort() {
-  return new Promise((resolve, reject) => {
-    const srv = net.createServer();
-    srv.unref();
-    srv.on('error', reject);
-    srv.listen(0, '127.0.0.1', () => {
-      const { port } = srv.address();
-      srv.close(() => resolve(port));
-    });
-  });
-}
-
-function httpGetText(url) {
-  return new Promise((resolve, reject) => {
-    const req = http.get(url, (res) => {
-      let body = '';
-      res.setEncoding('utf8');
-      res.on('data', (c) => { body += c; });
-      res.on('end', () => resolve({ status: res.statusCode, body }));
-    });
-    req.on('error', reject);
-    req.setTimeout(1500, () => req.destroy(new Error('timeout')));
-  });
-}
-
-async function waitForServer(url, proc, timeoutMs = 25000) {
-  const deadline = Date.now() + timeoutMs;
-  while (Date.now() < deadline) {
-    if (proc.exitCode !== null) throw new Error(`Launcher exited early (${proc.exitCode})`);
-    try {
-      const res = await httpGetText(url);
-      if (res.status === 200 && res.body.includes('lerne-android-mode')) return;
-    } catch { /* wait */ }
-    await new Promise((r) => setTimeout(r, 250));
-  }
-  throw new Error(`Timed out waiting for ${url}`);
-}
-
-function stopProcessTree(pid) {
-  if (!pid) return;
-  if (process.platform === 'win32') {
-    spawnSync('taskkill', ['/pid', String(pid), '/t', '/f'], { stdio: 'ignore' });
-  } else {
-    try { process.kill(-pid, 'SIGTERM'); } catch { /* ignore */ }
-  }
-}
-
-function startLauncher(port) {
-  return spawn('cmd.exe', ['/c', LAUNCHER_BAT, '--no-browser'], {
-    cwd: WORKTREE_ROOT,
-    env: { ...process.env, LERNE_STANDALONE_PORT: String(port) },
-    stdio: ['ignore', 'pipe', 'pipe'],
-    windowsHide: true,
-  });
-}
+const APP_DIR = path.join(WORKTREE_ROOT, 'app');
+const TEST_DATA_DIR = path.join(WORKTREE_ROOT, 'local', 'test-data');
+const GEMINI_ORIGIN = 'https://generativelanguage.googleapis.com';
 
 function makePcm16Base64(frames = 2400) {
   const buf = Buffer.alloc(frames * 2);
@@ -74,182 +16,85 @@ function makePcm16Base64(frames = 2400) {
   return buf.toString('base64');
 }
 
-async function main() {
-  fs.rmSync(TEMP_DATA_DIR, { recursive: true, force: true });
-  const profileDir = path.join(TEMP_DATA_DIR, 'profile');
-  fs.mkdirSync(profileDir, { recursive: true });
+function geminiResponse(url, request) {
+  if (url.pathname.includes('preview-tts')) {
+    return { inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: makePcm16Base64() } };
+  }
+  const system = request.systemInstruction?.parts?.[0]?.text || '';
+  const prompt = request.contents?.[0]?.parts?.[0]?.text || '';
+  if (prompt === 'ping') return { text: '{"ok":true}' };
+  if (prompt.includes('phrases')) {
+    return { text: JSON.stringify({
+      cards: [
+        { prompt: 'der Bahnhof', answer: 'вокзал', explanation: 'Вокзал', level: 'A1' },
+        { prompt: 'abfahren', answer: 'отправляться', explanation: 'Отделяемая приставка ab-', level: 'A2' },
+      ],
+    }) };
+  }
+  const explanation = system.includes('Analyze the provided Native V2 flashcard')
+    ? 'E2E AI объяснение: der Zug (ед. ч.).'
+    : 'Первичный контекст от Gemini.';
+  return { text: JSON.stringify({
+    schema_version: 2,
+    card: {
+      type: 'standard',
+      data: { prompt: 'der Zug', answer: 'поезд' },
+      info: [],
+      explanation,
+      level: 'A2',
+    },
+  }) };
+}
 
-  const port = await getFreePort();
-  const baseUrl = `http://127.0.0.1:${port}/`;
-  let serverProc = startLauncher(port);
-  let context = null;
-  let online = true;
+async function main() {
+  process.env.LERNE_MODE = '';
+  process.env.VITE_LERNE_STANDALONE = '1';
+  process.env.VITE_LERNE_LOCAL = '0';
+  const { createServer } = await import(pathToFileURL(require.resolve('vite', { paths: [APP_DIR] })).href);
+  const server = await createServer({
+    root: APP_DIR,
+    envFile: false,
+    cacheDir: path.join(TEST_DATA_DIR, 'standalone-ai-tts-vite'),
+    server: { host: '127.0.0.1', port: 0, hmr: false },
+  });
   const pageErrors = [];
   const forbiddenRequests = [];
-
+  let browser;
   try {
-    await waitForServer(baseUrl, serverProc);
-    context = await chromium.launchPersistentContext(profileDir, {
-      headless: true,
-      acceptDownloads: true,
+    await server.listen();
+    const baseUrl = new URL(server.resolvedUrls.local[0]).origin;
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      viewport: { width: 375, height: 812 },
+      serviceWorkers: 'block',
     });
-    const page = context.pages()[0] || await context.newPage();
-    page.setDefaultTimeout(15000);
-    page.on('pageerror', (err) => pageErrors.push(err.message));
-
-    await page.addInitScript(() => {
-      try {
-        if (!localStorage.getItem('native_language')) localStorage.setItem('native_language', 'ru');
-        if (!localStorage.getItem('lerne_onboarding_completed')) localStorage.setItem('lerne_onboarding_completed', 'true');
-      } catch { /* ignore */ }
-      window.__playedAudios = [];
-      const origPlay = HTMLMediaElement.prototype.play;
-      HTMLMediaElement.prototype.play = function playStub() {
-        window.__playedAudios.push(this.src || this.currentSrc || 'unknown');
-        return Promise.resolve();
-      };
-      if (origPlay) { /* reference kept */ }
+    await context.addInitScript(() => {
+      localStorage.setItem('native_language', 'ru');
+      localStorage.setItem('lerne_onboarding_completed', 'true');
     });
-
-    await page.route('**/*', async (route) => {
-      const reqUrl = route.request().url();
-      if (/127\.0\.0\.1:(8000|8001|8002)|supabase\./i.test(reqUrl)) {
-        forbiddenRequests.push(reqUrl);
-        return route.abort();
+    await context.route('**/*', async (route) => {
+      const request = route.request();
+      const url = new URL(request.url());
+      if (url.origin === GEMINI_ORIGIN && url.pathname.endsWith(':generateContent') && request.method() === 'POST') {
+        const part = geminiResponse(url, request.postDataJSON());
+        return route.fulfill({ json: { candidates: [{ content: { parts: [part] } }] } });
       }
-      if (reqUrl.endsWith('/__standalone_ext_https')) {
-        if (!online) {
-          return route.fulfill({
-            status: 502,
-            contentType: 'application/json',
-            body: JSON.stringify({ ok: false, error: 'Simulated offline network' }),
-          });
-        }
-        const post = JSON.parse(route.request().postData() || '{}');
-        if (post.slot === 'gemini' && String(post.url).includes('preview-tts')) {
-          return route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              status: 200,
-              ok: true,
-              contentType: 'application/json',
-              bodyText: JSON.stringify({
-                candidates: [{
-                  content: {
-                    parts: [{
-                      inlineData: { mimeType: 'audio/L16;codec=pcm;rate=24000', data: makePcm16Base64() },
-                    }],
-                  },
-                }],
-              }),
-            }),
-          });
-        }
-        if (post.slot === 'gemini') {
-          const bodyObj = JSON.parse(post.body || '{}');
-          const sysText = bodyObj?.systemInstruction?.parts?.[0]?.text || '';
-          const usrText = bodyObj?.contents?.[0]?.parts?.[0]?.text || '';
-          if (usrText === 'ping') {
-            return route.fulfill({
-              status: 200,
-              contentType: 'application/json',
-              body: JSON.stringify({
-                status: 200,
-                ok: true,
-                contentType: 'application/json',
-                bodyText: JSON.stringify({ candidates: [{ content: { parts: [{ text: '{"ok":true}' }] } }] }),
-              }),
-            });
-          }
-          if (usrText.includes('phrases')) {
-            return route.fulfill({
-              status: 200,
-              contentType: 'application/json',
-              body: JSON.stringify({
-                status: 200,
-                ok: true,
-                contentType: 'application/json',
-                bodyText: JSON.stringify({
-                  candidates: [{
-                    content: {
-                      parts: [{
-                        text: JSON.stringify({
-                          cards: [
-                            { prompt: 'der Bahnhof', answer: 'вокзал', explanation: 'Мужской род', level: 'A1' },
-                            { prompt: 'abfahren', answer: 'отправляться', explanation: 'Отделяемая приставка ab-', level: 'A2' },
-                          ],
-                        }),
-                      }],
-                    },
-                  }],
-                }),
-              }),
-            });
-          }
-          if (sysText.includes('Analyze the provided Native V2 flashcard')) {
-            return route.fulfill({
-              status: 200,
-              contentType: 'application/json',
-              body: JSON.stringify({
-                status: 200,
-                ok: true,
-                contentType: 'application/json',
-                bodyText: JSON.stringify({
-                  candidates: [{
-                    content: {
-                      parts: [{
-                        text: JSON.stringify({
-                          schema_version: 2,
-                          card: {
-                            type: 'standard',
-                            data: { prompt: 'der Zug', answer: 'поезд' },
-                            info: [],
-                            explanation: 'E2E AI объяснение: der Zug (мн. ч. die Züge).',
-                            level: 'A2',
-                          },
-                        }),
-                      }],
-                    },
-                  }],
-                }),
-              }),
-            });
-          }
-          return route.fulfill({
-            status: 200,
-            contentType: 'application/json',
-            body: JSON.stringify({
-              status: 200,
-              ok: true,
-              contentType: 'application/json',
-              bodyText: JSON.stringify({
-                candidates: [{
-                  content: {
-                    parts: [{
-                      text: JSON.stringify({
-                        schema_version: 2,
-                        card: {
-                          type: 'standard',
-                          data: { prompt: 'der Zug', answer: 'поезд' },
-                          info: [],
-                          explanation: 'Первичный контекст от Gemini.',
-                          level: 'A2',
-                        },
-                      }),
-                    }],
-                  },
-                }],
-              }),
-            }),
-          });
-        }
+      if (url.origin === baseUrl && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/__')) {
+        return route.continue();
       }
-      return route.continue();
+      forbiddenRequests.push(url.origin + url.pathname);
+      return route.abort();
     });
+    let page = await context.newPage();
+    const trackPageErrors = (tab) => {
+      tab.setDefaultTimeout(15000);
+      tab.on('pageerror', (err) => pageErrors.push(err.message));
+    };
+    trackPageErrors(page);
 
     // 1. Open Standalone Settings -> configure shared Gemini API key & verify connection
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
+    assert.equal(await page.locator('meta[name="lerne-android-mode"]').getAttribute('content'), 'offline-pilot');
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).waitFor({ state: 'visible' });
     await page.locator('.settings-trigger-btn, button[title*="Настройки"], [aria-label*="Настройки"]').first().click();
     await page.locator('#settings-tab-select').selectOption('ai');
@@ -261,6 +106,7 @@ async function main() {
 
     // Assert VoiceTab recognizes shared Gemini key when Gemini TTS provider is selected
     await page.locator('#settings-tab-select').selectOption('voice');
+    assert.equal(await page.locator('#standalone-tts-provider-select option[value="piper"]').count(), 0);
     await page.locator('#standalone-tts-provider-select').selectOption('gemini');
     await page.getByText(/Ключ Gemini настроен/).waitFor({ state: 'visible' });
     await page.locator('.settings-header .close-btn').last().click();
@@ -296,7 +142,7 @@ async function main() {
       }
       return null;
     }, secretKey);
-    assert.equal(leaked, null, `API key must stay strictly in RAM on PC, found in ${leaked}`);
+    assert.equal(leaked, null, `Browser API key must stay in session memory, found in ${leaked}`);
 
     // 2. Open deck -> Create Native V2 card with AI + Gemini TTS WAV audio
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).click();
@@ -319,19 +165,18 @@ async function main() {
     await page.getByRole('button', { name: 'Готово', exact: true }).click();
     await page.getByText('der Bahnhof').first().waitFor({ state: 'visible' });
 
-    // 4. Go OFFLINE & restart standalone server -> verify saved TTS audio plays offline!
-    online = false;
-    stopProcessTree(serverProc.pid);
-    await new Promise((r) => setTimeout(r, 400));
-    serverProc = startLauncher(port);
-    await waitForServer(baseUrl, serverProc);
+    // Reopen the app with HTTPS calls blocked and verify persisted WAV data.
+    await context.route(`${GEMINI_ORIGIN}/**`, (route) => route.abort());
+    await page.close();
+    page = await context.newPage();
+    trackPageErrors(page);
 
     await page.goto(baseUrl, { waitUntil: 'networkidle' });
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).click();
     await page.locator('.deck-intro-btn-list').click();
     await page.getByText('der Zug').first().waitFor({ state: 'visible' });
 
-    // Play saved audio in card detail/preview and assert an archive_*.wav / blob URL loaded & played offline
+    // The generated WAV must still be linked to the saved card after reopening.
     const hasSavedAudio = await page.evaluate(async () => {
       const req = indexedDB.open('LerneStandaloneDB_900001');
       return new Promise((resolve) => {
@@ -349,15 +194,15 @@ async function main() {
         };
       });
     });
-    assert.equal(hasSavedAudio, true, 'Saved Gemini TTS WAV audio must persist in IndexedDB across restart');
+    assert.equal(hasSavedAudio, true, 'Saved Gemini TTS WAV audio must persist in IndexedDB across page reopen');
 
     // Verify zero requests to Lerne backend or Supabase
     assert.deepEqual(forbiddenRequests, []);
     assert.deepEqual(pageErrors, []);
     console.log('STANDALONE AI & TTS E2E PASS: keys memory-only, AI create + batch create + Gemini TTS WAV offline persistence verified.');
   } finally {
-    await context?.close().catch(() => {});
-    stopProcessTree(serverProc?.pid);
+    await browser?.close().catch(() => {});
+    await server.close();
   }
 }
 

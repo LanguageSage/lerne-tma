@@ -1,19 +1,5 @@
 import { storage } from '../utils/auth.js';
-import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { isNativePlatform, isNativePluginAvailable } from './nativeBridge.js';
-
-export function isWindowsStandaloneLoopback() {
-  if (!IS_STANDALONE || isNativePlatform() || typeof window === 'undefined') {
-    return false;
-  }
-  const loc = window.location;
-  if (!loc) return false;
-  return (
-    loc.protocol === 'http:'
-    && Boolean(loc.port)
-    && (loc.hostname === '127.0.0.1' || loc.hostname === 'localhost')
-  );
-}
 
 export const STANDALONE_SETTINGS_KEYS = {
   aiProvider: 'lerne_standalone_ai_provider',
@@ -50,20 +36,17 @@ export function readStandaloneAiModels() {
 
 export function readStandaloneTtsProvider() {
   const val = String(storage.get(STANDALONE_SETTINGS_KEYS.ttsProvider) || '').trim().toLowerCase();
-  const piperSupported = isNativePluginAvailable('AndroidPiperTts') || isWindowsStandaloneLoopback();
+  const piperSupported = isNativePluginAvailable('AndroidPiperTts');
   if (['piper', 'gemini', 'android_system', 'azure'].includes(val)) {
     if (val === 'android_system' && !isNativePluginAvailable('AndroidSystemTts')) return piperSupported ? 'piper' : 'gemini';
     if (val === 'piper' && !piperSupported) return 'gemini';
     return val;
   }
-  if (isNativePlatform() && isNativePluginAvailable('AndroidPiperTts')) {
+  if (piperSupported) {
     return 'piper';
   }
   if (isNativePlatform() && isNativePluginAvailable('AndroidSystemTts')) {
     return 'android_system';
-  }
-  if (isWindowsStandaloneLoopback()) {
-    return 'piper';
   }
   return 'gemini';
 }

@@ -136,7 +136,7 @@ function decodeBase64Bytes(b64) {
 
 /**
  * Execute an outbound HTTPS request using a key stored in Android Keystore (never returned to JS)
- * on native Android, or using the session-memory key via Standalone loopback transport / direct fetch on Web.
+ * on native Android or using a session-memory key in browser tests.
  */
 export async function secureHttpsRequest({
   slot,
@@ -192,49 +192,6 @@ export async function secureHttpsRequest({
   const secret = WEB_MEMORY_SECRETS.get(slot);
   if (!secret) {
     throw new Error(`API ключ (${slot}) не задан в текущей сессии`);
-  }
-
-  // On Vite dev/preview localhost server (`run_standalone.bat`), use loopback HTTPS bridge to avoid CORS errors.
-  const canUseLoopbackBridge = typeof window !== 'undefined'
-    && (window.location?.hostname === '127.0.0.1' || window.location?.hostname === 'localhost')
-    && (window.location?.protocol === 'http:' || window.location?.protocol === 'https:');
-
-  if (canUseLoopbackBridge) {
-    const bridgeUrl = new URL('/__standalone_ext_https', window.location.origin).toString();
-    const bridgeRes = await fetch(bridgeUrl, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        slot,
-        url: safeUrl,
-        method: cleanMethod,
-        headers,
-        body: typeof body === 'string' ? body : undefined,
-        bodyBase64,
-        responseType,
-        timeoutMs,
-        apiKey: secret,
-      }),
-      redirect: 'error',
-      signal,
-    }).catch((err) => {
-      if (err?.name === 'AbortError' || signal?.aborted) throw makeAbortError();
-      throw new Error(scrubSecret(err?.message || 'Standalone HTTPS bridge unreachable', secret));
-    });
-
-    if (bridgeRes.status !== 404) {
-      const data = await bridgeRes.json().catch(() => ({}));
-      if (!bridgeRes.ok) {
-        throw new Error(scrubSecret(data?.error || `Standalone bridge HTTP ${bridgeRes.status}`, secret));
-      }
-      return {
-        status: Number(data?.status || 0),
-        ok: Boolean(data?.ok),
-        contentType: data?.contentType || '',
-        bodyText: data?.bodyText || '',
-        bodyBytes: data?.bodyBase64 ? decodeBase64Bytes(data.bodyBase64) : null,
-      };
-    }
   }
 
   const directHeaders = buildDirectWebHeaders(slot, secret, headers);
