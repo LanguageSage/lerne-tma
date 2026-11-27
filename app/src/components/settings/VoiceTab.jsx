@@ -62,7 +62,6 @@ export const VoiceTab = () => {
   const [androidCatalog, setAndroidCatalog] = useState({ engines: [], voices: [], activeEngine: '' });
   const [piperCatalog, setPiperCatalog] = useState({
     available: false,
-    loadedModelId: '',
     canRestoreBundled: false,
     voices: [],
   });

@@ -251,6 +251,7 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     synthDelayMs = 0;
     nativeEnabled = true;
     clearPreviewAudioCache();
+    piperTtsProvider.clearCatalogCache();
     await resetAllDatabases();
     await Dexie.delete('LerneStandaloneDB_900001').catch(() => {});
   });
@@ -264,7 +265,12 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     const providers = listStandaloneTtsProviders().map((p) => p.id);
     assert.deepEqual(providers, ['piper', 'gemini', 'android_system', 'azure']);
 
-    const catalog = await piperTtsProvider.listVoices();
+    const [catalog, concurrentCatalog] = await Promise.all([
+      piperTtsProvider.listVoices(),
+      piperTtsProvider.listVoices(),
+    ]);
+    assert.deepEqual(concurrentCatalog, catalog);
+    assert.equal(pluginCalls.filter((call) => call.method === 'listVoices').length, 1);
     assert.equal(catalog.available, true);
     assert.equal(catalog.voices.length, 2);
     assert.match(catalog.voices[0].label, /Thorsten.*22\.05 кГц.*108\.6 МБ.*встроен/);
@@ -358,6 +364,9 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     assert.equal(importRes.cancelled, false);
     assert.equal(importRes.imported.id, 'de_DE-miro-high');
     assert.match(importRes.imported.label, /импортирован.*NC/);
+    clearPreviewAudioCache();
+    assert.deepEqual(await piperTtsProvider.listVoices(), importRes.catalog);
+    assert.equal(pluginCalls.some((call) => call.method === 'listVoices'), false);
     // Commercial-safe Thorsten remains auto-default ahead of NC Miro
     assert.equal(getDefaultStandaloneVoice('piper', 'de', importRes.catalog.voices), 'piper:de_DE-thorsten-high');
 

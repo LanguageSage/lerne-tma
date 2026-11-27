@@ -66,7 +66,6 @@ export function clearPreviewAudioCache() {
     }
   }
   previewCache.clear();
-  piperTtsProvider.clearCatalogCache?.();
 }
 
 export function filterStudyTextForLanguage(rawText, lang = '') {

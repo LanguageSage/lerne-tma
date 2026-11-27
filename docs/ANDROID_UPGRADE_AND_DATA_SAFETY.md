@@ -232,7 +232,7 @@ $bt = "$tc\sdk\build-tools\36.0.0"
   - `node scripts/tests/browser/standalone-offline-pilot.check.cjs`
   - `node scripts/tests/browser/standalone-offline-materials.check.cjs`
   - `node scripts/tests/browser/standalone-card-editor.check.cjs`
-- Генерация карточек, озвучка и сохранение WAV в Chromium:
+- Генерация карточек, озвучка и сохранение WAV после перезапуска Chromium:
   `node scripts/tests/browser/standalone-ai-tts.check.cjs`. Тест поднимает локальный Vite
   в режиме Android Offline и подменяет ответы Gemini. Для Piper на Android используется
   нативный плагин `AndroidPiperTts`.

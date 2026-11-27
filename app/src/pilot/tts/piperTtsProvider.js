@@ -37,21 +37,15 @@ function normalizeCatalogPayload(res) {
   }));
   return {
     available: Boolean(res?.available && voices.length > 0),
-    loadedModelId: res?.loadedModelId || '',
-    modelsDir: res?.modelsDir || '',
     canRestoreBundled: Boolean(res?.canRestoreBundled),
     voices,
   };
 }
 
-function emptyCatalogPayload() {
-  return {
-    available: false,
-    loadedModelId: '',
-    modelsDir: '',
-    canRestoreBundled: false,
-    voices: [],
-  };
+function rememberCatalog(catalog) {
+  cachedCatalog = catalog;
+  cachedCatalogAt = Date.now();
+  return catalog;
 }
 
 export const piperTtsProvider = {
@@ -70,16 +64,12 @@ export const piperTtsProvider = {
     return isNativePluginAvailable('AndroidPiperTts');
   },
 
-  async listVoices({ forceRefresh = false } = {}) {
-    if (!this.isSupported()) return emptyCatalogPayload();
-    if (
-      !forceRefresh
-      && cachedCatalog
-      && (Date.now() - cachedCatalogAt) < CATALOG_CACHE_TTL_MS
-    ) {
+  async listVoices() {
+    if (!this.isSupported()) return normalizeCatalogPayload();
+    if (cachedCatalog && (Date.now() - cachedCatalogAt) < CATALOG_CACHE_TTL_MS) {
       return cachedCatalog;
     }
-    if (!forceRefresh && inFlightCatalogPromise) {
+    if (inFlightCatalogPromise) {
       return inFlightCatalogPromise;
     }
 
@@ -88,8 +78,7 @@ export const piperTtsProvider = {
     try {
       const catalog = await promise;
       if (inFlightCatalogPromise === promise) {
-        cachedCatalog = catalog;
-        cachedCatalogAt = Date.now();
+        rememberCatalog(catalog);
       }
       return catalog;
     } finally {
@@ -107,10 +96,8 @@ export const piperTtsProvider = {
     if (res?.cancelled) {
       return { cancelled: true, imported: null, catalog: null };
     }
-    const catalog = normalizeCatalogPayload(res);
     this.clearCatalogCache();
-    cachedCatalog = catalog;
-    cachedCatalogAt = Date.now();
+    const catalog = rememberCatalog(normalizeCatalogPayload(res));
     const imported = res?.imported
       ? {
           ...res.imported,
@@ -138,10 +125,8 @@ export const piperTtsProvider = {
       throw new Error('Не указан идентификатор голосовой модели');
     }
     const res = await getNativePlugin('AndroidPiperTts').deleteModel({ modelId: cleanId });
-    const catalog = normalizeCatalogPayload(res);
     this.clearCatalogCache();
-    cachedCatalog = catalog;
-    cachedCatalogAt = Date.now();
+    const catalog = rememberCatalog(normalizeCatalogPayload(res));
     return {
       deletedModelId: res?.deletedModelId || cleanId,
       catalog,
@@ -153,10 +138,8 @@ export const piperTtsProvider = {
       throw new Error('Восстановление встроенных моделей доступно в приложении Lerne Android');
     }
     const res = await getNativePlugin('AndroidPiperTts').restoreBundledModels({});
-    const catalog = normalizeCatalogPayload(res);
     this.clearCatalogCache();
-    cachedCatalog = catalog;
-    cachedCatalogAt = Date.now();
+    const catalog = rememberCatalog(normalizeCatalogPayload(res));
     return {
       restoredCount: Number(res?.restoredCount || 0),
       catalog,

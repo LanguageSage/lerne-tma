@@ -111,7 +111,7 @@ export const StandaloneAiTab = () => {
         <div>
           {isNativeVault
             ? tr('Ключи шифруются через Android Keystore и не передаются в WebView. Ключ Gemini используется совместно с Gemini TTS.')
-            : tr('На ПК в браузере API-ключ хранится только в оперативной памяти текущей вкладки (не сохраняется в localStorage или IndexedDB). Ключ Gemini используется совместно с Gemini TTS.')}
+            : tr('В браузере API-ключ хранится только в памяти текущей вкладки. Ключ Gemini используется совместно с Gemini TTS.')}
         </div>
       </div>
 

@@ -25,7 +25,7 @@ LOCAL API и не перенося SRS. Контракт: [MATERIAL_TRANSFER](..
 | FastAPI | `api/main.py`, `api/routers/` | Регистрация маршрутов, запросы и зависимости |
 | Серверная логика | `api/services/` | CRUD, синхронизация, оценивание и проекции |
 | ORM / БД | `api/models.py`, `api/database.py`, `api/migrations.py` | Peewee, подключение и эволюция схемы |
-| Android | `android/`, `capacitor.config.json` | Android Offline Pilot (`com.lerne.offlinepilot`, Capacitor, без `INTERNET`, `VITE_LERNE_STANDALONE=1`) — единственная поддерживаемая Android-реализация |
+| Android | `android/`, `capacitor.config.json` | Android Offline Pilot (`com.lerne.offlinepilot`, Capacitor, `VITE_LERNE_STANDALONE=1`) — единственная поддерживаемая Android-реализация. Основные сценарии работают офлайн, опциональные AI/TTS-провайдеры используют HTTPS через `SecureNetworkVault`. |
 | Локальная админка | `lerne-admin:src/lerne_admin/server.py` | Отдельный репозиторий; устанавливает общий independent admin core (see ADMIN_COMPATIBILITY.md) (api/local) |
 
 ## Основные потоки данных

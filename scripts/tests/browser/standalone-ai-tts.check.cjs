@@ -1,4 +1,5 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs');
 const path = require('node:path');
 const { pathToFileURL } = require('node:url');
 const { chromium } = require('playwright');
@@ -59,41 +60,45 @@ async function main() {
   });
   const pageErrors = [];
   const forbiddenRequests = [];
-  let browser;
+  let context;
+  let profileDir;
   try {
     await server.listen();
     const baseUrl = new URL(server.resolvedUrls.local[0]).origin;
-    browser = await chromium.launch({ headless: true });
-    const context = await browser.newContext({
-      viewport: { width: 375, height: 812 },
-      serviceWorkers: 'block',
-    });
-    await context.addInitScript(() => {
-      localStorage.setItem('native_language', 'ru');
-      localStorage.setItem('lerne_onboarding_completed', 'true');
-    });
-    await context.route('**/*', async (route) => {
-      const request = route.request();
-      const url = new URL(request.url());
-      if (url.origin === GEMINI_ORIGIN && url.pathname.endsWith(':generateContent') && request.method() === 'POST') {
-        const part = geminiResponse(url, request.postDataJSON());
-        return route.fulfill({ json: { candidates: [{ content: { parts: [part] } }] } });
-      }
-      if (url.origin === baseUrl && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/__')) {
-        return route.continue();
-      }
-      forbiddenRequests.push(url.origin + url.pathname);
-      return route.abort();
-    });
-    let page = await context.newPage();
-    const trackPageErrors = (tab) => {
+    fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
+    profileDir = fs.mkdtempSync(path.join(fs.realpathSync(TEST_DATA_DIR), 'standalone-ai-tts-profile-'));
+    const openPage = async (mockGemini) => {
+      context = await chromium.launchPersistentContext(profileDir, {
+        headless: true,
+        viewport: { width: 375, height: 812 },
+        serviceWorkers: 'block',
+      });
+      await context.addInitScript(() => {
+        localStorage.setItem('native_language', 'ru');
+        localStorage.setItem('lerne_onboarding_completed', 'true');
+      });
+      await context.route('**/*', async (route) => {
+        const request = route.request();
+        const url = new URL(request.url());
+        if (mockGemini && url.origin === GEMINI_ORIGIN && url.pathname.endsWith(':generateContent') && request.method() === 'POST') {
+          const part = geminiResponse(url, request.postDataJSON());
+          return route.fulfill({ json: { candidates: [{ content: { parts: [part] } }] } });
+        }
+        if (url.origin === baseUrl && !url.pathname.startsWith('/api/') && !url.pathname.startsWith('/__')) {
+          return route.continue();
+        }
+        forbiddenRequests.push(url.origin + url.pathname);
+        return route.abort();
+      });
+      const tab = context.pages()[0] || await context.newPage();
       tab.setDefaultTimeout(15000);
       tab.on('pageerror', (err) => pageErrors.push(err.message));
+      await tab.goto(baseUrl, { waitUntil: 'networkidle' });
+      return tab;
     };
-    trackPageErrors(page);
 
     // 1. Open Standalone Settings -> configure shared Gemini API key & verify connection
-    await page.goto(baseUrl, { waitUntil: 'networkidle' });
+    let page = await openPage(true);
     assert.equal(await page.locator('meta[name="lerne-android-mode"]').getAttribute('content'), 'offline-pilot');
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).waitFor({ state: 'visible' });
     await page.locator('.settings-trigger-btn, button[title*="Настройки"], [aria-label*="Настройки"]').first().click();
@@ -165,13 +170,14 @@ async function main() {
     await page.getByRole('button', { name: 'Готово', exact: true }).click();
     await page.getByText('der Bahnhof').first().waitFor({ state: 'visible' });
 
-    // Reopen the app with HTTPS calls blocked and verify persisted WAV data.
-    await context.route(`${GEMINI_ORIGIN}/**`, (route) => route.abort());
-    await page.close();
-    page = await context.newPage();
-    trackPageErrors(page);
-
-    await page.goto(baseUrl, { waitUntil: 'networkidle' });
+    // Restart Chromium with the same profile and block all external requests.
+    await context.close();
+    context = null;
+    page = await openPage(false);
+    await page.locator('.settings-trigger-btn, button[title*="Настройки"], [aria-label*="Настройки"]').first().click();
+    await page.locator('#settings-tab-select').selectOption('ai');
+    await page.locator('#standalone-ai-key-status').filter({ hasText: /^Не задан$/ }).waitFor();
+    await page.locator('.settings-header .close-btn').last().click();
     await page.getByRole('heading', { name: 'Alltag & Kommunikation (A2)' }).click();
     await page.locator('.deck-intro-btn-list').click();
     await page.getByText('der Zug').first().waitFor({ state: 'visible' });
@@ -194,15 +200,18 @@ async function main() {
         };
       });
     });
-    assert.equal(hasSavedAudio, true, 'Saved Gemini TTS WAV audio must persist in IndexedDB across page reopen');
+    assert.equal(hasSavedAudio, true, 'Saved Gemini TTS WAV audio must persist in IndexedDB across browser restart');
 
     // Verify zero requests to Lerne backend or Supabase
     assert.deepEqual(forbiddenRequests, []);
     assert.deepEqual(pageErrors, []);
     console.log('STANDALONE AI & TTS E2E PASS: keys memory-only, AI create + batch create + Gemini TTS WAV offline persistence verified.');
   } finally {
-    await browser?.close().catch(() => {});
+    await context?.close().catch(() => {});
     await server.close();
+    if (profileDir && path.dirname(fs.realpathSync(profileDir)) === fs.realpathSync(TEST_DATA_DIR)) {
+      fs.rmSync(profileDir, { recursive: true, maxRetries: 3 });
+    }
   }
 }
 

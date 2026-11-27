@@ -1,5 +1,5 @@
 import { storage } from '../utils/auth.js';
-import { isNativePlatform, isNativePluginAvailable } from './nativeBridge.js';
+import { isNativePluginAvailable } from './nativeBridge.js';
 
 export const STANDALONE_SETTINGS_KEYS = {
   aiProvider: 'lerne_standalone_ai_provider',
@@ -45,7 +45,7 @@ export function readStandaloneTtsProvider() {
   if (piperSupported) {
     return 'piper';
   }
-  if (isNativePlatform() && isNativePluginAvailable('AndroidSystemTts')) {
+  if (isNativePluginAvailable('AndroidSystemTts')) {
     return 'android_system';
   }
   return 'gemini';
