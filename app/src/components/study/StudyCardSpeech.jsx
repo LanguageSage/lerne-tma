@@ -10,6 +10,8 @@ import { useLanguageStore } from '../../store/useLanguageStore';
 import { useSpeechRecognition } from '../../hooks/useSpeechRecognition.js';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
 import { triggerHaptic } from '../../utils/platform';
+import { getAudioUrl } from '../../utils/media';
+import { getPhysicalSideAudioSource } from '../../utils/studyCardRoles.js';
 import { stopGlobalAudio } from '../../hooks/useAudio';
 import { studyContent, studyInfoBlocks, studySideText } from '../../utils/structuredStudyCard.js';
 import { ExerciseInfoBlocks } from './ExerciseInfoBlocks.jsx';
@@ -183,30 +185,34 @@ export const StudyCardSpeech = React.memo(({
             {speechSuccess ? <Check size={32} /> : <Mic size={32} />}
           </button>
 
-          {(onPlayCardAudio || (!followUp && card.audio_url)) && (
-            <button
-              type="button"
-              className="btn-speak-audio"
-              disabled={loading || isAutoplayActive}
-              onClick={(e) => {
-                e.stopPropagation();
-                if (isAutoplayActive) return;
-                if (card.audio_url) playAudio?.(card.audio_url);
-                else onPlayCardAudio?.();
-              }}
-              title={tr("Озвучить карточку")}
-            >
-              {isAudioLoading ? (
-                card.audio_is_generating ? (
-                  <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
+          {(() => {
+            const authoredAudioUrl = getAudioUrl(getPhysicalSideAudioSource(card, 'front'));
+            if (!onPlayCardAudio && (followUp || !authoredAudioUrl)) return null;
+            return (
+              <button
+                type="button"
+                className="btn-speak-audio"
+                disabled={loading || isAutoplayActive}
+                onClick={(e) => {
+                  e.stopPropagation();
+                  if (isAutoplayActive) return;
+                  if (authoredAudioUrl) playAudio?.(authoredAudioUrl);
+                  else onPlayCardAudio?.();
+                }}
+                title={tr("Озвучить карточку")}
+              >
+                {isAudioLoading ? (
+                  card.audio_is_generating ? (
+                    <Sparkles size={22} className="sparkles-spin" style={{ color: '#a855f7' }} />
+                  ) : (
+                    <RefreshCw size={22} className="spin" />
+                  )
                 ) : (
-                  <RefreshCw size={22} className="spin" />
-                )
-              ) : (
-                <Volume2 size={24} />
-              )}
-            </button>
-          )}
+                  <Volume2 size={24} />
+                )}
+              </button>
+            );
+          })()}
         </div>
         <p className="mic-help-label">
           {isListening ? tr("Слушаю... Произнесите фразу или нажмите для проверки") : tr("Нажмите на микрофон для записи")}

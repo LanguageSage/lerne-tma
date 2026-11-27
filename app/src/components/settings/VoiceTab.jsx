@@ -34,6 +34,8 @@ export const VoiceTab = () => {
     setAlwaysRegenerateAudio,
     autoGenerateCardAudio,
     setAutoGenerateCardAudio,
+    useLocalTtsWhenAudioMissing,
+    setUseLocalTtsWhenAudioMissing,
     ttsSpeed,
     setTtsSpeed,
     ttsSpeedRu,
@@ -601,6 +603,20 @@ export const VoiceTab = () => {
             <span className="slider"></span>
           </label>
         </div>
+        {IS_STANDALONE && (
+          <div className="settings-row">
+            <span>{tr("Использовать локальный TTS при отсутствии готового аудио")}</span>
+            <label className="switch">
+              <input
+                id="use-local-tts-when-missing-toggle"
+                type="checkbox"
+                checked={useLocalTtsWhenAudioMissing}
+                onChange={e => setUseLocalTtsWhenAudioMissing(e.target.checked)}
+              />
+              <span className="slider"></span>
+            </label>
+          </div>
+        )}
         <div className="settings-row">
           <span>{tr("Всегда генерировать и перезаписывать аудио")}</span>
           <label className="switch">

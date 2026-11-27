@@ -1,4 +1,4 @@
-import { tr } from '../../i18n/locale';
+import { tr, getInterfaceLanguage } from '../../i18n/locale';
 import { useInterfaceLocale } from '../../i18n/useInterfaceLocale';
 import React, { useState, useEffect, useMemo, useCallback, useRef } from 'react';
 import { AlertTriangle } from 'lucide-react';
@@ -20,14 +20,16 @@ import { getAudioUrl } from '../../utils/media';
 import { isPlatformAssetUrl } from '../../utils/platform';
 import { getPhysicalSideAudioSource, getStudyRolePhysicalSide, PEDAGOGICAL_ROLE } from '../../utils/studyCardRoles.js';
 import { getDesignStylesFromV2 } from '../../utils/cardStyles';
+import { canEditContainer, findCardDeck, isBundledSeedCard } from '../../utils/deckUtils.js';
 import { CardActionButton } from '../modals/CardActionModal';
 import { CardRating } from './CardRating';
 import { useCardNotes } from '../../hooks/useCardNotes';
-import { studyContent, studyExerciseType, studySideText } from '../../utils/structuredStudyCard.js';
+import { layoutAnswerRevealed, studyContent, studyExerciseType, studySideText } from '../../utils/structuredStudyCard.js';
 import { useStudyCardControls } from '../../hooks/useStudyCardControls';
 import { canRevealFreeTextAnswer } from '../../utils/freeTextEvaluationState.js';
 import { NativeCardViewer } from '../../card-ui/NativeCardViewer.jsx';
 import { IS_STANDALONE } from '../../utils/standaloneMode.js';
+import { getStudySpeakableText, isTargetLanguageCardSide } from '../../pilot/tts/ttsService.js';
 
 const LeechBadge = ({ lapses }) => (
   <div
@@ -99,6 +101,7 @@ export const StudyCard = React.memo(({
 
   const deckId = useDeckStore.getState().currentDeck?.id;
   const notes = useCardNotes(card?.id, card?.deck_id ?? deckId, true);
+  const content = studyContent(card);
 
   const handleVoiceChange = useCallback((voiceValue) => {
     sessionVoice?.setSessionVoice(deckId, voiceValue);
@@ -106,8 +109,10 @@ export const StudyCard = React.memo(({
 
   const storedVoice = sessionVoice?.getSessionVoice(deckId) || null;
   const frontVoicePicker = useVoicePicker(cardLang, storedVoice, handleVoiceChange, false, true);
+  const isTargetLangBack = studyMode === 'reverse' || isTargetLanguageCardSide(content, 'back');
+  const backSideLang = isTargetLangBack ? cardLang : getInterfaceLanguage();
+  const backVoicePicker = useVoicePicker(backSideLang, isTargetLangBack ? storedVoice : null, null, false, true);
 
-  const content = studyContent(card);
   const exerciseType = studyExerciseType(content);
   const promptPhysicalSide = getStudyRolePhysicalSide(PEDAGOGICAL_ROLE.PROMPT, studyMode);
   const rawFrontText = studySideText(content, promptPhysicalSide);
@@ -121,14 +126,6 @@ export const StudyCard = React.memo(({
     audioControls?.currentTime ?? 0,
     audioControls?.audioState ?? 'idle',
   );
-
-  useEffect(() => {
-    frontVoicePicker.setCardText(frontText);
-  }, [frontText]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  useEffect(() => {
-    frontVoicePicker.setPreviewUrl(null);
-  }, [card?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [exerciseStates, setExerciseStates] = useState({});
   const [exerciseVersions, setExerciseVersions] = useState({});
@@ -147,6 +144,29 @@ export const StudyCard = React.memo(({
   const reviewKey = card?.id != null
     ? `${(stepFlow?.hasRequiredActions ? stepFlow.reviewKey : null) || `${card.id}:${historyIndex}`}:${seen?.version ?? 0}`
     : null;
+
+  const currentExerciseState = reviewKey ? exerciseStates[reviewKey] : undefined;
+  const answerRevealed = Boolean(isFlipped || layoutAnswerRevealed(currentExerciseState));
+  const frontSpeakableText = IS_STANDALONE
+    ? getStudySpeakableText(content, promptPhysicalSide, { isFlipped, answerRevealed })
+    : frontText;
+  const revealedFrontSpeakableText = IS_STANDALONE
+    ? getStudySpeakableText(content, 'front', { isFlipped: true, answerRevealed: true })
+    : frontText;
+  const backAnswerSide = promptPhysicalSide === 'back' ? 'front' : 'back';
+  const backSpeakableText = content
+    ? getStudySpeakableText(content, backAnswerSide, { isFlipped: true, answerRevealed: true })
+    : '';
+
+  useEffect(() => {
+    frontVoicePicker.setCardText(frontSpeakableText);
+    frontVoicePicker.setPreviewUrl(null);
+  }, [card?.id, frontSpeakableText]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => {
+    backVoicePicker.setCardText(backSpeakableText);
+    backVoicePicker.setPreviewUrl(null);
+  }, [card?.id, backSpeakableText]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSaveExerciseState = useCallback((state, key) => {
     const targetKey = key ?? reviewKey;
@@ -213,6 +233,7 @@ export const StudyCard = React.memo(({
   const isAdmin = useSettingsStore(state => state.isAdmin);
   const playerCollapsed = useSettingsStore(state => state.playerCollapsed);
   const setPlayerCollapsed = useSettingsStore(state => state.setPlayerCollapsed);
+  const useLocalTtsWhenAudioMissing = useSettingsStore(state => state.useLocalTtsWhenAudioMissing);
   const openSettings = useUiStore(state => state.openSettings);
   const contextStyle = useMemo(() => getDesignStylesFromV2(effectiveConfig).contextText, [effectiveConfig]);
 
@@ -237,12 +258,14 @@ export const StudyCard = React.memo(({
 
   if (!card || !content) return null;
 
+  const deckStoreState = useDeckStore.getState();
+  const currentDeckObj = deckStoreState.currentDeck;
+  const ownerDeck = findCardDeck(deckStoreState, card?.deck_id ?? deckId);
   let deckMeta = card.deck_metadata;
-  if (!deckMeta) {
-    const currentDeck = useDeckStore.getState().currentDeck;
-    if (currentDeck?.metadata) {
-      deckMeta = typeof currentDeck.metadata === 'string' ? JSON.parse(currentDeck.metadata) : currentDeck.metadata;
-    }
+  if (!deckMeta && currentDeckObj?.metadata) {
+    deckMeta = typeof currentDeckObj.metadata === 'string'
+      ? JSON.parse(currentDeckObj.metadata)
+      : currentDeckObj.metadata;
   } else if (typeof deckMeta === 'string') {
     try { deckMeta = JSON.parse(deckMeta); } catch { /* pass */ }
   }
@@ -257,36 +280,69 @@ export const StudyCard = React.memo(({
   const hasLeech = Boolean(card?.is_leech || (card?.lapses && card.lapses >= 5));
   const leechBadge = hasLeech ? <LeechBadge lapses={card?.lapses} /> : null;
 
+  const allowSaveToCard = Boolean(ownerDeck) && canEditContainer(ownerDeck, false) && !isBundledSeedCard(card);
+
   const sharedAudioUi = {
     collapsed: playerCollapsed,
     onCollapsedChange: setPlayerCollapsed,
     onOpenSettings: () => openSettings('voice'),
     isAudioLoading: isAudioLoading || audioControls?.isAudioLoading,
+    preferLocalStudyTts: IS_STANDALONE,
+    allowSaveToCard,
   };
+
+  const hasExistingFrontAudio = Boolean(getPhysicalSideAudioSource(card, promptPhysicalSide));
+  const canUseFrontGenerator = !IS_STANDALONE
+    || (frontVoicePicker.isOfflineLocalAvailable && (hasExistingFrontAudio || useLocalTtsWhenAudioMissing));
+  const showFrontGenerator = !isBackPrompt && Boolean(frontSpeakableText) && canUseFrontGenerator;
+  const showFrontAudio = Boolean(hasExistingFrontAudio || showFrontGenerator);
+
+  const hasExistingBackFrontAudio = Boolean(getPhysicalSideAudioSource(card, isReverse ? 'back' : 'front'));
+  const canUseBackFrontGenerator = !IS_STANDALONE
+    || (frontVoicePicker.isOfflineLocalAvailable && (hasExistingBackFrontAudio || useLocalTtsWhenAudioMissing));
+  const showBackFrontGenerator = !isReverse && Boolean(revealedFrontSpeakableText) && canUseBackFrontGenerator;
+  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || showBackFrontGenerator);
+
+  const hasExistingBackAnswerAudio = Boolean(getPhysicalSideAudioSource(card, isReverse ? 'front' : 'back'));
+  const showBackAnswerGenerator = IS_STANDALONE
+    && backVoicePicker.isOfflineLocalAvailable
+    && Boolean(backSpeakableText)
+    && backSpeakableText !== frontText.trim()
+    && (hasExistingBackAnswerAudio || useLocalTtsWhenAudioMissing);
 
   const frontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: isBackPrompt ? null : frontVoicePicker,
-    cardText: isBackPrompt ? '' : frontText,
-    cardId: isBackPrompt ? null : card?.id,
+    voicePicker: showFrontGenerator ? frontVoicePicker : null,
+    cardText: showFrontGenerator ? frontSpeakableText : '',
+    cardId: showFrontGenerator ? card?.id : null,
   };
 
   const backFrontAudioPlayerProps = {
     ...sharedAudioUi,
-    voicePicker: isReverse ? null : frontVoicePicker,
-    cardText: isReverse ? '' : frontText,
-    cardId: isReverse ? null : card?.id,
+    voicePicker: showBackFrontGenerator ? frontVoicePicker : null,
+    cardText: showBackFrontGenerator ? revealedFrontSpeakableText : '',
+    cardId: showBackFrontGenerator ? card?.id : null,
   };
 
   const backAudioPlayerProps = {
     ...sharedAudioUi,
     disabled: loading || isAudioLoading,
+    ...(showBackAnswerGenerator
+      ? {
+          isBack: !isTargetLangBack,
+          voicePicker: backVoicePicker,
+          cardText: backSpeakableText,
+          cardId: card?.id,
+        }
+      : {}),
   };
 
-  const hasExistingFrontAudio = Boolean(getPhysicalSideAudioSource(card, promptPhysicalSide));
-  const showFrontAudio = Boolean(hasExistingFrontAudio || (!isBackPrompt && frontText));
-  const hasExistingBackFrontAudio = Boolean(getPhysicalSideAudioSource(card, isReverse ? 'back' : 'front'));
-  const showBackFrontAudio = Boolean(hasExistingBackFrontAudio || (!isReverse && frontText));
+  const existingSpeakAudioUrl = getAudioUrl(getPhysicalSideAudioSource(card, 'front'));
+  const canPlayInSpeakMode = Boolean(existingSpeakAudioUrl) || !IS_STANDALONE || (
+    useLocalTtsWhenAudioMissing
+    && frontVoicePicker.isOfflineLocalAvailable
+    && Boolean(revealedFrontSpeakableText)
+  );
 
   return (
     <NativeCardViewer
@@ -344,9 +400,15 @@ export const StudyCard = React.memo(({
           onFlip={onFlip}
           loading={loading}
           playAudio={playAudio}
-          onPlayCardAudio={IS_STANDALONE ? null : async () => {
-            const url = await frontVoicePicker.generateAndSaveToCard(card?.id, frontText, false);
-            if (url) playAudio?.(url);
+          onPlayCardAudio={!canPlayInSpeakMode ? null : async () => {
+            if (existingSpeakAudioUrl) {
+              playAudio?.(existingSpeakAudioUrl);
+              return;
+            }
+            const url = IS_STANDALONE
+              ? await frontVoicePicker.generateOrGetLocalStudyAudio(revealedFrontSpeakableText, false)
+              : await frontVoicePicker.generateAndSaveToCard(card?.id, frontText, false);
+            if (url) playAudio?.(getAudioUrl(url) || url);
           }}
           stopAudio={audioControls?.stopAudio}
           isAudioLoading={isAudioLoading}

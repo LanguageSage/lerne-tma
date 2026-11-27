@@ -9,30 +9,13 @@ import { useDeckStore } from '../store/useDeckStore';
 import { useLidStore } from '../store/useLidStore';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import {
-  getDefaultStandaloneVoice,
   getVoicesForStandaloneProvider,
+  resolveValidStandaloneVoice,
 } from '../pilot/tts/registry.js';
+import { canUseLocalOfflineTtsForLang } from '../pilot/tts/ttsService.js';
 import { androidSystemTtsProvider } from '../pilot/tts/androidSystemTtsProvider.js';
 import { piperTtsProvider } from '../pilot/tts/piperTtsProvider.js';
 
-/**
- * useVoicePicker — manages per-card voice selection and on-demand audio preview generation.
- *
- * Design principles:
- *  - Preview URLs and word boundaries are cached in-memory for the session lifetime.
- *    We never write a preview to the DB; the card's original audio_url is untouched.
- *  - `sessionVoice` (optional): if passed, the selected voice initializes from it
- *    and any voice change is propagated back via `onVoiceChange`, enabling
- *    cross-card voice persistence in the parent (useSessionVoice).
- *  - Auto-generate: when `autoGenerate=true` and cardText is set, changing the
- *    voice triggers immediate preview generation.
- *
- * @param {string} lang         - language code for the card (e.g. 'de', 'en')
- * @param {string|null} sessionVoice  - voice value to start with (from session store)
- * @param {function|null} onVoiceChange - called with new voice when user changes selection
- * @param {boolean} autoGenerate - auto-generate preview when voice changes
- * @param {boolean} structured - preview text has already been projected from V2
- */
 export const useVoicePicker = (
   lang = 'de',
   sessionVoice = null,
@@ -79,60 +62,89 @@ export const useVoicePicker = (
     ? getVoicesForStandaloneProvider(standaloneTtsProvider, code, androidVoices, piperVoices)
     : (VOICES_BY_LANG[code] || []);
   const defaultVoice = IS_STANDALONE
-    ? (ttsVoices?.[code] || getDefaultStandaloneVoice(standaloneTtsProvider, code, piperVoices))
+    ? resolveValidStandaloneVoice(standaloneTtsProvider, code, ttsVoices?.[code], androidVoices, piperVoices)
     : getTtsVoiceForLang(code, adminSettings, ttsVoices);
+  const isOfflineLocalAvailable = IS_STANDALONE
+    ? canUseLocalOfflineTtsForLang(code, { piperVoices, providerOverride: standaloneTtsProvider })
+    : false;
 
   const [selectedVoice, setSelectedVoiceState] = useState(sessionVoice || defaultVoice);
   const [previewUrl, setPreviewUrl] = useState(null);
-  const [wordBoundaries, setWordBoundaries] = useState(null); // for karaoke
+  const [wordBoundaries, setWordBoundaries] = useState(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [generateError, setGenerateError] = useState(null);
 
-  // In-memory cache: Map<`${voice}|${text}`, { url, boundaries }>
   const cacheRef = useRef(new Map());
-  // Ref to pending cardText for auto-generate
   const cardTextRef = useRef('');
   const requestGenRef = useRef(0);
+  const abortControllerRef = useRef(null);
+
+  const cancelInFlightRequest = useCallback(() => {
+    requestGenRef.current += 1;
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch { /* ignore */ }
+      abortControllerRef.current = null;
+    }
+    setIsGenerating(false);
+  }, []);
+
+  useEffect(() => () => {
+    if (abortControllerRef.current) {
+      try {
+        abortControllerRef.current.abort();
+      } catch { /* ignore */ }
+      abortControllerRef.current = null;
+    }
+  }, []);
 
   const isDefaultVoice = selectedVoice === defaultVoice;
 
-  // Audio settings are the shared source of truth for the picker and Auto mode.
   useEffect(() => {
-    requestGenRef.current += 1;
+    cancelInFlightRequest();
     setSelectedVoiceState(defaultVoice);
     setPreviewUrl(null);
     setWordBoundaries(null);
-  }, [defaultVoice]);
+  }, [defaultVoice, cancelInFlightRequest]);
 
   const generatePreview = useCallback(async (text, voiceOverride = null) => {
     const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice) return null;
 
-    const reqGen = requestGenRef.current;
-    const cacheKey = `${voice}|${text.trim()}`;
+    const settings = useSettingsStore.getState();
+    const speed = code === 'ru' ? settings.ttsSpeedRu : settings.ttsSpeed;
+    const rate = `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`;
+
+    const cacheKey = `${voice}|${rate}|${text.trim()}`;
     const cached = cacheRef.current.get(cacheKey);
     if (cached) {
-      if (requestGenRef.current === reqGen) {
-        setPreviewUrl(cached.url);
-        setWordBoundaries(cached.boundaries || null);
-      }
+      setPreviewUrl(cached.url);
+      setWordBoundaries(cached.boundaries || null);
       return cached.url;
     }
+
+    cancelInFlightRequest();
+    const reqGen = requestGenRef.current;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
     setIsGenerating(true);
     setGenerateError(null);
 
     try {
-      const settings = useSettingsStore.getState();
-      const speed = code === 'ru' ? settings.ttsSpeedRu : settings.ttsSpeed;
-      const res = await api.post('/media/generate-audio', {
-        text: text.trim(),
-        lang: code,
-        voice,
-        rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
-        with_boundaries: true, // signals backend to include word timing
-        ...(structured ? { structured: true } : {}),
-      });
+      const res = await api.post(
+        '/media/generate-audio',
+        {
+          text: text.trim(),
+          lang: code,
+          voice,
+          rate,
+          with_boundaries: true,
+          ...(structured ? { structured: true } : {}),
+        },
+        { signal: controller.signal },
+      );
 
       const url = res.data?.url;
       const boundaries = res.data?.word_boundaries || null;
@@ -146,6 +158,9 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        return null;
+      }
       const isOfflineLocalVoice = String(voice).startsWith('android_system:') || String(voice).startsWith('piper:');
       const isOfflineAndroidLocal = !navigator.onLine && !isOfflineLocalVoice;
       const msg = isOfflineAndroidLocal ? tr("Для создания озвучки нужно подключение к сети")
@@ -156,14 +171,81 @@ export const useVoicePicker = (
       console.error('[useVoicePicker] generate failed:', msg);
       return null;
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       if (requestGenRef.current === reqGen) {
         setIsGenerating(false);
       }
     }
-  }, [code, selectedVoice, defaultVoice, structured]);
+  }, [cancelInFlightRequest, code, selectedVoice, defaultVoice, structured]);
 
-  // Change voice, propagate to session store, and auto-generate if enabled
+  const generateOrGetLocalStudyAudio = useCallback(async (text, isBack = false, voiceOverride = null) => {
+    const voice = voiceOverride || selectedVoice || defaultVoice;
+    if (!text?.trim() || !voice) return null;
+
+    const settings = useSettingsStore.getState();
+    const speed = isBack ? settings.ttsSpeedRu : settings.ttsSpeed;
+    const rate = `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`;
+
+    const cacheKey = `local-study|${voice}|${rate}|${text.trim()}`;
+    const memCached = cacheRef.current.get(cacheKey);
+    if (memCached?.url) {
+      setPreviewUrl(memCached.url);
+      setWordBoundaries(null);
+      return memCached.url;
+    }
+
+    cancelInFlightRequest();
+    const reqGen = requestGenRef.current;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
+    setIsGenerating(true);
+    setGenerateError(null);
+    try {
+      const res = await api.post(
+        '/media/study-local-audio',
+        {
+          text: text.trim(),
+          lang: code,
+          side: isBack ? 'back' : 'front',
+          voice,
+          rate,
+        },
+        { signal: controller.signal },
+      );
+      const url = res.data?.url || null;
+      if (url) {
+        cacheRef.current.set(cacheKey, { url, boundaries: null });
+        if (requestGenRef.current === reqGen) {
+          setPreviewUrl(url);
+          setWordBoundaries(null);
+        }
+      }
+      return url;
+    } catch (err) {
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        return null;
+      }
+      const msg = err?.response?.data?.detail || err?.message || tr("Ошибка локального синтеза речи");
+      if (requestGenRef.current === reqGen) {
+        setGenerateError(msg);
+      }
+      console.error('[useVoicePicker] local study TTS failed:', msg);
+      return null;
+    } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
+      if (requestGenRef.current === reqGen) {
+        setIsGenerating(false);
+      }
+    }
+  }, [cancelInFlightRequest, code, selectedVoice, defaultVoice]);
+
   const setSelectedVoice = useCallback(async (voiceValue) => {
+    cancelInFlightRequest();
     setSelectedVoiceState(voiceValue);
     setPreviewUrl(null);
     setWordBoundaries(null);
@@ -173,30 +255,28 @@ export const useVoicePicker = (
     }
 
     if (autoGenerate && cardTextRef.current) {
-      // Give React a tick to commit the voice state before generating
       setTimeout(() => {
         generatePreview(cardTextRef.current, voiceValue);
       }, 0);
     }
-  }, [autoGenerate, code, generatePreview, onVoiceChange]);
+  }, [autoGenerate, cancelInFlightRequest, code, generatePreview, onVoiceChange]);
 
-  // Update the text ref whenever cardText changes (used by auto-generate)
   const setCardText = useCallback((text) => {
     if (cardTextRef.current !== text) {
-      requestGenRef.current += 1;
+      cancelInFlightRequest();
       setGenerateError(null);
     }
     cardTextRef.current = text;
-  }, []);
+  }, [cancelInFlightRequest]);
 
   const resetToDefault = useCallback(() => {
-    requestGenRef.current += 1;
+    cancelInFlightRequest();
     setSelectedVoiceState(sessionVoice || defaultVoice);
     setPreviewUrl(null);
     setWordBoundaries(null);
     setGenerateError(null);
     cardTextRef.current = '';
-  }, [defaultVoice, sessionVoice]);
+  }, [cancelInFlightRequest, defaultVoice, sessionVoice]);
 
   const generateAndSaveToCard = useCallback(async (
     cardId,
@@ -208,23 +288,31 @@ export const useVoicePicker = (
     const voice = voiceOverride || selectedVoice || defaultVoice;
     if (!text?.trim() || !voice || !cardId) return null;
 
+    cancelInFlightRequest();
     const reqGen = requestGenRef.current;
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setIsGenerating(true);
     setGenerateError(null);
 
     try {
       const settings = useSettingsStore.getState();
       const speed = isBack ? settings.ttsSpeedRu : settings.ttsSpeed;
-      const res = await api.post('/media/generate-card-audio', {
-        card_id: cardId,
-        side: isBack ? 'back' : 'front',
-        text: text.trim(),
-        lang: code,
-        voice,
-        rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
-        with_boundaries: true,
-        force: options.force === true,
-      });
+      const res = await api.post(
+        '/media/generate-card-audio',
+        {
+          card_id: cardId,
+          side: isBack ? 'back' : 'front',
+          text: text.trim(),
+          lang: code,
+          voice,
+          rate: `${Number(speed) >= 0 ? '+' : ''}${Number(speed) || 0}%`,
+          with_boundaries: true,
+          force: options.force === true,
+        },
+        { signal: controller.signal },
+      );
 
       const url = res.data?.url;
       const path = res.data?.path;
@@ -239,7 +327,6 @@ export const useVoicePicker = (
 
         if (res.data.revision) cardPatch.revision = res.data.revision;
 
-        // 1. Update session store: BOTH current card and all matching entries in studyHistory!
         if (sessionState.updateCardInSession) {
           sessionState.updateCardInSession(cardId, cardPatch);
         } else {
@@ -255,7 +342,6 @@ export const useVoicePicker = (
           }
         }
 
-        // 2. Update deck cards list in useDeckStore
         const updateCardLocal = useDeckStore.getState().updateCardLocal;
         if (updateCardLocal) {
           updateCardLocal(cardId, cardPatch);
@@ -278,6 +364,9 @@ export const useVoicePicker = (
       }
       return url || null;
     } catch (err) {
+      if (err?.name === 'AbortError' || controller.signal.aborted) {
+        return null;
+      }
       const isOfflineLocalVoice = String(voice).startsWith('android_system:') || String(voice).startsWith('piper:');
       const isOfflineAndroidLocal = !navigator.onLine && !isOfflineLocalVoice;
       const msg = isOfflineAndroidLocal ? tr("Для создания озвучки нужно подключение к сети")
@@ -288,21 +377,26 @@ export const useVoicePicker = (
       console.error('[useVoicePicker] generateAndSaveToCard failed:', msg);
       return null;
     } finally {
+      if (abortControllerRef.current === controller) {
+        abortControllerRef.current = null;
+      }
       if (requestGenRef.current === reqGen) {
         setIsGenerating(false);
       }
     }
-  }, [code, selectedVoice, defaultVoice]);
+  }, [cancelInFlightRequest, code, selectedVoice, defaultVoice]);
 
   return {
     voices,
     selectedVoice,
     setSelectedVoice,
     isDefaultVoice,
+    isOfflineLocalAvailable,
     previewUrl,
     setPreviewUrl,
     wordBoundaries,
     generatePreview,
+    generateOrGetLocalStudyAudio,
     generateAndSaveToCard,
     isGenerating,
     generateError,

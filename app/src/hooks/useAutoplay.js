@@ -11,6 +11,11 @@ import { isNativeStudyCard, studyContent, studySideText } from '../utils/structu
 import { getAudioUrl } from '../utils/media';
 import { buildAutoplaySequence, createAutoplayQueue, normalizeAutoplaySettings } from '../utils/autoplaySequence';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
+import {
+  canUseLocalOfflineTtsForLangAsync,
+  getStudySpeakableText,
+  isTargetLanguageCardSide,
+} from '../pilot/tts/ttsService.js';
 
 const getCardText = (card, side) => studySideText(studyContent(card), side);
 
@@ -27,7 +32,6 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
     setAutoplayCards(cards);
   }, []);
 
-  // Every cancellation settles the pending audio/timer wait as well as stopping sound.
   const cancelCurrent = useCallback(() => {
     runRef.current += 1;
     waitRef.current?.();
@@ -62,11 +66,16 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
   const ensureAudio = useCallback(async (card, side, settings) => {
     const context = sessionRef.current;
     const back = side === 'back';
-    const lang = back ? getInterfaceLanguage() : (card.target_language
-      || useDeckStore.getState().currentDeck?.target_language || useLanguageStore.getState().activeLanguage || 'de');
+    const cardTargetLang = card.target_language
+      || useDeckStore.getState().currentDeck?.target_language
+      || useLanguageStore.getState().activeLanguage
+      || 'de';
+    const content = studyContent(card);
+    const usesTargetLang = !back || isTargetLanguageCardSide(content, 'back');
+    const lang = usesTargetLang ? cardTargetLang : getInterfaceLanguage();
     const globalSettings = useSettingsStore.getState();
     const voice = getTtsVoiceForLang(lang, globalSettings.adminSettings, globalSettings.ttsVoices);
-    const speed = back ? settings.autoplayTranslationSpeed : settings.autoplayPhraseSpeed;
+    const speed = usesTargetLang ? settings.autoplayPhraseSpeed : settings.autoplayTranslationSpeed;
     const force = back ? settings.autoplayForceBackAudio : settings.autoplayForceFrontAudio;
     const key = JSON.stringify([card.id, side, lang, voice, speed, force]);
     if (context.audio.has(key)) return context.audio.get(key);
@@ -78,12 +87,47 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
     const wrongBack = back && ((latest.audio_back_url && latest.audio_back_url === latest.audio_url)
       || (latest.audio_back_path && latest.audio_back_path === latest.audio_path));
     if (existing && (IS_STANDALONE || !force) && !wrongBack) return existing;
-    if (IS_STANDALONE) throw new Error(tr('Озвучка карточки отсутствует на устройстве'));
+
+    if (IS_STANDALONE) {
+      if (!globalSettings.useLocalTtsWhenAudioMissing) {
+        if (back) return null;
+        throw new Error(tr('Озвучка карточки отсутствует на устройстве'));
+      }
+      const speakable = getStudySpeakableText(studyContent(latest), side, { isFlipped: true, answerRevealed: true });
+      if (!speakable.trim()) {
+        if (back) return null;
+        throw new Error(tr('Нет текста для озвучки'));
+      }
+      const canSpeakLang = await canUseLocalOfflineTtsForLangAsync(lang);
+      if (!canSpeakLang) {
+        if (back) {
+          // Silently display translation step without crashing Auto-mode when only target-language Piper model is installed
+          return null;
+        }
+        throw new Error(tr('Для выбранного языка не установлена локальная офлайн-модель TTS'));
+      }
+      setStatus(back ? tr('Генерируем перевод') : tr('Генерируем фразу'));
+      const localReq = api.post('/media/study-local-audio', {
+        text: speakable,
+        lang,
+        side: usesTargetLang ? 'front' : 'back',
+        rate: `${speed >= 0 ? '+' : ''}${speed}%`,
+      }).then(({ data }) => {
+        const resolved = getAudioUrl(data?.url || data?.path) || data?.url;
+        if (!resolved) throw new Error(tr('Не удалось получить аудио'));
+        return resolved;
+      }).catch((error) => {
+        context.audio.delete(key);
+        throw error;
+      });
+      context.audio.set(key, localReq);
+      return localReq;
+    }
+
     const text = getCardText(latest, side);
     if (!text.trim()) throw new Error(tr("Нет текста для озвучки"));
     setStatus(back ? tr("Генерируем перевод") : tr("Генерируем фразу"));
 
-    // The promise is cached before awaiting: pause/resume and deck loops reuse it.
     const request = api.post('/media/generate-card-audio', {
       card_id: card.id, side, text, lang, voice, force, rate: `${speed >= 0 ? '+' : ''}${speed}%`,
     }).then(({ data }) => {
@@ -147,18 +191,20 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
             cycle, total: settings.autoplayCycleRepeat,
             side: side === 'back' ? tr("Перевод") : tr("Фраза"),
           }));
-          if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
-            navigator.mediaSession.metadata = new MediaMetadata({
-              title: stripMarkdown(getCardText(target, side)),
-              artist: tr("Авто-режим"), album: useDeckStore.getState().currentDeck?.name || '',
-            });
-          }
-          if (!await waitForAudio(url, id)) {
-            if (isCurrentRun(id)) {
-              pause();
-              showToast?.(tr("Не удалось воспроизвести аудио. Нажмите «Продолжить», чтобы повторить."));
+          if (url) {
+            if ('mediaSession' in navigator && typeof MediaMetadata !== 'undefined') {
+              navigator.mediaSession.metadata = new MediaMetadata({
+                title: stripMarkdown(getCardText(target, side)),
+                artist: tr("Авто-режим"), album: useDeckStore.getState().currentDeck?.name || '',
+              });
             }
-            return;
+            if (!await waitForAudio(url, id)) {
+              if (isCurrentRun(id)) {
+                pause();
+                showToast?.(tr("Не удалось воспроизвести аудио. Нажмите «Продолжить», чтобы повторить."));
+              }
+              return;
+            }
           }
           const seconds = step === sequence.length - 1 ? settings.autoplayCardPause : settings.autoplayGap;
           setStatus(tr("Пауза {{seconds}} с", { seconds }));
@@ -173,7 +219,7 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
           if (!isCurrentRun(id)) return;
           const queue = createAutoplayQueue(cards, settings.autoplayOrder, target.id);
           setQueue(queue);
-          target = queue[0]; // Explicit loop also supports a deck containing one card.
+          target = queue[0];
           if (!target) stop();
         }
       }
@@ -202,7 +248,6 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
         const queue = createAutoplayQueue(cards, settings.autoplayOrder);
         setQueue(queue);
         sessionRef.current.order = settings.autoplayOrder;
-        // Random starts at the start of its shuffled queue, so no cards are skipped.
         target = settings.autoplayOrder === 'random' ? queue[0]
           : queue.find(c => String(c.id) === String(target?.id)) || queue[0];
       }

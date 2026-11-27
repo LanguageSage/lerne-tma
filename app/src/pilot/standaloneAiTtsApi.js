@@ -1,5 +1,9 @@
 import { generateBatchStandardCards, generateCardAction } from './ai/cardAiService.js';
-import { generateAndAttachCardAudio, synthesizeStandaloneAudio } from './tts/ttsService.js';
+import {
+  generateAndAttachCardAudio,
+  synthesizeOrGetCachedStudyAudio,
+  synthesizeStandaloneAudio,
+} from './tts/ttsService.js';
 
 export const STANDALONE_AI_TTS_ENDPOINTS = new Set([
   '/cards/ai-generate',
@@ -7,6 +11,7 @@ export const STANDALONE_AI_TTS_ENDPOINTS = new Set([
   '/ai/generate-batch',
   '/media/generate-audio',
   '/media/generate-card-audio',
+  '/media/study-local-audio',
 ]);
 
 export const standaloneAiTtsApi = {
@@ -63,6 +68,18 @@ export const standaloneAiTtsApi = {
         side: body?.side || 'front',
         text: body?.text || null,
         lang: body?.lang || null,
+        voice: body?.voice || '',
+        rate: body?.rate || null,
+        signal,
+      });
+      return { data, status: 200 };
+    }
+
+    if (path === '/media/study-local-audio') {
+      const data = await synthesizeOrGetCachedStudyAudio({
+        text: body?.text || '',
+        lang: body?.lang || 'de',
+        side: body?.side || 'front',
         voice: body?.voice || '',
         rate: body?.rate || null,
         signal,

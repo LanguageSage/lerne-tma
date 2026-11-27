@@ -10,7 +10,7 @@ export function prepareTtsText(rawText, maxChars = 900) {
     .replaceAll('</center>', '')
     .replaceAll('<large>', '')
     .replaceAll('</large>', '');
-  res = res.replace(/\p{C}/gu, '');
+  res = res.replace(/[\r\n\t]+/g, ' ').replace(/\p{C}/gu, '');
   res = res.replace(/https?:\/\/\S+/g, '').replace(/[‑–—]/g, '-').replace(/\s+/g, ' ').trim();
   if (res.length <= maxChars) return res;
   const sliced = res.slice(0, maxChars);

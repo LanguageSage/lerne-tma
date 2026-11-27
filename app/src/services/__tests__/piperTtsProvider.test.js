@@ -236,8 +236,13 @@ const {
   resolveValidStandaloneVoice,
 } = await import('../../pilot/tts/registry.js');
 const { STANDALONE_SETTINGS_KEYS, readStandaloneTtsProvider } = await import('../../pilot/standaloneSettings.js');
-const { clearPreviewAudioCache } = await import('../../pilot/tts/ttsService.js');
-const { prepareLocalDb, resetDbForTests } = await import('../../services/localDb.js');
+const {
+  canUseLocalOfflineTtsForLang,
+  clearPreviewAudioCache,
+  getStudySpeakableText,
+  isTargetLanguageCardSide,
+} = await import('../../pilot/tts/ttsService.js');
+const { prepareLocalDb, resetAllDatabases } = await import('../../services/localDb.js');
 
 describe('Android Piper Neural TTS Provider Integration', () => {
   beforeEach(async () => {
@@ -246,8 +251,8 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     synthDelayMs = 0;
     nativeEnabled = true;
     clearPreviewAudioCache();
+    await resetAllDatabases();
     await Dexie.delete('LerneStandaloneDB_900001').catch(() => {});
-    resetDbForTests?.();
   });
 
   test('lists Piper alongside Android System, Gemini, and Azure and prevents cross-language German fallback for Russian', async () => {
@@ -376,6 +381,173 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     assert.equal(
       resolveValidStandaloneVoice('piper', 'de', 'piper:de_DE-deleted-model', [], restoreRes.catalog.voices),
       'piper:de_DE-thorsten-high',
+    );
+  });
+
+  test('protects hidden answers across all 9 Native V2 card types and caches on-demand study audio without mutating read-only cards or calling paid APIs', async () => {
+    memStorage.set(STANDALONE_SETTINGS_KEYS.ttsProvider, 'piper');
+
+    // 1. Pedagogical speakable text across all 9 Native V2 card types
+    assert.equal(
+      getStudySpeakableText({ type: 'standard', data: { prompt: '**der Bahnhof**', answer: 'вокзал' } }, 'front'),
+      'der Bahnhof',
+    );
+    assert.equal(
+      getStudySpeakableText({ type: 'theory', data: { text: '# Perfekt\nHilfsverb `haben` oder `sein`.', summary: 'Кратко' } }, 'front'),
+      'Perfekt Hilfsverb haben oder sein.',
+    );
+    assert.equal(
+      getStudySpeakableText({
+        type: 'quiz',
+        data: { prompt: 'Welcher Artikel passt zu Haus?', options: [{ text: 'das', correct: true }, { text: 'der', correct: false }] },
+      }, 'front'),
+      'Welcher Artikel passt zu Haus?',
+    );
+    assert.equal(
+      getStudySpeakableText({ type: 'free_text', data: { prompt: 'Beschreiben Sie Ihren Tag.', sample_answer: 'Ich stehe früh auf.' } }, 'front'),
+      'Beschreiben Sie Ihren Tag.',
+    );
+    assert.equal(
+      getStudySpeakableText({ type: 'editable_text', data: { source_text: 'Ich gehen nach Hause.', correct_text: 'Ich gehe nach Hause.' } }, 'front'),
+      'Ich gehen nach Hause.',
+    );
+
+    const trainerCard = {
+      type: 'trainer',
+      data: {
+        parts: [
+          { type: 'text', text: 'Ich ' },
+          { type: 'input', answers: ['fahre'] },
+          { type: 'text', text: ' nach Berlin.' },
+        ],
+        back_note: 'Я еду в Берлин.',
+      },
+    };
+    const wordBankCard = {
+      type: 'word_bank',
+      data: {
+        parts: [{ type: 'text', text: 'Wir lernen ' }, { type: 'gap', option: 0 }],
+        options: ['Deutsch', 'Englisch'],
+      },
+    };
+    const puzzleCard = {
+      type: 'puzzle',
+      data: { tokens: ['Heute', 'scheint', 'die', 'Sonne'], translation: 'Сегодня светит солнце' },
+    };
+    const matchCard = {
+      type: 'match',
+      data: { pairs: [{ left: 'der Hund', right: 'собака' }] },
+    };
+
+    for (const hiddenExercise of [trainerCard, wordBankCard, puzzleCard, matchCard]) {
+      assert.equal(
+        getStudySpeakableText(hiddenExercise, 'front', { isFlipped: false, answerRevealed: false }),
+        '',
+        `Unrevealed ${hiddenExercise.type} must never dictate answers prematurely`,
+      );
+    }
+
+    assert.equal(
+      getStudySpeakableText(trainerCard, 'front', { isFlipped: false, answerRevealed: true }),
+      'Ich fahre nach Berlin.',
+    );
+    assert.equal(
+      getStudySpeakableText(wordBankCard, 'front', { isFlipped: true, answerRevealed: false }),
+      'Wir lernen Deutsch',
+    );
+    assert.equal(
+      getStudySpeakableText(puzzleCard, 'front', { isFlipped: false, answerRevealed: true }),
+      'Heute scheint die Sonne',
+    );
+    assert.equal(
+      getStudySpeakableText(matchCard, 'front', { isFlipped: true, answerRevealed: true }),
+      'der Hund - собака',
+    );
+
+    // 2. Read-only seed card is NOT mutated by on-demand study playback, and second playback hits cache (0 synthesis)
+    const db = await prepareLocalDb();
+    await db.cards.put({
+      id: 9901,
+      deck_id: 9101, // built-in read-only seed deck
+      position: 0,
+      target_language: 'de',
+      revision: 1,
+      content_v2: {
+        schema_version: 2,
+        card: { type: 'standard', data: { prompt: 'Guten Morgen, wie geht es dir?', answer: 'Доброе утро' }, info: [], explanation: '' },
+      },
+      is_deleted: 0,
+    });
+
+    pluginCalls.length = 0;
+    const firstPlay = await standaloneAiTtsApi.handle('/media/study-local-audio', {
+      text: 'Guten Morgen, wie geht es dir?',
+      lang: 'de',
+      side: 'front',
+      rate: '+0%',
+    });
+    assert.equal(firstPlay.data.cached, false);
+    assert.match(firstPlay.data.path, /^\/api\/media\/audio\/archive_[a-f0-9]{64}\.wav$/);
+    const synthCountAfterFirst = pluginCalls.filter((c) => c.method === 'synthesizeToWav').length;
+    assert.equal(synthCountAfterFirst, 1);
+
+    const untouchedSeedCard = await db.cards.get(9901);
+    assert.equal(untouchedSeedCard.audio_path, undefined);
+    assert.equal(untouchedSeedCard.revision, 1);
+    assert.equal(untouchedSeedCard.standalone_local_edit, undefined);
+
+    const secondPlay = await standaloneAiTtsApi.handle('/media/study-local-audio', {
+      text: 'Guten Morgen, wie geht es dir?',
+      lang: 'de',
+      side: 'front',
+      rate: '+0%',
+    });
+    assert.equal(secondPlay.data.cached, true);
+    assert.equal(secondPlay.data.path, firstPlay.data.path);
+    assert.equal(
+      pluginCalls.filter((c) => c.method === 'synthesizeToWav').length,
+      1,
+      'Cached study audio must reuse stored SHA-256 media with 0 re-synthesis calls',
+    );
+
+    // Editing text or changing voice invalidates lookup key and synthesizes fresh audio
+    const editedPlay = await standaloneAiTtsApi.handle('/media/study-local-audio', {
+      text: 'Guten Abend, bis morgen!',
+      lang: 'de',
+      side: 'front',
+      rate: '+0%',
+    });
+    assert.equal(editedPlay.data.cached, false);
+    assert.equal(pluginCalls.filter((c) => c.method === 'synthesizeToWav').length, 2);
+
+    // 3. Target-language back answers (free_text / editable_text) & read-only deck 403 guard
+    assert.equal(isTargetLanguageCardSide({ type: 'standard' }, 'back'), false);
+    assert.equal(isTargetLanguageCardSide({ type: 'free_text' }, 'back'), true);
+    assert.equal(isTargetLanguageCardSide({ type: 'editable_text' }, 'back'), true);
+
+    await db.decks.put({
+      id: 9101,
+      name: 'Built-in Seed Deck',
+      target_language: 'de',
+      is_builtin: true,
+      is_global_readonly: true,
+      is_deleted: 0,
+    });
+    await assert.rejects(
+      () => standaloneAiTtsApi.handle('/media/generate-card-audio', {
+        card_id: 9901,
+        side: 'front',
+        voice: 'piper:de_DE-thorsten-high',
+      }),
+      (err) => err?.response?.status === 403,
+    );
+
+    // 4. Paid/cloud providers (Gemini / Azure) are NEVER auto-triggered for missing study audio
+    memStorage.set(STANDALONE_SETTINGS_KEYS.ttsProvider, 'gemini');
+    assert.equal(canUseLocalOfflineTtsForLang('de'), false);
+    await assert.rejects(
+      () => standaloneAiTtsApi.handle('/media/study-local-audio', { text: 'Test', lang: 'de' }),
+      /локальных офлайн-провайдеров TTS/,
     );
   });
 });

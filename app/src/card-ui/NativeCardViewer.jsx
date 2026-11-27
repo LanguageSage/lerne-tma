@@ -311,7 +311,11 @@ export const NativeCardViewer = React.memo(({
   const backClean = stripMarkdown(rawBackText).trim();
   const hasDistinctBack = Boolean(backClean && backClean !== frontText.trim());
   const backAudio = getResolvedAudioUrl(studyMode !== 'reverse');
-  const showBackAnswerSection = hasDistinctBack || backAudio || videoBackUrl;
+  const hasTopBackAudio = Boolean(getResolvedAudioUrl(studyMode === 'reverse') || backFrontAudioPlayerProps?.voicePicker);
+  const hasBackGenerator = Boolean(
+    backAudioPlayerProps?.voicePicker && backAudioPlayerProps?.cardText && backAudioPlayerProps?.cardId
+  );
+  const showBackAnswerSection = hasDistinctBack || backAudio || videoBackUrl || hasBackGenerator;
 
   const backReference = exerciseType === 'quiz' && quizData ? (
     <div>
@@ -386,10 +390,11 @@ export const NativeCardViewer = React.memo(({
 
             {videoBackUrl && <CardVideo key={videoBackUrl} src={videoBackUrl} />}
 
-            {(hasDistinctBack || backAudio) && (
+            {(hasDistinctBack || backAudio || hasBackGenerator) && (
               <div className="back-answer-block">
-                {backAudio && renderAudioPlayer(studyMode === 'reverse' ? 'front' : 'back', {
+                {(backAudio || hasBackGenerator) && renderAudioPlayer(studyMode === 'reverse' ? 'front' : 'back', {
                   isBack: studyMode !== 'reverse',
+                  inline: inlineAudio || hasTopBackAudio,
                   ...backAudioPlayerProps,
                 })}
                 <StudyCardText side="back" id={containerId ? 'tut-study-answer' : undefined} style={backCardStyle}>

@@ -341,6 +341,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
     if (shouldStart) {
       lastAutoplayedCardRef.current = currentCardKey;
       let cancelled = false;
+      const abortCtrl = new AbortController();
       const timer = setTimeout(async () => {
         const latestCard = useSessionStore.getState().card;
         if (!latestCard || String(latestCard.id) !== String(cardId)) return;
@@ -380,7 +381,37 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
         };
         try {
           if (IS_STANDALONE) {
-            if (!url) return;
+            if (!url) {
+              const settings = useSettingsStore.getState();
+              if (settings.useLocalTtsWhenAudioMissing) {
+                const { canUseLocalOfflineTtsForLangAsync, getStudySpeakableText } = await import('../../pilot/tts/ttsService.js');
+                const currentCardData = useSessionStore.getState().card || latestCard;
+                const targetLanguage = currentCardData.target_language || currentDeck?.target_language || 'de';
+                const speakable = getStudySpeakableText(
+                  studyContent(currentCardData),
+                  'front',
+                  { isFlipped: false, answerRevealed: false },
+                );
+                if (speakable && await canUseLocalOfflineTtsForLangAsync(targetLanguage)) {
+                  if (cancelled) return;
+                  const deckSessionVoice = sessionVoice?.getSessionVoice?.(currentDeck?.id) || '';
+                  const localRes = await api.post(
+                    '/media/study-local-audio',
+                    {
+                      text: speakable,
+                      lang: targetLanguage,
+                      side: 'front',
+                      voice: deckSessionVoice,
+                      rate: `${Number(settings.ttsSpeed) >= 0 ? '+' : ''}${Number(settings.ttsSpeed) || 0}%`,
+                    },
+                    { signal: abortCtrl.signal },
+                  );
+                  if (cancelled) return;
+                  url = getAudioUrl(localRes.data?.url || localRes.data?.path) || localRes.data?.url || '';
+                }
+              }
+              if (!url) return;
+            }
           } else if (!url || alwaysRegenerateAudio) {
             url = await generateAudio();
             if (cancelled) return;
@@ -391,7 +422,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
             });
           }
         } catch (err) {
-          if (!cancelled) {
+          if (!cancelled && err?.name !== 'AbortError' && !abortCtrl.signal.aborted) {
             console.error('Automatic audio generation failed:', err);
             showToast(tr("Не удалось автоматически создать озвучку: {{p0}}", { p0: err.response?.data?.detail || err.message }));
           }
@@ -399,10 +430,11 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
       }, 300);
       return () => {
         cancelled = true;
+        abortCtrl.abort();
         clearTimeout(timer);
       };
     }
-  }, [cardId, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio, studyMode, activeRandomMode, alwaysRegenerateAudio, currentDeck?.target_language, showToast]);
+  }, [cardId, historyIndex, autoPlay, view, loading, isAutoplayActive, playAudio, studyMode, activeRandomMode, alwaysRegenerateAudio, currentDeck?.id, currentDeck?.target_language, sessionVoice, showToast]);
 
   useEffect(() => {
     if (studyMode === 'random') {

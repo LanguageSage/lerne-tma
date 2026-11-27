@@ -8,6 +8,7 @@ export const STANDALONE_SETTINGS_KEYS = {
   geminiTtsModel: 'lerne_standalone_gemini_tts_model',
   azureRegion: 'lerne_standalone_azure_region',
   androidTtsEngine: 'lerne_standalone_android_tts_engine',
+  useLocalTtsWhenAudioMissing: 'lerne_use_local_tts_when_missing',
 };
 
 export const DEFAULT_STANDALONE_AI_MODELS = {
@@ -79,4 +80,8 @@ export function readStandaloneTtsRate(side = 'front') {
   const num = Number(storage.get(key) ?? 0);
   const clamped = Number.isFinite(num) ? Math.max(-50, Math.min(100, Math.round(num))) : 0;
   return `${clamped >= 0 ? '+' : ''}${clamped}%`;
+}
+
+export function readUseLocalTtsWhenAudioMissing() {
+  return storage.get(STANDALONE_SETTINGS_KEYS.useLocalTtsWhenAudioMissing) !== 'false';
 }

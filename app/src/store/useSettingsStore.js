@@ -18,6 +18,7 @@ import {
   readStandaloneAzureRegion,
   readStandaloneGeminiTtsModel,
   readStandaloneTtsProvider,
+  readUseLocalTtsWhenAudioMissing,
 } from '../pilot/standaloneSettings.js';
 
 // ─── Design V2 localStorage cache (offline fallback) ──────────────────────────
@@ -80,6 +81,7 @@ export const STUDY_STORAGE_MAP = {
   ttsVoices: 'lerne_tts_voices',
   alwaysRegenerateAudio: 'lerne_always_regenerate_audio',
   autoGenerateCardAudio: 'lerne_auto_generate_card_audio',
+  useLocalTtsWhenAudioMissing: STANDALONE_SETTINGS_KEYS.useLocalTtsWhenAudioMissing,
   studyMode: 'lerne_study_mode',
   speechMatchThreshold: 'lerne_speech_match_threshold',
   speechFollowupEnabled: 'lerne_speech_followup_enabled',
@@ -195,6 +197,7 @@ const getInitialStudyState = () => ({
   ttsVoices: getStoredTtsVoices(),
   alwaysRegenerateAudio: storage.get('lerne_always_regenerate_audio') === 'true',
   autoGenerateCardAudio: storage.get('lerne_auto_generate_card_audio') !== 'false',
+  useLocalTtsWhenAudioMissing: readUseLocalTtsWhenAudioMissing(),
   studyMode: (storage.get('lerne_study_mode') && storage.get('lerne_study_mode') !== 'turbo') ? storage.get('lerne_study_mode') : 'classic',
   speechMatchThreshold: storage.get('lerne_speech_match_threshold') !== null ? Number(storage.get('lerne_speech_match_threshold')) : 75,
   speechFollowupEnabled: storage.get('lerne_speech_followup_enabled') === 'true',
@@ -311,6 +314,12 @@ export const useSettingsStore = create((set, get) => {
     setAutoGenerateCardAudio: (value) => {
       storage.set('lerne_auto_generate_card_audio', value);
       set({ autoGenerateCardAudio: Boolean(value) });
+      debouncedSaveSettings(get);
+    },
+    setUseLocalTtsWhenAudioMissing: (value) => {
+      const enabled = Boolean(value);
+      storage.set(STANDALONE_SETTINGS_KEYS.useLocalTtsWhenAudioMissing, enabled);
+      set({ useLocalTtsWhenAudioMissing: enabled });
       debouncedSaveSettings(get);
     },
     setVoiceBack: (value) => {

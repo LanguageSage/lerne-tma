@@ -39,6 +39,8 @@ export const CardAudioPlayer = React.memo(({
   cardText = '',
   cardId = null,
   isBack = false,
+  preferLocalStudyTts = false,
+  allowSaveToCard = true,
 
   disabled = false,
   className = '',
@@ -83,7 +85,19 @@ export const CardAudioPlayer = React.memo(({
       voiceOverride,
       { silent, force },
     );
-    if (url) playAudio?.(url);
+    if (url) {
+      playAudio?.(resolveAudioUrl(url) || url, undefined, handlePlaybackError);
+    }
+    return url;
+  };
+
+  const generateLocalStudyAndPlay = async () => {
+    if (!voicePicker?.generateOrGetLocalStudyAudio || !cardText) return null;
+    const url = await voicePicker.generateOrGetLocalStudyAudio(cardText, isBack);
+    if (url) {
+      const resolved = resolveAudioUrl(url) || url;
+      playAudio?.(resolved, undefined, handlePlaybackError);
+    }
     return url;
   };
 
@@ -98,7 +112,11 @@ export const CardAudioPlayer = React.memo(({
     if (disabled || isLoading) return;
     setPlaybackError(null);
     if (!effectiveUrl) {
-      void generateAndPlay(false);
+      if (preferLocalStudyTts && voicePicker?.generateOrGetLocalStudyAudio) {
+        void generateLocalStudyAndPlay();
+      } else {
+        void generateAndPlay(false);
+      }
     } else if (togglePlayPause) {
       togglePlayPause(effectiveUrl, undefined, handlePlaybackError);
     } else if (isPlaying) {
@@ -136,24 +154,29 @@ export const CardAudioPlayer = React.memo(({
     voicePicker.setPreviewUrl(null);
 
     if (!voiceVal) {
-      if (effectiveUrl) {
-        playAudio?.(effectiveUrl);
+      const originalUrl = resolveAudioUrl(audioUrl);
+      if (originalUrl) {
+        playAudio?.(originalUrl, undefined, handlePlaybackError);
       }
       return;
     }
 
     if (cardText) {
-      const url = await voicePicker.generatePreview(cardText, voiceVal);
-      if (url) playAudio?.(url);
+      const url = preferLocalStudyTts && voicePicker.generateOrGetLocalStudyAudio
+        ? await voicePicker.generateOrGetLocalStudyAudio(cardText, isBack, voiceVal)
+        : await voicePicker.generatePreview(cardText, voiceVal);
+      if (url) playAudio?.(resolveAudioUrl(url) || url);
     }
   };
 
   const handleGeneratePreview = async (e) => {
     e.stopPropagation();
     if (!voicePicker || !cardText) return;
-    const url = await voicePicker.generatePreview(cardText);
+    const url = preferLocalStudyTts && voicePicker.generateOrGetLocalStudyAudio
+      ? await voicePicker.generateOrGetLocalStudyAudio(cardText, isBack)
+      : await voicePicker.generatePreview(cardText);
     if (url) {
-      playAudio?.(url);
+      playAudio?.(resolveAudioUrl(url) || url);
     }
   };
 
@@ -177,6 +200,12 @@ export const CardAudioPlayer = React.memo(({
     ? voicePicker?.voices.find((v) => v.value === voicePicker?.selectedVoice)
     : { value: null, label: tr("Оригинал"), gender: 's' };
 
+  const playButtonLabel = !effectiveUrl
+    ? (preferLocalStudyTts ? tr("Озвучить локально") : tr("Сгенерировать и сохранить озвучку"))
+    : isPlaying
+      ? tr("Пауза")
+      : tr("Воспроизвести");
+
   const playerElement = (
     <div className={`${inline ? 'card-audio-inline-wrapper' : 'card-audio-floating-wrapper'} ${wrapperClassName}`} style={wrapperStyle}>
       <StudyControlsBlock
@@ -190,11 +219,10 @@ export const CardAudioPlayer = React.memo(({
         className={className}
         style={style}
       >
-      {voicePicker?.generateError && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{navigator.onLine ? voicePicker.generateError : tr('Для создания озвучки нужно подключение к сети')}</p>}
+      {voicePicker?.generateError && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{voicePicker.generateError}</p>}
       {playbackError === effectiveUrl && <p role="status" style={{ margin: '8px', overflowWrap: 'anywhere' }}>{tr((isLocalAssetUrl(effectiveUrl) || navigator.onLine)
         ? 'Не удалось воспроизвести аудио. Повторите попытку.' : 'Аудио недоступно без сети')}</p>}
       <div className={`card-audio-player-bar floating-expanded ${isThisActive ? 'active' : ''}`}>
-        {/* Top Header Row with Voice Picker & Collapse toggle */}
         <div className="audio-player-header-row">
           <div className="audio-player-header-left">
             {voicePicker && voicePicker.voices.length > 0 && (
@@ -255,7 +283,7 @@ export const CardAudioPlayer = React.memo(({
                   <span>{tr("Прослушать")}</span>
                 </button>
 
-                {cardId && (
+                {allowSaveToCard && cardId && (
                   <button
                     type="button"
                     className={`audio-player-btn-regenerate ${voicePicker.isGenerating ? 'loading' : ''}`}
@@ -284,16 +312,14 @@ export const CardAudioPlayer = React.memo(({
 
         </div>
 
-        {/* Row 1: Playback Controls */}
         <div className="audio-player-controls">
-          {/* Play / Pause */}
           <button
             type="button"
             className={`audio-player-btn-main ${isPlaying ? 'playing' : ''}`}
             onClick={handlePlayPauseClick}
             disabled={disabled || isLoading}
-            title={!effectiveUrl ? tr("Сгенерировать и сохранить озвучку") : isPlaying ? tr("Пауза") : tr("Воспроизвести")}
-            aria-label={!effectiveUrl ? tr("Сгенерировать и сохранить озвучку") : isPlaying ? tr("Пауза") : tr("Воспроизвести")}
+            title={playButtonLabel}
+            aria-label={playButtonLabel}
           >
             {isLoading ? (
               <RefreshCw size={20} className="spin" />
@@ -304,7 +330,6 @@ export const CardAudioPlayer = React.memo(({
             )}
           </button>
 
-          {/* Stop */}
           {isThisActive && (
             <button
               type="button"
@@ -316,7 +341,6 @@ export const CardAudioPlayer = React.memo(({
             </button>
           )}
 
-          {/* Scrubber & Timestamps */}
           <div className="audio-player-progress-wrapper">
             <input
               type="range"
@@ -338,7 +362,6 @@ export const CardAudioPlayer = React.memo(({
             </div>
           </div>
 
-          {/* Speed Selector */}
           <div className="audio-player-speed-picker">
             <button
               type="button"
@@ -375,4 +398,3 @@ export const CardAudioPlayer = React.memo(({
 
   return inline ? playerElement : createPortal(playerElement, document.body);
 });
-
