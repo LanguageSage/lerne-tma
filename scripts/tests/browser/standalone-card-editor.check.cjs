@@ -396,6 +396,7 @@ async function run() {
     await page.getByRole('button', { name: 'Добавить часть', exact: true }).click();
     await page.getByRole('button', { name: 'Пропуск с выбором', exact: true }).click();
     await page.getByRole('textbox', { name: 'Вариант ответа 2.1', exact: true }).fill('Deutsch');
+    await page.getByRole('button', { name: 'Добавить вариант · Пропуск 2', exact: true }).click();
     await page.getByRole('textbox', { name: 'Вариант ответа 2.2', exact: true }).fill('Musik');
     await page.locator('#card-editor-back').fill('Тренажёр E2E');
     await saveCurrentCardForm(page);
