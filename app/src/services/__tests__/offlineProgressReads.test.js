@@ -39,6 +39,8 @@ for (const prefix of ['LerneLocalDB', 'LerneStandaloneDB']) {
       progress: '[card_id+user_id], user_id',
       syncState: 'key',
       media: 'url',
+      card_knowledge_items: '[card_id+knowledge_item_id], card_id, knowledge_item_id, role',
+      knowledge_attempt_outbox: 'client_event_id, user_id, knowledge_item_id, sync_status, created_locally_at',
     });
     t.after(() => db.delete());
     await db.decks.bulkPut([{ id: 1 }, { id: 2 }, { id: 3, target_language: 'en' }, { id: 4 }]);

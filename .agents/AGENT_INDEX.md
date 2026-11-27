@@ -33,6 +33,7 @@
 | Изображение, image_path, media URL, CDN, blob cache, upload | Media: storage / rendering | [media](subsystems/media.md) |
 | Knowledge Item / KI, primary mapping, Attempt, evaluation_data | Knowledge: capture | [knowledge](subsystems/knowledge.md) |
 | knowledge_attempt_outbox, Knowledge Sync, mastery-v1, rebuild, diagnostics | Knowledge: persistence | [knowledge](subsystems/knowledge.md) |
+| Android Offline A1–A3, skill keys, Knowledge в ZIP и backup, локальный профиль | Knowledge: standalone | [knowledge](subsystems/knowledge.md#android-offline-a1) |
 | Админ-панель, bulk creator, regen worker, checkpoint, backup explorer | External admin (lerne-admin) | [ADMIN_ARCHITECTURE](ADMIN_ARCHITECTURE.md) |
 
 Если карточка разобрана правильно, но ответ проверяется неверно, переходите из Cards в Study.

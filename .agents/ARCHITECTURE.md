@@ -38,6 +38,9 @@ UI → hooks / Zustand → services/api.js
 Study grade → useStudySession.js → knowledgeCaptureService.js
   → knowledge_attempt_outbox → knowledgeSyncService.js
   → /knowledge/attempts/sync → raw Attempts → mastery projection
+
+Standalone grade → offlineApi.js → Dexie SRS + local Knowledge Attempt
+  → local /knowledge/profile → offline-mastery-v1
 ```
 
 Online и offline CRUD выбираются в API-клиенте; offline очередь отправляется отдельно.
@@ -60,7 +63,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 | AI generation и free-text evaluation | `app/src/hooks/useAiActions.js`, `app/src/hooks/useFreeTextEvaluation.js` | `api/routers/ai.py`, `api/ai_service.py` | [ai](subsystems/ai.md) |
 | Вход, привязки, пароли, refresh | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `api/routers/auth_v2.py`, `api/auth/service.py` | [auth](subsystems/auth.md) |
 | TTS, изображения, аудио, кэш | `app/src/hooks/useAudio.js`, `app/src/services/mediaCache.js` | `api/routers/media.py`, `api/services/media.py` | [media](subsystems/media.md) |
-| Knowledge Items, Attempts, mastery, diagnostics | `app/src/services/knowledgeCaptureService.js`, `app/src/hooks/useKnowledgeSync.js` | `api/routers/knowledge.py`, `api/services/knowledge_mastery.py` | [knowledge](subsystems/knowledge.md) |
+| Knowledge Items, Attempts, mastery, diagnostics | `app/src/services/localKnowledgeService.js` (standalone), `app/src/services/knowledgeCaptureService.js` (web) | `api/routers/knowledge.py`, `api/services/knowledge_mastery.py` | [knowledge](subsystems/knowledge.md) |
 
 ## Владельцы состояния и данных
 
@@ -73,7 +76,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 | Аккаунт / сессии входа | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `TMAUser`, семейство `TMAAuth*` |
 | Синхронизация сущностей | Dexie `syncState`, dirty-записи | `TMAOfflineBatch` |
 | Медиа | Dexie `media`, URL и состояние плеера | `TMAMedia`; аудио также использует Supabase Storage |
-| Knowledge | Dexie KI-таблицы и outbox | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
+| Knowledge | Dexie KI-таблицы и Attempts, локальное восстановление из копии прогресса | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
 | AI-промпты / конфигурация | Настройки и формы генерации | `TMASetting`, `TMAUserPrompt`, `TMACustomPrompt` |
 | Совместный доступ | `app/src/store/useCollaborativeStore.js` | `TMA_Collaborator` |
 | Библиотека | `app/src/store/slices/createLibrarySlice.js` | `LibraryCategory`, `TMA_Deck(scope=library)`, `TMA_Card` |

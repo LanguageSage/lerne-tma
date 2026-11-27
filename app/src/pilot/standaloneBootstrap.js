@@ -4,13 +4,14 @@ import { useDeckStore } from '../store/useDeckStore.js';
 import { useSettingsStore } from '../store/useSettingsStore.js';
 import { useUiStore } from '../store/useUiStore.js';
 import { useLanguageStore } from '../store/useLanguageStore.js';
-import { storage } from '../utils/auth.js';
+import { getUserId, storage } from '../utils/auth.js';
 import { isBundledSeedDeck } from '../utils/deckUtils.js';
 import { tr } from '../i18n/locale.js';
 import { prepareLocalDb } from '../services/localDb.js';
 import { IMPORTED_ID_START } from './materialArchiveIdentity.js';
 import { initOfflineMediaStore } from './offlineMediaStore.js';
 import { ensureStandaloneSeed } from './standaloneSeed.js';
+import { recoverLocalKnowledgeAttempts } from '../services/localKnowledgeService.js';
 
 export const STANDALONE_A2_OWNERSHIP_MIGRATION_KEY = 'standalone_a2_ownership_v1';
 
@@ -134,6 +135,9 @@ export function runStandaloneBootstrap() {
       const db = await prepareLocalDb();
       await ensureStandaloneA2Ownership(db);
       if (cancelled) return;
+      void recoverLocalKnowledgeAttempts(db, getUserId()).catch(error => {
+        console.error('[Knowledge] Could not recover local grade evidence', error);
+      });
 
       await initOfflineMediaStore(db);
       if (cancelled) return;

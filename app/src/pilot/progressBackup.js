@@ -7,21 +7,49 @@ import { buildOriginKey, getMaterialExportSource } from './materialArchiveIdenti
 import { getStandaloneCardLookup, getStandalonePack } from './standalonePack.js';
 import { buildFolderMap, isDeckActiveInCache } from '../services/cardOfflineQueue.js';
 import { sha256Hex } from './sha256.js';
+import { isPortableKnowledgeAttempt, standaloneTaskKey } from '../utils/knowledgeEvidence.js';
+import { pendingKnowledgeReceipts, portableLocalAttempt, readLocalKnowledgeAttempts,
+  recoverLocalKnowledgeAttempts, writeLocalKnowledgeAttempt } from '../services/localKnowledgeService.js';
 
 export const PROGRESS_BACKUP_FORMAT = 'lerne-offline-progress-backup';
 export const PROGRESS_BACKUP_SCHEMA_VERSION = 1;
 export const PROGRESS_BACKUP_INTEGRITY_SCOPE = 'full-v1';
 export const PROGRESS_BACKUP_INTEGRITY_SCOPE_V2 = 'full-v2';
+const KNOWLEDGE_INTEGRITY_SCOPE = 'full-v3';
 export const LAST_BACKUP_META_KEY = 'standalone_last_progress_backup';
 export const LAST_RESTORE_META_KEY = 'standalone_last_progress_restore';
 
 const ALLOWED_QUEUES = new Set(['new', 'learning', 'relearning', 'review']);
-const ALLOWED_INTEGRITY_SCOPES = new Set(['core-v1', 'full-v1', 'full-v2']);
+const ALLOWED_INTEGRITY_SCOPES = new Set(['core-v1', 'full-v1', 'full-v2', KNOWLEDGE_INTEGRITY_SCOPE]);
 const validMaterialKey = (key, kind) => key === undefined || (
   typeof key === 'string' && key.length < 120
   && /^archive:LOCAL:[a-f0-9]{64}:(card|deck):[1-9]\d*$/.test(key)
   && key.includes(`:${kind}:`)
 );
+
+function isBackupKnowledgeAttempt(value) {
+  if (!value || typeof value !== 'object' || Array.isArray(value)) return false;
+  const { material_key, ...event } = value;
+  return validMaterialKey(material_key, 'card') && isPortableKnowledgeAttempt(event);
+}
+
+function matchBackupCard(cards) {
+  const candidates = new Map();
+  for (const card of cards) {
+    const key = standaloneTaskKey(card);
+    candidates.set(key, candidates.has(key) ? null : card);
+  }
+  return (...keys) => {
+    let match;
+    for (const key of keys) {
+      if (!candidates.has(key)) continue;
+      const candidate = candidates.get(key);
+      if (!candidate || (match && match.id !== candidate.id)) return null;
+      match = candidate;
+    }
+    return match ?? null;
+  };
+}
 
 export function canonicalJson(value) {
   if (value === null || typeof value === 'boolean' || typeof value === 'string') {
@@ -57,6 +85,7 @@ export function computeBackupHash(payload) {
     base.imported_records = payload.imported_records || [];
     base.imported_deck_preferences = payload.imported_deck_preferences || [];
   }
+  if (payload.knowledge_attempts !== undefined) base.knowledge_attempts = payload.knowledge_attempts;
   return sha256Hex(canonicalJson(base));
 }
 
@@ -199,23 +228,29 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
   }
 
   const integrityScope = parsed.integrity.scope;
+  const hasKnowledge = integrityScope === KNOWLEDGE_INTEGRITY_SCOPE;
+  const hasFullIntegrity = ['full-v1', 'full-v2', KNOWLEDGE_INTEGRITY_SCOPE].includes(integrityScope);
+  const includesImported = integrityScope === 'full-v2' || hasKnowledge;
   const hasImportedSection = parsed.imported_records !== undefined || parsed.imported_deck_preferences !== undefined;
+  if (hasKnowledge ? !Array.isArray(parsed.knowledge_attempts) : parsed.knowledge_attempts !== undefined) {
+    return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
+  }
   if (
-    (integrityScope === 'full-v1' || integrityScope === 'full-v2')
+    hasFullIntegrity
     && (parsed.summary === undefined || parsed.exported_at === undefined)
   ) {
     return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
   }
-  if (integrityScope === 'full-v2' && (!Array.isArray(parsed.imported_records) || !Array.isArray(parsed.imported_deck_preferences))) {
+  if (includesImported && (!Array.isArray(parsed.imported_records) || !Array.isArray(parsed.imported_deck_preferences))) {
     return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
   }
-  if (integrityScope !== 'full-v2' && hasImportedSection) {
+  if (!includesImported && hasImportedSection) {
     return { ok: false, code: 'MALFORMED_STRUCTURE', error: tr('Структура файла резервной копии повреждена.') };
   }
 
   let hashMatches = false;
   try {
-    if (integrityScope === 'full-v1' || integrityScope === 'full-v2') {
+    if (hasFullIntegrity) {
       hashMatches = computeBackupHash(parsed) === parsed.integrity.payload_hash;
     } else {
       const legacyHash = computeLegacyCoreBackupHash(parsed);
@@ -234,6 +269,10 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
       code: 'INTEGRITY_MISMATCH',
       error: tr('Контрольная сумма файла не совпадает: файл повреждён или был изменён.'),
     };
+  }
+  if (hasKnowledge && (parsed.knowledge_attempts.some(event => !isBackupKnowledgeAttempt(event))
+    || new Set(parsed.knowledge_attempts.map(event => event.client_event_id)).size !== parsed.knowledge_attempts.length)) {
+    return { ok: false, code: 'INVALID_KNOWLEDGE_ATTEMPT', error: tr('Структура файла резервной копии повреждена.') };
   }
 
   if (!isNullableIsoDate(parsed.exported_at ?? null) || !parsed.exported_at) {
@@ -263,19 +302,20 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     };
   }
 
-  if (integrityScope === 'full-v1' || integrityScope === 'full-v2' || parsed.summary !== undefined) {
+  if (hasFullIntegrity || parsed.summary !== undefined) {
     const baseSummaryMatches = parsed.summary
       && typeof parsed.summary === 'object'
       && !Array.isArray(parsed.summary)
       && parsed.summary.total_records === parsed.records.length
       && parsed.summary.reviewed_records === parsed.records.filter(isReviewedRecord).length
       && parsed.summary.deck_count === parsed.deck_preferences.length;
-    const importedSummaryMatches = integrityScope !== 'full-v2' || (
+    const importedSummaryMatches = !includesImported || (
       parsed.summary.imported_records === parsed.imported_records.length
       && parsed.summary.imported_reviewed_records === parsed.imported_records.filter(isReviewedRecord).length
       && parsed.summary.imported_deck_count === parsed.imported_deck_preferences.length
     );
-    if (!baseSummaryMatches || !importedSummaryMatches) {
+    const knowledgeSummaryMatches = !hasKnowledge || parsed.summary?.knowledge_attempts === parsed.knowledge_attempts.length;
+    if (!baseSummaryMatches || !importedSummaryMatches || !knowledgeSummaryMatches) {
       return {
         ok: false,
         code: 'INVALID_METADATA',
@@ -328,7 +368,7 @@ export function validateBackupPayload(rawTextOrObject, pack = getStandalonePack(
     }
   }
 
-  if (integrityScope === 'full-v2') {
+  if (includesImported) {
     const seenImportedKeys = new Set();
     for (const record of parsed.imported_records) {
       if (!record || typeof record !== 'object' || Array.isArray(record)
@@ -399,11 +439,19 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   const { byId } = getStandaloneCardLookup(resolvedPack);
   const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
 
-  const [rawProgress, deckRows, { allDecks, allCards }] = await Promise.all([
-    database.progress.where('user_id').equals(resolvedUserId).toArray(),
-    database.decks.bulkGet(resolvedPack.decks.map(d => d.id)),
-    loadActiveDecksAndCards(database),
-  ]);
+  await recoverLocalKnowledgeAttempts(database, resolvedUserId);
+  const [rawProgress, deckRows, { allDecks, allCards }, knowledgeRows, pending] = await database.transaction(
+    'r', database.progress, database.folders, database.decks, database.cards, database.syncState,
+    database.knowledge_attempt_outbox, () => Promise.all([
+      database.progress.where('user_id').equals(resolvedUserId).toArray(),
+      database.decks.bulkGet(resolvedPack.decks.map(d => d.id)),
+      loadActiveDecksAndCards(database),
+      readLocalKnowledgeAttempts(database, resolvedUserId),
+      pendingKnowledgeReceipts(database),
+    ]),
+  );
+  if (pending.length) throw new Error('Knowledge evidence is pending recovery. Backup was not created.');
+  const hasKnowledge = knowledgeRows.length > 0;
 
   const records = rawProgress
     .filter(row => byId.has(row.card_id))
@@ -430,6 +478,12 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   const exportSource = (importedDecks.length > 0 || importedCards.length > 0)
     ? await getMaterialExportSource(database)
     : null;
+  const materialKeyForCard = cardId => exportSource && importedCardById.has(cardId)
+    ? buildOriginKey(exportSource, 'card', cardId) : undefined;
+  const knowledgeAttempts = knowledgeRows.map(row => {
+    const materialKey = materialKeyForCard(row.card_id);
+    return { ...portableLocalAttempt(row), ...(materialKey && { material_key: materialKey }) };
+  }).sort((a, b) => a.client_event_id.localeCompare(b.client_event_id));
 
   const importedRecords = rawProgress
     .filter(row => importedCardById.has(row.card_id))
@@ -438,7 +492,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
       const deck = importedDeckById.get(card.deck_id);
       return serializeProgressRecord(row, card.standalone_card_key, {
         deck_key: deck?.standalone_deck_key || '',
-        material_key: exportSource ? buildOriginKey(exportSource, 'card', card.id) : undefined,
+        material_key: materialKeyForCard(card.id),
       });
     })
     .sort((a, b) => a.card_key.localeCompare(b.card_key));
@@ -451,12 +505,13 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     is_learning: Boolean(deck.is_learning),
   }));
 
-  const hasImported = importedRecords.length > 0 || importedDeckPreferences.length > 0;
+  const hasImported = hasKnowledge || importedRecords.length > 0 || importedDeckPreferences.length > 0;
   const exportedAt = now.toISOString();
   const summary = {
     total_records: records.length,
     reviewed_records: records.filter(isReviewedRecord).length,
     deck_count: resolvedPack.decks.length,
+    ...(hasKnowledge && { knowledge_attempts: knowledgeAttempts.length }),
     ...(hasImported ? {
       imported_records: importedRecords.length,
       imported_reviewed_records: importedRecords.filter(isReviewedRecord).length,
@@ -478,6 +533,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     summary,
     records,
     deck_preferences: deckPreferences,
+    ...(hasKnowledge && { knowledge_attempts: knowledgeAttempts }),
     ...(hasImported ? {
       imported_records: importedRecords,
       imported_deck_preferences: importedDeckPreferences,
@@ -488,7 +544,8 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
     ...payload,
     integrity: {
       algorithm: 'sha256',
-      scope: hasImported ? PROGRESS_BACKUP_INTEGRITY_SCOPE_V2 : PROGRESS_BACKUP_INTEGRITY_SCOPE,
+      scope: hasKnowledge ? KNOWLEDGE_INTEGRITY_SCOPE
+        : (hasImported ? PROGRESS_BACKUP_INTEGRITY_SCOPE_V2 : PROGRESS_BACKUP_INTEGRITY_SCOPE),
       payload_hash: computeBackupHash(payload),
     },
   };
@@ -498,7 +555,7 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   }
 
   return {
-    json: JSON.stringify(backup, null, 2),
+    json: JSON.stringify(backup, null, hasKnowledge ? undefined : 2),
     fileName: formatBackupFileName(now),
     backup,
     summary,
@@ -522,14 +579,12 @@ export async function inspectProgressBackup(rawText, { db = null, userId = null,
 
   const importedCards = allCards.filter(c => !byId.has(c.id) && typeof c.standalone_card_key === 'string' && c.standalone_card_key);
   const importedCardById = new Map(importedCards.map(c => [c.id, c]));
-  const importedCardByKey = new Map(importedCards.map(c => [c.standalone_card_key, c]));
+  const resolveCard = matchBackupCard(importedCards);
 
   const currentRows = progressRows.filter(row => byId.has(row.card_id) || importedCardById.has(row.card_id));
   const parsed = validation.backup;
   const importedRecords = Array.isArray(parsed.imported_records) ? parsed.imported_records : [];
-  const matchedImported = importedRecords.filter(rec => (
-    importedCardByKey.has(rec.card_key) || importedCardByKey.has(rec.material_key)
-  ));
+  const matchedImported = importedRecords.filter(rec => resolveCard(rec.card_key, rec.material_key));
   const unmatchedImported = importedRecords.length - matchedImported.length;
 
   return {
@@ -575,8 +630,10 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
   let restoredImportedRecords = 0;
   let restoredImportedReviewed = 0;
   let unmatchedImportedRecords = 0;
+  let restoredKnowledgeAttempts = 0;
 
-  await database.transaction('rw', database.progress, database.folders, database.decks, database.cards, database.syncState, async () => {
+  await database.transaction('rw', database.progress, database.folders, database.decks, database.cards, database.syncState,
+    database.knowledge_attempt_outbox, async () => {
     const [existingProgressRows, { allDecks, allCards }] = await Promise.all([
       database.progress.where('user_id').equals(resolvedUserId).toArray(),
       loadActiveDecksAndCards(database),
@@ -587,20 +644,14 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
       if (!builtInDeckIds.has(deck.id) && deck.standalone_deck_key) importedDeckByKey.set(deck.standalone_deck_key, deck);
     }
 
-    const importedCardByKey = new Map();
-    for (const card of allCards) {
-      if (!bundledCardIds.has(card.id) && card.standalone_card_key) {
-        importedCardByKey.set(card.standalone_card_key, card);
-      }
-    }
-
+    const resolveCard = matchBackupCard(allCards);
     const importedDecksPrefs = Array.isArray(backup.imported_deck_preferences) ? backup.imported_deck_preferences : [];
     const importedRecords = Array.isArray(backup.imported_records) ? backup.imported_records : [];
 
     const matchedImportedPairs = [];
     const targetCardIdsToReplace = new Set(bundledCardIds);
     for (const rec of importedRecords) {
-      const localCard = importedCardByKey.get(rec.card_key) || importedCardByKey.get(rec.material_key);
+      const localCard = resolveCard(rec.card_key, rec.material_key);
       if (localCard) {
         if (targetCardIdsToReplace.has(localCard.id)) throw new Error('Несколько записей SRS указывают на одну карточку.');
         targetCardIdsToReplace.add(localCard.id);
@@ -653,7 +704,14 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
       await database.decks.bulkPut(updatedDecks);
     }
 
-    await database.syncState.where('key').startsWith('grade:').delete();
+    if (backup.knowledge_attempts?.length) {
+      const materialKeys = new Map(importedRecords.map(record => [record.card_key, record.material_key]));
+      for (const { material_key, ...event } of backup.knowledge_attempts) {
+        const card = resolveCard(event.task_key, material_key, materialKeys.get(event.task_key));
+        if (await writeLocalKnowledgeAttempt(database, resolvedUserId, card?.id, event)) restoredKnowledgeAttempts += 1;
+      }
+    }
+    await database.syncState.where('key').startsWith('grade:').filter(receipt => !receipt.knowledge_pending).delete();
     await database.syncState.where('key').startsWith('review:').delete();
     await database.syncState.put({
       key: LAST_RESTORE_META_KEY,
@@ -669,6 +727,7 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
     restoredBuiltInRecords: backup.records.length,
     restoredImportedRecords,
     unmatchedImportedRecords,
+    restoredKnowledgeAttempts,
     restoredAt: nowIso,
   };
 }

@@ -77,6 +77,7 @@ mock.module('@capacitor/core', {
     registerPlugin: name => name === 'OfflineMaterialArchive' ? {
       pickArchiveForImport: (...args) => nativeArchive.pickArchiveForImport(...args),
       commitImportMedia: (...args) => nativeArchive.commitImportMedia(...args),
+      rollbackImportMedia: (...args) => nativeArchive.rollbackImportMedia(...args),
       cancelImport: (...args) => nativeArchive.cancelImport(...args),
       listMediaAssets: (...args) => nativeArchive?.listMediaAssets?.(...args),
       getMediaRoot: (...args) => nativeArchive?.getMediaRoot?.(...args),
@@ -135,6 +136,7 @@ const { getStandalonePack } = await import('../../pilot/standalonePack.js');
 const {
   PROGRESS_BACKUP_INTEGRITY_SCOPE,
   PROGRESS_BACKUP_INTEGRITY_SCOPE_V2,
+  computeBackupHash,
   exportProgressBackup,
   inspectProgressBackup,
   applyProgressBackup,
@@ -839,6 +841,225 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.deepEqual(await db.progress.get([trackedCard.id, STANDALONE_USER_ID]), afterProgress);
   });
 
+  test('Knowledge import shares skill keys across decks and preserves history through revisions and ZIP round trips', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const [first, second] = document.content.deck;
+    const topic = { rule_code: 'fr.syntax', name: 'Syntaxe', kind: 'topic', language: 'fr', revision: 1 };
+    const prerequisite = { ...topic, rule_code: 'fr.syntax.forms', name: 'Formes', kind: 'skill', parent_key: topic.rule_code };
+    const skill = { ...prerequisite, rule_code: 'fr.syntax.order', name: 'Ordre', prerequisite_keys: [prerequisite.rule_code] };
+    const primary = { rule_code: skill.rule_code, role: 'primary', complexity: 2, ability: 'recognition' };
+    const setKnowledge = (deck, items, mappings) => {
+      const metadata = JSON.parse(deck.values.metadata || '{}');
+      deck.values.metadata = JSON.stringify({ ...metadata, knowledge: { version: 1, items, mappings } });
+    };
+    const primaryInFirst = { ...primary, card_id: 201 };
+    const secondaryInFirst = { ...primaryInFirst, rule_code: prerequisite.rule_code, role: 'secondary' };
+    const primaryInSecond = { ...primary, card_id: 209 };
+    setKnowledge(first, [topic, prerequisite, skill], [primaryInFirst, secondaryInFirst]);
+    setKnowledge(second, [topic, prerequisite, skill], [primaryInSecond]);
+    const importArchive = async () => {
+      const pending = await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets), 'knowledge.zip', { db, userId: STANDALONE_USER_ID });
+      if (!pending.ok) throw new Error(pending.error);
+      return confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID });
+    };
+    await importArchive();
+    await importArchive();
+    const [card] = await db.cards.filter(row => row.standalone_source_id === 201).toArray();
+    assert.equal(await db.knowledge_items.count(), 3);
+    assert.equal(await db.card_knowledge_items.where('knowledge_item_id').equals(skill.rule_code).count(), 2);
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 2);
+    await db.knowledge_attempt_outbox.add({ client_event_id: 'prior', knowledge_item_id: skill.rule_code, card_id: card.id });
+
+    const conflict = { ...skill, name: 'Contradiction' };
+    setKnowledge(first, [topic, prerequisite, conflict], []);
+    setKnowledge(second, [topic, prerequisite, conflict], []);
+    await assert.rejects(() => importArchive(), /conflicting definition/);
+    assert.equal(await db.card_knowledge_items.count(), 3);
+    const renamed = { ...skill, name: 'Ordre des mots', revision: 2 };
+    const cycle = { ...prerequisite, revision: 2, prerequisite_keys: [skill.rule_code] };
+    setKnowledge(first, [topic, cycle, renamed], []);
+    setKnowledge(second, [topic, cycle, renamed], []);
+    await assert.rejects(() => importArchive(), /cycle in prerequisites/);
+    setKnowledge(first, [topic, prerequisite, renamed], [primaryInFirst]);
+    setKnowledge(second, [topic, prerequisite, renamed], []);
+    first.values.name = 'Cours renommé';
+    first.values.folder_id = 10;
+    await importArchive();
+    assert.equal((await db.knowledge_items.get(skill.rule_code)).name, renamed.name);
+    assert.equal(await db.card_knowledge_items.count(), 1);
+    assert.equal((await db.knowledge_attempt_outbox.get('prior')).knowledge_item_id, skill.rule_code);
+    assert.ok(await db.card_knowledge_items.get([card.id, skill.rule_code]));
+    const legacyMetadata = JSON.parse(first.values.metadata);
+    delete legacyMetadata.knowledge;
+    first.values.metadata = JSON.stringify(legacyMetadata);
+    await importArchive();
+    assert.ok(await db.card_knowledge_items.get([card.id, skill.rule_code]));
+
+    const movedCard = await db.cards.get(card.id);
+    const destination = await db.decks.filter(deck => deck.standalone_source_id === 102).first();
+    await db.cards.update(card.id, { deck_id: destination.id, standalone_local_edit: true });
+    assert.notEqual(movedCard.deck_id, destination.id);
+    const archive = await buildMaterialArchiveExport({
+      db, selectAll: true,
+      readAssetBytes: (folder, filename) => mediaAssets.find(asset => asset.folder === folder && asset.filename === filename)?.bytes,
+    });
+    const restored = createStandaloneTestDb('LerneStandaloneDB_999811');
+    try {
+      const importedAssets = archive.document.assets.map(asset => ({ ...asset, bytes: archive.blobsBySha.get(asset.sha256) }));
+      const bytes = await buildArchiveZipFromDoc(archive.document, importedAssets);
+      const inspected = await inspectArchiveWebBytes(bytes, 'export.zip', { db: restored, userId: STANDALONE_USER_ID });
+      await confirmArchiveImport(inspected, { db: restored, userId: STANDALONE_USER_ID });
+      const [link] = await restored.card_knowledge_items.toArray();
+      const restoredCard = await restored.cards.get(link.card_id);
+      assert.equal(link.knowledge_item_id, skill.rule_code);
+      assert.equal((await restored.decks.get(restoredCard.deck_id)).name, destination.name);
+      assert.deepEqual((await restored.knowledge_items.get(skill.rule_code)).prerequisite_keys, [prerequisite.rule_code]);
+      assert.equal(await restored.knowledge_attempt_outbox.count(), 0);
+    } finally {
+      await restored.delete();
+    }
+  });
+
+  test('D02 cross-language move drops current bindings, preserves history and exports a valid ZIP', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const first = document.content.deck[0];
+    const rule_code = 'fr.syntax.order';
+    first.values.metadata = JSON.stringify({ ...JSON.parse(first.values.metadata), knowledge: {
+      version: 1,
+      items: [{ rule_code, name: 'Ordre', kind: 'skill', language: 'fr', revision: 1 }],
+      mappings: [{ card_id: 201, rule_code, role: 'primary' }],
+    } });
+    await confirmArchiveImport(await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+      'knowledge.zip', { db, userId: STANDALONE_USER_ID }), { db, userId: STANDALONE_USER_ID });
+    const card = await db.cards.filter(row => row.standalone_source_id === 201).first();
+    const destination = await db.decks.filter(row => row.standalone_source_id === 102).first();
+    await db.decks.update(destination.id, { target_language: 'en' });
+    await db.knowledge_attempt_outbox.add({ client_event_id: 'before-move', card_id: card.id, knowledge_item_id: rule_code });
+    await offlineApi.handle('post', '/cards/batch-move', {
+      card_ids: [card.id], target_deck_id: destination.id, revisions: { [card.id]: card.revision }, request_id: 'cross-language',
+    }, { _testDb: db });
+    const archive = await buildMaterialArchiveExport({
+      db, selectAll: true,
+      readAssetBytes: (folder, filename) => mediaAssets.find(asset => asset.folder === folder && asset.filename === filename)?.bytes,
+    });
+    assert.ok(validateMaterialArchiveDocument(archive.document).document);
+    assert.equal((await db.cards.get(card.id)).target_language, 'en');
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
+    assert.equal((await db.knowledge_attempt_outbox.get('before-move')).knowledge_item_id, rule_code);
+  });
+
+  test('D03 material import updates or removes mappings after audio edits without relabelling changed tasks', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const first = document.content.deck[0];
+    const originalMetadata = JSON.parse(first.values.metadata);
+    const oldSkill = { rule_code: 'fr.test.original', name: 'Original', kind: 'skill', language: 'fr', revision: 1 };
+    const newSkill = { ...oldSkill, rule_code: 'fr.test.updated', name: 'Updated' };
+    const metadata = (item, mappings) => {
+      first.values.metadata = JSON.stringify({ ...originalMetadata,
+        ...(mappings && { knowledge: { version: 1, items: [item], mappings } }) });
+    };
+    const apply = async () => {
+      const pending = await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+        'knowledge.zip', { db, userId: STANDALONE_USER_ID });
+      assert.equal(pending.ok, true, pending.error);
+      return confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID });
+    };
+    const mapping = skill => [{ card_id: 201, rule_code: skill.rule_code, role: 'primary' }];
+    metadata(oldSkill, mapping(oldSkill));
+    await apply();
+    const card = await db.cards.filter(row => row.standalone_source_id === 201).first();
+    const audio = 'audio/archive_' + 'a'.repeat(64) + '.mp3';
+    const edit = async (content, revision) => offlineApi.handle('patch', `/cards/${card.id}`, {
+      revision, request_id: `edit-${revision}`, content_v2: content, audio_path: audio,
+    }, { _testDb: db });
+    await edit(card.content_v2, card.revision);
+    metadata(newSkill, null);
+    await apply();
+    assert.ok(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]));
+    first.values.metadata = JSON.stringify({ ...originalMetadata, knowledge: { version: 1, items: [newSkill] } });
+    await apply();
+    assert.ok(await db.knowledge_items.get(newSkill.rule_code));
+    assert.ok(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]));
+    metadata(newSkill, mapping(newSkill));
+    await apply();
+    assert.ok(await db.card_knowledge_items.get([card.id, newSkill.rule_code]));
+    assert.equal(await db.card_knowledge_items.get([card.id, oldSkill.rule_code]), undefined);
+    assert.ok((await db.cards.get(card.id)).audio_path.endsWith(audio));
+
+    metadata(newSkill, []);
+    await apply();
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
+    metadata(newSkill, mapping(newSkill));
+    await apply();
+    const current = await db.cards.get(card.id);
+    const changed = structuredClone(current.content_v2);
+    changed.card.data.prompt = 'Un exercice différent';
+    await edit(changed, current.revision);
+    await apply();
+    assert.equal((await db.cards.get(card.id)).content_v2.card.data.prompt, changed.card.data.prompt);
+    assert.equal(await db.card_knowledge_items.where('card_id').equals(card.id).count(), 0);
+  });
+
+  test('D06 native import rejects catalog conflicts and failed Dexie writes before committing media', async () => {
+    const fixture = buildRichCourseFixture();
+    const deck = fixture.document.content.deck[0];
+    const skill = { rule_code: 'fr.test.conflict', name: 'Original', kind: 'skill', language: 'fr', revision: 1 };
+    await db.knowledge_items.put({ id: skill.rule_code, ...skill, parent_key: null, prerequisite_keys: [], cefr_level: null });
+    deck.values.metadata = JSON.stringify({ ...JSON.parse(deck.values.metadata), knowledge: {
+      version: 1, items: [{ ...skill, name: 'Conflict' }], mappings: [],
+    } });
+    const entries = fixture.mediaAssets.map(({ folder, filename, sha256, size, mime, path }) => ({
+      sha256, size, mime, path, ext: filename.slice(filename.lastIndexOf('.')),
+      detectedKind: folder === 'audio' ? 'audio' : 'image',
+    }));
+    let writes = 0;
+    nativeArchive = {
+      pickArchiveForImport: async () => {
+        const manifestJson = JSON.stringify(fixture.document);
+        return { stagingId: 'from-java', manifestJson, manifestSha256: sha256Hex(manifestJson), zipEntries: entries };
+      },
+      commitImportMedia: async () => { writes += 1; },
+      cancelImport: async () => {},
+    };
+    try {
+      const pending = await pickArchiveForImportNative({ db });
+      assert.equal(pending.ok, true, pending.error);
+      await assert.rejects(() => confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID }), /conflicting definition/);
+      assert.equal(writes, 0);
+      await db.knowledge_items.delete(skill.rule_code);
+      const fail = () => { throw new Error('Injected card write failure'); };
+      db.cards.hook('creating', fail);
+      try {
+        await assert.rejects(() => confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID }), /Injected card write failure/);
+        assert.equal(writes, 0);
+        assert.equal(await db.cards.count(), 0);
+      } finally {
+        db.cards.hook('creating').unsubscribe(fail);
+      }
+
+      const paths = fixture.mediaAssets.map(asset => `${asset.folder}/${asset.filename}`);
+      const disk = new Set([paths[0]]);
+      const created = new Set(paths.slice(1));
+      await db.cards.add({ id: 99, deck_id: 100, image_path: `/api/media/${paths[1]}` });
+      nativeArchive.commitImportMedia = async () => {
+        for (const path of created) disk.add(path);
+        Dexie.currentTransaction.abort();
+      };
+      nativeArchive.rollbackImportMedia = async ({ stagingId, protectedPaths }) => {
+        assert.equal(stagingId, 'from-java');
+        assert.deepEqual(protectedPaths, [paths[1]]);
+        for (const path of created) if (!protectedPaths.includes(path)) disk.delete(path);
+      };
+      await assert.rejects(() => confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID }),
+        { name: /^(AbortError|InvalidStateError)$/ });
+      assert.deepEqual(disk, new Set(paths.slice(0, 2)));
+      assert.deepEqual(await db.cards.toCollection().primaryKeys(), [99]);
+      assert.equal(await db.knowledge_items.count(), 0);
+    } finally {
+      nativeArchive = null;
+    }
+  });
+
   test('5. Corrupt/tampered archives, validation violations & commit failures leave zero partial writes', async () => {
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack: getStandalonePack() });
     const beforeDeckCount = await db.decks.count();
@@ -1010,6 +1231,53 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       folderIds: [tree.rootFolders[0].id],
       readAssetBytes: (folder, filename) => readWebMediaAssetBytes(db, folder, filename),
     }), /Отсутствует/i);
+  });
+
+  test('D04 Knowledge and SRS share material aliases and refuse ambiguous restore matches', async () => {
+    const { document, mediaAssets } = buildRichCourseFixture();
+    const userId = STANDALONE_USER_ID;
+    const pack = getStandalonePack();
+    const rule_code = 'fr.test.restore';
+    const first = document.content.deck[0];
+    first.values.metadata = JSON.stringify({ ...JSON.parse(first.values.metadata), knowledge: {
+      version: 1, items: [{ rule_code, name: 'Restore', kind: 'skill', language: 'fr', revision: 1 }],
+      mappings: [{ card_id: 201, rule_code, role: 'primary' }],
+    } });
+    await confirmArchiveImport(await inspectArchiveWebBytes(await buildArchiveZipFromDoc(document, mediaAssets),
+      'source.zip', { db, userId }), { db, userId });
+    const card = await db.cards.filter(row => row.standalone_source_id === 201).first();
+    await offlineApi.handle('post', '/study/grade', { card_id: card.id, action_id: 'restorable', grade: 2, return_next: false }, { _testDb: db });
+    await db.decks.update(card.deck_id, { standalone_local_edit: true });
+    const archive = await buildMaterialArchiveExport({ db, deckIds: [card.deck_id],
+      readAssetBytes: (folder, filename) => mediaAssets.find(asset => asset.folder === folder && asset.filename === filename)?.bytes,
+    });
+    assert.notEqual(archive.document.source, document.source);
+    const { backup } = await exportProgressBackup({ db, userId, pack });
+    assert.equal(backup.integrity.scope, 'full-v3');
+    const legacy = structuredClone(backup);
+    delete legacy.knowledge_attempts[0].material_key;
+    legacy.integrity.payload_hash = computeBackupHash(legacy);
+    const fresh = createStandaloneTestDb('LerneStandaloneDB_KnowledgeAliases');
+    try {
+      await applyProgressBackup(backup, { db: fresh, userId, pack });
+      assert.equal((await fresh.knowledge_attempt_outbox.get('restorable')).card_id, null);
+      const assets = archive.assets.map(asset => ({ ...asset, bytes: archive.blobsBySha.get(asset.sha256) }));
+      const inspected = await inspectArchiveWebBytes(await buildArchiveZipFromDoc(archive.document, assets),
+        'new-source.zip', { db: fresh, userId });
+      await confirmArchiveImport(inspected, { db: fresh, userId });
+      const target = await fresh.cards.filter(row => row.standalone_source_id === card.id).first();
+      assert.notEqual(target.standalone_card_key, card.standalone_card_key);
+      await fresh.cards.add({ ...target, id: target.id + 100, standalone_card_key: card.standalone_card_key });
+      assert.equal((await applyProgressBackup(backup, { db: fresh, userId, pack })).unmatchedImportedRecords, 1);
+      assert.equal((await fresh.knowledge_attempt_outbox.get('restorable')).card_id, null);
+      assert.equal(await fresh.progress.count(), 0);
+      await fresh.cards.delete(target.id + 100);
+      await applyProgressBackup(legacy, { db: fresh, userId, pack });
+      assert.equal((await fresh.knowledge_attempt_outbox.get('restorable')).card_id, target.id);
+      assert.ok(await fresh.progress.get([target.id, userId]));
+    } finally {
+      await fresh.delete();
+    }
   });
 
   test('7. Progress backup emits full-v1 without imported progress and full-v2 across different local IDs', async () => {

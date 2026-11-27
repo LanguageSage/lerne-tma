@@ -6,6 +6,7 @@ import { isBundledSeedDeck, isBundledSeedCard } from '../utils/deckUtils.js';
 import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
 import { cardDuplicateKey } from '../utils/search.js';
+import { isKnowledgeKeyForLanguage, knowledgeTaskSignature } from '../utils/knowledgeEvidence.js';
 import { assertArchiveSafeMetadata } from '../pilot/materialMetadataPolicy.js';
 import {
   buildOriginKey,
@@ -502,7 +503,8 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
     });
     const nowIso = new Date().toISOString();
 
-    return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+    return db.transaction('rw', [db.cards, db.decks, db.folders, db.syncState,
+      ...(copy ? [] : [db.card_knowledge_items])], async () => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -631,17 +633,22 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
           resultCards.push(copiedCard);
           count += 1;
         } else {
+          const language = target.target_language || 'de';
           const movedCard = stripOfflineQueueFields({
             ...card,
             deck_id: targetId,
             position: ++position,
-            target_language: target.target_language || card.target_language || 'de',
+            target_language: language,
             revision: (Number(card.revision) || 0) + 1,
             standalone_local_edit: true,
             standalone_local_edited_at: nowIso,
             is_dirty: 0,
             updated_at: nowIso,
           });
+          if ((card.target_language || 'de') !== language) {
+            await db.card_knowledge_items.where('card_id').equals(card.id)
+              .filter(link => !isKnowledgeKeyForLanguage(link.knowledge_item_id, language)).delete();
+          }
           await db.cards.put(movedCard);
           if (!targetByDupKey.has(dupKey)) targetByDupKey.set(dupKey, movedCard);
           resultCards.push(movedCard);
@@ -961,7 +968,8 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
     const nowIso = new Date().toISOString();
     const resolvedUserId = userId ?? getUserId();
 
-    const updatedCard = await db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState, async () => {
+    const updatedCard = await db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState,
+      db.card_knowledge_items, async () => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -1003,6 +1011,9 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
       }
 
       await db.cards.put(updated);
+      if (knowledgeTaskSignature(current.content_v2.card, true) !== knowledgeTaskSignature(normalizedContent.card, true)) {
+        await db.card_knowledge_items.where('card_id').equals(cardId).delete();
+      }
 
       if (flag !== undefined && resolvedUserId != null) {
         const normalizedFlag = Number(flag) || 0;

@@ -12,6 +12,7 @@ import { evaluateTrainerGaps } from '../../utils/trainerEvaluation.js';
 import { useExerciseEvaluation } from '../../hooks/useExerciseEvaluation.js';
 import { trainerTaskSupport } from '../../utils/supportEvidence.js';
 import { trainerWords } from '../../utils/structuredStudyCard.js';
+import { IS_STANDALONE } from '../../utils/standaloneMode.js';
 import { assessmentTrainerEvidence } from '../../utils/assessment.js';
 import { AnswerVictoryAnimation } from './AnswerVictoryAnimation.jsx';
 import './StudyCardTrainer.css';
@@ -251,7 +252,10 @@ export const StudyCardTrainer = React.memo(({
     if (submission.evidence) {
       playSuccessSound();
       triggerHaptic('success');
-      if (!assessmentMode) onTrainerAnswer?.(card.id, submission.evidence);
+      if (!assessmentMode) onTrainerAnswer?.(card.id, IS_STANDALONE ? {
+        ...submission.evidence,
+        trainerAnswerMode: clozeData.answerMode,
+      } : submission.evidence);
     } else {
       playErrorSound();
       triggerHaptic('error');
