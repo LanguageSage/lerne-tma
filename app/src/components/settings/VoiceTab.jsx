@@ -62,10 +62,12 @@ export const VoiceTab = () => {
   const [androidCatalog, setAndroidCatalog] = useState({ engines: [], voices: [], activeEngine: '' });
   const [piperCatalog, setPiperCatalog] = useState({
     available: false,
+    runnerAvailable: true,
     loadedModelId: '',
     canRestoreBundled: false,
     voices: [],
   });
+  const [piperCatalogLoading, setPiperCatalogLoading] = useState(false);
   const [piperActionBusy, setPiperActionBusy] = useState('');
   const [piperImportCancelling, setPiperImportCancelling] = useState(false);
   const [previewLoading, setPreviewLoading] = useState(false);
@@ -96,6 +98,7 @@ export const VoiceTab = () => {
       return;
     }
     let canceled = false;
+    setPiperCatalogLoading(true);
     piperTtsProvider.listVoices()
       .then((res) => {
         if (canceled) return;
@@ -114,6 +117,9 @@ export const VoiceTab = () => {
         if (!canceled) {
           showToast(err?.message || tr('Не удалось загрузить каталог моделей Piper'), 'error');
         }
+      })
+      .finally(() => {
+        if (!canceled) setPiperCatalogLoading(false);
       });
     return () => { canceled = true; };
   }, [standaloneTtsProvider]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -327,10 +333,14 @@ export const VoiceTab = () => {
 
           {standaloneTtsProvider === 'piper' && (
             <div style={{ marginTop: '8px', marginBottom: '12px' }}>
-              <p style={{ marginBottom: '10px', fontSize: '0.78rem', color: piperCatalog.available ? '#34d399' : '#fbbf24' }}>
-                {piperCatalog.available
-                  ? `${tr('Локальный нейросетевой движок Piper готов (офлайн, установлено моделей:')} ${piperCatalog.voices.length}).`
-                  : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
+              <p style={{ marginBottom: '10px', fontSize: '0.78rem', color: piperCatalogLoading ? '#94a3b8' : (piperCatalog.available ? '#34d399' : '#fbbf24') }}>
+                {piperCatalogLoading
+                  ? tr('Проверка установленных голосовых моделей Piper…')
+                  : piperCatalog.available
+                    ? `${tr('Локальный нейросетевой движок Piper готов (офлайн, установлено моделей:')} ${piperCatalog.voices.length}).`
+                    : (piperCatalog.voices.length > 0 && piperCatalog.runnerAvailable === false)
+                      ? tr('Голосовые модели Piper найдены, но исполняемый файл Piper CLI недоступен.')
+                      : tr('Локальные голосовые модели Piper не найдены на устройстве.')}
               </p>
 
               {piperCatalog.voices.length > 0 && (
@@ -382,7 +392,7 @@ export const VoiceTab = () => {
                               {tr('Офлайн')}
                             </span>
                             <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(148, 163, 184, 0.14)', color: '#cbd5e1' }}>
-                              {v.bundled ? tr('встроен') : tr('импортирован')}
+                              {v.bundled ? tr('встроен') : (piperTtsProvider.canManageModels() ? tr('импортирован') : tr('локальный'))}
                             </span>
                             {v.commercialSafe === false && (
                               <span style={{ fontSize: '0.68rem', padding: '2px 7px', borderRadius: '999px', background: 'rgba(245, 158, 11, 0.18)', color: '#fbbf24', border: '1px solid rgba(245, 158, 11, 0.35)' }}>
@@ -410,7 +420,7 @@ export const VoiceTab = () => {
                           <button
                             type="button"
                             className="btn btn-secondary btn-small"
-                            disabled={previewLoading || Boolean(piperActionBusy)}
+                            disabled={!piperCatalog.available || previewLoading || Boolean(piperActionBusy)}
                             onClick={() => handleStandalonePreview(`piper:${v.id}`, v.lang)}
                             style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.74rem', padding: '6px 12px', minHeight: '34px' }}
                           >

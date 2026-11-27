@@ -93,10 +93,9 @@ export const useAutoplay = ({ playAudio, stopAudio, showToast, startBackgroundLo
         if (back) return null;
         throw new Error(tr('Озвучка карточки отсутствует на устройстве'));
       }
-      const speakable = getStudySpeakableText(studyContent(latest), side, { isFlipped: true, answerRevealed: true });
+      const speakable = getStudySpeakableText(studyContent(latest), side, { isFlipped: true, answerRevealed: true, lang });
       if (!speakable.trim()) {
-        if (back) return null;
-        throw new Error(tr('Нет текста для озвучки'));
+        return null;
       }
       const canSpeakLang = await canUseLocalOfflineTtsForLangAsync(lang);
       if (!canSpeakLang) {

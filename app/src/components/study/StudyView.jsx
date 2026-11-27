@@ -390,7 +390,7 @@ const ClassicStudyView = ({ requiredActions, renderRequiredAction } = {}) => {
                 const speakable = getStudySpeakableText(
                   studyContent(currentCardData),
                   'front',
-                  { isFlipped: false, answerRevealed: false },
+                  { isFlipped: false, answerRevealed: false, lang: targetLanguage },
                 );
                 if (speakable && await canUseLocalOfflineTtsForLangAsync(targetLanguage)) {
                   if (cancelled) return;

@@ -463,6 +463,29 @@ describe('Android Piper Neural TTS Provider Integration', () => {
       getStudySpeakableText(matchCard, 'front', { isFlipped: true, answerRevealed: true }),
       'der Hund - собака',
     );
+    assert.equal(
+      getStudySpeakableText(matchCard, 'front', { isFlipped: true, answerRevealed: true, lang: 'de' }),
+      'der Hund',
+    );
+    const mixedCyrillicTheoryCard = {
+      type: 'theory',
+      data: {
+        text: 'В предложении с модальным глаголом (können, müssen) спрягаемый глагол стоит на 2-м месте. Пример: Ich muss heute einen Brief schreiben.',
+        summary: 'Модальные глаголы',
+      },
+    };
+    assert.equal(
+      getStudySpeakableText(mixedCyrillicTheoryCard, 'front', { lang: 'de' }),
+      'können, müssen. Ich muss heute einen Brief schreiben.',
+    );
+    assert.equal(
+      getStudySpeakableText(
+        { type: 'standard', data: { prompt: 'Только русский текст без немецких слов', answer: 'ответ' } },
+        'front',
+        { lang: 'de' },
+      ),
+      '',
+    );
 
     // 2. Read-only seed card is NOT mutated by on-demand study playback, and second playback hits cache (0 synthesis)
     const db = await prepareLocalDb();
@@ -549,5 +572,204 @@ describe('Android Piper Neural TTS Provider Integration', () => {
       () => standaloneAiTtsApi.handle('/media/study-local-audio', { text: 'Test', lang: 'de' }),
       /локальных офлайн-провайдеров TTS/,
     );
+  });
+
+  test('supports Windows Standalone loopback mode via /__standalone_local_piper without native plugins', async () => {
+    nativeEnabled = false;
+    const prevLocation = globalThis.window.location;
+    globalThis.window.location = {
+      search: '',
+      hostname: '127.0.0.1',
+      port: '5175',
+      protocol: 'http:',
+      origin: 'http://127.0.0.1:5175',
+    };
+    try {
+      assert.equal(readStandaloneTtsProvider(), 'piper');
+      assert.equal(piperTtsProvider.isSupported(), true);
+      assert.equal(piperTtsProvider.canManageModels(), false);
+
+      const { wrapPcm16ToWavBytes } = await import('../../pilot/tts/wavUtil.js');
+      const pcm = new Uint8Array(256);
+      pcm.fill(12);
+      const validWav = wrapPcm16ToWavBytes(pcm, 22050, 1);
+      const validB64 = btoa(String.fromCharCode(...validWav));
+
+      const loopbackRequests = [];
+      globalThis.fetch = async (url, init = {}) => {
+        loopbackRequests.push({ url, method: init.method || 'GET', body: init.body ? JSON.parse(init.body) : null });
+        if (url === '/__standalone_local_piper/voices') {
+          return {
+            ok: true,
+            status: 200,
+            async json() {
+              return {
+                ok: true,
+                available: true,
+                voices: [
+                  {
+                    id: 'de_DE-thorsten-high',
+                    displayName: 'Thorsten (High, ♂)',
+                    lang: 'de_DE',
+                    gender: 'male',
+                    sampleRate: 22050,
+                    sizeMb: 108.6,
+                    bundled: true,
+                    commercialSafe: true,
+                    sha256: 'b1b6a48684363c349d7db346568c61a2194429a0c69c55dda6ce64e56372f3ec',
+                  },
+                ],
+              };
+            },
+          };
+        }
+        if (url === '/__standalone_local_piper/synthesize') {
+          return {
+            ok: true,
+            status: 200,
+            async json() {
+              return {
+                ok: true,
+                audioBase64: validB64,
+                mimeType: 'audio/wav',
+                ext: '.wav',
+                sampleRate: 22050,
+                modelId: 'de_DE-thorsten-high',
+              };
+            },
+          };
+        }
+        throw new Error(`Unexpected fetch URL: ${url}`);
+      };
+
+      const [voicesRes, duplicateVoicesRes] = await Promise.all([
+        piperTtsProvider.listVoices({ forceRefresh: true }),
+        piperTtsProvider.listVoices(),
+      ]);
+      assert.equal(voicesRes.available, true);
+      assert.equal(voicesRes.canRestoreBundled, false);
+      assert.equal(voicesRes.voices.length, 1);
+      assert.equal(duplicateVoicesRes.voices.length, 1);
+      assert.match(voicesRes.voices[0].label, /локальный|встроен/);
+      const getCallsAfterDedup = loopbackRequests.filter((r) => r.url === '/__standalone_local_piper/voices');
+      assert.equal(getCallsAfterDedup.length, 1, 'Concurrent listVoices() calls must deduplicate into one HTTP GET');
+
+      const studyAudio = await standaloneAiTtsApi.handle('/media/study-local-audio', {
+        text: 'Hallo aus Windows Standalone!',
+        lang: 'de',
+        side: 'front',
+        rate: '+10%',
+      });
+      assert.equal(studyAudio.data.cached, false);
+      assert.match(studyAudio.data.path, /^\/api\/media\/audio\/archive_[a-f0-9]{64}\.wav$/);
+      const postCalls = loopbackRequests.filter((r) => r.url === '/__standalone_local_piper/synthesize');
+      assert.equal(postCalls.length, 1);
+      assert.equal(postCalls[0].body.rate, 1.1);
+    } finally {
+      piperTtsProvider.clearCatalogCache();
+      globalThis.window.location = prevLocation;
+    }
+  });
+
+  test('enforces loopback boundary, SPA HTML fallback resilience, HTTP error handling, and AbortController on Windows Standalone', async () => {
+    const { isWindowsStandaloneLoopback } = await import('../../pilot/standaloneSettings.js');
+    const prevLocation = globalThis.window.location;
+    const prevFetch = globalThis.fetch;
+
+    try {
+      // 1. Native Android WebView (https://localhost without port) must NEVER be treated as Windows loopback
+      nativeEnabled = true;
+      globalThis.window.location = {
+        search: '',
+        hostname: 'localhost',
+        port: '',
+        protocol: 'https:',
+        origin: 'https://localhost',
+      };
+      assert.equal(isWindowsStandaloneLoopback(), false);
+
+      // 2. Non-loopback hostnames and portless HTTP URLs must return false
+      nativeEnabled = false;
+      for (const loc of [
+        { hostname: 'example.com', port: '5175', protocol: 'http:', origin: 'http://example.com:5175' },
+        { hostname: '192.168.1.10', port: '5175', protocol: 'http:', origin: 'http://192.168.1.10:5175' },
+        { hostname: '127.0.0.1', port: '', protocol: 'http:', origin: 'http://127.0.0.1' },
+        { hostname: '127.0.0.1', port: '5175', protocol: 'https:', origin: 'https://127.0.0.1:5175' },
+      ]) {
+        globalThis.window.location = { search: '', ...loc };
+        assert.equal(isWindowsStandaloneLoopback(), false, `Expected false for ${loc.origin}`);
+      }
+
+      // 3. Static app/dist server returning 200 text/html (SPA fallback) or 404 on /voices degrades cleanly
+      globalThis.window.location = {
+        search: '',
+        hostname: '127.0.0.1',
+        port: '5175',
+        protocol: 'http:',
+        origin: 'http://127.0.0.1:5175',
+      };
+      piperTtsProvider.clearCatalogCache();
+      globalThis.fetch = async (url) => {
+        if (url === '/__standalone_local_piper/voices') {
+          return {
+            ok: true,
+            status: 200,
+            headers: new Map([['content-type', 'text/html; charset=utf-8']]),
+            async json() {
+              throw new SyntaxError('Unexpected token < in JSON');
+            },
+          };
+        }
+        return {
+          ok: true,
+          status: 200,
+          headers: new Map([['content-type', 'text/html; charset=utf-8']]),
+          async json() {
+            return {};
+          },
+        };
+      };
+      const fallbackVoices = await piperTtsProvider.listVoices({ forceRefresh: true });
+      assert.equal(fallbackVoices.available, false);
+      assert.deepEqual(fallbackVoices.voices, []);
+
+      await assert.rejects(
+        () => piperTtsProvider.synthesize({ text: 'Hallo', lang: 'de' }),
+        /Локальный сервер Piper недоступен/,
+      );
+
+      // 4. HTTP 429 / 503 JSON errors propagate cleanly
+      globalThis.fetch = async () => ({
+        ok: false,
+        status: 429,
+        headers: new Map([['content-type', 'application/json']]),
+        async json() {
+          return { ok: false, error: 'Локальный движок Piper занят предыдущим запросом' };
+        },
+      });
+      await assert.rejects(
+        () => piperTtsProvider.synthesize({ text: 'Hallo', lang: 'de' }),
+        /занят предыдущим запросом/,
+      );
+
+      // 5. AbortController mid-flight cancellation rejects with AbortError
+      const abortCtrl = new AbortController();
+      globalThis.fetch = async (_url, init = {}) => new Promise((_resolve, reject) => {
+        init.signal?.addEventListener('abort', () => {
+          reject(new DOMException('Aborted', 'AbortError'));
+        }, { once: true });
+      });
+      const synthPromise = piperTtsProvider.synthesize({
+        text: 'Abbrechen bitte',
+        lang: 'de',
+        signal: abortCtrl.signal,
+      });
+      setTimeout(() => abortCtrl.abort(), 15);
+      await assert.rejects(synthPromise, (err) => err?.name === 'AbortError');
+    } finally {
+      piperTtsProvider.clearCatalogCache();
+      globalThis.fetch = prevFetch;
+      globalThis.window.location = prevLocation;
+    }
   });
 });

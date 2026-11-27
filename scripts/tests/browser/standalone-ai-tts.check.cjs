@@ -259,8 +259,9 @@ async function main() {
     await page.locator('#standalone-ai-test-btn').click();
     await page.getByText(/gemini\/gemini-2\.5-flash: OK/).waitFor({ state: 'visible' });
 
-    // Assert VoiceTab recognizes shared Gemini key
+    // Assert VoiceTab recognizes shared Gemini key when Gemini TTS provider is selected
     await page.locator('#settings-tab-select').selectOption('voice');
+    await page.locator('#standalone-tts-provider-select').selectOption('gemini');
     await page.getByText(/Ключ Gemini настроен/).waitFor({ state: 'visible' });
     await page.locator('.settings-header .close-btn').last().click();
 

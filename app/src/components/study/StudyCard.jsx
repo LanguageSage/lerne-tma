@@ -147,15 +147,18 @@ export const StudyCard = React.memo(({
 
   const currentExerciseState = reviewKey ? exerciseStates[reviewKey] : undefined;
   const answerRevealed = Boolean(isFlipped || layoutAnswerRevealed(currentExerciseState));
+  const frontSideLang = promptPhysicalSide === 'back' && studyMode !== 'reverse' && !isTargetLanguageCardSide(content, 'back')
+    ? getInterfaceLanguage()
+    : cardLang;
   const frontSpeakableText = IS_STANDALONE
-    ? getStudySpeakableText(content, promptPhysicalSide, { isFlipped, answerRevealed })
+    ? getStudySpeakableText(content, promptPhysicalSide, { isFlipped, answerRevealed, lang: frontSideLang })
     : frontText;
   const revealedFrontSpeakableText = IS_STANDALONE
-    ? getStudySpeakableText(content, 'front', { isFlipped: true, answerRevealed: true })
+    ? getStudySpeakableText(content, 'front', { isFlipped: true, answerRevealed: true, lang: cardLang })
     : frontText;
   const backAnswerSide = promptPhysicalSide === 'back' ? 'front' : 'back';
   const backSpeakableText = content
-    ? getStudySpeakableText(content, backAnswerSide, { isFlipped: true, answerRevealed: true })
+    ? getStudySpeakableText(content, backAnswerSide, { isFlipped: true, answerRevealed: true, lang: backSideLang })
     : '';
 
   useEffect(() => {

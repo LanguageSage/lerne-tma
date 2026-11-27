@@ -30,6 +30,10 @@ const inFlightStudySynthesis = new Map();
 const HIDDEN_ANSWER_EXERCISE_TYPES = new Set(['trainer', 'word_bank', 'puzzle', 'match']);
 const TARGET_LANG_BACK_TYPES = new Set(['free_text', 'editable_text']);
 const STUDY_TTS_CACHE_PREFIX = 'tts_study_cache:';
+const NON_LATIN_SCRIPT_LANGS = new Set([
+  'ru', 'uk', 'be', 'bg', 'sr', 'mk', 'kk', 'ky',
+  'ar', 'he', 'fa', 'zh', 'ja', 'ko', 'el', 'hi', 'th', 'ka', 'hy',
+]);
 
 function rememberPreviewUrl(cacheKey, url, mime) {
   if (previewCache.has(cacheKey)) {
@@ -62,9 +66,30 @@ export function clearPreviewAudioCache() {
     }
   }
   previewCache.clear();
+  piperTtsProvider.clearCatalogCache?.();
 }
 
-export function cleanStudySpeakableText(rawText, maxChars = 900) {
+export function filterStudyTextForLanguage(rawText, lang = '') {
+  const raw = String(rawText || '').trim();
+  if (!raw || !lang) return raw;
+  const base = String(lang).toLowerCase().replace('_', '-').split('-')[0];
+  if (!base || NON_LATIN_SCRIPT_LANGS.has(base)) return raw;
+  if (!/[\u0400-\u052F]/.test(raw)) return raw;
+
+  const latinSegments = raw.match(
+    /[A-Za-z\u00C0-\u024F\u1E00-\u1EFF][^\u0400-\u052F]*[A-Za-z\u00C0-\u024F\u1E00-\u1EFF.!?]|[A-Za-z\u00C0-\u024F\u1E00-\u1EFF]+/g
+  );
+  if (!latinSegments || latinSegments.length === 0) return '';
+  const cleaned = latinSegments
+    .map((seg) => seg.replace(/^[\s,;:—–\-()[\]«»"']+|[\s,;:—–\-()[\]«»"']+$/g, '').trim())
+    .filter(Boolean);
+  if (cleaned.length === 0) return '';
+  return cleaned
+    .map((seg, idx) => (idx < cleaned.length - 1 && !/[.!?]$/.test(seg) ? `${seg}.` : seg))
+    .join(' ');
+}
+
+export function cleanStudySpeakableText(rawText, maxChars = 900, lang = '') {
   if (!rawText) return '';
   const stripped = String(rawText)
     .replace(/\{\{c\d+::(.*?)(?:::.*?)?\}\}/gi, '$1')
@@ -73,7 +98,8 @@ export function cleanStudySpeakableText(rawText, maxChars = 900) {
     .replace(/<[^>]+>/g, ' ')
     .replace(/^[ \t]*(?:#{1,6}|>|-|\*|\+)[ \t]+/gm, '')
     .replace(/→/g, ' — ');
-  return prepareTtsText(stripped, maxChars);
+  const langFiltered = filterStudyTextForLanguage(stripped, lang);
+  return prepareTtsText(langFiltered, maxChars);
 }
 
 export function isTargetLanguageCardSide(content, side = 'front') {
@@ -85,7 +111,7 @@ export function isTargetLanguageCardSide(content, side = 'front') {
  * Return speakable text for a Native V2 card side while protecting unrevealed exercise answers.
  * For trainer, word_bank, puzzle, and match, front-side answers remain silent until answerRevealed or isFlipped.
  */
-export function getStudySpeakableText(content, side = 'front', { isFlipped = false, answerRevealed = false } = {}) {
+export function getStudySpeakableText(content, side = 'front', { isFlipped = false, answerRevealed = false, lang = '' } = {}) {
   if (!content || !content.type || !content.data) return '';
   const sideKey = side === 'back' ? 'back' : 'front';
 
@@ -95,12 +121,14 @@ export function getStudySpeakableText(content, side = 'front', { isFlipped = fal
     }
     if (content.type === 'match' && Array.isArray(content.data.pairs)) {
       return cleanStudySpeakableText(
-        content.data.pairs.map((p) => `${p.left} — ${p.right}`).join('. ')
+        content.data.pairs.map((p) => `${p.left} — ${p.right}`).join('. '),
+        900,
+        lang,
       );
     }
   }
 
-  return cleanStudySpeakableText(studySideText(content, sideKey));
+  return cleanStudySpeakableText(studySideText(content, sideKey), 900, lang);
 }
 
 export function canUseLocalOfflineTtsForLang(lang = 'de', { piperVoices = null, providerOverride = null } = {}) {
@@ -116,7 +144,9 @@ export function canUseLocalOfflineTtsForLang(lang = 'de', { piperVoices = null, 
     return false;
   }
   if (provider.id === 'piper' && Array.isArray(piperVoices)) {
-    return piperVoices.some((v) => String(v.lang || '').toLowerCase().startsWith(langPrefix));
+    return piperVoices.some(
+      (v) => String(v.lang || '').toLowerCase().replace('_', '-').split('-')[0] === langPrefix
+    );
   }
   return true;
 }
@@ -248,7 +278,10 @@ export async function synthesizeOrGetCachedStudyAudio({
   db = null,
   signal = undefined,
 }) {
-  const cleanText = cleanStudySpeakableText(text);
+  if (signal?.aborted) {
+    throw new DOMException('TTS canceled', 'AbortError');
+  }
+  const cleanText = cleanStudySpeakableText(text, 900, lang);
   if (!cleanText) {
     throw new Error('Текст для озвучки пуст');
   }
@@ -313,47 +346,86 @@ export async function synthesizeOrGetCachedStudyAudio({
     await database.syncState.delete(syncKey).catch(() => {});
   }
 
-  if (!signal && inFlightStudySynthesis.has(syncKey)) {
-    return inFlightStudySynthesis.get(syncKey);
-  }
-
-  const runSynthesis = async () => {
-    const saved = await synthesizeStandaloneAudio({
-      text: cleanText,
-      lang: code,
-      voice: explicitSynthVoice,
-      rate: effectiveRate,
-      persist: true,
-      db: database,
-      signal,
-    });
-    await database.syncState.put({
-      key: syncKey,
-      path: saved.path,
-      sha256: saved.sha256,
-      mime: saved.mime,
-      provider: providerId,
-      voice: effectiveVoiceKey,
-      lang: code,
-      rate: effectiveRate,
-      updated_at: new Date().toISOString(),
-    });
-    void pruneStudyTtsCacheIfNeeded(database);
-    return {
-      ...saved,
-      cached: false,
+  let entry = inFlightStudySynthesis.get(syncKey);
+  if (!entry) {
+    const sharedAbort = new AbortController();
+    const runSynthesis = async () => {
+      const saved = await synthesizeStandaloneAudio({
+        text: cleanText,
+        lang: code,
+        voice: explicitSynthVoice,
+        rate: effectiveRate,
+        persist: true,
+        db: database,
+        signal: sharedAbort.signal,
+      });
+      await database.syncState.put({
+        key: syncKey,
+        path: saved.path,
+        sha256: saved.sha256,
+        mime: saved.mime,
+        provider: providerId,
+        voice: effectiveVoiceKey,
+        lang: code,
+        rate: effectiveRate,
+        updated_at: new Date().toISOString(),
+      });
+      void pruneStudyTtsCacheIfNeeded(database);
+      return {
+        ...saved,
+        cached: false,
+      };
     };
-  };
 
-  if (signal) {
-    return runSynthesis();
+    entry = {
+      sharedAbort,
+      subscribers: 0,
+      promise: null,
+    };
+    entry.promise = runSynthesis().finally(() => {
+      if (inFlightStudySynthesis.get(syncKey) === entry) {
+        inFlightStudySynthesis.delete(syncKey);
+      }
+    });
+    inFlightStudySynthesis.set(syncKey, entry);
   }
 
-  const promise = runSynthesis().finally(() => {
-    inFlightStudySynthesis.delete(syncKey);
+  entry.subscribers += 1;
+  if (!signal) {
+    return entry.promise;
+  }
+
+  return new Promise((resolve, reject) => {
+    let settled = false;
+    const onCallerAbort = () => {
+      if (settled) return;
+      settled = true;
+      entry.subscribers = Math.max(0, entry.subscribers - 1);
+      if (entry.subscribers === 0) {
+        entry.sharedAbort.abort();
+      }
+      reject(new DOMException('TTS canceled', 'AbortError'));
+    };
+    if (signal.aborted) {
+      onCallerAbort();
+      return;
+    }
+    signal.addEventListener('abort', onCallerAbort, { once: true });
+    entry.promise.then(
+      (res) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', onCallerAbort);
+        resolve(res);
+      },
+      (err) => {
+        if (settled) return;
+        settled = true;
+        signal.removeEventListener('abort', onCallerAbort);
+        reject(err);
+      },
+    );
   });
-  inFlightStudySynthesis.set(syncKey, promise);
-  return promise;
 }
 
 export async function synthesizeStandaloneAudio({
