@@ -41,7 +41,11 @@ export function layoutAnswerRevealed(state) {
   return state?.evaluationState?.completed === true || state?.isCompleted === true;
 }
 
-const firstAnswer = part => part.type === 'input' ? part.answers[0] : part.options.find(option => option.correct)?.text;
+const trainerAnswers = part => {
+  if (part.type === 'input') return part.answers;
+  const { options } = part;
+  return options.length === 1 ? [options[0].text] : options.filter(option => option.correct).map(option => option.text);
+};
 
 export function studySideText(content, side = 'front') {
   if (!content) return '';
@@ -66,7 +70,7 @@ export function studySideText(content, side = 'front') {
       const visible = new Set(studyLayout(content).filter(item => item.type === 'info').map(item => item.index));
       return data.prompt || content.info?.find((block, index) => visible.has(index) && (block.type === 'task' || block.type === 'source'))?.text || '';
     }
-    case 'trainer': return data.parts.map(part => part.type === 'text' ? part.text : firstAnswer(part)).join('');
+    case 'trainer': return data.parts.map(part => part.type === 'text' ? part.text : trainerAnswers(part)[0]).join('');
     case 'match': return data.pairs.map(pair => `${pair.left} → ${pair.right}`).join('\n');
     case 'puzzle': return data.tokens.join(' ');
     case 'word_bank': return data.parts.map(part => part.type === 'text' ? part.text : data.options[part.option]).join('');
@@ -86,10 +90,10 @@ export function studyTrainer(data) {
       mode: part.type,
       isAffix: (previous?.type === 'text' && /[\p{L}\p{M}]$/u.test(previous.text))
         || (next?.type === 'text' && /^[\p{L}\p{M}]/u.test(next.text)),
-      answers: part.type === 'input' ? part.answers : part.options.filter(option => option.correct).map(option => option.text),
+      answers: trainerAnswers(part),
       choices: part.type === 'choice' ? part.options.map(option => option.text) : [],
     };
-    if (part.type === 'choice' && part.distractors === 'auto') {
+    if (part.type === 'choice' && part.options.length === 1) {
       gap.choices = autoGenerateChoices(gap.answers[0], gap.choices, gap.isAffix);
       // Unknown words remain answerable without offering a one-answer dropdown.
       if (gap.choices.length < 2) {

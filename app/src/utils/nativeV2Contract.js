@@ -151,7 +151,17 @@ function normalize(root, node, value, path, mode) {
   if (node.type === 'object') {
     const properties = node.properties ?? {};
     for (const key of node.required ?? []) {
-      if (!Object.hasOwn(value, key)) fail([...path, key], 'Required field');
+      if (!Object.hasOwn(value, key) && !((mode.draft || mode.stored) && properties[key]?.['x-legacy-blank'])) {
+        fail([...path, key], 'Required field');
+      }
+    }
+    if (node['x-normalize-choice'] && Array.isArray(value.options)) {
+      const [option] = value.options;
+      if (value.options.length === 1 && object(option)) {
+        value = { ...value, options: [{ correct: true, ...option }] };
+      } else if (!mode.draft && value.distractors === 'auto') {
+        fail([...path, 'options'], 'Legacy auto distractors require one option');
+      }
     }
     const entries = Object.entries(value).map(([key, item]) => {
       const child = Object.hasOwn(properties, key) ? properties[key] : node.additionalProperties;
@@ -162,13 +172,17 @@ function normalize(root, node, value, path, mode) {
       return [key, normalize(root, child, item, [...path, key], mode)];
     });
     for (const [key, child] of Object.entries(properties)) {
-      if (!Object.hasOwn(value, key) && Object.hasOwn(child, 'default')) entries.push([key, structuredClone(child.default)]);
+      if (Object.hasOwn(value, key)) continue;
+      if (Object.hasOwn(child, 'default')) entries.push([key, structuredClone(child.default)]);
+      else if (mode.stored && child['x-legacy-blank']) entries.push([key, '']);
     }
     normalized = Object.fromEntries(entries);
+    if (node['x-normalize-choice']) delete normalized.distractors;
   } else if (node.type === 'array') {
     if (!mode.draft && (value.length < (node.minItems ?? 0) || value.length > (node.maxItems ?? Infinity))) fail(path, 'Invalid item count');
     normalized = value.map((item, index) => normalize(root, node.items, item, [...path, index], mode));
-  } else if (node.type === 'string' && !mode.draft) {
+  } else if (node.type === 'string' && !mode.draft
+      && !(mode.stored && node['x-legacy-blank'] && !trim(value))) {
     if (!fitsLength(value, node.minLength, node.maxLength)) fail(path, 'Invalid text length');
     if (node.pattern) {
       if (!patterns.has(node.pattern)) patterns.set(node.pattern, new RegExp(node.pattern, 'u'));
@@ -195,4 +209,9 @@ export function validateNativeV2Content(content, { writable = false, contract = 
 
 export function validateReadableNativeV2(content) {
   normalize(schema, schema, content, [], { draft: true });
+}
+
+// Material archives restore already stored cards, including older Puzzle records.
+export function validateStoredNativeV2Content(content) {
+  return normalize(schema, schema, content, [], { stored: true, writable: true });
 }

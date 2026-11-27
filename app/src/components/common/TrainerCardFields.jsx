@@ -8,8 +8,7 @@ import './TrainerCardFields.css';
 const partTypes = {
   text: ['Текст', { type: 'text', text: '' }],
   input: ['Пропуск с вводом', { type: 'input', answers: [''] }],
-  choice: ['Пропуск с выбором', { type: 'choice', options: [{ text: '', correct: true }, { text: '', correct: false }] }],
-  auto: ['Пропуск с автоматическими вариантами', { type: 'choice', distractors: 'auto', options: [{ text: '', correct: true }] }],
+  choice: ['Пропуск с выбором', { type: 'choice', options: [{ text: '', correct: true }] }],
 };
 
 export function TrainerCardFields({ cardData, update, textStyles, lockLayout = false, resolveMediaUrl }) {
@@ -61,19 +60,20 @@ export function TrainerCardFields({ cardData, update, textStyles, lockLayout = f
 
   const renderGap = (part, index, gap) => {
     const choice = part.type === 'choice';
-    const auto = part.distractors === 'auto';
     const entries = choice ? part.options : part.answers;
+    const auto = choice && entries.length === 1;
     const key = choice ? 'options' : 'answers';
     const gapLabel = tr('Пропуск {{p0}}', { p0: gap });
     const editEntries = change => updatePart(index, current => ({ ...current, [key]: change(current[key]) }));
     const addEntry = () => {
-      if (auto && !window.confirm(tr('Заменить автоварианты своими?'))) return;
       focusField(index, entries.length);
       select(index, entries.length);
-      updatePart(index, current => ({
-        ...current, ...(auto ? { distractors: null } : {}),
-        [key]: [...current[key], choice ? { text: '', correct: false } : ''],
-      }));
+      updatePart(index, current => {
+        const next = { ...current };
+        delete next.distractors;
+        const entries = auto ? [{ ...current.options[0], correct: true }] : current[key];
+        return { ...next, [key]: [...entries, choice ? { text: '', correct: false } : ''] };
+      });
     };
     const editCorrect = (position, correct) => {
       if (!correct && !entries.some((entry, i) => i !== position && entry.correct)) {
@@ -88,10 +88,6 @@ export function TrainerCardFields({ cardData, update, textStyles, lockLayout = f
         setWarning(tr('Нужен хотя бы один правильный вариант.'));
         return;
       }
-      if (choice && entries.length <= 2) {
-        setWarning(tr('Для пропуска с выбором нужны хотя бы два варианта.'));
-        return;
-      }
       focusField(index, Math.min(position, entries.length - 2));
       setWarning('');
       editEntries(items => items.filter((_, i) => i !== position));
@@ -99,7 +95,7 @@ export function TrainerCardFields({ cardData, update, textStyles, lockLayout = f
     return <span key={index} className={`trainer-editor-gap${choice ? ' trainer-editor-choice' : ''}`} role="group" aria-label={gapLabel}>
       {entries.map((entry, position) => {
         const label = `${gap}.${position + 1}`;
-        const correct = !choice || Boolean(entry.correct);
+        const correct = !choice || auto || Boolean(entry.correct);
         const active = selection?.part === index && selection.option === position;
         const selectEntry = () => {
           if (!active) select(index, position);
@@ -111,7 +107,7 @@ export function TrainerCardFields({ cardData, update, textStyles, lockLayout = f
               onChange={value => editEntries(items => items.map((item, i) =>
                 i === position ? (choice ? { ...item, text: value } : value) : item))} />
           </span>
-          {active && choice && <span className="trainer-editor-option-tools">
+          {active && choice && !auto && <span className="trainer-editor-option-tools">
             <button type="button" className="visual-card-icon-control trainer-mark-correct" aria-pressed={correct}
               aria-label={`${tr('Отметить как правильный')} ${label}`} onClick={() => editCorrect(position, true)}>
               <Check size={16} aria-hidden="true" />
@@ -135,11 +131,6 @@ export function TrainerCardFields({ cardData, update, textStyles, lockLayout = f
         </button>}
       </span>
       {auto && <span className="trainer-editor-auto-label">{tr('Автоматические варианты')}</span>}
-      {choice && !auto && entries.length === 1 && entries[0].correct &&
-        <button type="button" className="btn-secondary trainer-editor-auto"
-          onClick={() => updatePart(index, current => ({ ...current, distractors: 'auto' }))}>
-          {tr('Автоматические варианты')}
-        </button>}
     </span>;
   };
 
@@ -157,7 +148,7 @@ export function TrainerCardFields({ cardData, update, textStyles, lockLayout = f
           : renderGap(part, index, ++gap))}
       </div>
       {warning && <p className="trainer-editor-warning" role="alert">{warning}</p>}
-      {parts.some(part => part.type === 'choice' && part.distractors !== 'auto')
+      {parts.some(part => part.type === 'choice' && part.options.length > 1)
         && <p className="trainer-editor-help">{tr('Можно отметить несколько правильных вариантов.')}</p>}
       <div className="trainer-editor-part-tools">
         <button ref={addPartButton} type="button" className="btn-secondary trainer-editor-parts-toggle"

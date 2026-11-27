@@ -37,6 +37,7 @@ export default {
       ],
       "title": "ChoicePart",
       "type": "object",
+      "x-normalize-choice": true,
       "x-rules": [
         {
           "key": "text",
@@ -56,32 +57,6 @@ export default {
           "where": {
             "correct": [
               true
-            ]
-          }
-        },
-        {
-          "kind": "count",
-          "max": 1,
-          "message": "Auto distractors require exactly one option",
-          "path": [
-            "options"
-          ],
-          "when": {
-            "distractors": [
-              "auto"
-            ]
-          }
-        },
-        {
-          "kind": "count",
-          "message": "Choice requires at least two options when distractors is not 'auto'",
-          "min": 2,
-          "path": [
-            "options"
-          ],
-          "when": {
-            "distractors": [
-              null
             ]
           }
         }
@@ -1583,13 +1558,16 @@ export default {
           "type": "array"
         },
         "translation": {
-          "default": "",
+          "minLength": 1,
+          "pattern": "[^\\p{White_Space}]",
           "title": "Translation",
-          "type": "string"
+          "type": "string",
+          "x-legacy-blank": true
         }
       },
       "required": [
-        "tokens"
+        "tokens",
+        "translation"
       ],
       "title": "PuzzleData",
       "type": "object"

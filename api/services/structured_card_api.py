@@ -17,7 +17,7 @@ from .collaborative_service import (
     is_folder_chain_active,
     touch_deck_and_parent_folders,
 )
-from .structured_card_storage import create_v2_card, decode_v2_content, replace_v2_card
+from .structured_card_storage import card_content_digest, create_v2_card, decode_v2_content, replace_v2_card
 from .structured_cards_v2 import ContentV2, Document, MAX_DOCUMENT_BYTES, MAX_DOCUMENT_CARDS
 from .media import audio_write_scope, card_audio_payload
 
@@ -163,14 +163,14 @@ def require_native(card):
     if card.content_v2 is None:
         raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': card.id})
     try:
-        return decode_v2_content(card.content_v2)
+        return decode_v2_content(card.content_v2, stored=True)
     except ValueError as error:
         raise HTTPException(422, {'code': 'invalid_content_v2', 'card_id': card.id}) from error
 
 
 def authored_side_text(content, side):
     """Speak the existing physical side using authored V2 text and answer order."""
-    card = decode_v2_content(content)
+    card = decode_v2_content(content, stored=True)
     kind, data = card.type, card.data
     if side == 'back':
         field = {
@@ -215,7 +215,7 @@ def content_response(card, *, native=None):
         media = [getattr(card, field) for field in MEDIA_PATHS]
     if raw is None:
         raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': identity})
-    value = (native if native is not None else decode_v2_content(raw)).model_dump(mode='json')
+    value = (native if native is not None else decode_v2_content(raw, stored=True)).model_dump(mode='json')
     return {
         'content_v2': {'schema_version': 2, 'card': value},
         'revision': _digest([identity, deck_id, position, str(updated), raw, *media]),
@@ -458,16 +458,17 @@ def transfer_cards(data, user_id, *, move):
         existing = {}
         for card in TMA_Card.select().where(TMA_Card.deck == target, TMA_Card.is_deleted == False,
                 TMA_Card.content_v2.is_null(False)).order_by(TMA_Card.position, TMA_Card.id):
-            existing.setdefault(_digest(card.content_v2), card)
+            existing.setdefault(card_content_digest(card.content_v2), card)
         position = _position(target)
         created, moved, updated, skipped = 0, 0, 0, 0
         touched = {}
         copies = []
         now = datetime.datetime.now()
         changes = []
+        source_keys = {card.id: card_content_digest(card.content_v2) for card in cards}
         if not move:
             for card in cards:
-                match = existing.get(_digest(card.content_v2))
+                match = existing.get(source_keys[card.id])
                 if match and data.on_duplicate == 'skip':
                     continue
                 changes.append((card_audio_payload(card), card_audio_payload(match) if match else {}))
@@ -475,7 +476,7 @@ def transfer_cards(data, user_id, *, move):
             for card in cards:
                 if move and card.deck_id == target:
                     continue
-                key = _digest(card.content_v2)
+                key = source_keys[card.id]
                 match = existing.get(key)
                 if match and data.on_duplicate == 'skip':
                     skipped += 1

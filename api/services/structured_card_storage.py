@@ -2,9 +2,11 @@
 import datetime
 
 from peewee import PostgresqlDatabase
+from pydantic import ValidationError
 
 from api.models import TMA_Card
 from api.services.structured_cards_v2 import Card, ContentV2, validate_card
+from .receipts import _digest
 
 
 class V2CardNotFound(LookupError):
@@ -68,11 +70,22 @@ def read_v2_card(card_id: int) -> Card:
     row = TMA_Card.select(TMA_Card.content_v2).where(_native_row(card_id)).get_or_none()
     if row is None:
         raise V2CardNotFound(card_id)
-    return decode_v2_content(row.content_v2)
+    return decode_v2_content(row.content_v2, stored=True)
 
 
-def decode_v2_content(envelope) -> Card:
-    return ContentV2.model_validate(envelope).card
+def decode_v2_content(envelope, *, stored=False) -> Card:
+    return ContentV2.model_validate(envelope, context={'stored_card': stored}).card
+
+
+def card_content_digest(envelope) -> str:
+    """Compare Trainer content across the legacy Choice serialization change."""
+    card = envelope.get('card') if isinstance(envelope, dict) else None
+    if isinstance(card, dict) and card.get('type') == 'trainer':
+        try:
+            envelope = ContentV2.model_validate(envelope).model_dump(mode='json')
+        except ValidationError:
+            pass  # An invalid stored envelope still compares by its original fields.
+    return _digest(envelope)
 
 
 def replace_v2_card(card_id: int, value, *, previous=None) -> Card:

@@ -56,7 +56,7 @@ test('trainer preserves affixes and literal gap markers, accepts whole authored 
 test('native auto choices cover articles, prepositions and affixes without changing authored data', () => {
   for (const [answer, affix] of [['den', false], ['Den', false], ['mit', false], ['en', true]]) {
     const data = { parts: [...(affix ? [{ type: 'text', text: 'klein' }] : []),
-      { type: 'choice', options: [{ text: answer, correct: true }], distractors: 'auto' }] };
+      { type: 'choice', options: [{ text: answer, correct: true }] }] };
     const before = structuredClone(data);
     const { gaps } = studyTrainer(data);
     assert.equal(gaps[0].mode, 'choice');

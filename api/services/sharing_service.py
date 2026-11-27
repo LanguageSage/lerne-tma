@@ -124,18 +124,20 @@ class SharingService:
     @staticmethod
     def _clone_cards_batch(source_cards, target_deck, source_tag, creator_id, now, existing_pairs=None):
         """Clone native content and Knowledge links while holding the destination lock."""
-        from api.services.structured_card_api import _clone, _digest
+        from api.services.structured_card_api import _clone
+        from api.services.structured_card_storage import card_content_digest
         from peewee import fn
         if tma_db.for_update:
             TMA_Deck.select(TMA_Deck.id).where(TMA_Deck.id == target_deck.id).for_update().get()
         if existing_pairs is not None:
-            existing_pairs = {_digest(card.content_v2) for card in TMA_Card.select(TMA_Card.content_v2).where(
+            existing_pairs = {card_content_digest(card.content_v2) for card in TMA_Card.select(TMA_Card.content_v2).where(
                 TMA_Card.deck == target_deck.id, TMA_Card.is_deleted == False)}
         position = TMA_Card.select(fn.MAX(TMA_Card.position)).where(
             TMA_Card.deck == target_deck.id, TMA_Card.is_deleted == False).scalar() or 0
         count = 0
         from .media import audio_write_scope, card_audio_payload
-        source_cards = [card for card in source_cards if not existing_pairs or _digest(card.content_v2) not in existing_pairs]
+        source_cards = [card for card in source_cards
+                        if not existing_pairs or card_content_digest(card.content_v2) not in existing_pairs]
         with audio_write_scope([(card_audio_payload(card), {}) for card in source_cards]):
             for card in source_cards:
                 position += 1
@@ -215,7 +217,8 @@ class SharingService:
         from api.services.decks import ensure_inbox_deck
         from api.services.folders import ensure_inbox_folder
         from api.services.collaborative_service import _require_can_mutate
-        from api.services.structured_card_api import require_native, _digest, authored_side_text
+        from api.services.structured_card_api import require_native, authored_side_text
+        from api.services.structured_card_storage import card_content_digest
 
         with tma_db.atomic():
             if tma_db.for_update:
@@ -296,7 +299,7 @@ class SharingService:
                 existing_pairs = set()
                 if resolution == 'merge' and target_deck:
                     existing_pairs = set(
-                        _digest(c.content_v2) for c in TMA_Card.select(TMA_Card.content_v2).where(
+                        card_content_digest(c.content_v2) for c in TMA_Card.select(TMA_Card.content_v2).where(
                             (TMA_Card.deck == target_deck) & (TMA_Card.is_deleted == False)
                         )
                     )
@@ -408,7 +411,7 @@ class SharingService:
                         _require_can_mutate(user_id, 'deck', dest_deck.id)
 
                         existing_pairs = set(
-                            _digest(c.content_v2)
+                            card_content_digest(c.content_v2)
                             for c in TMA_Card.select(TMA_Card.content_v2)
                             .where((TMA_Card.deck == dest_deck) & (TMA_Card.is_deleted == False))
                         )
@@ -417,7 +420,7 @@ class SharingService:
                             .where((TMA_Card.deck == s_deck) & (TMA_Card.is_deleted == False))
                             .order_by(TMA_Card.position.asc(), TMA_Card.id.asc())
                         )
-                        cards_to_copy = [c for c in s_cards if _digest(c.content_v2) not in existing_pairs]
+                        cards_to_copy = [c for c in s_cards if card_content_digest(c.content_v2) not in existing_pairs]
                         if cards_to_copy:
                             cards_added += SharingService._clone_cards_batch(
                                 source_cards=cards_to_copy,

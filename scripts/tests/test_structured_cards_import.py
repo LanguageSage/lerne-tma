@@ -16,6 +16,20 @@ def codex_card(front, back='', context=''):
 
 
 class NativeCardImportTests(unittest.TestCase):
+    def test_puzzle_import_requires_translation(self):
+        for back in ('', ' \t\u00a0'):
+            with self.subTest(back=back), self.assertRaisesRegex(ImportFormatError, 'translation'):
+                import_documents(codex_card('@puzzle\nIch gehe.', back), default_deck_name='Test')
+
+    def test_codex_and_legacy_flag_import_normalize_the_same_single_choice(self):
+        doc, = import_documents(codex_card('Ich sehe {den} Hund.'), default_deck_name='Test')
+        raw = doc.model_dump(mode='json')
+        part = raw['cards'][0]['data']['parts'][1]
+        self.assertEqual(part, {'type': 'choice', 'options': [{'text': 'den', 'correct': True}]})
+        part['distractors'] = 'auto'
+        imported, = import_documents(json.dumps(raw))
+        self.assertEqual(imported.model_dump(mode='json'), doc.model_dump(mode='json'))
+
     def test_codex_keeps_repeated_information_after_exercise_in_author_order(self):
         doc, = import_documents(codex_card('::task\nVorher.\n::exercise\nIch [[gehe]].\n::source\n**Quelle**\n\nZeile zwei.\n::example\nBeispiel.\n::source\nNoch eine Quelle.', 'Note'), default_deck_name='Layout')
         card = doc.cards[0]

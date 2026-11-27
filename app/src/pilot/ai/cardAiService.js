@@ -14,10 +14,10 @@ const LANG_NAMES = {
 const NATIVE_V2_TYPE_SPECS = `Native V2 card types (always return schema_version: 2 and a valid "card" object):
 - standard: { type: "standard", data: { prompt: string, answer: string }, info: InfoBlock[], explanation: string, level: CEFR|null }
 - theory: { type: "theory", data: { text: string, summary: string }, info: InfoBlock[], explanation: string, level: CEFR|null }
-- trainer: { type: "trainer", data: { parts: Array<{type:"text",text:string}|{type:"input",answers:[string,...]}|{type:"choice",distractors:"auto"|null,options:[{text:string,correct:boolean},...]}>, back_note: string }, info: InfoBlock[], explanation: string, level: CEFR|null }
+- trainer: { type: "trainer", data: { parts: Array<{type:"text",text:string}|{type:"input",answers:[string,...]}|{type:"choice",options:[{text:string,correct:boolean},...]}>, back_note: string }, info: InfoBlock[], explanation: string, level: CEFR|null }. For choice gaps, one option is correct and the app supplies alternatives when available. For multiple options, mark every correct answer and use unique option text.
 - quiz: { type: "quiz", data: { prompt: string, options: [{text:string,correct:boolean}, ... (>=2 unique options, >=1 correct)], back_note: string }, info: InfoBlock[], explanation: string, level: CEFR|null }
 - match: { type: "match", data: { pairs: [{left:string,right:string}, ... (>=2 pairs, unique left and right)], back_note: string }, info: InfoBlock[], explanation: string, level: CEFR|null }
-- puzzle: { type: "puzzle", data: { tokens: [string, ... (>=2 non-whitespace tokens)], translation: string }, info: InfoBlock[], explanation: string, level: CEFR|null }
+- puzzle: { type: "puzzle", data: { tokens: [string, ... (>=2 non-whitespace tokens)], translation: non-blank string }, info: InfoBlock[], explanation: string, level: CEFR|null }
 - word_bank: { type: "word_bank", data: { options: [string, ... (unique)], parts: Array<{type:"text",text:string}|{type:"gap",option:integer_index}> }, info: InfoBlock[], explanation: string, level: CEFR|null }
 - free_text: { type: "free_text", data: { prompt: string, sample_answer: string, accepted_answers: string[] }, info: InfoBlock[], explanation: string, level: CEFR|null }
 - editable_text: { type: "editable_text", data: { source_text: string, correct_text: string, accepted_answers: string[] }, info: InfoBlock[], explanation: string, level: CEFR|null }

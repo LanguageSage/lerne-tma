@@ -1091,8 +1091,15 @@ test('trainer choices stay visible and keep a correct option per gap through sav
   await expect(gap(4).getByText('Автоматические варианты', { exact: true })).toBeVisible();
   await option('1.1').click();
   await page.getByRole('button', { name: 'Удалить вариант 1.1', exact: true }).click();
-  await expect(page.getByRole('alert')).toHaveText('Для пропуска с выбором нужны хотя бы два варианта.');
-  await expect(option('1.1')).toHaveValue('habe');
+  await expect(option('1.1')).toHaveValue('bin');
+  await expect(gap(1).getByText('Автоматические варианты', { exact: true })).toBeVisible();
+  await expect(mark('неправильный', '1.1')).toHaveCount(0);
+  await add(1).click();
+  await option('1.1').fill('habe');
+  await option('1.2').fill('bin');
+  await mark('правильный', '1.2').click();
+  await option('1.1').click();
+  await mark('неправильный', '1.1').click();
   const exercise = page.locator('.trainer-editor');
   await option('1.2').click();
   for (const width of [320, 375, 430, 768, 1280]) {
@@ -1161,6 +1168,9 @@ test.describe('Trainer on a touch screen', () => {
     await page.getByRole('button', { name: 'Пропуск с выбором', exact: true }).tap();
     await expect(option('2.1')).toBeFocused();
     await option('2.1').fill('bin');
+    const choiceGap = page.getByRole('group', { name: 'Пропуск 2', exact: true });
+    await expect(choiceGap.getByText('Автоматические варианты', { exact: true })).toBeVisible();
+    await choiceGap.getByRole('button', { name: 'Добавить вариант · Пропуск 2' }).tap();
     await option('2.2').fill('habe');
 
     await option('1.1').tap();
@@ -1654,6 +1664,11 @@ test('Puzzle edits the entire sentence and translation in the card, online and o
   const tokens = ['„Wir“', 'gehen,', 'gehen,', 'und', 'kommen', 'zurück!'];
   await expect(tiles).toHaveText(tokens);
   await expect(editSentence).toBeFocused();
+  await translation.fill('   ');
+  await save.click();
+  await expect(page.getByText('Ошибка сохранения: Введите перевод', { exact: true })).toBeVisible();
+  await expect(tiles).toHaveText(tokens);
+  expect(server.saves).toHaveLength(0);
   await translation.fill('Мы идём и **возвращаемся**.');
   await insert.first().click();
   await blocks.nth(0).getByRole('textbox').fill('Соберите предложение по-немецки.');

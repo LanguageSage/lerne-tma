@@ -10,7 +10,9 @@ sys.path.insert(0, str(ROOT))
 from pydantic.json_schema import GenerateJsonSchema
 from pydantic_core import to_jsonable_python
 
-from api.card_core.lerne_card_core.structured_cards_v2 import ContentV2, EditableTextData, FreeTextData, V2Model
+from api.card_core.lerne_card_core.structured_cards_v2 import (
+    ChoicePart, ContentV2, EditableTextData, FreeTextData, PuzzleData, V2Model,
+)
 
 TARGET = ROOT / 'app/src/utils/nativeV2Schema.generated.js'
 
@@ -32,7 +34,10 @@ def check_pydantic_hooks(node):
             # JSON already has the envelope literal and policy object. These
             # adapters only distinguish Python int/float and model instances.
             if function not in (ContentV2.strict_version, EditableTextData.revalidate_policy,
-                                FreeTextData.revalidate_policy, V2Model.native_v2_semantics):
+                                FreeTextData.revalidate_policy, V2Model.native_v2_semantics,
+                                # Choice normalization and readable Puzzle drafts have schema annotations.
+                                ChoicePart.normalize_choice, PuzzleData.read_missing_translation,
+                                PuzzleData.read_blank_translation):
                 raise ValueError(f'Native V2 hook has no client representation: {function}')
         for child in node.values():
             check_pydantic_hooks(child)
@@ -44,7 +49,8 @@ def check_pydantic_hooks(node):
 def check_schema_vocabulary(node, definitions):
     supported = {'$defs', '$ref', 'additionalProperties', 'anyOf', 'const', 'default', 'discriminator',
                  'description', 'enum', 'items', 'maximum', 'maxItems', 'maxLength', 'minimum',
-                 'minItems', 'minLength', 'oneOf', 'pattern', 'properties', 'required', 'title', 'type', 'x-rules'}
+                 'minItems', 'minLength', 'oneOf', 'pattern', 'properties', 'required', 'title', 'type',
+                 'x-legacy-blank', 'x-normalize-choice', 'x-rules'}
     if node.keys() - supported:
         raise ValueError(f'Unsupported Native V2 schema keywords: {node.keys() - supported}')
     if 'oneOf' in node and 'discriminator' not in node:

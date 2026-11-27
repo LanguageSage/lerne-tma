@@ -33,7 +33,7 @@ export function PuzzleCardFields({ cardData, update, textStyles, lockLayout = fa
         {tr('Соберите предложение')}
       </div>}
       <div className="text-back" style={backText}>
-        <InlineText block label={tr('Перевод')} value={data.translation}
+        <InlineText block label={tr('Перевод')} value={data.translation ?? ''}
           display={<MarkdownRenderer>{data.translation}</MarkdownRenderer>}
           onChange={translation => updateData({ translation })} />
       </div>

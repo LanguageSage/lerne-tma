@@ -11,10 +11,14 @@ def verify_recovery(client, port, models, headers, binaries, scratch):
     models.TMAUser.update(native_language='ru', has_selected_language=True).where(models.TMAUser.user_id == 1).execute()
     deck = models.TMA_Deck.create(user_id=1, name='Synthetic recovery fixture', target_language='de')
     content = {'schema_version': 2, 'card': {'type': 'trainer', 'data': {'parts': [
-        {'type': 'text', 'text': 'Ich sehe '}, {'type': 'choice', 'distractors': 'auto', 'options': [{'text': 'den', 'correct': True}]},
-        {'type': 'text', 'text': ' Hund.'}]}}}
+        {'type': 'text', 'text': 'Ich sehe '}, {'type': 'choice', 'options': [{'text': 'den'}]},
+        {'type': 'text', 'text': ' Hund und '},
+        {'type': 'choice', 'options': [{'text': 'unlisted-word'}]},
+        {'type': 'text', 'text': '.'}]}}}
     response = client.post('cards/save', headers=headers[1], json={'deck_id': deck.id, 'request_id': str(uuid4()), 'content_v2': content})
     assert response.status_code == 200, response.text
+    saved_parts = response.json()['content_v2']['card']['data']['parts']
+    assert saved_parts[1] == {'type': 'choice', 'options': [{'text': 'den', 'correct': True}]}
     pg_env = dict(os.environ, PGHOST='127.0.0.1', PGPORT=str(port), PGUSER='cards_test', PGDATABASE='postgres')
     pg_env['PGPORT'] = str(db.connect_params['port'])
     snapshot = scratch / 'recovery-before.dump'

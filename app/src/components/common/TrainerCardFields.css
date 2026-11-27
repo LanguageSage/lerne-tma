@@ -66,10 +66,10 @@
   padding: 4px 8px;
 }
 .trainer-editor-part-menu label { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
-.trainer-editor-part-types button, .trainer-editor-auto { padding: 4px 8px; }
+.trainer-editor-part-types button { padding: 4px 8px; }
 .trainer-editor-part-tools button:disabled { opacity: .4; cursor: default; }
 @media (pointer: coarse) {
   .trainer-editor-choice .trainer-editor-option { padding-top: 48px; }
   .trainer-editor-option .trainer-gap { min-width: 92px; }
-  .trainer-editor-part-tools button, .trainer-editor-part-types button, .trainer-editor-auto { min-height: 44px; }
+  .trainer-editor-part-tools button, .trainer-editor-part-types button { min-height: 44px; }
 }

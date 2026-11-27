@@ -625,8 +625,9 @@ class V1ToV2ConverterTests(unittest.TestCase):
         self.assertEqual(before_report['total_cards'], 678)
         # With safe V1-equivalent conversion of free_text without grading_policy -> controlled_text:
         # The two older after-info cases also contain a second exercise block.
-        self.assertEqual(before_report['converted_count'], 667)
-        self.assertEqual(before_report['blocked_count'], 11)
+        self.assertEqual(before_report['converted_count'], 666)
+        self.assertEqual(before_report['blocked_count'], 12)
+        self.assertEqual(before_report['blocked_by_code']['missing_puzzle_translation']['card_ids'], [10001])
         self.assertEqual(before_report['warning_counts_by_code'].get('implicit_free_text_policy'), 61)
         self.assertEqual(before_report['warning_counts_by_code'].get('puzzle_solution_in_translation'), 2)
         self.assertEqual(before_report['counts_by_code'].get('invalid_deck_passport'), 6)
@@ -642,19 +643,21 @@ class V1ToV2ConverterTests(unittest.TestCase):
         # All 14 decks in corrected.json have valid V2 passports:
         self.assertTrue(all(d['ok'] for d in corrected_report['decks']))
         self.assertEqual(corrected_report['blocked_deck_ids'], [])
-        # In corrected.json, 668 of 678 cards convert cleanly; the remaining 10 blocked cards are:
+        # In corrected.json, 667 of 678 cards convert cleanly. The remaining cards are:
+        # - 1 Puzzle (10001) whose BACK needs a translation.
         # - 7 @puzzle cards (30094..30096, 30204..30207) with unmarked preamble before @puzzle inside ::exercise
         # - 2 trainer cards (11201, 11202) carrying leftover free_text grading_policy/accepted_answers in metadata
         # - 1 card (30391) with an unconverted ___ blank in a standard card.
-        self.assertEqual(corrected_report['converted_count'], 668)
-        self.assertEqual(corrected_report['blocked_count'], 10)
+        self.assertEqual(corrected_report['converted_count'], 667)
+        self.assertEqual(corrected_report['blocked_count'], 11)
         self.assertEqual(
             corrected_report['blocked_ids'],
-            [30094, 30095, 30096, 30204, 30205, 30206, 30207, 30391, 11201, 11202],
+            [10001, 30094, 30095, 30096, 30204, 30205, 30206, 30207, 30391, 11201, 11202],
         )
         self.assertEqual(
             corrected_report['counts_by_code'],
             {
+                'missing_puzzle_translation': 1,
                 'unmarked_preamble_before_directive': 7,
                 'unexpected_answer_policy_metadata': 2,
                 'unconverted_blank_placeholder': 1,
@@ -662,7 +665,7 @@ class V1ToV2ConverterTests(unittest.TestCase):
         )
         self.assertTrue(all(corrected_report['invariants'].values()))
         summary_text = format_dry_run_summary(corrected_report)
-        self.assertIn('Cards total:   678 | Converted: 668', summary_text)
+        self.assertIn('Cards total:   678 | Converted: 667', summary_text)
         self.assertIn('unmarked_preamble_before_directive: 7', summary_text)
 
     def test_dry_run_on_large_dataset_repeatability_and_invariants(self):
@@ -702,8 +705,9 @@ class V1ToV2ConverterTests(unittest.TestCase):
         # Deterministic repeatability across runs:
         self.assertEqual(report_1, report_2)
         self.assertEqual(report_1['total_cards'], 2034)
-        self.assertEqual(report_1['converted_count'], 668 * 3)
-        self.assertEqual(report_1['blocked_count'], 10 * 3)
+        self.assertEqual(report_1['converted_count'], 667 * 3)
+        self.assertEqual(report_1['blocked_count'], 11 * 3)
+        self.assertEqual(report_1['counts_by_code']['missing_puzzle_translation'], 3)
         self.assertEqual(
             report_1['invariants'],
             {
@@ -874,8 +878,9 @@ class V1ToV2ConverterTests(unittest.TestCase):
             self.assertEqual(rc_dry, 0, err_dry.getvalue())
             self.assertIn('V1 -> V2 Migration Dry-Run Summary', out_dry.getvalue())
             saved_report = json.loads(report_path.read_text(encoding='utf-8'))
-            self.assertEqual(saved_report['converted_count'], 668)
-            self.assertEqual(saved_report['blocked_count'], 10)
+            self.assertEqual(saved_report['converted_count'], 667)
+            self.assertEqual(saved_report['blocked_count'], 11)
+            self.assertEqual(saved_report['blocked_by_code']['missing_puzzle_translation']['card_ids'], [10001])
 
     def test_composite_tags_normalized_safely(self):
         deck = {'level': 'A1', 'topic': 'Wohnen'}

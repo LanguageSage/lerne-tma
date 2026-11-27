@@ -27,8 +27,8 @@ class CardCoreReleaseTests(unittest.TestCase):
         shutil.rmtree(self.root)
 
     def test_reviewed_release_matches_actual_git_blobs(self):
-        self.assertEqual(self.release['version'], '0.2.1')
-        self.assertEqual(self.release['source_version'], '0.2.1')
+        self.assertEqual(self.release['version'], '0.3.0')
+        self.assertEqual(self.release['source_version'], '0.3.0')
         self.assertEqual(builder.git('cat-file', '-t', self.release['source_tree']).strip(), b'tree')
 
     def test_crlf_and_undeclared_source_change_are_rejected(self):

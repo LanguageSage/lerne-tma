@@ -1,7 +1,7 @@
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
-import { validateNativeV2Content } from '../utils/nativeV2Contract.js';
+import { validateStoredNativeV2Content } from '../utils/nativeV2Contract.js';
 import { assertArchiveSafeMetadata } from './materialMetadataPolicy.js';
 import { getStandaloneProfileName, STANDALONE_USER_ID } from '../utils/standaloneMode.js';
 import {
@@ -811,7 +811,7 @@ export function validateMaterialArchiveDocument(rawDocument) {
           verifyTypedMedia(ref.owner[ref.key], ref.role);
         }
         const canonical = restoreCardMedia(row.values.content_v2, assetBySha);
-        validateNativeV2Content(canonical, { writable: true });
+        validateStoredNativeV2Content(canonical);
         assertArchiveSafeMetadata(canonical.card.metadata);
         for (const [field, role] of Object.entries(CARD_ATTACHMENTS)) {
           if (row.values[field]) verifyTypedMedia(row.values[field], role);

@@ -10,7 +10,8 @@ from api.auth.dependencies import get_bearer_token
 from api.auth.errors import AuthError
 from api.auth.service import authenticate
 from api.services.sharing_service import SharingService
-from api.services.structured_card_api import _digest, content_response, authored_side_text
+from api.services.structured_card_api import content_response, authored_side_text
+from api.services.structured_card_storage import card_content_digest
 from api.templates.share_templates import get_share_html, get_share_error_html
 
 router = APIRouter(tags=["share"])
@@ -103,14 +104,14 @@ def get_share_info(share_id: str, authorization: Optional[str] = None):
             if existing_deck:
                 my_cards_count = TMA_Card.select().where((TMA_Card.deck == existing_deck) & (TMA_Card.is_deleted == False)).count()
                 my_pairs = set(
-                    _digest(c.content_v2) for c in TMA_Card.select(TMA_Card.content_v2).where(
+                    card_content_digest(c.content_v2) for c in TMA_Card.select(TMA_Card.content_v2).where(
                         (TMA_Card.deck == existing_deck) & (TMA_Card.is_deleted == False)
                     )
                 )
                 src_cards = list(TMA_Card.select(TMA_Card.content_v2).where(
                     (TMA_Card.deck == deck) & (TMA_Card.is_deleted == False)
                 ))
-                missing_cards = sum(1 for c in src_cards if _digest(c.content_v2) not in my_pairs)
+                missing_cards = sum(1 for c in src_cards if card_content_digest(c.content_v2) not in my_pairs)
                 comparison = {
                     "already_exists": True,
                     "existing_id": existing_deck.id,

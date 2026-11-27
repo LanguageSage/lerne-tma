@@ -78,8 +78,8 @@
     "repeat": { "path": ["data", "prompt"], "value": "x", "count": 261666 }
   },
   {
-    "name": "Trainer byte limit includes the default distractors field",
-    "valid": false,
+    "name": "Trainer byte limit excludes the legacy distractors field",
+    "valid": true,
     "card": { "type": "trainer", "data": { "parts": [{ "type": "text", "text": "" }, { "type": "choice", "options": [{ "text": "ja", "correct": true }, { "text": "nein" }] }] } },
     "repeat": { "path": ["data", "parts", 0, "text"], "value": "x", "count": 261852 }
   },

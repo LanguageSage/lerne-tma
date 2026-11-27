@@ -8,7 +8,7 @@ import json
 from typing import Annotated, ClassVar, Literal
 
 from pydantic import (BaseModel, ConfigDict, Field, JsonValue,
-                      TypeAdapter, field_validator, model_validator)
+                      TypeAdapter, ValidationInfo, field_validator, model_validator)
 from pydantic_core import PydanticCustomError
 
 from .answer_contract import GradingPolicy
@@ -86,14 +86,22 @@ class InputPart(V2Model):
 
 
 class ChoicePart(V2Model):
+    model_config = ConfigDict(json_schema_extra={'x-normalize-choice': True})
     type: Literal['choice']
     options: Annotated[list[Option], Field(min_length=1)]
-    distractors: Literal['auto'] | None = None
-    rules = (*OPTION_RULES,
-             dict(kind='count', path=['options'], when={'distractors': ['auto']}, max=1,
-                  message='Auto distractors require exactly one option'),
-             dict(kind='count', path=['options'], when={'distractors': [None]}, min=2,
-                  message="Choice requires at least two options when distractors is not 'auto'"))
+    distractors: Literal['auto'] | None = Field(default=None, exclude=True)
+    rules = OPTION_RULES
+
+    @model_validator(mode='before')
+    @classmethod
+    def normalize_choice(cls, value):
+        if not isinstance(value, dict) or not isinstance(options := value.get('options'), list):
+            return value
+        if value.get('distractors') == 'auto' and len(options) != 1:
+            raise ValueError('Legacy auto distractors require one option')
+        if len(options) == 1 and isinstance(option := options[0], dict):
+            return {**value, 'options': [{'correct': True, **option}]}
+        return value
 
 
 TrainerPart = Annotated[TextPart | InputPart | ChoicePart, Field(discriminator='type')]
@@ -182,7 +190,21 @@ class MatchData(V2Model):
 
 class PuzzleData(V2Model):
     tokens: Texts  # Correct order, repeats allowed; array position identifies an item.
-    translation: str = ''
+    translation: Annotated[Text, Field(json_schema_extra={'x-legacy-blank': True})]
+
+    @model_validator(mode='before')
+    @classmethod
+    def read_missing_translation(cls, value, info: ValidationInfo):
+        if (info.context or {}).get('stored_card') and isinstance(value, dict) and 'translation' not in value:
+            return {**value, 'translation': ''}
+        return value
+
+    @field_validator('translation', mode='wrap')
+    @classmethod
+    def read_blank_translation(cls, value, handler, info: ValidationInfo):
+        if (info.context or {}).get('stored_card') and isinstance(value, str) and not value.strip():
+            return value
+        return handler(value)
 
 
 class WordBankData(V2Model):

@@ -112,6 +112,7 @@ export function cardWriteError(error) {
   if (error instanceof NativeV2ValidationError && error.path[0] === 'card' && error.path[1] === 'data') {
     if (error.path[2] === 'prompt') return tr('Заполните вопрос, ответ и добавленные поля карточки.');
     if (error.path[2] === 'tokens') return tr('Введите предложение');
+    if (error.path[2] === 'translation') return tr('Введите перевод');
   }
   const detail = error.response?.data?.detail;
   if (Array.isArray(detail)) return detail.map(issue => `${issue.loc?.slice(1).join('.')}: ${issue.msg}`).join('\n');

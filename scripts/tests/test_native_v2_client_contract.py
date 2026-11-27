@@ -62,6 +62,21 @@ class NativeV2ClientContractTests(unittest.TestCase):
                 owner[repeat['path'][-1]] = repeat['value'] * repeat['count']
             cases.append((fixture['name'], envelope(card), fixture['valid']))
 
+        single = {'text': 'den'}
+        manual = [{'text': 'den', 'correct': True}, {'text': 'dem'}]
+        for name, part, valid in (
+            ('implicit choice', {'options': [single]}, True),
+            ('legacy auto', {'options': [single], 'distractors': 'auto'}, True),
+            ('legacy manual', {'options': manual, 'distractors': None}, True),
+            ('legacy auto with multiple choices', {'options': manual, 'distractors': 'auto'}, False),
+            ('unknown choice flag', {'options': [single], 'distractors': 'manual'}, False),
+            ('explicitly incorrect single choice', {'options': [{**single, 'correct': False}]}, False),
+        ):
+            cases.append((name, envelope({'type': 'trainer', 'data': {'parts': [{'type': 'choice', **part}]}}), valid))
+        for fields in ({}, {'translation': ''}, {'translation': '\u00a0\n\t'}, {'translation': None}):
+            cases.append((f'invalid Puzzle {fields}', envelope({'type': 'puzzle',
+                'data': {'tokens': ['Heim.'], **fields}}), False))
+
         for kind in ('free_text', 'editable_text'):
             base = copy.deepcopy(cards[kind])
             base['data'].pop('grading_policy', None)

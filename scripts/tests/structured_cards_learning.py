@@ -20,7 +20,7 @@ def verify_learning(client, port, models, headers, *, ratings_only=False):
         'trainer': {'parts': [{'type': 'text', 'text': 'Ich '}, {'type': 'input', 'answers': ['gehe']}]},
         'quiz': {'prompt': 'Quiz prompt', 'options': [{'text': 'Ja', 'correct': True}, {'text': 'Nein'}]},
         'match': {'pairs': [{'left': 'A', 'right': 'one'}, {'left': 'B', 'right': 'two'}]},
-        'puzzle': {'tokens': ['Ich', 'gehe', 'heim.']},
+        'puzzle': {'tokens': ['Ich', 'gehe', 'heim.'], 'translation': 'Я иду домой.'},
         'word_bank': {'options': ['gehe', 'geht'], 'parts': [{'type': 'text', 'text': 'Ich '}, {'type': 'gap', 'option': 0}]},
         'free_text': {'prompt': 'Write Ich gehe.', 'sample_answer': 'Ich gehe.',
                       'accepted_answers': ['Ich gehe.'], 'grading_policy': {'mode': 'exact'}},

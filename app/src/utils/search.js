@@ -1,4 +1,5 @@
 import { IS_STANDALONE } from './standaloneMode.js';
+import { NativeV2ValidationError, validateNativeV2Content } from './nativeV2Contract.js';
 
 const SUPPORTED_LANGS = new Set(['de', 'en', 'no']);
 const matchesScopedLang = (itemLang, targetLang) => {
@@ -7,9 +8,18 @@ const matchesScopedLang = (itemLang, targetLang) => {
 };
 
 // JSONB compares object keys independently of serialization order.
-export const cardDuplicateKey = content => JSON.stringify(content, (_key, value) =>
-  value && !Array.isArray(value) && typeof value === 'object'
-    ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
+export function cardDuplicateKey(content) {
+  if (content?.card?.type === 'trainer') {
+    try {
+      content = validateNativeV2Content(content);
+    } catch (error) {
+      if (!(error instanceof NativeV2ValidationError)) throw error;
+    }
+  }
+  return JSON.stringify(content, (_key, value) =>
+    value && !Array.isArray(value) && typeof value === 'object'
+      ? Object.fromEntries(Object.entries(value).sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0)) : value);
+}
 
 function* authoredStrings(value) {
   if (typeof value === 'string') yield value;

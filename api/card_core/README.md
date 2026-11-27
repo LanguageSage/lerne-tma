@@ -1,4 +1,4 @@
-# lerne-card-core 0.2.1
+# lerne-card-core 0.3.0
 
 Canonical source for pure JSON V2 validation, passport validation/merge, the answer
 contract, native Codex/JSON V2 import, legacy syntax parsing and V2-to-legacy conversion. This is the only
@@ -50,6 +50,26 @@ The generated client file is checked into TMA so browser builds are self-contain
 The parity test checks accepted and rejected inputs and normalized defaults. A
 separate test changes the minimum number of Trainer gaps in a copy of the source
 and regenerates the browser contract.
+
+## 0.3.0 release candidate
+
+Trainer Choice infers the correct answer from a single option when its
+`correct` flag is omitted. Multiple options retain their authored flags.
+The validator accepts the historical `distractors: "auto"` and `null` fields
+and omits them from normalized JSON. The browser uses option count to decide
+whether to generate alternatives and falls back to typed input if needed.
+
+Puzzle creation, content edits and author imports require a nonblank
+`translation`. TMA reads historical Puzzle records and restores offline
+material archives with their original translation text. Before enabling strict
+writes in production, use a backup and a read-only inventory to find incomplete
+Puzzle cards, then add reviewed translations to those card IDs using normal
+revision-checked edits. Verify the inventory again before rollout.
+
+Admin 0.2.0 rejects a one-option choice without the historical flag. Coordinate
+the Admin wheel, its pins and fixtures, and the TMA releases before writing
+flagless Trainer choices to a shared database. Verify legacy and new cards in
+both applications against a disposable database before release.
 
 An APK or TMA source change does not publish a card-core wheel. The reviewed
 `source_tree` in provenance identifies the package subtree in Git, independent

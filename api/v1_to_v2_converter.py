@@ -14,6 +14,8 @@ import math
 import re
 from typing import Any
 
+from pydantic import ValidationError
+
 from api.card_core.lerne_card_core.deck_passport import (
     CEFR_LEVELS,
     passport_from_metadata,
@@ -585,7 +587,7 @@ def inspect_v1_card(
         add_error(code, str(exc), path=path)
         return _build_result(raw_card_id, raw_deck_id, index, None, None, errors, warnings)
 
-    # 5a. Support single-option trainer choice parts with V2 auto-distractors
+    # 5a. Preserve accepted answers when legacy choice labels repeat.
     if kind == 'trainer':
         for p_idx, part in enumerate(data.get('parts', [])):
             if part.get('type') == 'choice':
@@ -602,12 +604,9 @@ def inspect_v1_card(
                         'Repeated identical choice labels merged; the accepted answer text is unchanged',
                         path=f'card.data.parts[{p_idx}]')
             if part.get('type') == 'choice' and len(part.get('options', [])) == 1:
-                part['distractors'] = 'auto'
-                if part.get('options'):
-                    part['options'][0]['correct'] = True
                 add_warning(
                     'auto_distractors_choice_part',
-                    f"trainer choice part[{p_idx}] has single option; enabled auto distractors in V2 schema",
+                    f"trainer choice part[{p_idx}] has one authored answer; V2 generates alternatives when available",
                     path=f"card.data.parts[{p_idx}]",
                 )
 
@@ -1121,6 +1120,12 @@ def inspect_v1_card(
     try:
         v2_card = validate_card(card_payload)
     except Exception as exc:
+        if kind == 'puzzle' and isinstance(exc, ValidationError) and any(
+            issue['loc'][-2:] == ('data', 'translation') for issue in exc.errors(include_input=False)
+        ):
+            add_error('missing_puzzle_translation', 'Puzzle requires a nonblank translation in BACK',
+                      path='card.data.translation')
+            return _build_result(raw_card_id, raw_deck_id, index, None, None, errors, warnings)
         schema_code = (
             f'invalid_{kind}_structure'
             if kind in ('trainer', 'quiz', 'match', 'word_bank', 'puzzle', 'free_text', 'editable_text', 'theory')

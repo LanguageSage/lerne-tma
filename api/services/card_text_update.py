@@ -21,7 +21,7 @@ CONTENT_FIELDS = ('content_v2',)
 def _content(card):
     if card.content_v2 is None:
         raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': card.id})
-    return {'content_v2': _encode_card(decode_v2_content(card.content_v2))}
+    return {'content_v2': _encode_card(decode_v2_content(card.content_v2, stored=True))}
 
 
 def _require_account(user_id):
@@ -118,7 +118,7 @@ def _apply_rows(deck, items, preview, user_id, include_new, touch=True):
             if row['status'] == 'update':
                 card = existing[row['card_id']]
                 content = decode_v2_content(row['after']['content_v2'])
-                validate_layout_images(content, decode_v2_content(card.content_v2))
+                validate_layout_images(content, decode_v2_content(card.content_v2, stored=True))
                 replace_v2_card(card.id, content, previous=card.content_v2)
                 updated += 1
             elif row['status'] == 'new' and include_new:

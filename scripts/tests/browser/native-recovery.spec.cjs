@@ -62,6 +62,10 @@ test('auto distractors must offer alternatives in actual Native Trainer', async 
   console.log('NATIVE_AUTO_VISIBLE_CHOICES', JSON.stringify(labels));
   await page.screenshot({path: info.outputPath('native-auto.png'), fullPage: true});
   expect(labels.length).toBeGreaterThan(1);
+  await dialog.getByRole('button', { name: 'den', exact: true }).click();
+  const fallback = page.getByRole('textbox', { name: 'Пропуск 2', exact: true });
+  await fallback.fill('unlisted-word');
+  await expect(fallback).toHaveValue('unlisted-word');
 });
 
 test('physical PostgreSQL rollback must preserve cached acknowledged card', async ({page}, info) => {

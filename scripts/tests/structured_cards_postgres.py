@@ -176,6 +176,23 @@ def verify(db):
             with self.assertRaises(ValidationError):
                 read_v2_card(card.id)
 
+        def test_old_puzzle_stays_readable_and_can_be_fixed_in_place(self):
+            self.migrate()
+            for fields in ({}, {'translation': ' \u00a0\t'}):
+                with self.subTest(fields=fields):
+                    card = self.create_native()
+                    data = {'tokens': ['Ich', 'gehe.'], **fields}
+                    value = {'type': 'puzzle', 'data': data}
+                    raw = {'schema_version': 2, 'card': value}
+                    cards.update(content_v2=raw).where(cards.id == card.id).execute()
+                    self.assertEqual(read_v2_card(card.id).data.translation, fields.get('translation', ''))
+                    with self.assertRaises(ValidationError):
+                        replace_v2_card(card.id, value)
+                    self.assertEqual(cards.get_by_id(card.id).content_v2, raw)
+                    edited = {'type': 'puzzle', 'data': {**data, 'translation': 'I am going.'}}
+                    replace_v2_card(card.id, edited)
+                    self.assertEqual(read_v2_card(card.id).data.model_dump(), edited['data'])
+
         def test_native_writes_roll_back_with_caller_transaction(self):
             self.migrate()
             original = self.create_native()

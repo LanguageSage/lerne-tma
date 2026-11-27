@@ -31,3 +31,15 @@ test('native duplicate identity ignores object key order and preserves full auth
   reversed.card.topics.reverse();
   assert.notEqual(cardDuplicateKey(ordered), cardDuplicateKey(reversed));
 });
+
+test('Trainer duplicate identity survives the legacy Choice flag without merging different answers', () => {
+  const content = { schema_version: 2, card: { type: 'trainer', data: { parts: [
+    { type: 'choice', options: [{ text: 'den' }] },
+  ] } } };
+  const legacy = structuredClone(content);
+  legacy.card.data.parts[0] = { type: 'choice', distractors: 'auto', options: [{ text: 'den', correct: true }] };
+  assert.equal(cardDuplicateKey(content), cardDuplicateKey(legacy));
+  assert.equal(legacy.card.data.parts[0].distractors, 'auto');
+  legacy.card.data.parts[0].options[0].text = 'dem';
+  assert.notEqual(cardDuplicateKey(content), cardDuplicateKey(legacy));
+});

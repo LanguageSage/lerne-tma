@@ -889,6 +889,22 @@ def _run_cases(client, models, headers, load_answer_context):
             self.call('DELETE', f'cards/{card_id}', extra={'If-Match': f'"{listing[1]["revision"]}"'})
             self.call('GET', f'cards/{card_id}', 404)
 
+        def test_old_trainer_choice_remains_a_duplicate_of_its_new_copy(self):
+            value = {'schema_version': 2, 'card': {'type': 'trainer', 'data': {'parts': [
+                {'type': 'choice', 'options': [{'text': 'den'}]},
+            ]}}}
+            source = self.create(value=value)
+            raw = source['content_v2']
+            raw['card']['data']['parts'][0]['distractors'] = 'auto'
+            models.TMA_Card.update(content_v2=raw).where(models.TMA_Card.id == source['id']).execute()
+
+            request = {'card_ids': [source['id']], 'target_deck_id': self.target.id, 'on_duplicate': 'skip'}
+            first = self.call('POST', 'cards/batch-copy', body={**request, 'request_id': str(uuid4())})
+            second = self.call('POST', 'cards/batch-copy', body={**request, 'request_id': str(uuid4())})
+            self.assertEqual(first['created'], 1)
+            self.assertEqual(second['skipped'], 1)
+            self.assertEqual(models.TMA_Card.get_by_id(source['id']).content_v2, raw)
+
         def test_batch_transfer_atomic_revisions_order_links_and_receipt_replay(self):
             models.TMAMedia.get_or_create(folder='audio', filename='fixture.ogg',
                 defaults={'content': b'OggS' + b'\x01' * 128})

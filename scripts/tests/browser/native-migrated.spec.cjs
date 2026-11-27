@@ -50,12 +50,22 @@ test('actual migrated cards render in TMA and actual Admin opens on the same cop
         await expect(page.locator('#tut-study-front, .trainer-exercise, .quiz-container, .match-container, .puzzle-exercise, .word-bank-exercise, .free-text-exercise, .editable-text-exercise').first()).toBeVisible();
       }
       if (card.type === 'trainer') {
-        await expect(page.locator('.trainer-exercise')).toBeVisible();
-        if (card.content_v2.card.data.parts.some(p => p.type === 'choice' && p.distractors === 'auto')) {
-          await page.getByRole('button', { name: /Пропуск/ }).first().click();
-          const dialog = page.getByRole('dialog');
-          await expect(dialog).toBeVisible();
-          expect(await dialog.getByRole('button').count()).toBeGreaterThan(1);
+        const exercise = page.locator('.trainer-exercise');
+        await expect(exercise).toBeVisible();
+        const gaps = card.content_v2.card.data.parts.filter(part => part.type !== 'text');
+        for (const [index, part] of gaps.entries()) {
+          if (part.type !== 'choice' || part.options.length !== 1) continue;
+          const name = `Пропуск ${index + 1}`;
+          const chooser = exercise.getByRole('button', { name, exact: true });
+          if (await chooser.isVisible()) {
+            await chooser.click();
+            const dialog = page.getByRole('dialog', { name, exact: true });
+            await expect(dialog.getByRole('button', { name: part.options[0].text, exact: true })).toBeVisible();
+            expect(await dialog.getByRole('button').count()).toBeGreaterThan(1);
+            await chooser.click();
+          } else {
+            await expect(exercise.getByRole('textbox', { name, exact: true })).toBeVisible();
+          }
         }
       }
       await page.screenshot({ path: info.outputPath(`migrated-${card.type}.png`), fullPage: true });

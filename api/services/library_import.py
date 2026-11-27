@@ -38,7 +38,7 @@ def _copy_content(source_id, target_id, *, replace=False, creator=None):
     def key(card):
         if card.content_v2 is None:
             raise HTTPException(409, {'code': 'card_requires_migration', 'card_id': card.id})
-        return json.dumps(decode_v2_content(card.content_v2).model_dump(mode='json'), sort_keys=True)
+        return json.dumps(decode_v2_content(card.content_v2, stored=True).model_dump(mode='json'), sort_keys=True)
 
     source_keys = [key(card) for card in source]
     for card in target:
