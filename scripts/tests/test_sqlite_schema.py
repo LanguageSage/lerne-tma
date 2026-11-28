@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
+from contextlib import closing
 import hashlib
 import json
 from pathlib import Path
@@ -9,6 +11,8 @@ import sqlite3
 import subprocess
 import sys
 import tempfile
+from threading import Event
+from time import sleep
 import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -31,6 +35,31 @@ from lerne_sqlite_schema import (  # noqa: E402
 
 
 class SqliteSchemaTests(unittest.TestCase):
+    def test_open_sqlite_waits_for_reader_during_initial_wal_transition(self):
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "wal.sqlite3"
+            with closing(sqlite3.connect(path, isolation_level=None)) as reader:
+                reader.execute("CREATE TABLE sample (value INTEGER)")
+                reader.execute("BEGIN")
+                reader.execute("SELECT * FROM sample").fetchall()
+                started = Event()
+
+                def open_in_wal():
+                    started.set()
+                    with closing(open_sqlite(path)) as connection:
+                        return connection.execute("PRAGMA journal_mode").fetchone()[0]
+
+                with ThreadPoolExecutor(max_workers=1) as pool:
+                    result = pool.submit(open_in_wal)
+                    try:
+                        self.assertTrue(started.wait(2))
+                        # Keep the reader's shared lock across the first attempt.
+                        self.assertFalse(result.done())
+                        sleep(0.1)
+                    finally:
+                        reader.rollback()
+                    self.assertEqual(result.result(timeout=6), "wal")
+
     def test_generated_js_and_manifest_match_canonical_sql(self):
         proc = subprocess.run(
             [sys.executable, str(ROOT / "scripts/generate_sqlite_schema.py"), "--check"],

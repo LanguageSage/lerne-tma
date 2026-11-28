@@ -8,6 +8,7 @@ from importlib import resources
 import json
 from pathlib import Path
 import sqlite3
+from time import monotonic, sleep
 from typing import Any, Optional, Union
 
 
@@ -103,9 +104,20 @@ def open_sqlite(path: Union[str, Path], *, readonly: bool = False) -> sqlite3.Co
         conn.execute("PRAGMA busy_timeout = 5000")
         conn.execute("PRAGMA foreign_keys = ON")
         if not readonly and not is_memory:
-            mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
-            if str(mode or "").lower() != "wal":
-                conn.execute("PRAGMA journal_mode = WAL")
+            deadline = monotonic() + 5
+            while True:
+                try:
+                    mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+                    if mode != "wal":
+                        mode = conn.execute("PRAGMA journal_mode = WAL").fetchone()[0]
+                    if mode != "wal":
+                        raise MigrationError(f"SQLite could not enable WAL (journal_mode={mode})")
+                    break
+                except sqlite3.OperationalError as exc:
+                    # Changing journal modes can return BUSY before the timeout.
+                    if str(exc) not in ("database is locked", "database table is locked") or monotonic() >= deadline:
+                        raise
+                    sleep(0.025)
             conn.execute("PRAGMA synchronous = NORMAL")
         return conn
     except Exception:
