@@ -99,12 +99,18 @@ def open_sqlite(path: Union[str, Path], *, readonly: bool = False) -> sqlite3.Co
             Path(target).parent.mkdir(parents=True, exist_ok=True)
         conn = sqlite3.connect(target, timeout=10.0, isolation_level=None)
     conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA foreign_keys = ON")
-    conn.execute("PRAGMA busy_timeout = 5000")
-    if not readonly and not is_memory:
-        conn.execute("PRAGMA journal_mode = WAL")
-        conn.execute("PRAGMA synchronous = NORMAL")
-    return conn
+    try:
+        conn.execute("PRAGMA busy_timeout = 5000")
+        conn.execute("PRAGMA foreign_keys = ON")
+        if not readonly and not is_memory:
+            mode = conn.execute("PRAGMA journal_mode").fetchone()[0]
+            if str(mode or "").lower() != "wal":
+                conn.execute("PRAGMA journal_mode = WAL")
+            conn.execute("PRAGMA synchronous = NORMAL")
+        return conn
+    except Exception:
+        conn.close()
+        raise
 
 
 def verify_integrity(conn: sqlite3.Connection) -> dict[str, Any]:

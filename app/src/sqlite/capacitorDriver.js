@@ -35,40 +35,45 @@ export function createCapacitorSqliteDriver({
     databaseName: database,
 
     async open() {
-      if (opened) return;
-      const connCheck = typeof plugin.isConnection === 'function'
-        ? await plugin.isConnection({ database, readonly })
-        : { result: false };
-      if (!connCheck?.result) {
-        await plugin.createConnection({
-          database,
-          version: 1,
-          encrypted: false,
-          mode: 'no-encryption',
-          readonly,
-        });
-      }
-      const openCheck = typeof plugin.isDBOpen === 'function'
-        ? await plugin.isDBOpen({ database, readonly })
-        : { result: false };
-      if (!openCheck?.result) {
-        await plugin.open({ database, readonly });
-      }
-      await plugin.execute({ database, statements: 'PRAGMA foreign_keys = ON;', transaction: false });
-      if (!readonly) {
-        await plugin.execute({ database, statements: 'PRAGMA journal_mode = WAL;', transaction: false });
-      }
-      opened = true;
+      return serialize(async () => {
+        if (opened) return;
+        const connCheck = typeof plugin.isConnection === 'function'
+          ? await plugin.isConnection({ database, readonly })
+          : { result: false };
+        if (!connCheck?.result) {
+          await plugin.createConnection({
+            database,
+            version: 1,
+            encrypted: false,
+            mode: 'no-encryption',
+            readonly,
+          });
+        }
+        const openCheck = typeof plugin.isDBOpen === 'function'
+          ? await plugin.isDBOpen({ database, readonly })
+          : { result: false };
+        if (!openCheck?.result) {
+          await plugin.open({ database, readonly });
+        }
+        await plugin.execute({ database, statements: 'PRAGMA foreign_keys = ON;', transaction: false });
+        if (!readonly) {
+          // PRAGMA journal_mode returns a row ('wal'); use query() so Android SQLiteDatabase.execSQL never rejects it.
+          await txHandle.query('PRAGMA journal_mode = WAL;');
+        }
+        opened = true;
+      });
     },
 
     async close() {
-      if (!opened) return;
-      try {
-        await plugin.close({ database, readonly });
-      } finally {
-        await plugin.closeConnection({ database, readonly });
-        opened = false;
-      }
+      return serialize(async () => {
+        if (!opened) return;
+        try {
+          await plugin.close({ database, readonly });
+        } finally {
+          await plugin.closeConnection({ database, readonly });
+          opened = false;
+        }
+      });
     },
 
     async isOpen() {

@@ -180,7 +180,7 @@ describe('SQLite schema, migrator, and media contract', () => {
       { database: 'lerne_test', version: 1, encrypted: false, mode: 'no-encryption', readonly: false },
     ]);
     assert.ok(calls.some(([name, opts]) => name === 'execute' && opts.statements.includes('PRAGMA foreign_keys = ON')));
-    assert.ok(calls.some(([name, opts]) => name === 'execute' && opts.statements.includes('PRAGMA journal_mode = WAL')));
+    assert.ok(calls.some(([name, opts]) => name === 'query' && opts.statement.includes('PRAGMA journal_mode = WAL')));
     assert.ok(calls.some(([name]) => name === 'beginTransaction'));
     assert.ok(calls.some(([name]) => name === 'commitTransaction'));
     assert.ok(calls.some(([name]) => name === 'closeConnection'));
