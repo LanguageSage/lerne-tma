@@ -53,17 +53,18 @@ async function setup(page, context) {
 }
 
 
-test('media preserves sources, metadata, resize and original resource upload index', async ({ page, context }) => {
+test('media preserves sources, metadata, resize and original resource upload index', async ({ page, context, baseURL }) => {
   await setup(page, context);
+  const firstImage = new URL('/api/media/images/first.png', baseURL).href;
   const images = page.locator('.deck-images-gallery img');
   await expect(images).toHaveCount(2);
-  await expect(images.first()).toHaveAttribute('src', '/api/media/images/first.png');
+  await expect(images.first()).toHaveAttribute('src', firstImage);
   await expect.poll(() => images.first().evaluate(el => el.naturalWidth)).toBe(640);
   await page.evaluate(() => { window.open = (...args) => { window.openedImage = args; }; });
   await images.first().click();
-  expect(await page.evaluate(() => window.openedImage)).toEqual(['/api/media/images/first.png', '_blank']);
-  await expect(page.locator('audio')).toHaveAttribute('src', '/api/audio.wav');
-  await expect(page.locator('video')).toHaveAttribute('src', '/api/video.mp4');
+  expect(await page.evaluate(() => window.openedImage)).toEqual([firstImage, '_blank']);
+  await expect(page.locator('audio')).toHaveAttribute('src', /\/storage\/v1\/object\/public\/audio\/audio\.wav$/);
+  await expect(page.locator('video')).toHaveAttribute('src', new URL('/api/media/videos/video.mp4', baseURL).href);
   await expect(page.locator('video')).toHaveAttribute('playsinline', '');
   await expect(page.getByRole('link', { name: 'Deutsch — материалы' })).toHaveAttribute('rel', 'noopener noreferrer');
   const checks = page.locator('.deck-images-gallery input');

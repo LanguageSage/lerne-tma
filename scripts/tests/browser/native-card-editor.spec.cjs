@@ -827,7 +827,8 @@ test.describe('Match pair drag on a touch screen', () => {
     const order = await editorOrder(page);
     const start = page.getByRole('button', { name: 'Переместить пару 1', exact: true });
     const end = page.getByRole('button', { name: 'Переместить пару 2', exact: true });
-    await start.scrollIntoViewIfNeeded();
+    // Keep the drop target away from the viewport edge: dnd-kit auto-scrolls there and shifts the target.
+    await start.evaluate(node => node.scrollIntoView({ block: 'center' }));
     await expect(start).toHaveCSS('min-width', '44px');
     const from = await start.boundingBox();
     const to = await end.boundingBox();
