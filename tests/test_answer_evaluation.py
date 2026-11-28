@@ -560,21 +560,23 @@ class ServerContextTests(unittest.TestCase):
         self.assertEqual(policy.max_retries, 2)
 
     def test_synthetic_relative_clause_dialogue_keeps_task_and_source_for_grading(self):
-        from pathlib import Path
-        snapshot = json.loads((Path(__file__).resolve().parents[1] /
-            'tests/fixtures/lesson-qa/before.json').read_text(encoding='utf-8'))
-        synthetic = next(c for c in snapshot['cards'] if c['id'] == 10004)
-        from api.v1_to_v2_converter import inspect_v1_card
-        result = inspect_v1_card(synthetic)
-        self.assertTrue(result['ok'], result['diagnostics'])
-        self.card.content_v2 = result['content_v2']
+        answer = 'Ich empfehle Ihnen das Museum.'
+        self.card.content_v2 = {'schema_version': 2, 'card': {
+            'type': 'free_text',
+            'info': [
+                {'type': 'task', 'text': 'Reagieren Sie in einem Gespräch.'},
+                {'type': 'source', 'text': 'Welches Museum suchst du?'},
+            ],
+            'data': {'prompt': 'Ответьте, используя Relativsatz.', 'sample_answer': answer,
+                     'grading_policy': {'mode': 'controlled_text'}},
+        }}
         self.card.save()
         ctx, _ = self.load()
         self.assertIn('Welches Museum suchst du?', ctx['task'])
         self.assertIn('Reagieren Sie in einem Gespräch.', ctx['task'])
         self.assertIn('Ответьте, используя Relativsatz.', ctx['task'])
         self.assertNotIn('@free', ctx['task'])
-        self.assertEqual(ctx['expected_answers'][0], synthetic['back_text'])
+        self.assertEqual(ctx['expected_answers'][0], answer)
 
     def test_denies_other_user_but_allows_collaborative_viewer(self):
         from fastapi import HTTPException

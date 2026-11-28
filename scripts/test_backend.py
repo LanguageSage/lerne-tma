@@ -51,7 +51,6 @@ SUITES = (
     'scripts/tests/test_delete_restore.py',
     'scripts/tests/test_native_content_updates.py',
     'scripts/tests/test_sync_generation.py',
-    'scripts/tests/test_v1_to_v2_converter.py',
     'scripts/tests/test_native_v2_rehearsal_tools.py',
     'scripts/tests/test_backup_guards.py',
     'scripts/tests/test_sync_read_queries.py',

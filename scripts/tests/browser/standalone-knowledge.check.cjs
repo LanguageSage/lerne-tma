@@ -1,4 +1,4 @@
-// Opt-in real-material pilot. Run with the corrected D10/D14 snapshot and a local Python.
+// Opt-in real-material pilot. Run with the Native V2 D10/D14 snapshot and a local Python.
 const assert = require('node:assert/strict');
 const { execFileSync } = require('node:child_process');
 const path = require('node:path');
@@ -17,7 +17,7 @@ function makeArchive(snapshotPath, python, reverseDecks = false) {
   return execFileSync(python, ['-c', String.raw`
 import hashlib, io, json, sys, zipfile
 from pathlib import Path
-from api.v1_to_v2_converter import convert_v1_card
+from api.card_core.lerne_card_core.structured_cards_v2 import ContentV2
 
 snapshot = json.loads(Path(sys.argv[1]).read_text(encoding="utf-8-sig"))
 requested = {7139: {358375, 358377}, 7142: {358530}}
@@ -38,7 +38,7 @@ for deck_id, card_ids in ordered:
     for position, card_id in enumerate(sorted(card_ids)):
         original = cards_by_id[card_id]
         assert original["deck_id"] == deck_id and mappings_by_id[card_id]["rule_code"] == skill
-        envelope = convert_v1_card({**original, "audio_path": None, "audio_back_path": None}, deck=deck)
+        envelope = ContentV2.model_validate(original["content_v2"], context={"stored_card": True}).model_dump(mode="json")
         assert envelope["card"]["type"] == "trainer"
         cards.append({"id": card_id, "author": 1, "values": {
             "content_v2": envelope, "deck_id": deck_id, "position": position, "is_deleted": False,
@@ -103,7 +103,7 @@ async function studyTrainer(page, deck, incorrect, correct) {
 
 async function run() {
   const [snapshot, python = 'python'] = process.argv.slice(2);
-  if (!snapshot) throw new Error('Usage: node standalone-knowledge.check.cjs <corrected.snapshot.json> [python]');
+  if (!snapshot) throw new Error('Usage: node standalone-knowledge.check.cjs <native-v2.snapshot.json> [python]');
   const archive = makeArchive(path.resolve(snapshot), python);
   process.env.VITE_LERNE_STANDALONE = '1';
   process.env.VITE_LERNE_LOCAL = '0';

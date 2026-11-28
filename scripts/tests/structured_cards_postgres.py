@@ -274,43 +274,6 @@ def verify(db):
             cards.create(deck=self.deck, front_text='', back_text='', is_deleted=True)
             return {t: list(db.execute_sql(f'SELECT row_to_json(t) FROM {t} t ORDER BY id')) for t in ('tma_card', 'card')}
 
-        def test_atomic_content_prevalidates_both_tables_before_any_write(self):
-            from tools.migrate_native_v2_local import migrate_active
-            self.atomic_migration_fixture()
-            models.Card.update(front_text='', back_text='').execute()
-            with patch('tools.migrate_native_v2_local.execute_values') as write:
-                with self.assertRaisesRegex(ValueError, 'prevalidation blocked'):
-                    migrate_active(db)
-                write.assert_not_called()
-            self.assertEqual(cards.select().where(cards.content_v2.is_null(False)).count(), 0)
-
-        def test_atomic_content_rolls_back_both_tables_then_preserves_deleted_rows(self):
-            from tools import migrate_native_v2_local as migration
-            from psycopg2.errors import DivisionByZero
-            before = self.atomic_migration_fixture()
-            write = migration.execute_values
-            calls = []
-            def fail_library(cursor, sql, *args, **kwargs):
-                calls.append(sql)
-                if sql.startswith('UPDATE card t'):
-                    cursor.execute('SELECT 1/0')
-                return write(cursor, sql, *args, **kwargs)
-            with patch.object(migration, 'execute_values', side_effect=fail_library):
-                with self.assertRaises(DivisionByZero):
-                    migration.migrate_active(db)
-            self.assertEqual(len(calls), 2)
-            self.assertEqual({t: list(db.execute_sql(f'SELECT row_to_json(t) FROM {t} t ORDER BY id')) for t in before}, before)
-            immutable = migration.immutable_cards(db)
-            result = migration.migrate_active(db)
-            self.assertEqual({t: r['converted'] for t, r in result['tables'].items()}, {'tma_card': 1, 'card': 1})
-            self.assertEqual(migration.immutable_cards(db), immutable)
-            deleted = cards.get(cards.is_deleted == True)
-            self.assertIsNone(deleted.content_v2)
-            active = cards.get(cards.is_deleted == False)
-            self.assertEqual(active.content_v2['card']['metadata']['custom'], {'retain': [True, None, 3]})
-            self.assertEqual(active.content_v2['card']['metadata']['tags'], ['synthetic'])
-            self.assertEqual(active.content_v2['card']['level'], 'A1')
-
     return unittest.TextTestRunner(verbosity=2).run(
         unittest.defaultTestLoader.loadTestsFromTestCase(StorageTests)).wasSuccessful()
 

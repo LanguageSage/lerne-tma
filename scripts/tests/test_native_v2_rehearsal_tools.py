@@ -3,7 +3,6 @@ import contextlib
 import hashlib
 import io
 import json
-import os
 from pathlib import Path
 import shutil
 import sys
@@ -12,7 +11,7 @@ import unittest
 from unittest.mock import Mock, patch
 from uuid import uuid4
 
-from tools import native_v2_dry_run, native_v2_rehearsal, native_v2_snapshot
+from tools import native_v2_rehearsal, native_v2_snapshot
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -72,32 +71,6 @@ class RehearsalToolGuards(unittest.TestCase):
         self.assertEqual(error.exception.code, 2)
         self.assertFalse((self.root / 'output').exists())
 
-    def test_blocked_deleted_row_produces_nonzero_gate_and_keeps_source(self):
-        source = self.root / 'source'
-        source.mkdir()
-        value = json.dumps({'decks': [], 'cards': [{'id': 1, 'front_text': '', 'back_text': '', 'is_deleted': True, 'deck_id': 1}]})
-        for scope in ('tma', 'library'):
-            (source / (scope + '-snapshot.json')).write_text(value)
-        with patch.object(sys, 'argv', ['dry-run', '--snapshot-dir', str(source), '--output', str(self.root / 'output')]), \
-                contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(native_v2_dry_run.main(), 2)
-        self.assertEqual((source / 'tma-snapshot.json').read_text(), value)
-        report = json.loads((self.root / 'output/tma-deleted.json').read_text(encoding='utf-8'))
-        self.assertFalse(report['ok'])
-        self.assertEqual(report['blocked_count'], 1)
-
-    def test_local_migrator_rejects_cloud_role_and_working_local_database_before_transaction(self):
-        from tools.migrate_native_v2_local import migrate_active
-        for identity in (('postgres', 'postgres', '10.0.0.1/32', 5432, str(self.root)),
-                         ('lerne_tma_local', 'cards_test', '127.0.0.1/32', 55432, str(self.root))):
-            with self.subTest(database=identity[0]):
-                db = Mock()
-                db.in_transaction.return_value = False
-                db.execute_sql.return_value.fetchone.return_value = identity
-                with self.assertRaisesRegex(RuntimeError, 'disposable runner cluster'):
-                    migrate_active(db)
-                db.atomic.assert_not_called()
-
     def test_maintenance_imports_never_load_models_dotenv_or_connect(self):
         program = '''
 import sys
@@ -105,8 +78,8 @@ from unittest.mock import patch
 with patch('dotenv.load_dotenv', side_effect=AssertionError('dotenv')), \\
      patch('psycopg2.connect', side_effect=AssertionError('connect')), \\
      patch('peewee.PostgresqlDatabase.connect', side_effect=AssertionError('connect')):
-    import tools.native_v2_cutover
-    import tools.migrate_native_v2_local
+    import tools.native_v2_rehearsal
+    import tools.native_v2_snapshot
     import tools.backup_supabase_storage
     assert 'api.models' not in sys.modules
 '''
@@ -129,140 +102,6 @@ with patch('dotenv.load_dotenv', side_effect=AssertionError('dotenv')), \\
             models.create_all_tables()
             for runner in runners:
                 runner.assert_not_called()
-
-    def test_cutover_remote_without_tls_never_connects(self):
-        from tools import native_v2_cutover as cli
-        argv = ['--expected-host', 'selected.example', '--expected-port', '5432',
-                '--expected-database', 'synthetic', '--expected-role', 'operator',
-                '--expected-dsn-user', 'operator.projref',
-                '--output', str(self.root / 'no-tls.json')]
-        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': 'postgresql://operator.projref:secret@selected.example/synthetic'}, clear=True), \
-                patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
-                contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(cli.main(argv), 1)
-        connect.assert_not_called()
-        report = (self.root / 'no-tls.json').read_text(encoding='utf-8')
-        self.assertIn('TLS', report)
-        self.assertNotIn('secret', report)
-
-    def test_cutover_pooler_dsn_user_and_role_guards(self):
-        from tools import native_v2_cutover as cli
-        base_argv = [
-            '--expected-host', 'pooler.example', '--expected-port', '5432',
-            '--expected-database', 'postgres', '--expected-role', 'postgres',
-            '--expected-dsn-user', 'postgres.wdopyuulhiykrextyvnt',
-        ]
-        valid_dsn = 'postgresql://postgres.wdopyuulhiykrextyvnt:secret@pooler.example:5432/postgres?sslmode=require'
-
-        class FakeCursor:
-            def __init__(self, row):
-                self._row = row
-
-            def fetchone(self):
-                return self._row
-
-            def __iter__(self):
-                return iter([])
-
-        class FakeDb:
-            def __init__(self, role='postgres'):
-                self.role = role
-                self.sql_log = []
-
-            def connect(self):
-                pass
-
-            def execute_sql(self, sql, *args):
-                self.sql_log.append(sql)
-                if 'current_database(),current_user' in sql:
-                    return FakeCursor(('postgres', self.role))
-                if 'pg_try_advisory_lock' in sql:
-                    return FakeCursor((True,))
-                return FakeCursor((1,))
-
-            def atomic(self):
-                return contextlib.nullcontext()
-
-            def is_closed(self):
-                return False
-
-            def close(self):
-                pass
-
-            def get_binary_type(self):
-                return bytes
-
-            def get_tables(self):
-                return []
-
-            def get_columns(self, table):
-                return []
-
-        # 1. Valid pooler DSN user + DB role -> inspect PASS, and apply accepts matching target
-        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': valid_dsn}, clear=True), \
-                patch.object(cli, 'connect', return_value=FakeDb('postgres')), \
-                patch.object(cli, 'observe', return_value={'history': [], 'cards_total_active_native': {'tma_card': [1, 1, 0], 'card': [1, 1, 0]}}), \
-                contextlib.redirect_stdout(io.StringIO()):
-            inspect_out = self.root / 'pooler-inspect.json'
-            self.assertEqual(cli.main(base_argv + ['--output', str(inspect_out)]), 0)
-            saved = json.loads(inspect_out.read_text(encoding='utf-8'))
-            self.assertEqual(saved['target'], ['pooler.example', 5432, 'postgres', 'postgres', 'postgres.wdopyuulhiykrextyvnt'])
-            import hashlib
-            sha = hashlib.sha256(inspect_out.read_bytes()).hexdigest()
-            with patch.object(cli, 'apply', return_value=[]) as apply_mock:
-                apply_out = self.root / 'pooler-apply.json'
-                rc = cli.main(base_argv + [
-                    '--output', str(apply_out), '--apply', '--writers-stopped',
-                    '--source-inspect', str(inspect_out), '--confirm-source-sha256', sha,
-                ])
-                self.assertEqual(rc, 0, apply_out.read_text(encoding='utf-8'))
-                apply_mock.assert_called_once()
-
-        # 2. Wrong project ref in DSN username -> FAIL before connect
-        wrong_ref_dsn = 'postgresql://postgres.wrongref:secret@pooler.example:5432/postgres?sslmode=require'
-        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': wrong_ref_dsn}, clear=True), \
-                patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
-                contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(cli.main(base_argv + ['--output', str(self.root / 'wrong-ref.json')]), 1)
-            connect.assert_not_called()
-
-        # 3. Wrong PostgreSQL role -> FAIL after connect
-        with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': valid_dsn}, clear=True), \
-                patch.object(cli, 'connect', return_value=FakeDb('wrong_role')), \
-                contextlib.redirect_stderr(io.StringIO()), contextlib.redirect_stdout(io.StringIO()):
-            self.assertEqual(cli.main(base_argv + ['--output', str(self.root / 'wrong-role.json')]), 1)
-
-        # 4. Wrong host / database / port -> FAIL before connect
-        for idx, bad_dsn in enumerate([
-            'postgresql://postgres.wdopyuulhiykrextyvnt:secret@other.example:5432/postgres?sslmode=require',
-            'postgresql://postgres.wdopyuulhiykrextyvnt:secret@pooler.example:5432/otherdb?sslmode=require',
-            'postgresql://postgres.wdopyuulhiykrextyvnt:secret@pooler.example:6543/postgres?sslmode=require',
-        ]):
-            with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': bad_dsn}, clear=True), \
-                    patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
-                    contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(cli.main(base_argv + ['--output', str(self.root / f'bad-target-{idx}.json')]), 1)
-                connect.assert_not_called()
-
-        # 5. LOCAL/disposable guards preserved (lerne_tma_local / port 55432) -> FAIL before connect
-        for idx, (local_argv, local_dsn) in enumerate([
-            (['--expected-host', '127.0.0.1', '--expected-port', '55432', '--expected-database', 'postgres', '--expected-role', 'postgres'],
-             'postgresql://postgres:secret@127.0.0.1:55432/postgres'),
-            (['--expected-host', '127.0.0.1', '--expected-port', '5432', '--expected-database', 'lerne_tma_local', '--expected-role', 'postgres'],
-             'postgresql://postgres:secret@127.0.0.1:5432/lerne_tma_local'),
-        ]):
-            with patch.dict(os.environ, {'NATIVE_V2_DATABASE_URL': local_dsn}, clear=True), \
-                    patch.object(cli, 'connect') as connect, contextlib.redirect_stderr(io.StringIO()), \
-                    contextlib.redirect_stdout(io.StringIO()):
-                self.assertEqual(cli.main(local_argv + ['--output', str(self.root / f'local-guard-{idx}.json')]), 1)
-                connect.assert_not_called()
-
-        # 6. observe() sets extra_float_digits = 3 for fingerprint parity with snapshot
-        obs_db = FakeDb('postgres')
-        with patch('tools.native_v2_rehearsal.fingerprints', return_value={}):
-            cli.observe(obs_db)
-        self.assertIn('SET extra_float_digits = 3', obs_db.sql_log)
-
 
 if __name__ == '__main__':
     unittest.main()

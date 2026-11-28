@@ -5,6 +5,7 @@ No startup schema initialization or cloud credentials; all network is loopback.
 """
 import copy
 import hashlib
+import ipaddress
 import json
 import os
 from pathlib import Path
@@ -19,8 +20,25 @@ import httpx
 import uvicorn
 
 
+ROOT = Path(__file__).resolve().parents[1]
+
+
+def verify_target(database):
+    if database.in_transaction():
+        raise RuntimeError('Migration requires its own transaction')
+    name, role, address, port, directory = database.execute_sql(
+        "SELECT current_database(),current_user,inet_server_addr()::text,inet_server_port(),current_setting('data_directory')"
+    ).fetchone()
+    data = Path(directory).resolve()
+    if (name == 'lerne_tma_local' or role != 'cards_test' or port == 55432 or
+            ipaddress.ip_interface(address).ip != ipaddress.ip_address('127.0.0.1') or
+            data.parent.parent != (ROOT / 'local/test-data').resolve() or
+            not data.parent.name.startswith('structured-cards-pg-') or data.name != 'data' or
+            not (data / 'postmaster.pid').is_file()):
+        raise RuntimeError('Only this worktree disposable runner cluster is authorized')
+
+
 def verify(db, output, admin_root, *, browser=True, smoke=False):
-    from tools.migrate_native_v2_local import verify_target
     verify_target(db)
     from peewee import PostgresqlDatabase
     from api import models
