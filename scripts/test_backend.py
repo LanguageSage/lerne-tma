@@ -29,13 +29,12 @@ SUITES = (
     'scripts/tests/test_native_v2_client_contract.py',
     'scripts/tests/test_structured_cards_import.py',
     'scripts/tests/test_admin_interop_boundary.py',
-    'scripts/tests/test_local_dev.py',
     'scripts/tests/test_test_isolation.py',
     'scripts/tests/test_media_storage_migration.py',
     'scripts/tests/test_audio_force_regeneration.py',
     'scripts/tests/test_audio_upload.py',
     'scripts/tests/test_deploy_manifest.py',
-    'scripts/tests/test_local_deployment.py',
+    'scripts/tests/test_api_deployment_boundary.py',
     'scripts/tests/test_deck_passport.py',
     'scripts/tests/test_auth_foundation.py',
     'scripts/tests/test_critical_http.py',
@@ -51,7 +50,6 @@ SUITES = (
     'scripts/tests/test_native_content_updates.py',
     'scripts/tests/test_sync_generation.py',
     'scripts/tests/test_native_v2_rehearsal_tools.py',
-    'scripts/tests/test_backup_guards.py',
     'scripts/tests/test_sync_read_queries.py',
     'scripts/tests/test_forced_study.py',
     'scripts/tests/test_study_latency.py',
@@ -104,7 +102,7 @@ def isolated_suite(path):
     # Clear inherited secrets and prevent every load_dotenv() before API imports.
     safe_env = {key: value for key, value in os.environ.items()
                 if key.upper() in {'PATH', 'SYSTEMROOT', 'WINDIR', 'TEMP', 'TMP'}}
-    safe_env.update(PYTHONUTF8='1', VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+    safe_env.update(PYTHONUTF8='1', VERCEL='1', RUN_MIGRATIONS='false')
     with patch.dict(os.environ, safe_env, clear=True), \
             patch('dotenv.load_dotenv', return_value=False), \
             patch.object(PostgresqlDatabase, 'connect', blocked), \

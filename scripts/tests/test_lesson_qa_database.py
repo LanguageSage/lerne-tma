@@ -6,7 +6,7 @@ from contextlib import nullcontext
 from types import SimpleNamespace
 from unittest.mock import patch
 
-os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false')
 
 from test_forced_study import database, models, TABLES, ROOT, cards, study
 from scripts.lesson_qa import read_database

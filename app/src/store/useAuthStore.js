@@ -8,11 +8,10 @@ import { useUiStore } from './useUiStore';
 import { useDeckStore } from './useDeckStore';
 import { useSessionStore } from './useSessionStore';
 import { useLanguageStore } from './useLanguageStore';
-import { IS_LOCAL, localStorageKey } from '../utils/localMode.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 
-const NAVIGATION_KEY = localStorageKey('lerne_auth_pending_navigation');
-const PENDING_KEY = localStorageKey('lerne_auth_v2_pending');
+const NAVIGATION_KEY = 'lerne_auth_pending_navigation';
+const PENDING_KEY = 'lerne_auth_v2_pending';
 let pollTimer = null;
 let listenersReady = false;
 let exchangeInFlight = false;
@@ -23,7 +22,6 @@ let telegramPreparation = null;
 const challengeIsFresh = (challenge, purpose, margin = 0) => challenge?.purpose === purpose
   && Date.parse(challenge.expiresAt) > Date.now() + margin;
 const requestChallenge = async (provider, purpose) => {
-  if (IS_LOCAL) throw new Error('Social login is unavailable in LOCAL');
   const { data } = await api.post('/auth/v2/challenges', { provider, purpose });
   return { id: data.challenge_id, secret: data.secret, provider, purpose,
     expiresAt: data.expires_at, authUrl: data.authorization_url };
@@ -189,10 +187,6 @@ export const useAuthStore = create((set, get) => ({
             }
             if (generation === authGeneration) set(state => ({ sessionRevision: state.sessionRevision + 1 }));
           }
-        } else if (IS_LOCAL) {
-          const response = await api.post('/auth/local/login');
-          if (generation !== authGeneration) return;
-          await get().finishLogin(response.data);
         } else if (window.Telegram?.WebApp?.initData && storage.get('lerne_force_guest') !== 'true') {
           // A pending bot/OAuth challenge owns this round trip, including reloads.
           if (!pendingAuth()) await get().startProvider('telegram');
@@ -302,7 +296,6 @@ export const useAuthStore = create((set, get) => ({
 
   startProvider: async (provider, purpose = 'login', recovery = false) => {
     if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) return { success: false, error: 'Auth disabled in standalone offline mode' };
-    if (IS_LOCAL) return { success: false, error: 'Social login is unavailable in LOCAL' };
     if (get().isStarting || get().isPolling) return { success: false };
     set({ isStarting: true, authError: null });
     const generation = authGeneration;
@@ -457,7 +450,7 @@ export const useAuthStore = create((set, get) => ({
         }
       };
       return await (typeof navigator !== 'undefined' && navigator.locks?.request
-        ? navigator.locks.request(localStorageKey('lerne-auth-v2-exchange'), exchange)
+        ? navigator.locks.request('lerne-auth-v2-exchange', exchange)
         : exchange());
     } finally {
       exchangeInFlight = false;
@@ -514,10 +507,10 @@ export const useAuthStore = create((set, get) => ({
         }
         return;
       }
-      if (event.key !== localStorageKey('lerne_auth_v2_session') && event.key !== localStorageKey('lerne_user_profile') && event.key !== null) return;
+      if (event.key !== 'lerne_auth_v2_session' && event.key !== 'lerne_user_profile' && event.key !== null) return;
       const before = observedIdentity;
       notifyAuthSession();
-      if (event.key === localStorageKey('lerne_auth_v2_session') && !getAuthSession() && getSavedUserProfile()) requireAuthSession();
+      if (event.key === 'lerne_auth_v2_session' && !getAuthSession() && getSavedUserProfile()) requireAuthSession();
       if (getAuthSession() && before !== getSessionIdentity()) get().restoreSession();
     });
   },

@@ -68,7 +68,7 @@ class AudioForceRegenerationTest(unittest.IsolatedAsyncioTestCase):
             self.addCleanup(lambda: os.remove(cached_file))
 
     async def test_upload_failure_has_no_success_path(self):
-        with patch('api.routers.media.is_local', return_value=False), patch(
+        with patch(
             'api.utils.audio._upload_to_supabase', new=AsyncMock(return_value=None),
         ), patch.dict(os.environ, {'SUPABASE_URL': 'https://example.supabase.co', 'SUPABASE_KEY': 'fixture', 'VERCEL': '1'}):
             with self.assertRaises(HTTPException) as failure:
@@ -79,7 +79,7 @@ class AudioForceRegenerationTest(unittest.IsolatedAsyncioTestCase):
 class AudioReferenceTest(unittest.TestCase):
     def test_new_link_fails_closed_without_cloud_configuration(self):
         link = 'https://example.supabase.co/storage/v1/object/public/audio/new.mp3'
-        with patch('api.services.media.is_local', return_value=False), patch.dict(
+        with patch.dict(
             os.environ, {'SUPABASE_URL': ''}, clear=False,
         ):
             with self.assertRaises(HTTPException) as failure:

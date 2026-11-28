@@ -80,7 +80,7 @@ def main():
         assert data.parent.parent == (ROOT / 'local/test-data').resolve()
         assert data.parent.name.startswith('structured-cards-pg-') and data.name == 'data'
         assert (data / 'postmaster.pid').is_file() and identity[3] != 55432
-        assert not os.environ.get('LERNE_MODE') and not os.environ.get('SUPABASE_DB_URL')
+        assert not os.environ.get('SUPABASE_DB_URL')
         report['verified_disposable_target'] = dict(zip(('database', 'role', 'address', 'port', 'pgdata'), identity))
         for role in ('anon', 'authenticated', 'service_role'):
             control.execute_sql(f'CREATE ROLE {role}')

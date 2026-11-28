@@ -30,7 +30,7 @@
 ## 2. Архитектурные ограничения и внесённые изменения
 
 Ключевые инварианты:
-1. Автономное поведение включается **строго** при явной build-time переменной `VITE_LERNE_STANDALONE=1`. Сочетание с `VITE_LERNE_LOCAL` запрещено.
+1. Автономное поведение включается **строго** при явной build-time переменной `VITE_LERNE_STANDALONE=1`.
 2. Схема Dexie (`LerneLocalDB` версии 1–5) не изменялась; автономная сборка использует отдельную БД `LerneStandaloneDB_900001` и отдельный Android `applicationId = com.lerne.offlinepilot` (`"Lerne Offline Pilot"`).
 3. Поддельные Bearer-токены и псевдосессии Supabase не создаются (`getAccessToken()` всегда `null`).
 4. Существующие VM-тесты `scripts/tests/*_regression.mjs` и `api/services/*` не модифицировались.

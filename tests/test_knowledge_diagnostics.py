@@ -6,7 +6,7 @@ import secrets
 from unittest.mock import patch
 from uuid import uuid4
 
-os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false')
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient

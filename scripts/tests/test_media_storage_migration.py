@@ -5,6 +5,9 @@ import os
 import types
 import unittest
 from pathlib import Path
+from contextlib import contextmanager
+import shutil
+from uuid import uuid4
 from unittest.mock import patch
 
 from peewee import SqliteDatabase
@@ -12,15 +15,27 @@ from peewee import SqliteDatabase
 from api import models
 from api.utils.storage_keys import storage_key
 from scripts import migrate_images_to_storage as migration
-from scripts.tests.test_local_dev import SyntheticDirectory
 
 
+SCRATCH = Path(__file__).resolve().parents[2] / "local/test-data"
 TABLES = [models.TMAUser, models.TMA_Folder, models.TMA_Deck, models.TMA_Card,
           models.LibraryCategory, models.Deck, models.Card, models.TMAMedia]
 
 
+@contextmanager
+def synthetic_directory():
+    directory = SCRATCH / ('media-migration-' + uuid4().hex)
+    directory.mkdir()
+    try:
+        yield directory
+    finally:
+        assert directory.resolve().parent == SCRATCH.resolve()
+        shutil.rmtree(directory)
+
+
 class OfflineDatabase(unittest.TestCase):
     def setUp(self):
+        SCRATCH.mkdir(parents=True, exist_ok=True)
         self.previous = models.tma_db.obj, models.lerne_db.obj
         self.db = SqliteDatabase(':memory:', thread_safe=False, check_same_thread=False)
         models.tma_db.initialize(self.db)
@@ -73,7 +88,7 @@ class Session:
 
 class MigrationTests(OfflineDatabase):
     def run_migration(self, session, **kwargs):
-        with SyntheticDirectory() as directory, patch.dict(os.environ,
+        with synthetic_directory() as directory, patch.dict(os.environ,
                 SUPABASE_URL='https://example.invalid', SUPABASE_KEY='not-a-real-key'), \
                 patch.object(migration.aiohttp, 'ClientSession', return_value=session):
             report = asyncio.run(migration.migrate(initialize=False, clear_content=True, report_path=str(Path(directory) / 'report.json'), **kwargs))
@@ -109,7 +124,7 @@ class MigrationTests(OfflineDatabase):
 
     def test_default_run_verifies_without_clearing_source(self):
         item = models.TMAMedia.create(folder='images', filename='a.png', content=b'image')
-        with SyntheticDirectory() as directory, patch.dict(os.environ,
+        with synthetic_directory() as directory, patch.dict(os.environ,
                 SUPABASE_URL='https://example.invalid', SUPABASE_KEY='test'), \
                 patch.object(migration.aiohttp, 'ClientSession', return_value=Session(200)):
             report = asyncio.run(migration.migrate(initialize=False, report_path=str(Path(directory) / 'report.json')))

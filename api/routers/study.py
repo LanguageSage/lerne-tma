@@ -13,7 +13,6 @@ except ImportError:
 from api.dependencies.auth import get_user_id
 from api.db_workers import db_worker
 from api.services.media import _build_media_exists_map
-from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
 
@@ -46,7 +45,7 @@ def _card_to_response(card, progress, user_id: int, review_context='scheduled', 
             deck_metadata = json.loads(deck.metadata)
         except Exception: pass
 
-    media_exists = set() if is_local() else _build_media_exists_map([{field: getattr(card, field) for field in
+    media_exists = _build_media_exists_map([{field: getattr(card, field) for field in
         ('image_path', 'video_front_path', 'video_back_path')}, *[
         {('image_path' if res.get('type') == 'image' else 'video_front_path'): res.get('path')}
         for res in deck_metadata.get('resources', []) if res.get('type') in ('image', 'video')

@@ -14,20 +14,18 @@ Vercel сохраняет фактическую политику подгото
 независимо от `RUN_MIGRATIONS` и `LERNE_SKIP_SCHEMA_INIT`. Эти флаги управляли
 дополнительной подготовкой при импорте моделей. Импорт теперь только привязывает proxy.
 
-Card communication migration 90 is separate from `MIGRATIONS`: LOCAL bootstrap
-applies it; non-LOCAL API startup never does. Both connected Supabase projects
+Card communication migration 90 runs separately from the startup `MIGRATIONS` catalog. Both connected Supabase projects
 already record ID 87 without `tma_card_note`; test also records 88 and 89, so
 87 must not be reused. Production uses only
 `scripts/migrate_card_notes.py --apply` with an explicit
 `CARD_NOTES_MIGRATION_DATABASE_URL`. The migration
 creates private notes and messages atomically; existing untracked tables or a
 recorded 90 with a different shape fail closed. Missing note storage is an
-isolated 503 from the notes routes. Bootstrap scope and old-schema HTTP
+isolated 503 from the notes routes. Old-schema HTTP
 regressions are covered by `test_card_notes.py` and `test_critical_http.py`.
 
 Structured Cards V2 migration 93 has a separate PostgreSQL runner,
-`run_structured_cards_v2_migration`. Only PostgreSQL LOCAL bootstrap calls it
-automatically. It adds the JSONB column and validated exclusivity constraint,
+`run_structured_cards_v2_migration`. Run it explicitly. It adds the JSONB column and validated exclusivity constraint,
 then records 93 in the same transaction under advisory lock. Reruns check
 the recorded schema. Existing cards retain their current representation.
 The disposable PostgreSQL check is `python scripts/tests/structured_cards_postgres.py
@@ -88,8 +86,7 @@ SQL-каталог, схема истории и локальный механи
 
 `api/migrations.py:run_unified_cards_migration` is an explicit PostgreSQL
 maintenance operation after 93/94/95 and conversion of active content to V2.
-It is never run automatically on a populated database. Empty LOCAL bootstrap
-applies it after the historical schema baseline. Stop all writers before a real
+Run it explicitly. Stop all writers before a real
 cutover; recovery is the pre-migration dump, not a reverse merge of later edits.
 
 The transaction locks both source/target pairs, adds scope/category_id/is_default

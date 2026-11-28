@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
 # Pure package imports avoid application/database initialization entirely.
-os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false')
 
 
 def main(argv=None):

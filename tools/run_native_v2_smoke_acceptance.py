@@ -89,7 +89,6 @@ def main():
     os.environ['LERNE_ADMIN_STATE_DIR'] = str(scratch / 'admin-state')
     os.environ['LERNE_ADMIN_PORT'] = str(admin_port)
     os.environ.pop('SUPABASE_DB_URL', None)
-    os.environ.pop('LERNE_MODE', None)
 
     # Initialize TMA models
     from api import models

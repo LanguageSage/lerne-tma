@@ -6,7 +6,7 @@ import unittest
 from unittest.mock import AsyncMock, MagicMock, patch
 
 # Legacy api.models bootstraps local schemas on import, before fixtures bind.
-os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false')
 
 from pydantic import ValidationError
 

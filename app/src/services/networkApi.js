@@ -2,7 +2,6 @@ import axios from 'axios';
 import { getAccessToken, getAuthSession, saveAuthSession, requireAuthSession, getSessionIdentity, getUserId } from '../utils/auth.js';
 import { getLocalDb } from './localDb.js';
 import { API_BASE_URL } from './apiConfig.js';
-import { IS_LOCAL } from '../utils/localMode.js';
 import { IS_STANDALONE } from '../utils/standaloneMode.js';
 import { generationError, observeServerGeneration } from './serverGeneration.js';
 
@@ -73,9 +72,6 @@ axiosInstance.interceptors.request.use(async (config) => {
   }
   if (config._expectedSessionIdentity !== undefined && config._expectedSessionIdentity !== getSessionIdentity()) {
     throw new axios.CanceledError('Session changed before request');
-  }
-  if (IS_LOCAL && (config.baseURL !== '/api' || !config.url?.startsWith('/') || config.url.startsWith('//'))) {
-    throw new Error('External API requests disabled in LOCAL');
   }
   if (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE) {
     const err = new Error('Network API disabled in standalone offline mode');
@@ -189,7 +185,7 @@ const refreshSession = (session) => {
     return getAuthSession();
   };
   const flight = (typeof navigator !== 'undefined' && navigator.locks?.request
-    ? navigator.locks.request(IS_LOCAL ? 'lerne-local-auth-v2-refresh' : 'lerne-auth-v2-refresh', () => refresh())
+    ? navigator.locks.request('lerne-auth-v2-refresh', () => refresh())
     : withRefreshLease(identity, refresh)).finally(() => refreshFlights.delete(key));
   refreshFlights.set(key, flight);
   return flight;

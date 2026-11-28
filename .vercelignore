@@ -88,7 +88,6 @@ __pycache__/
 
 # Isolated development runtime and private data
 local/
-compose.local.yaml
 playwright*.config.*
 requirements-test.txt
 # Root runtime data only; keep app/src/data and classifier/data sources.

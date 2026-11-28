@@ -1,6 +1,6 @@
 const { test, expect } = require('@playwright/test');
 
-const modes = [['build', 5198], ['local', 5173]];
+const modes = [['build', 5198], ['dev', 5197]];
 const deck = { id: 501, name: 'Deutsch üben · Синтетическая колода', role: 'owner', target_language: 'de',
   card_count: 1, stats: { total: 1, new: 1, learning: 0, due: 0 }, is_learning: true };
 const profile = { user_id: 101, first_name: 'Parity learner', is_guest: false,
@@ -18,7 +18,7 @@ test.beforeAll(async () => {
     config: normalizeDesignConfig({ global: { accentColor: '#bc7234' }, front: { card: { background: 'dark_mocha' } } }) };
 });
 
-async function setup(browser, mode, port, width) {
+async function setup(browser, port, width) {
   const origin = `http://127.0.0.1:${port}`;
   const context = await browser.newContext({ viewport: { width, height: 900 }, deviceScaleFactor: 1.25,
     reducedMotion: 'reduce', serviceWorkers: 'block' });
@@ -44,14 +44,13 @@ async function setup(browser, mode, port, width) {
     if (['/api/folders', '/api/messages'].includes(pathname)) return route.fulfill({ json: [] });
     return route.fulfill({ json: {} });
   });
-  await context.addInitScript(({ mode, profile }) => {
-    const prefix = mode === 'build' ? '' : 'lerne_local:';
+  await context.addInitScript(profile => {
     for (const [key, value] of Object.entries({ native_language: 'ru', native_language_selected: 'true',
       lerne_has_selected_language: 'true', lerne_target_language: 'de' })) localStorage.setItem(key, value);
-    localStorage.setItem(prefix + 'lerne_user_profile', JSON.stringify(profile));
-    localStorage.setItem(prefix + 'lerne_auth_v2_session', JSON.stringify({ account_id: profile.user_id,
+    localStorage.setItem('lerne_user_profile', JSON.stringify(profile));
+    localStorage.setItem('lerne_auth_v2_session', JSON.stringify({ account_id: profile.user_id,
       access_token: 'synthetic-access', refresh_token: 'synthetic-refresh' }));
-  }, { mode, profile });
+  }, profile);
   const page = await context.newPage();
   page.on('pageerror', error => errors.push(error.message));
   page.on('request', request => requests.push(request.url()));
@@ -76,10 +75,10 @@ async function metrics(page, selector) {
   }));
 }
 
-for (const width of [320, 375, 430, 768, 1280]) test(`build and LOCAL share design and geometry at ${width}px`, async ({ browser }, testInfo) => {
+for (const width of [320, 375, 430, 768, 1280]) test(`build and dev share design and geometry at ${width}px`, async ({ browser }, testInfo) => {
   const results = [];
   for (const [mode, port] of modes) {
-    const device = await setup(browser, mode, port, width);
+    const device = await setup(browser, port, width);
     const { page, context, requests, errors, fontResponses } = device;
     try {
       // Check actual downloaded faces, not just computed font-family (which can mask fallback).
@@ -110,7 +109,6 @@ for (const width of [320, 375, 430, 768, 1280]) test(`build and LOCAL share desi
       expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
       results.push({ home, intro, hover });
       expect(requests.filter(url => /fonts\.googleapis|fonts\.gstatic/.test(url))).toEqual([]);
-      if (mode !== 'build') expect(requests.filter(url => new URL(url).origin !== `http://127.0.0.1:${port}`)).toEqual([]);
       expect(errors).toEqual([]);
     } finally { await context.close(); }
   }
@@ -118,7 +116,7 @@ for (const width of [320, 375, 430, 768, 1280]) test(`build and LOCAL share desi
 });
 
 test('confirmed empty publication replaces a cached theme; an unavailable API preserves it', async ({ browser }) => {
-  const device = await setup(browser, 'local', 5173, 430);
+  const device = await setup(browser, 5197, 430);
   const { page, context } = device;
   try {
     device.failInit();
@@ -127,12 +125,12 @@ test('confirmed empty publication replaces a cached theme; an unavailable API pr
     await expect(page.locator('.loading-overlay-global')).toHaveCount(0);
     await expect(page.locator('html')).toHaveCSS('--design-accent', '#246885');
   } finally { await context.close(); }
-  const empty = await setup(browser, 'local', 5173, 430);
+  const empty = await setup(browser, 5197, 430);
   try {
     empty.clearPublication();
     await empty.page.reload();
     await expect(empty.page.locator('html')).toHaveCSS('--design-accent', defaultAccent);
-    expect(await empty.page.evaluate(() => localStorage.getItem('lerne_local:lerne:published-design:v2'))).toBeNull();
-    expect(await empty.page.evaluate(() => JSON.parse(localStorage.getItem('lerne_local:lerne:personal-design:v2:101')).document)).toMatchObject(personal);
+    expect(await empty.page.evaluate(() => localStorage.getItem('lerne:published-design:v2'))).toBeNull();
+    expect(await empty.page.evaluate(() => JSON.parse(localStorage.getItem('lerne:personal-design:v2:101')).document)).toMatchObject(personal);
   } finally { await empty.context.close(); }
 });

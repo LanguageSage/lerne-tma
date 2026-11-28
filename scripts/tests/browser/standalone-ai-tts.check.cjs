@@ -48,9 +48,7 @@ function geminiResponse(url, request) {
 }
 
 async function main() {
-  process.env.LERNE_MODE = '';
   process.env.VITE_LERNE_STANDALONE = '1';
-  process.env.VITE_LERNE_LOCAL = '0';
   const { createServer } = await import(pathToFileURL(require.resolve('vite', { paths: [APP_DIR] })).href);
   const server = await createServer({
     root: APP_DIR,

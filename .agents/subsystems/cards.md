@@ -398,8 +398,7 @@ compatibility gate; retired note moderation fields are not used.
 Migration 90 creates both tables transactionally with indexes, note FK cascade,
 message thread FK, RLS and revoked public Data API grants. ID 87 is already
 recorded in both connected Supabase projects without a note table; 88 and 89
-are also recorded in the test project. LOCAL bootstrap applies 90 automatically;
-non-LOCAL startup never does. `scripts/migrate_card_notes.py` inspects an
+are also recorded in the test project. Migration 90 runs through the explicit migration command. `scripts/migrate_card_notes.py` inspects an
 explicit `CARD_NOTES_MIGRATION_DATABASE_URL`; `--apply` is the only production
 entry point. No real LOCAL/Supabase database was migrated during this stage.
 Checks: `test_card_notes.py`, `test_critical_http.py` and disposable PostgreSQL

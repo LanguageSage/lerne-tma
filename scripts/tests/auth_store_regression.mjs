@@ -4,14 +4,13 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { IS_LOCAL, localStorageKey } from '../../app/src/utils/localMode.js';
 import { createStore } from '../../app/node_modules/zustand/esm/vanilla.mjs';
 
 const source = readFileSync(new URL('../../app/src/store/useAuthStore.js', import.meta.url), 'utf8')
   .replace(/^import .*;\r?\n/gm, '')
   .replace('export const useAuthStore', 'const useAuthStore')
   .replaceAll('import.meta.env', '(globalThis.__importMetaEnv || {})');
-function fixture({ methods = ['email_password'], email = 'fixture@example.test', local = false } = {}) {
+function fixture({ methods = ['email_password'], email = 'fixture@example.test' } = {}) {
   const pending = new Map(), tabStorage = new Map(), timers = new Map(), calls = [];
   let nextTimer = 0;
   const ui = { setIsAuthModalOpen: value => { ui.isAuthModalOpen = value; }, showToast() {},
@@ -37,7 +36,7 @@ function fixture({ methods = ['email_password'], email = 'fixture@example.test',
   let accessToken = null;
   const listeners = new Set();
   const notify = (required = false) => listeners.forEach(fn => fn({ loginRequired: required }));
-  const context = { IS_LOCAL: local || IS_LOCAL, localStorageKey, create: createStore, tr: value => value, api,
+  const context = { create: createStore, tr: value => value, api,
     getUserProfile: () => (accessToken && currentUserId ? { user_id: currentUserId } : null),
     getSavedUserProfile: () => (currentUserId ? { user_id: currentUserId } : null),
     saveUserProfile(p) { currentUserId = p?.user_id; notify(); },
@@ -302,18 +301,6 @@ test('logout retires a login already waiting for its profile', async () => {
   assert.equal(f.store.getState().userProfile, null);
 });
 
-test('logout retires LOCAL automatic login before it can save credentials', async () => {
-  const f = fixture({ local: true });
-  let resolve;
-  f.api.post = () => new Promise(done => { resolve = done; });
-  const restoration = f.store.getState().restoreSession();
-  f.store.getState().logout();
-  resolve({ data: { access_token: 'late-local', refresh_token: 'late-refresh' } });
-  await restoration;
-  assert.equal(f.context.getAccessToken(), null);
-  assert.equal(f.store.getState().userProfile, null);
-});
-
 test('late identity and password settings cannot repopulate a logged-out session', async () => {
   const f = fixture();
   f.accessToken = 'synthetic';
@@ -397,7 +384,7 @@ test('reload resumes pending login with its manual URL and exchanges it', async 
 
 test('legacy tab-only challenge migrates to shared storage on return', async () => {
   const f = fixture();
-  const key = localStorageKey('lerne_auth_v2_pending');
+  const key = 'lerne_auth_v2_pending';
   f.context.sessionStorage.setItem(key, JSON.stringify({ id: 'old-tab', secret: 'synthetic',
     purpose: 'login', expiresAt: new Date(Date.now() + 300000).toISOString() }));
   f.api.post = async () => { throw { response: { status: 401, data: { detail: 'invalid_challenge' } } }; };

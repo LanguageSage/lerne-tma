@@ -7,13 +7,6 @@
 
 ## Слои приложения
 
-Изолированный LOCAL: `api/local_runtime.py` + `scripts/local_dev.py` выбирают только
-loopback PostgreSQL, хранят постоянные данные вне Git и используют отдельную
-browser-сессию/Dexie. Границы, entry points и проверки — [local-development](subsystems/local-development.md).
-Управляемый перенос LOCAL↔Supabase выполняется отдельным opt-in worker админки;
-он использует существующие permissions/media/receipts, не меняя сетевой запрет
-LOCAL API и не перенося SRS. Контракт: [MATERIAL_TRANSFER](../docs/MATERIAL_TRANSFER.md).
-
 | Слой | Точка входа | Ответственность |
 | --- | --- | --- |
 | React / Vite | `app/src/main.jsx`, `app/src/App.jsx` | Запуск клиента, экраны и модальные окна |
@@ -21,12 +14,12 @@ LOCAL API и не перенося SRS. Контракт: [MATERIAL_TRANSFER](..
 | Hooks | `app/src/hooks/` | Пользовательские действия и жизненный цикл сессий |
 | Zustand | `app/src/store/` | Общее состояние и доменные действия |
 | API-клиент | `app/src/services/api.js`, `app/src/services/networkApi.js` | Offline proxy; единый сетевой клиент с авторизацией и refresh |
-| Локальная БД | `app/src/services/localDb.js` | Dexie / IndexedDB, отдельная БД аккаунта |
+| Локальная БД | `app/src/services/localDb.js` | Dexie / IndexedDB в браузере, отдельная БД аккаунта. Android Offline использует нативную SQLite. |
 | FastAPI | `api/main.py`, `api/routers/` | Регистрация маршрутов, запросы и зависимости |
 | Серверная логика | `api/services/` | CRUD, синхронизация, оценивание и проекции |
 | ORM / БД | `api/models.py`, `api/database.py`, `api/migrations.py` | Peewee, подключение и эволюция схемы |
 | Android | `android/`, `capacitor.config.json` | Android Offline Pilot (`com.lerne.offlinepilot`, Capacitor, `VITE_LERNE_STANDALONE=1`) — единственная поддерживаемая Android-реализация. Основные сценарии работают офлайн, опциональные AI/TTS-провайдеры используют HTTPS через `SecureNetworkVault`. |
-| Локальная админка | `lerne-admin:src/lerne_admin/server.py` | Отдельный репозиторий; устанавливает общий independent admin core (see ADMIN_COMPATIBILITY.md) (api/local) |
+| Локальная админка | `lerne-admin:src/lerne_admin/server.py` | Отдельный репозиторий; устанавливает общий independent admin core (see ADMIN_COMPATIBILITY.md) |
 
 ## Основные потоки данных
 

@@ -7,7 +7,7 @@ import subprocess
 import sys
 import unittest
 
-os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false')
 
 from pydantic import ValidationError
 from api.services.structured_cards_v2 import Document, load_document, validate_document

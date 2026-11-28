@@ -131,22 +131,6 @@ def verify(control):
         else:
             raise AssertionError('Migration accepted drift')
         print('PASS: migration96 rollback/retry/counts/9 types/categories/notes/media/ACL/independent copies/constraints')
-        fresh = PostgresqlDatabase(name + '_fresh', **control.connect_params)
-        control.execute_sql(f'CREATE DATABASE {name}_fresh')
-        try:
-            models.tma_db.initialize(fresh)
-            models.lerne_db.initialize(fresh)
-            with patch('api.models.is_local', return_value=True):
-                models._tables_created = False
-                models.create_all_tables()
-                models._tables_created = False
-                models.create_all_tables()
-            assert not {'card','deck'} & set(fresh.get_tables())
-            assert {93,94,95,96,97} <= {r[0] for r in fresh.execute_sql('SELECT migration_id FROM tma_migration_history')}
-            print('PASS: empty LOCAL bootstrap and repeated startup without legacy tables')
-        finally:
-            fresh.close()
-            control.execute_sql(f'DROP DATABASE {name}_fresh')
         return True
     finally:
         db.close()
@@ -345,10 +329,9 @@ try {
     for entry in MIGRATIONS:
         db.execute_sql('INSERT INTO tma_migration_history(migration_id) VALUES (%s) ON CONFLICT DO NOTHING', (entry[0],))
     models._tables_created = False
-    with patch('api.models.is_local', return_value=False):
-        models.create_all_tables()
-        models._tables_created = False
-        models.create_all_tables()
+    models.create_all_tables()
+    models._tables_created = False
+    models.create_all_tables()
     assert not {'card','deck'} & set(db.get_tables())
     with db.atomic() as transaction:
         mark_database_restored(db)

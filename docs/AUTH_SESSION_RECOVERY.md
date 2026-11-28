@@ -178,7 +178,6 @@ browser-проверок и логи находятся в `local/test-data/`.
 ```powershell
 npx --no-install playwright test --project=auth-chrome --output=local/test-data/auth-provider-final
 npx --no-install playwright test --project=critical auth-recovery.spec.cjs --output=local/test-data/auth-recovery-final
-npx --no-install playwright test --config=playwright.local.config.cjs --output=local/test-data/auth-recovery-local
 ```
 
 Форма и восстановленное занятие просмотрены по PNG desktop/Pixel 7. Existing

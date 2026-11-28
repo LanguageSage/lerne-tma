@@ -10,7 +10,6 @@ from functools import lru_cache
 from contextlib import contextmanager
 from contextvars import ContextVar
 from peewee import DatabaseError
-from api.local_runtime import is_local
 
 logger = logging.getLogger(__name__)
 
@@ -52,19 +51,8 @@ def card_audio_payload(card):
 def validate_new_audio_paths(paths, previous=()):
     paths = set(paths) - set(previous) - _verified_audio.get()
     if not paths: return
-    local = is_local()
-    if local:
-        from api.local_runtime import media_file
-        files = set()
-        for path in paths:
-            name = path.removeprefix('/api/media/audio/').removeprefix('audio/')
-            if not name or '/' in name or '\\' in name or '?' in name or '#' in name or name in ('.', '..'):
-                raise HTTPException(422, 'Аудиофайл отсутствует в LOCAL media.')
-            if media_file('audio', name).is_file(): files.add(path)
-        paths -= files
-        if not paths: return
     cloud, relative = {}, {}
-    origin = urlsplit('' if local else os.environ.get('SUPABASE_URL', '').rstrip('/'))
+    origin = urlsplit(os.environ.get('SUPABASE_URL', '').rstrip('/'))
     prefix = '/storage/v1/object/public/audio/'
     for path in paths:
         parsed = urlsplit(path)
@@ -221,9 +209,6 @@ def resolve_media_url(path_str: str, media_type: str, exists_map: set = None, *,
     """Формирует канонический URL для медиа-ресурсов."""
     if not path_str:
         return None
-    if is_local():
-        folder = 'audio' if media_type in ('audio', 'audio_back') else 'videos' if media_type in ('videos', 'video_front', 'video_back') else 'backgrounds' if media_type == 'backgrounds' else 'images'
-        return f'/api/media/{folder}/{os.path.basename(path_str.split("?")[0])}'
     clean_filename = os.path.basename(path_str.split('?')[0])
     if not clean_filename:
         return None

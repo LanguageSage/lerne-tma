@@ -1,4 +1,3 @@
-import { IS_LOCAL } from './localMode.js';
 import { IS_STANDALONE } from './standaloneMode.js';
 import { isOfflineMediaUrl, resolveOfflineMediaUrlSync } from '../pilot/offlineMediaResolver.js';
 
@@ -16,7 +15,6 @@ export const getAudioUrl = (pathOrUrl) => {
   if (!trimmed) return '';
   if (isOfflineMediaUrl(trimmed)) return trimmed;
   if (IS_STANDALONE) return resolveOfflineMediaUrlSync(trimmed, 'audio') || '';
-  if (IS_LOCAL) return `/api/media/audio/${trimmed.split('?')[0].split(/[\\/]/).pop()}`;
 
   if (trimmed.startsWith('http://') || trimmed.startsWith('https://')) {
     if (trimmed.includes('/storage/v1/object/public/tma-audio/')) {

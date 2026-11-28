@@ -1,12 +1,11 @@
 import { normalizeDesignConfig } from './designConfig.js';
-import { localStorageKey } from '../utils/localMode.js';
 
 const object = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const equal = (a, b) => JSON.stringify(a) === JSON.stringify(b);
-const read = key => localStorage.getItem(localStorageKey(key));
+const read = key => localStorage.getItem(key);
 const write = (key, value) => {
   const raw = JSON.stringify(value);
-  localStorage.setItem(localStorageKey(key), raw);
+  localStorage.setItem(key, raw);
   if (read(key) !== raw) throw new Error('Design record could not be verified');
 };
 const retiredStorageKeys = [
@@ -49,7 +48,7 @@ const retiredStorageKeys = [
   'lerne_back_card_text_shadow',
 ];
 const discardRetiredStorage = () => {
-  for (const key of retiredStorageKeys) localStorage.removeItem(localStorageKey(key));
+  for (const key of retiredStorageKeys) localStorage.removeItem(key);
 };
 const recordKey = owner => `lerne:personal-design:v2:${owner}`;
 export function isPersonalDesignDocument(doc) {

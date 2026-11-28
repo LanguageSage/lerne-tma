@@ -528,14 +528,3 @@
   user-select: text;
   -webkit-user-select: text;
 }
-
-
-/* Persistent environment indicator, in document flow on narrow screens. */
-.local-mode-banner {
-  padding: 8px 16px;
-  background: #fef3c7;
-  color: #78350f;
-  text-align: center;
-  font-weight: 700;
-  overflow-wrap: anywhere;
-}

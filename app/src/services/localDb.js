@@ -1,6 +1,5 @@
 import Dexie from 'dexie';
 import { getUserId } from '../utils/auth.js';
-import { IS_LOCAL } from '../utils/localMode.js';
 import { isNative } from '../utils/platform.js';
 import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js';
 import { createAndroidLocalDb } from '../sqlite/androidLocalDb.js';
@@ -67,7 +66,7 @@ export const getLocalDb = () => {
     }
     evictDatabase(userId, existing);
   }
-  const prefix = IS_STANDALONE ? STANDALONE_DB_PREFIX : (IS_LOCAL ? 'LerneTestDB' : 'LerneLocalDB');
+  const prefix = IS_STANDALONE ? STANDALONE_DB_PREFIX : 'LerneLocalDB';
   const database = new Dexie(`${prefix}_${userId}`);
   configureDatabase(database, userId);
   databases.set(userId, database);
@@ -146,7 +145,7 @@ export async function prepareLocalDb(attempt = 0) {
 }
 
 async function migrateLegacy(database, userId) {
-  if (IS_LOCAL || IS_STANDALONE) return;
+  if (IS_STANDALONE) return;
   if (await database.syncState.get('legacyImported')) return;
   if (await Dexie.exists('LerneLocalDB')) {
     const legacy = new Dexie('LerneLocalDB');

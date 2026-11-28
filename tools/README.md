@@ -8,9 +8,7 @@
 1. [Утилиты и скрипты (`tools/`)](#-утилиты-и-скрипты)
    - [`classify_all_cards.py` — Глобальная классификация CEFR](#1-classify_all_cardspy--глобальный-классификатор-базы)
    - [`classify_deck_cli.py` — Разметка отдельной колоды](#2-classify_deck_clipy--разметка-отдельной-колоды)
-   - [`backup_database.py` — Полный бэкап базы данных](#3-backup_databasepy--полный-бэкап-базы-данных)
-   - [`restore_database.py` — Восстановление из бэкапа](#4-restore_databasepy--восстановление-из-бэкапа)
-   - [`test_ai_endpoints.py` — Интеграционные тесты ИИ](#5-test_ai_endpointspy--тестирование-эндпоинтов-ии)
+   - [`test_ai_endpoints.py` — Интеграционные тесты ИИ](#3-test_ai_endpointspy--тестирование-эндпоинтов-ии)
 2. [Справочник REST API эндпоинтов](#-справочник-rest-api-эндпоинтов-для-lerne-ua)
    - [`POST /api/cards/classify-batch` — Пакетная разметка CEFR](#1-post-apicardsclassify-batch)
    - [`POST /api/cards/ai-generate-batch` — Пакетная генерация карточек](#2-post-apicardsai-generate-batch)
@@ -89,32 +87,9 @@
 
 ---
 
-### 3. `backup_database.py` — Полный бэкап базы данных
-Выгружает полный снимок всех таблиц (`TMA_Card`, `TMA_Deck`, `TMA_Folder`, `TMAUser`, `TMASetting`) в форматированный JSON-файл с временной меткой в `api/data/backups/`.
+Полные резервные копии базы и восстановление доступны в разделе «Резервные копии» Lerne Admin.
 
-* **Пример запуска**:
-  ```bash
-  python tools/backup_database.py
-  ```
-* **Результат**: Файл `api/data/backups/backup_full_YYYYMMDD_HHMMSS.json`.
-
----
-
-### 4. `restore_database.py` — Восстановление из бэкапа
-Восстанавливает карточки, теги и содержимое из указанного JSON-файла резервной копии.
-
-* **Примеры использования**:
-  ```bash
-  # Симуляция восстановления (проверка файла без записи в БД)
-  python tools/restore_database.py api/data/backups/backup_full_20260821_204258.json --dry-run
-
-  # Реальное восстановление данных
-  python tools/restore_database.py api/data/backups/backup_full_20260821_204258.json
-  ```
-
----
-
-### 5. `test_ai_endpoints.py` — Тестирование эндпоинтов ИИ
+### 3. `test_ai_endpoints.py` — Тестирование эндпоинтов ИИ
 Комплексный интеграционный тест для проверки классификатора CEFR (DE, EN, NO) и эндпоинта `/cards/classify-batch` в изолированной виртуальной БД.
 
 * **Пример запуска**:

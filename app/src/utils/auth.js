@@ -1,11 +1,10 @@
 import { tr } from '../i18n/locale.js';
-import { IS_LOCAL, localStorageKey } from './localMode.js';
 import { IS_STANDALONE, STANDALONE_USER_ID, STANDALONE_SESSION_IDENTITY, getStandaloneProfile } from './standaloneMode.js';
 
 const storage = {
-  get: (key) => { try { return localStorage.getItem(localStorageKey(key)); } catch { return null; } },
-  set: (key, value) => { try { localStorage.setItem(localStorageKey(key), value); } catch { /* unavailable */ } },
-  remove: (key) => { try { localStorage.removeItem(localStorageKey(key)); } catch { /* unavailable */ } },
+  get: (key) => { try { return localStorage.getItem(key); } catch { return null; } },
+  set: (key, value) => { try { localStorage.setItem(key, value); } catch { /* unavailable */ } },
+  remove: (key) => { try { localStorage.removeItem(key); } catch { /* unavailable */ } },
 };
 
 const SESSION_KEY = 'lerne_auth_v2_session';
@@ -35,7 +34,7 @@ export const getSessionIdentity = (session = getAuthSession()) =>
 export const getAuthSession = () => {
   try {
     // Read shared storage on every request: another tab may rotate or clear it.
-    const value = localStorage.getItem(localStorageKey(SESSION_KEY));
+    const value = localStorage.getItem(SESSION_KEY);
     const parsed = value ? JSON.parse(value) : null;
     if (parsed?.access_token || parsed?.refresh_token) {
       memorySession = parsed;
@@ -145,14 +144,14 @@ export const resetUserSession = () => {
 
 export const cloudStorage = {
   get: (key) => new Promise((resolve) => {
-    if (IS_LOCAL || (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)) { resolve(null); return; }
+    if ((typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)) { resolve(null); return; }
     try {
       const cloud = window.Telegram?.WebApp?.CloudStorage;
       cloud?.getItem ? cloud.getItem(key, (error, value) => resolve(error ? null : value)) : resolve(null);
     } catch { resolve(null); }
   }),
   set: (key, value) => new Promise((resolve) => {
-    if (IS_LOCAL || (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)) { resolve(false); return; }
+    if ((typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)) { resolve(false); return; }
     try {
       const cloud = window.Telegram?.WebApp?.CloudStorage;
       cloud?.setItem ? cloud.setItem(key, String(value), (error) => resolve(!error)) : resolve(false);

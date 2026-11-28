@@ -263,17 +263,16 @@ cardCutoverPreflight -> dexie
 offlineApi -> cardOfflineQueue, cardNotes, localDb, auth, mediaCache, srsEngine, search, locale
 cardOfflineQueue -> localDb, auth, locale, cardDraft
 cardNotes -> networkApi, localDb, auth
-networkApi -> localDb, auth, apiConfig, localMode, axios
-localDb -> auth, localMode, dexie, @capacitor/core
-auth -> locale, localMode
+networkApi -> localDb, auth, apiConfig, axios
+localDb -> auth, dexie, @capacitor/core
+auth -> locale
 mediaCache -> apiConfig
-apiConfig -> media, localMode
-media -> localMode
+apiConfig -> media
 srsEngine, cardDraft -> locale
 locale -> messages/en.json, messages/uk.json
 ```
 
-`localMode`, `search` и JSON — локальные листья; npm packages — внешние
+`search` и JSON — локальные листья; npm packages — внешние
 зависимости. Циклов в этой транзитивной области нет. Транспорт не импортирует
 offline routing или outboxes, включая транзитивные связи.
 Архитектурная регрессия: `app/src/services/__tests__/networkDependencies.test.js`
@@ -469,7 +468,7 @@ SRS и Knowledge. До завершения сверки не очищайте I
 После согласованной сверки привязку клиента восстанавливает оператор; для
 нового чистого клиента используйте отдельный профиль, сохранив исходный.
 
-Штатные LOCAL Restore и Admin full Restore меняют маркер до открытия API.
+Admin full Restore меняет маркер до открытия API.
 Ручной data-only Restore также обязан вызвать `mark_database_restored` до
 запуска API; OID покрывают `pg_restore --clean`, но не изменение строк in-place.
 Старые клиенты без заголовка допускаются только до первого штатного Restore.

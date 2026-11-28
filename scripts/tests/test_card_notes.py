@@ -1,7 +1,7 @@
 """Card communication storage and note API on an isolated SQLite database."""
 import os
 import unittest
-from unittest.mock import DEFAULT, patch
+from unittest.mock import patch
 from uuid import uuid4
 
 from fastapi import HTTPException
@@ -12,25 +12,6 @@ from api.routers import card_notes as router
 from api.routers import messages
 from api.migrations import CARD_COMMUNICATION_MIGRATION_ID, MigrationError, run_card_notes_migration
 from api import migrations
-
-
-class CardNoteBootstrapTests(unittest.TestCase):
-    def test_communication_migrates_only_in_local_bootstrap(self):
-        for local, flag in ((False, 'false'), (False, 'true'), (True, 'false')):
-            with self.subTest(local=local, run_migrations=flag), patch.dict(os.environ, RUN_MIGRATIONS=flag), \
-                    patch.object(models, 'is_local', return_value=local), \
-                    patch.object(models, '_tables_created', False), \
-                    patch.object(models, '_is_empty_local_bootstrap', return_value=False), \
-                    patch.object(models, 'tma_db') as db, \
-                    patch.multiple(migrations, run_migrations=DEFAULT, run_auth_migrations=DEFAULT,
-                                   run_knowledge_mastery_migration=DEFAULT, run_card_notes_migration=DEFAULT,
-                                   run_card_rating_migration=DEFAULT) as runners:
-                models.create_all_tables()
-                self.assertEqual(runners['run_card_notes_migration'].call_count, int(local))
-                self.assertEqual(runners['run_card_rating_migration'].call_count, int(local))
-                self.assertNotIn(models.TMACardNote, db.create_tables.call_args.args[0])
-                self.assertNotIn(models.TMAUserMessage, db.create_tables.call_args.args[0])
-                self.assertNotIn(models.TMACardRating, db.create_tables.call_args.args[0])
 
 
 class CardCommunicationTests(unittest.TestCase):

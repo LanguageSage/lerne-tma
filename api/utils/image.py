@@ -1,7 +1,6 @@
 from api.utils.storage_keys import storage_object_path
 import io
 import logging
-from api.local_runtime import is_local
 from PIL import Image, ImageOps
 
 logger = logging.getLogger(__name__)
@@ -51,8 +50,6 @@ def upload_image_to_supabase(image_bytes: bytes, filename: str, content_type: st
     Returns:
         Публичный URL или None в случае ошибки.
     """
-    if is_local():
-        return None
     import os
     import requests
     

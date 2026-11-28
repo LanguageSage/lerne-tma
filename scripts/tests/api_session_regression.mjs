@@ -3,7 +3,6 @@ import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { IS_LOCAL } from '../../app/src/utils/localMode.js';
 import axios from '../../app/node_modules/axios/index.js';
 import { generationError, observeServerGeneration } from '../../app/src/services/serverGeneration.js';
 
@@ -22,7 +21,7 @@ function fixture() {
     get session() { return session; }, set session(value) { session = value; },
     set userId(value) { userId = value; },
   };
-  const context = { IS_LOCAL, generationError, observeServerGeneration,
+  const context = { generationError, observeServerGeneration,
     getLocalDb: () => ({ syncState: { get: async key => key === 'serverGeneration'
       ? { generation: 'a'.repeat(64) } : undefined } }),
     axios: { isCancel: axios.isCancel, CanceledError: axios.CanceledError, create: config => axios.create({ ...config, adapter: async config => {

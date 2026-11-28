@@ -86,13 +86,12 @@ with patch('dotenv.load_dotenv', side_effect=AssertionError('dotenv')), \\
         subprocess.run([sys.executable, '-c', program], cwd=ROOT, check=True,
                        capture_output=True, timeout=30)
 
-    def test_nonlocal_server_schema_init_does_not_apply_92_through_97(self):
+    def test_server_schema_init_does_not_apply_92_through_97(self):
         from api import models, migrations
         with contextlib.ExitStack() as stack:
             database = Mock()
             stack.enter_context(patch.object(models, 'tma_db', database))
             stack.enter_context(patch.object(models, '_tables_created', False))
-            stack.enter_context(patch.object(models, 'is_local', return_value=False))
             stack.enter_context(patch.object(migrations, 'run_migrations'))
             stack.enter_context(patch.object(migrations, 'run_knowledge_mastery_migration'))
             runners = [stack.enter_context(patch.object(migrations, name)) for name in (

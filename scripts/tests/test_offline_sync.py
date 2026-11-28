@@ -17,7 +17,6 @@ ROOT = Path(__file__).resolve().parents[2]
 sys.path.insert(0, str(ROOT))
 os.environ['VERCEL'] = '1'
 os.environ['RUN_MIGRATIONS'] = 'false'
-os.environ['FORCE_LOCAL_DB'] = 'false'
 database = SqliteDatabase(':memory:', pragmas={'foreign_keys': 1})
 db_module = types.ModuleType('api.database')
 db_module.tma_db = database

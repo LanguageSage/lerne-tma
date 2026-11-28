@@ -5,7 +5,6 @@ import { ChevronLeft, Edit2, Settings, Plus, Palette } from 'lucide-react';
 import { HelpButton } from '../TutorialOverlay';
 import { UserProfileBadge } from '../common/UserBadge';
 import { useUiStore } from '../../store/useUiStore';
-import { LocalPublishButton } from '../common/LocalPublishButton';
 
 export const StudyHeader = ({
   deckName,
@@ -41,7 +40,6 @@ export const StudyHeader = ({
       )}
     </div>
     <div className="header-actions">
-      <LocalPublishButton cardId={card?.id} compact />
       <UserProfileBadge />
 
       <HelpButton topic="study" />

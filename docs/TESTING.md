@@ -58,6 +58,25 @@ npm run check
 включала только knowledgeDiagnosticsService. Для существующих `mock.module`
 используется встроенный Node flag `--experimental-test-module-mocks`.
 
+## Android Offline в браузере
+
+Из корня репозитория в PowerShell после установки зависимостей.
+
+```powershell
+$env:VITE_LERNE_STANDALONE='1'
+npm.cmd --prefix app run dev -- --host 127.0.0.1 --port 5176 --strictPort
+```
+
+Откройте [127.0.0.1:5176](http://127.0.0.1:5176/). Появятся профиль Offline Pilot
+и встроенные колоды. FastAPI и PostgreSQL для этого запуска не нужны. В браузере
+учебные данные хранятся в Dexie / IndexedDB. Этот сценарий предназначен для
+разработки и тестирования. Нативные функции проверяются в Android APK.
+
+Завершите сервер через Ctrl+C. Перед обычными тестами в том же терминале
+снимите флаг командой `Remove-Item Env:VITE_LERNE_STANDALONE`.
+Автоматическая проверка с синтетическими ответами AI/TTS запускается через
+`node scripts/tests/browser/standalone-ai-tts.check.cjs`.
+
 ## Изоляция
 
 - Backend runner очищает унаследованные переменные, кроме системных путей,

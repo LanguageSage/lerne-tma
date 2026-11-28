@@ -108,7 +108,7 @@ staging file plus exclusive hard link and verifies bytes before catalog insertio
 A catalog failure leaves an immutable orphan that the same retry can register.
 No automatic retry or deletion of prior objects is performed.
 
-Checks: isolated `test_audio_upload`, `test_media_db_workers`, `test_local_dev`,
+Checks: isolated `test_audio_upload`, `test_media_db_workers`,
 `test_audio_force_regeneration`, `test_material_permissions`; loopback
 `test_audio_storage_integrity`; disposable PostgreSQL/Chromium runner
 `structured_cards_postgres.py --media-browser` includes actual editor uploads,
@@ -128,7 +128,6 @@ The media browser runner owns a random loopback Vite port via
   не меняется; `tma-audio` уже удалён и не экспортируется. Синтетические проверки:
   `python -m unittest scripts.tests.test_native_v2_storage_export -v`.
 
-- В LOCAL uploads хранят файлы во внешнем `data/media`, а `TMAMedia` — metadata; чтение идёт только через media routes, missing → 404 без Supabase redirect. Генерация TTS отключена. См. [local-development](local-development.md).
 
 - `scripts/migrate_images_to_storage.py` и audio/cyrillic entry points используют конечный проход по ID, лимиты записей/байтов/попыток/времени и JSON-отчёт. По умолчанию бинарник в БД сохраняется; `--clear-db-content` разрешает compare-and-clear только после проверки публичного GET и SHA-256. Перед этим все серверы чтения должны поддерживать `api/utils/storage_keys.py`. Legacy filename и ссылки в карточках/V2 не переписываются; не-ASCII имена разрешаются в стабильный ASCII-ключ Storage. Скрипты не выполняют schema initialization (`LERNE_SKIP_SCHEMA_INIT=1`). Подробности — `lerne-admin:src/lerne_admin/EGRESS_REPORT.md`.
 

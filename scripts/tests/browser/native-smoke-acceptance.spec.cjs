@@ -27,17 +27,13 @@ test('real Chromium smoke test: creation, editing, study, SRS progress, media, a
 
     // 2. Set up authenticated session in localStorage
     await context.addInitScript(fix => {
-      const setBoth = (k, v) => {
-        localStorage.setItem(k, v);
-        localStorage.setItem('lerne_local:' + k, v);
-      };
-      setBoth('native_language', 'ru');
-      setBoth('native_language_selected', 'true');
-      setBoth('lerne_has_selected_language', 'true');
-      setBoth('lerne_target_language', 'de');
-      setBoth('lerne_user_profile', JSON.stringify({ user_id: fix.user_id, is_guest: false }));
-      setBoth('lerne_user_id', String(fix.user_id));
-      setBoth('lerne_auth_v2_session', JSON.stringify({
+      localStorage.setItem('native_language', 'ru');
+      localStorage.setItem('native_language_selected', 'true');
+      localStorage.setItem('lerne_has_selected_language', 'true');
+      localStorage.setItem('lerne_target_language', 'de');
+      localStorage.setItem('lerne_user_profile', JSON.stringify({ user_id: fix.user_id, is_guest: false }));
+      localStorage.setItem('lerne_user_id', String(fix.user_id));
+      localStorage.setItem('lerne_auth_v2_session', JSON.stringify({
         account_id: fix.user_id,
         access_token: fix.token,
         refresh_token: 'dummy_refresh',

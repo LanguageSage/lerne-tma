@@ -66,10 +66,6 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
         def user(x_test_user: int = Header(default=1)):
             return x_test_user
         self.app.dependency_overrides[get_user_id] = user
-        self.local = patch.object(media, 'is_local', return_value=False)
-        self.local.start()
-        self.addCleanup(self.local.stop)
-
     def cleanup(self):
         self.db.close()
         if hasattr(self.db, 'close_all'):
@@ -250,28 +246,6 @@ class MediaDbWorkerTests(fixtures.DbPhaseAssertions, unittest.TestCase):
             self.assertEqual((await client.post('/api/media/upload-video', files={'file': ('f', b'x')})).status_code, 401)
             self.assertEqual((await client.post('/api/media/upload-audio', files={'file': ('f', wav_bytes())})).status_code, 401)
         self.run_asgi(exercise)
-
-    def test_local_upload_read_and_failed_metadata_removes_file(self):
-        def media_file(folder, filename):
-            self.assertEqual(Path(filename).name, filename)
-            path = self.root / folder / filename
-            path.parent.mkdir(exist_ok=True)
-            return path
-        async def exercise(client):
-            with patch.object(media, 'is_local', return_value=True), patch.object(media, 'media_file', side_effect=media_file):
-                for kind in ('audio', 'video', 'background'):
-                    content = wav_bytes() if kind == 'audio' else b'local synthetic'
-                    response = await client.post(f'/api/media/upload-{kind}', files={'file': ('f', content)})
-                    self.assertEqual(response.status_code, 200, response.text)
-                    self.assertEqual((await client.get(response.json()['url'])).content, content)
-                with patch.object(models.TMAMedia, 'create', side_effect=RuntimeError('metadata failed')):
-                    before = set(self.root.rglob('*.mp4'))
-                    response = await client.post('/api/media/upload-video', files={'file': ('f', b'synthetic')})
-                    self.assertEqual(response.status_code, 500)
-                    self.assertEqual(set(self.root.rglob('*.mp4')), before)
-                self.assertEqual((await client.get('/api/media/audio/missing.mp3')).status_code, 404)
-        self.run_asgi(exercise)
-
 
 if __name__ == '__main__':
     unittest.main()

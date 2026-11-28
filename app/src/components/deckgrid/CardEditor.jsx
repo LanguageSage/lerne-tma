@@ -7,7 +7,6 @@ import { CardEditorShell } from './CardEditorShell';
 import { useUiStore } from '../../store/useUiStore';
 import { useSessionStore } from '../../store/useSessionStore';
 import { saveCard } from '../../services/cardSave';
-import { LocalPublishButton } from '../common/LocalPublishButton';
 import { getSessionIdentity, getUserId } from '../../utils/auth';
 import { resolveCardEdit } from '../../services/offlineApi';
 import { offlineEditLabel } from '../../services/offlineUi';
@@ -65,9 +64,9 @@ export const CardEditor = ({ onDelete = null }) => {
     }
     navigateUp();
   };
-  const handleSave = async (awaitDelivery = false) => {
+  const handleSave = async () => {
     setEditingDraft(true);
-    const saved = await saveCard(null, { awaitDelivery });
+    const saved = await saveCard();
     if (saved) setEditingDraft(false);
     return saved;
   };
@@ -132,10 +131,6 @@ export const CardEditor = ({ onDelete = null }) => {
           onCancel={IS_STANDALONE ? handleCancel : null}
         />
       )}
-      {!IS_STANDALONE && !edit && editingCard?.id > 0 && <LocalPublishButton cardId={editingCard.id} beforeOpen={async () => {
-        const saved = await handleSave(true);
-        return saved?.offline_edit ? null : saved;
-      }} />}
       {IS_STANDALONE && !edit && editingCard?.id > 0 && onDelete && (
         <div className="standalone-editor-danger-zone">
           <button

@@ -44,7 +44,6 @@ def verify(database_name, connection_args):
         auth, auth_v2, card_notes, card_ratings, cards, collaborative, debug, decks, feedback, folders,
         knowledge, lid, media, messages, share, sync, trash,
     )
-    from local.router import router as local_router
     with patch.object(models, 'create_all_tables'):
         from api.main import cache_headers_middleware, get_init_data, health_check
 
@@ -97,7 +96,7 @@ def verify(database_name, connection_args):
     app.include_router(knowledge.router, prefix='/api')
     for router in (card_notes.router, card_ratings.router, cards.router, messages.router, trash.router,
                    decks.router, feedback.router, folders.router, lid.router,
-                   auth.router, auth_v2.router, local_router, collaborative.router,
+                   auth.router, auth_v2.router, collaborative.router,
                    debug.router, share.router, media.router):
         app.include_router(router, prefix='/api')
 
@@ -183,7 +182,6 @@ def verify(database_name, connection_args):
             await verify_deck_text_update(client, pool, headers, [account.account_id for account in accounts])
             await verify_library_deck_routes(client, pool, headers, [account.account_id for account in accounts])
             await verify_auth(client, pool)
-            await verify_local_auth(client, app, pool, headers[0], accounts[0].account_id)
             init_accounts = [await run_db(register_email_password, f'c2g-{role}@example.invalid',
                                           'synthetic test password') for role in ('owner', 'viewer')]
             init_headers = [{'Authorization': f'Bearer {account.access_token}'} for account in init_accounts]
@@ -429,60 +427,6 @@ async def verify_auth(client, pool):
         assert response.status_code == 410 and response.json() == {'detail': 'legacy_auth_retired'}
     assert not pool._in_use
     print('PASS: pooled Auth HTTP lifecycle, Bearer and account isolation, deletion rollback and legacy 410', flush=True)
-
-
-async def verify_local_auth(client, app, pool, other_headers, other_id):
-    from api import local_runtime, models
-    from api.db_workers import run_db
-    from scripts.tests.native_fixture import content as v2_content
-
-    local_user_id = local_runtime.LOCAL_USER_ID
-
-    def seed_cards():
-        user = models.TMAUser.create(user_id=local_user_id)
-        models.TMAAuthAccount.create(user=user)
-        card_ids = []
-        for user_id in (local_user_id, other_id):
-            deck = models.TMA_Deck.create(user_id=user_id, name='LOCAL auth fixture')
-            card_ids.append(models.TMA_Card.create(
-                deck=deck, content_v2=v2_content('fixture', 'fixture'), card_type=None).id)
-        return card_ids
-
-    card_id, foreign_card_id = await run_db(seed_cards)
-    login_url = '/api/auth/local/login'
-    transfer_url = f'/api/local/transfer-card/{card_id}'
-    origin = 'http://127.0.0.1:5173'
-    secret = 'synthetic-local-worker-secret'
-    local_headers = {'Origin': origin, 'X-Lerne-Local-Secret': secret}
-    with patch.dict(os.environ, {'LERNE_MODE': 'LOCAL'}, clear=True), \
-            patch.object(local_runtime, 'local_config', return_value={'login_secret': secret}):
-        transport = httpx.ASGITransport(app=app, client=('192.0.2.1', 12345))
-        async with httpx.AsyncClient(transport=transport, base_url='http://test') as remote:
-            assert (await remote.post(login_url, headers=local_headers)).status_code == 403
-        bad_origin = await client.post(login_url, headers={**local_headers, 'Origin': 'https://example.invalid'})
-        assert bad_origin.status_code == 403
-        assert (await client.post(login_url, headers={'Origin': origin})).status_code == 401
-        bad_secret = await client.post(login_url, headers={**local_headers, 'X-Lerne-Local-Secret': 'wrong'})
-        assert bad_secret.status_code == 401
-
-        session = await client.post(login_url, headers=local_headers)
-        assert session.status_code == 200 and 'no-store' in session.headers['cache-control']
-        bearer = {'Authorization': 'Bearer ' + session.json()['access_token']}
-        profile = await client.get('/api/auth/v2/me', headers=bearer)
-        assert profile.status_code == 200 and profile.json()['user_id'] == local_user_id
-        assert (await client.get(transfer_url, headers={'X-User-ID': str(local_user_id)})).status_code == 401
-        assert (await client.get(transfer_url, headers=other_headers)).status_code == 403
-        assert (await client.get('/api/local/transfer-card/0', headers=bearer)).status_code == 403
-        assert (await client.get(f'/api/local/transfer-card/{foreign_card_id}', headers=bearer)).status_code == 403
-        transferred = await client.get(transfer_url, headers=bearer)
-        assert transferred.status_code == 200 and transferred.json() == {
-            'url': f'http://127.0.0.1:8050/?publish_card={card_id}'}
-
-    with patch.dict(os.environ, {'LERNE_MODE': ''}):
-        assert (await client.post(login_url, headers=local_headers)).status_code == 404
-        assert (await client.get(transfer_url, headers=bearer)).status_code == 404
-    assert not pool._in_use
-    print('PASS: pooled LOCAL login and transfer-card access checks', flush=True)
 
 
 async def verify_sync(client, pool, headers, viewer_id, disconnect_review):

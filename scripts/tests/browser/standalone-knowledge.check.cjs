@@ -106,7 +106,6 @@ async function run() {
   if (!snapshot) throw new Error('Usage: node standalone-knowledge.check.cjs <native-v2.snapshot.json> [python]');
   const archive = makeArchive(path.resolve(snapshot), python);
   process.env.VITE_LERNE_STANDALONE = '1';
-  process.env.VITE_LERNE_LOCAL = '0';
   const app = path.join(root, 'app');
   const { createServer } = await import(pathToFileURL(require.resolve('vite', { paths: [app] })).href);
   const server = await createServer({

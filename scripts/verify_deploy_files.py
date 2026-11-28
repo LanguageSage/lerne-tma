@@ -70,7 +70,7 @@ def inspect(root=ROOT):
     required += [p for p in names if p.endswith('.json') and
                  (p.startswith('api/card_core/lerne_card_core/classifier/data/') or p.startswith('app/src/'))
                  and '/__tests__/' not in p]
-    blocked = ['tools/admin/server.py', 'local/runtime.py', 'scripts/local_dev.py',
+    blocked = ['tools/admin/server.py', 'local/test-data/private.sqlite3',
                '.env', 'api/.env', 'data/config/local.json', 'api/data/backups/private.json',
                'api/example.sqlite', 'app/private.db', 'api/admin_task_state.json',
                'local/test-data/lesson-qa/pre-change-backup.json', '.venv/pyvenv.cfg',

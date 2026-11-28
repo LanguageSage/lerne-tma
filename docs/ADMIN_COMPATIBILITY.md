@@ -3,8 +3,6 @@
 `lerne-admin` теперь содержит свою выбранную доменную реализацию и не устанавливает
 TMA как core package. TMA сохраняет собственные модели/API/services и обычный запуск.
 Runtime проектов не зависит от filesystem/cwd/Git друг друга; чистые форматы разделяются через версионированный пакет.
-LOCAL UI по-прежнему может открыть loopback URL админки на 8050; это необязательная
-HTTP-ссылка, не зависимость сборки или серверной логики.
 
 В `api/admin_contract.json` фиксируются версии и source AST fingerprints schema,
 permissions, cards и import. `scripts/verify_admin_contract.py` включён в backend
@@ -35,8 +33,7 @@ contract/profiles, выполните tests и выпустите Admin artifact
 действительно нужны, остаются отдельным DBA действием; ни migration, ни marker не
 являются формальным условием работы с уже проверенной совместимой схемой.
 
-Отдельные tests проверяют TMA-owned LOCAL HTTP link/permissions и media redirect;
-они больше не требуют admin package. Исправления offline flag, auth generation и
+Тест перенаправления медиа в TMA выполняется независимо от Admin. Исправления offline flag, auth generation и
 frontend harness из `codex/fix-offline-flag-and-harness` интегрированы в ветку
 отделения. Сериализатор сохраняет явный пользовательский `progress.flag = 0`.
 Изменился только source fingerprint области import (она включает весь cards.py);
@@ -99,3 +96,7 @@ TMA schema v7 changes startup/generation without changing Native row layouts.
 Admin bfba5ec models/profiles remain compatible; retired tables already are
 optional. Peer review: reviews/library-cleanup97/release-pair.json in Admin.
 Admin base contract, saved-job contracts and card-core are unchanged.
+
+При удалении серверной среды LOCAL обновлены fingerprints schema и import.
+Версии сохранены. Изменения касаются подготовки схемы и медиаобработки
+удалённой среды. Admin поддерживает собственный контракт.

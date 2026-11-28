@@ -12,7 +12,7 @@ sys.path.insert(0, str(ROOT))
 
 # api.models has legacy import-time schema setup in local mode. This dedicated
 # audit CLI must disable it BEFORE importing any api service, even offline.
-os.environ.update(VERCEL='1', RUN_MIGRATIONS='false', FORCE_LOCAL_DB='false')
+os.environ.update(VERCEL='1', RUN_MIGRATIONS='false')
 
 
 def validate_passports(snapshot):

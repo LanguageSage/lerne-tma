@@ -1,11 +1,6 @@
 const rawStandaloneFlag = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_LERNE_STANDALONE : undefined;
-const rawLocalFlag = typeof import.meta !== 'undefined' ? import.meta.env?.VITE_LERNE_LOCAL : undefined;
 
 export const IS_STANDALONE = rawStandaloneFlag === '1';
-
-if (IS_STANDALONE && rawLocalFlag === '1') {
-  throw new Error('STANDALONE and LOCAL modes cannot be enabled together');
-}
 
 export const STANDALONE_APPLICATION_ID = 'com.lerne.offlinepilot';
 export const STANDALONE_USER_ID = 900001;
