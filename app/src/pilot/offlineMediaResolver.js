@@ -9,7 +9,6 @@ let localMediaEnabled = false;
 let nativeMediaRoot = null;
 let nativeFileSrcConverter = (filePath) => filePath;
 const webBlobUrls = new Map();
-const knownOfflineMediaKeys = new Set();
 
 function normalizeKind(kind) {
   if (!kind) return 'images';
@@ -124,14 +123,6 @@ export function setWebBlobUrl(canonicalUrl, blobUrl) {
   }
 }
 
-export function hasKnownOfflineMediaKey(relativePath) {
-  return knownOfflineMediaKeys.has(relativePath);
-}
-
-export function addKnownOfflineMediaKey(relativePath) {
-  if (relativePath) knownOfflineMediaKeys.add(relativePath);
-}
-
 export function resolveOfflineMediaUrlSync(rawPath, defaultKind = 'images', options = {}) {
   const enabled = IS_STANDALONE || localMediaEnabled || Boolean(nativeMediaRoot) || Boolean(options?.forceLocal);
   if (!enabled || typeof rawPath !== 'string' || !rawPath.trim()) return null;
@@ -142,7 +133,7 @@ export function resolveOfflineMediaUrlSync(rawPath, defaultKind = 'images', opti
   if (!ref) return null;
 
   if (nativeMediaRoot) {
-    if (!knownOfflineMediaKeys.has(ref.relativePath) && !CANONICAL_ASSET_NAME_RE.test(ref.filename)) {
+    if (!CANONICAL_ASSET_NAME_RE.test(ref.filename)) {
       return null;
     }
     return nativeFileSrcConverter(`${nativeMediaRoot}/${ref.relativePath}`);
@@ -162,9 +153,6 @@ export function clearOfflineMediaCache({ keepNativeConfig = false } = {}) {
     }
   }
   webBlobUrls.clear();
-  if (!keepNativeConfig || !nativeMediaRoot) {
-    knownOfflineMediaKeys.clear();
-  }
   if (!keepNativeConfig) {
     nativeMediaRoot = null;
     nativeFileSrcConverter = (filePath) => filePath;

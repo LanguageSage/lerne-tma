@@ -18,6 +18,7 @@ import { canonicalJson } from './progressBackup.js';
 import { sha256BytesHex, sha256Hex } from './sha256.js';
 import { OFFLINE_MEDIA_KEY_PREFIX, parseOfflineMediaRef } from './offlineMediaResolver.js';
 import { buildFolderMap, isFolderActiveInCache, isDeckActiveInCache } from '../services/cardOfflineQueue.js';
+import { readNativeMediaMetadata, storeNativeMediaMetadata } from './nativeMediaDb.js';
 
 export { ID_COUNTERS_KEY, IMPORTED_ID_START };
 
@@ -1299,17 +1300,14 @@ export async function applyMaterialArchiveImport({
       });
     }
 
-    for (const entry of document.assets) {
-      syncEntriesToPut.push({
-        key: `${OFFLINE_MEDIA_KEY_PREFIX}${entry.folder}/${entry.filename}`,
-        sha256: entry.sha256,
-        folder: entry.folder,
-        filename: entry.filename,
-        mime: entry.mime,
-        size: entry.size,
-        path: entry.path,
-        updated_at: nowIso,
-      });
+    if (mediaInTransaction) {
+      for (const entry of document.assets) {
+        syncEntriesToPut.push({
+          ...entry,
+          key: `${OFFLINE_MEDIA_KEY_PREFIX}${entry.folder}/${entry.filename}`,
+          updated_at: nowIso,
+        });
+      }
     }
 
     if (knowledge) await applyMaterialKnowledge(database, knowledge, knowledgeCardIds);
@@ -1373,13 +1371,12 @@ export async function applyMaterialArchiveImport({
   });
   return imported.catch(async error => {
     if (nativeMediaStarted && rollbackMedia) {
-      await database.transaction('r', database.syncState, database.cards, database.decks, async () => {
+      await database.transaction('r', database.cards, database.decks, async () => {
         const keys = document.assets.map(asset => `${asset.folder}/${asset.filename}`);
-        const [records, cards, decks] = await Promise.all([
-          database.syncState.bulkGet(keys.map(key => OFFLINE_MEDIA_KEY_PREFIX + key)),
+        const [cards, decks] = await Promise.all([
           database.cards.toArray(), database.decks.toArray(),
         ]);
-        const protectedKeys = new Set(keys.filter((_, index) => records[index]));
+        const protectedKeys = new Set();
         const protect = refs => { for (const ref of refs.values()) protectedKeys.add(ref.relativePath); };
         protect(collectMediaRefsForDeckAndCards({}, cards));
         for (const deck of decks) protect(collectMediaRefsForDeckAndCards(deck, []));
@@ -1560,7 +1557,7 @@ export async function buildMaterialArchiveExport({
   now = new Date(),
 } = {}) {
   const database = db || await prepareLocalDb();
-  const [rawFolders, rawDecks, rawCards, registryRecord, offlineMediaRecords, knowledgeLinks, knowledgeItems] = await database.transaction(
+  const [rawFolders, rawDecks, rawCards, registryRecord, knowledgeLinks, knowledgeItems] = await database.transaction(
     'r',
     database.folders,
     database.decks,
@@ -1573,7 +1570,6 @@ export async function buildMaterialArchiveExport({
       database.decks.filter(d => !d.is_deleted).toArray(),
       database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),
       database.syncState.get(IMPORT_REGISTRY_KEY),
-      database.syncState.where('key').startsWith(OFFLINE_MEDIA_KEY_PREFIX).toArray(),
       database.card_knowledge_items.toArray(),
       database.knowledge_items.toArray(),
     ])
@@ -1771,12 +1767,6 @@ export async function buildMaterialArchiveExport({
     failArchive('Больше 10000 медиафайлов в архиве.');
   }
 
-  const offlineMetaByRelPath = new Map(
-    offlineMediaRecords
-      .filter(r => r?.folder && r?.filename)
-      .map(r => [`${r.folder}/${r.filename}`, r])
-  );
-
   const assetsBySha = new Map();
   const blobsBySha = new Map();
   const replacements = new Map();
@@ -1798,6 +1788,8 @@ export async function buildMaterialArchiveExport({
         replacements.set(rawUri, `archive://${entry.sha256}`);
       }
     } else if (typeof inspectNativeAssets === 'function') {
+      const offlineMetaByRelPath = new Map((await readNativeMediaMetadata())
+        .map(asset => [`${asset.folder}/${asset.filename}`, asset]));
       const repairedMeta = [];
       for (const [rawUri, parsed] of rawRefs.entries()) {
         let meta = offlineMetaByRelPath.get(parsed.relativePath);
@@ -1814,14 +1806,12 @@ export async function buildMaterialArchiveExport({
             && (!recovered.filename || recovered.filename === parsed.filename)
           ) {
             meta = {
-              key: `${OFFLINE_MEDIA_KEY_PREFIX}${parsed.relativePath}`,
               sha256: recovered.sha256,
               folder: parsed.folder,
               filename: parsed.filename,
               mime: recovered.mime,
               size: recovered.size,
               path: recovered.path,
-              updated_at: new Date().toISOString(),
             };
             offlineMetaByRelPath.set(parsed.relativePath, meta);
             repairedMeta.push(meta);
@@ -1858,9 +1848,7 @@ export async function buildMaterialArchiveExport({
         const problem = verification.missing?.[0] || verification.corrupted?.[0] || 'media';
         failArchive(`Невозможно экспортировать архив: отсутствует или повреждён файл ${problem}.`);
       }
-      if (repairedMeta.length > 0 && database?.syncState) {
-        await database.syncState.bulkPut(repairedMeta);
-      }
+      await storeNativeMediaMetadata(repairedMeta);
     } else {
       failArchive('Недоступно чтение локальных медиафайлов для экспорта.');
     }

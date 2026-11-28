@@ -1,15 +1,15 @@
 import { prepareLocalDb } from '../../services/localDb.js';
 import { canEditContainer, isBundledSeedCard } from '../../utils/deckUtils.js';
 import { studySideText } from '../../utils/structuredStudyCard.js';
-import { computeTtsCacheKey } from '../../sqlite/mediaContract.js';
+import { computeTtsCacheKey, isCanonicalMediaFilename, normalizeMediaRelPath } from '../../sqlite/mediaContract.js';
 import { storeLocalMediaFile } from '../localMediaWriter.js';
 import { inspectMediaBytes } from '../materialArchive.js';
+import { MAX_STUDY_TTS_CACHE_ENTRIES, openNativeMediaDb, storeNativeMediaMetadata } from '../nativeMediaDb.js';
 import {
   OFFLINE_MEDIA_KEY_PREFIX,
   getOfflineMaterialArchivePlugin,
   isNativeOfflineMediaAvailable,
   parseOfflineMediaRef,
-  registerNativeMediaFiles,
   resolveOfflineMediaUrlAsync,
 } from '../offlineMediaStore.js';
 import { sha256Hex } from '../sha256.js';
@@ -24,7 +24,6 @@ import { getStandaloneTtsProvider, isVoiceSpecCompatibleWithProvider, parseStand
 import { normalizeRateString, prepareTtsText } from './wavUtil.js';
 
 const MAX_PREVIEW_CACHE = 24;
-const MAX_STUDY_TTS_CACHE_ENTRIES = 400;
 const previewCache = new Map();
 const inFlightStudySynthesis = new Map();
 
@@ -170,39 +169,47 @@ export async function canUseLocalOfflineTtsForLangAsync(lang = 'de', { providerO
   return true;
 }
 
-async function resolveValidCachedStudyMediaUrl(database, canonicalPath, expectedSha256) {
-  if (!canonicalPath || typeof canonicalPath !== 'string') return null;
-  const ref = parseOfflineMediaRef(canonicalPath, 'audio');
-  if (!ref) return null;
-
-  if (isNativeOfflineMediaAvailable()) {
-    try {
-      const stat = await getOfflineMaterialArchivePlugin().statMediaAsset({
-        folder: ref.folder,
-        filename: ref.filename,
-      });
-      if (!stat?.exists || !stat?.valid || (expectedSha256 && stat.sha256 !== expectedSha256)) {
-        return null;
-      }
-      registerNativeMediaFiles([{
-        folder: ref.folder,
-        filename: ref.filename,
-        sha256: stat.sha256,
-        size: stat.size,
-        mime: stat.mime || 'audio/wav',
-        path: stat.path || `media/${stat.sha256}.wav`,
-      }]);
-      return (await resolveOfflineMediaUrlAsync(database, ref.canonicalUrl, 'audio')) || ref.canonicalUrl;
-    } catch {
-      return null;
-    }
+async function checkNativeCachedAudio(database, record) {
+  const ref = normalizeMediaRelPath(record?.path, 'audio');
+  if (ref?.folder !== 'audio' || !isCanonicalMediaFilename(ref.filename)) return null;
+  const { folder, filename, relPath } = ref;
+  const asset = await getOfflineMaterialArchivePlugin().statMediaAsset({ folder, filename });
+  if (!asset?.exists || !asset.valid || asset.sha256 !== record.sha256 || (record.size && asset.size !== record.size)) {
+    return null;
   }
 
-  if (!database?.media) return null;
-  const mediaRow = await database.media.get(ref.canonicalUrl);
-  if (!mediaRow?.blob) return null;
-  const url = await resolveOfflineMediaUrlAsync(database, ref.canonicalUrl, 'audio');
-  return url || null;
+  const path = `/api/media/${relPath}`;
+  const url = await resolveOfflineMediaUrlAsync(database, path, 'audio');
+  return url ? {
+    asset: { ...asset, folder, filename },
+    saved: { path, url, sha256: asset.sha256, mime: asset.mime },
+  } : null;
+}
+
+async function lookupNativeStudyAudio(database, spec, legacyKey) {
+  const sqlite = await openNativeMediaDb();
+  const [record] = await sqlite.query(`SELECT m.rel_path AS path, m.sha256, m.size_bytes AS size
+    FROM tts_cache AS t JOIN media_assets AS m ON m.sha256 = t.media_sha256 WHERE t.cache_key = ?`, [spec.key]);
+  const current = await checkNativeCachedAudio(database, record);
+  if (current) {
+    await sqlite.run('UPDATE tts_cache SET last_used_at = ? WHERE cache_key = ?', [new Date().toISOString(), spec.key]);
+    return current;
+  }
+
+  // Dexie entries lack the text and model needed to migrate them before a matching request.
+  const keys = [`${STUDY_TTS_CACHE_PREFIX}${spec.key}`, legacyKey];
+  const legacy = (await database.syncState.bulkGet(keys)).filter(Boolean);
+  const legacyKeys = legacy.map(item => item.key);
+  for (const oldRecord of legacy) {
+    if (oldRecord.path === `/api/media/${record?.path}`) continue;
+    const old = await checkNativeCachedAudio(database, oldRecord);
+    if (old) {
+      await storeNativeMediaMetadata([old.asset], spec);
+      await database.syncState.bulkDelete(legacyKeys);
+      return old;
+    }
+  }
+  return { legacyKeys };
 }
 
 async function pruneStudyTtsCacheIfNeeded(database) {
@@ -215,7 +222,7 @@ async function pruneStudyTtsCacheIfNeeded(database) {
     const excessKeys = excess.map((e) => e.key);
     await database.syncState.bulkDelete(excessKeys);
 
-    if (!isNativeOfflineMediaAvailable() && database.media && database.cards) {
+    if (database.media && database.cards) {
       const remainingCache = new Set(entries.slice(excess.length).map((e) => e.path).filter(Boolean));
       const allCards = await database.cards.toArray();
       const cardPaths = new Set();
@@ -323,42 +330,41 @@ export async function synthesizeOrGetCachedStudyAudio({
 
   const sideKey = side === 'back' ? 'back' : 'front';
   const effectiveRate = normalizeRateString(rate || readStandaloneTtsRate(sideKey));
-  const lookupHash = isNativeOfflineMediaAvailable()
-    ? computeTtsCacheKey({
-        textNorm: cleanText,
-        lang: code,
-        provider: providerId,
-        voice: effectiveVoiceKey,
-        model: modelVersionKey,
-        rate: effectiveRate,
-      })
-    : sha256Hex(
-        `lerne-study-tts-v1|${providerId}|${effectiveVoiceKey}|${modelVersionKey}|${code}|${effectiveRate}|${cleanText}`,
-      );
-  const syncKey = `${STUDY_TTS_CACHE_PREFIX}${lookupHash}`;
-
+  const native = isNativeOfflineMediaAvailable();
+  const spec = {
+    textNorm: cleanText, lang: code, provider: providerId, voice: effectiveVoiceKey,
+    model: modelVersionKey, rate: effectiveRate,
+  };
+  if (native) spec.key = computeTtsCacheKey(spec);
+  const legacyHash = sha256Hex(
+    `lerne-study-tts-v1|${providerId}|${effectiveVoiceKey}|${modelVersionKey}|${code}|${effectiveRate}|${cleanText}`,
+  );
+  const legacyKey = `${STUDY_TTS_CACHE_PREFIX}${legacyHash}`;
   const database = db || await prepareLocalDb();
-  const cachedRecord = await database.syncState.get(syncKey);
-  if (cachedRecord?.path) {
-    const validUrl = await resolveValidCachedStudyMediaUrl(database, cachedRecord.path, cachedRecord.sha256);
-    if (validUrl) {
-      return {
-        path: cachedRecord.path,
-        url: validUrl,
-        sha256: cachedRecord.sha256 || '',
-        mime: cachedRecord.mime || 'audio/wav',
-        word_boundaries: null,
-        provider: providerId,
-        cached: true,
-      };
-    }
-    await database.syncState.delete(syncKey).catch(() => {});
-  }
+  const flightKey = native ? spec.key : `${database.name}:${legacyKey}`;
 
-  let entry = inFlightStudySynthesis.get(syncKey);
+  let entry = inFlightStudySynthesis.get(flightKey);
   if (!entry) {
     const sharedAbort = new AbortController();
     const runSynthesis = async () => {
+      let legacyKeys;
+      if (native) {
+        const cached = await lookupNativeStudyAudio(database, spec, legacyKey);
+        if (cached.saved) return { ...cached.saved, word_boundaries: null, provider: providerId, cached: true };
+        ({ legacyKeys } = cached);
+      } else {
+        const record = await database.syncState.get(legacyKey);
+        const ref = parseOfflineMediaRef(record?.path, 'audio');
+        if (ref && (await database.media?.get(ref.canonicalUrl))?.blob) {
+          const url = await resolveOfflineMediaUrlAsync(database, ref.canonicalUrl, 'audio');
+          if (url) return {
+            path: record.path, url, sha256: record.sha256 || '', mime: record.mime || 'audio/wav',
+            word_boundaries: null, provider: providerId, cached: true,
+          };
+        }
+        if (record?.path) await database.syncState.delete(legacyKey).catch(() => {});
+      }
+
       const saved = await synthesizeStandaloneAudio({
         text: cleanText,
         lang: code,
@@ -366,20 +372,25 @@ export async function synthesizeOrGetCachedStudyAudio({
         rate: effectiveRate,
         persist: true,
         db: database,
+        ttsCache: native ? spec : null,
         signal: sharedAbort.signal,
       });
-      await database.syncState.put({
-        key: syncKey,
-        path: saved.path,
-        sha256: saved.sha256,
-        mime: saved.mime,
-        provider: providerId,
-        voice: effectiveVoiceKey,
-        lang: code,
-        rate: effectiveRate,
-        updated_at: new Date().toISOString(),
-      });
-      void pruneStudyTtsCacheIfNeeded(database);
+      if (native) {
+        if (legacyKeys.length) await database.syncState.bulkDelete(legacyKeys);
+      } else {
+        await database.syncState.put({
+          key: legacyKey,
+          path: saved.path,
+          sha256: saved.sha256,
+          mime: saved.mime,
+          provider: providerId,
+          voice: effectiveVoiceKey,
+          lang: code,
+          rate: effectiveRate,
+          updated_at: new Date().toISOString(),
+        });
+        void pruneStudyTtsCacheIfNeeded(database);
+      }
       return {
         ...saved,
         cached: false,
@@ -392,11 +403,11 @@ export async function synthesizeOrGetCachedStudyAudio({
       promise: null,
     };
     entry.promise = runSynthesis().finally(() => {
-      if (inFlightStudySynthesis.get(syncKey) === entry) {
-        inFlightStudySynthesis.delete(syncKey);
+      if (inFlightStudySynthesis.get(flightKey) === entry) {
+        inFlightStudySynthesis.delete(flightKey);
       }
     });
-    inFlightStudySynthesis.set(syncKey, entry);
+    inFlightStudySynthesis.set(flightKey, entry);
   }
 
   entry.subscribers += 1;
@@ -445,8 +456,10 @@ export async function synthesizeStandaloneAudio({
   persist = false,
   options = null,
   db = null,
+  ttsCache = null,
   signal = undefined,
 }) {
+  signal?.throwIfAborted();
   const cleanText = prepareTtsText(text);
   if (!cleanText) {
     throw new Error('Текст для озвучки пуст');
@@ -480,9 +493,10 @@ export async function synthesizeStandaloneAudio({
     signal,
   });
 
-  const validated = inspectMediaBytes(synth.bytes, 'audio');
+  signal?.throwIfAborted();
 
   if (!persist) {
+    const validated = inspectMediaBytes(synth.bytes, 'audio');
     const blob = new Blob([synth.bytes], { type: validated.mime });
     const url = URL.createObjectURL(blob);
     const cacheKey = `${providerId}|${model || ''}|${engine || ''}|${resolvedVoice}|${effectiveRate}|${cleanText}`;
@@ -490,8 +504,7 @@ export async function synthesizeStandaloneAudio({
     return { url, mime: validated.mime, word_boundaries: null, provider: providerId };
   }
 
-  const audioFile = new File([synth.bytes], `tts_synth${validated.ext}`, { type: validated.mime });
-  const stored = await storeLocalMediaFile(audioFile, 'audio', { db });
+  const stored = await storeLocalMediaFile(new Blob([synth.bytes]), 'audio', { db, ttsCache });
   return {
     path: stored.path,
     url: stored.url,

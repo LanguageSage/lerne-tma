@@ -387,6 +387,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
         String expectedSha = call.getString("sha256", "");
         long expectedSize = call.getData() != null ? call.getData().optLong("size", -1L) : -1L;
         String dataBase64 = call.getString("dataBase64", "");
+        boolean repairCorruptAudio = "audio".equals(folder) && Boolean.TRUE.equals(call.getBoolean("repairCorruptAudio"));
 
         if (!"images".equals(folder) && !"audio".equals(folder) && !"videos".equals(folder)) {
             call.reject("Unsupported local media folder");
@@ -457,11 +458,7 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                     }
                 }
 
-                if (target.exists()) {
-                    if (!target.isFile() || target.length() != expectedSize || !expectedSha.equals(sha256File(target))) {
-                        call.reject("Конфликт существующего медиа " + filename + ": файл не изменён.");
-                        return;
-                    }
+                if (target.isFile() && target.length() == expectedSize && expectedSha.equals(sha256File(target))) {
                     if ("audio".equals(folder)) {
                         String[] extMime = detectAudioExtAndMime(head, bytes.length, target);
                         if (extMime == null || !filename.endsWith(extMime[0])) {
@@ -478,6 +475,10 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                     res.put("filename", filename);
                     res.put("relativePath", folder + "/" + filename);
                     call.resolve(res);
+                    return;
+                }
+                if (target.exists() && (!repairCorruptAudio || !target.isFile())) {
+                    call.reject("Конфликт существующего медиа " + filename + ": файл не изменён.");
                     return;
                 }
 
@@ -507,6 +508,8 @@ public class OfflineMaterialArchivePlugin extends Plugin {
                         throw new IOException("Не удалось сохранить медиафайл: " + target.getName());
                     }
                 }
+                // Repair publishes only bytes verified against the digest encoded in the filename.
+                for (Set<File> created : pendingImports.values()) created.remove(target);
 
                 JSObject res = new JSObject();
                 res.put("stored", renamed);

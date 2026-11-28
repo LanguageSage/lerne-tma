@@ -37,10 +37,7 @@ export function createCapacitorSqliteDriver({
     async open() {
       return serialize(async () => {
         if (opened) return;
-        const connCheck = typeof plugin.isConnection === 'function'
-          ? await plugin.isConnection({ database, readonly })
-          : { result: false };
-        if (!connCheck?.result) {
+        try {
           await plugin.createConnection({
             database,
             version: 1,
@@ -48,6 +45,10 @@ export function createCapacitorSqliteDriver({
             mode: 'no-encryption',
             readonly,
           });
+        } catch (error) {
+          // The native bridge may survive a WebView reload. isConnection() exists only on the JS wrapper.
+          const name = database.replace(/\.db$/, '');
+          if (error?.message !== `CreateConnection: Connection ${name} already exists`) throw error;
         }
         const openCheck = typeof plugin.isDBOpen === 'function'
           ? await plugin.isDBOpen({ database, readonly })
@@ -98,7 +99,7 @@ export function createCapacitorSqliteDriver({
     },
 
     async query(statement, values = []) {
-      return txHandle.query(statement, values);
+      return serialize(() => txHandle.query(statement, values));
     },
 
     async transaction(fn) {

@@ -14,6 +14,7 @@
 | URL normalization | `app/src/utils/media.js`, `app/src/services/apiConfig.js` |
 | TTS из клиента | `app/src/utils/audioSynth.js`, `app/src/hooks/useAiActions.js`, `app/src/hooks/useAutoplay.js` |
 | Кэш | `app/src/services/mediaCache.js`, `app/src/services/localDb.js` |
+| Android Offline | `app/src/pilot/nativeMediaDb.js`, `app/src/pilot/offlineMediaStore.js`, `app/src/pilot/localMediaWriter.js`, `app/src/pilot/materialArchiveTransport.js`, `app/src/pilot/tts/ttsService.js` |
 | Сервер | `api/routers/media.py`, `api/services/media.py`, `api/utils/audio.py`, `api/models.py` |
 
 ## Data flow
@@ -41,6 +42,13 @@ audio path, не перезаписывая более свежие текст/�
 авторских маркеров.
 
 ## Source of truth
+
+### Android Offline · SQLite
+
+- `OfflineMaterialArchivePlugin` владеет файлами `lerne-offline-media/<folder>/archive_<sha256>.<ext>`. Каноническая SQLite `lerne_app` хранит `media_assets` и `tts_cache`. Ссылки карточек и колод в Dexie сохраняют прежний формат.
+- Запуск сверяет файлы через `listMediaAssets` и заполняет `media_assets` одной транзакцией. После её фиксации удаляются производные строки `offline-media:*` из `syncState`. При импорте файлы публикуются до фиксации карточек. SQLite-каталог обновляется после успешного импорта. После сбоя его можно восстановить на старте или при экспорте через `statMediaAsset`. Экспорт проверяет файлы даже при наличии строки в SQLite.
+- Учебный TTS проверяет SHA-256 и размер через тот же плагин, обновляет `last_used_at` при попадании и сохраняет звук и ключ в связанных таблицах одной транзакцией SQLite после записи файла. Кэш хранит 400 последних ключей, файлы сохраняются для ссылок материалов. Старые ключи обоих форматов из Dexie переносятся при совпадающем запросе и удаляются после записи в SQLite.
+- Проверки на синтетических данных в `app/src/services/__tests__/piperTtsProvider.test.js`, `standaloneMaterialArchive.test.js` и `app/src/sqlite/__tests__/sqliteSchema.test.js` используют настоящий SQLite и подмену нативного моста. Состояние этапов описано в [SQLITE_MIGRATION](../../docs/SQLITE_MIGRATION.md).
 
 TD-005 follow-up: `services/media.py:audio_references` extracts declared audio
 resources and attachments. `validate_new_audio_paths` validates only the delta

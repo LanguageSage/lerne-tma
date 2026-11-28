@@ -151,7 +151,7 @@ describe('SQLite schema, migrator, and media contract', () => {
   test('CapacitorSQLite driver adapter opens unencrypted SQLite and delegates transactions cleanly', async () => {
     const calls = [];
     const mockPlugin = {
-      isConnection: async () => ({ result: false }),
+      isConnection: async () => { throw new Error('Not implemented on Android'); },
       createConnection: async (opts) => calls.push(['createConnection', opts]),
       isDBOpen: async () => ({ result: false }),
       open: async (opts) => calls.push(['open', opts]),
@@ -184,5 +184,18 @@ describe('SQLite schema, migrator, and media contract', () => {
     assert.ok(calls.some(([name]) => name === 'beginTransaction'));
     assert.ok(calls.some(([name]) => name === 'commitTransaction'));
     assert.ok(calls.some(([name]) => name === 'closeConnection'));
+  });
+
+  test('recovers an open native connection after a WebView reload', async () => {
+    const driver = createCapacitorSqliteDriver({
+      plugin: {
+        async createConnection() { throw new Error('CreateConnection: Connection lerne_app already exists'); },
+        async isDBOpen() { return { result: true }; },
+        async execute() {},
+        async query() { return { values: [{ journal_mode: 'wal' }] }; },
+      },
+    });
+    await driver.open();
+    assert.equal(await driver.isOpen(), true);
   });
 });

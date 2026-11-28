@@ -6,6 +6,7 @@ import zlib from 'node:zlib';
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { registerHooks } from 'node:module';
+import { createTestSqlitePlugin } from '../../sqlite/__tests__/fakeCapacitorSqlite.js';
 
 registerHooks({
   resolve(specifier, context, next) {
@@ -65,6 +66,8 @@ mock.module('../../utils/standaloneMode.js', {
 
 const { sha256Hex, sha256BytesHex } = await import('../../pilot/sha256.js');
 let nativeArchive;
+const { database: nativeDb, plugin: sqlitePlugin } = createTestSqlitePlugin();
+mock.module('@capacitor-community/sqlite', { namedExports: { CapacitorSQLite: sqlitePlugin }, cache: true });
 const capacitor = await import('@capacitor/core');
 mock.module('@capacitor/core', {
   namedExports: {
@@ -131,6 +134,7 @@ const {
   readWebMediaAssetBytes,
 } = await import('../../pilot/offlineMediaStore.js');
 const { storeLocalMediaFile } = await import('../../pilot/localMediaWriter.js');
+const { openNativeMediaDb } = await import('../../pilot/nativeMediaDb.js');
 const { ensureStandaloneSeed, validateStandalonePack } = await import('../../pilot/standaloneSeed.js');
 const { getStandalonePack } = await import('../../pilot/standalonePack.js');
 const {
@@ -561,6 +565,9 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
 
   beforeEach(async () => {
     memStorage.clear();
+    if (nativeDb.prepare("SELECT name FROM sqlite_master WHERE name = 'media_assets'").get()) {
+      nativeDb.exec('DELETE FROM media_assets');
+    }
     clearResolverCache();
     clearOfflineMediaCache();
     dbCounter += 1;
@@ -1055,6 +1062,13 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       assert.deepEqual(disk, new Set(paths.slice(0, 2)));
       assert.deepEqual(await db.cards.toCollection().primaryKeys(), [99]);
       assert.equal(await db.knowledge_items.count(), 0);
+      assert.equal(nativeDb.prepare('SELECT count(*) AS count FROM media_assets').get().count, 0);
+
+      nativeArchive.commitImportMedia = async () => { for (const path of paths) disk.add(path); };
+      await confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID });
+      await confirmArchiveImport(pending, { db, userId: STANDALONE_USER_ID });
+      assert.equal(nativeDb.prepare('SELECT count(*) AS count FROM media_assets').get().count, paths.length);
+      assert.equal(await db.syncState.where('key').startsWith('offline-media:').count(), 0);
     } finally {
       nativeArchive = null;
     }
@@ -1513,7 +1527,7 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     assert.equal((await db.progress.get([userCard.id, STANDALONE_USER_ID])).repetitions, 1);
   });
 
-  test('9. Native listMediaAssets and Web media reconciliation restore missing syncState without deleting missing-file rows', async () => {
+  test('9. Native reconciliation rebuilds SQLite from verified files and Web reconciliation repairs Dexie', async () => {
     const pngAsset = assetRecord(makePngBytes(3, 3), 'images', '.png', 'image/png');
     const mp4Asset = assetRecord(makeMp4Bytes(), 'videos', '.mp4', 'video/mp4');
     const missingKey = `offline-media:audio/archive_${'0'.repeat(64)}.wav`;
@@ -1558,16 +1572,27 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     };
 
     try {
+      await openNativeMediaDb();
+      nativeDb.exec(`CREATE TEMP TRIGGER simulate_media_error BEFORE INSERT ON media_assets
+        BEGIN SELECT RAISE(ABORT, 'media write failed'); END`);
+      try {
+        await assert.rejects(() => initOfflineMediaStore(db), /media write failed/);
+        assert.ok(await db.syncState.get(missingKey));
+      } finally {
+        nativeDb.exec('DROP TRIGGER simulate_media_error');
+      }
       const nativeRes = await initOfflineMediaStore(db);
       assert.equal(nativeRes.mode, 'native');
       assert.equal(nativeRes.reconciledCount, 2);
       assert.equal(nativeRes.invalidCount, 1);
 
-      const restoredPng = await db.syncState.get(`offline-media:${pngAsset.folder}/${pngAsset.filename}`);
-      const restoredMp4 = await db.syncState.get(`offline-media:${mp4Asset.folder}/${mp4Asset.filename}`);
+      const getAsset = nativeDb.prepare('SELECT * FROM media_assets WHERE rel_path = ?');
+      const restoredPng = getAsset.get(`${pngAsset.folder}/${pngAsset.filename}`);
+      const restoredMp4 = getAsset.get(`${mp4Asset.folder}/${mp4Asset.filename}`);
       assert.equal(restoredPng?.sha256, pngAsset.sha256);
       assert.equal(restoredMp4?.mime, 'video/mp4');
-      assert.ok(await db.syncState.get(missingKey), 'Missing-file syncState row must be preserved for fail-closed export');
+      assert.equal(await db.syncState.get(missingKey), undefined);
+      assert.equal(getAsset.get(missingKey.slice('offline-media:'.length)), undefined);
 
       const resolvedVideo = resolveOfflineMediaUrlSync(`/api/media/videos/${mp4Asset.filename}`, 'videos');
       assert.ok(resolvedVideo?.includes(mp4Asset.filename));
@@ -1625,9 +1650,7 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     );
 
     const pngAsset = v4.mediaAssets[0];
-    const missingMetaKey = `offline-media:${pngAsset.folder}/${pngAsset.filename}`;
-    await db.syncState.delete(missingMetaKey);
-    assert.equal(await db.syncState.get(missingMetaKey), undefined);
+    const getMetadata = () => nativeDb.prepare('SELECT * FROM media_assets WHERE sha256 = ?').get(pngAsset.sha256);
 
     const tree = await getExportableMaterialsTree({ db });
     const folderId = tree.rootFolders[0].id;
@@ -1641,7 +1664,7 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
         ? { exists: true, valid: false, reason: 'SHA-256 mismatch' }
         : { exists: false, valid: false },
     }), /Отсутствуют метаданные/);
-    assert.equal(await db.syncState.get(missingMetaKey), undefined);
+    assert.equal(getMetadata(), undefined);
 
     // 10b. Missing file on disk -> fail closed
     await assert.rejects(() => buildMaterialArchiveExport({
@@ -1651,7 +1674,7 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       recoverNativeAsset: async () => ({ exists: false, valid: false }),
     }), /Отсутствуют метаданные/);
 
-    // 10c. Valid file on disk -> self-heals syncState and succeeds
+    // 10c. Valid file on disk -> rebuilds SQLite metadata and succeeds.
     const exported = await buildMaterialArchiveExport({
       db,
       folderIds: [folderId],
@@ -1673,9 +1696,9 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       },
     });
     assert.equal(exported.assets.length, 4);
-    const healed = await db.syncState.get(missingMetaKey);
+    const healed = getMetadata();
     assert.equal(healed?.sha256, pngAsset.sha256);
-    assert.equal(healed?.size, pngAsset.size);
+    assert.equal(healed?.size_bytes, pngAsset.size);
   });
 
   test('11. Deck metadata resources reject ephemeral URLs, normalize to canonical refs, support videos, and round-trip ZIP', async () => {

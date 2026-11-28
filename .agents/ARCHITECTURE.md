@@ -75,7 +75,7 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 | Настройки пользователя | `app/src/store/useSettingsStore.js`; личный Design V2 — scoped localStorage backup/pending record | `TMASetting`; `api/services/user_settings.py`, маршруты в `api/routers/settings.py` |
 | Аккаунт / сессии входа | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `TMAUser`, семейство `TMAAuth*` |
 | Синхронизация сущностей | Dexie `syncState`, dirty-записи | `TMAOfflineBatch` |
-| Медиа | Dexie `media`, URL и состояние плеера | `TMAMedia`; аудио также использует Supabase Storage |
+| Медиа | Dexie `media` в Web. Файлы приложения и SQLite `media_assets`/`tts_cache` в Android Offline | `TMAMedia`; аудио также использует Supabase Storage |
 | Knowledge | Dexie KI-таблицы и Attempts, локальное восстановление из копии прогресса | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
 | AI-промпты / конфигурация | Настройки и формы генерации | `TMASetting`, `TMAUserPrompt`, `TMACustomPrompt` |
 | Совместный доступ | `app/src/store/useCollaborativeStore.js` | `TMA_Collaborator` |

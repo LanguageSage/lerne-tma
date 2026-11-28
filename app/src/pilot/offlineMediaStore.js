@@ -7,11 +7,11 @@ import {
   isNativePluginAvailable,
 } from './nativeBridge.js';
 import { sha256BytesHex } from './sha256.js';
+import { openNativeMediaDb, storeNativeMediaMetadata } from './nativeMediaDb.js';
 import {
   CANONICAL_ASSET_NAME_RE,
   MEDIA_FOLDERS,
   OFFLINE_MEDIA_KEY_PREFIX,
-  addKnownOfflineMediaKey,
   clearOfflineMediaCache,
   getNativeMediaRoot,
   getWebBlobUrl,
@@ -132,44 +132,25 @@ export function getOfflineMaterialArchivePlugin() {
   return getNativePlugin('OfflineMaterialArchive');
 }
 
-export function registerNativeMediaFiles(assets) {
-  if (!Array.isArray(assets)) return;
-  for (const asset of assets) {
-    if (asset?.folder && asset?.filename) {
-      addKnownOfflineMediaKey(`${asset.folder}/${asset.filename}`);
-    }
-  }
-}
-
 export async function initOfflineMediaStore(database, options = {}) {
   if (!isLocalMediaRuntime(options)) return { mode: 'disabled' };
   setLocalMediaEnabled(true);
 
-  let diskAssets = [];
-  let invalidAssets = [];
-
   if (isNativeOfflineMediaAvailable()) {
     const plugin = getOfflineMaterialArchivePlugin();
-    let mediaRoot = null;
-    if (typeof plugin?.listMediaAssets === 'function') {
-      const scan = await plugin.listMediaAssets();
-      if (scan) {
-        mediaRoot = scan.mediaRoot || null;
-        diskAssets = Array.isArray(scan.assets) ? scan.assets : [];
-        invalidAssets = Array.isArray(scan.invalid) ? scan.invalid : [];
-      } else if (typeof plugin?.getMediaRoot === 'function') {
-        const res = await plugin.getMediaRoot();
-        mediaRoot = res?.mediaRoot || null;
-      }
-    } else if (typeof plugin?.getMediaRoot === 'function') {
-      const res = await plugin.getMediaRoot();
-      mediaRoot = res?.mediaRoot || null;
-    }
+    const [scan] = await Promise.all([plugin.listMediaAssets(), openNativeMediaDb()]);
+    const { mediaRoot, assets, invalid } = scan;
+    await storeNativeMediaMetadata(assets);
+    await database?.syncState.where('key').startsWith(OFFLINE_MEDIA_KEY_PREFIX).delete();
     setNativeMediaConfig(mediaRoot, convertNativeFileSrc);
-    registerNativeMediaFiles(diskAssets);
+    return {
+      mode: 'native',
+      nativeMediaRoot: getNativeMediaRoot(),
+      reconciledCount: assets.length,
+      invalidCount: invalid.length,
+    };
   }
 
-  const nativeRoot = getNativeMediaRoot();
   let reconciledCount = 0;
 
   if (database?.syncState) {
@@ -177,50 +158,11 @@ export async function initOfflineMediaStore(database, options = {}) {
     const existingByKey = new Map();
     for (const record of records) {
       if (record?.key) existingByKey.set(record.key, record);
-      if (record?.folder && record?.filename) {
-        addKnownOfflineMediaKey(`${record.folder}/${record.filename}`);
-      }
     }
 
     const nowIso = new Date().toISOString();
 
-    if (nativeRoot && diskAssets.length > 0) {
-      const repaired = [];
-      for (const asset of diskAssets) {
-        if (!asset?.folder || !asset?.filename || !asset?.sha256 || !asset?.size || !asset?.mime || !asset?.path) {
-          continue;
-        }
-        const relativePath = `${asset.folder}/${asset.filename}`;
-        const key = `${OFFLINE_MEDIA_KEY_PREFIX}${relativePath}`;
-        const existing = existingByKey.get(key);
-        if (
-          !existing
-          || existing.sha256 !== asset.sha256
-          || existing.size !== asset.size
-          || existing.mime !== asset.mime
-          || existing.path !== asset.path
-        ) {
-          const metaRecord = {
-            key,
-            sha256: asset.sha256,
-            folder: asset.folder,
-            filename: asset.filename,
-            mime: asset.mime,
-            size: asset.size,
-            path: asset.path,
-            updated_at: nowIso,
-          };
-          repaired.push(metaRecord);
-          existingByKey.set(key, metaRecord);
-        }
-      }
-      if (repaired.length > 0) {
-        await database.syncState.bulkPut(repaired);
-        reconciledCount = repaired.length;
-      }
-    }
-
-    if (!nativeRoot && database.media) {
+    if (database.media) {
       const allMediaRows = await database.media.toArray();
       const mediaByUrl = new Map();
       const repaired = [];
@@ -261,7 +203,6 @@ export async function initOfflineMediaStore(database, options = {}) {
             };
             repaired.push(metaRecord);
             existingByKey.set(key, metaRecord);
-            addKnownOfflineMediaKey(relativePath);
           }
         } catch {
           // Leave invalid rows untouched without deleting user data.
@@ -291,10 +232,10 @@ export async function initOfflineMediaStore(database, options = {}) {
   }
 
   return {
-    mode: nativeRoot ? 'native' : 'web',
-    nativeMediaRoot: nativeRoot,
+    mode: 'web',
+    nativeMediaRoot: null,
     reconciledCount,
-    invalidCount: invalidAssets.length,
+    invalidCount: 0,
   };
 }
 
@@ -323,7 +264,6 @@ export async function resolveOfflineMediaUrlAsync(database, rawPath, defaultKind
     try {
       const blobUrl = URL.createObjectURL(cached.blob);
       setWebBlobUrl(ref.canonicalUrl, blobUrl);
-      addKnownOfflineMediaKey(ref.relativePath);
       return blobUrl;
     } catch {
       return null;

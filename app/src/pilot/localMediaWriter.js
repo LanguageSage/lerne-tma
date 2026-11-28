@@ -1,13 +1,12 @@
 import { tr } from '../i18n/locale.js';
 import { prepareLocalDb } from '../services/localDb.js';
 import { inspectMediaBytes, MAX_ASSET_BYTES } from './materialArchive.js';
+import { openNativeMediaDb, storeNativeMediaMetadata } from './nativeMediaDb.js';
 import {
   getOfflineMaterialArchivePlugin,
   isNativeOfflineMediaAvailable,
   OFFLINE_MEDIA_KEY_PREFIX,
-  registerNativeMediaFiles,
   resolveOfflineMediaUrlAsync,
-  resolveOfflineMediaUrlSync,
   storeWebMediaAssets,
 } from './offlineMediaStore.js';
 
@@ -20,7 +19,7 @@ function uint8ToBase64(bytes) {
   return btoa(binary);
 }
 
-export async function storeLocalMediaFile(file, folder, { db = null } = {}) {
+export async function storeLocalMediaFile(file, folder, { db = null, ttsCache = null } = {}) {
   if (!['images', 'audio', 'videos'].includes(folder)) {
     throw new Error(tr('Неподдерживаемый тип локального медиа.'));
   }
@@ -38,20 +37,10 @@ export async function storeLocalMediaFile(file, folder, { db = null } = {}) {
   const entry = inspectMediaBytes(bytes, folder);
   const relativePath = `${entry.folder}/${entry.filename}`;
   const canonicalUrl = `/api/media/${relativePath}`;
-  const metaRecord = {
-    key: `${OFFLINE_MEDIA_KEY_PREFIX}${relativePath}`,
-    sha256: entry.sha256,
-    folder: entry.folder,
-    filename: entry.filename,
-    mime: entry.mime,
-    size: entry.size,
-    path: entry.path,
-    updated_at: new Date().toISOString(),
-  };
-
-  const database = db || await prepareLocalDb();
+  let database = db;
 
   if (isNativeOfflineMediaAvailable()) {
+    await openNativeMediaDb();
     const dataBase64 = uint8ToBase64(bytes);
     await getOfflineMaterialArchivePlugin().storeMediaAsset({
       folder: entry.folder,
@@ -59,24 +48,20 @@ export async function storeLocalMediaFile(file, folder, { db = null } = {}) {
       sha256: entry.sha256,
       size: entry.size,
       dataBase64,
+      ...(ttsCache ? { repairCorruptAudio: true } : {}),
     });
-    await database.syncState.put(metaRecord);
-    registerNativeMediaFiles([entry]);
-    const url = resolveOfflineMediaUrlSync(canonicalUrl, entry.folder) || canonicalUrl;
-    return {
-      path: canonicalUrl,
-      url,
-      sha256: entry.sha256,
-      size: entry.size,
-      mime: entry.mime,
-      relativePath,
-    };
+    await storeNativeMediaMetadata([entry], ttsCache);
+  } else {
+    database ||= await prepareLocalDb();
+    await database.transaction('rw', database.media, database.syncState, async () => {
+      await storeWebMediaAssets(database, [entry], new Map([[entry.sha256, bytes]]));
+      await database.syncState.put({
+        ...entry,
+        key: `${OFFLINE_MEDIA_KEY_PREFIX}${relativePath}`,
+        updated_at: new Date().toISOString(),
+      });
+    });
   }
-
-  await database.transaction('rw', database.media, database.syncState, async () => {
-    await storeWebMediaAssets(database, [entry], new Map([[entry.sha256, bytes]]));
-    await database.syncState.put(metaRecord);
-  });
 
   const url = (await resolveOfflineMediaUrlAsync(database, canonicalUrl, entry.folder)) || canonicalUrl;
   return {

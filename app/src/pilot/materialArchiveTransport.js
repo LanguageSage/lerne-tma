@@ -14,9 +14,9 @@ import {
   initOfflineMediaStore,
   isNativeOfflineMediaAvailable,
   readWebMediaAssetBytes,
-  registerNativeMediaFiles,
   storeWebMediaAssets,
 } from './offlineMediaStore.js';
+import { openNativeMediaDb, storeNativeMediaMetadata } from './nativeMediaDb.js';
 
 export function isNativeMaterialArchiveAvailable() {
   return isNativeOfflineMediaAvailable();
@@ -147,8 +147,11 @@ export async function confirmArchiveImport(pendingImport, { db = null, userId = 
     throw new Error('Нет подготовленного архива для импорта.');
   }
   const database = db || await prepareLocalDb();
+  const native = pendingImport.channel === 'native';
+  const { assets } = pendingImport.inspection.document;
+  if (native && assets.length) await openNativeMediaDb();
 
-  const commitMedia = pendingImport.channel === 'native'
+  const commitMedia = native
     ? async (assets) => {
       await getOfflineMaterialArchivePlugin().commitImportMedia({
         stagingId: pendingImport.stagingId,
@@ -160,17 +163,20 @@ export async function confirmArchiveImport(pendingImport, { db = null, userId = 
   const result = await applyMaterialArchiveImport({
     inspection: pendingImport.inspection,
     commitMedia,
-    rollbackMedia: pendingImport.channel === 'native' ? protectedPaths => getOfflineMaterialArchivePlugin().rollbackImportMedia({
+    rollbackMedia: native ? protectedPaths => getOfflineMaterialArchivePlugin().rollbackImportMedia({
       stagingId: pendingImport.stagingId, protectedPaths,
     }) : undefined,
-    mediaInTransaction: pendingImport.channel !== 'native',
+    mediaInTransaction: !native,
     db: database,
     userId,
     fileName: pendingImport.fileName || '',
   });
 
-  if (pendingImport.channel === 'native') {
-    registerNativeMediaFiles(pendingImport.inspection.document.assets);
+  if (native) {
+    // The committed cards reference verified files. A failed catalog write can be rebuilt from disk.
+    await storeNativeMediaMetadata(assets).catch(error => {
+      console.warn('[StandaloneMaterials] Unable to update SQLite media metadata:', error);
+    });
     await cancelPendingArchiveImport(pendingImport);
   } else {
     await initOfflineMediaStore(database).catch(error => {
