@@ -1,6 +1,7 @@
 import { prepareLocalDb } from '../../services/localDb.js';
 import { canEditContainer, isBundledSeedCard } from '../../utils/deckUtils.js';
 import { studySideText } from '../../utils/structuredStudyCard.js';
+import { computeTtsCacheKey } from '../../sqlite/mediaContract.js';
 import { storeLocalMediaFile } from '../localMediaWriter.js';
 import { inspectMediaBytes } from '../materialArchive.js';
 import {
@@ -169,7 +170,7 @@ export async function canUseLocalOfflineTtsForLangAsync(lang = 'de', { providerO
   return true;
 }
 
-async function resolveValidCachedStudyMediaUrl(database, canonicalPath) {
+async function resolveValidCachedStudyMediaUrl(database, canonicalPath, expectedSha256) {
   if (!canonicalPath || typeof canonicalPath !== 'string') return null;
   const ref = parseOfflineMediaRef(canonicalPath, 'audio');
   if (!ref) return null;
@@ -180,7 +181,7 @@ async function resolveValidCachedStudyMediaUrl(database, canonicalPath) {
         folder: ref.folder,
         filename: ref.filename,
       });
-      if (!stat?.exists || !stat?.valid) {
+      if (!stat?.exists || !stat?.valid || (expectedSha256 && stat.sha256 !== expectedSha256)) {
         return null;
       }
       registerNativeMediaFiles([{
@@ -322,15 +323,24 @@ export async function synthesizeOrGetCachedStudyAudio({
 
   const sideKey = side === 'back' ? 'back' : 'front';
   const effectiveRate = normalizeRateString(rate || readStandaloneTtsRate(sideKey));
-  const lookupHash = sha256Hex(
-    `lerne-study-tts-v1|${providerId}|${effectiveVoiceKey}|${modelVersionKey}|${code}|${effectiveRate}|${cleanText}`
-  );
+  const lookupHash = isNativeOfflineMediaAvailable()
+    ? computeTtsCacheKey({
+        textNorm: cleanText,
+        lang: code,
+        provider: providerId,
+        voice: effectiveVoiceKey,
+        model: modelVersionKey,
+        rate: effectiveRate,
+      })
+    : sha256Hex(
+        `lerne-study-tts-v1|${providerId}|${effectiveVoiceKey}|${modelVersionKey}|${code}|${effectiveRate}|${cleanText}`,
+      );
   const syncKey = `${STUDY_TTS_CACHE_PREFIX}${lookupHash}`;
 
   const database = db || await prepareLocalDb();
   const cachedRecord = await database.syncState.get(syncKey);
   if (cachedRecord?.path) {
-    const validUrl = await resolveValidCachedStudyMediaUrl(database, cachedRecord.path);
+    const validUrl = await resolveValidCachedStudyMediaUrl(database, cachedRecord.path, cachedRecord.sha256);
     if (validUrl) {
       return {
         path: cachedRecord.path,

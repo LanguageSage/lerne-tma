@@ -36,6 +36,7 @@ globalThis.URL.createObjectURL = () => `blob:piper-test/${++blobCounter}`;
 globalThis.URL.revokeObjectURL = () => {};
 
 let nativeEnabled = true;
+let nativeMedia = null;
 const pluginCalls = [];
 let synthDelayMs = 0;
 
@@ -194,9 +195,12 @@ mock.module('../../pilot/nativeBridge.js', {
   namedExports: {
     isPlatformAssetUrl: () => false,
     isNativePlatform: () => nativeEnabled,
-    isNativePluginAvailable: (name) => nativeEnabled && (name === 'AndroidPiperTts' || name === 'AndroidSystemTts'),
+    isNativePluginAvailable: (name) => nativeEnabled && (
+      name === 'AndroidPiperTts' || name === 'AndroidSystemTts' || (name === 'OfflineMaterialArchive' && nativeMedia !== null)
+    ),
     getNativePlugin: (name) => {
       if (name === 'AndroidPiperTts') return fakeAndroidPiperPlugin;
+      if (name === 'OfflineMaterialArchive') return nativeMedia;
       throw new Error(`Unexpected plugin ${name}`);
     },
     convertNativeFileSrc: (p) => p,
@@ -250,6 +254,7 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     pluginCalls.length = 0;
     synthDelayMs = 0;
     nativeEnabled = true;
+    nativeMedia = null;
     clearPreviewAudioCache();
     piperTtsProvider.clearCatalogCache();
     await resetAllDatabases();
@@ -391,6 +396,30 @@ describe('Android Piper Neural TTS Provider Integration', () => {
       resolveValidStandaloneVoice('piper', 'de', 'piper:de_DE-deleted-model', [], restoreRes.catalog.voices),
       'piper:de_DE-thorsten-high',
     );
+  });
+
+  test('uses the canonical Android TTS key and regenerates when the on-disk SHA-256 differs', async () => {
+    const { computeTtsCacheKey } = await import('../../sqlite/mediaContract.js');
+    memStorage.set(STANDALONE_SETTINGS_KEYS.ttsProvider, 'piper');
+    const assets = new Map();
+    nativeMedia = {
+      listMediaAssets: async () => ({ mediaRoot: '/test/media', assets: [...assets.values()] }),
+      storeMediaAsset: async ({ dataBase64: _data, ...asset }) => assets.set(asset.filename, asset),
+      statMediaAsset: async ({ filename }) => ({ exists: assets.has(filename), valid: true, ...assets.get(filename) }),
+    };
+    const { voices: [model] } = await piperTtsProvider.listVoices();
+    const options = { text: 'Guten Tag', lang: 'de', rate: '+0%', voice: `piper:${model.id}` };
+    const first = await standaloneAiTtsApi.handle('/media/study-local-audio', options);
+    const database = await prepareLocalDb();
+    const key = computeTtsCacheKey({ textNorm: options.text, lang: options.lang, rate: options.rate,
+      provider: 'piper', voice: model.id, model: model.sha256 || String(model.sizeBytes || '') });
+    assert.equal((await database.syncState.get(`tts_study_cache:${key}`)).sha256, first.data.sha256);
+    assert.equal((await standaloneAiTtsApi.handle('/media/study-local-audio', options)).data.cached, true);
+    assets.values().next().value.sha256 = 'f'.repeat(64);
+    const retried = await standaloneAiTtsApi.handle('/media/study-local-audio', options);
+    assert.equal(retried.data.cached, false);
+    assert.equal(retried.data.sha256, first.data.sha256);
+    assert.equal(pluginCalls.filter(({ method }) => method === 'synthesizeToWav').length, 2);
   });
 
   test('protects hidden answers across all 9 Native V2 card types and caches on-demand study audio without mutating read-only cards or calling paid APIs', async () => {
