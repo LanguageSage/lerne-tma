@@ -1,3 +1,5 @@
+import { localTransaction } from '../services/localTransaction.js';
+import { INLINE_URI_RE, iterTextLocations } from '../sqlite/mediaContract.js';
 import Dexie from 'dexie';
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
@@ -60,7 +62,6 @@ export const ROLE_TO_FOLDER = {
   video: 'videos',
   background: 'backgrounds',
 };
-const INLINE_URI_RE = /(?:https?:\/\/[^\s"'<>()[\]{}]+|\/api\/media\/(?:images|audio|videos|backgrounds|tma-audio)\/[^\s"'<>()[\]{}]+)/g;
 
 function failArchive(message) {
   throw new Error(message);
@@ -514,27 +515,6 @@ export function iterNativeMediaFields(envelope) {
   return results;
 }
 
-export function iterTextLocations(value, out = []) {
-  if (Array.isArray(value)) {
-    for (let i = 0; i < value.length; i += 1) {
-      if (typeof value[i] === 'string') {
-        out.push({ owner: value, key: i });
-      } else if (value[i] && typeof value[i] === 'object') {
-        iterTextLocations(value[i], out);
-      }
-    }
-  } else if (isPlainObject(value)) {
-    for (const key of Object.keys(value)) {
-      if (typeof value[key] === 'string') {
-        out.push({ owner: value, key });
-      } else if (value[key] && typeof value[key] === 'object') {
-        iterTextLocations(value[key], out);
-      }
-    }
-  }
-  return out;
-}
-
 export function checkMaterialMetadata(rawValue) {
   let parsed;
   if (typeof rawValue === 'string') {
@@ -867,7 +847,7 @@ export function validateMaterialArchiveDocument(rawDocument) {
 }
 
 /**
- * Validate an archive + verify every ZIP entry against manifest, and preview import impact against Dexie.
+ * Validate a ZIP and preview the impact against local materials.
  */
 export async function inspectMaterialArchiveForImport({
   manifestJson,
@@ -1031,7 +1011,7 @@ export async function inspectMaterialArchiveForImport({
 }
 
 /**
- * Validate and stage material changes, then commit media before publishing Dexie changes.
+ * Validate and stage material changes, then commit media before publishing materials.
  * Never touches user SRS progress in db.progress.
  */
 export async function applyMaterialArchiveImport({
@@ -1064,7 +1044,7 @@ export async function applyMaterialArchiveImport({
   if (knowledge) tables.push(database.knowledge_items, database.card_knowledge_items);
   if (mediaInTransaction && document.assets.length > 0) tables.push(database.media);
   let nativeMediaStarted = false;
-  const imported = database.transaction('rw', tables, async () => {
+  const imported = localTransaction(database, 'rw', tables, async database => {
     const [existingFolders, existingDecks, existingCards, countersRecord, registryRecord, exportSource] = await Promise.all([
       database.folders.toArray(),
       database.decks.toArray(),
@@ -1310,6 +1290,10 @@ export async function applyMaterialArchiveImport({
       }
     }
 
+    if (database.sqlite && document.assets.length) {
+      nativeMediaStarted = true;
+      await commitMedia(document.assets, database.sqlite);
+    }
     if (knowledge) await applyMaterialKnowledge(database, knowledge, knowledgeCardIds);
     if (foldersToPut.length > 0) await database.folders.bulkPut(foldersToPut);
     if (decksToPut.length > 0) await database.decks.bulkPut(decksToPut);
@@ -1347,7 +1331,7 @@ export async function applyMaterialArchiveImport({
       },
     ]);
 
-    if (document.assets.length) {
+    if (!database.sqlite && document.assets.length) {
       if (mediaInTransaction) {
         await commitMedia(document.assets);
       } else {
@@ -1371,7 +1355,7 @@ export async function applyMaterialArchiveImport({
   });
   return imported.catch(async error => {
     if (nativeMediaStarted && rollbackMedia) {
-      await database.transaction('r', database.cards, database.decks, async () => {
+      await localTransaction(database, 'r', database.cards, database.decks, async database => {
         const keys = document.assets.map(asset => `${asset.folder}/${asset.filename}`);
         const [cards, decks] = await Promise.all([
           database.cards.toArray(), database.decks.toArray(),
@@ -1380,7 +1364,9 @@ export async function applyMaterialArchiveImport({
         const protect = refs => { for (const ref of refs.values()) protectedKeys.add(ref.relativePath); };
         protect(collectMediaRefsForDeckAndCards({}, cards));
         for (const deck of decks) protect(collectMediaRefsForDeckAndCards(deck, []));
-        await Dexie.waitFor(rollbackMedia(keys.filter(key => protectedKeys.has(key))));
+        const rollback = () => rollbackMedia(keys.filter(key => protectedKeys.has(key)));
+        if (database.sqlite) await rollback();
+        else await Dexie.waitFor(rollback());
       });
     }
     throw error;
@@ -1543,7 +1529,7 @@ function formatArchiveFileName(date) {
 }
 
 /**
- * Build a validated lerne-materials v4 archive from selected folders and/or decks in Dexie.
+ * Build a validated lerne-materials v4 archive from selected local folders and decks.
  * Verifies every referenced media asset before emitting the archive.
  */
 export async function buildMaterialArchiveExport({
@@ -1557,7 +1543,7 @@ export async function buildMaterialArchiveExport({
   now = new Date(),
 } = {}) {
   const database = db || await prepareLocalDb();
-  const [rawFolders, rawDecks, rawCards, registryRecord, knowledgeLinks, knowledgeItems] = await database.transaction(
+  const [rawFolders, rawDecks, rawCards, registryRecord, knowledgeLinks, knowledgeItems] = await localTransaction(database,
     'r',
     database.folders,
     database.decks,
@@ -1565,7 +1551,7 @@ export async function buildMaterialArchiveExport({
     database.syncState,
     database.card_knowledge_items,
     database.knowledge_items,
-    async () => Promise.all([
+    async database => Promise.all([
       database.folders.toArray(),
       database.decks.filter(d => !d.is_deleted).toArray(),
       database.cards.filter(c => !c.is_deleted && Boolean(c.content_v2)).toArray(),

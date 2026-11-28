@@ -69,14 +69,14 @@ RLS без public policies, отзыв API-grants/schema USAGE и безопас
 
 | Область | Клиентский владелец | Серверные модели в `api/models.py` |
 | --- | --- | --- |
-| Колоды / карточки / папки | `app/src/store/useDeckStore.js`, Dexie `decks/cards/folders` | `TMA_Deck`, `TMA_Card`, `TMA_Folder` |
+| Колоды / карточки / папки | `app/src/store/useDeckStore.js`, Dexie в Web, SQLite `lerne_app` в Android Offline | `TMA_Deck`, `TMA_Card`, `TMA_Folder` |
 | Учебная сессия | `app/src/store/useSessionStore.js` | Сессия UI локальна; сохранённый прогресс — `TMAProgress` |
-| SRS и история повторений | Dexie `progress`, очередь review в `syncState` | `TMAProgress`, `TMAReviewHistory` |
+| SRS и история повторений | В Web Dexie `progress` и очередь review в `syncState`. В Android Offline SQLite `card_progress` и квитанции оценок в `app_state` | `TMAProgress`, `TMAReviewHistory` |
 | Настройки пользователя | `app/src/store/useSettingsStore.js`; личный Design V2 — scoped localStorage backup/pending record | `TMASetting`; `api/services/user_settings.py`, маршруты в `api/routers/settings.py` |
 | Аккаунт / сессии входа | `app/src/store/useAuthStore.js`, `app/src/utils/auth.js` | `TMAUser`, семейство `TMAAuth*` |
 | Синхронизация сущностей | Dexie `syncState`, dirty-записи | `TMAOfflineBatch` |
 | Медиа | Dexie `media` в Web. Файлы приложения и SQLite `media_assets`/`tts_cache` в Android Offline | `TMAMedia`; аудио также использует Supabase Storage |
-| Knowledge | Dexie KI-таблицы и Attempts, локальное восстановление из копии прогресса | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
+| Knowledge | Dexie в Web, канонические KI-таблицы SQLite в Android Offline | `TMAKnowledgeItem`, `TMACardKnowledgeItem`, `TMAKnowledgeAttempt`, `TMAUserKnowledgeState` |
 | AI-промпты / конфигурация | Настройки и формы генерации | `TMASetting`, `TMAUserPrompt`, `TMACustomPrompt` |
 | Совместный доступ | `app/src/store/useCollaborativeStore.js` | `TMA_Collaborator` |
 | Библиотека | `app/src/store/slices/createLibrarySlice.js` | `LibraryCategory`, `TMA_Deck(scope=library)`, `TMA_Card` |

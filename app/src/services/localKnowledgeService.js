@@ -1,3 +1,4 @@
+import { localTransaction } from './localTransaction.js';
 import { cardDuplicateKey } from '../utils/search.js';
 import { isKnowledgeKeyForLanguage, isPortableKnowledgeAttempt } from '../utils/knowledgeEvidence.js';
 import { getCardKnowledgeMappings } from './knowledgeDbService.js';
@@ -29,7 +30,7 @@ function bindKnowledgeObservation(observation, primary) {
   };
 }
 
-/** The caller's Dexie transaction owns the commit for Study and other sources. */
+/** The caller commits the attempt together with its Study or diagnostic action. */
 export async function writeLocalKnowledgeAttempt(database, userId, cardId, event) {
   if (userId == null || !isPortableKnowledgeAttempt(event)) throw new Error('Invalid local knowledge attempt');
   const existing = await database.knowledge_attempt_outbox.get(event.client_event_id);
@@ -67,8 +68,8 @@ export async function recoverLocalKnowledgeAttempts(database, userId, historical
       continue;
     }
     try {
-      await database.transaction('rw', database.syncState,
-        database.knowledge_attempt_outbox, async () => {
+      await localTransaction(database, 'rw', database.syncState,
+        database.knowledge_attempt_outbox, async database => {
           const receipt = await database.syncState.get(receiptKey);
           if (!receipt?.knowledge_pending) return;
           const { knowledge_pending: pending, ...resolved } = receipt;
@@ -94,8 +95,8 @@ export async function recoverLocalKnowledgeAttempts(database, userId, historical
 }
 
 export async function readLocalKnowledgeProfile(database, userId, now = new Date()) {
-  return database.transaction('r', database.knowledge_items, database.knowledge_attempt_outbox, database.syncState,
-    database.card_knowledge_items, database.cards, database.decks, database.folders, async () => {
+  return localTransaction(database, 'r', database.knowledge_items, database.knowledge_attempt_outbox, database.syncState,
+    database.card_knowledge_items, database.cards, database.decks, database.folders, async database => {
       const [catalog, attempts, pending] = await Promise.all([
         database.knowledge_items.toArray(), readLocalKnowledgeAttempts(database, userId), pendingKnowledgeReceipts(database),
       ]);

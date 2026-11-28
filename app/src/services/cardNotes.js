@@ -1,3 +1,4 @@
+import { localTransaction } from './localTransaction.js';
 import { networkApi } from './networkApi.js';
 import { prepareLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
@@ -80,13 +81,13 @@ export async function writeCardNote(cardId, row) {
   const userId = getUserId();
   if (userId == null) throw new Error('Authentication required');
   const db = await prepareLocalDb();
-  const value = await db.transaction('rw', db.card_notes, async () => {
+  const value = await localTransaction(db, 'rw', db.card_notes, async db => {
     const previous = row.id ? await db.card_notes.get(row.id) : null;
     if (getUserId() !== userId) throw new Error('Account changed');
     const value = { ...previous, ...row, id: row.id || crypto.randomUUID(), card_id: cardId,
       user_id: userId, revision: previous?.revision || 1,
       is_deleted: row.is_deleted ?? previous?.is_deleted ?? false,
-      is_dirty: 1, local_revision: crypto.randomUUID() };
+      is_dirty: db.isAndroidSqlite ? 0 : 1, local_revision: crypto.randomUUID() };
     await db.card_notes.put(value);
     return value;
   });

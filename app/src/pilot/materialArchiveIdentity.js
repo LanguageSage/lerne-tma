@@ -1,3 +1,4 @@
+import { localTransaction } from '../services/localTransaction.js';
 import { sha256Hex } from './sha256.js';
 
 export const MATERIAL_EXPORT_SOURCE_KEY = 'standalone_material_export_source';
@@ -17,5 +18,5 @@ export async function getMaterialExportSourceInTx(database) {
 }
 
 export function getMaterialExportSource(database) {
-  return database.transaction('rw', database.syncState, () => getMaterialExportSourceInTx(database));
+  return localTransaction(database, 'rw', database.syncState, database => getMaterialExportSourceInTx(database));
 }

@@ -1,32 +1,11 @@
 import { canonicalMediaRelPath, isCanonicalMediaFilename, normalizeMediaRelPath } from '../sqlite/mediaContract.js';
+import { openAndroidDatabase } from '../sqlite/androidDatabase.js';
 
 export const MAX_STUDY_TTS_CACHE_ENTRIES = 400;
+export { openAndroidDatabase as openNativeMediaDb };
 
-let opening;
-
-export function openNativeMediaDb() {
-  opening ??= (async () => {
-    const { createCapacitorSqliteDriver } = await import('../sqlite/capacitorDriver.js');
-    const { migrateSqlite } = await import('../sqlite/migrator.js');
-    const driver = createCapacitorSqliteDriver();
-    await driver.open();
-    try {
-      await migrateSqlite(driver);
-    } catch (error) {
-      await driver.close().catch(() => {});
-      throw error;
-    }
-    return driver;
-  })().catch(error => {
-    opening = undefined;
-    throw error;
-  });
-  return opening;
-}
-
-export async function storeNativeMediaMetadata(assets, tts = null) {
+export async function storeNativeMediaMetadata(assets, tts = null, transaction = null) {
   if (!assets.length) return;
-  const database = await openNativeMediaDb();
   const now = new Date().toISOString();
   const rows = assets.map(({ sha256, folder, filename, mime, size }) => {
     const relPath = canonicalMediaRelPath(folder, sha256, filename.slice(filename.lastIndexOf('.')));
@@ -34,7 +13,7 @@ export async function storeNativeMediaMetadata(assets, tts = null) {
     return [sha256, folder, relPath, mime, size, now, now];
   });
 
-  await database.transaction(async tx => {
+  const write = async tx => {
     // Keep each batch below the 999-parameter SQLite limit.
     for (let offset = 0; offset < rows.length; offset += 100) {
       const batch = rows.slice(offset, offset + 100);
@@ -53,11 +32,14 @@ export async function storeNativeMediaMetadata(assets, tts = null) {
         SELECT cache_key FROM tts_cache ORDER BY last_used_at DESC, rowid DESC LIMIT -1 OFFSET ?
       )`, [MAX_STUDY_TTS_CACHE_ENTRIES]);
     }
-  });
+  };
+  if (transaction) return write(transaction);
+  const database = await openAndroidDatabase();
+  return database.transaction(write);
 }
 
 export async function readNativeMediaMetadata() {
-  const database = await openNativeMediaDb();
+  const database = await openAndroidDatabase();
   const rows = await database.query('SELECT sha256, rel_path, mime, size_bytes FROM media_assets');
   return rows.flatMap(({ sha256, rel_path, mime, size_bytes }) => {
     const parsed = normalizeMediaRelPath(rel_path);

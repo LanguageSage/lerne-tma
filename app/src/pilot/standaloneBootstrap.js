@@ -133,7 +133,7 @@ export function runStandaloneBootstrap() {
       if (cancelled) return;
 
       const db = await prepareLocalDb();
-      await ensureStandaloneA2Ownership(db);
+      if (!db.isAndroidSqlite) await ensureStandaloneA2Ownership(db);
       if (cancelled) return;
       void recoverLocalKnowledgeAttempts(db, getUserId()).catch(error => {
         console.error('[Knowledge] Could not recover local grade evidence', error);

@@ -1,10 +1,11 @@
+import { localTransaction } from '../../services/localTransaction.js';
 import { prepareLocalDb } from '../../services/localDb.js';
 import { canEditContainer, isBundledSeedCard } from '../../utils/deckUtils.js';
 import { studySideText } from '../../utils/structuredStudyCard.js';
 import { computeTtsCacheKey, isCanonicalMediaFilename, normalizeMediaRelPath } from '../../sqlite/mediaContract.js';
 import { storeLocalMediaFile } from '../localMediaWriter.js';
 import { inspectMediaBytes } from '../materialArchive.js';
-import { MAX_STUDY_TTS_CACHE_ENTRIES, openNativeMediaDb, storeNativeMediaMetadata } from '../nativeMediaDb.js';
+import { MAX_STUDY_TTS_CACHE_ENTRIES, openNativeMediaDb } from '../nativeMediaDb.js';
 import {
   OFFLINE_MEDIA_KEY_PREFIX,
   getOfflineMaterialArchivePlugin,
@@ -180,36 +181,18 @@ async function checkNativeCachedAudio(database, record) {
 
   const path = `/api/media/${relPath}`;
   const url = await resolveOfflineMediaUrlAsync(database, path, 'audio');
-  return url ? {
-    asset: { ...asset, folder, filename },
-    saved: { path, url, sha256: asset.sha256, mime: asset.mime },
-  } : null;
+  return url ? { path, url, sha256: asset.sha256, mime: asset.mime } : null;
 }
 
-async function lookupNativeStudyAudio(database, spec, legacyKey) {
+async function lookupNativeStudyAudio(database, spec) {
   const sqlite = await openNativeMediaDb();
   const [record] = await sqlite.query(`SELECT m.rel_path AS path, m.sha256, m.size_bytes AS size
     FROM tts_cache AS t JOIN media_assets AS m ON m.sha256 = t.media_sha256 WHERE t.cache_key = ?`, [spec.key]);
   const current = await checkNativeCachedAudio(database, record);
   if (current) {
     await sqlite.run('UPDATE tts_cache SET last_used_at = ? WHERE cache_key = ?', [new Date().toISOString(), spec.key]);
-    return current;
   }
-
-  // Dexie entries lack the text and model needed to migrate them before a matching request.
-  const keys = [`${STUDY_TTS_CACHE_PREFIX}${spec.key}`, legacyKey];
-  const legacy = (await database.syncState.bulkGet(keys)).filter(Boolean);
-  const legacyKeys = legacy.map(item => item.key);
-  for (const oldRecord of legacy) {
-    if (oldRecord.path === `/api/media/${record?.path}`) continue;
-    const old = await checkNativeCachedAudio(database, oldRecord);
-    if (old) {
-      await storeNativeMediaMetadata([old.asset], spec);
-      await database.syncState.bulkDelete(legacyKeys);
-      return old;
-    }
-  }
-  return { legacyKeys };
+  return current;
 }
 
 async function pruneStudyTtsCacheIfNeeded(database) {
@@ -336,24 +319,21 @@ export async function synthesizeOrGetCachedStudyAudio({
     model: modelVersionKey, rate: effectiveRate,
   };
   if (native) spec.key = computeTtsCacheKey(spec);
-  const legacyHash = sha256Hex(
+  const webKey = native ? null : STUDY_TTS_CACHE_PREFIX + sha256Hex(
     `lerne-study-tts-v1|${providerId}|${effectiveVoiceKey}|${modelVersionKey}|${code}|${effectiveRate}|${cleanText}`,
   );
-  const legacyKey = `${STUDY_TTS_CACHE_PREFIX}${legacyHash}`;
   const database = db || await prepareLocalDb();
-  const flightKey = native ? spec.key : `${database.name}:${legacyKey}`;
+  const flightKey = native ? spec.key : `${database.name}:${webKey}`;
 
   let entry = inFlightStudySynthesis.get(flightKey);
   if (!entry) {
     const sharedAbort = new AbortController();
     const runSynthesis = async () => {
-      let legacyKeys;
       if (native) {
-        const cached = await lookupNativeStudyAudio(database, spec, legacyKey);
-        if (cached.saved) return { ...cached.saved, word_boundaries: null, provider: providerId, cached: true };
-        ({ legacyKeys } = cached);
+        const cached = await lookupNativeStudyAudio(database, spec);
+        if (cached) return { ...cached, word_boundaries: null, provider: providerId, cached: true };
       } else {
-        const record = await database.syncState.get(legacyKey);
+        const record = await database.syncState.get(webKey);
         const ref = parseOfflineMediaRef(record?.path, 'audio');
         if (ref && (await database.media?.get(ref.canonicalUrl))?.blob) {
           const url = await resolveOfflineMediaUrlAsync(database, ref.canonicalUrl, 'audio');
@@ -362,7 +342,7 @@ export async function synthesizeOrGetCachedStudyAudio({
             word_boundaries: null, provider: providerId, cached: true,
           };
         }
-        if (record?.path) await database.syncState.delete(legacyKey).catch(() => {});
+        if (record?.path) await database.syncState.delete(webKey).catch(() => {});
       }
 
       const saved = await synthesizeStandaloneAudio({
@@ -375,11 +355,9 @@ export async function synthesizeOrGetCachedStudyAudio({
         ttsCache: native ? spec : null,
         signal: sharedAbort.signal,
       });
-      if (native) {
-        if (legacyKeys.length) await database.syncState.bulkDelete(legacyKeys);
-      } else {
+      if (!native) {
         await database.syncState.put({
-          key: legacyKey,
+          key: webKey,
           path: saved.path,
           sha256: saved.sha256,
           mime: saved.mime,
@@ -562,7 +540,7 @@ export async function generateAndAttachCardAudio({
   const nowIso = new Date().toISOString();
   let updatedRevision = snapshotRevision + 1;
 
-  await db.transaction('rw', db.decks, db.cards, async () => {
+  await localTransaction(db, 'rw', db.decks, db.cards, async db => {
     const latestCard = await db.cards.get(numId);
     if (!latestCard || latestCard.is_deleted || !latestCard.content_v2?.card) {
       const err = new Error('Карточка удалена во время синтеза аудио');

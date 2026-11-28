@@ -141,7 +141,6 @@ export async function initOfflineMediaStore(database, options = {}) {
     const [scan] = await Promise.all([plugin.listMediaAssets(), openNativeMediaDb()]);
     const { mediaRoot, assets, invalid } = scan;
     await storeNativeMediaMetadata(assets);
-    await database?.syncState.where('key').startsWith(OFFLINE_MEDIA_KEY_PREFIX).delete();
     setNativeMediaConfig(mediaRoot, convertNativeFileSrc);
     return {
       mode: 'native',

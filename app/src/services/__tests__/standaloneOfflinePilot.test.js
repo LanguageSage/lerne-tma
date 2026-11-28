@@ -6,6 +6,10 @@ import { fileURLToPath } from 'node:url';
 import 'fake-indexeddb/auto';
 import Dexie from 'dexie';
 import { registerHooks } from 'node:module';
+import { createAndroidLocalDb } from '../../sqlite/androidLocalDb.js';
+import { createCapacitorSqliteDriver } from '../../sqlite/capacitorDriver.js';
+import { createTestSqlitePlugin } from '../../sqlite/__tests__/fakeCapacitorSqlite.js';
+import { migrateSqlite } from '../../sqlite/migrator.js';
 
 registerHooks({
   resolve(specifier, context, next) {
@@ -90,6 +94,18 @@ function createTestDexie(name) {
 
 let dbCounter = 0;
 
+async function createTestAndroidDb(context) {
+  const { database, plugin } = createTestSqlitePlugin();
+  const driver = createCapacitorSqliteDriver({ plugin });
+  await driver.open();
+  await migrateSqlite(driver);
+  context.after(() => {
+    assert.deepEqual(database.prepare('PRAGMA foreign_key_check').all(), []);
+    database.close();
+  });
+  return createAndroidLocalDb(STANDALONE_USER_ID, async () => driver);
+}
+
 describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
   let db;
 
@@ -99,6 +115,15 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     db = createTestDexie(`LerneStandaloneDB_Test_${dbCounter}`);
     await db.open();
   });
+
+  function testWithAndroidSqlite(name, body) {
+    test(name, body);
+    test(`SQLite: ${name}`, async (context) => {
+      db.close();
+      db = await createTestAndroidDb(context);
+      await body(context);
+    });
+  }
 
   test('default web build flag IS_STANDALONE is false', () => {
     assert.equal(IS_STANDALONE, false);
@@ -119,7 +144,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(seenTypes.has('editable_text'), false);
   });
 
-  test('seed is strictly idempotent and writes complete cache markers', async () => {
+  testWithAndroidSqlite('seed is strictly idempotent and writes complete cache markers', async () => {
     const pack = getStandalonePack();
     const first = await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     assert.equal(first.seeded, true);
@@ -140,7 +165,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(manifest.card_set_fingerprint, pack.cardSetFingerprint);
   });
 
-  test('simulated APK pack upgrade preserves 100% of existing SRS progress and deck preferences', async () => {
+  testWithAndroidSqlite('simulated APK pack upgrade preserves 100% of existing SRS progress and deck preferences', async () => {
     const v1Pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack: v1Pack });
 
@@ -157,6 +182,10 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
       lapses: 0,
     }, 3, false, 'scheduled', new Date('2026-11-19T12:00:00.000Z'));
     await db.progress.put(srsProgress);
+    const storedBeforeUpgrade = await db.progress.get([reviewedCard.id, STANDALONE_USER_ID]);
+    for (const field of ['queue', 'interval', 'ease_factor', 'repetitions', 'lapses', 'step_index', 'next_review', 'last_reviewed']) {
+      assert.equal(storedBeforeUpgrade[field], srsProgress[field], field);
+    }
 
     const v2Specs = v1Pack.decks.map((d, idx) => {
       const doc = structuredClone(d.document);
@@ -194,10 +223,10 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(updatedCard.content_v2.card.explanation, 'Updated explanation in v2 APK');
 
     const preservedProgress = await db.progress.get([reviewedCard.id, STANDALONE_USER_ID]);
-    assert.deepEqual(preservedProgress, srsProgress);
+    assert.deepEqual(preservedProgress, storedBeforeUpgrade);
   });
 
-  test('backup export/inspect/restore verifies integrity, rejects bad formats, warns on overwrite, and restores cleanly on wipe', async () => {
+  testWithAndroidSqlite('backup export/inspect/restore verifies integrity, rejects bad formats, warns on overwrite, and restores cleanly on wipe', async (context) => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
 
@@ -282,9 +311,11 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(overwriteCheck.preview.currentProgressCount, 22);
 
     // 5. Clean install simulation -> wipe & re-seed -> inspect -> restore -> exact verification
-    db.close();
-    await Dexie.delete(db.name);
-    const freshDb = createTestDexie(`StandaloneCleanInstall_${dbCounter}`);
+    if (!db.isAndroidSqlite) {
+      db.close();
+      await Dexie.delete(db.name);
+    }
+    const freshDb = db.isAndroidSqlite ? await createTestAndroidDb(context) : createTestDexie(`StandaloneCleanInstall_${dbCounter}`);
     await freshDb.open();
     await ensureStandaloneSeed({ db: freshDb, userId: STANDALONE_USER_ID, pack });
     assert.equal(await freshDb.progress.count(), 0);
@@ -316,7 +347,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
 
     const restoredDeck = await freshDb.decks.get(pack.decks[1].id);
     assert.equal(restoredDeck.is_learning, true);
-    freshDb.close();
+    freshDb.close?.();
   });
 
   test('seed sets read-only deck permissions and migrates legacy owner decks while preserving is_learning', async () => {
@@ -346,7 +377,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(updatedDeck.is_learning, true);
   });
 
-  test('standalone DB unlocks user folder/deck CRUD and card batch ops while keeping bundled seed decks readonly and zero cloud queues', async () => {
+  testWithAndroidSqlite('standalone DB unlocks user folder/deck CRUD and card batch ops while keeping bundled seed decks readonly and zero cloud queues', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
@@ -492,7 +523,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     }
   });
 
-  test('standalone study grades keep bounded grade: receipts, zero review: keys, and idempotent duplicate protection', async () => {
+  testWithAndroidSqlite('standalone study grades keep bounded grade: receipts, zero review: keys, and idempotent duplicate protection', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));
@@ -569,6 +600,33 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(await recoverLocalKnowledgeAttempts(db, userId, historical), 1);
     assert.equal((await db.knowledge_attempt_outbox.get('remap')).knowledge_item_id, original.knowledge_item_id);
     assert.ok((await db.syncState.get('grade:unmap')).knowledge_pending.observation);
+  });
+
+  test('SQLite stores evidence for a catalogued skill and uses it in the existing local profile', async (context) => {
+    const database = await createTestAndroidDb(context);
+    const pack = getStandalonePack();
+    const userId = STANDALONE_USER_ID;
+    memStorage.set('lerne_user_id', String(userId));
+    await ensureStandaloneSeed({ db: database, userId, pack });
+    const card = pack.cards.find(entry => entry.card.type === 'quiz');
+    const skill = 'de.test.sqlite';
+    await database.knowledge_items.put({ id: skill, language: 'de', kind: 'skill', name: 'Synthetic skill' });
+    await database.card_knowledge_items.put({ card_id: card.id, knowledge_item_id: skill, role: 'primary', complexity: 3 });
+    const handle = (method, url, body) => offlineApi.handle(method, url, body, {
+      _testDb: database, knowledgeStudy: { exerciseEvidence: { isCorrect: true, attemptCount: 1 } },
+    });
+    const result = await handle('post', '/study/grade', {
+      card_id: card.id, action_id: 'sqlite-knowledge', grade: 3, include_progress: true, return_next: false,
+    });
+    const attempts = await readLocalKnowledgeAttempts(database, userId);
+    assert.equal(attempts.length, 1);
+    assert.equal(attempts[0].knowledge_item_id, skill);
+    assert.equal(attempts[0].task_key, card.cardKey);
+    assert.equal(attempts[0].evaluation_data.exercise.correct, true);
+    assert.equal(attempts[0].event_time, result.data.graded_progress.last_reviewed);
+    const { data: profile } = await handle('get', '/knowledge/profile');
+    assert.equal(profile.pending_attempts, 0);
+    assert.ok(profile.skills.some(item => item.skill_key === skill));
   });
 
   test('graded local evidence is atomic, recoverable after reopen, and survives a portable backup', async () => {
@@ -908,7 +966,7 @@ describe('Standalone Offline Pilot — Pack, Seed & Progress Backup', () => {
     assert.equal(androidGitignoreLines.has('*.keystore'), true);
   });
 
-  test('standalone folder/deck/trash/clear lifecycle & seed card non-resurrection after trash clear', async () => {
+  testWithAndroidSqlite('standalone folder/deck/trash/clear lifecycle & seed card non-resurrection after trash clear', async () => {
     const pack = getStandalonePack();
     await ensureStandaloneSeed({ db, userId: STANDALONE_USER_ID, pack });
     memStorage.set('lerne_user_id', String(STANDALONE_USER_ID));

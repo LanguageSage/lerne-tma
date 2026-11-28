@@ -1,3 +1,4 @@
+import { localTransaction } from './localTransaction.js';
 import { getLocalDb } from './localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { assessmentAttempt } from '../utils/assessment.js';
@@ -8,8 +9,8 @@ export { prepareDeckKnowledge as prepareAssessmentKnowledge } from './knowledgeC
 export async function saveAssessment(session, result) {
   if (String(getUserId()) !== String(session.userId)) throw new Error('Account changed');
   const database = getLocalDb();
-  await database.transaction('rw', database.syncState, database.card_knowledge_items,
-    database.knowledge_attempt_outbox, async () => {
+  await localTransaction(database, 'rw', database.syncState, database.card_knowledge_items,
+    database.knowledge_attempt_outbox, async database => {
       if (result) {
         const mapping = await database.card_knowledge_items.where('card_id').equals(result.cardId).filter(m => m.role === 'primary').first();
         if (!mapping) throw new Error('Knowledge mapping unavailable');

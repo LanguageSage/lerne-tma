@@ -152,11 +152,12 @@ export async function confirmArchiveImport(pendingImport, { db = null, userId = 
   if (native && assets.length) await openNativeMediaDb();
 
   const commitMedia = native
-    ? async (assets) => {
+    ? async (assets, transaction) => {
       await getOfflineMaterialArchivePlugin().commitImportMedia({
         stagingId: pendingImport.stagingId,
         assets,
       });
+      if (transaction) await storeNativeMediaMetadata(assets, null, transaction);
     }
     : async (assets) => storeWebMediaAssets(database, assets, pendingImport.blobsBySha);
 
@@ -173,10 +174,11 @@ export async function confirmArchiveImport(pendingImport, { db = null, userId = 
   });
 
   if (native) {
-    // The committed cards reference verified files. A failed catalog write can be rebuilt from disk.
-    await storeNativeMediaMetadata(assets).catch(error => {
-      console.warn('[StandaloneMaterials] Unable to update SQLite media metadata:', error);
-    });
+    if (!database.isAndroidSqlite) {
+      await storeNativeMediaMetadata(assets).catch(error => {
+        console.warn('[StandaloneMaterials] Unable to update SQLite media metadata:', error);
+      });
+    }
     await cancelPendingArchiveImport(pendingImport);
   } else {
     await initOfflineMediaStore(database).catch(error => {

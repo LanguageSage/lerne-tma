@@ -5,6 +5,17 @@ import { refreshCardNotes } from '../services/cardNotes.js';
 import { useUiStore } from '../store/useUiStore.js';
 import { getUserId } from '../utils/auth.js';
 
+function subscribeToNotes(db, read, observer) {
+  if (!db.subscribeToNotes) {
+    const subscription = liveQuery(read).subscribe(observer);
+    return () => subscription.unsubscribe();
+  }
+  const reload = () => { void read().then(observer.next, observer.error); };
+  const unsubscribe = db.subscribeToNotes(reload);
+  reload();
+  return unsubscribe;
+}
+
 export function useCardNotes(cardId, deckId, refresh = false) {
   const userId = useUiStore(s => s.userProfile?.user_id) ?? getUserId();
   const [state, setState] = useState({});
@@ -26,14 +37,14 @@ export function useCardNotes(cardId, deckId, refresh = false) {
     if (cardId == null || userId == null) return;
     let cancelled = false;
     const db = getLocalDb();
-    const subscription = liveQuery(() => db.card_notes.where('card_id').equals(cardId)
+    const unsubscribe = subscribeToNotes(db, () => db.card_notes.where('card_id').equals(cardId)
       .filter(row => !row.is_deleted && row.kind !== 'suggestion'
-        && String(row.user_id) === String(userId)).toArray()).subscribe({
+        && String(row.user_id) === String(userId)).toArray(), {
       next: rows => { if (!cancelled) setState(s => ({ ...s, cardId, userId, rows })); },
       error: error => { if (!cancelled) setState({ cardId, userId, rows: [], error }); },
     });
     if (refresh) reload(false).catch(() => {});
-    return () => { cancelled = true; subscription.unsubscribe(); };
+    return () => { cancelled = true; unsubscribe(); };
   }, [cardId, userId, refresh, reload]);
 
   const current = state.cardId === cardId && state.userId === userId
@@ -53,7 +64,7 @@ export function useDeckNoteCardIds(enabled = true) {
     if (!enabled || userId == null) return;
     let cancelled = false;
     const db = getLocalDb();
-    const subscription = liveQuery(() => db.card_notes.toArray()).subscribe({
+    const unsubscribe = subscribeToNotes(db, () => db.card_notes.toArray(), {
       next: rows => {
         if (cancelled) return;
         const next = new Set();
@@ -71,7 +82,7 @@ export function useDeckNoteCardIds(enabled = true) {
       },
       error: () => { if (!cancelled) setState({ userId, cardIds: EMPTY_NOTE_IDS }); },
     });
-    return () => { cancelled = true; subscription.unsubscribe(); };
+    return () => { cancelled = true; unsubscribe(); };
   }, [enabled, userId]);
 
   return enabled && state.userId === userId && String(userId) === String(getUserId())

@@ -1,3 +1,4 @@
+import { localTransaction } from '../services/localTransaction.js';
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
 import { studySideText } from '../utils/structuredStudyCard.js';
@@ -99,7 +100,7 @@ export async function ensureStandaloneSeed({ db = null, userId = null, pack = nu
       throw new Error('Cannot seed standalone pack without active user ID');
     }
 
-    return database.transaction('rw', database.decks, database.cards, database.syncState, async () => {
+    return localTransaction(database, 'rw', database.decks, database.cards, database.syncState, async database => {
       const existingManifest = await database.syncState.get(STANDALONE_SEED_MANIFEST_KEY);
       const existingDecks = await database.decks.bulkGet(resolvedPack.decks.map(d => d.id));
       const existingCards = await database.cards.bulkGet(resolvedPack.cards.map(c => c.id));

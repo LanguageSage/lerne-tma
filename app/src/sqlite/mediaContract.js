@@ -22,6 +22,28 @@ const CARD_ATTACHMENT_SLOTS = [
   ['video_front_path', 'videos'],
   ['video_back_path', 'videos'],
 ];
+export const INLINE_URI_RE = /(?:https?:\/\/[^\s"'<>()[\]{}]+|\/api\/media\/(?:images|audio|videos|backgrounds|tma-audio)\/[^\s"'<>()[\]{}]+)/g;
+
+export function iterTextLocations(value, out = []) {
+  if (value && typeof value === 'object') {
+    for (const [key, item] of Object.entries(value)) {
+      if (typeof item === 'string') out.push({ owner: value, key });
+      else if (item && typeof item === 'object') iterTextLocations(item, out);
+    }
+  }
+  return out;
+}
+
+export function extractInlineMediaRefs(value) {
+  const refs = new Map();
+  for (const { owner, key } of iterTextLocations(value)) {
+    for (const uri of owner[key].match(INLINE_URI_RE) ?? []) {
+      const ref = normalizeMediaRelPath(uri);
+      if (ref && !refs.has(ref.relPath)) refs.set(ref.relPath, ref);
+    }
+  }
+  return [...refs.values()].map((ref, index) => ({ slot: `inline:${index}`, ...ref }));
+}
 
 function normalizeFolder(rawFolder) {
   if (!rawFolder) return null;

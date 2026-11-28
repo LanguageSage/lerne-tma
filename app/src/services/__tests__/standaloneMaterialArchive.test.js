@@ -1201,6 +1201,90 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
     }
   });
 
+  test('Android opens one SQLite DB for native import, media links, editing, notes and re-export', async () => {
+    const fixture = buildRichCourseFixture();
+    const entries = fixture.mediaAssets.map(({ folder, filename, sha256, size, mime, path }) => ({
+      sha256, size, mime, path, ext: filename.slice(filename.lastIndexOf('.')),
+      detectedKind: folder === 'audio' ? 'audio' : 'image',
+    }));
+    const manifestJson = JSON.stringify(fixture.document);
+    const disk = new Set();
+    const mediaPaths = ({ folder, filename }) => `${folder}/${filename}`;
+    window.Capacitor = { isNativePlatform: () => true };
+    nativeArchive = {
+      pickArchiveForImport: async () => ({
+        stagingId: 'sqlite-staging', manifestJson, manifestSha256: sha256Hex(manifestJson), zipEntries: entries,
+      }),
+      cancelImport: async () => {},
+      commitImportMedia: async ({ assets }) => { assets.forEach(asset => disk.add(mediaPaths(asset))); },
+      listMediaAssets: async () => ({
+        mediaRoot: '/test/media', assets: fixture.mediaAssets.filter(asset => disk.has(mediaPaths(asset))), invalid: [],
+      }),
+      rollbackImportMedia: async ({ protectedPaths }) => {
+        for (const path of disk) if (!protectedPaths.includes(path)) disk.delete(path);
+      },
+    };
+    const android = await prepareLocalDb();
+    assert.equal(android.name, 'lerne_app');
+    assert.equal(android.media, undefined);
+    const importArchive = async () => {
+      const picked = await pickArchiveForImportNative();
+      assert.equal(picked.ok, true, picked.error);
+      return confirmArchiveImport(picked);
+    };
+    try {
+      nativeDb.exec(`CREATE TEMP TRIGGER reject_card BEFORE INSERT ON cards
+        BEGIN SELECT RAISE(ABORT, 'injected SQLite write failure'); END`);
+      try {
+        await assert.rejects(importArchive, /injected SQLite write failure/);
+      } finally {
+        nativeDb.exec('DROP TRIGGER reject_card');
+      }
+      assert.equal(disk.size, 0);
+      for (const table of ['folders', 'decks', 'cards', 'media_assets', 'media_links', 'app_state']) {
+        assert.equal(nativeDb.prepare(`SELECT count(*) AS total FROM ${table}`).get().total, 0, table);
+      }
+
+      await importArchive();
+      const select = await buildMaterialArchiveExport({
+        selectAll: true,
+        inspectNativeAssets: async assets => {
+          assert.ok(assets.every(asset => disk.has(mediaPaths(asset))));
+          return { missing: [], corrupted: [], verifiedCount: assets.length };
+        },
+      });
+      assert.equal(select.document.source, fixture.document.source);
+      assert.deepEqual(select.document.content.card.map(row => [row.id, row.author]),
+        fixture.document.content.card.map(row => [row.id, row.author]));
+      const card = (await android.cards.toArray()).find(row => row.standalone_source_id === 201);
+      assert.ok(card);
+      const links = nativeDb.prepare('SELECT slot, media_sha256 FROM media_links WHERE owner_type = ? AND owner_id = ?');
+      assert.ok(links.all('card', String(card.id)).some(row => row.slot === 'audio_path' && row.media_sha256 === fixture.mediaAssets[2].sha256));
+      assert.ok(links.all('deck', String(card.deck_id)).length > 0);
+
+      const note = (await offlineApi.handle('put', `/card-notes/${card.id}`, { text: 'Local SQLite note' })).data;
+      await offlineApi.handle('post', '/study/grade', { action_id: 'sqlite-import-review', card_id: card.id, grade: 2, return_next: false });
+      const progress = await android.progress.get([card.id, STANDALONE_USER_ID]);
+      const replay = await importArchive();
+      assert.equal(replay.importedCards, 0);
+      assert.deepEqual(await android.progress.get([card.id, STANDALONE_USER_ID]), progress);
+      assert.equal((await android.card_notes.get(note.id)).text, note.text);
+      assert.equal((await offlineApi.handle('get', '/cards/search?q=Bonjour&target_language=fr')).data.cards[0].id, card.id);
+
+      const current = await android.cards.get(card.id);
+      await offlineApi.handle('patch', `/cards/${card.id}`, {
+        request_id: 'sqlite-replace-audio', revision: current.revision,
+        content_v2: current.content_v2, audio_path: current.audio_back_path,
+      }, { offlineCardEdit: true });
+      assert.equal(links.all('card', String(card.id)).find(row => row.slot === 'audio_path')?.media_sha256, fixture.mediaAssets[3].sha256);
+      assert.deepEqual(nativeDb.prepare('PRAGMA foreign_key_check').all(), []);
+    } finally {
+      nativeArchive = null;
+      window.Capacitor = null;
+      nativeDb.exec('DELETE FROM media_links; DELETE FROM cards; DELETE FROM decks; DELETE FROM folders; DELETE FROM app_state;');
+    }
+  });
+
   test('6. Selective export tree + ZIP export + fail-closed on missing local media', async () => {
     const v4 = buildRichCourseFixture();
     await confirmArchiveImport(
@@ -1591,7 +1675,7 @@ describe('Android Offline Materials — Hashing, ZIP, Archive Engine, Media & Pr
       const restoredMp4 = getAsset.get(`${mp4Asset.folder}/${mp4Asset.filename}`);
       assert.equal(restoredPng?.sha256, pngAsset.sha256);
       assert.equal(restoredMp4?.mime, 'video/mp4');
-      assert.equal(await db.syncState.get(missingKey), undefined);
+      assert.ok(await db.syncState.get(missingKey));
       assert.equal(getAsset.get(missingKey.slice('offline-media:'.length)), undefined);
 
       const resolvedVideo = resolveOfflineMediaUrlSync(`/api/media/videos/${mp4Asset.filename}`, 'videos');

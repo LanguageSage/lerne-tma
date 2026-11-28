@@ -1,3 +1,4 @@
+import { localTransaction } from './localTransaction.js';
 import { tr } from '../i18n/locale';
 import { CARD_CREATE_KEY, CARD_EDIT_KEY, CARD_LIFECYCLE_KEY, CARD_MOVE_KEY, prepareLocalDb, getNextTempId } from './localDb';
 import { getUserId, getSessionIdentity } from '../utils/auth';
@@ -37,6 +38,7 @@ const MEDIA_FIELD_FOLDER = {
 let standaloneCardOpSeq = 0;
 
 export const isStandaloneDb = db => (typeof IS_STANDALONE !== 'undefined' && IS_STANDALONE)
+  || db?.isAndroidSqlite === true
   || (typeof db?.name === 'string' && db.name.startsWith(STANDALONE_DB_PREFIX));
 
 export function unsupported() {
@@ -310,7 +312,7 @@ export async function saveNativeCard(db, body, options = {}, userId = null) {
     const opKey = STANDALONE_CARD_OP_PREFIX + body.request_id;
     const nowIso = new Date().toISOString();
 
-    const created = await db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState, async () => {
+    const created = await localTransaction(db, 'rw', db.folders, db.cards, db.decks, db.progress, db.syncState, async db => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -412,7 +414,7 @@ export async function saveNativeCard(db, body, options = {}, userId = null) {
   if (flag) throw new Error(tr('Цветную метку можно установить после синхронизации.'));
   if (!body.request_id) throw new Error('Missing card create request ID');
 
-  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+  return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
     const key = CARD_CREATE_KEY + body.request_id;
     const pending = await db.syncState.get(key);
     if (pending) {
@@ -503,8 +505,8 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
     });
     const nowIso = new Date().toISOString();
 
-    return db.transaction('rw', [db.cards, db.decks, db.folders, db.syncState,
-      ...(copy ? [] : [db.card_knowledge_items])], async () => {
+    return localTransaction(db, 'rw', [db.cards, db.decks, db.folders, db.syncState,
+      ...(copy ? [] : [db.card_knowledge_items])], async db => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -677,7 +679,7 @@ export async function queueCardMove(db, body, isCurrent, copy = false) {
   if (!ids?.length || new Set(ids).size !== ids.length || ids.some(id => !Number.isSafeInteger(id) || id <= 0)) pendingCreate();
   if (!Number.isSafeInteger(targetId) || targetId <= 0) notFound();
   if (!body.request_id) throw new Error('Missing card transfer request ID');
-  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+  return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
     // Keep the existing single-move key readable by previous builds.
     const key = CARD_MOVE_KEY + (!copy && ids.length === 1 ? ids[0] : body.request_id);
     const previous = await db.syncState.get(key);
@@ -732,7 +734,7 @@ export async function queueCardLifecycle(db, id, payload, deleting, userId, isCu
       ? canonicalCompareValue({ op: deleting ? 'delete' : 'restore', cardId })
       : null;
 
-    return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+    return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
       if (opKey) {
         const existingOp = await db.syncState.get(opKey);
         if (existingOp) {
@@ -814,7 +816,7 @@ export async function queueCardLifecycle(db, id, payload, deleting, userId, isCu
     });
   }
 
-  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+  return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
     const card = await db.cards.get(cardId);
     if (!card?.content_v2) notFound();
     if (card.offline_lifecycle) pendingLifecycle();
@@ -868,7 +870,7 @@ export async function queueCardSelection(db, payload, action, isCurrent) {
     });
     const nowIso = new Date().toISOString();
 
-    return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+    return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -916,7 +918,7 @@ export async function queueCardSelection(db, payload, action, isCurrent) {
     });
   }
 
-  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+  return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
     const key = CARD_LIFECYCLE_KEY + payload.request_id;
     const pending = await db.syncState.get(key);
     if (pending) {
@@ -968,8 +970,8 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
     const nowIso = new Date().toISOString();
     const resolvedUserId = userId ?? getUserId();
 
-    const updatedCard = await db.transaction('rw', db.folders, db.cards, db.decks, db.progress, db.syncState,
-      db.card_knowledge_items, async () => {
+    const updatedCard = await localTransaction(db, 'rw', db.folders, db.cards, db.decks, db.progress, db.syncState,
+      db.card_knowledge_items, async db => {
       const existingOp = await db.syncState.get(opKey);
       if (existingOp) {
         if (existingOp.fingerprint !== fingerprint) {
@@ -1045,7 +1047,7 @@ export async function saveNativeEdit(db, id, body, expectedConflictOrOptions, us
 
   const expectedConflict = expectedConflictOrOptions;
   if (!body.request_id || !body.revision) throw new Error(tr('Исходная ревизия карточки недоступна.'));
-  return db.transaction('rw', db.cards, db.decks, db.folders, db.syncState, async () => {
+  return localTransaction(db, 'rw', db.cards, db.decks, db.folders, db.syncState, async db => {
     const key = CARD_EDIT_KEY + id;
     const [current, folderMap] = await Promise.all([db.cards.get(id), loadFolderMap(db)]);
     if (!current?.content_v2) notFound();
@@ -1105,7 +1107,7 @@ export async function resolveCardEdit(id, expected, keepLocal) {
   const assertCurrent = () => {
     if (identity !== getSessionIdentity() || userId !== getUserId()) throw new Error('Session changed');
   };
-  return db.transaction('rw', db.cards, db.syncState, async () => {
+  return localTransaction(db, 'rw', db.cards, db.syncState, async db => {
     assertCurrent();
     const key = CARD_EDIT_KEY + id;
     const [card, operation] = await Promise.all([db.cards.get(id), db.syncState.get(key)]);
@@ -1138,7 +1140,7 @@ export async function resolveCardEdit(id, expected, keepLocal) {
 export async function clearTrashInDb(db, userId, { isCurrent = () => true, localOnly = false } = {}) {
   const nowIso = new Date().toISOString();
   const tables = [db.folders, db.decks, db.cards, db.progress, ...(localOnly ? [db.syncState] : [])];
-  return db.transaction('rw', tables, async () => {
+  return localTransaction(db, 'rw', tables, async db => {
     if (!isCurrent()) throw new Error('Session changed during trash clear');
     const [allFolders, allDecks, allCards] = await Promise.all([
       db.folders.toArray(),

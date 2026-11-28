@@ -5,7 +5,7 @@ import Dexie from 'dexie';
 import { registerHooks } from 'node:module';
 import { createTestSqlitePlugin } from '../../sqlite/__tests__/fakeCapacitorSqlite.js';
 import { computeTtsCacheKey } from '../../sqlite/mediaContract.js';
-import { sha256BytesHex, sha256Hex } from '../../pilot/sha256.js';
+import { sha256BytesHex } from '../../pilot/sha256.js';
 
 registerHooks({
   resolve(specifier, context, next) {
@@ -256,6 +256,7 @@ const { clearOfflineMediaCache } = await import('../../pilot/offlineMediaStore.j
 const { openNativeMediaDb } = await import('../../pilot/nativeMediaDb.js');
 
 function mockNativeMedia() {
+  window.Capacitor = { isNativePlatform: () => true };
   const assets = new Map();
   const valid = asset => asset.sha256 === sha256BytesHex(asset.bytes);
   nativeMedia = {
@@ -281,6 +282,7 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     synthDelayMs = 0;
     nativeEnabled = true;
     nativeMedia = null;
+    window.Capacitor = null;
     clearOfflineMediaCache();
     if (nativeDb.prepare("SELECT name FROM sqlite_master WHERE name = 'media_assets'").get()) {
       nativeDb.exec('DELETE FROM media_assets');
@@ -438,6 +440,7 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     assert.equal(second.data.path, first.data.path);
     assert.equal(pluginCalls.filter(({ method }) => method === 'synthesizeToWav').length, 1);
     const database = await prepareLocalDb();
+    assert.equal(database.isAndroidSqlite, true);
     const key = computeTtsCacheKey({ textNorm: options.text, lang: options.lang, rate: options.rate,
       provider: 'piper', voice: model.id, model: model.sha256 || String(model.sizeBytes || '') });
     const getCacheRow = nativeDb.prepare('SELECT * FROM tts_cache WHERE cache_key = ?');
@@ -459,27 +462,6 @@ describe('Android Piper Neural TTS Provider Integration', () => {
     assets.clear();
     assert.equal((await getAudio()).data.cached, false);
     assert.equal(nativeDb.prepare('SELECT count(*) AS count FROM media_assets').get().count, 1);
-  });
-
-  test('adopts both legacy cache key formats without re-synthesis', async () => {
-    mockNativeMedia();
-    const database = await prepareLocalDb();
-    const { voices: [model] } = await piperTtsProvider.listVoices();
-    const modelKey = model.sha256 || String(model.sizeBytes || '');
-    for (const text of ['Hallo', 'Guten Tag']) {
-      const options = { text, lang: 'de', rate: '+0%', voice: `piper:${model.id}` };
-      const getAudio = () => standaloneAiTtsApi.handle('/media/study-local-audio', options);
-      const { data: saved } = await getAudio();
-      const key = computeTtsCacheKey({ textNorm: text, lang: 'de', rate: '+0%', provider: 'piper', voice: model.id, model: modelKey });
-      const legacyHash = text === 'Hallo' ? key : sha256Hex(`lerne-study-tts-v1|piper|${model.id}|${modelKey}|de|+0%|${text}`);
-      const legacyKey = `tts_study_cache:${legacyHash}`;
-      nativeDb.exec('DELETE FROM media_assets');
-      await database.syncState.put({ key: legacyKey, path: saved.path, sha256: saved.sha256 });
-      assert.equal((await getAudio()).data.cached, true);
-      assert.equal(nativeDb.prepare('SELECT cache_key FROM tts_cache').get().cache_key, key);
-      assert.equal(await database.syncState.get(legacyKey), undefined);
-    }
-    assert.equal(pluginCalls.filter(({ method }) => method === 'synthesizeToWav').length, 2);
   });
 
   test('rolls back the asset and TTS rows together and reuses the file on retry', async () => {

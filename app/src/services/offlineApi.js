@@ -1,3 +1,4 @@
+import { localTransaction } from './localTransaction.js';
 import { tr } from '../i18n/locale';
 import { getLocalDb, prepareLocalDb, getNextTempId } from './localDb';
 import { calculateCardReview, getNextIntervals, isLeech } from '../utils/srsEngine';
@@ -102,7 +103,7 @@ async function deckCards(db, deckId, folderMap = null) {
 }
 
 async function readDeckStudyData(db, deckId, userId, folderMap = null) {
-  return db.transaction('r', db.folders, db.decks, db.cards, db.progress, async () => {
+  return localTransaction(db, 'r', db.folders, db.decks, db.cards, db.progress, async db => {
     const cards = await deckCards(db, deckId, folderMap);
     const progress = progressByCard(await readCardProgress(db, cards, userId));
     return { cards, progress };
@@ -274,7 +275,7 @@ export const offlineApi = {
     if (m === 'get' && url === '/knowledge/profile' && isStandaloneDb(db)) {
       return result(await readLocalKnowledgeProfile(db, userId));
     }
-    const change = async (table, id, fields) => {
+    const change = async (db, table, id, fields) => {
       const standalone = isStandaloneDb(db);
       const item = await table.get(id);
       if (!item) notFound();
@@ -297,8 +298,8 @@ export const offlineApi = {
       const language = localStorage.getItem('lerne_target_language') || 'de';
       if (url === '/folders') return result(ordered(await activeFolders(db, language)));
       const standalone = isStandaloneDb(db);
-      const { rawDecks, cardsByDeck, progress, folderMap } = await db.transaction(
-        'r', db.folders, db.decks, db.cards, db.progress, async () => {
+      const { rawDecks, cardsByDeck, progress, folderMap } = await localTransaction(db,
+        'r', db.folders, db.decks, db.cards, db.progress, async db => {
           const [folderMap, allDecks] = await Promise.all([
             loadFolderMap(db),
             db.decks.toArray(),
@@ -367,7 +368,7 @@ export const offlineApi = {
 
       const matchedCards = [];
       if (deckIds.length > 0) {
-        const cardsByDeck = await db.transaction('r', db.cards, () => readCardsByDeck(db, deckIds.sort((a, b) => a - b)));
+        const cardsByDeck = await localTransaction(db, 'r', db.cards, db => readCardsByDeck(db, deckIds.sort((a, b) => a - b)));
         const matches = [];
         search: for (const siblings of cardsByDeck.values()) {
           siblings.sort((a, b) => a.position - b.position || a.id - b.id);
@@ -459,10 +460,10 @@ export const offlineApi = {
       });
       let gradedProgress;
       let pendingKnowledge;
-      const saveGrade = async (deferred = null) => db.transaction('rw', [
+      const saveGrade = async (deferred = null) => localTransaction(db, 'rw', [
         db.progress, db.syncState,
         ...(standalone ? [db.knowledge_attempt_outbox, ...(deferred ? [] : [db.cards, db.card_knowledge_items])] : []),
-      ], async () => {
+      ], async db => {
         const receipt = await db.syncState.get(`grade:${actionId}`);
         if (receipt && (receipt.fingerprint !== fingerprint
           || (receipt.grade_fingerprint && receipt.grade_fingerprint !== gradeFingerprint))) {
@@ -589,7 +590,8 @@ export const offlineApi = {
       if (isStandaloneDb(db)) {
         const parentIdRaw = kind === 'decks' ? body.folder_id : body.parent_id;
         const parentId = parentIdRaw == null ? null : Number(parentIdRaw);
-        const created = await db.transaction('rw', db.folders, db.decks, db.syncState, async () => {
+        const created = await localTransaction(db, 'rw', db.folders, db.decks, db.syncState, async db => {
+          const table = db[kind];
           const folderMap = await loadFolderMap(db);
           if (parentId != null) {
             const parent = folderMap.get(parentId);
@@ -661,14 +663,14 @@ export const offlineApi = {
     match = url.match(/^\/(decks|folders)\/reorder$/);
     if (m === 'post' && match) {
       const entity = match[1];
-      const table = db[entity];
       const ids = (body[`${entity.slice(0, -1)}_ids`] || []).map(Number);
-      await db.transaction('rw', table, db.decks, async () => {
+      await localTransaction(db, 'rw', db[entity], db.decks, async db => {
+        const table = db[entity];
         for (const id of ids) {
           const item = await table.get(id);
           await requireContentWrite(db, entity, item);
         }
-        for (const [position, id] of ids.entries()) await change(table, id, { position });
+        for (const [position, id] of ids.entries()) await change(db, table, id, { position });
       });
       return success();
     }
@@ -676,8 +678,8 @@ export const offlineApi = {
     if (match && (m === 'post' || m === 'delete')) {
       const [, entity, rawId, action] = match;
       const id = Number(rawId);
-      const table = db[entity];
-      return db.transaction('rw', db.folders, db.decks, db.cards, db.progress, async () => {
+      return localTransaction(db, 'rw', db.folders, db.decks, db.cards, db.progress, async db => {
+        const table = db[entity];
         const [item, folderMap] = await Promise.all([table.get(id), loadFolderMap(db)]);
         if (!item) notFound();
         if (entity === 'cards' && action !== 'flag') throw unsupported();
@@ -688,7 +690,7 @@ export const offlineApi = {
           if (item.is_deleted) return success();
           const parentId = entity === 'folders' ? item.parent_id : item.folder_id;
           if (!isFolderActiveInCache(folderMap, parentId)) notFound();
-          await change(table, id, { is_deleted: 1 });
+          await change(db, table, id, { is_deleted: 1 });
           return success();
         }
         if (action === 'reset' && entity === 'decks') {
@@ -751,7 +753,7 @@ export const offlineApi = {
           }
           fields = { metadata };
         }
-        if (fields) return success(await change(table, id, fields));
+        if (fields) return success(await change(db, table, id, fields));
         throw unsupported();
       });
     }
@@ -846,14 +848,14 @@ export const offlineApi = {
       if (kind === 'card') {
         return queueCardLifecycle(db, id, body, false, userId, isCurrent);
       }
-      const table = db[`${kind}s`];
-      return db.transaction('rw', db.folders, db.decks, async () => {
+      return localTransaction(db, 'rw', db.folders, db.decks, async db => {
+        const table = db[`${kind}s`];
         const [item, folderMap] = await Promise.all([table.get(id), loadFolderMap(db)]);
         if (!item) notFound();
         if (isContentReadOnly(item) || !isOwnedRecord(item, userId)) readOnly();
         assertParentActiveForRestore(folderMap, kind === 'folder' ? item.parent_id : item.folder_id, kind);
         if (!item.is_deleted && !item.hard_deleted_locally) return success();
-        await change(table, id, { is_deleted: 0, hard_deleted_locally: false });
+        await change(db, table, id, { is_deleted: 0, hard_deleted_locally: false });
         return success();
       });
     }

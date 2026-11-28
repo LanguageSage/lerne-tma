@@ -3,8 +3,10 @@ import { getUserId } from '../utils/auth.js';
 import { IS_LOCAL } from '../utils/localMode.js';
 import { isNative } from '../utils/platform.js';
 import { IS_STANDALONE, STANDALONE_DB_PREFIX } from '../utils/standaloneMode.js';
+import { createAndroidLocalDb } from '../sqlite/androidLocalDb.js';
 
 const databases = new Map();
+let androidDatabase;
 const preparations = new Map();
 const blockedListeners = new Set();
 const closeListeners = new Set();
@@ -56,6 +58,7 @@ export const onLocalDbBlocked = (listener) => {
 };
 
 export const getLocalDb = () => {
+  if (IS_STANDALONE && isNative()) return androidDatabase ??= createAndroidLocalDb(getUserId());
   const userId = String(getUserId());
   const existing = databases.get(userId);
   if (existing) {
@@ -96,6 +99,10 @@ export const resetAllDatabases = () => {
 
 export async function prepareLocalDb(attempt = 0) {
   const database = getLocalDb();
+  if (database.isAndroidSqlite) {
+    await database.open();
+    return database;
+  }
   let entry = preparations.get(database.name);
   if (!entry || entry.database !== database) {
     const userId = getUserId();

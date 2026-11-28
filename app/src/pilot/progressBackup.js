@@ -1,3 +1,4 @@
+import { localTransaction } from '../services/localTransaction.js';
 import { tr } from '../i18n/locale.js';
 import { prepareLocalDb } from '../services/localDb.js';
 import { getUserId } from '../utils/auth.js';
@@ -440,9 +441,9 @@ export async function exportProgressBackup({ db = null, userId = null, pack = nu
   const builtInDeckIds = new Set(resolvedPack.decks.map(d => d.id));
 
   await recoverLocalKnowledgeAttempts(database, resolvedUserId);
-  const [rawProgress, deckRows, { allDecks, allCards }, knowledgeRows, pending] = await database.transaction(
+  const [rawProgress, deckRows, { allDecks, allCards }, knowledgeRows, pending] = await localTransaction(database,
     'r', database.progress, database.folders, database.decks, database.cards, database.syncState,
-    database.knowledge_attempt_outbox, () => Promise.all([
+    database.knowledge_attempt_outbox, database => Promise.all([
       database.progress.where('user_id').equals(resolvedUserId).toArray(),
       database.decks.bulkGet(resolvedPack.decks.map(d => d.id)),
       loadActiveDecksAndCards(database),
@@ -632,8 +633,8 @@ export async function applyProgressBackup(validatedBackup, { db = null, userId =
   let unmatchedImportedRecords = 0;
   let restoredKnowledgeAttempts = 0;
 
-  await database.transaction('rw', database.progress, database.folders, database.decks, database.cards, database.syncState,
-    database.knowledge_attempt_outbox, async () => {
+  await localTransaction(database, 'rw', database.progress, database.folders, database.decks, database.cards, database.syncState,
+    database.knowledge_attempt_outbox, async database => {
     const [existingProgressRows, { allDecks, allCards }] = await Promise.all([
       database.progress.where('user_id').equals(resolvedUserId).toArray(),
       loadActiveDecksAndCards(database),
