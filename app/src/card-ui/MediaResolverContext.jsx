@@ -25,18 +25,6 @@ export const defaultResolveAudioUrl = (pathOrUrl) => {
   return `${SUPABASE_AUDIO_CDN}/${filename}`;
 };
 
-export const cleanMedia = (path) => {
-  if (!path) return '';
-  if (path.startsWith('/lid_images/')) {
-    return path.replace(/^\/lid_images\//, '');
-  }
-  if (path.startsWith('/api/media/')) {
-    const parts = path.split('/');
-    return parts.slice(3).join('/');
-  }
-  return path;
-};
-
 export function defaultResolveMediaUrl(path, kind = 'images') {
   if (!path || typeof path !== 'string') return null;
   if (kind === 'audio') return defaultResolveAudioUrl(path);

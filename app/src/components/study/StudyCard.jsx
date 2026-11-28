@@ -171,10 +171,9 @@ export const StudyCard = React.memo(({
     backVoicePicker.setPreviewUrl(null);
   }, [card?.id, backSpeakableText]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const handleSaveExerciseState = useCallback((state, key) => {
-    const targetKey = key ?? reviewKey;
-    if (!targetKey) return;
-    setExerciseStates(prev => ({ ...prev, [targetKey]: state }));
+  const handleSaveExerciseState = useCallback((state) => {
+    if (!reviewKey) return;
+    setExerciseStates(prev => ({ ...prev, [reviewKey]: state }));
   }, [reviewKey]);
 
   const storedImageHeight = useDeckStore(state => {
@@ -359,7 +358,6 @@ export const StudyCard = React.memo(({
       isAutoplayActive={isAutoplayActive}
       resolvedBgFront={resolvedBgFront}
       resolvedBgBack={resolvedBgBack}
-      animated
       containerId="tut-study-card"
       surfaceRef={surfaceRef}
       reviewKey={reviewKey}
@@ -455,7 +453,6 @@ export const StudyCard = React.memo(({
       ) : null}
       footerRightSlot={<CardActionButton card={card} size={20} className="study-card-actions-button" refreshNotes />}
       footerBottomSlot={!IS_STANDALONE && <CardRating key={card?.id} card={card} deckId={card?.deck_id ?? deckId} />}
-      inlineAudio={false}
     />
   );
 });

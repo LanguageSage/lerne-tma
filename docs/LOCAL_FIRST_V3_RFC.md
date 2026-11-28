@@ -134,7 +134,7 @@
 Согласно принципу R7.6 запрещено создавать отдельные реализации для Android и Web следующих модулей:
 1. **SRS (`app/src/utils/srsEngine.js` + `api/srs.py`):** единые константы, 4/8-балльные шкалы, `scheduled`/`forced`, банковское округление; регрессионный паритет между JS и Python продолжает проверяться перекрёстными тестами.
 2. **Контракт и схема Native V2 (`app/src/utils/nativeV2Contract.js`, `nativeV2Schema.generated.js`):** единая валидация для 9 типов карточек без платформенных ответвлений.
-3. **UI-редактор и просмотрщик (`@lerne/card-ui`: `NativeCardFormCore.jsx`, `NativeCardViewer.jsx`, `useLocalAudioPlayer.js` + `CardForm.jsx`):** единый компонент формы для Android, Web, TMA и `lerne-admin`; различия возможностей (например, отсутствие сети в данный момент или права `viewer`) передаются декларативными пропсами, а не форками компонентов.
+3. **UI-редактор и просмотрщик (`app/src/card-ui/` и `CardForm.jsx`):** общие компоненты для Android, Web и TMA. Различия возможностей задаются параметрами компонентов. В `lerne-admin` используется структурный предпросмотр материалов.
 4. **Локальная БД и локальный API-фасад (`localDb.js`, `offlineApi.js`):** единая схема Dexie и единая обработка локального обучения, навигации, поиска и редактирования.
 
 ### D3.2. Устранение текущего раздвоения мутаций и медиа
@@ -788,7 +788,7 @@
 
 #### 1. Что уже работает
 - **Автономный Android Offline Pilot (`com.lerne.offlinepilot`):** локальное обучение, SRS, создание/редактирование Native V2 карточек, хранение медиа на диске (`getFilesDir()/lerne-offline-media/archive_<sha256>.*` с `.partial`+`fsync`+проверкой заголовков), экспорт/импорт ZIP v4 и JSON прогресса `full-v2` через SAF работают с **0 HTTP и 0 SQL** (`24/24` тестов PASS).
-- **Единое бизнес-ядро:** `srsEngine.js` (с паритетом `api/srs.py`), `nativeV2Contract.js`, `@lerne/card-ui` (`NativeCardFormCore.jsx`) и `offlineApi.js` уже общие для всех клиентов (`410/410` frontend-тестов PASS).
+- **Общая реализация TMA и Android:** `srsEngine.js` (с паритетом `api/srs.py`), `nativeV2Contract.js`, `NativeCardFormCore.jsx` и `offlineApi.js` (`410/410` frontend-тестов PASS на этапе проверки RFC).
 - **Безопасность ключей ИИ и квитанции синхронизации:** ключи LLM хранятся строго на сервере; в `/sync/v2/*` уже реализованы и покрыты тестами `TMAOfflineBatch` (идемпотентность `request_id` и `action_id`), CAS `revision`, `409` конфликты, карантин `X-Lerne-Generation` (`13/13` и `11/11` backend-тестов PASS).
 - **Очистка в `lerne-admin`:** на Этапе A (коммит `af39d18531bdf1a41d0b3ad878f2abc448988f7e`) из APK Builder удалён устаревший режим `standard` (оставлен только `offline-pilot`); `Material Transfer` строго изолирован от пользовательского SRS (`FORBIDDEN`); `cleanup_orphaned_images` защищает soft-deleted карточки и не трогает `audio`.
 

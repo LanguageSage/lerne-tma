@@ -189,9 +189,9 @@ import json, sys
 sys.path.insert(0, r'C:\\121\\Lerne_projekt\\lerne-admin\\src')
 import os; os.environ.setdefault('LERNE_ADMIN_ALLOW_LOCAL', '1')
 from lerne_admin.services import material_archive as admin_archive
-doc, blobs = admin_archive.read_archive(sys.argv[1])
+doc = admin_archive.read_archive(sys.argv[1])
 prompts = [c['values']['content_v2']['card']['data'].get('prompt') for c in doc['content']['card'] if c['values']['content_v2']['card']['type'] == 'standard']
-print(json.dumps({'decks': len(doc['content']['deck']), 'cards': len(doc['content']['card']), 'media': len(blobs), 'prompts': prompts}, ensure_ascii=False))
+print(json.dumps({'decks': len(doc['content']['deck']), 'cards': len(doc['content']['card']), 'media': len(doc['assets']), 'prompts': prompts}, ensure_ascii=False))
 `;
   return JSON.parse(execFileSync(ADMIN_PYTHON, ['-c', script, zipPath], { encoding: 'utf8' }).trim());
 }

@@ -93,7 +93,7 @@
 ### 2.4. Контракт Native V2 и редактор карточек
 **[Подтверждено кодом]**
 - **Валидатор Native JSON V2:** `app/src/utils/nativeV2Contract.js:1-198` исполняет сгенерированную JSON-схему `app/src/utils/nativeV2Schema.generated.js` (`schema_version = 2`), единую для 9 типов карточек (`standard`, `theory`, `trainer`, `quiz`, `match`, `puzzle`, `word_bank`, `free_text`, `editable_text`) с правилами `x-rules` (`unique`, `count`, `references`, `distinct_text`, `visible_text`, `reserved_keys`, `json_bytes`).
-- **Общий UI-пакет `@lerne/card-ui`:** `app/src/card-ui/package.json:1-11` (`version: 0.2.0`) экспортирует `NativeCardFormCore.jsx`, `NativeCardViewer.jsx`, `useLocalAudioPlayer.js` и `CardUiScoped.css`. Этот же пакет упакован в `lerne-admin/src/lerne_admin/core/card_ui.json` (`lerne-card-ui-0.2.0.tgz`).
+- **UI карточек:** `app/src/card-ui/` содержит `NativeCardFormCore.jsx`, `NativeCardViewer.jsx` и общие стили TMA и Android. В Admin действует собственный структурный предпросмотр.
 - **Обёртка `app/src/components/common/CardForm.jsx:50-105` -> `app/src/card-ui/NativeCardFormCore.jsx:54-329`:**
   Все ограничения `IS_STANDALONE` прокидываются через пропсы без форка компонента формы (`CardForm.jsx:86-101`):
   - `enableDictation={!IS_STANDALONE && isCreator}` (`L86`) — скрывает голосовой ввод `PromptDictation`.

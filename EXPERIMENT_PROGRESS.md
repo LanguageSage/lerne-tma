@@ -15,7 +15,7 @@
 
 Рядом с worktree в игнорируемом `local/test-data` сохранён снимок `tma-cleanup-baseline-inventory.json`. Скрипт `architecture-cleanup-inventory.py` фиксирует 744 модуля со статическими рёбрами или пустым импортным списком, 948 указателей динамики и регистрации, 206 деклараций маршрутов и 898 потенциальных клиентских вызовов. Статический список маршрутов включает fixture apps. Проверка удаления требует учитывать FastAPI mount, worker/CLI, динамические импорты, offline и публичные контракты.
 
-- TMA React использует frontend-код `app/src/card-ui` и собственные интеграции с Dexie, auth и серверным API. Admin получает версионированный `@lerne/card-ui`; обратной зависимости нет.
+- TMA и Android используют компоненты `app/src/card-ui`. Admin показывает структуру материалов через собственный предпросмотр и использует `lerne-card-core` для правил Native V2.
 - `api/card_core/lerne_card_core` — источник wheel 0.2.0. TMA legacy import paths участвуют в deploy и контрактных проверках. SRS, Knowledge, permissions, sync и запись карточек принадлежат TMA.
 - Офлайн-конвертер V1 выведен из TMA по отдельному решению. Действующие парсеры и Native V2 остаются в общем ядре. Состояние и ссылка на архив — в [документе миграции SQLite](docs/SQLITE_MIGRATION.md).
 - Vite сообщает о динамическом импорте уже статически достижимого `services/api.js` и большом entry chunk. Сопоставление потребителей требуется до изменения границы разбиения из-за offline entry и service worker.

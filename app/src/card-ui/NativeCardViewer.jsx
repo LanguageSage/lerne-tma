@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { RefreshCw, RotateCw } from 'lucide-react';
 import { tr } from '../i18n/locale.js';
@@ -21,7 +21,6 @@ import { StructuredCardLayout } from '../components/study/StructuredCardLayout.j
 import { CardAudioPlayer } from '../components/study/CardAudioPlayer.jsx';
 import { StudyCardImage } from '../components/study/StudyCardImage.jsx';
 import { StudyCardText } from '../components/study/StudyCardText.jsx';
-import { useLocalAudioPlayer } from './useLocalAudioPlayer.js';
 import './CardUiScoped.css';
 
 const CardVideo = ({ src }) => {
@@ -71,14 +70,11 @@ export const NativeCardViewer = React.memo(({
   isAutoplayActive = false,
   resolvedBgFront = '',
   resolvedBgBack = '',
-  animated = true,
-  className = '',
-  rootClassName = '',
   containerId,
   surfaceRef = null,
-  reviewKey: controlledReviewKey,
-  exerciseStates: controlledExerciseStates,
-  onSaveExerciseState: controlledSaveExerciseState,
+  reviewKey,
+  exerciseStates,
+  onSaveExerciseState,
   cardImageHeight = 220,
   onResizeImageStart,
   showImageResizeHandle = false,
@@ -87,11 +83,11 @@ export const NativeCardViewer = React.memo(({
   resolveAudioUrl = defaultResolveAudioUrl,
   isLocalAssetUrl = null,
   allowDictation = true,
-  audioControls: providedAudioControls = null,
+  audioControls,
   frontAudioPlayerProps = {},
   backFrontAudioPlayerProps = {},
   backAudioPlayerProps = {},
-  renderFrontText = null,
+  renderFrontText,
   evaluateAnswer = null,
   isAdmin = false,
   onBeforeDictation = null,
@@ -106,45 +102,13 @@ export const NativeCardViewer = React.memo(({
   personalNotesSlot = null,
   footerRightSlot = null,
   footerBottomSlot = null,
-  inlineAudio = true,
-  showFooter = true,
 }) => {
   useInterfaceLocale();
-  const reduceMotion = useReducedMotion() || !animated;
-  const localAudioControls = useLocalAudioPlayer();
-  const audioControls = providedAudioControls || localAudioControls;
+  const reduceMotion = useReducedMotion();
 
-  const [localExerciseStates, setLocalExerciseStates] = useState({});
   const [exerciseFooterTarget, setExerciseFooterTarget] = useState(null);
-  const [exerciseVersions, setExerciseVersions] = useState({});
 
   const content = studyContent(card);
-  const seen = card?.id != null ? exerciseVersions[card.id] : null;
-  if (card?.id != null && content && seen?.data !== content.data) {
-    const changed = !seen || seen.type !== content.type || JSON.stringify(seen.data) !== JSON.stringify(content.data);
-    setExerciseVersions({
-      ...exerciseVersions,
-      [card.id]: {
-        data: content.data,
-        type: content.type,
-        version: (seen?.version ?? -1) + Number(changed),
-      },
-    });
-  }
-
-  const effectiveReviewKey = controlledReviewKey ?? (
-    card?.id != null ? `${card.id}:${historyIndex}:${seen?.version ?? 0}` : null
-  );
-  const exerciseStates = controlledExerciseStates || localExerciseStates;
-
-  const handleSaveExerciseState = useCallback((state) => {
-    if (!effectiveReviewKey) return;
-    if (controlledSaveExerciseState) {
-      controlledSaveExerciseState(state, effectiveReviewKey);
-    } else {
-      setLocalExerciseStates(prev => ({ ...prev, [effectiveReviewKey]: state }));
-    }
-  }, [controlledSaveExerciseState, effectiveReviewKey]);
 
   const effectiveConfig = designConfig || DEFAULT_DESIGN_CONFIG_V2;
   const designVariables = useMemo(() => designConfigToCssVariables(effectiveConfig), [effectiveConfig]);
@@ -173,7 +137,7 @@ export const NativeCardViewer = React.memo(({
   const blockAnswerReveal = ['free_text', 'editable_text'].includes(exerciseType)
     && studyMode !== 'speak'
     && !isAutoplayActive
-    && !canRevealFreeTextAnswer(exerciseStates[effectiveReviewKey]?.evaluationState);
+    && !canRevealFreeTextAnswer(exerciseStates[reviewKey]?.evaluationState);
 
   const deckImage = deckResources.find(r => r.type === 'image' && r.show_in_cards !== false);
   const deckVideo = deckResources.find(r => r.type === 'video');
@@ -209,7 +173,6 @@ export const NativeCardViewer = React.memo(({
         isAudioLoading={audioControls?.isAudioLoading}
         isGenerating={card.audio_is_generating}
         resolveAudioUrl={resolveAudioUrl}
-        inline={inlineAudio}
         disabled={loading || isAutoplayActive}
         {...extraProps}
       />
@@ -225,7 +188,6 @@ export const NativeCardViewer = React.memo(({
         background={effectiveConfig?.front?.card?.background}
         styleType={resolvedBgFront}
         cardId={card.id}
-        isStatic={!animated}
       />
       <div className="card-face">
         {topFrontSlot}
@@ -248,12 +210,9 @@ export const NativeCardViewer = React.memo(({
               <>
                 {!content?.layout && <ExerciseInfoBlocks blocks={topBlocks} />}
                 {(() => {
-                  const defaultPromptBody = (promptPhysicalSide === 'back' || isTheory)
-                    ? <MarkdownRenderer>{rawFrontText}</MarkdownRenderer>
-                    : rawFrontText;
                   const prompt = (
                     <StudyCardText id={containerId ? 'tut-study-front' : undefined} style={cardStyle}>
-                      {renderFrontText ? renderFrontText({ rawFrontText, frontText, cardStyle, promptPhysicalSide, isTheory }) : defaultPromptBody}
+                      {renderFrontText({ rawFrontText, frontText, cardStyle, promptPhysicalSide, isTheory })}
                     </StudyCardText>
                   );
                   return content?.layout
@@ -290,10 +249,10 @@ export const NativeCardViewer = React.memo(({
                   }
                 )}
                 designConfig={effectiveConfig}
-                savedState={effectiveReviewKey ? exerciseStates[effectiveReviewKey] : undefined}
-                onSaveState={handleSaveExerciseState}
+                savedState={reviewKey ? exerciseStates[reviewKey] : undefined}
+                onSaveState={onSaveExerciseState}
                 footerActionTarget={exerciseFooterTarget}
-                reviewKey={effectiveReviewKey}
+                reviewKey={reviewKey}
                 evaluateAnswer={evaluateAnswer}
                 isAdmin={isAdmin}
                 resolveMediaUrl={resolveMediaUrl}
@@ -356,7 +315,6 @@ export const NativeCardViewer = React.memo(({
         background={effectiveConfig?.back?.card?.background}
         styleType={resolvedBgBack}
         cardId={card.id}
-        isStatic={!animated}
       />
       <div className="card-face">
         {topBackSlot}
@@ -396,7 +354,7 @@ export const NativeCardViewer = React.memo(({
               <div className="back-answer-block">
                 {(backAudio || hasBackGenerator) && renderAudioPlayer(studyMode === 'reverse' ? 'front' : 'back', {
                   isBack: studyMode !== 'reverse',
-                  inline: inlineAudio || hasTopBackAudio,
+                  inline: hasTopBackAudio,
                   ...backAudioPlayerProps,
                 })}
                 <StudyCardText side="back" id={containerId ? 'tut-study-answer' : undefined} style={backCardStyle}>
@@ -434,7 +392,7 @@ export const NativeCardViewer = React.memo(({
       initial={reduceMotion ? false : { opacity: 0, y: 12, scale: 0.98 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
       transition={{ duration: reduceMotion ? 0 : 0.1 }}
-      className={`card-container study-flashcard ${loading ? 'loading-card' : ''} ${className}`.trim()}
+      className={`card-container study-flashcard${loading ? ' loading-card' : ''}`}
       style={flagStyle}
       aria-busy={loading}
     >
@@ -469,31 +427,29 @@ export const NativeCardViewer = React.memo(({
         </AnimatePresence>
       </div>
 
-      {showFooter && (
-        <div className="study-card-footer">
-          <div className="study-card-bottom-bar">
-            <div className="study-card-level-slot">
-              <CardLevelBadge card={card} expandable={false} style={{ maxWidth: '100%' }} />
-            </div>
-            <div className="study-card-footer-actions">
-              <div ref={setExerciseFooterTarget} className="study-card-footer-action-target" />
-              {!blockAnswerReveal && onFlip && (
-                <button
-                  type="button"
-                  className="study-card-flip-button"
-                  disabled={loading || isAutoplayActive}
-                  onClick={() => onFlip(!isFlipped)}
-                >
-                  <RotateCw size={18} aria-hidden="true" />
-                  <span>{tr('Перевернуть карточку')}</span>
-                </button>
-              )}
-            </div>
-            {footerRightSlot}
+      <div className="study-card-footer">
+        <div className="study-card-bottom-bar">
+          <div className="study-card-level-slot">
+            <CardLevelBadge card={card} expandable={false} style={{ maxWidth: '100%' }} />
           </div>
-          {footerBottomSlot}
+          <div className="study-card-footer-actions">
+            <div ref={setExerciseFooterTarget} className="study-card-footer-action-target" />
+            {!blockAnswerReveal && onFlip && (
+              <button
+                type="button"
+                className="study-card-flip-button"
+                disabled={loading || isAutoplayActive}
+                onClick={() => onFlip(!isFlipped)}
+              >
+                <RotateCw size={18} aria-hidden="true" />
+                <span>{tr('Перевернуть карточку')}</span>
+              </button>
+            )}
+          </div>
+          {footerRightSlot}
         </div>
-      )}
+        {footerBottomSlot}
+      </div>
 
       {loading && (
         <div className="card-loading-overlay">
@@ -509,8 +465,8 @@ export const NativeCardViewer = React.memo(({
       resolveAudioUrl={resolveAudioUrl}
       isLocalAssetUrl={isLocalAssetUrl}
     >
-      <div className={`lerne-card-ui-root ${rootClassName}`.trim()} style={designVariables}>
-        {animated ? <AnimatePresence mode="sync" initial={false}>{surfaceContent}</AnimatePresence> : surfaceContent}
+      <div className="lerne-card-ui-root" style={designVariables}>
+        <AnimatePresence mode="sync" initial={false}>{surfaceContent}</AnimatePresence>
       </div>
     </MediaResolverProvider>
   );

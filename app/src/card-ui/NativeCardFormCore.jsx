@@ -79,7 +79,6 @@ export const NativeCardFormCore = ({
   onAiGenerate = null,
   onStopGeneration = null,
   onNotify = null,
-  rootClassName = '',
   lockLayout = false,
   allowOfflineAudioUpload = false,
   hideCoverHeightSlider = false,
@@ -147,7 +146,7 @@ export const NativeCardFormCore = ({
       resolveAudioUrl={resolveAudioUrl}
       isLocalAssetUrl={isLocalAssetUrl}
     >
-      <div className={`lerne-card-ui-root ${rootClassName}`.trim()} style={designVariables}>
+      <div className="lerne-card-ui-root" style={designVariables}>
       <div
         className={`creator-form glass${composed ? ' visual-card-form' : ''}`}
         data-card-type={content.type}

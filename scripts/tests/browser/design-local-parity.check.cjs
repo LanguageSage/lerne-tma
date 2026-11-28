@@ -1,13 +1,14 @@
 const { test, expect } = require('@playwright/test');
 
-const modes = [['build', 5198], ['local', 5173], ['preview', 5174]];
+const modes = [['build', 5198], ['local', 5173]];
 const deck = { id: 501, name: 'Deutsch üben · Синтетическая колода', role: 'owner', target_language: 'de',
   card_count: 1, stats: { total: 1, new: 1, learning: 0, due: 0 }, is_learning: true };
 const profile = { user_id: 101, first_name: 'Parity learner', is_guest: false,
   has_selected_language: true, active_language: 'de', native_language: 'ru' };
-let published, personal;
+let published, personal, defaultAccent;
 test.beforeAll(async () => {
-  const { normalizeDesignConfig } = await import('../../../app/src/design/designConfig.js');
+  const { DEFAULT_DESIGN_CONFIG_V2, normalizeDesignConfig } = await import('../../../app/src/design/designConfig.js');
+  defaultAccent = DEFAULT_DESIGN_CONFIG_V2.global.accentColor;
   const config = normalizeDesignConfig({ global: { uiFont: 'Inter', accentColor: '#246885', commonRadius: '18px',
     buttons: { primary: { height: 57, radius: 19, borderWidth: 3,
       normal: { mode: 'linear', color1: '#246885', color2: '#438b65', textColor: '#fafafa' },
@@ -75,7 +76,7 @@ async function metrics(page, selector) {
   }));
 }
 
-for (const width of [320, 375, 430, 768, 1280]) test(`build, LOCAL and V2 Preview share design and geometry at ${width}px`, async ({ browser }, testInfo) => {
+for (const width of [320, 375, 430, 768, 1280]) test(`build and LOCAL share design and geometry at ${width}px`, async ({ browser }, testInfo) => {
   const results = [];
   for (const [mode, port] of modes) {
     const device = await setup(browser, mode, port, width);
@@ -114,7 +115,6 @@ for (const width of [320, 375, 430, 768, 1280]) test(`build, LOCAL and V2 Previe
     } finally { await context.close(); }
   }
   expect(results[1]).toEqual(results[0]);
-  expect(results[2]).toEqual(results[0]);
 });
 
 test('confirmed empty publication replaces a cached theme; an unavailable API preserves it', async ({ browser }) => {
@@ -127,11 +127,11 @@ test('confirmed empty publication replaces a cached theme; an unavailable API pr
     await expect(page.locator('.loading-overlay-global')).toHaveCount(0);
     await expect(page.locator('html')).toHaveCSS('--design-accent', '#246885');
   } finally { await context.close(); }
-  const empty = await setup(browser, 'preview', 5174, 430);
+  const empty = await setup(browser, 'local', 5173, 430);
   try {
     empty.clearPublication();
     await empty.page.reload();
-    await expect(empty.page.locator('html')).toHaveCSS('--design-accent', '#bc7234');
+    await expect(empty.page.locator('html')).toHaveCSS('--design-accent', defaultAccent);
     expect(await empty.page.evaluate(() => localStorage.getItem('lerne_local:lerne:published-design:v2'))).toBeNull();
     expect(await empty.page.evaluate(() => JSON.parse(localStorage.getItem('lerne_local:lerne:personal-design:v2:101')).document)).toMatchObject(personal);
   } finally { await empty.context.close(); }

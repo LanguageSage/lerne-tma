@@ -267,10 +267,10 @@ import json, sys
 sys.path.insert(0, r'C:\\121\\Lerne_projekt\\lerne-admin\\src')
 import os; os.environ.setdefault('LERNE_ADMIN_ALLOW_LOCAL', '1')
 from lerne_admin.services import material_archive as admin_archive
-doc, blobs = admin_archive.read_archive(sys.argv[1])
+doc = admin_archive.read_archive(sys.argv[1])
 deck_meta = json.loads(doc['content']['deck'][0]['values']['metadata'])
 resource_types = sorted(r.get('type') for r in deck_meta.get('resources', []))
-print(json.dumps({'folders': len(doc['content']['folder']), 'decks': len(doc['content']['deck']), 'cards': len(doc['content']['card']), 'media': len(blobs), 'resource_types': resource_types}))
+print(json.dumps({'folders': len(doc['content']['folder']), 'decks': len(doc['content']['deck']), 'cards': len(doc['content']['card']), 'media': len(doc['assets']), 'resource_types': resource_types}))
 `;
   return JSON.parse(execFileSync(ADMIN_PYTHON, ['-c', script, zipPath], { encoding: 'utf8' }).trim());
 }

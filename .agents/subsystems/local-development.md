@@ -33,8 +33,7 @@ Google Fonts не нужен ни при запуске, ни при сборк�
 `setPublishedDesignV2` → `resolveActiveDesign` → общие root CSS tokens.
 Явный пустой published document очищает старый кеш; ошибка сети и offline init
 сохраняют последнюю тему. LOCAL seed не содержит облачную публикацию;
-V2 Preview использует только дизайн и настройки из восстановленной копии.
-`npm run test:design-parity` сравнивает build/LOCAL/Preview на 320/375/430/768/1280,
+`npm run test:design-parity` сравнивает build/LOCAL на 320/375/430/768/1280,
 загрузку всех шрифтов, кнопки и геометрию, отсутствие внешних запросов LOCAL,
 очистку публикации и offline fallback. API синтетические, БД не используется.
 
@@ -90,25 +89,6 @@ backups и временные артефакты остаются исключе
 
 
 ## Native V2 и восстановление
-
-`run_v2_preview.bat` → `local/v2_preview.py` запускает отдельную постоянную
-приёмочную копию: `data/v2-preview/postgres`, PostgreSQL 55433, TMA 5174/API 8002,
-Admin 8051. Имя БД остаётся `lerne_tma_local` для штатного LOCAL-контракта Admin,
-но кластер и PGDATA независимы от рабочей LOCAL на 55432. Обычный local.json
-не читается. Запуск проверяет purpose, роль, порт, фактический PGDATA и маркер копии.
-Startup этой копии не выполняет миграции/seed. Первичное восстановление — явный
-`--provision <prepared-dump>`; повтор поверх непустой БД запрещён.
-
-На `/v2-preview` пользователь выбирает существующий аккаунт. LOCAL-only
-`POST /auth/local/preview-users` и `/auth/local/preview-login` требуют проверенной
-preview-БД, loopback, точного Origin 5174 и секрета, добавляемого Vite proxy.
-Выдаётся обычная отзываемая auth v2 сессия; обычная авторизация не меняется.
-`POST /auth/local/preview-admin` с теми же проверками открывает фиксированный
-loopback Admin через desktop launcher: межсайтовая защита Admin не ослабляется.
-Отдельный browser origin изолирует localStorage/IndexedDB от 5173 и production.
-Доступные медиа копируются из offline Storage backup с SHA256-проверкой и из
-встроенных TMAMedia bytes. Исторически отсутствующие файлы не восстанавливаются.
-Постоянный архив и инструкция: [LOCAL_DEVELOPMENT](../../docs/LOCAL_DEVELOPMENT.md#приёмка-native-v2).
 
 LOCAL `restore` после pg_restore меняет `SYNC_DATABASE_RESTORE`; сохранённые
 клиенты требуют сверки перед синхронизацией. API/frontend должны быть остановлены
